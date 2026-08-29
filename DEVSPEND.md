@@ -16,25 +16,16 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-08-30 | adversarial fabricated-finding verification (not reproduced; wealth 2.95 -> 1.48) | $0.0018 |
 | 2026-08-30 | new-code discriminator live check: review K=5 (7.2s, 1 drawer candidate) | $0.0259 |
 | 2026-08-30 | new-code discriminator live check: differential run classified new_code_candidate | $0.0035 |
-| 2026-08-30 | first live Phase-3 CI acceptance attempt (2 workflow runs on a private scratch repo) | $0.0230 |
-
 | 2026-08-29 | phase-3 acceptance run 33267601438 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0242 |
-
 | 2026-08-29 | phase-3 acceptance run 33267602736 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0115 |
-
 | 2026-08-29 | phase-3 acceptance run 33268274146 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182623-6ffc59) | $0.0230 |
-
 | 2026-08-29 | phase-3 acceptance run 33268276734 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182623-6ffc59) | $0.0115 |
-
 | 2026-08-29 | phase-3 acceptance run 33268280907 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182623-6ffc59) | $0.0271 |
-
 | 2026-08-29 | phase-3 acceptance run 33268345406 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0220 |
-
 | 2026-08-29 | phase-3 acceptance run 33268347262 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0132 |
-
 | 2026-08-29 | phase-3 acceptance run 33268350447 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0272 |
 
-**Total API spend: $0.3927 of $10.00.**
+**Total API spend: $0.3927 of $10.00.** (18 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 
