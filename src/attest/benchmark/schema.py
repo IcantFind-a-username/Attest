@@ -142,7 +142,14 @@ class TruthDefect:
 
 @dataclass(frozen=True)
 class Prediction:
-    """One candidate joined to its final CI placement and differential evidence."""
+    """One candidate joined to its final CI placement and differential evidence.
+
+    ``evidence_class`` records what the head/base pair actually showed (D-022).
+    It is deliberately separate from ``repro_status``: only a reproduced
+    regression can ever match truth, but a new-code candidate is unpriced
+    signal rather than a failure, and a report that lumps the two together
+    would misrepresent the tool.
+    """
 
     finding_id: str
     case_id: str
@@ -151,6 +158,7 @@ class Prediction:
     placement: Placement
     action: str
     repro_status: str
+    evidence_class: str = "indeterminate"
 
     @classmethod
     def from_joined_ci_final(
@@ -160,6 +168,7 @@ class Prediction:
         *,
         case_id: str,
         repro_status: str,
+        evidence_class: str = "indeterminate",
     ) -> Prediction:
         """Join persisted candidate and ci_final rows with independent benchmark context."""
         finding_id = _mapping_string(candidate_row, "finding_id")
@@ -180,6 +189,7 @@ class Prediction:
             placement=placement,
             action=_mapping_string(ci_final_row, "action"),
             repro_status=_string_value(repro_status, "repro_status"),
+            evidence_class=_string_value(evidence_class, "evidence_class"),
         )
 
 

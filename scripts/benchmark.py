@@ -10,6 +10,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from attest.benchmark.api import (
+    ProjectEvaluationRequest,
+    ProjectEvaluationResult,
+    ProjectTruth,
+    evaluate_projects,
+)
+from attest.benchmark.artifacts import ArtifactStore, process_secrets
 from attest.benchmark.corpus import (
     IsolationAdapter,
     SubprocessCorpusRunner,
@@ -22,7 +29,11 @@ from attest.benchmark.experiments import (
     FACTORY_ALPHAS,
     run_rho_ablation,
 )
-from attest.benchmark.schema import load_manifest
+from attest.benchmark.report import REPLAY_MODE, ReportExclusion, build_report, write_report
+from attest.benchmark.runner import Cassette, ReplayProvider, load_cassette
+from attest.benchmark.schema import BenchmarkCase, BenchmarkManifest, load_manifest
+from attest.review.config import ReviewConfig
+from attest.review.executor import ExecutorLimits
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -79,6 +90,38 @@ def _parser() -> argparse.ArgumentParser:
         "the likelihood ratio of one positive vote",
     )
     experiment.add_argument("--output", type=Path, required=True)
+
+    replay = commands.add_parser(
+        "replay",
+        help="offline replay of the real product review path over a preregistered "
+        "corpus: model responses come from recorded cassettes and GitHub is a "
+        "loopback endpoint, so no network or credential is ever used",
+    )
+    replay.add_argument("--manifest", type=Path, required=True)
+    replay.add_argument("--cassette-root", type=Path, required=True)
+    replay.add_argument("--output", type=Path, required=True)
+    replay.add_argument(
+        "--root",
+        type=Path,
+        help="caller-prepared checkout root; without it every case is excluded",
+    )
+    replay.add_argument("--workspace", type=Path)
+    replay.add_argument("--alpha", type=float, default=0.1)
+    replay.add_argument("--budget-usd", type=float, default=0.25)
+    replay.add_argument("--k-samples", type=int, default=5)
+    replay.add_argument("--max-findings", type=int, default=3)
+    replay.add_argument("--tier0-command", action="append", default=[])
+    replay.add_argument(
+        "--auto-tighten-alpha",
+        action="store_true",
+        help="allow the ledger alpha auto-tighten rule during replay (off by "
+        "default so replayed runs stay comparable)",
+    )
+    replay.add_argument("--repeats", type=int, default=3)
+    replay.add_argument("--line-slack", type=int, default=0)
+    replay.add_argument("--deadline", type=float, default=60.0)
+    replay.add_argument("--wall-timeout", type=float, default=60.0)
+    replay.add_argument("--verification-timeout", type=float, default=600.0)
     return parser
 
 
@@ -86,6 +129,7 @@ _COMMANDS = {
     "import-bugsinpy": lambda args: _import(args),
     "validate": lambda args: _validate(args),
     "experiment-rho": lambda args: _experiment(args),
+    "replay": lambda args: _replay(args),
 }
 
 
@@ -103,6 +147,8 @@ def main(argv: list[str] | None = None) -> int:
             return 3
         if status != "valid":
             return 4
+    if args.command == "replay" and result.get("status") == "not_executed":
+        return 3
     return 0
 
 
@@ -228,6 +274,125 @@ def _experiment(args: argparse.Namespace) -> dict[str, object]:
         "digest": report.digest,
         "cells": len(report.cells),
     }
+
+
+def _replay(args: argparse.Namespace) -> dict[str, object]:
+    """Offline by construction: recorded cassettes and a loopback GitHub only.
+
+    No provider client is ever constructed, no credential is read, and no
+    remote host is contacted, whatever the environment holds. A case without a
+    recording or without a prepared checkout is an explicit exclusion; it is
+    never scored as a silent negative.
+    """
+    manifest = load_manifest(args.manifest)
+    manifest_sha256 = hashlib.sha256(args.manifest.read_bytes()).hexdigest()
+    requests, cassettes, exclusions = _replay_plan(manifest, args)
+    store = ArtifactStore(args.output / "artifacts", secrets=process_secrets())
+    results = evaluate_projects(
+        requests,
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        artifact_store=store,
+    )
+    scored = tuple(result for result in results if result.task_id is not None)
+    exclusions.extend(
+        ReportExclusion(result.case_id, _exclusion_reason(result))
+        for result in results
+        if result.task_id is None
+    )
+    report = build_report(
+        manifest,
+        tuple(result.run for result in scored),
+        mode=REPLAY_MODE,
+        manifest_sha256=manifest_sha256,
+        exclusions=exclusions,
+        differential_repeats=args.repeats,
+        line_slack=args.line_slack,
+    )
+    store.finalize()
+    report_path, markdown_path = write_report(report, args.output)
+    return {
+        "status": "ok" if report.evaluated_cases else "not_executed",
+        "offline": True,
+        "mode": REPLAY_MODE,
+        "manifest": args.manifest.name,
+        "manifest_sha256": manifest_sha256,
+        "evaluated_cases": report.evaluated_cases,
+        "excluded_cases": len(report.excluded_cases),
+        "spend_usd": round(sum(result.spend_usd for result in scored), 6),
+        "oracle_spend_usd": round(sum(result.oracle_spend_usd for result in scored), 6),
+        "digest": report.digest,
+        "report": str(report_path),
+        "report_markdown": str(markdown_path),
+    }
+
+
+def _replay_plan(
+    manifest: BenchmarkManifest, args: argparse.Namespace
+) -> tuple[list[ProjectEvaluationRequest], dict[str, Cassette], list[ReportExclusion]]:
+    """Build one request per case that has both a recording and a checkout."""
+    config = ReviewConfig(
+        alpha=args.alpha,
+        budget_usd=args.budget_usd,
+        k_samples=args.k_samples,
+        max_findings=args.max_findings,
+        auto_tighten_alpha=bool(args.auto_tighten_alpha),
+        tier0_commands=list(args.tier0_command),
+    )
+    limits = ExecutorLimits(wall_timeout_s=args.wall_timeout)
+    workspace_root = args.workspace or (args.output / "workspace")
+    runtimes = {row.case_id: row for row in manifest.runtime}
+    truths: dict[str, tuple[Any, ...]] = {}
+    for truth in manifest.truth_defects:
+        truths[truth.case_id] = (*truths.get(truth.case_id, ()), truth)
+    requests: list[ProjectEvaluationRequest] = []
+    cassettes: dict[str, Cassette] = {}
+    exclusions: list[ReportExclusion] = []
+    for case in manifest.cases:
+        try:
+            cassette = load_cassette(args.cassette_root, case.case_id)
+        except ValueError:
+            exclusions.append(ReportExclusion(case.case_id, "cassette_missing"))
+            continue
+        runtime = runtimes.get(case.case_id)
+        repo = None if args.root is None or runtime is None else args.root / runtime.cwd
+        if repo is None or not (repo / ".git").exists():
+            exclusions.append(ReportExclusion(case.case_id, "prepared_environment_required"))
+            continue
+        cassettes[case.case_id] = cassette
+        requests.append(
+            ProjectEvaluationRequest(
+                case_id=case.case_id,
+                repo=repo,
+                base_ref=_base_ref(case),
+                head_ref=_head_ref(case),
+                workspace_root=workspace_root,
+                config=config,
+                limits=limits,
+                verification_timeout_s=args.verification_timeout,
+                repeats=args.repeats,
+                deadline_s=args.deadline,
+                line_slack=args.line_slack,
+                truth=(
+                    ProjectTruth(fixed_ref=case.fixed_commit, defects=truths[case.case_id])
+                    if case.case_id in truths
+                    else None
+                ),
+            )
+        )
+    return requests, cassettes, exclusions
+
+
+def _base_ref(case: BenchmarkCase) -> str:
+    """A replay reviews the inverse fix, so its base is the fixed revision."""
+    return case.fixed_commit if case.role == "historical_bug_replay" else case.buggy_commit
+
+
+def _head_ref(case: BenchmarkCase) -> str:
+    return case.buggy_commit if case.role == "historical_bug_replay" else case.fixed_commit
+
+
+def _exclusion_reason(result: ProjectEvaluationResult) -> str:
+    return result.abstain_reason or "not_executed"
 
 
 def _interpreters(values: list[str]) -> dict[str, tuple[str, ...]]:

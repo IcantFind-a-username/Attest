@@ -229,3 +229,157 @@ def test_validate_prepared_root_requires_verified_isolation_and_writes_bound_art
     assert report["validation_status"] == "valid"
     assert json.loads(receipt.read_text()) == report["receipt"]
     assert json.loads(results.read_text()) == report["validation_results"]
+
+
+def _cassette(root: Path, case_id: str, proposal: str, repro: str) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / f"{case_id}.json").write_text(
+        json.dumps(
+            {"proposal": proposal, "repro": repro, "input_tokens": 800, "output_tokens": 200}
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_replay_without_prepared_root_excludes_each_case_and_stays_offline(
+    tmp_path: Path,
+) -> None:
+    """Replay never turns a missing environment into a negative, and never
+    reaches git, gh, curl, or a credentialed provider."""
+    source, _ = _source(tmp_path, bug_count=1)
+    manifest = tmp_path / "manifest.json"
+    imported = __import__("attest.benchmark.corpus", fromlist=["import_bugsinpy"])
+    imported.import_bugsinpy(source, manifest, limit=1, seed=1)
+    traps = tmp_path / "traps"
+    traps.mkdir()
+    marker = tmp_path / "invoked"
+    for command in ("git", "gh", "curl"):
+        trap = traps / command
+        trap.write_text(f"#!/bin/sh\ntouch '{marker}'\nexit 99\n")
+        trap.chmod(0o755)
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "PATH": str(traps),
+            "ANTHROPIC_API_KEY": "must-not-be-used",
+            "OPENAI_API_KEY": "must-not-be-used",
+        }
+    )
+
+    first = _run(
+        "replay",
+        "--manifest",
+        str(manifest),
+        "--cassette-root",
+        str(tmp_path / "cassettes"),
+        "--output",
+        str(tmp_path / "out-1"),
+        env=environment,
+    )
+    second = _run(
+        "replay",
+        "--manifest",
+        str(manifest),
+        "--cassette-root",
+        str(tmp_path / "cassettes"),
+        "--output",
+        str(tmp_path / "out-2"),
+        env=environment,
+    )
+
+    assert first.returncode == 3
+    assert second.returncode == 3
+    assert not marker.exists()
+    summary = json.loads(first.stdout)
+    assert summary["status"] == "not_executed"
+    assert summary["offline"] is True
+    assert summary["evaluated_cases"] == 0
+    assert summary["excluded_cases"] == 2
+    report = json.loads((tmp_path / "out-1" / "report.json").read_text(encoding="utf-8"))
+    assert report["metrics"] is None
+    assert {row["reason"] for row in report["excluded_cases"]} == {"cassette_missing"}
+    assert (tmp_path / "out-2" / "report.json").read_bytes() == (
+        tmp_path / "out-1" / "report.json"
+    ).read_bytes()
+    assert (tmp_path / "out-2" / "report.md").read_bytes() == (
+        tmp_path / "out-1" / "report.md"
+    ).read_bytes()
+
+
+def test_replay_with_a_prepared_root_runs_the_real_product_path(tmp_path: Path) -> None:
+    """A prepared checkout plus a cassette replays the whole product path offline."""
+    from attest.benchmark.artifacts import verify_artifacts
+
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    document = json.loads(manifest.read_text(encoding="utf-8"))
+    replay_id = next(
+        case["case_id"]
+        for case in document["cases"]
+        if case["role"] == "historical_bug_replay"
+    )
+    control_id = next(
+        case["case_id"]
+        for case in document["cases"]
+        if case["role"] == "developer_fix_control"
+    )
+    cassettes = tmp_path / "cassettes"
+    _cassette(
+        cassettes,
+        replay_id,
+        json.dumps(
+            {
+                "findings": [
+                    {
+                        "claim": "value() returns 0 instead of the documented 1.",
+                        "anchor": {"file": "calc.py", "line": 2},
+                        "failure_scenario": "value() returns 0 and callers divide by it",
+                        "falsification_plan": "call value() and require the documented 1",
+                    }
+                ]
+            }
+        ),
+        json.dumps(
+            {
+                "test_body": "import runpy\n\n"
+                "def test_value_is_one():\n"
+                "    assert runpy.run_path('calc.py')['value']() == 1\n"
+            }
+        ),
+    )
+    _cassette(
+        cassettes, control_id, json.dumps({"findings": []}), json.dumps({"test_body": ""})
+    )
+    environment = dict(os.environ)
+    environment["ANTHROPIC_API_KEY"] = "must-not-be-used"
+    output = tmp_path / "out"
+
+    completed = _run(
+        "replay",
+        "--manifest",
+        str(manifest),
+        "--cassette-root",
+        str(cassettes),
+        "--root",
+        str(root),
+        "--output",
+        str(output),
+        "--k-samples",
+        "2",
+        "--repeats",
+        "1",
+        env=environment,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    summary = json.loads(completed.stdout)
+    assert summary["status"] == "ok"
+    assert summary["offline"] is True
+    assert summary["evaluated_cases"] == 2
+    report = json.loads((output / "report.json").read_text(encoding="utf-8"))
+    assert report["mode"] == "replay"
+    assert report["metrics"]["true_positives"] == 1
+    assert report["metrics"]["true_negatives"] == 1
+    assert report["metrics"]["finding_false_positives"] == 0
+    assert report["evidence_class_counts"] == {"regression_reproduced": 1}
+    assert "replay regression" in " ".join(report["limitations"])
+    assert len(verify_artifacts(output / "artifacts")) > 0

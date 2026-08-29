@@ -1,5 +1,22 @@
 """Preregistered real-data benchmark records and scoring."""
 
+from attest.benchmark.api import (
+    ProjectEvaluationError,
+    ProjectEvaluationRequest,
+    ProjectEvaluationResult,
+    ProjectEvaluationScore,
+    ProjectTruth,
+    evaluate_project,
+    evaluate_projects,
+)
+from attest.benchmark.artifacts import (
+    ARTIFACT_KINDS,
+    ArtifactError,
+    ArtifactRecord,
+    ArtifactStore,
+    process_secrets,
+    verify_artifacts,
+)
 from attest.benchmark.corpus import (
     CorpusRunner,
     IsolationAdapter,
@@ -14,6 +31,27 @@ from attest.benchmark.corpus import (
 )
 from attest.benchmark.matcher import MatchResult, match_findings
 from attest.benchmark.metrics import BenchmarkReport, aggregate, wilson_interval
+from attest.benchmark.report import (
+    LIVE_MODE,
+    REPLAY_MODE,
+    BenchmarkRunReport,
+    ReportExclusion,
+    build_report,
+    render_markdown,
+    write_report,
+)
+from attest.benchmark.runner import (
+    REPRO_STATUS_BY_EVIDENCE_CLASS,
+    BenchmarkRunner,
+    CaseRunResult,
+    Cassette,
+    LoopbackGitHub,
+    ReplayProvider,
+    ReproReceipt,
+    extract_predictions,
+    load_cassette,
+    run_differential_repro,
+)
 from attest.benchmark.schema import (
     BenchmarkCase,
     BenchmarkManifest,
@@ -33,19 +71,39 @@ from attest.benchmark.schema import (
 )
 
 __all__ = [
+    "ARTIFACT_KINDS",
+    "LIVE_MODE",
+    "REPLAY_MODE",
+    "REPRO_STATUS_BY_EVIDENCE_CLASS",
+    "ArtifactError",
+    "ArtifactRecord",
+    "ArtifactStore",
     "BenchmarkCase",
     "BenchmarkManifest",
     "BenchmarkReport",
+    "BenchmarkRunReport",
+    "BenchmarkRunner",
     "BenchmarkSource",
+    "CaseRunResult",
+    "Cassette",
     "CorpusExclusion",
     "CorpusProvenance",
     "CorpusRunner",
     "IsolationAdapter",
     "IsolationError",
+    "LoopbackGitHub",
     "MatchResult",
     "PatchDescriptor",
     "Placement",
     "Prediction",
+    "ProjectEvaluationError",
+    "ProjectEvaluationRequest",
+    "ProjectEvaluationResult",
+    "ProjectEvaluationScore",
+    "ProjectTruth",
+    "ReplayProvider",
+    "ReportExclusion",
+    "ReproReceipt",
     "RunRecord",
     "RunOutcome",
     "RuntimeDescriptor",
@@ -53,14 +111,24 @@ __all__ = [
     "ValidationReceipt",
     "TestDescriptor",
     "TruthDefect",
+    "aggregate",
+    "build_report",
+    "evaluate_project",
+    "evaluate_projects",
+    "extract_predictions",
     "is_scored_placement",
     "import_bugsinpy",
+    "load_cassette",
     "load_validation_receipt",
     "load_manifest",
     "match_findings",
-    "aggregate",
-    "wilson_interval",
-    "verify_descriptor_bytes",
+    "process_secrets",
+    "render_markdown",
     "require_validated_pair",
+    "run_differential_repro",
     "validate_corpus",
+    "verify_artifacts",
+    "verify_descriptor_bytes",
+    "wilson_interval",
+    "write_report",
 ]
