@@ -4,7 +4,7 @@
 
 **Goal:** Build a reproducible benchmark that evaluates Attest on traceable real Python bug/fix pairs, reports accuracy/abstention/latency/cost with confidence intervals, and produces calibration evidence without silently changing factory statistical constants.
 
-**Architecture:** A benchmark package wraps the existing `run_ci` product path rather than duplicating review logic. A corpus adapter imports metadata from a pinned BugsInPy checkout, materializes paired counterfactual bug-introducing diffs and developer-fix controls, and validates the upstream regression oracle. Scoring joins final ledger decisions to candidates and uses a differential reproduction oracle: a generated test is faithful only when it fails on the real buggy tree and passes on the developer-fixed tree. Local validation and replay are default/offline; live model calls are explicit, resumable, budgeted observations.
+**Architecture:** A benchmark package wraps the existing `run_ci` product path rather than duplicating review logic. A corpus adapter imports metadata from a pinned BugsInPy checkout, materializes paired counterfactual bug-introducing diffs and developer-fix controls, and validates the upstream regression oracle. Product verification and benchmark scoring share the same differential rule: generated evidence is faithful only when the same test fails on the reviewed head and passes on the immutable base. Local validation and replay are default/offline; live model calls are explicit, resumable, budgeted observations. Statistical alternatives are measured behind experiment-only seams and never silently replace factory constants.
 
 **Tech Stack:** Python 3.11+, dataclasses, pathlib, hashlib, json, subprocess, git, pytest, existing Attest provider/CI/executor/ledger boundaries.
 
@@ -19,6 +19,8 @@
 - Every paid call is pre-reserved, settled, resumable without duplicate calls, and recorded in `DEVSPEND.md`; the existing $10 development cap remains binding.
 - Report precision, recall/detection, clean FPR/specificity, abstention, duplicates, delivery, p50/p95 latency, and spend. Coverage is never reported as review accuracy.
 - A generated test is benchmark-confirmed evidence only if it fails on the buggy tree and passes on the corresponding fixed tree under the same limits.
+- Product `VERIFIED` follows the same rule: head failure plus base pass buys positive V; head pass is not reproduced; base failure or either-side infrastructure failure is DEFER and buys no V.
+- The benchmark core is provider- and corpus-agnostic: callers can submit arbitrary local Git projects through a typed Python API. BugsInPy is an adapter, and the CLI is parameter adaptation over the same service.
 - Use strict TDD: observe a relevant RED before production changes, then immediately run the focused GREEN test.
 
 ---
@@ -181,19 +183,79 @@ git commit -m "feat: import reproducible Python bug pairs"
 
 ---
 
-### Task 4: Run Product Replay, Differential Evidence, and Artifacts
+### Task 4: Make Product Evidence Differential and Reporting Honest
+
+**Files:**
+- Modify: `src/attest/review/executor.py`
+- Modify: `src/attest/review/ci.py`
+- Modify: `src/attest/review/diffs.py`
+- Modify: `src/attest/review/schema.py`
+- Modify: `src/attest/review/proposer.py`
+- Modify: `src/attest/review/report.py`
+- Modify: `src/attest/review/ledger.py`
+- Modify: `tests/test_executor.py`
+- Modify: `tests/test_ci_flow.py`
+- Modify: `tests/test_diffs.py`
+- Modify: `tests/test_schema.py`
+- Modify: `tests/test_budget_ledger.py`
+- Modify: `tests/test_config_report.py`
+
+**Interfaces:**
+- Consumes: immutable `PullRequestContext.base_sha`/`head_sha`, generated `ReproSpec`, `ExecutorLimits`, and the existing wealth gate.
+- Produces: `DifferentialExecution`, a base/head-bound `verify_candidate`, canonical anchor resolution, bounded proposer output, and report copy that describes only reachable outcomes.
+
+- [ ] **Step 1: Write differential-V RED tests against the real executor**
+
+Create a temporary Git repository with a base commit, a buggy head commit, and one generated pytest body. Cover: head FAIL/base PASS => reproduced; head FAIL/base FAIL => unfaithful DEFER; head PASS/base PASS => not reproduced; collection/setup/timeout on either side => DEFER. Assert the same test bytes, interpreter, resource limits, network/process guard, and shared deadline are used on both immutable revisions, and assert temporary worktrees are cleaned after success and failure.
+
+- [ ] **Step 2: Observe RED, then implement the minimal differential execution service**
+
+Resolve both refs before generation, reject a dirty or mismatched head, create only owned detached worktrees, and run the same `ReproSpec` in each. Record bounded base/head evidence in the verification ledger. Purchase V only for the three-state classification above; never translate an unfaithful test into `V_FAILED`.
+
+- [ ] **Step 3: Write CI end-to-end RED tests**
+
+Use real `run_ci` with one fabricated finding whose generated test fails on both trees and one true bug whose test fails only on head. Assert the fabricated finding cannot surface, the true bug can surface only through the wealth threshold after differential V, and every `ci_final` decision joins to a differential verification row.
+
+- [ ] **Step 4: Write anchor-prefix RED tests and canonicalize against the diff**
+
+Accept model anchors `a/pkg/mod.py` and `b/pkg/mod.py` when the diff path is `pkg/mod.py`; store the canonical repository path. Prefer an exact real path when a repository actually contains `a/` or `b/`, and reject ambiguous or traversal paths. Re-run schema, diff, executor-context, and GitHub inline-anchor tests.
+
+- [ ] **Step 5: Write unreachable-report RED tests and remove the false promise**
+
+Prove that one failed reproduction cannot cross the factory discard threshold from any product-created candidate. Replace `certified-false` user copy with neutral counts of actual threshold outcomes; do not accumulate correlated failed reproductions merely to make the line non-zero.
+
+- [ ] **Step 6: Measure proposer output and write budget RED tests**
+
+Derive a preregistered bounded output limit from recorded live/cassette usage plus explicit schema worst-case headroom. Apply that same bound to provider `max_tokens` and budget reservation so the hard cap remains a pre-call guarantee. Assert a representative diff is not rejected solely by five speculative 2,000-token outputs, and assert a maximal response still cannot settle above the configured budget.
+
+- [ ] **Step 7: Run focused GREEN and commit**
+
+```bash
+.venv/bin/pytest tests/test_executor.py tests/test_ci_flow.py tests/test_diffs.py tests/test_schema.py tests/test_budget_ledger.py tests/test_config_report.py -q
+.venv/bin/ruff check src/attest/review tests
+.venv/bin/mypy src/attest/review
+git add src/attest/review tests
+git commit -m "fix: require differential review evidence"
+```
+
+---
+
+### Task 5: Run Product Replay, Generic Project Evaluation, and Artifacts
 
 **Files:**
 - Create: `src/attest/benchmark/runner.py`
+- Create: `src/attest/benchmark/api.py`
 - Create: `src/attest/benchmark/artifacts.py`
 - Create: `src/attest/benchmark/report.py`
 - Modify: `scripts/benchmark.py`
 - Create: `tests/benchmark/test_runner.py`
+- Create: `tests/benchmark/test_api.py`
 - Create: `tests/benchmark/test_artifacts.py`
 - Create: `tests/benchmark/test_report.py`
 
 **Interfaces:**
 - Produces: `BenchmarkRunner.run_case`, `ArtifactStore`, `extract_predictions`, `run_differential_repro`, deterministic JSON/Markdown reports, and CLI mode `replay`.
+- Public API: `ProjectEvaluationRequest`, `ProjectEvaluationResult`, `evaluate_project(request, *, provider, artifact_store, clock)`, and `evaluate_projects(requests, *, provider_factory, artifact_store, clock)`.
 - Reuses: real `run_ci`, `Ledger`, `CandidateStore`, executor subprocess/JUnit parsing, a replay `Provider`, and a loopback GitHub adapter.
 
 - [ ] **Step 1: Write real-path runner RED test**
@@ -204,26 +266,34 @@ Use a temporary git pair, a recorded complete proposer/generator response, real 
 
 External uncertainty is frozen, but product review/gate/executor/ledger code remains real. Re-running the same cassette and manifest must produce equivalent scored output except explicitly excluded timestamps.
 
-- [ ] **Step 3: Write differential-repro RED tests**
+- [ ] **Step 3: Write the generic project API RED tests**
+
+Construct a caller-owned temporary Git repository without BugsInPy metadata. `ProjectEvaluationRequest` accepts `repo`, immutable `base_ref`/`head_ref`, opaque `case_id`, `ReviewConfig`, execution limits, and optional truth/fixed reference. Assert `evaluate_project` returns task identity, predictions, final decisions, abstain reason, latency, spend, artifacts, and optional scored match. With no truth it returns operational measurements and `score=None`, never inventing a negative label. Reject dirty/missing repos, equal/unknown refs, non-opaque IDs, and truth without a fixed reference. `evaluate_projects` preserves input order, isolates per-case budget/task/artifacts, and turns one case failure into an explicit per-case DEFER without hiding completed results.
+
+- [ ] **Step 4: Implement the generic project service**
+
+The service owns orchestration; neither CLI nor corpus adapters call private runner helpers. Resolve refs to immutable SHAs before provider use, materialize isolated worktrees below a caller-provided temporary root, and clean only owned worktrees. The service consumes existing `Provider`/`ReviewConfig` interfaces and returns frozen typed results suitable for JSON serialization.
+
+- [ ] **Step 5: Write benchmark differential-repro RED tests**
 
 Cover fail-on-buggy/pass-on-fixed as confirmed, fail/fail as unfaithful generated test, pass/pass as not reproduced, collection/setup/timeout as DEFER, and identical limits/interpreter on both trees.
 
-- [ ] **Step 4: Implement differential evidence scoring**
+- [ ] **Step 6: Implement differential evidence scoring**
 
-Do not mutate product V decisions retrospectively. Store benchmark oracle status separately and use it only for benchmark matching/calibration diagnostics.
+Call the same differential classifier introduced in Task 4, while keeping the independent benchmark oracle receipt and product ledger status separately inspectable. Never rewrite historical product decisions during scoring.
 
-- [ ] **Step 5: Write artifact security/integrity RED tests**
+- [ ] **Step 7: Write artifact security/integrity RED tests**
 
 Allowlist `manifest`, product ledger, joined predictions, bounded repro/JUnit output, scored run, and sanitized GitHub summaries. Reject private keys, token patterns, `.env`, path traversal, unknown files, hash mismatch, and raw unbounded provider prompts/responses. Recursively redact known in-process secret values.
 
-- [ ] **Step 6: Implement atomic artifacts and deterministic reports**
+- [ ] **Step 8: Implement atomic artifacts and deterministic reports**
 
 Every artifact gets SHA-256 in a manifest written last via atomic replace. Reports state provenance limitations, exclusions, repeats, Wilson intervals, and distinguish replay regression from live observation.
 
-- [ ] **Step 7: Run focused GREEN and commit**
+- [ ] **Step 9: Run focused GREEN and commit**
 
 ```bash
-.venv/bin/pytest tests/benchmark/test_runner.py tests/benchmark/test_artifacts.py tests/benchmark/test_report.py -q
+.venv/bin/pytest tests/benchmark/test_runner.py tests/benchmark/test_api.py tests/benchmark/test_artifacts.py tests/benchmark/test_report.py -q
 .venv/bin/python scripts/benchmark.py replay --manifest benchmarks/attest-v1/manifest.json --cassette-root benchmarks/attest-v1/cassettes --output work/benchmark-replay
 git add src/attest/benchmark scripts/benchmark.py tests/benchmark
 git commit -m "feat: replay real-data review benchmarks"
@@ -231,7 +301,7 @@ git commit -m "feat: replay real-data review benchmarks"
 
 ---
 
-### Task 5: Add Resumable Live-Local Evaluation and Calibration Report
+### Task 6: Add Resumable Live-Local Evaluation and Calibration Report
 
 **Files:**
 - Create: `src/attest/benchmark/live.py`
@@ -299,9 +369,54 @@ git commit -m "docs: record real-data evaluation"
 
 ---
 
+### Task 7: Measure V-Only Speech and Core Safety Alternatives
+
+**Files:**
+- Create: `src/attest/benchmark/experiments.py`
+- Create: `tests/benchmark/test_experiments.py`
+- Modify: `scripts/benchmark.py`
+- Modify: `docs/acceptance/real-data-evaluation.md` only after an authorized observation run
+
+**Interfaces:**
+- Consumes: frozen benchmark run records, channel purchases, oracle receipts, `Tables`, `WinnersCurseMonitor`, and fixed seeded streams.
+- Produces: experiment-only comparisons for `(a)` S/T-as-ranking plus V-only certification, `(b)` sample-count log-LR shrinkage, and `(c)` optimism-alarm circuit breakers. It produces recommendations and never patches `channels.py`, `EngineConfig`, or factory monitor behavior.
+
+- [ ] **Step 1: Write multi-seed null-grid RED tests**
+
+Run preregistered seeds at `alpha in {0.05, 0.1, 0.2}`, independent and correlated null panels, and multiple stream lengths. Report certification count, wrong certification count, empirical rate, Wilson interval, and alarm kinds. Tests pin the experiment protocol and deterministic digest, not a hand-picked zero-error seed.
+
+- [ ] **Step 2: Implement experiment-only thin-cell shrinkage**
+
+Compare raw LR to symmetric log-LR shrinkage `exp(w * log(raw_lr))`, with `w` derived from the smaller truth-conditioned cell count so empty/thin cells approach 1 and dense cells approach the learned LR. Sweep preregistered shrink strengths; do not alter `Tables.lr_factor` in production.
+
+- [ ] **Step 3: Write monitor intervention simulations**
+
+Separate `winners_curse_optimism` from `spend_share_drift`. Compare ledger-only monitoring with two reversible policies: quarantine only the optimistic judge, and exploration-only recovery until the alarm window clears. Never treat spend drift alone as proof of invalid evidence. Report false brakes, missed unsafe runs, cost, abstention, and wrong certifications.
+
+- [ ] **Step 4: Evaluate S/T ranking versus certification evidence**
+
+Using real labeled records, compute channel-conditioned empirical LRs and test a two-ledger model: S/T determine verification priority/VOI only, while certification wealth purchases V only. Require speech to remain exactly `certification_wealth >= 1/alpha`; report oracle feasibility for every tested alpha. Compare against factory behavior without changing it.
+
+- [ ] **Step 5: Emit an owner decision packet**
+
+State which observations are owner-provided versus independently reproduced, include sample counts and confidence intervals, and list the exact production constants/interfaces each alternative would change. Below 500 global labels, mark every constants recommendation `insufficient_labels/recommendation_only`. Request explicit owner approval before any factory patch.
+
+- [ ] **Step 6: Run focused/full GREEN and commit the harness**
+
+```bash
+.venv/bin/pytest tests/benchmark/test_experiments.py tests/test_engine_default.py tests/test_monitor.py tests/test_tables.py -q
+.venv/bin/pytest tests/benchmark -q
+.venv/bin/ruff check src/attest/benchmark scripts/benchmark.py tests/benchmark
+.venv/bin/mypy src/attest/benchmark
+git add src/attest/benchmark/experiments.py tests/benchmark/test_experiments.py scripts/benchmark.py
+git commit -m "feat: compare evidence safety policies"
+```
+
+---
+
 ## Plan Self-Review
 
-- **Spec coverage:** real developer bug/fix provenance, paired controls, reproducible oracle, blind truth, product-path reuse, differential V validation, accuracy/abstention/latency/cost metrics, uncertainty, artifacts, replay/live separation, checkpointing, budget, and calibration limits each map to a task.
+- **Spec coverage:** real developer bug/fix provenance, paired controls, reproducible oracle, blind truth, product differential V, canonical anchors, truthful reporting, hard budget semantics, generic project API, product-path reuse, accuracy/abstention/latency/cost metrics, uncertainty, artifacts, replay/live separation, checkpointing, multi-seed null grids, experiment-only LR shrinkage/monitor brakes, and calibration limits each map to a task.
 - **Placeholder scan:** no deferred implementation placeholder appears; every task names files, interfaces, RED/GREEN commands, and commit boundaries.
-- **Type consistency:** `BenchmarkCase` feeds corpus materialization and `BenchmarkRunner`; `RunRecord` joins product ledger/candidate data; `MatchResult` feeds `aggregate`; `BenchmarkReport` feeds JSON/Markdown rendering; live checkpoints key every paid call by benchmark run/case/repeat identity.
+- **Type consistency:** `BenchmarkCase` feeds corpus materialization and `BenchmarkRunner`; `DifferentialExecution` is shared by product verification and benchmark diagnostics; `ProjectEvaluationRequest` feeds `evaluate_project`; `ProjectEvaluationResult` and `RunRecord` join product ledger/candidate data; `MatchResult` feeds `aggregate`; `BenchmarkReport` feeds JSON/Markdown rendering; live checkpoints key every paid call by benchmark run/case/repeat identity.
 - **Evidence honesty:** BugsInPy contains real defects and developer fixes, but reversed fixes are counterfactual review diffs. Reports must separate this from future naturally occurring bug-introducing PRs and from replay cassettes.
