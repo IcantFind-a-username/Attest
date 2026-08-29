@@ -212,6 +212,75 @@ def _ledger_rows(repo: Path) -> list[dict[str, object]]:
     ]
 
 
+def test_ci_does_not_verify_an_already_terminal_surface(
+    planted_repo: tuple[Path, str, str],
+    github_server: RecordingGitHub,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from attest.review import tier0
+    from attest.review.ci import run_ci
+    from attest.review.tier0 import Tier0Signal
+
+    repo, base_sha, head_sha = planted_repo
+
+    class SurfaceOnlyProvider:
+        def __init__(self) -> None:
+            self.proposal_calls = 0
+            self.generator_calls = 0
+
+        def sample(
+            self,
+            system: str,
+            prompt: str,
+            schema: dict[str, object],
+            max_tokens: int,
+            *,
+            timeout_s: float | None = None,
+        ) -> ProviderResult:
+            if "focused pytest reproduction" in system:
+                self.generator_calls += 1
+                pytest.fail("terminal surface must not generate a reproduction")
+            self.proposal_calls += 1
+            return ProviderResult(text=_finding_payload(), input_tokens=10, output_tokens=10)
+
+    monkeypatch.setattr(
+        tier0,
+        "run_ruff",
+        lambda _repo, _files: [
+            Tier0Signal("ruff", "app.py", 5, "F821: first corroborating signal"),
+            Tier0Signal("ruff", "app.py", 6, "F821: second corroborating signal"),
+        ],
+    )
+    provider = SurfaceOnlyProvider()
+
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(alpha=0.15, k_samples=2, tier0_commands=["ruff"]),
+        provider,
+    )
+
+    assert result.surfaced_count == 1
+    assert provider.proposal_calls == 2
+    assert provider.generator_calls == 0
+    rows = _ledger_rows(repo)
+    assert not [row for row in rows if row["kind"] == "verification"]
+    review = next(row for row in rows if row["kind"] == "review")
+    assert review["channels_bought"] == ["S", "T"]
+    final = next(row for row in rows if row["kind"] == "ci_final")
+    decisions = final["decisions"]
+    assert isinstance(decisions, list)
+    assert decisions == [
+        {
+            "finding_id": review["finding_id"],
+            "action": "surface",
+            "wealth_final": 7.917,
+            "placement": "inline",
+        }
+    ]
+
+
 def test_planted_bug_waits_for_failing_repro_before_speaking(
     planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
 ) -> None:

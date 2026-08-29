@@ -262,7 +262,11 @@ def run_ci(
     results_by_id: dict[str, GateResult] = {
         result.finding.finding_id: result for result in review.results
     }
-    candidates = CandidateStore(repo).load(task_id) if task_id is not None else []
+    candidates = [
+        candidate
+        for candidate in CandidateStore(repo).load(task_id)
+        if candidate.action == "drawer"
+    ]
     verification_defers: list[str] = []
     for index, candidate in enumerate(candidates):
         remaining_s = max(0.0, deadline - clock())
