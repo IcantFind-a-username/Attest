@@ -23,9 +23,9 @@ def _literal_manifest() -> dict[str, object]:
         "corpus_commit": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "cases": [
             {
-                "case_id": "case_001",
-                "pair_id": "pair_001",
-                "source_id": "source_001",
+                "case_id": "case-000000000001",
+                "pair_id": "pair-000000000001",
+                "source_id": "source-000000000001",
                 "role": "historical_bug_replay",
                 "provenance_kind": "historical_fix",
                 "source_license": "Apache-2.0",
@@ -47,9 +47,9 @@ def _literal_manifest() -> dict[str, object]:
                 "split": "test",
             },
             {
-                "case_id": "case_002",
-                "pair_id": "pair_001",
-                "source_id": "source_001",
+                "case_id": "case-000000000002",
+                "pair_id": "pair-000000000001",
+                "source_id": "source-000000000001",
                 "role": "developer_fix_control",
                 "provenance_kind": "historical_fix",
                 "source_license": "Apache-2.0",
@@ -74,7 +74,7 @@ def _literal_manifest() -> dict[str, object]:
         "truth_defects": [
             {
                 "defect_id": "truth_001",
-                "case_id": "case_001",
+                "case_id": "case-000000000001",
                 "file": "src/app.py",
                 "start_line": 11,
                 "end_line": 11,
@@ -94,7 +94,7 @@ def test_load_manifest_preserves_product_metadata_and_keeps_truth_separate(tmp_p
     manifest = load_manifest(_write_manifest(tmp_path, _literal_manifest()))
 
     assert manifest.schema_version == "1"
-    assert manifest.cases[0].case_id == "case_001"
+    assert manifest.cases[0].case_id == "case-000000000001"
     assert manifest.cases[0].changed_locations[0].start_line == 10
     assert manifest.cases[0].patch == PatchDescriptor(
         relative_path="patches/app.patch",
@@ -109,7 +109,7 @@ def test_load_manifest_preserves_product_metadata_and_keeps_truth_separate(tmp_p
     assert manifest.truth_defects[0].defect_id == "truth_001"
     assert not hasattr(manifest.cases[0], "truth_defects")
     with pytest.raises(AttributeError):
-        manifest.cases[0].case_id = "case_003"  # type: ignore[misc]
+        manifest.cases[0].case_id = "case-000000000003"  # type: ignore[misc]
 
 
 def test_load_manifest_keeps_hidden_defect_identifiers_out_of_opaque_metadata_rules(
@@ -194,9 +194,31 @@ def test_load_manifest_accepts_future_bug_introducing_commit_provenance(tmp_path
 
 
 @pytest.mark.parametrize(
+    ("field", "leaky_id"),
+    [
+        ("case_id", "case-replay000001"),
+        ("case_id", "case-control00001"),
+        ("pair_id", "pair-fixed0000001"),
+        ("pair_id", "pair-positive0001"),
+        ("source_id", "source-fix00000001"),
+        ("source_id", "source-negative001"),
+    ],
+)
+def test_load_manifest_rejects_semantic_labels_in_exposed_ids(
+    tmp_path: Path, field: str, leaky_id: str
+) -> None:
+    """Role or truth words in exposed IDs leak the benchmark label to product prompts."""
+    document = _literal_manifest()
+    document["cases"][0][field] = leaky_id  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="opaque"):
+        load_manifest(_write_manifest(tmp_path, document))
+
+
+@pytest.mark.parametrize(
     "mutation",
     [
-        lambda d: d["cases"][1].update({"source_id": "source_002"}),  # type: ignore[index]
+        lambda d: d["cases"][1].update({"source_id": "source-000000000002"}),  # type: ignore[index]
         lambda d: d["cases"][1].update({"fixed_commit": "c" * 40}),  # type: ignore[index]
         lambda d: d["cases"][1]["patch"].update({"sha256": "0" * 64}),  # type: ignore[index]
         lambda d: d["cases"][1].update({"split": "validation"}),  # type: ignore[index]

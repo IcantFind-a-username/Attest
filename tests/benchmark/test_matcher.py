@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from attest.benchmark.matcher import MatchResult, match_findings
 from attest.benchmark.schema import Placement, Prediction, TruthDefect
 
@@ -9,7 +11,7 @@ from attest.benchmark.schema import Placement, Prediction, TruthDefect
 def _truth(defect_id: str, start_line: int, end_line: int) -> TruthDefect:
     return TruthDefect(
         defect_id=defect_id,
-        case_id="case_001",
+        case_id="case-000000000001",
         file="src/pkg/worker.py",
         start_line=start_line,
         end_line=end_line,
@@ -27,7 +29,7 @@ def _prediction(
 ) -> Prediction:
     return Prediction(
         finding_id=finding_id,
-        case_id="case_001",
+        case_id="case-000000000001",
         file=file,
         line=line,
         placement=placement,
@@ -110,14 +112,31 @@ def test_matcher_leaves_a_wrong_location_surface_unmatched() -> None:
 def test_matcher_uses_literal_ci_final_placements_and_scores_fourth_overflow() -> None:
     """Treating only inline comments as surfaced would hide overflow false positives."""
     candidate = {
+        "task_id": "task-000000000001",
         "finding_id": "finding_004",
-        "case_id": "case_001",
         "file": "src/pkg/worker.py",
         "line": 10,
-        "repro_status": "buggy_fail_fixed_pass",
+        "claim": "A concrete finding.",
+        "failure_scenario": "A concrete scenario.",
+        "falsification_plan": "A concrete falsification plan.",
+        "votes": 1,
+        "sample_ids": [0],
+        "wealth": 12.0,
+        "action": "drawer",
+        "alpha": 0.1,
     }
-    ci_final = {"finding_id": "finding_004", "action": "drawer", "placement": "overflow"}
-    fourth = Prediction.from_joined_ci_final(candidate, ci_final)
+    ci_final = {
+        "finding_id": "finding_004",
+        "action": "drawer",
+        "wealth_final": 12.0,
+        "placement": "overflow",
+    }
+    fourth = Prediction.from_joined_ci_final(
+        candidate,
+        ci_final,
+        case_id="case-000000000001",
+        repro_status="buggy_fail_fixed_pass",
+    )
     results = match_findings(
         (_truth("truth_001", 10, 10),),
         (
@@ -136,6 +155,45 @@ def test_matcher_uses_literal_ci_final_placements_and_scores_fourth_overflow() -
         MatchResult(finding_id="finding_003", defect_id=None, matched=False),
         MatchResult(finding_id="finding_004", defect_id=None, matched=False),
     )
+
+
+def test_prediction_join_requires_complete_ci_final_decision_and_known_placement() -> None:
+    """Filling missing decision fields from candidate data would mis-score final placement."""
+    candidate = {
+        "task_id": "task-000000000001",
+        "finding_id": "finding_004",
+        "file": "src/pkg/worker.py",
+        "line": 10,
+        "claim": "A concrete finding.",
+        "failure_scenario": "A concrete scenario.",
+        "falsification_plan": "A concrete falsification plan.",
+        "votes": 1,
+        "sample_ids": [0],
+        "wealth": 12.0,
+        "action": "drawer",
+        "alpha": 0.1,
+    }
+    with pytest.raises(ValueError, match="action"):
+        Prediction.from_joined_ci_final(
+            candidate,
+            {"finding_id": "finding_004", "placement": "inline"},
+            case_id="case-000000000001",
+            repro_status="buggy_fail_fixed_pass",
+        )
+    with pytest.raises(ValueError, match="placement"):
+        Prediction.from_joined_ci_final(
+            candidate,
+            {"finding_id": "finding_004", "action": "drawer", "placement": "surface"},
+            case_id="case-000000000001",
+            repro_status="buggy_fail_fixed_pass",
+        )
+    with pytest.raises(ValueError, match="opaque"):
+        Prediction.from_joined_ci_final(
+            candidate,
+            {"finding_id": "finding_004", "action": "drawer", "placement": "inline"},
+            case_id="case-replay000001",
+            repro_status="buggy_fail_fixed_pass",
+        )
 
 
 def test_matcher_breaks_equal_distance_ties_by_defect_then_finding_id() -> None:

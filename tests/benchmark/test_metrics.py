@@ -32,7 +32,7 @@ def _case(case_id: str, pair_id: str, role: str) -> BenchmarkCase:
     return BenchmarkCase(
         case_id=case_id,
         pair_id=pair_id,
-        source_id="source_001",
+        source_id="source-000000000001",
         role=role,
         provenance_kind="historical_fix",
         source_license="Apache-2.0",
@@ -45,10 +45,11 @@ def _case(case_id: str, pair_id: str, role: str) -> BenchmarkCase:
     )
 
 
-def _pair(pair_id: str) -> tuple[BenchmarkCase, BenchmarkCase]:
+def _pair(index: int) -> tuple[BenchmarkCase, BenchmarkCase]:
+    pair_id = f"pair-{index:012x}"
     return (
-        _case(f"{pair_id}_replay", pair_id, "historical_bug_replay"),
-        _case(f"{pair_id}_control", pair_id, "developer_fix_control"),
+        _case(f"case-{(index * 2):012x}", pair_id, "historical_bug_replay"),
+        _case(f"case-{(index * 2 + 1):012x}", pair_id, "developer_fix_control"),
     )
 
 
@@ -116,8 +117,8 @@ def test_wilson_interval_returns_null_for_no_observations() -> None:
 
 def test_aggregate_scores_paired_roles_and_finding_outcomes_and_delivery() -> None:
     """Inferring positives from truth allows malformed controls to alter PR metrics."""
-    replay_1, control_1 = _pair("pair_001")
-    replay_2, control_2 = _pair("pair_002")
+    replay_1, control_1 = _pair(1)
+    replay_2, control_2 = _pair(2)
     cases = (replay_1, control_1, replay_2, control_2)
     truth = (
         TruthDefect("truth_001", replay_1.case_id, "src/app.py", 10, 10),
@@ -157,7 +158,7 @@ def test_aggregate_scores_paired_roles_and_finding_outcomes_and_delivery() -> No
 
 def test_aggregate_requires_truth_for_replay_and_rejects_truth_for_control() -> None:
     """Role/truth disagreement would make positive and clean denominators ambiguous."""
-    replay, control = _pair("pair_001")
+    replay, control = _pair(1)
     runs = (
         _run("run_001", replay.case_id, (), 1.0),
         _run("run_002", control.case_id, (), 1.0),
@@ -178,7 +179,7 @@ def test_aggregate_requires_truth_for_replay_and_rejects_truth_for_control() -> 
 
 def test_aggregate_counts_overflow_duplicate_as_an_additional_finding_false_positive() -> None:
     """Allowing duplicate overflow surfaces to match one truth inflates precision."""
-    replay, control = _pair("pair_001")
+    replay, control = _pair(1)
     report = aggregate(
         (replay, control),
         (TruthDefect("truth_001", replay.case_id, "src/app.py", 10, 10),),
@@ -202,7 +203,7 @@ def test_aggregate_counts_overflow_duplicate_as_an_additional_finding_false_posi
 
 def test_aggregate_requires_exactly_one_repeat_zero_record_for_each_case() -> None:
     """Missing or duplicate repeat zero runs must not silently shrink a denominator."""
-    replay, control = _pair("pair_001")
+    replay, control = _pair(1)
     truth = (TruthDefect("truth_001", replay.case_id, "src/app.py", 10, 10),)
 
     with pytest.raises(ValueError, match="missing repeat 0"):
@@ -221,9 +222,9 @@ def test_aggregate_requires_exactly_one_repeat_zero_record_for_each_case() -> No
 
 def test_aggregate_censors_late_repeat_zero_delivery_and_uses_nearest_rank() -> None:
     """A late repeat-zero delivery must be censored rather than counted in latency percentiles."""
-    replay_1, control_1 = _pair("pair_001")
-    replay_2, control_2 = _pair("pair_002")
-    replay_3, control_3 = _pair("pair_003")
+    replay_1, control_1 = _pair(1)
+    replay_2, control_2 = _pair(2)
+    replay_3, control_3 = _pair(3)
     cases = (replay_1, control_1, replay_2, control_2, replay_3, control_3)
     truth = (
         TruthDefect("truth_001", replay_1.case_id, "src/app.py", 10, 10),

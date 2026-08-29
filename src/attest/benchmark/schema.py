@@ -15,7 +15,11 @@ _ROLES = frozenset(("historical_bug_replay", "developer_fix_control"))
 _PROVENANCE_KINDS = frozenset(("historical_fix", "bug_introducing_commit"))
 _SPLITS = frozenset(("train", "validation", "test"))
 _NORMALIZATIONS = frozenset(("bytes", "normalized_text"))
-_OPAQUE_ID_RE = re.compile(r"bug|clean|defect", re.IGNORECASE)
+_EXPOSED_ID_PATTERNS = {
+    "case_id": re.compile(r"case-[0-9a-f]{12}\Z"),
+    "pair_id": re.compile(r"pair-[0-9a-f]{12}\Z"),
+    "source_id": re.compile(r"source-[0-9a-f]{12}\Z"),
+}
 _HEX_RE = re.compile(r"[0-9a-f]+", re.IGNORECASE)
 
 
@@ -105,9 +109,14 @@ class Prediction:
 
     @classmethod
     def from_joined_ci_final(
-        cls, candidate_row: Mapping[str, object], ci_final_row: Mapping[str, object]
+        cls,
+        candidate_row: Mapping[str, object],
+        ci_final_row: Mapping[str, object],
+        *,
+        case_id: str,
+        repro_status: str,
     ) -> Prediction:
-        """Create a prediction from one candidate row joined to its ci_final decision."""
+        """Join persisted candidate and ci_final rows with independent benchmark context."""
         finding_id = _mapping_string(candidate_row, "finding_id")
         if finding_id != _mapping_string(ci_final_row, "finding_id"):
             raise ValueError("candidate and ci_final finding_id must match")
@@ -120,12 +129,12 @@ class Prediction:
             raise ValueError("candidate line must be a positive integer")
         return cls(
             finding_id=finding_id,
-            case_id=_mapping_string(candidate_row, "case_id"),
+            case_id=_opaque_id(_string_value(case_id, "case_id"), "case_id"),
             file=_mapping_string(candidate_row, "file"),
             line=line,
             placement=placement,
             action=_mapping_string(ci_final_row, "action"),
-            repro_status=_mapping_string(candidate_row, "repro_status"),
+            repro_status=_string_value(repro_status, "repro_status"),
         )
 
 
@@ -330,9 +339,12 @@ def _nonempty_string(raw: dict[str, Any], key: str) -> str:
 
 
 def _mapping_string(raw: Mapping[str, object], key: str) -> str:
-    value = raw.get(key)
+    return _string_value(raw.get(key), key)
+
+
+def _string_value(value: object, label: str) -> str:
     if not isinstance(value, str) or not value:
-        raise ValueError(f"{key} must be a non-empty string")
+        raise ValueError(f"{label} must be a non-empty string")
     return value
 
 
@@ -343,8 +355,8 @@ def _enum(value: str, allowed: frozenset[str], label: str) -> str:
 
 
 def _opaque_id(value: str, label: str) -> str:
-    if _OPAQUE_ID_RE.search(value):
-        raise ValueError(f"{label} must be opaque")
+    if _EXPOSED_ID_PATTERNS[label].fullmatch(value) is None:
+        raise ValueError(f"{label} must be opaque fixed-prefix hexadecimal")
     return value
 
 
