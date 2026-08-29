@@ -60,6 +60,7 @@ def _inline_comment(result: GateResult) -> dict[str, object]:
     body = "\n".join(
         [
             finding.claim,
+            f"Finding ID: {finding.finding_id}",
             f"Failure scenario: {finding.failure_scenario}",
             f"Falsification plan: {finding.falsification_plan}",
             f"Wealth: wealth {result.wealth:.1f}",

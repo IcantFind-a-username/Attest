@@ -158,3 +158,4 @@ def test_inline_comments_reject_non_surfaced_results_and_keep_right_anchors() ->
     assert "Call serialize with None." in str(comments[0]["body"])
     assert "wealth 30.0" in str(comments[0]["body"])
     assert "V x20.00 (reproduced)" in str(comments[0]["body"])
+    assert "Finding ID: fdc3624e36" in str(comments[0]["body"])

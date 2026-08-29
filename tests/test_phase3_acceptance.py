@@ -25,6 +25,8 @@ from scripts.acceptance.phase3 import (  # noqa: E402
     sticky_seconds,
 )
 
+TEST_SOURCE_TOKEN_SECRET = "ATTEST_SOURCE_TOKEN"
+
 
 @dataclass
 class FakeRunner:
@@ -128,7 +130,10 @@ def test_subprocess_adapter_uses_only_its_sanitized_environment() -> None:
     result = SubprocessRunner({"ATTEST_ACCEPTANCE_SAFE": "yes"}).run(("/usr/bin/env",))
 
     assert result.returncode == 0
-    assert result.stdout == "ATTEST_ACCEPTANCE_SAFE=yes\n"
+    assert set(result.stdout.splitlines()) == {
+        "ATTEST_ACCEPTANCE_SAFE=yes",
+        "GIT_TERMINAL_PROMPT=0",
+    }
     assert MODEL_KEY_ENV not in result.stdout
 
 
@@ -154,6 +159,94 @@ def test_scratch_workflow_keeps_run_specific_artifact_name_exact() -> None:
     assert "ref: feature/phase-3-action" in workflow
 
 
+def test_seed_configures_repo_scoped_gh_credential_helper_before_push() -> None:
+    runner = FakeRunner([CommandResult(0)] * 9)
+    service = _service(runner)
+
+    service._seed_repository(
+        Path("/scratch"), "octocat/attest-phase3-test", "feature/phase-3-action"
+    )
+
+    commands = [call[0] for call in runner.calls]
+    push_index = commands.index(("git", "push", "-u", "origin", "main"))
+    assert commands.index(
+        ("git", "config", "--local", "credential.https://github.com.helper", "")
+    ) < push_index
+    assert commands.index(
+        (
+            "git",
+            "config",
+            "--local",
+            "--add",
+            "credential.https://github.com.helper",
+            "!gh auth git-credential",
+        )
+    ) < push_index
+    assert all("token" not in " ".join(command).lower() for command in commands)
+
+
+def test_source_repository_secret_uses_gh_token_only_through_stdin() -> None:
+    source_token = "github_pat_source_repo_capable_0123456789"
+    runner = FakeRunner([CommandResult(0), CommandResult(0)])
+    service = AcceptanceService(
+        runner=runner,
+        filesystem=MemoryFileSystem({}),
+        environ={
+            MODEL_KEY_ENV: "sk-ant-test-012345678901234567890123456789",
+            "GH_TOKEN": source_token,
+        },
+        workspace=Path("/workspace"),
+    )
+
+    service._install_secrets("octocat/attest-phase3-test")
+
+    model_call, source_call = runner.calls
+    assert model_call[0] == (
+        "gh",
+        "secret",
+        "set",
+        MODEL_KEY_ENV,
+        "--repo",
+        "octocat/attest-phase3-test",
+    )
+    assert source_call[0] == (
+        "gh",
+        "secret",
+        "set",
+        TEST_SOURCE_TOKEN_SECRET,
+        "--repo",
+        "octocat/attest-phase3-test",
+    )
+    assert model_call[1] == service.environ[MODEL_KEY_ENV]
+    assert source_call[1] == source_token
+    assert source_token not in " ".join(source_call[0])
+
+
+def test_source_repository_secret_falls_back_to_authenticated_gh_token() -> None:
+    source_token = "github_pat_from_gh_auth_0123456789"
+    runner = FakeRunner(
+        [CommandResult(0), CommandResult(0, stdout=source_token + "\n"), CommandResult(0)]
+    )
+    service = _service(runner)
+
+    service._install_secrets("octocat/attest-phase3-test")
+
+    assert runner.calls[1] == (("gh", "auth", "token"), None, None)
+    assert runner.calls[2][0][3] == TEST_SOURCE_TOKEN_SECRET
+    assert runner.calls[2][1] == source_token
+    assert source_token not in " ".join(runner.calls[2][0])
+
+
+def test_scratch_workflow_uses_source_secret_for_cross_repository_checkout() -> None:
+    workflow = _workflow_text("feature/phase-3-action")
+    source_checkout = workflow.split("- name: Check out action", 1)[1].split(
+        "- name: Review pull request", 1
+    )[0]
+
+    assert f"token: ${{{{ secrets.{TEST_SOURCE_TOKEN_SECRET} }}}}" in source_checkout
+    assert "secrets.GITHUB_TOKEN" not in source_checkout
+
+
 def test_sticky_timing_excludes_runner_queue_time() -> None:
     assert sticky_seconds("2026-08-29T00:02:00Z", "2026-08-29T00:02:42.250Z") == 42.25
 
@@ -175,7 +268,10 @@ def test_comment_classification_separates_sticky_and_verified_inline_findings() 
     review_comments = [
         {
             "id": 21,
-            "body": "Crash on empty input\nEvidence purchases: S x2.64; V x20.00",
+            "body": (
+                "Crash on empty input\nFinding ID: fba33419e5\n"
+                "Evidence purchases: S x2.64; V x20.00"
+            ),
             "path": "sample/stats.py",
             "line": 3,
         },
@@ -186,6 +282,7 @@ def test_comment_classification_separates_sticky_and_verified_inline_findings() 
 
     assert [comment["id"] for comment in comments.sticky] == [11]
     assert [comment["id"] for comment in comments.findings] == [21]
+    assert comments.finding_ids == ("fba33419e5",)
 
 
 def test_comment_classification_rejects_malformed_api_payload() -> None:
@@ -193,42 +290,66 @@ def test_comment_classification_rejects_malformed_api_payload() -> None:
         classify_comments([{"id": 11}], [])
 
 
-def test_parse_ledger_validates_json_objects_and_required_event_fields() -> None:
-    text = "\n".join(
-        [
-            json.dumps(
-                {
-                    "kind": "review",
-                    "task_id": "task-1",
-                    "finding_id": "finding-1",
-                    "spend": 0.012,
-                    "action": "formal_surface",
-                }
-            ),
-            json.dumps(
-                {
-                    "kind": "verification",
-                    "task_id": "task-1",
-                    "finding_id": "finding-1",
-                    "outcome": "reproduced",
-                }
-            ),
-            json.dumps(
-                {
-                    "kind": "github_comment",
-                    "task_id": "task-1",
-                    "phase": "review",
-                    "outcome": "posted",
-                }
-            ),
-        ]
-    )
+def test_comment_classification_rejects_verified_finding_without_stable_id() -> None:
+    review_comment = {
+        "id": 21,
+        "body": "Crash on empty input\nEvidence purchases: S x2.64; V x20.00",
+        "path": "sample/stats.py",
+        "line": 3,
+    }
 
-    ledger = parse_ledger(text)
+    with pytest.raises(AcceptanceError, match="finding ID"):
+        classify_comments([], [review_comment])
+
+
+BUG_COMMENT_PHASES = ("running", "candidate_count", "review", "complete")
+CONTROL_COMMENT_PHASES = ("running", "candidate_count", "complete")
+
+
+def _ledger_text(
+    *,
+    phases: tuple[str, ...] = BUG_COMMENT_PHASES,
+    task_id: str = "task-1",
+    review_id: str = "finding-1",
+    verification_id: str = "finding-1",
+    comment_outcome: str = "posted",
+) -> str:
+    rows = [
+        {
+            "kind": "review",
+            "task_id": task_id,
+            "finding_id": review_id,
+            "spend": 0.012,
+            "action": "formal_surface",
+        },
+        {
+            "kind": "verification",
+            "task_id": task_id,
+            "finding_id": verification_id,
+            "outcome": "reproduced",
+        },
+        *[
+            {
+                "kind": "github_comment",
+                "task_id": task_id,
+                "phase": phase,
+                "outcome": comment_outcome,
+            }
+            for phase in phases
+        ],
+    ]
+    return "\n".join(json.dumps(row) for row in rows)
+
+
+def test_parse_ledger_validates_json_objects_and_required_event_fields() -> None:
+    ledger = parse_ledger(_ledger_text())
 
     assert ledger.spend_usd == pytest.approx(0.012)
     assert ledger.task_ids == frozenset({"task-1"})
-    ledger.assert_event_coverage(require_verified_finding=True)
+    ledger.assert_event_coverage(
+        expected_comment_phases=BUG_COMMENT_PHASES,
+        inline_finding_ids=("finding-1",),
+    )
 
 
 @pytest.mark.parametrize(
@@ -244,21 +365,84 @@ def test_parse_ledger_rejects_malformed_artifact(text: str, message: str) -> Non
         parse_ledger(text)
 
 
-def test_ledger_coverage_rejects_unaccounted_review_comment() -> None:
-    ledger = parse_ledger(
+@pytest.mark.parametrize("missing_phase", BUG_COMMENT_PHASES)
+def test_ledger_coverage_rejects_each_missing_bug_comment_phase(missing_phase: str) -> None:
+    phases = tuple(phase for phase in BUG_COMMENT_PHASES if phase != missing_phase)
+    ledger = parse_ledger(_ledger_text(phases=phases))
+
+    with pytest.raises(AcceptanceError, match="comment phases"):
+        ledger.assert_event_coverage(
+            expected_comment_phases=BUG_COMMENT_PHASES,
+            inline_finding_ids=("finding-1",),
+        )
+
+
+def test_ledger_coverage_rejects_failed_comment_phase() -> None:
+    ledger = parse_ledger(_ledger_text(comment_outcome="failed"))
+
+    with pytest.raises(AcceptanceError, match="successful.*comment"):
+        ledger.assert_event_coverage(
+            expected_comment_phases=BUG_COMMENT_PHASES,
+            inline_finding_ids=("finding-1",),
+        )
+
+
+def test_parse_ledger_rejects_foreign_task_row() -> None:
+    rows = [json.loads(line) for line in _ledger_text().splitlines()]
+    rows[-1]["task_id"] = "foreign-task"
+
+    with pytest.raises(AcceptanceError, match="one common.*task_id"):
+        parse_ledger("\n".join(json.dumps(row) for row in rows))
+
+
+def test_ledger_coverage_rejects_reproduced_foreign_candidate() -> None:
+    ledger = parse_ledger(_ledger_text(verification_id="finding-2"))
+
+    with pytest.raises(AcceptanceError, match="verification.*reviewed candidate"):
+        ledger.assert_event_coverage(
+            expected_comment_phases=BUG_COMMENT_PHASES,
+            inline_finding_ids=("finding-1",),
+        )
+
+
+def test_ledger_coverage_rejects_inline_finding_identity_mismatch() -> None:
+    ledger = parse_ledger(_ledger_text())
+
+    with pytest.raises(AcceptanceError, match="inline finding.*ledger"):
+        ledger.assert_event_coverage(
+            expected_comment_phases=BUG_COMMENT_PHASES,
+            inline_finding_ids=("finding-2",),
+        )
+
+
+def test_ledger_coverage_rejects_duplicate_inline_finding_count() -> None:
+    ledger = parse_ledger(_ledger_text())
+
+    with pytest.raises(AcceptanceError, match="inline finding.*ledger"):
+        ledger.assert_event_coverage(
+            expected_comment_phases=BUG_COMMENT_PHASES,
+            inline_finding_ids=("finding-1", "finding-1"),
+        )
+
+
+def test_control_ledger_requires_exact_non_review_comment_phases() -> None:
+    rows = [
         json.dumps(
             {
-                "kind": "review",
-                "task_id": "task-1",
-                "finding_id": "finding-1",
-                "spend": 0.01,
-                "action": "formal_surface",
+                "kind": "github_comment",
+                "task_id": "task-control",
+                "phase": phase,
+                "outcome": "posted",
             }
         )
-    )
+        for phase in CONTROL_COMMENT_PHASES
+    ]
+    ledger = parse_ledger("\n".join(rows))
 
-    with pytest.raises(AcceptanceError, match="verification.*comment"):
-        ledger.assert_event_coverage(require_verified_finding=True)
+    ledger.assert_event_coverage(
+        expected_comment_phases=CONTROL_COMMENT_PHASES,
+        inline_finding_ids=(),
+    )
 
 
 def test_spend_cap_rejects_cumulative_development_spend() -> None:

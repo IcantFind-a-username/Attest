@@ -27,10 +27,13 @@ from typing import Any, Protocol
 STATUS_MARKER = "<!-- attest:status -->"
 SPEND_CAP_USD = 10.0
 MODEL_KEY_ENV = "ANTHROPIC_API_KEY"
+SOURCE_TOKEN_SECRET = "ATTEST_SOURCE_TOKEN"
 MODEL_KEY_PREFIX = "sk-ant-"
 MIN_MODEL_KEY_LENGTH = 24
 SCRATCH_PREFIX = "attest-phase3-"
 SOURCE_REPOSITORY = "IcantFind-a-username/Attest"
+BUG_COMMENT_PHASES = ("running", "candidate_count", "review", "complete")
+CONTROL_COMMENT_PHASES = ("running", "candidate_count", "complete")
 
 
 class AcceptanceError(RuntimeError):
@@ -72,7 +75,8 @@ class SubprocessRunner:
     """Subprocess adapter that never invokes a shell or logs command input."""
 
     def __init__(self, environ: Mapping[str, str] | None = None) -> None:
-        self._environ = None if environ is None else dict(environ)
+        self._environ = dict(os.environ if environ is None else environ)
+        self._environ["GIT_TERMINAL_PROMPT"] = "0"
 
     def run(
         self,
@@ -124,6 +128,7 @@ class AcceptanceResult:
 class CommentClassification:
     sticky: tuple[dict[str, Any], ...]
     findings: tuple[dict[str, Any], ...]
+    finding_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -156,36 +161,42 @@ class LedgerArtifact:
             6,
         )
 
-    def assert_event_coverage(self, *, require_verified_finding: bool) -> None:
+    def assert_event_coverage(
+        self,
+        *,
+        expected_comment_phases: tuple[str, ...],
+        inline_finding_ids: Sequence[str],
+    ) -> None:
         review_rows = [row for row in self.rows if row.get("kind") == "review"]
         verification_rows = [row for row in self.rows if row.get("kind") == "verification"]
         comment_rows = [row for row in self.rows if row.get("kind") == "github_comment"]
-        if require_verified_finding:
-            surfaced_ids = {
-                str(row["finding_id"])
-                for row in review_rows
-                if str(row.get("action", "")).endswith("surface")
-            }
-            reproduced_ids = {
-                str(row["finding_id"])
-                for row in verification_rows
-                if row.get("outcome") == "reproduced"
-            }
-            review_posted = any(
-                row.get("phase") == "review" and row.get("outcome") == "posted"
-                for row in comment_rows
+        if any(row.get("outcome") != "posted" for row in comment_rows):
+            raise AcceptanceError("ledger requires successful GitHub comment rows")
+        phases = tuple(str(row["phase"]) for row in comment_rows)
+        if phases != expected_comment_phases:
+            raise AcceptanceError(
+                f"ledger comment phases {phases!r} do not match {expected_comment_phases!r}"
             )
-            missing: list[str] = []
-            if not surfaced_ids or not surfaced_ids.issubset(reproduced_ids):
-                missing.append("verification")
-            if not review_posted:
-                missing.append("comment")
-            if missing:
-                raise AcceptanceError(
-                    "ledger is missing required " + " and ".join(missing) + " event coverage"
-                )
-        elif not comment_rows:
-            raise AcceptanceError("ledger is missing GitHub comment events")
+
+        reviewed_ids = {str(row["finding_id"]) for row in review_rows}
+        reproduced_ids = {
+            str(row["finding_id"])
+            for row in verification_rows
+            if row.get("outcome") == "reproduced"
+        }
+        if not reproduced_ids.issubset(reviewed_ids):
+            raise AcceptanceError("ledger verification references an unreviewed candidate")
+
+        surfaced_ids = {
+            str(row["finding_id"])
+            for row in review_rows
+            if str(row.get("action", "")).endswith("surface")
+        }
+        inline_ids = tuple(inline_finding_ids)
+        if len(inline_ids) != len(set(inline_ids)) or set(inline_ids) != surfaced_ids:
+            raise AcceptanceError("inline finding identities do not match surfaced ledger rows")
+        if not set(inline_ids).issubset(reproduced_ids):
+            raise AcceptanceError("inline finding lacks reproduced verification evidence")
 
 
 @dataclass(frozen=True)
@@ -298,11 +309,7 @@ class AcceptanceService:
             with tempfile.TemporaryDirectory(prefix="attest-phase3-") as raw_checkout:
                 checkout = Path(raw_checkout)
                 self._seed_repository(checkout, repository, action_ref)
-                key = self.environ[MODEL_KEY_ENV]
-                self._checked(
-                    ("gh", "secret", "set", MODEL_KEY_ENV, "--repo", repository),
-                    input_text=key,
-                )
+                self._install_secrets(repository)
                 bug_pr = self._create_bug_pr(checkout, repository)
                 control_pr = self._create_control_pr(checkout, repository)
                 bug_run = self._inspect_run(repository, bug_pr, checkout / "artifacts")
@@ -386,6 +393,15 @@ class AcceptanceService:
         )
         for command in (
             ("git", "init", "-b", "main"),
+            ("git", "config", "--local", "credential.https://github.com.helper", ""),
+            (
+                "git",
+                "config",
+                "--local",
+                "--add",
+                "credential.https://github.com.helper",
+                "!gh auth git-credential",
+            ),
             ("git", "config", "user.email", "attest-acceptance@example.invalid"),
             ("git", "config", "user.name", "Attest Acceptance"),
             ("git", "add", "."),
@@ -394,6 +410,24 @@ class AcceptanceService:
             ("git", "push", "-u", "origin", "main"),
         ):
             self._checked(command, cwd=checkout)
+
+    def _install_secrets(self, repository: str) -> None:
+        self._checked(
+            ("gh", "secret", "set", MODEL_KEY_ENV, "--repo", repository),
+            input_text=self.environ[MODEL_KEY_ENV],
+        )
+        self._checked(
+            ("gh", "secret", "set", SOURCE_TOKEN_SECRET, "--repo", repository),
+            input_text=self._source_token(),
+        )
+
+    def _source_token(self) -> str:
+        token = self.environ.get("GH_TOKEN", "").strip()
+        if not token:
+            token = self._checked(("gh", "auth", "token")).stdout.strip()
+        if not token:
+            raise AcceptanceError("GitHub source-repository token is unavailable")
+        return token
 
     def _create_bug_pr(self, checkout: Path, repository: str) -> _PullRequest:
         branch = "acceptance/planted-empty-input-crash"
@@ -561,8 +595,14 @@ class AcceptanceService:
             raise AcceptanceError("planted-bug PR has no verified inline finding")
         if control_run.comments.findings:
             raise AcceptanceError("negative-control PR unexpectedly has finding comments")
-        bug_run.ledger.assert_event_coverage(require_verified_finding=True)
-        control_run.ledger.assert_event_coverage(require_verified_finding=False)
+        bug_run.ledger.assert_event_coverage(
+            expected_comment_phases=BUG_COMMENT_PHASES,
+            inline_finding_ids=bug_run.comments.finding_ids,
+        )
+        control_run.ledger.assert_event_coverage(
+            expected_comment_phases=CONTROL_COMMENT_PHASES,
+            inline_finding_ids=control_run.comments.finding_ids,
+        )
 
     def _checked(
         self,
@@ -623,6 +663,7 @@ def classify_comments(
 ) -> CommentClassification:
     sticky: list[dict[str, Any]] = []
     findings: list[dict[str, Any]] = []
+    finding_ids: list[str] = []
     for raw in issue_comments:
         comment = _comment_object(raw, "issue comment")
         if STATUS_MARKER in comment["body"]:
@@ -637,8 +678,12 @@ def classify_comments(
                 comment.get("line"), int
             ):
                 raise AcceptanceError("finding review comment has invalid anchor")
+            match = re.search(r"(?:^|\n)Finding ID: ([0-9a-f]{10})(?:\n|$)", body)
+            if match is None:
+                raise AcceptanceError("verified review comment is missing a stable finding ID")
             findings.append(comment)
-    return CommentClassification(tuple(sticky), tuple(findings))
+            finding_ids.append(match.group(1))
+    return CommentClassification(tuple(sticky), tuple(findings), tuple(finding_ids))
 
 
 def parse_ledger(text: str) -> LedgerArtifact:
@@ -656,7 +701,10 @@ def parse_ledger(text: str) -> LedgerArtifact:
         rows.append(raw)
     if not rows:
         raise AcceptanceError("ledger artifact is empty")
-    return LedgerArtifact(tuple(rows))
+    artifact = LedgerArtifact(tuple(rows))
+    if len(artifact.task_ids) != 1:
+        raise AcceptanceError("ledger rows must share one common nonempty task_id")
+    return artifact
 
 
 def render_report(result: AcceptanceResult) -> str:
@@ -795,7 +843,7 @@ jobs:
         with:
           repository: {SOURCE_REPOSITORY}
           ref: {action_ref}
-          token: ${{{{ secrets.GITHUB_TOKEN }}}}
+          token: ${{{{ secrets.{SOURCE_TOKEN_SECRET} }}}}
           path: _attest_action
       - name: Review pull request
         uses: ./_attest_action
