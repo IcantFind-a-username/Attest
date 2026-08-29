@@ -103,3 +103,52 @@ def test_run_review_cancels_partial_reservations_on_budget_defer(repo: Path) -> 
     assert provider.calls == 0
     assert run.budget.spent_usd == 0.0
     assert run.budget.reserved_usd == 0.0
+
+
+@pytest.mark.parametrize("payload", ["{not-json", '{"findings": "malformed"}'])
+def test_run_review_defers_when_no_provider_sample_is_valid(repo: Path, payload: str) -> None:
+    run = run_review(
+        repo,
+        None,
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        MockProvider([payload]),
+    )
+
+    assert run.deferred_reason == "all provider samples failed or were malformed"
+
+
+def test_run_review_accepts_valid_empty_and_partial_success(repo: Path) -> None:
+    empty = run_review(
+        repo,
+        None,
+        ReviewConfig(k_samples=1, tier0_commands=[]),
+        MockProvider(['{"findings": []}']),
+    )
+    partial = run_review(
+        repo,
+        None,
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        MockProvider(["{not-json", _payload()]),
+    )
+
+    assert empty.deferred_reason is None
+    assert partial.deferred_reason is None
+    assert len(partial.results) == 1
+
+
+def test_unreachable_gate_records_explainable_defer_and_zero_spend_run(repo: Path) -> None:
+    run = run_review(
+        repo,
+        None,
+        ReviewConfig(alpha=0.001, k_samples=1, tier0_commands=[]),
+        MockProvider([_payload()]),
+    )
+
+    rows = [
+        json.loads(line)
+        for line in (repo / ".attest" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert run.deferred_reason == "unreachable gate"
+    assert [row["kind"] for row in rows] == ["defer", "review_run"]
+    assert rows[0]["reason"] == "unreachable gate"
+    assert rows[1]["spend_usd"] == 0.0

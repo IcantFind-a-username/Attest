@@ -300,6 +300,26 @@ def run_ci(
     updated_results = list(results_by_id.values())
     outcome = apply_gate(updated_results, config.max_findings)
     surfaced = [*outcome.formal, *outcome.drawer_overflow]
+    ledger.record_ci_final(
+        task_id=task_id,
+        decisions=[
+            {
+                "finding_id": result.finding.finding_id,
+                "action": result.action,
+                "wealth_final": round(result.wealth, 4),
+                "placement": (
+                    "inline"
+                    if result in outcome.formal
+                    else "overflow"
+                    if result in outcome.drawer_overflow
+                    else result.action
+                ),
+            }
+            for result in updated_results
+        ],
+        spend_usd=review.budget.spent_usd,
+        elapsed_s=clock() - started,
+    )
     if surfaced:
         try:
             client.create_review(

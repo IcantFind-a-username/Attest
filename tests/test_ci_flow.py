@@ -34,7 +34,13 @@ class RecordingProvider:
         self._lock = Lock()
 
     def sample(
-        self, system: str, prompt: str, schema: dict[str, object], max_tokens: int
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, object],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
     ) -> ProviderResult:
         with self._lock:
             self.calls.append({"at": time.monotonic(), "system": system, "prompt": prompt})
@@ -499,7 +505,13 @@ def test_generation_latency_exhausts_deadline_before_executor_starts(
         calls = 0
 
         def sample(
-            self, system: str, prompt: str, schema: dict[str, object], max_tokens: int
+            self,
+            system: str,
+            prompt: str,
+            schema: dict[str, object],
+            max_tokens: int,
+            *,
+            timeout_s: float | None = None,
         ) -> ProviderResult:
             self.calls += 1
             if "focused pytest reproduction" in system:
@@ -773,6 +785,27 @@ def test_surface_overflow_stays_visible_without_extra_inline_placement(
     assert isinstance(comments, list)
     assert len(comments) == 3
     assert all(str(finding["claim"]) in github_server.status_bodies[-1] for finding in findings)
+    rows = _ledger_rows(repo)
+    final = next(row for row in rows if row["kind"] == "ci_final")
+    assert float(final["spend_usd"]) == pytest.approx(result.spend_usd)
+    decisions = final["decisions"]
+    assert isinstance(decisions, list)
+    assert len(decisions) == 4
+    assert {decision["action"] for decision in decisions} == {"surface"}
+
+    classified = classify_comments(
+        [],
+        [
+            {"id": index, "created_at": "2026-08-29T00:00:01Z", **comment}
+            for index, comment in enumerate(comments, start=1)
+        ],
+    )
+    parse_ledger(
+        (repo / ".attest" / "ledger.jsonl").read_text(encoding="utf-8")
+    ).assert_event_coverage(
+        expected_comment_phases=BUG_COMMENT_PHASES,
+        inline_finding_ids=classified.finding_ids,
+    )
 
 
 def test_mixed_defer_summary_keeps_all_surfaced_overflow_and_hides_deferred_details(
@@ -825,7 +858,13 @@ def test_mixed_defer_summary_keeps_all_surfaced_overflow_and_hides_deferred_deta
 
     class MixedProvider:
         def sample(
-            self, system: str, prompt: str, schema: dict[str, object], max_tokens: int
+            self,
+            system: str,
+            prompt: str,
+            schema: dict[str, object],
+            max_tokens: int,
+            *,
+            timeout_s: float | None = None,
         ) -> ProviderResult:
             if "focused pytest reproduction" not in system:
                 return ProviderResult(text=proposal, input_tokens=10, output_tokens=10)

@@ -157,6 +157,14 @@ def test_review_budget_defer(repo: Path, mocks: list[str], capsys) -> None:
     assert any(e["kind"] == "defer" for e in entries)
 
 
+@pytest.mark.parametrize("timeout", ["nan", "inf", "0", "-1"])
+def test_ci_rejects_nonfinite_or_nonpositive_verification_timeout(timeout: str) -> None:
+    with pytest.raises(SystemExit) as caught:
+        main(["ci", "--event-path", "event.json", "--verification-timeout", timeout])
+
+    assert caught.value.code == 2
+
+
 def test_review_no_diff(repo: Path, mocks: list[str], capsys) -> None:
     subprocess.run(["git", "-C", str(repo), "checkout", "--", "app.py"], check=True)
     rc = main(["--repo", str(repo), "review", "--mock", mocks[0]])

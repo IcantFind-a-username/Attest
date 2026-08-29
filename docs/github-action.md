@@ -19,6 +19,12 @@ The action installs attest from the action checkout into a temporary `uv` virtua
 environment; it does not install a published package. `budget-usd`, `samples`, and
 `verification-timeout` shown above are the defaults.
 
+Reproduction tests use the action interpreter by default. If the reviewed project
+needs dependencies from its own prepared environment, set `ATTEST_PROJECT_PYTHON`
+at the job level to that environment's absolute Python path (for example,
+`${{ github.workspace }}/.venv/bin/python`) and ensure it includes pytest. The
+executor still applies its process, network, time, memory, and output controls.
+
 ## Safety model
 
 The action first compares the head and destination repository names in a

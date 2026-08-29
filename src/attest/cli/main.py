@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -19,6 +20,13 @@ from attest.review.ledger import Ledger
 from attest.review.proposer import ApiProvider, MockProvider, Provider
 from attest.review.report import render
 from attest.review.run import run_review
+
+
+def _positive_finite(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a finite number greater than zero")
+    return parsed
 
 
 def cmd_review(args: argparse.Namespace) -> int:
@@ -184,9 +192,26 @@ def cmd_stats(args: argparse.Namespace) -> int:
     config = load_config(repo)
     ledger = Ledger(repo)
     entries = ledger.entries()
-    runs = [e for e in entries if e.get("kind") == "review_run"]
+    final_runs = [e for e in entries if e.get("kind") == "ci_final"]
+    final_tasks = {str(e.get("task_id", "")) for e in final_runs}
+    runs = [
+        e
+        for e in entries
+        if e.get("kind") == "review_run" and str(e.get("task_id", "")) not in final_tasks
+    ] + final_runs
     reviews = [e for e in entries if e.get("kind") == "review"]
-    surfaced = [e for e in reviews if str(e.get("action", "")).endswith("surface")]
+    surfaced = [
+        e
+        for e in reviews
+        if str(e.get("action", "")).endswith("surface")
+        and str(e.get("task_id", "")) not in final_tasks
+    ]
+    surfaced.extend(
+        decision
+        for run in final_runs
+        for decision in run.get("decisions", [])
+        if isinstance(decision, dict) and decision.get("action") == "surface"
+    )
     precision, n = ledger.surfaced_precision()
     spend = sum(float(e.get("spend_usd", 0)) for e in runs)
     lat = sorted(float(e["elapsed_s"]) for e in runs if "elapsed_s" in e)
@@ -227,7 +252,7 @@ def main(argv: list[str] | None = None) -> int:
     p_ci.add_argument("--event-path", required=True, help="GitHub pull_request event JSON")
     p_ci.add_argument(
         "--verification-timeout",
-        type=float,
+        type=_positive_finite,
         default=600.0,
         help="shared verification deadline in seconds (default: 600)",
     )

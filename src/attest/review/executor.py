@@ -27,6 +27,7 @@ MAX_REPRO_TOKENS = 2_000
 CLEANUP_TIMEOUT_S = 1.0
 CAP_SYS_ADMIN = 21
 CAP_SYS_RESOURCE = 24
+_CREDENTIAL_NAME_PARTS = ("TOKEN", "SECRET", "PASSWORD", "API_KEY", "CREDENTIAL")
 
 REPRO_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -245,12 +246,20 @@ def generate_repro(
     candidate: StoredCandidate,
     provider: Provider,
     budget: Budget,
+    *,
+    timeout_s: float | None = None,
 ) -> ReproSpec:
     prompt = _generation_prompt(repo, candidate)
     label = f"verify-{candidate.finding.finding_id}"
     reservation = budget.reserve(label, len(GENERATOR_SYSTEM) + len(prompt), MAX_REPRO_TOKENS)
     try:
-        result = provider.sample(GENERATOR_SYSTEM, prompt, REPRO_SCHEMA, MAX_REPRO_TOKENS)
+        result = provider.sample(
+            GENERATOR_SYSTEM,
+            prompt,
+            REPRO_SCHEMA,
+            MAX_REPRO_TOKENS,
+            timeout_s=timeout_s,
+        )
     except Exception:
         budget.cancel(reservation)
         raise
@@ -349,6 +358,21 @@ def _safe_path_component(value: str) -> bool:
 
 def _remaining(deadline: float) -> float:
     return max(0.0, deadline - time.monotonic())
+
+
+def _reproduction_environment(site_dir: Path) -> dict[str, str]:
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if not any(part in name.upper() for part in _CREDENTIAL_NAME_PARTS)
+    }
+    env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    env["PYTHONSAFEPATH"] = "1"
+    old_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        str(site_dir) if not old_pythonpath else str(site_dir) + os.pathsep + old_pythonpath
+    )
+    return env
 
 
 def _linux_capabilities_override_process_limit() -> bool | None:
@@ -487,6 +511,9 @@ def execute_repro(
     containment_reason = _process_containment_unavailable_reason()
     if containment_reason is not None:
         return _deferred(containment_reason, started)
+    interpreter = os.environ.get("ATTEST_PROJECT_PYTHON", sys.executable)
+    if not Path(interpreter).is_file() or not os.access(interpreter, os.X_OK):
+        return _deferred("reviewed-project Python interpreter is unavailable", started)
 
     work_dir = (
         repo_root
@@ -534,16 +561,10 @@ def execute_repro(
         ):
             marker.unlink(missing_ok=True)
 
-        env = os.environ.copy()
-        env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
-        env["PYTHONSAFEPATH"] = "1"
-        old_pythonpath = env.get("PYTHONPATH")
-        env["PYTHONPATH"] = (
-            str(site_dir) if not old_pythonpath else str(site_dir) + os.pathsep + old_pythonpath
-        )
+        env = _reproduction_environment(site_dir)
         raw_process = subprocess.Popen(
             [
-                sys.executable,
+                interpreter,
                 "-m",
                 "pytest",
                 "-q",
@@ -722,8 +743,17 @@ def verify_candidate(
     clock: Callable[[], float] = time.monotonic,
 ) -> VerificationRun:
     started = time.monotonic()
+    remaining_before_generation = None if deadline is None else max(0.0, deadline - clock())
     try:
-        spec = generate_repro(repo, candidate, provider, budget)
+        if remaining_before_generation is not None and remaining_before_generation <= 0:
+            raise TimeoutError("shared verification deadline exceeded before generation")
+        spec = generate_repro(
+            repo,
+            candidate,
+            provider,
+            budget,
+            timeout_s=remaining_before_generation,
+        )
     except Exception as exc:  # noqa: BLE001 - generation failures are ternary DEFER
         execution = _deferred(
             f"generation failed: {type(exc).__name__}: {exc}",

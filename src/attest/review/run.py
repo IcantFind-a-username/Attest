@@ -172,6 +172,19 @@ def run_review(
 
     feasibility = gate_feasibility(alpha)
     if not feasibility["reachable_with_verification"]:
+        elapsed = clock() - started
+        ledger.append({"kind": "defer", "task_id": task_id, "reason": "unreachable gate"})
+        ledger.append(
+            _review_run_entry(
+                task_id=task_id,
+                elapsed_s=elapsed,
+                budget=budget,
+                config=config,
+                alpha=alpha,
+                files=len(diff.files),
+                phase="gate_feasibility",
+            )
+        )
         return ReviewRun(
             task_id=task_id,
             alpha=alpha,
@@ -183,7 +196,7 @@ def run_review(
                 "even with verification; refusing to run an unreachable gate."
             ],
             deferred_reason="unreachable gate",
-            elapsed_s=clock() - started,
+            elapsed_s=elapsed,
         )
     if not feasibility["reachable_without_verification"]:
         notes.append(
@@ -197,13 +210,24 @@ def run_review(
     phase = "proposal"
     try:
         proposal = propose(diff, config, budget, provider)
+        if proposal.successful_samples == 0:
+            deferred_reason = "all provider samples failed or were malformed"
+            ledger.append({"kind": "defer", "task_id": task_id, "reason": deferred_reason})
         phase = "static_analysis"
-        signals = collect_signals(repo, diff.files, config.tier0_commands)
+        signals = (
+            []
+            if deferred_reason is not None
+            else collect_signals(repo, diff.files, config.tier0_commands)
+        )
         phase = "candidate_evaluation"
-        results = [
-            evaluate_finding(finding, alpha, signals_near(signals, finding.file, finding.line))
-            for finding in proposal.candidates
-        ]
+        results = (
+            []
+            if deferred_reason is not None
+            else [
+                evaluate_finding(finding, alpha, signals_near(signals, finding.file, finding.line))
+                for finding in proposal.candidates
+            ]
+        )
         outcome = apply_gate(results, config.max_findings)
         phase = "candidate_persistence"
         CandidateStore(repo).append(task_id, alpha, results)

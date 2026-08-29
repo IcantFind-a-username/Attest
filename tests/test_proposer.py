@@ -42,6 +42,7 @@ def test_provider_errors_cancel_reservations() -> None:
     assert "TimeoutError" in run.sample_errors[0]
     assert budget.reserved_usd == pytest.approx(0.0)
     assert budget.spent_usd == pytest.approx(0.0)
+    assert run.successful_samples == 0
 
 
 def test_unparseable_json_is_a_sample_error_but_spend_settles() -> None:
@@ -52,6 +53,7 @@ def test_unparseable_json_is_a_sample_error_but_spend_settles() -> None:
     assert len(run.sample_errors) == 2
     assert "unparseable" in run.sample_errors[0]
     assert budget.spent_usd > 0  # the calls happened; the spend is real
+    assert run.successful_samples == 0
 
 
 def test_non_list_findings_tolerated() -> None:
@@ -59,7 +61,20 @@ def test_non_list_findings_tolerated() -> None:
     budget = Budget(limit_usd=0.25, model=DEFAULT_MODEL)
     run = propose(DIFF, cfg, budget, MockProvider(['{"findings": "nope"}']))
     assert run.candidates == []
-    assert run.sample_errors == []
+    assert run.sample_errors
+    assert run.successful_samples == 0
+
+
+def test_valid_empty_sample_is_successful() -> None:
+    run = propose(
+        DIFF,
+        ReviewConfig(k_samples=1),
+        Budget(limit_usd=0.25, model=DEFAULT_MODEL),
+        MockProvider(['{"findings": []}']),
+    )
+
+    assert run.candidates == []
+    assert run.successful_samples == 1
 
 
 def test_build_prompt_contains_diff() -> None:

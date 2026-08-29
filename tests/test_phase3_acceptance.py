@@ -15,9 +15,13 @@ from scripts.acceptance.phase3 import (  # noqa: E402
     AcceptanceResult,
     AcceptanceService,
     CommandResult,
+    CommentClassification,
+    LedgerArtifact,
     PreflightError,
     SubprocessRunner,
+    _PullRequest,
     _workflow_text,
+    _WorkflowRun,
     build_private_repo_command,
     classify_comments,
     parse_ledger,
@@ -157,6 +161,7 @@ def test_scratch_workflow_keeps_run_specific_artifact_name_exact() -> None:
     ) in workflow
     assert "uses: ./_attest_action" in workflow
     assert "ref: feature/phase-3-action" in workflow
+    assert "ref: ${{ github.event.pull_request.head.sha }}" in workflow
 
 
 def test_seed_configures_repo_scoped_gh_credential_helper_before_push() -> None:
@@ -426,6 +431,35 @@ def test_ledger_coverage_rejects_duplicate_inline_finding_count() -> None:
         )
 
 
+def test_ledger_coverage_allows_reproduced_overflow_without_inline_placement() -> None:
+    rows = [json.loads(line) for line in _ledger_text().splitlines()]
+    rows.insert(
+        1,
+        {
+            "kind": "review",
+            "task_id": "task-1",
+            "finding_id": "finding-overflow",
+            "spend": 0.001,
+            "action": "drawer",
+        },
+    )
+    rows.insert(
+        3,
+        {
+            "kind": "verification",
+            "task_id": "task-1",
+            "finding_id": "finding-overflow",
+            "outcome": "reproduced",
+        },
+    )
+    ledger = parse_ledger("\n".join(json.dumps(row) for row in rows))
+
+    ledger.assert_event_coverage(
+        expected_comment_phases=BUG_COMMENT_PHASES,
+        inline_finding_ids=("finding-1",),
+    )
+
+
 def test_control_ledger_requires_exact_non_review_comment_phases() -> None:
     rows = [
         json.dumps(
@@ -499,6 +533,97 @@ def test_spend_insertion_is_idempotent_by_run_id_and_updates_total() -> None:
         "(https://github.com/octocat/scratch) | $0.0500 |"
     ) in updated
     assert "**Total API spend: $0.2000 of $10.00.**" in updated
+
+
+def _workflow_run(run_id: int, spend: float) -> _WorkflowRun:
+    return _WorkflowRun(
+        run_id=run_id,
+        url=f"https://github.invalid/actions/runs/{run_id}",
+        created_at="2026-08-29T00:00:00Z",
+        job_started_at="2026-08-29T00:00:01Z",
+        queue_seconds=1.0,
+        sticky_seconds=1.0,
+        comments=CommentClassification((), (), ()),
+        ledger=LedgerArtifact(
+            (
+                {
+                    "kind": "ci_final",
+                    "task_id": f"task-{run_id}",
+                    "decisions": [],
+                    "spend_usd": spend,
+                },
+            )
+        ),
+    )
+
+
+def _acceptance_orchestrator(
+    monkeypatch: pytest.MonkeyPatch, runs: list[_WorkflowRun | Exception]
+) -> AcceptanceService:
+    spend_path = Path("/workspace/DEVSPEND.md")
+    service = _service(
+        FakeRunner([]),
+        files={spend_path: "**Total API spend: $0.0000 of $10.00.**\n"},
+    )
+    monkeypatch.setattr(service, "preflight", lambda: None)
+    monkeypatch.setattr(service, "_json_command", lambda *args: {"login": "octocat"})
+    monkeypatch.setattr(service, "_checked", lambda *args, **kwargs: CommandResult(0))
+    monkeypatch.setattr(service, "_seed_repository", lambda *args: None)
+    monkeypatch.setattr(service, "_install_secrets", lambda *args: None)
+    monkeypatch.setattr(
+        service,
+        "_create_bug_pr",
+        lambda *args: _PullRequest(1, "https://github.invalid/pull/1", "bug"),
+    )
+    monkeypatch.setattr(
+        service,
+        "_create_control_pr",
+        lambda *args: _PullRequest(2, "https://github.invalid/pull/2", "control"),
+    )
+
+    def inspect(*args: object) -> _WorkflowRun:
+        value = runs.pop(0)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    monkeypatch.setattr(service, "_inspect_run", inspect)
+    return service
+
+
+def test_acceptance_records_first_artifact_spend_when_second_run_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _acceptance_orchestrator(
+        monkeypatch, [_workflow_run(101, 0.03), AcceptanceError("second run failed")]
+    )
+
+    with pytest.raises(AcceptanceError, match="second run"):
+        service.run_acceptance("local-ref")
+
+    ledger = service.filesystem.read_text(Path("/workspace/DEVSPEND.md"))
+    assert "phase-3 acceptance run 101" in ledger
+    assert "phase-3 acceptance run 102" not in ledger
+
+
+def test_acceptance_records_both_artifact_spends_before_matrix_assertion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _acceptance_orchestrator(
+        monkeypatch, [_workflow_run(101, 0.03), _workflow_run(102, 0.02)]
+    )
+    monkeypatch.setattr(
+        service,
+        "_assert_matrix",
+        lambda *args: (_ for _ in ()).throw(AcceptanceError("matrix failed")),
+    )
+
+    with pytest.raises(AcceptanceError, match="matrix"):
+        service.run_acceptance("local-ref")
+
+    ledger = service.filesystem.read_text(Path("/workspace/DEVSPEND.md"))
+    assert ledger.count("phase-3 acceptance run 101") == 1
+    assert ledger.count("phase-3 acceptance run 102") == 1
 
 
 def test_report_contains_inspectable_repository_pr_and_run_urls() -> None:

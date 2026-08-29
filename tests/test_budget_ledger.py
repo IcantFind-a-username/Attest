@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from attest.review.budget import Budget, BudgetExceeded
@@ -211,3 +213,16 @@ def test_record_verification_preserves_identity_and_evidence_without_changing_re
         "network_blocked": network_blocked,
         "evidence": evidence,
     }
+
+
+def test_final_ci_decisions_drive_surfaced_precision(tmp_path: Path) -> None:
+    led = Ledger(tmp_path)
+    led.record_review("task", "finding", [], 0.01, 4.0, "drawer")
+    led.record_ci_final(
+        task_id="task",
+        decisions=[{"finding_id": "finding", "action": "surface", "wealth_final": 40.0}],
+        spend_usd=0.02,
+    )
+    led.record_feedback("finding", "good")
+
+    assert led.surfaced_precision() == (1.0, 1)

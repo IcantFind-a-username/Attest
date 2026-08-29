@@ -10,13 +10,13 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [{ name = "Franz Xu" }]
-dependencies = ["numpy>=1.26", "anthropic>=1.0"]
+dependencies = ["numpy>=1.26", "anthropic>=1.0", "pytest>=8"]
 
 [project.scripts]
 attest = "attest.cli.main:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "mypy>=1.11"]
+dev = ["pytest-cov>=5", "ruff>=0.6", "mypy>=1.11"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/attest"]

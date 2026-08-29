@@ -12,7 +12,7 @@ if [ ! -r "$GITHUB_EVENT_PATH" ]; then
     exit 2
 fi
 
-is_trusted=$(
+event_details=$(
     python3 - "$GITHUB_EVENT_PATH" <<'PY'
 import json
 import sys
@@ -22,7 +22,10 @@ try:
         event = json.load(event_file)
     repository = event["repository"]["full_name"]
     head_repository = event["pull_request"]["head"]["repo"]["full_name"]
-    print("true" if head_repository == repository else "false")
+    head_sha = event["pull_request"]["head"]["sha"]
+    if not isinstance(head_sha, str) or not head_sha or any(character.isspace() for character in head_sha):
+        raise ValueError("invalid head SHA")
+    print(("true" if head_repository == repository else "false") + " " + head_sha)
 except (KeyError, TypeError, ValueError, OSError):
     sys.exit(2)
 PY
@@ -30,10 +33,21 @@ PY
     echo "error: invalid pull request event" >&2
     exit 2
 }
+is_trusted=${event_details%% *}
+expected_head=${event_details#* }
 
 if [ "$is_trusted" = "false" ]; then
     echo "attest: fork pull request skipped before credentials or head-code execution"
     exit 0
+fi
+
+actual_head=$(git -C "${GITHUB_WORKSPACE:-}" rev-parse HEAD 2>/dev/null) || {
+    echo "error: workspace HEAD is unavailable" >&2
+    exit 2
+}
+if [ "$actual_head" != "$expected_head" ]; then
+    echo "error: workspace HEAD does not match pull request head" >&2
+    exit 2
 fi
 
 github_token=${INPUT_GITHUB_TOKEN:-}

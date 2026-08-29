@@ -143,6 +143,27 @@ def test_upsert_issue_comment_updates_first_bot_marker_across_pages(
     }
 
 
+def test_pagination_rejects_next_link_on_a_different_origin(
+    github_server: _FakeGitHub,
+) -> None:
+    from attest.github.client import STATUS_MARKER, GitHubApiError, GitHubClient
+
+    first_page = "/repos/octo/widgets/issues/9/comments?per_page=100&page=1"
+    github_server.reply(
+        "GET",
+        first_page,
+        [],
+        headers={"Link": '<https://attacker.invalid/steal>; rel="next"'},
+    )
+
+    with pytest.raises(GitHubApiError, match="pagination origin"):
+        GitHubClient("sensitive-token", github_server.url).upsert_issue_comment(
+            "octo/widgets", 9, STATUS_MARKER, "Review complete."
+        )
+
+    assert len(github_server.requests) == 1
+
+
 def test_create_review_posts_one_batched_review_payload(github_server: _FakeGitHub) -> None:
     from attest.github.client import GitHubClient
 

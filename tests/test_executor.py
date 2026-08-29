@@ -35,11 +35,19 @@ class RecordingProvider:
         self.result = result
         self.on_sample = on_sample
         self.requests: list[tuple[str, str, dict[str, Any], int]] = []
+        self.timeouts: list[float | None] = []
 
     def sample(
-        self, system: str, prompt: str, schema: dict[str, Any], max_tokens: int
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
     ) -> ProviderResult:
         self.requests.append((system, prompt, schema, max_tokens))
+        self.timeouts.append(timeout_s)
         if self.on_sample is not None:
             self.on_sample()
         if isinstance(self.result, Exception):
@@ -126,6 +134,31 @@ def test_generate_uses_literal_schema_and_candidate_details(tmp_path: Path) -> N
         }
     ]
     assert budget.reserved_usd == 0.0
+
+
+def test_verify_passes_remaining_shared_deadline_to_repro_provider(tmp_path: Path) -> None:
+    from attest.review.executor import ExecutorLimits, verify_candidate
+
+    provider = RecordingProvider(
+        ProviderResult(
+            text='{"test_body":"def test_repro(): assert True"}',
+            input_tokens=1,
+            output_tokens=1,
+        )
+    )
+
+    verify_candidate(
+        tmp_path,
+        candidate(line=1),
+        original_gate(candidate(line=1)),
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        deadline=15.0,
+        clock=lambda: 10.0,
+    )
+
+    assert provider.timeouts == [5.0]
 
 
 def test_generate_limits_source_context_to_200_lines_around_anchor(tmp_path: Path) -> None:
@@ -783,6 +816,31 @@ def test_execute_resolves_relative_repository_before_building_paths(
     ).is_file()
 
 
+def test_execute_can_use_reviewed_project_python_seam(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from attest.review.executor import ExecutionOutcome, ExecutorLimits, ReproSpec, execute_repro
+
+    marker = tmp_path / "project-python-used"
+    wrapper = tmp_path / "project-python"
+    wrapper.write_text(
+        f"#!/bin/sh\nprintf used > {str(marker)!r}\nexec {sys.executable!r} \"$@\"\n",
+        encoding="utf-8",
+    )
+    wrapper.chmod(0o755)
+    monkeypatch.setenv("ATTEST_PROJECT_PYTHON", str(wrapper))
+
+    result = execute_repro(
+        tmp_path,
+        candidate(line=1),
+        ReproSpec("def test_repro(): assert True"),
+        ExecutorLimits(),
+    )
+
+    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert marker.read_text(encoding="utf-8") == "used"
+
+
 def test_execute_truncates_each_output_stream_to_last_bytes(tmp_path: Path) -> None:
     from attest.review.executor import ExecutorLimits, ReproSpec, execute_repro
 
@@ -802,6 +860,47 @@ def test_execute_truncates_each_output_stream_to_last_bytes(tmp_path: Path) -> N
     assert 0 < len(result.stdout.encode("utf-8")) <= 128
     assert len(result.stderr.encode("utf-8")) <= 128
     assert not result.stdout.startswith("A" * 128)
+
+
+def test_verification_subprocess_drops_credentials_and_redacts_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from attest.review.executor import ExecutorLimits, verify_candidate
+
+    secret = "credential-that-must-never-reach-artifacts"
+    monkeypatch.setenv("GITHUB_TOKEN", secret)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "model-credential")
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps(
+                {
+                    "test_body": (
+                        "import os\n"
+                        "def test_secret_isolation():\n"
+                        "    assert os.getenv('GITHUB_TOKEN') is None\n"
+                        f"    raise AssertionError({secret!r})\n"
+                    )
+                }
+            ),
+            input_tokens=1,
+            output_tokens=1,
+        )
+    )
+
+    verification = verify_candidate(
+        tmp_path,
+        candidate(line=1),
+        original_gate(candidate(line=1)),
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(wall_timeout_s=10),
+    )
+
+    assert verification.execution.outcome.value == "reproduced"
+    artifact = (tmp_path / ".attest" / "ledger.jsonl").read_text(encoding="utf-8")
+    assert secret not in artifact
+    assert "model-credential" not in artifact
+    assert "[REDACTED]" in artifact
 
 
 def test_execute_high_volume_output_uses_bounded_parent_memory(tmp_path: Path) -> None:

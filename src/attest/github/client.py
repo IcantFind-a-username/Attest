@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 STATUS_MARKER = "<!-- attest:status -->"
@@ -73,6 +74,10 @@ class GitHubClient:
     ) -> tuple[object, dict[str, str]]:
         if path_or_url.startswith(("http://", "https://")):
             url = path_or_url
+            configured = urlsplit(self._api_url)
+            requested = urlsplit(url)
+            if (requested.scheme, requested.netloc) != (configured.scheme, configured.netloc):
+                raise GitHubApiError("GitHub pagination origin does not match configured API")
         else:
             url = self._api_url + path_or_url
         data = json.dumps(payload).encode("utf-8") if payload is not None else None

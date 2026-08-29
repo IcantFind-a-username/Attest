@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import subprocess
@@ -145,6 +146,13 @@ class LedgerArtifact:
 
     @property
     def spend_usd(self) -> float:
+        final_runs = [
+            float(row["spend_usd"])
+            for row in self.rows
+            if row.get("kind") == "ci_final" and _is_number(row.get("spend_usd"))
+        ]
+        if final_runs:
+            return round(final_runs[-1], 6)
         review_runs = [
             float(row["spend_usd"])
             for row in self.rows
@@ -188,10 +196,21 @@ class LedgerArtifact:
             raise AcceptanceError("ledger verification references an unreviewed candidate")
 
         inline_ids = tuple(inline_finding_ids)
-        if len(inline_ids) != len(set(inline_ids)) or set(inline_ids) != reproduced_ids:
+        inline_set = set(inline_ids)
+        if len(inline_ids) != len(inline_set) or not inline_set.issubset(reproduced_ids):
             raise AcceptanceError(
                 "inline finding identities do not match reproduced ledger rows"
             )
+        final_rows = [row for row in self.rows if row.get("kind") == "ci_final"]
+        if final_rows:
+            decisions = final_rows[-1].get("decisions", [])
+            surfaced_ids = {
+                str(decision.get("finding_id"))
+                for decision in decisions
+                if isinstance(decision, dict) and decision.get("action") == "surface"
+            }
+            if not inline_set.issubset(surfaced_ids):
+                raise AcceptanceError("inline finding identities are not final surfaced decisions")
 
 
 @dataclass(frozen=True)
@@ -308,7 +327,11 @@ class AcceptanceService:
                 bug_pr = self._create_bug_pr(checkout, repository)
                 control_pr = self._create_control_pr(checkout, repository)
                 bug_run = self._inspect_run(repository, bug_pr, checkout / "artifacts")
+                self.record_spend(str(bug_run.run_id), bug_run.ledger.spend_usd, repository_url)
                 control_run = self._inspect_run(repository, control_pr, checkout / "artifacts")
+                self.record_spend(
+                    str(control_run.run_id), control_run.ledger.spend_usd, repository_url
+                )
                 self._assert_matrix(bug_run, control_run)
 
                 result = AcceptanceResult(
@@ -326,13 +349,7 @@ class AcceptanceService:
                     ),
                     run_urls={bug_run.run_id: bug_run.url, control_run.run_id: control_run.url},
                 )
-                self._record_live_success(
-                    result,
-                    {
-                        bug_run.run_id: bug_run.ledger.spend_usd,
-                        control_run.run_id: control_run.ledger.spend_usd,
-                    },
-                )
+                self._record_live_success(result)
                 if not keep_repo:
                     self._checked(("gh", "repo", "delete", repository, "--yes"))
                 return result
@@ -344,20 +361,7 @@ class AcceptanceService:
                 )
             raise
 
-    def _record_live_success(
-        self, result: AcceptanceResult, spend_by_run: Mapping[int, float]
-    ) -> None:
-        existing = self.filesystem.read_text(self.workspace / "DEVSPEND.md")
-        current_match = _spend_total_match(existing)
-        unrecorded = sum(
-            spend
-            for run_id, spend in spend_by_run.items()
-            if f"phase-3 acceptance run {run_id}" not in existing
-        )
-        if float(current_match.group(1)) + unrecorded > SPEND_CAP_USD + 1e-9:
-            raise AcceptanceError("$10.00 development spend cap would be exceeded")
-        for run_id, spend in spend_by_run.items():
-            self.record_spend(str(run_id), spend, result.repository_url)
+    def _record_live_success(self, result: AcceptanceResult) -> None:
         self.filesystem.write_text(
             self.workspace / "docs" / "acceptance" / "phase-3.md", render_report(result)
         )
@@ -487,7 +491,40 @@ class AcceptanceService:
         run_id = run.get("databaseId")
         if not isinstance(run_id, int):
             raise AcceptanceError("workflow run metadata is missing databaseId")
-        self._checked(("gh", "run", "watch", str(run_id), "--repo", repository, "--exit-status"))
+        try:
+            self.runner.run(
+                ("gh", "run", "watch", str(run_id), "--repo", repository, "--exit-status")
+            )
+        except FileNotFoundError:
+            raise AcceptanceError("required executable is unavailable: gh") from None
+
+        destination = artifact_root / str(run_id)
+        self.filesystem.mkdir(destination)
+        artifact_name = f"attest-ledger-pr-{pull_request.number}-run-{run_id}"
+        self._checked(
+            (
+                "gh",
+                "run",
+                "download",
+                str(run_id),
+                "--repo",
+                repository,
+                "--name",
+                artifact_name,
+                "--dir",
+                str(destination),
+            )
+        )
+        ledger_path = destination / "ledger.jsonl"
+        if not self.filesystem.exists(ledger_path):
+            nested = destination / ".attest" / "ledger.jsonl"
+            ledger_path = nested if self.filesystem.exists(nested) else ledger_path
+        if not self.filesystem.exists(ledger_path):
+            raise AcceptanceError(f"workflow run {run_id} ledger artifact is missing")
+        ledger = parse_ledger(self.filesystem.read_text(ledger_path))
+        self.record_spend(
+            str(run_id), ledger.spend_usd, f"https://github.com/{repository}"
+        )
 
         jobs = self._json_command(
             ("gh", "api", f"repos/{repository}/actions/runs/{run_id}/jobs"),
@@ -514,29 +551,6 @@ class AcceptanceService:
             raise AcceptanceError(f"PR {pull_request.number} has no sticky status comment")
         first_sticky_at = min(str(comment["created_at"]) for comment in comments.sticky)
 
-        destination = artifact_root / str(run_id)
-        self.filesystem.mkdir(destination)
-        artifact_name = f"attest-ledger-pr-{pull_request.number}-run-{run_id}"
-        self._checked(
-            (
-                "gh",
-                "run",
-                "download",
-                str(run_id),
-                "--repo",
-                repository,
-                "--name",
-                artifact_name,
-                "--dir",
-                str(destination),
-            )
-        )
-        ledger_path = destination / "ledger.jsonl"
-        if not self.filesystem.exists(ledger_path):
-            nested = destination / ".attest" / "ledger.jsonl"
-            ledger_path = nested if self.filesystem.exists(nested) else ledger_path
-        if not self.filesystem.exists(ledger_path):
-            raise AcceptanceError(f"workflow run {run_id} ledger artifact is missing")
         return _WorkflowRun(
             run_id=run_id,
             url=str(run_url),
@@ -545,7 +559,7 @@ class AcceptanceService:
             queue_seconds=sticky_seconds(str(created_at), str(job_started_at)),
             sticky_seconds=sticky_seconds(str(job_started_at), first_sticky_at),
             comments=comments,
-            ledger=parse_ledger(self.filesystem.read_text(ledger_path)),
+            ledger=ledger,
         )
 
     def _wait_for_run(self, repository: str, branch: str) -> dict[str, Any]:
@@ -780,6 +794,7 @@ def _validate_ledger_row(row: dict[str, Any], number: int) -> None:
         "review_run": ("task_id", "spend_usd"),
         "verification": ("task_id", "finding_id", "outcome"),
         "github_comment": ("task_id", "phase", "outcome"),
+        "ci_final": ("task_id", "decisions", "spend_usd"),
     }
     for field_name in event_required.get(kind, ("task_id",)):
         if field_name not in row or row[field_name] in (None, ""):
@@ -788,10 +803,18 @@ def _validate_ledger_row(row: dict[str, Any], number: int) -> None:
         raise AcceptanceError(f"ledger line {number} has invalid spend")
     if kind == "review_run" and not _is_number(row["spend_usd"]):
         raise AcceptanceError(f"ledger line {number} has invalid spend_usd")
+    if kind == "ci_final" and (
+        not isinstance(row["decisions"], list) or not _is_number(row["spend_usd"])
+    ):
+        raise AcceptanceError(f"ledger line {number} has invalid final accounting")
 
 
 def _is_number(value: object) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(float(value))
+    )
 
 
 def _spend_total_match(text: str) -> re.Match[str]:
@@ -832,6 +855,7 @@ jobs:
       - name: Check out pull request
         uses: actions/checkout@v4
         with:
+          ref: ${{{{ github.event.pull_request.head.sha }}}}
           fetch-depth: 0
       - name: Check out action
         uses: actions/checkout@v4

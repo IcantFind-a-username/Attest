@@ -46,7 +46,13 @@ class ProviderResult:
 
 class Provider(Protocol):
     def sample(
-        self, system: str, prompt: str, schema: dict[str, Any], max_tokens: int
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
     ) -> ProviderResult: ...
 
 
@@ -69,7 +75,13 @@ class ApiProvider:
         return self.client
 
     def sample(
-        self, system: str, prompt: str, schema: dict[str, Any], max_tokens: int
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
     ) -> ProviderResult:
         response = self._client().messages.create(
             model=self.model,
@@ -77,6 +89,7 @@ class ApiProvider:
             system=system,
             messages=[{"role": "user", "content": prompt}],
             output_config={"format": {"type": "json_schema", "schema": schema}},
+            timeout=self.timeout if timeout_s is None else timeout_s,
         )
         text = next((b.text for b in response.content if b.type == "text"), "{}")
         return ProviderResult(
@@ -96,7 +109,13 @@ class MockProvider:
         self.calls = 0
 
     def sample(
-        self, system: str, prompt: str, schema: dict[str, Any], max_tokens: int
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
     ) -> ProviderResult:
         text = self.payloads[self.calls % len(self.payloads)]
         self.calls += 1
@@ -108,6 +127,7 @@ class ProposalRun:
     candidates: list[Finding]
     rejected: list[str]  # human-readable rejection reasons (void findings)
     sample_errors: list[str]
+    successful_samples: int
 
 
 def build_prompt(diff: DiffInfo) -> str:
@@ -146,6 +166,7 @@ def propose(
     per_sample: list[list[Finding]] = []
     rejected: list[str] = []
     errors: list[str] = []
+    successful_samples = 0
     for i, res in enumerate(results):
         if isinstance(res, Exception):
             budget.cancel(reservations[i])
@@ -160,15 +181,29 @@ def propose(
             errors.append(f"sample {i}: unparseable JSON")
             per_sample.append([])
             continue
+        if not isinstance(raw_findings, list):
+            errors.append(f"sample {i}: malformed findings collection")
+            per_sample.append([])
+            continue
         valid: list[Finding] = []
-        for raw in raw_findings if isinstance(raw_findings, list) else []:
+        for raw in raw_findings:
+            if not isinstance(raw, dict):
+                rejected.append(f"sample {i}: malformed finding")
+                continue
             finding, reason = validate_finding(raw, diff)
             if finding is None:
                 rejected.append(f"sample {i}: {reason}")
             else:
                 valid.append(finding)
+        if not raw_findings or valid:
+            successful_samples += 1
+        else:
+            errors.append(f"sample {i}: all findings malformed")
         per_sample.append(valid)
 
     return ProposalRun(
-        candidates=merge_findings(per_sample), rejected=rejected, sample_errors=errors
+        candidates=merge_findings(per_sample),
+        rejected=rejected,
+        sample_errors=errors,
+        successful_samples=successful_samples,
     )

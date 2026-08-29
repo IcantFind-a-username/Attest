@@ -10,6 +10,7 @@ also the label source for the alpha auto-tighten rule and, eventually
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,6 +19,27 @@ from typing import Any
 ALPHA_FLOOR = 0.01
 PRECISION_TARGET = 0.90
 PRECISION_WINDOW = 50
+_SECRET_NAME_PARTS = ("TOKEN", "SECRET", "PASSWORD", "API_KEY", "CREDENTIAL")
+
+
+def _known_secrets() -> tuple[str, ...]:
+    return tuple(
+        value
+        for name, value in os.environ.items()
+        if value and any(part in name.upper() for part in _SECRET_NAME_PARTS)
+    )
+
+
+def _redact(value: Any, secrets: tuple[str, ...]) -> Any:
+    if isinstance(value, str):
+        for secret in secrets:
+            value = value.replace(secret, "[REDACTED]")
+        return value
+    if isinstance(value, dict):
+        return {key: _redact(item, secrets) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact(item, secrets) for item in value]
+    return value
 
 
 @dataclass
@@ -30,7 +52,10 @@ class Ledger:
 
     def append(self, entry: dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        entry = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **entry}
+        entry = _redact(
+            {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **entry},
+            _known_secrets(),
+        )
         with self.path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
@@ -100,18 +125,53 @@ class Ledger:
             }
         )
 
+    def record_ci_final(
+        self,
+        *,
+        task_id: str,
+        decisions: list[dict[str, Any]],
+        spend_usd: float,
+        elapsed_s: float | None = None,
+    ) -> None:
+        """Record authoritative post-verification decisions and total run spend."""
+        entry: dict[str, Any] = {
+            "kind": "ci_final",
+            "task_id": task_id,
+            "decisions": decisions,
+            "spend_usd": round(spend_usd, 6),
+        }
+        if elapsed_s is not None:
+            entry["elapsed_s"] = round(elapsed_s, 2)
+        self.append(entry)
+
     def surfaced_precision(self, window: int = PRECISION_WINDOW) -> tuple[float | None, int]:
         """Precision over the last `window` surfaced findings that have
         feedback labels. Returns (precision or None, n_labeled)."""
+        entries = self.entries()
+        final_tasks = {
+            str(e["task_id"])
+            for e in entries
+            if e.get("kind") == "ci_final" and isinstance(e.get("task_id"), str)
+        }
         surfaced_ids: list[str] = []
-        for e in self.entries():
+        for e in entries:
+            if e.get("kind") == "ci_final":
+                for decision in e.get("decisions", []):
+                    if isinstance(decision, dict) and decision.get("action") == "surface":
+                        fid = str(decision.get("finding_id", ""))
+                        if fid in surfaced_ids:
+                            surfaced_ids.remove(fid)
+                        if fid:
+                            surfaced_ids.append(fid)
             if e.get("kind") == "review" and str(e.get("action", "")).endswith("surface"):
+                if str(e.get("task_id", "")) in final_tasks:
+                    continue
                 fid = e["finding_id"]
                 if fid in surfaced_ids:  # re-verification must not double-count
                     surfaced_ids.remove(fid)
                 surfaced_ids.append(fid)
         labels: dict[str, bool] = {}
-        for e in self.entries():
+        for e in entries:
             if e.get("kind") == "feedback":
                 labels[e["finding_id"]] = e["feedback"] in ("fix", "good")
         labeled = [(fid, labels[fid]) for fid in surfaced_ids[-window:] if fid in labels]

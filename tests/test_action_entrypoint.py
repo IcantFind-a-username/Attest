@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -59,6 +60,14 @@ def _fake_attest(tmp_path: Path) -> tuple[Path, Path]:
 def _run_entrypoint(
     tmp_path: Path, event_path: Path, venv: Path, args_path: Path, **overrides: str
 ) -> subprocess.CompletedProcess[str]:
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir(exist_ok=True)
+    fake_git = fake_bin / "git"
+    fake_git.write_text(
+        "#!/bin/sh\nprintf '%s\\n' \"${ATTEST_FAKE_GIT_HEAD:-head-sha}\"\n",
+        encoding="utf-8",
+    )
+    fake_git.chmod(0o755)
     environment = os.environ | {
         "ATTEST_VENV": str(venv),
         "ATTEST_ARGS_PATH": str(args_path),
@@ -69,6 +78,7 @@ def _run_entrypoint(
         "INPUT_BUDGET_USD": "0.25",
         "INPUT_SAMPLES": "5",
         "INPUT_VERIFICATION_TIMEOUT": "600",
+        "PATH": str(fake_bin) + os.pathsep + os.environ["PATH"],
     }
     environment.update(overrides)
     return subprocess.run(
@@ -213,6 +223,30 @@ def test_entrypoint_never_emits_supplied_secrets(tmp_path: Path) -> None:
     assert "model-secret-value" not in output
 
 
+def test_entrypoint_fails_closed_when_workspace_head_does_not_match_event(tmp_path: Path) -> None:
+    event_path = tmp_path / "trusted-event.json"
+    _event(event_path)
+    venv, args_path = _fake_attest(tmp_path)
+
+    result = _run_entrypoint(
+        tmp_path,
+        event_path,
+        venv,
+        args_path,
+        ATTEST_FAKE_GIT_HEAD="different-head",
+    )
+
+    assert result.returncode != 0
+    assert not args_path.exists()
+    assert "HEAD" in result.stderr
+
+
+def test_example_workflow_checks_out_exact_pull_request_head() -> None:
+    example = (ROOT / "examples" / "pull-request.yml").read_text(encoding="utf-8")
+    expected = "ref: ${{ github.event.pull_request.head.sha }}"
+    assert expected in example
+
+
 def test_credential_free_gate_marks_cross_repository_event_untrusted(tmp_path: Path) -> None:
     """Catches a gate that either needs credentials or trusts a cross-repository event."""
     event_path = tmp_path / "fork-event.json"
@@ -246,3 +280,17 @@ def test_action_gate_has_no_credentials_and_only_trusted_execution_receives_them
         "INPUT_GITHUB_TOKEN",
         "INPUT_MODEL_API_KEY",
     }
+
+
+def test_action_install_includes_the_pytest_runtime_used_by_executor() -> None:
+    """Catches an action venv that cannot execute planted pytest reproductions."""
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    runtime_dependencies = project["project"]["dependencies"]
+    assert any(dependency.startswith("pytest") for dependency in runtime_dependencies)
+
+    install = next(
+        step
+        for step in _action_steps()
+        if step.get("name") == "Install attest from this action"
+    )
+    assert '"${{ github.action_path }}"' in install["run"]
