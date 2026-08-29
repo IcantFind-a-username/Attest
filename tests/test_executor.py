@@ -80,6 +80,44 @@ GUARDED_MEAN_MODULE = (
 UNGUARDED_MEAN_MODULE = "def mean(items):\n    return sum(items) / len(items)\n"
 MEAN_CRASH_BODY = "import mod\n\ndef test_repro():\n    mod.mean([])\n"
 
+# A root-level conftest.py is innocuous on its own, but pytest's prepend import
+# mode inserts the directory holding it at the front of sys.path, ahead of
+# anything PYTHONPATH contributes. Every fixture below therefore ships one.
+ROOT_CONFTEST = "# the reviewed project's own root conftest\n"
+# Any packaging config at the repository root anchors pytest's rootdir there,
+# which in turn makes the root conftest.py above discoverable from a generated
+# test written anywhere underneath it.
+PYPROJECT = '[project]\nname = "mypkg"\nversion = "0.0.1"\n'
+SRC_PATH_CONFTEST = (
+    "import sys\n"
+    "from pathlib import Path\n"
+    "\n"
+    'sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))\n'
+)
+GUARDED_CALC = (
+    "def average(items):\n"
+    "    if not items:\n"
+    "        return 0.0\n"
+    "    return sum(items) / len(items)\n"
+)
+UNGUARDED_CALC = "def average(items):\n    return sum(items) / len(items)\n"
+CALC_CRASH_BODY = "import mypkg.calc\n\ndef test_repro():\n    mypkg.calc.average([])\n"
+TOTAL_CALC = "def total(items):\n    return sum(items)\n"
+FIXTURE_CONFTEST = (
+    "import pytest\n"
+    "\n"
+    "\n"
+    "@pytest.fixture\n"
+    "def sample_items():\n"
+    "    return {items}\n"
+)
+FIXTURE_BODY = (
+    "import mypkg.calc\n"
+    "\n"
+    "def test_repro(sample_items):\n"
+    "    assert mypkg.calc.total(sample_items) == 6\n"
+)
+
 
 class RecordingProvider:
     def __init__(
@@ -189,6 +227,47 @@ def differential_repo(tmp_path: Path) -> tuple[Path, str, str]:
     return repo, base_sha, head_sha
 
 
+def write_layout(root: Path, files: dict[str, str]) -> None:
+    """Materialise `files` (relative posix paths -> contents) under `root`."""
+    for name, text in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+
+def provenance_body(tree: Path, modules: tuple[str, ...], origin: str) -> str:
+    """A generated reproduction that passes only when every named module was
+    imported out of `tree`, and that names the offending file when it was not."""
+    lines = [
+        "from pathlib import Path",
+        "",
+        *[f"import {module}" for module in modules],
+        "",
+        f"TREE = Path({str(tree)!r}).resolve()",
+        f"MODULES = ({', '.join(modules)},)",
+        "",
+        "",
+        "def test_repro():",
+        "    for module in MODULES:",
+        "        resolved = Path(module.__file__).resolve()",
+        '        detail = module.__name__ + " -> " + str(resolved)',
+        '        detail += " origin=" + module.ORIGIN',
+        "        assert TREE in resolved.parents, detail",
+        f"        assert module.ORIGIN == {origin!r}, detail",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def provenance_layout(origin: str, *, conftest: str = ROOT_CONFTEST) -> dict[str, str]:
+    """A flat module plus a src/ module, both stamped with `origin`, under a
+    root-level conftest.py."""
+    return {
+        "conftest.py": conftest,
+        "mod.py": f"ORIGIN = {origin!r}\n",
+        "src/nested.py": f"ORIGIN = {origin!r}\n",
+    }
+
+
 def two_commit_repo(
     tmp_path: Path, base_files: dict[str, str], head_files: dict[str, str]
 ) -> tuple[Path, str, str]:
@@ -197,18 +276,14 @@ def two_commit_repo(
     repo = tmp_path / "repo"
     repo.mkdir()
     run_git(repo, "init", "--initial-branch=main")
-    for name, text in base_files.items():
-        (repo / name).parent.mkdir(parents=True, exist_ok=True)
-        (repo / name).write_text(text, encoding="utf-8")
+    write_layout(repo, base_files)
     run_git(repo, "add", "--all")
     run_git(repo, "commit", "-m", "base")
     base_sha = run_git(repo, "rev-parse", "HEAD")
     for name in base_files:
         if name not in head_files:
             (repo / name).unlink()
-    for name, text in head_files.items():
-        (repo / name).parent.mkdir(parents=True, exist_ok=True)
-        (repo / name).write_text(text, encoding="utf-8")
+    write_layout(repo, head_files)
     run_git(repo, "add", "--all")
     run_git(repo, "commit", "-m", "head")
     head_sha = run_git(repo, "rev-parse", "HEAD")
@@ -1327,6 +1402,9 @@ def test_verify_candidate_defers_failures_without_buying_v_evidence(
 
 
 def test_execute_repro_imports_code_from_the_given_tree(tmp_path: Path) -> None:
+    """Provenance, asserted directly: the reproduction must import the revision
+    under test even when the reviewed project carries a root-level conftest.py
+    whose directory pytest prepends to sys.path."""
     from attest.review.executor import (
         ExecutionOutcome,
         ExecutorLimits,
@@ -1334,42 +1412,170 @@ def test_execute_repro_imports_code_from_the_given_tree(tmp_path: Path) -> None:
         execute_repro,
     )
 
-    for name, value in (("tree-one", 1), ("tree-two", 2)):
-        tree = tmp_path / name
-        (tree / "src").mkdir(parents=True)
-        (tree / "mod.py").write_text(f"VALUE = {value}\n", encoding="utf-8")
-        (tree / "src" / "nested.py").write_text(f"VALUE = {value}\n", encoding="utf-8")
-    body = (
-        "import mod\n"
-        "import nested\n"
-        "def test_repro():\n"
-        "    assert (mod.VALUE, nested.VALUE) == (1, 1)\n"
+    repo = tmp_path / "repo"
+    write_layout(repo, provenance_layout("repo-root"))
+    trees = {name: repo / "trees" / name for name in ("tree-one", "tree-two")}
+    for name, tree in trees.items():
+        write_layout(tree, provenance_layout(name))
+    stored = candidate(line=1)
+
+    def run(tree: Path, expected: Path, label: str) -> Any:
+        return execute_repro(
+            repo,
+            stored,
+            ReproSpec(provenance_body(expected, ("mod", "nested"), expected.name)),
+            ExecutorLimits(),
+            tree=tree,
+            run_label=label,
+        )
+
+    one = run(trees["tree-one"], trees["tree-one"], "tree-one")
+    two = run(trees["tree-two"], trees["tree-two"], "tree-two")
+    # control: the provenance assertion really is able to fail
+    mismatched = run(trees["tree-two"], trees["tree-one"], "mismatched")
+
+    assert one.outcome is ExecutionOutcome.NOT_REPRODUCED, f"{one.reason}\n{one.stdout}"
+    assert one.network_blocked is True
+    assert two.outcome is ExecutionOutcome.NOT_REPRODUCED, f"{two.reason}\n{two.stdout}"
+    assert mismatched.outcome is ExecutionOutcome.REPRODUCED
+    # the generated source stays on disk under the repository for the audit trail
+    work = repo / ".attest" / "repro" / stored.task_id / stored.finding.finding_id
+    assert (work / "tree-one" / "test_repro.py").is_file()
+    assert (work / "tree-two" / "test_repro.py").is_file()
+
+
+def test_execute_repro_src_layout_with_root_conftest_imports_from_the_given_tree(
+    tmp_path: Path,
+) -> None:
+    """src/ layout whose root conftest.py puts its own src/ on sys.path: the
+    tree's conftest must win, not the one sitting in the repository root."""
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_repro,
+    )
+
+    repo = tmp_path / "repo"
+    decoy = {
+        "conftest.py": SRC_PATH_CONFTEST,
+        "src/mypkg/__init__.py": "",
+        "src/mypkg/calc.py": 'ORIGIN = "repo-root"\n',
+    }
+    write_layout(repo, decoy)
+    tree = repo / "trees" / "head"
+    write_layout(
+        tree,
+        {
+            "conftest.py": SRC_PATH_CONFTEST,
+            "src/mypkg/__init__.py": "",
+            "src/mypkg/calc.py": 'ORIGIN = "head"\n',
+        },
     )
     stored = candidate(line=1)
 
-    matching = execute_repro(
-        tmp_path,
+    result = execute_repro(
+        repo,
         stored,
-        ReproSpec(body),
+        ReproSpec(provenance_body(tree, ("mypkg.calc",), "head")),
         ExecutorLimits(),
-        tree=tmp_path / "tree-one",
-        run_label="tree-one",
-    )
-    differing = execute_repro(
-        tmp_path,
-        stored,
-        ReproSpec(body),
-        ExecutorLimits(),
-        tree=tmp_path / "tree-two",
-        run_label="tree-two",
+        tree=tree,
+        run_label="head-1",
     )
 
-    assert matching.outcome is ExecutionOutcome.NOT_REPRODUCED
-    assert matching.network_blocked is True
-    assert differing.outcome is ExecutionOutcome.REPRODUCED
-    work = tmp_path / ".attest" / "repro" / stored.task_id / stored.finding.finding_id
-    assert (work / "tree-one" / "test_repro.py").is_file()
-    assert (work / "tree-two" / "test_repro.py").is_file()
+    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED, f"{result.reason}\n{result.stdout}"
+
+
+def test_execute_repro_honours_the_conftest_fixtures_of_the_tree_under_test(
+    tmp_path: Path,
+) -> None:
+    """Projects legitimately need their own conftest fixtures, so the tree's
+    conftest.py must still be loaded -- and it must be the tree's, not the
+    repository working tree's."""
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_repro,
+    )
+
+    repo = tmp_path / "repo"
+    write_layout(
+        repo,
+        {
+            "conftest.py": FIXTURE_CONFTEST.format(items="[9, 9, 9]"),
+            "mypkg/__init__.py": "",
+            "mypkg/calc.py": TOTAL_CALC,
+        },
+    )
+    tree = repo / "trees" / "head"
+    write_layout(
+        tree,
+        {
+            "conftest.py": FIXTURE_CONFTEST.format(items="[1, 2, 3]"),
+            "mypkg/__init__.py": "",
+            "mypkg/calc.py": TOTAL_CALC,
+        },
+    )
+    stored = candidate(line=1)
+
+    result = execute_repro(
+        repo,
+        stored,
+        ReproSpec(FIXTURE_BODY),
+        ExecutorLimits(),
+        tree=tree,
+        run_label="head-1",
+    )
+
+    # a missing fixture would be a collection error and defer instead
+    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED, f"{result.reason}\n{result.stdout}"
+
+
+def test_execute_differential_root_conftest_does_not_leak_head_code_into_base(
+    tmp_path: Path,
+) -> None:
+    """The reproduced defect: a flat package plus a root-level conftest.py made
+    pytest prepend the repository root to sys.path, so the BASE run imported the
+    head checkout in the working tree. A genuine regression then failed on both
+    sides and was written off as unfaithful -- attest never spoke about it."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_differential,
+    )
+
+    def project(calc: str) -> dict[str, str]:
+        return {
+            "pyproject.toml": PYPROJECT,
+            "conftest.py": ROOT_CONFTEST,
+            "mypkg/__init__.py": "",
+            "mypkg/calc.py": calc,
+        }
+
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, project(GUARDED_CALC), project(UNGUARDED_CALC)
+    )
+    stored = candidate(line=1)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(CALC_CRASH_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+        repeats=2,
+    )
+
+    detail = f"{result.evidence_class}: {result.reason}"
+    assert result.outcome is ExecutionOutcome.REPRODUCED, detail
+    assert result.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    assert result.reason == "head FAIL 2/2, base PASS 2/2"
+    assert result.network_blocked is True
+    assert_worktrees_cleaned(repo, stored)
 
 
 def test_execute_differential_syntax_error_defers_and_cleans_worktrees(tmp_path: Path) -> None:

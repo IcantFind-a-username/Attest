@@ -31,6 +31,9 @@ GIT_TIMEOUT_S = 60.0
 MAX_REASON_CHARS = 300
 CAP_SYS_ADMIN = 21
 CAP_SYS_RESOURCE = 24
+# where the reproduction is executed from inside the tree under test; it is
+# disposable, because the tree is a throwaway worktree removed after the run
+RUN_DIR_NAME = ".attest-repro"
 _CREDENTIAL_NAME_PARTS = ("TOKEN", "SECRET", "PASSWORD", "API_KEY", "CREDENTIAL")
 
 REPRO_SCHEMA: dict[str, Any] = {
@@ -458,9 +461,17 @@ def _reproduction_environment(site_dir: Path, tree: Path | None = None) -> dict[
     }
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     env["PYTHONSAFEPATH"] = "1"
+    # no __pycache__ inside the revision under test: it would dirty the worktree,
+    # and a cached test_repro of the same size written in the same mtime second
+    # would otherwise be replayed instead of the reproduction actually generated
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     # tree entries come first so the revision under test shadows any installed
     # copy; the guard sitecustomize is still resolved from site_dir via the
-    # remainder of the path scan (a tree-level shadow fails closed on markers)
+    # remainder of the path scan (a tree-level shadow fails closed on markers).
+    # PYTHONPATH is necessary but not sufficient for import steering: pytest
+    # prepends the directories it collects from ahead of all of these, so
+    # execute_repro also runs the reproduction from inside the tree with rootdir
+    # and confcutdir pinned there.
     entries = [] if tree is None else [str(tree), str(tree / "src")]
     entries.append(str(site_dir))
     old_pythonpath = env.get("PYTHONPATH")
@@ -625,6 +636,19 @@ def execute_repro(
     if run_label:
         work_dir = work_dir / run_label
     generated_path = work_dir / "test_repro.py"
+    # PYTHONPATH alone cannot steer imports: pytest's prepend import mode puts
+    # the directory of the collected test -- and of every conftest.py it loads --
+    # at the front of sys.path, ahead of everything PYTHONPATH contributes, and
+    # PYTHONSAFEPATH does not suppress that. Running a test stored under
+    # repo_root therefore leaked the repository working tree (byte-identical to
+    # head) onto the import path of the BASE run too, so a genuine regression
+    # failed on both sides and was discarded as unfaithful. The reproduction is
+    # executed from inside the tree instead, with rootdir and conftest discovery
+    # pinned to it: the revision under test becomes the only import root, while
+    # its own conftest.py is still honoured. Everything that has to outlive the
+    # tree (the generated source, JUnit evidence, containment markers) keeps
+    # living under work_dir by absolute path.
+    run_path = generated_path if tree is None else tree / RUN_DIR_NAME / "test_repro.py"
     junit_path = work_dir / "junit.xml"
     site_dir = work_dir / "python_startup"
     network_marker = site_dir / "network-blocked"
@@ -640,7 +664,13 @@ def execute_repro(
     try:
         work_dir.mkdir(parents=True, exist_ok=True)
         site_dir.mkdir(exist_ok=True)
-        generated_path.write_text(spec.test_body.rstrip("\n") + "\n", encoding="utf-8")
+        source = spec.test_body.rstrip("\n") + "\n"
+        generated_path.write_text(source, encoding="utf-8")
+        if run_path != generated_path:
+            # not parents=True: a missing tree must fail here rather than be
+            # conjured into existence and then run as an empty revision
+            run_path.parent.mkdir(exist_ok=True)
+            run_path.write_text(source, encoding="utf-8")
         (site_dir / "sitecustomize.py").write_text(
             _sitecustomize(
                 network_marker,
@@ -664,16 +694,23 @@ def execute_repro(
             marker.unlink(missing_ok=True)
 
         env = _reproduction_environment(site_dir, tree)
+        command = [interpreter, "-m", "pytest", "-q", str(run_path)]
+        if tree is not None:
+            command += [
+                # rootdir also anchors conftest discovery, so both are pinned to
+                # the tree: no conftest above it may be loaded, and loading one
+                # is what would otherwise prepend the other revision's directory
+                "--rootdir",
+                str(tree),
+                "--confcutdir",
+                str(tree),
+                # never write a .pytest_cache into the revision under test
+                "-p",
+                "no:cacheprovider",
+            ]
+        command += ["--junitxml", str(junit_path)]
         raw_process = subprocess.Popen(
-            [
-                interpreter,
-                "-m",
-                "pytest",
-                "-q",
-                str(generated_path),
-                "--junitxml",
-                str(junit_path),
-            ],
+            command,
             cwd=repo_root if tree is None else tree,
             env=env,
             stdout=subprocess.PIPE,
