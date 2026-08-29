@@ -16,8 +16,13 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-08-30 | adversarial fabricated-finding verification (not reproduced; wealth 2.95 -> 1.48) | $0.0018 |
 | 2026-08-30 | new-code discriminator live check: review K=5 (7.2s, 1 drawer candidate) | $0.0259 |
 | 2026-08-30 | new-code discriminator live check: differential run classified new_code_candidate | $0.0035 |
+| 2026-08-30 | first live Phase-3 CI acceptance attempt (2 workflow runs on a private scratch repo) | $0.0230 |
 
-**Total API spend: $0.2330 of $10.00.**
+| 2026-08-29 | phase-3 acceptance run 33267601438 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0242 |
+
+| 2026-08-29 | phase-3 acceptance run 33267602736 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0115 |
+
+**Total API spend: $0.2687 of $10.00.**
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 
