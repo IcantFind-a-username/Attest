@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
-from statistics import NormalDist
+from statistics import NormalDist, pvariance
 
 from attest.benchmark.matcher import match_findings
 from attest.benchmark.schema import (
@@ -75,6 +76,60 @@ def wilson_interval(successes: int, total: int) -> tuple[float, float] | None:
         proportion * (1 - proportion) / total + z_squared / (4 * total * total)
     ) / denominator
     return max(0.0, center - half_width), min(1.0, center + half_width)
+
+
+def silence_precision(true_negatives: int, false_negatives: int) -> float | None:
+    """TN/(TN+FN): when the tool stayed silent, how often silence was right.
+
+    Both inputs count decided cases only. An abstention is neither a true
+    negative nor a false negative, so it never appears here.
+    """
+    if true_negatives < 0 or false_negatives < 0:
+        raise ValueError("silence counts must not be negative")
+    total = true_negatives + false_negatives
+    return true_negatives / total if total else None
+
+
+def mean_pairwise_jaccard(sets: Sequence[frozenset[str]]) -> float | None:
+    """Mean Jaccard similarity over every unordered pair of surface sets.
+
+    Two empty sets are identical surfaces (similarity 1.0): two runs that both
+    stayed silent agreed perfectly. Fewer than two sets have no pair.
+    """
+    if len(sets) < 2:
+        return None
+    total = 0.0
+    pairs = 0
+    for index, left in enumerate(sets):
+        for right in sets[index + 1 :]:
+            union = left | right
+            total += len(left & right) / len(union) if union else 1.0
+            pairs += 1
+    return total / pairs
+
+
+@dataclass(frozen=True)
+class Dispersion:
+    """Mean, population variance, and range of one observed quantity."""
+
+    mean: float
+    variance: float
+    value_range: float
+
+
+def dispersion(values: Sequence[float]) -> Dispersion | None:
+    """Descriptive dispersion of raw observations, or ``None`` without any.
+
+    The variance is the population variance of exactly the runs observed;
+    nothing here extrapolates beyond them.
+    """
+    if not values:
+        return None
+    return Dispersion(
+        mean=sum(values) / len(values),
+        variance=pvariance(values),
+        value_range=max(values) - min(values),
+    )
 
 
 def aggregate(

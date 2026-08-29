@@ -1,0 +1,557 @@
+"""Ten-repeat stability: preregistered, resumable, and operational-only."""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from attest.benchmark.api import ProjectEvaluationRequest
+from attest.benchmark.runner import Cassette, ReplayProvider
+from attest.benchmark.schema import ChangedLocation, load_manifest
+from attest.benchmark.stability import (
+    STABILITY_REPEATS,
+    StabilityObservation,
+    SurfacedAnchor,
+    run_stability_study,
+    summarize_stability,
+)
+from attest.review.config import ReviewConfig
+from attest.review.executor import ExecutorLimits
+from attest.review.proposer import Provider
+
+from .test_corpus import _oracle_fixture
+
+_SCRIPT = Path(__file__).parents[2] / "scripts" / "benchmark.py"
+
+_FINDING_PROPOSAL = json.dumps(
+    {
+        "findings": [
+            {
+                "claim": "value() returns 0 instead of the documented 1.",
+                "anchor": {"file": "calc.py", "line": 2},
+                "failure_scenario": "value() returns 0 and callers divide by it",
+                "falsification_plan": "call value() and require the documented 1",
+            }
+        ]
+    }
+)
+_REPRO = json.dumps(
+    {
+        "test_body": "import runpy\n\n"
+        "def test_value_is_one():\n"
+        "    assert runpy.run_path('calc.py')['value']() == 1\n"
+    }
+)
+_EMPTY_PROPOSAL = json.dumps({"findings": []})
+
+_LOCATIONS = (ChangedLocation(path="calc.py", start_line=2, end_line=2, side="old"),)
+
+
+def _surfaced(wealth: float) -> SurfacedAnchor:
+    return SurfacedAnchor(
+        file="calc.py",
+        line=2,
+        placement="inline",
+        action="surface",
+        evidence_class="regression_reproduced",
+        wealth_final=wealth,
+    )
+
+
+def _observation(
+    repeat: int,
+    *,
+    surfaced: tuple[SurfacedAnchor, ...] = (),
+    deferred: str | None = None,
+    candidate_count: int = 0,
+    latency_s: float = 1.0,
+    spend_usd: float = 0.01,
+) -> StabilityObservation:
+    return StabilityObservation(
+        repeat=repeat,
+        run_id=f"run-{repeat}",
+        status="deferred" if deferred is not None else "completed",
+        abstain_reason=deferred,
+        surfaced=() if deferred is not None else surfaced,
+        candidate_count=candidate_count,
+        latency_s=latency_s,
+        spend_usd=spend_usd,
+        delivery_at_s=None if deferred is not None else latency_s,
+    )
+
+
+def _synthetic_observations() -> tuple[StabilityObservation, ...]:
+    """Three surfacing runs, six silent runs, one deferred run."""
+    wealthy = (10.0, 12.0, 8.0)
+    observations = [
+        _observation(repeat, surfaced=(_surfaced(wealthy[repeat]),), candidate_count=1)
+        for repeat in range(3)
+    ]
+    observations.extend(_observation(repeat) for repeat in range(3, 9))
+    observations.append(_observation(9, deferred="provider_error"))
+    return tuple(observations)
+
+
+def test_summarize_stability_reports_exact_agreement_and_dispersion() -> None:
+    """Modal shares, Jaccard, and wealth dispersion must be exact, with the
+    deferred run counted as a DEFER in every stability denominator."""
+    report = summarize_stability(
+        case_id="case-333333333333",
+        manifest_sha256="ab" * 32,
+        observations=_synthetic_observations(),
+        locations=_LOCATIONS,
+    )
+
+    assert report.repeats == STABILITY_REPEATS == 10
+    assert len(report.run_ids) == 10
+    assert report.outcomes == (
+        "surfaced",
+        "surfaced",
+        "surfaced",
+        "silent",
+        "silent",
+        "silent",
+        "silent",
+        "silent",
+        "silent",
+        "deferred",
+    )
+    assert report.modal_outcome == "silent"
+    assert report.run_outcome_stability == pytest.approx(0.6)
+    assert [(row.repeat, row.reason) for row in report.deferred_runs] == [(9, "provider_error")]
+
+    assert len(report.clusters) == 1
+    cluster = report.clusters[0]
+    assert cluster.cluster_id == "calc.py:2-2"
+    assert cluster.decisions == ("inline",) * 3 + ("absent",) * 6 + ("deferred",)
+    assert cluster.modal_decision == "absent"
+    assert cluster.modal_share == pytest.approx(0.6)
+    assert cluster.wealth_mean == pytest.approx(10.0)
+    assert cluster.wealth_variance == pytest.approx(8.0 / 3.0)
+    assert cluster.wealth_range == pytest.approx(4.0)
+
+    # Nine completed runs: 3 identical surfaced sets, 6 identical empty sets.
+    assert report.jaccard_pairs == 36
+    assert report.mean_pairwise_jaccard == pytest.approx((3 + 15) / 36)
+
+    assert report.candidate_counts == (1, 1, 1, 0, 0, 0, 0, 0, 0, 0)
+    assert report.candidate_count_mean == pytest.approx(1 / 3)
+    assert report.candidate_count_variance == pytest.approx(2 / 9)
+    assert report.spend_total_usd == pytest.approx(0.1)
+    assert report.latency_mean_s == pytest.approx(1.0)
+    assert report.wealth_mean == pytest.approx(10.0)
+    assert report.wealth_range == pytest.approx(4.0)
+    assert report.digest
+
+
+def test_summarize_stability_gives_off_location_anchors_singleton_clusters() -> None:
+    """An anchor outside every preregistered location clusters by its own
+    canonical file and line, never by claim prose."""
+    stray = SurfacedAnchor(
+        file="calc.py",
+        line=40,
+        placement="overflow",
+        action="surface",
+        evidence_class="not_reproduced",
+        wealth_final=None,
+    )
+    observations = (
+        _observation(0, surfaced=(_surfaced(10.0), stray), candidate_count=2),
+        *(_observation(repeat) for repeat in range(1, 10)),
+    )
+
+    report = summarize_stability(
+        case_id="case-333333333333",
+        manifest_sha256="ab" * 32,
+        observations=observations,
+        locations=_LOCATIONS,
+    )
+
+    assert {cluster.cluster_id for cluster in report.clusters} == {"calc.py:2-2", "calc.py:40"}
+    stray_cluster = next(c for c in report.clusters if c.cluster_id == "calc.py:40")
+    assert stray_cluster.decisions[0] == "overflow"
+    assert stray_cluster.modal_decision == "absent"
+    assert stray_cluster.wealth_mean is None
+
+
+def test_summarize_stability_requires_exactly_ten_distinct_repeats() -> None:
+    """Nine runs are not a stability study, and a duplicated repeat could hide
+    a dropped one."""
+    observations = _synthetic_observations()
+
+    with pytest.raises(ValueError, match="ten"):
+        summarize_stability(
+            case_id="case-333333333333",
+            manifest_sha256="ab" * 32,
+            observations=observations[:9],
+            locations=_LOCATIONS,
+        )
+    duplicated = (*observations[:9], _observation(8))
+    with pytest.raises(ValueError, match="repeat"):
+        summarize_stability(
+            case_id="case-333333333333",
+            manifest_sha256="ab" * 32,
+            observations=duplicated,
+            locations=_LOCATIONS,
+        )
+
+
+def test_stability_report_is_operational_only() -> None:
+    """Stability never claims accuracy: no precision, recall, detection, or
+    Wilson interval may appear, and the limitations must say why no validation
+    receipt is needed."""
+    report = summarize_stability(
+        case_id="case-333333333333",
+        manifest_sha256="ab" * 32,
+        observations=_synthetic_observations(),
+        locations=_LOCATIONS,
+    )
+
+    document = report.to_json_dict()
+    document.pop("limitations")  # the prose names the metrics precisely to forbid them
+    payload = json.dumps(document, sort_keys=True)
+    for forbidden in (
+        "precision",
+        "recall",
+        "true_positive",
+        "false_positive",
+        "detection",
+        "interval",
+        "wilson",
+        "specificity",
+    ):
+        assert forbidden not in payload.lower()
+    text = " ".join(report.limitations)
+    assert "operational" in text
+    assert "accuracy" in text
+    assert "denominator" in text
+
+
+def _study_request(tmp_path: Path) -> ProjectEvaluationRequest:
+    manifest_path, root, _ = _oracle_fixture(tmp_path)
+    manifest = load_manifest(manifest_path)
+    case = next(c for c in manifest.cases if c.role == "historical_bug_replay")
+    runtime = next(r for r in manifest.runtime if r.case_id == case.case_id)
+    return ProjectEvaluationRequest(
+        case_id=case.case_id,
+        repo=root / runtime.cwd,
+        base_ref=case.fixed_commit,
+        head_ref=case.buggy_commit,
+        workspace_root=tmp_path / "workspace",
+        config=ReviewConfig(
+            alpha=0.1, k_samples=1, tier0_commands=[], auto_tighten_alpha=False
+        ),
+        limits=ExecutorLimits(wall_timeout_s=60.0),
+        verification_timeout_s=120.0,
+        repeats=1,
+        deadline_s=60.0,
+        truth=None,
+    )
+
+
+def test_run_stability_study_executes_ten_runs_and_records_defers(tmp_path: Path) -> None:
+    """Ten independent provider runs over identical bytes and configuration;
+    a run whose proposal is unusable becomes a DEFER, never a dropped run."""
+    request = _study_request(tmp_path)
+    built: list[int] = []
+
+    def factory(repeat: int) -> Provider:
+        built.append(repeat)
+        if repeat >= 8:
+            return ReplayProvider(Cassette(proposal="not-json-at-all", repro=""))
+        proposal = _FINDING_PROPOSAL if repeat < 2 else _EMPTY_PROPOSAL
+        return ReplayProvider(
+            Cassette(proposal=proposal, repro=_REPRO, input_tokens=800, output_tokens=200)
+        )
+
+    result = run_stability_study(
+        request,
+        provider_factory=factory,
+        state_dir=tmp_path / "state",
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+
+    assert built == list(range(10))
+    assert result.executed_repeats == 10
+    assert result.resumed_repeats == 0
+    report = result.report
+    assert report.repeats == 10
+    assert len(report.run_ids) == 10
+    assert len(set(report.run_ids)) == 10
+    assert report.outcomes[:2] == ("surfaced", "surfaced")
+    assert report.outcomes[8:] == ("deferred", "deferred")
+    assert {row.repeat for row in report.deferred_runs} == {8, 9}
+    assert all(row.reason for row in report.deferred_runs)
+    cluster = next(c for c in report.clusters if c.cluster_id == "calc.py:2-2")
+    assert cluster.decisions[0] == "inline"
+    assert cluster.decisions[2] == "absent"
+    assert cluster.decisions[9] == "deferred"
+    assert report.spend_total_usd > 0
+    assert (tmp_path / "state" / "repeat-9.json").is_file()
+
+
+def test_run_stability_study_resumes_without_repeating_a_paid_run(tmp_path: Path) -> None:
+    """Interruption after five persisted repeats must never re-execute them:
+    a duplicated repeat is a duplicated paid provider call."""
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+
+    def interrupted(repeat: int) -> Provider:
+        if repeat == 5:
+            raise KeyboardInterrupt
+        return ReplayProvider(
+            Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+        )
+
+    with pytest.raises(KeyboardInterrupt):
+        run_stability_study(
+            request,
+            provider_factory=interrupted,
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+    persisted = sorted(path.name for path in state_dir.glob("repeat-*.json"))
+    assert persisted == [f"repeat-{i}.json" for i in range(5)]
+    first_run_ids = [
+        json.loads((state_dir / f"repeat-{i}.json").read_text())["run_id"] for i in range(5)
+    ]
+
+    resumed_calls: list[int] = []
+
+    def resumed(repeat: int) -> Provider:
+        resumed_calls.append(repeat)
+        return ReplayProvider(
+            Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+        )
+
+    result = run_stability_study(
+        request,
+        provider_factory=resumed,
+        state_dir=state_dir,
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+
+    assert resumed_calls == [5, 6, 7, 8, 9]
+    assert result.executed_repeats == 5
+    assert result.resumed_repeats == 5
+    assert list(result.report.run_ids[:5]) == first_run_ids
+
+
+def test_run_stability_study_fails_closed_on_drift_truth_or_corrupt_state(
+    tmp_path: Path,
+) -> None:
+    """The predeclaration binds configuration; hidden truth is refused because
+    stability is operational; corrupt state must never silently re-buy a run."""
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+
+    def factory(repeat: int) -> Provider:
+        return ReplayProvider(
+            Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+        )
+
+    run_stability_study(
+        request,
+        provider_factory=factory,
+        state_dir=state_dir,
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+
+    from dataclasses import replace
+
+    drifted = replace(
+        request,
+        config=ReviewConfig(
+            alpha=0.05, k_samples=1, tier0_commands=[], auto_tighten_alpha=False
+        ),
+    )
+    with pytest.raises(ValueError, match="predeclar"):
+        run_stability_study(
+            drifted,
+            provider_factory=factory,
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+
+    from attest.benchmark.api import ProjectTruth
+    from attest.benchmark.schema import TruthDefect
+
+    with_truth = ProjectEvaluationRequest(
+        case_id=request.case_id,
+        repo=request.repo,
+        base_ref=request.base_ref,
+        head_ref=request.head_ref,
+        workspace_root=request.workspace_root,
+        config=request.config,
+        limits=request.limits,
+        truth=ProjectTruth(
+            defects=(
+                TruthDefect(
+                    defect_id="truth_1",
+                    case_id=request.case_id,
+                    file="calc.py",
+                    start_line=2,
+                    end_line=2,
+                ),
+            ),
+            fixed_ref=request.base_ref,
+        ),
+    )
+    with pytest.raises(ValueError, match="operational"):
+        run_stability_study(
+            with_truth,
+            provider_factory=factory,
+            state_dir=tmp_path / "state-truth",
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+
+    (state_dir / "repeat-3.json").write_text("{corrupt", encoding="utf-8")
+    with pytest.raises(ValueError, match="repeat-3"):
+        run_stability_study(
+            request,
+            provider_factory=factory,
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+
+
+def _run_cli(*args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(_SCRIPT), *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+def test_stability_cli_runs_ten_offline_repeats_and_resumes_idempotently(
+    tmp_path: Path,
+) -> None:
+    """The CLI mode is offline by construction (recorded cassette only) and a
+    second invocation resumes every persisted repeat instead of re-buying it."""
+    manifest_path, root, _ = _oracle_fixture(tmp_path)
+    manifest = load_manifest(manifest_path)
+    case = next(c for c in manifest.cases if c.role == "developer_fix_control")
+    cassettes = tmp_path / "cassettes"
+    cassettes.mkdir()
+    (cassettes / f"{case.case_id}.json").write_text(
+        json.dumps(
+            {
+                "proposal": _EMPTY_PROPOSAL,
+                "repro": json.dumps({"test_body": ""}),
+                "input_tokens": 800,
+                "output_tokens": 200,
+            }
+        ),
+        encoding="utf-8",
+    )
+    environment = dict(os.environ)
+    environment["ANTHROPIC_API_KEY"] = "must-not-be-used"
+    output = tmp_path / "out"
+
+    first = _run_cli(
+        "stability",
+        "--manifest",
+        str(manifest_path),
+        "--case",
+        case.case_id,
+        "--cassette-root",
+        str(cassettes),
+        "--root",
+        str(root),
+        "--output",
+        str(output),
+        "--k-samples",
+        "1",
+        "--differential-repeats",
+        "1",
+        env=environment,
+    )
+
+    assert first.returncode == 0, first.stderr
+    summary = json.loads(first.stdout)
+    assert summary["status"] == "ok"
+    assert summary["offline"] is True
+    assert summary["repeats"] == 10
+    assert summary["executed_repeats"] == 10
+    assert summary["resumed_repeats"] == 0
+    assert summary["deferred_repeats"] == 0
+    report = json.loads((output / "stability.json").read_text(encoding="utf-8"))
+    assert report["case_id"] == case.case_id
+    assert report["modal_outcome"] == "silent"
+    assert report["run_outcome_stability"] == 1.0
+    assert report["mean_pairwise_jaccard"] == 1.0
+    assert len(report["run_ids"]) == 10
+    assert "operational" in " ".join(report["limitations"])
+    assert (output / "stability.md").is_file()
+    assert len(list((output / "state").glob("repeat-*.json"))) == 10
+
+    second = _run_cli(
+        "stability",
+        "--manifest",
+        str(manifest_path),
+        "--case",
+        case.case_id,
+        "--cassette-root",
+        str(cassettes),
+        "--root",
+        str(root),
+        "--output",
+        str(output),
+        "--k-samples",
+        "1",
+        "--differential-repeats",
+        "1",
+        env=environment,
+    )
+
+    assert second.returncode == 0, second.stderr
+    resumed = json.loads(second.stdout)
+    assert resumed["executed_repeats"] == 0
+    assert resumed["resumed_repeats"] == 10
+    assert resumed["digest"] == summary["digest"]
+
+
+def test_stability_cli_without_prepared_environment_is_not_executed(tmp_path: Path) -> None:
+    """A missing checkout or cassette is a refusal to run, never a measurement."""
+    manifest_path, _, _ = _oracle_fixture(tmp_path)
+    manifest = load_manifest(manifest_path)
+    case = manifest.cases[0]
+
+    completed = _run_cli(
+        "stability",
+        "--manifest",
+        str(manifest_path),
+        "--case",
+        case.case_id,
+        "--cassette-root",
+        str(tmp_path / "missing-cassettes"),
+        "--output",
+        str(tmp_path / "out"),
+    )
+
+    assert completed.returncode == 3
+    summary = json.loads(completed.stdout)
+    assert summary["status"] == "not_executed"
+    assert summary["reason"] == "cassette_missing"
+    assert not (tmp_path / "out" / "stability.json").exists()

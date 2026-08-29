@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ from attest.benchmark.api import (
     evaluate_projects,
 )
 from attest.benchmark.artifacts import ArtifactStore, process_secrets
+from attest.benchmark.baselines import ComparisonPlan, compare_arms
 from attest.benchmark.corpus import (
     IsolationAdapter,
     SubprocessCorpusRunner,
@@ -43,11 +45,15 @@ from attest.benchmark.report import (
     REPLAY_MODE,
     ReportAbstention,
     ReportExclusion,
+    build_comparison_report,
     build_report,
+    write_comparison_report,
     write_report,
+    write_stability_report,
 )
 from attest.benchmark.runner import Cassette, ReplayProvider, load_cassette
 from attest.benchmark.schema import BenchmarkCase, BenchmarkManifest, load_manifest
+from attest.benchmark.stability import run_stability_study
 from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits
 
@@ -149,6 +155,68 @@ def _parser() -> argparse.ArgumentParser:
     replay.add_argument("--deadline", type=float, default=60.0)
     replay.add_argument("--wall-timeout", type=float, default=60.0)
     replay.add_argument("--verification-timeout", type=float, default=600.0)
+
+    stability = commands.add_parser(
+        "stability",
+        help="offline ten-repeat stability study of ONE preregistered case: every "
+        "run replays the same recorded cassette through the real product path, "
+        "every metric is operational variability (never accuracy), and no "
+        "provider client or credential is ever used",
+    )
+    stability.add_argument("--manifest", type=Path, required=True)
+    stability.add_argument("--case", required=True)
+    stability.add_argument("--cassette-root", type=Path, required=True)
+    stability.add_argument("--output", type=Path, required=True)
+    stability.add_argument(
+        "--root",
+        type=Path,
+        help="caller-prepared checkout root; without it the study is not executed",
+    )
+    stability.add_argument("--workspace", type=Path)
+    stability.add_argument(
+        "--state-dir",
+        type=Path,
+        help="resumable per-repeat state (default: OUTPUT/state); a completed "
+        "repeat found here is loaded, never re-executed",
+    )
+    _add_review_arguments(stability)
+
+    compare = commands.add_parser(
+        "compare",
+        help="offline three-arm comparison over identical blinded diff bytes: the "
+        "real product path, one bare schema-constrained model call, and a local "
+        "deterministic static analyzer (never described as an AI reviewer); "
+        "model responses come from recorded cassettes only, and accuracy is "
+        "published solely under a manifest-bound validation receipt",
+    )
+    compare.add_argument("--manifest", type=Path, required=True)
+    compare.add_argument("--cassette-root", type=Path, required=True)
+    compare.add_argument("--output", type=Path, required=True)
+    compare.add_argument(
+        "--root",
+        type=Path,
+        help="caller-prepared checkout root; without it every case is excluded",
+    )
+    compare.add_argument("--workspace", type=Path)
+    compare.add_argument(
+        "--validation-receipt",
+        type=Path,
+        help="validation receipt bound to this manifest digest; without it the "
+        "report withholds every accuracy metric and says so",
+    )
+    compare.add_argument(
+        "--validation-results",
+        type=Path,
+        help="the exact validation-results artifact the receipt was issued over",
+    )
+    compare.add_argument(
+        "--ruff-executable",
+        type=Path,
+        help="explicit local ruff for the static arm; defaults to PATH discovery, "
+        "and a missing tool defers that arm rather than scoring it",
+    )
+    _add_review_arguments(compare)
+
     evalue = commands.add_parser(
         "experiment-evalue",
         help="offline e-value diagnostic: measures E[LR | theta=0] for each "
@@ -216,11 +284,40 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _add_review_arguments(command: argparse.ArgumentParser) -> None:
+    """The shared product review configuration for offline evaluation modes."""
+    command.add_argument("--alpha", type=float, default=0.1)
+    command.add_argument("--budget-usd", type=float, default=0.25)
+    command.add_argument("--k-samples", type=int, default=5)
+    command.add_argument("--max-findings", type=int, default=3)
+    command.add_argument("--tier0-command", action="append", default=[])
+    command.add_argument(
+        "--auto-tighten-alpha",
+        action="store_true",
+        help="allow the ledger alpha auto-tighten rule (off by default so runs "
+        "stay comparable)",
+    )
+    command.add_argument(
+        "--differential-repeats",
+        dest="repeats",
+        type=int,
+        default=3,
+        help="pytest repetitions per side of each differential verification; "
+        "unrelated to the fixed ten-repeat stability design",
+    )
+    command.add_argument("--line-slack", type=int, default=0)
+    command.add_argument("--deadline", type=float, default=60.0)
+    command.add_argument("--wall-timeout", type=float, default=60.0)
+    command.add_argument("--verification-timeout", type=float, default=600.0)
+
+
 _COMMANDS = {
     "import-bugsinpy": lambda args: _import(args),
     "validate": lambda args: _validate(args),
     "experiment-rho": lambda args: _experiment(args),
     "replay": lambda args: _replay(args),
+    "stability": lambda args: _stability(args),
+    "compare": lambda args: _compare(args),
     "experiment-evalue": lambda args: _experiment_evalue(args),
 }
 
@@ -239,7 +336,9 @@ def main(argv: list[str] | None = None) -> int:
             return 3
         if status != "valid":
             return 4
-    if args.command == "replay" and result.get("status") == "not_executed":
+    if args.command in {"replay", "stability", "compare"} and (
+        result.get("status") == "not_executed"
+    ):
         return 3
     return 0
 
@@ -533,6 +632,160 @@ def _head_ref(case: BenchmarkCase) -> str:
 
 def _exclusion_reason(result: ProjectEvaluationResult) -> str:
     return result.abstain_reason or "not_executed"
+
+
+def _stability(args: argparse.Namespace) -> dict[str, object]:
+    """Offline by construction: ten repeats replayed from one recorded cassette.
+
+    No provider client is ever constructed and no credential is read; the only
+    provider is the cassette replayer. Every repeat is persisted atomically, so
+    re-running the command resumes completed repeats instead of re-buying them.
+    All emitted metrics are operational (run-to-run variability); the study
+    consumes no hidden truth, claims no accuracy, and therefore needs no
+    validation receipt (D-019/D-032). Live paid stability would go through the
+    live mode's explicit opt-in, not through this command.
+    """
+    manifest = load_manifest(args.manifest)
+    manifest_sha256 = hashlib.sha256(args.manifest.read_bytes()).hexdigest()
+    case = next((row for row in manifest.cases if row.case_id == args.case), None)
+    if case is None:
+        raise ValueError("case is not part of the preregistered manifest")
+    refusal: dict[str, object] = {
+        "status": "not_executed",
+        "offline": True,
+        "mode": REPLAY_MODE,
+        "case_id": case.case_id,
+        "manifest_sha256": manifest_sha256,
+    }
+    try:
+        cassette = load_cassette(args.cassette_root, case.case_id)
+    except ValueError:
+        return {**refusal, "reason": "cassette_missing"}
+    runtime = next(
+        (row for row in manifest.runtime if row.case_id == case.case_id), None
+    )
+    repo = None if args.root is None or runtime is None else args.root / runtime.cwd
+    if repo is None or not (repo / ".git").exists():
+        return {**refusal, "reason": "prepared_environment_required"}
+    request = ProjectEvaluationRequest(
+        case_id=case.case_id,
+        repo=repo,
+        base_ref=_base_ref(case),
+        head_ref=_head_ref(case),
+        workspace_root=args.workspace or (args.output / "workspace"),
+        config=_review_config(args),
+        limits=ExecutorLimits(wall_timeout_s=args.wall_timeout),
+        verification_timeout_s=args.verification_timeout,
+        repeats=args.repeats,
+        deadline_s=args.deadline,
+        line_slack=args.line_slack,
+        truth=None,
+    )
+    state_dir = args.state_dir or (args.output / "state")
+    result = run_stability_study(
+        request,
+        provider_factory=lambda repeat: ReplayProvider(cassette),
+        state_dir=state_dir,
+        locations=case.changed_locations,
+        manifest_sha256=manifest_sha256,
+        line_slack=args.line_slack,
+        provider_label="replay_cassette",
+    )
+    report_path, markdown_path = write_stability_report(result.report, args.output)
+    return {
+        "status": "ok",
+        "offline": True,
+        "mode": REPLAY_MODE,
+        "case_id": case.case_id,
+        "manifest": args.manifest.name,
+        "manifest_sha256": manifest_sha256,
+        "repeats": result.report.repeats,
+        "executed_repeats": result.executed_repeats,
+        "resumed_repeats": result.resumed_repeats,
+        "deferred_repeats": len(result.report.deferred_runs),
+        "spend_usd": round(result.report.spend_total_usd, 6),
+        "digest": result.report.digest,
+        "report": str(report_path),
+        "report_markdown": str(markdown_path),
+        "state_dir": str(state_dir),
+    }
+
+
+def _compare(args: argparse.Namespace) -> dict[str, object]:
+    """Offline by construction: cassettes for both model arms, local ruff only.
+
+    Arm A replays the real product path, arm B makes the one recorded bare
+    call, and arm C runs the local deterministic analyzer; nothing here can
+    construct a provider client or read a credential. Accuracy follows the
+    replay receipt discipline: without a manifest-bound validation receipt the
+    written report withholds every accuracy metric and says so, while the
+    operational accounting -- calls, tokens, spend, wall time, tool cost -- is
+    always published, losing arms and deferred runs included.
+    """
+    manifest = load_manifest(args.manifest)
+    manifest_sha256 = hashlib.sha256(args.manifest.read_bytes()).hexdigest()
+    receipt = _replay_receipt(args)
+    requests, cassettes, exclusions = _replay_plan(manifest, args, receipt)
+    cases_by_id = {case.case_id: case for case in manifest.cases}
+    plans = [
+        ComparisonPlan(case=cases_by_id[request.case_id], request=request)
+        for request in requests
+    ]
+    ruff_executable = (
+        str(args.ruff_executable)
+        if args.ruff_executable is not None
+        else shutil.which("ruff")
+    )
+    measurements = compare_arms(
+        plans,
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=ruff_executable,
+        line_slack=args.line_slack,
+    )
+    report = build_comparison_report(
+        manifest,
+        measurements,
+        manifest_sha256=manifest_sha256,
+        exclusions=exclusions,
+        validation_receipt=receipt,
+    )
+    report_path, markdown_path = write_comparison_report(report, args.output)
+    evaluated = len(measurements.evaluated_case_ids)
+    reported = evaluated > 0 and report.metrics_withheld_reason is None
+    return {
+        "status": "ok" if evaluated else "not_executed",
+        "offline": True,
+        "mode": REPLAY_MODE,
+        "manifest": args.manifest.name,
+        "manifest_sha256": manifest_sha256,
+        "arms": len(measurements.arms),
+        "evaluated_cases": evaluated,
+        "excluded_cases": len(report.excluded_cases),
+        "deferred_runs": sum(
+            1 for run in measurements.runs if run.status != "completed"
+        ),
+        "metrics_status": "reported" if reported else "withheld",
+        "metrics_withheld_reason": report.metrics_withheld_reason,
+        "spend_usd": round(sum(run.spend_usd for run in measurements.runs), 6),
+        "oracle_spend_usd": round(
+            sum(run.oracle_spend_usd for run in measurements.runs), 6
+        ),
+        "digest": report.digest,
+        "report": str(report_path),
+        "report_markdown": str(markdown_path),
+    }
+
+
+def _review_config(args: argparse.Namespace) -> ReviewConfig:
+    return ReviewConfig(
+        alpha=args.alpha,
+        budget_usd=args.budget_usd,
+        k_samples=args.k_samples,
+        max_findings=args.max_findings,
+        auto_tighten_alpha=bool(args.auto_tighten_alpha),
+        tier0_commands=list(args.tier0_command),
+    )
 
 
 def _experiment_evalue(args: argparse.Namespace) -> dict[str, object]:
