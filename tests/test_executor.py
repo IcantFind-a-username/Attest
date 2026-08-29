@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 import signal
+import socket
 import subprocess
+import sys
 import time
 import tracemalloc
 from collections.abc import Callable
@@ -339,8 +341,8 @@ def test_execute_timeout_is_deferred(tmp_path: Path) -> None:
     assert result.elapsed_s < 2.0
 
 
-@pytest.mark.skipif(os.name != "posix", reason="PID liveness assertion uses POSIX signals")
-def test_execute_timeout_terminates_spawned_child_process(tmp_path: Path) -> None:
+@pytest.mark.skipif(os.name != "posix", reason="kernel process limit is POSIX-only")
+def test_execute_defers_atexit_spawn_attempt_without_starting_child(tmp_path: Path) -> None:
     from attest.review.executor import (
         ExecutionOutcome,
         ExecutorLimits,
@@ -348,42 +350,114 @@ def test_execute_timeout_terminates_spawned_child_process(tmp_path: Path) -> Non
         execute_repro,
     )
 
-    pid_path = tmp_path / "spawned-child.pid"
+    child_started = tmp_path / "atexit-child-started"
     result = execute_repro(
         tmp_path,
         candidate(line=1),
         ReproSpec(
+            "import atexit\n"
             "import subprocess\n"
             "import sys\n"
-            "import time\n"
+            "def spawn_at_exit():\n"
+            "    subprocess.Popen(\n"
+            "        [sys.executable, '-c', "
+            "\"from pathlib import Path; Path('atexit-child-started').touch()\"],\n"
+            "        stdin=subprocess.DEVNULL,\n"
+            "        stdout=subprocess.DEVNULL,\n"
+            "        stderr=subprocess.DEVNULL,\n"
+            "        start_new_session=True,\n"
+            "    )\n"
+            "atexit.register(spawn_at_exit)\n"
+            "def test_repro():\n"
+            "    assert True\n"
+        ),
+        ExecutorLimits(),
+    )
+
+    observation_deadline = time.monotonic() + 1.0
+    while not child_started.exists() and time.monotonic() < observation_deadline:
+        time.sleep(0.02)
+    assert not child_started.exists()
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.reason == "reproduction attempted to create a child process"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="exec replacement is POSIX-only")
+def test_execute_defers_atexit_exec_attempt_without_replacing_pytest(tmp_path: Path) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_repro,
+    )
+
+    replacement_started = tmp_path / "exec-replacement-started"
+    result = execute_repro(
+        tmp_path,
+        candidate(line=1),
+        ReproSpec(
+            "import atexit\n"
+            "import os\n"
+            "import sys\n"
+            "def replace_at_exit():\n"
+            "    os.execv(\n"
+            "        sys.executable,\n"
+            "        [sys.executable, '-c', "
+            "\"from pathlib import Path; Path('exec-replacement-started').touch()\"],\n"
+            "    )\n"
+            "atexit.register(replace_at_exit)\n"
+            "def test_repro():\n"
+            "    assert True\n"
+        ),
+        ExecutorLimits(),
+    )
+
+    assert not replacement_started.exists()
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.reason == "reproduction attempted to replace the pytest process"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="native fork is POSIX-only")
+def test_execute_kernel_limit_defers_native_fork_without_starting_child(
+    tmp_path: Path,
+) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_repro,
+    )
+
+    child_started = tmp_path / "native-fork-child-started"
+    result = execute_repro(
+        tmp_path,
+        candidate(line=1),
+        ReproSpec(
+            "import ctypes\n"
+            "import errno\n"
+            "import os\n"
             "from pathlib import Path\n"
             "def test_repro():\n"
-            "    child = subprocess.Popen(\n"
-            "        [sys.executable, '-c', 'import time; time.sleep(30)'],\n"
-            "        stdin=subprocess.DEVNULL,\n"
-            "        stdout=subprocess.DEVNULL,\n"
-            "        stderr=subprocess.DEVNULL,\n"
-            "    )\n"
-            "    Path('spawned-child.pid').write_text(str(child.pid))\n"
-            "    time.sleep(30)\n"
+            "    libc = ctypes.CDLL(None, use_errno=True)\n"
+            "    pid = libc.fork()\n"
+            "    if pid == 0:\n"
+            "        Path('native-fork-child-started').touch()\n"
+            "        os._exit(0)\n"
+            "    if pid > 0:\n"
+            "        os.waitpid(pid, 0)\n"
+            "    assert pid == -1\n"
+            "    assert ctypes.get_errno() == errno.EAGAIN\n"
         ),
-        ExecutorLimits(wall_timeout_s=0.8),
+        ExecutorLimits(),
     )
 
+    assert not child_started.exists()
     assert result.outcome is ExecutionOutcome.DEFERRED
-    child_pid = int(pid_path.read_text(encoding="utf-8"))
-    alive = process_exists(child_pid)
-    deadline = time.monotonic() + 2.0
-    while alive and time.monotonic() < deadline:
-        time.sleep(0.02)
-        alive = process_exists(child_pid)
-    if alive:
-        os.kill(child_pid, signal.SIGKILL)
-    assert not alive
+    assert result.reason == "reproduction attempted to create a child process"
 
 
-@pytest.mark.skipif(os.name != "posix", reason="requires POSIX sessions and file descriptors")
-def test_execute_timeout_kills_detached_child_that_retains_pipe(tmp_path: Path) -> None:
+@pytest.mark.skipif(os.name != "posix", reason="POSIX process containment limits tasks")
+def test_execute_defers_python_thread_attempt_without_starting_thread(tmp_path: Path) -> None:
     from attest.review.executor import (
         ExecutionOutcome,
         ExecutorLimits,
@@ -391,60 +465,143 @@ def test_execute_timeout_kills_detached_child_that_retains_pipe(tmp_path: Path) 
         execute_repro,
     )
 
-    pid_path = tmp_path / "detached-child.pid"
-    completed_path = tmp_path / "detached-child-completed"
+    thread_started = tmp_path / "thread-started"
     result = execute_repro(
         tmp_path,
         candidate(line=1),
         ReproSpec(
-            "import os\n"
-            "import stat\n"
-            "import subprocess\n"
-            "import sys\n"
-            "import time\n"
+            "import threading\n"
+            "from pathlib import Path\n"
             "def test_repro():\n"
-            "    pipe_fds = []\n"
-            "    for fd in range(3, 256):\n"
-            "        try:\n"
-            "            if stat.S_ISFIFO(os.fstat(fd).st_mode):\n"
-            "                pipe_fds.append(fd)\n"
-            "        except OSError:\n"
-            "            pass\n"
-            "    assert pipe_fds\n"
-            "    code = (\n"
-            "        \"import os, time; from pathlib import Path; \"\n"
-            "        \"Path('detached-child.pid').write_text(str(os.getpid())); \"\n"
-            "        \"time.sleep(4); Path('detached-child-completed').touch()\"\n"
-            "    )\n"
-            "    subprocess.Popen(\n"
-            "        [sys.executable, '-c', code],\n"
-            "        stdin=subprocess.DEVNULL,\n"
-            "        stdout=subprocess.DEVNULL,\n"
-            "        stderr=subprocess.DEVNULL,\n"
-            "        pass_fds=tuple(pipe_fds),\n"
-            "        start_new_session=True,\n"
-            "    )\n"
-            "    time.sleep(30)\n"
+            "    thread = threading.Thread("
+            "target=lambda: Path('thread-started').touch())\n"
+            "    thread.start()\n"
+            "    thread.join()\n"
         ),
-        ExecutorLimits(wall_timeout_s=0.4),
+        ExecutorLimits(),
     )
 
+    assert not thread_started.exists()
     assert result.outcome is ExecutionOutcome.DEFERRED
-    child_pid = int(pid_path.read_text(encoding="utf-8"))
-    alive = process_exists(child_pid)
-    observation_deadline = time.monotonic() + 1.0
-    while alive and time.monotonic() < observation_deadline:
-        time.sleep(0.02)
-        alive = process_exists(child_pid)
-    if alive:
-        os.kill(child_pid, signal.SIGKILL)
-    assert result.elapsed_s < 2.0
-    assert not alive
-    assert not completed_path.exists()
+    assert result.reason == "reproduction attempted to create a thread"
 
 
-@pytest.mark.skipif(os.name != "posix", reason="requires POSIX sessions and file descriptors")
-def test_execute_tracks_detached_pipe_holder_before_pytest_exits(tmp_path: Path) -> None:
+@pytest.mark.skipif(os.name != "posix", reason="POSIX process containment limits tasks")
+def test_generated_guard_blocks_joinable_thread_entrypoint(tmp_path: Path) -> None:
+    import attest.review.executor as executor
+
+    escaped_thread = tmp_path / "joinable-thread-escaped"
+    guard_path = tmp_path / "generated_sitecustomize.py"
+    guard_path.write_text(
+        executor._sitecustomize(
+            tmp_path / "network-blocked",
+            tmp_path / "process-guarded",
+            tmp_path / "process-contained",
+            tmp_path / "process-attempted",
+            tmp_path / "process-replacement-attempted",
+            tmp_path / "thread-attempted",
+        ),
+        encoding="utf-8",
+    )
+    probe_path = tmp_path / "joinable_thread_probe.py"
+    probe_path.write_text(
+        "import _thread\n"
+        "import resource\n"
+        "import runpy\n"
+        "import threading\n"
+        "from pathlib import Path\n"
+        f"escaped = Path({str(escaped_thread)!r})\n"
+        "def unguarded(*args, **kwargs):\n"
+        "    escaped.touch()\n"
+        "_thread.start_joinable_thread = unguarded\n"
+        "threading._start_joinable_thread = unguarded\n"
+        "resource.setrlimit(resource.RLIMIT_NPROC, (0, 0))\n"
+        f"runpy.run_path({str(guard_path)!r})\n"
+        "try:\n"
+        "    threading._start_joinable_thread(None)\n"
+        "except PermissionError:\n"
+        "    pass\n"
+        "else:\n"
+        "    raise AssertionError('joinable thread entrypoint was not guarded')\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-I", str(probe_path)],
+        cwd=tmp_path,
+        capture_output=True,
+        check=False,
+        timeout=10.0,
+    )
+
+    assert completed.returncode == 0, completed.stderr.decode(errors="replace")
+    assert not escaped_thread.exists()
+    assert (tmp_path / "thread-attempted").is_file()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX privilege check")
+def test_execute_privileged_posix_user_defers_before_running_generated_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import attest.review.executor as executor
+
+    monkeypatch.setattr(executor.os, "getuid", lambda: 0)
+
+    result = executor.execute_repro(
+        tmp_path,
+        candidate(line=1),
+        executor.ReproSpec("def test_repro(): assert False"),
+        executor.ExecutorLimits(),
+    )
+
+    assert result.outcome is executor.ExecutionOutcome.DEFERRED
+    assert result.reason == "process containment unavailable for privileged POSIX user"
+    assert not (tmp_path / ".attest" / "repro").exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX privilege check")
+@pytest.mark.parametrize(
+    ("capability_state", "reason"),
+    [
+        (
+            True,
+            "process containment unavailable: Linux capabilities override RLIMIT_NPROC",
+        ),
+        (
+            None,
+            "process containment unavailable: Linux capabilities could not be verified",
+        ),
+    ],
+)
+def test_execute_linux_privilege_state_fails_closed_before_generated_code(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capability_state: bool | None,
+    reason: str,
+) -> None:
+    import attest.review.executor as executor
+
+    monkeypatch.setattr(executor.sys, "platform", "linux")
+    monkeypatch.setattr(
+        executor,
+        "_linux_capabilities_override_process_limit",
+        lambda: capability_state,
+    )
+
+    result = executor.execute_repro(
+        tmp_path,
+        candidate(line=1),
+        executor.ReproSpec("def test_repro(): assert False"),
+        executor.ExecutorLimits(),
+    )
+
+    assert result.outcome is executor.ExecutionOutcome.DEFERRED
+    assert result.reason == reason
+    assert not (tmp_path / ".attest" / "repro").exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="kernel process limit is POSIX-only")
+def test_execute_defers_subprocess_attempt_without_starting_child(tmp_path: Path) -> None:
     from attest.review.executor import (
         ExecutionOutcome,
         ExecutorLimits,
@@ -452,56 +609,32 @@ def test_execute_tracks_detached_pipe_holder_before_pytest_exits(tmp_path: Path)
         execute_repro,
     )
 
-    pid_path = tmp_path / "normal-exit-child.pid"
-    completed_path = tmp_path / "normal-exit-child-completed"
+    child_started = tmp_path / "subprocess-child-started"
     result = execute_repro(
         tmp_path,
         candidate(line=1),
         ReproSpec(
-            "import os\n"
-            "import stat\n"
             "import subprocess\n"
             "import sys\n"
-            "import time\n"
             "def test_repro():\n"
-            "    pipe_fds = []\n"
-            "    for fd in range(3, 256):\n"
-            "        try:\n"
-            "            if stat.S_ISFIFO(os.fstat(fd).st_mode):\n"
-            "                pipe_fds.append(fd)\n"
-            "        except OSError:\n"
-            "            pass\n"
-            "    assert pipe_fds\n"
-            "    code = (\n"
-            "        \"import os, time; from pathlib import Path; \"\n"
-            "        \"Path('normal-exit-child.pid').write_text(str(os.getpid())); \"\n"
-            "        \"time.sleep(4); Path('normal-exit-child-completed').touch()\"\n"
-            "    )\n"
-            "    subprocess.Popen(\n"
-            "        [sys.executable, '-c', code],\n"
-            "        stdin=subprocess.DEVNULL,\n"
-            "        stdout=subprocess.DEVNULL,\n"
-            "        stderr=subprocess.DEVNULL,\n"
-            "        pass_fds=tuple(pipe_fds),\n"
-            "        start_new_session=True,\n"
-            "    )\n"
-            "    time.sleep(0.3)\n"
+            "    try:\n"
+            "        subprocess.Popen(\n"
+            "            [sys.executable, '-c', "
+            "\"from pathlib import Path; Path('subprocess-child-started').touch()\"],\n"
+            "            stdin=subprocess.DEVNULL,\n"
+            "            stdout=subprocess.DEVNULL,\n"
+            "            stderr=subprocess.DEVNULL,\n"
+            "        )\n"
+            "    except OSError:\n"
+            "        return\n"
+            "    raise AssertionError('child process was created')\n"
         ),
-        ExecutorLimits(wall_timeout_s=0.8),
+        ExecutorLimits(),
     )
 
     assert result.outcome is ExecutionOutcome.DEFERRED
-    child_pid = int(pid_path.read_text(encoding="utf-8"))
-    alive = process_exists(child_pid)
-    observation_deadline = time.monotonic() + 1.0
-    while alive and time.monotonic() < observation_deadline:
-        time.sleep(0.02)
-        alive = process_exists(child_pid)
-    if alive:
-        os.kill(child_pid, signal.SIGKILL)
-    assert result.elapsed_s < 2.0
-    assert not alive
-    assert not completed_path.exists()
+    assert result.reason == "reproduction attempted to create a child process"
+    assert not child_started.exists()
 
 
 @pytest.mark.skipif(os.name != "posix", reason="PID liveness assertion uses POSIX signals")
@@ -727,6 +860,41 @@ def test_execute_blocks_socket_connections_with_sitecustomize(tmp_path: Path) ->
         ),
         ExecutorLimits(),
     )
+
+    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert result.exit_code == 0
+    assert result.network_blocked is True
+
+
+def test_execute_blocks_socket_connections_after_socket_reload(tmp_path: Path) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_repro,
+    )
+
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        port = listener.getsockname()[1]
+        result = execute_repro(
+            tmp_path,
+            candidate(line=1),
+            ReproSpec(
+                "import importlib\n"
+                "import socket\n"
+                "import pytest\n"
+                "def test_repro():\n"
+                "    importlib.reload(socket)\n"
+                "    with pytest.raises(PermissionError, match='network disabled'):\n"
+                f"        socket.create_connection(('127.0.0.1', {port}), timeout=1.0)\n"
+            ),
+            ExecutorLimits(),
+        )
+        listener.settimeout(0.1)
+        with pytest.raises(TimeoutError):
+            listener.accept()
 
     assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
     assert result.exit_code == 0

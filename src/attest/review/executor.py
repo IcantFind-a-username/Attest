@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import signal
 import subprocess
 import sys
 import threading
@@ -26,8 +25,8 @@ from attest.review.proposer import Provider
 MAX_CONTEXT_LINES = 200
 MAX_REPRO_TOKENS = 2_000
 CLEANUP_TIMEOUT_S = 1.0
-DESCENDANT_POLL_S = 0.025
-DESCENDANT_SNAPSHOT_TIMEOUT_S = 0.2
+CAP_SYS_ADMIN = 21
+CAP_SYS_RESOURCE = 24
 
 REPRO_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -40,15 +39,50 @@ GENERATOR_SYSTEM = """Write one focused pytest reproduction for the supplied fin
 the test body required by the schema. The test must distinguish the claimed defect from correct
 behavior and must not use the network."""
 
-SITECUSTOMIZE = """import socket
+SITECUSTOMIZE = """import _thread
+import os
+import socket
+import sys
+import threading
 from pathlib import Path
+
+_PROCESS_EVENTS = {
+    "os.fork",
+    "os.forkpty",
+    "os.posix_spawn",
+    "os.spawn",
+    "os.system",
+    "pty.spawn",
+    "subprocess.Popen",
+}
+_PROCESS_REPLACEMENT_EVENTS = {"os.exec"}
+_PROCESS_SYMBOLS = {
+    "clone",
+    "clone3",
+    "fork",
+    "posix_spawn",
+    "posix_spawnp",
+    "popen",
+    "system",
+    "vfork",
+}
+_PROCESS_REPLACEMENT_SYMBOLS = {
+    "execl",
+    "execle",
+    "execlp",
+    "execlpe",
+    "execv",
+    "execve",
+    "execveat",
+    "execvp",
+    "execvpe",
+    "fexecve",
+    "syscall",
+}
+_NETWORK_EVENTS = {"socket.connect"}
 
 def _reject_connection(*args, **kwargs):
     raise PermissionError("network disabled by evidence executor")
-
-socket.socket.connect = _reject_connection
-socket.socket.connect_ex = _reject_connection
-socket.create_connection = _reject_connection
 """
 
 
@@ -131,8 +165,79 @@ def _parse_repro(text: str) -> ReproSpec:
     return ReproSpec(test_body=payload["test_body"])
 
 
-def _sitecustomize(marker: Path) -> str:
-    return SITECUSTOMIZE + f"\nPath({str(marker)!r}).write_text('active', encoding='utf-8')\n"
+def _sitecustomize(
+    network_marker: Path,
+    process_guard_marker: Path,
+    process_containment_marker: Path,
+    process_attempt_marker: Path,
+    process_replacement_marker: Path,
+    thread_attempt_marker: Path,
+) -> str:
+    return (
+        SITECUSTOMIZE
+        + f"""
+_network_marker = Path({str(network_marker)!r})
+_process_guard_marker = Path({str(process_guard_marker)!r})
+_process_containment_marker = Path({str(process_containment_marker)!r})
+_process_attempt_marker = Path({str(process_attempt_marker)!r})
+_process_replacement_marker = Path({str(process_replacement_marker)!r})
+_thread_attempt_marker = Path({str(thread_attempt_marker)!r})
+_PROCESS_GUARD_PROBE = "attest.process_guard_probe"
+
+if os.name == "posix":
+    import resource
+    if resource.getrlimit(resource.RLIMIT_NPROC) != (0, 0):
+        raise RuntimeError("kernel process containment is inactive")
+    _process_containment_marker.write_text("active", encoding="utf-8")
+
+def _guard_operations(event, args):
+    if event == _PROCESS_GUARD_PROBE:
+        _process_guard_marker.write_text("active", encoding="utf-8")
+        return
+    if event in _NETWORK_EVENTS:
+        raise PermissionError("network disabled by evidence executor")
+    process_event = event in _PROCESS_EVENTS
+    native_symbol = (
+        event in {{"ctypes.dlsym", "ctypes.dlsym/handle"}}
+        and args
+        and args[-1] in _PROCESS_SYMBOLS
+    )
+    replacement_event = event in _PROCESS_REPLACEMENT_EVENTS
+    replacement_symbol = (
+        event in {{"ctypes.dlsym", "ctypes.dlsym/handle"}}
+        and args
+        and args[-1] in _PROCESS_REPLACEMENT_SYMBOLS
+    )
+    if replacement_event or replacement_symbol:
+        _process_replacement_marker.write_text("attempted", encoding="utf-8")
+        raise PermissionError("process replacement disabled by evidence executor")
+    if not process_event and not native_symbol:
+        return
+    _process_attempt_marker.write_text("attempted", encoding="utf-8")
+    if os.name != "posix":
+        raise PermissionError("process creation disabled by evidence executor")
+
+sys.addaudithook(_guard_operations)
+sys.audit(_PROCESS_GUARD_PROBE)
+
+if os.name == "posix":
+    def _reject_thread(*args, **kwargs):
+        _thread_attempt_marker.write_text("attempted", encoding="utf-8")
+        raise PermissionError("thread creation disabled by evidence executor")
+    for _module, _names in (
+        (_thread, ("start_new_thread", "start_joinable_thread")),
+        (threading, ("_start_new_thread", "_start_joinable_thread")),
+    ):
+        for _name in _names:
+            if hasattr(_module, _name):
+                setattr(_module, _name, _reject_thread)
+
+socket.socket.connect = _reject_connection
+socket.socket.connect_ex = _reject_connection
+socket.create_connection = _reject_connection
+_network_marker.write_text("active", encoding="utf-8")
+"""
+    )
 
 
 def generate_repro(
@@ -195,6 +300,7 @@ def _resource_limiter(limits: ExecutorLimits) -> Callable[[], None] | None:
 
         cpu_seconds = max(1, limits.cpu_timeout_s)
         memory_bytes = max(1, limits.memory_mb) * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_NPROC, (0, 0))
         resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
         try:
             resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
@@ -245,52 +351,51 @@ def _remaining(deadline: float) -> float:
     return max(0.0, deadline - time.monotonic())
 
 
-def _posix_descendants(root_pid: int, deadline: float) -> list[int]:
-    timeout = _remaining(deadline)
-    if timeout == 0.0:
-        return []
+def _linux_capabilities_override_process_limit() -> bool | None:
     try:
-        snapshot = subprocess.run(
-            ["ps", "-axo", "pid=,ppid="],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return []
-    children: dict[int, list[int]] = {}
-    for line in snapshot.stdout.splitlines():
-        try:
-            pid_text, parent_text = line.split()
-            pid, parent = int(pid_text), int(parent_text)
-        except (TypeError, ValueError):
-            continue
-        children.setdefault(parent, []).append(pid)
-    descendants: list[int] = []
-    pending = [root_pid]
-    while pending:
-        direct = children.get(pending.pop(), [])
-        descendants.extend(direct)
-        pending.extend(direct)
-    return descendants
+        status = Path("/proc/self/status").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    values: dict[str, int] = {}
+    for line in status.splitlines():
+        name, separator, value = line.partition(":")
+        if separator and name in {"CapEff", "CapPrm"}:
+            try:
+                values[name] = int(value.strip(), 16)
+            except ValueError:
+                return None
+    if set(values) != {"CapEff", "CapPrm"}:
+        return None
+    override_mask = (1 << CAP_SYS_ADMIN) | (1 << CAP_SYS_RESOURCE)
+    return any(capabilities & override_mask for capabilities in values.values())
 
 
-def _terminate_process_tree(
+def _process_containment_unavailable_reason() -> str | None:
+    if os.name != "posix":
+        return None
+    try:
+        import resource
+    except ImportError:
+        return "process containment unavailable: resource limits are not supported"
+
+    if not hasattr(resource, "RLIMIT_NPROC"):
+        return "process containment unavailable: RLIMIT_NPROC is not supported"
+    if os.getuid() == 0:
+        return "process containment unavailable for privileged POSIX user"
+    if sys.platform.startswith("linux"):
+        privileged = _linux_capabilities_override_process_limit()
+        if privileged is None:
+            return "process containment unavailable: Linux capabilities could not be verified"
+        if privileged:
+            return "process containment unavailable: Linux capabilities override RLIMIT_NPROC"
+    return None
+
+
+def _terminate_owned_process(
     process: subprocess.Popen[bytes],
     deadline: float,
-    observed_descendants: set[int] | None = None,
 ) -> None:
-    if os.name == "posix":
-        descendants = set(_posix_descendants(process.pid, deadline))
-        descendants.update(observed_descendants or ())
-        for pid in descendants:
-            with suppress(ProcessLookupError):
-                os.kill(pid, signal.SIGKILL)
-        with suppress(ProcessLookupError):
-            os.killpg(process.pid, signal.SIGKILL)
-    elif os.name == "nt":
+    if os.name == "nt":
         killer = subprocess.Popen(
             ["taskkill", "/F", "/T", "/PID", str(process.pid)],
             stdout=subprocess.DEVNULL,
@@ -306,7 +411,7 @@ def _terminate_process_tree(
 
 def _cleanup_raw_process(process: subprocess.Popen[bytes], deadline: float) -> None:
     with suppress(Exception):
-        _terminate_process_tree(process, deadline)
+        _terminate_owned_process(process, deadline)
     with suppress(subprocess.TimeoutExpired):
         process.wait(timeout=_remaining(deadline))
     for stream in (process.stdout, process.stderr):
@@ -321,26 +426,10 @@ class _OwnedProcess:
         self.stdout_tail = _TailBuffer(output_bytes)
         self.stderr_tail = _TailBuffer(output_bytes)
         self.drainers: list[threading.Thread] = []
-        self.observed_descendants: set[int] = set()
-        self._descendants_lock = threading.Lock()
-        self._tracker_stop = threading.Event()
-        self._tracker: threading.Thread | None = None
-
-    def _track_descendants(self) -> None:
-        while not self._tracker_stop.is_set() and self.process.poll() is None:
-            snapshot_deadline = time.monotonic() + DESCENDANT_SNAPSHOT_TIMEOUT_S
-            descendants = _posix_descendants(self.process.pid, snapshot_deadline)
-            with self._descendants_lock:
-                self.observed_descendants.update(descendants)
-            self._tracker_stop.wait(DESCENDANT_POLL_S)
 
     def start(self) -> None:
         if self.process.stdout is None or self.process.stderr is None:
             raise RuntimeError("executor pipes were not created")
-        if os.name == "posix":
-            tracker = threading.Thread(target=self._track_descendants, daemon=True)
-            tracker.start()
-            self._tracker = tracker
         for stream, tail in (
             (self.process.stdout, self.stdout_tail),
             (self.process.stderr, self.stderr_tail),
@@ -355,21 +444,10 @@ class _OwnedProcess:
             drainer.join(timeout=_remaining(deadline))
         if any(drainer.is_alive() for drainer in self.drainers):
             raise subprocess.TimeoutExpired(self.process.args, timeout=0)
-        self._stop_tracker(deadline)
-
-    def _stop_tracker(self, deadline: float) -> None:
-        self._tracker_stop.set()
-        if self._tracker is not None:
-            self._tracker.join(timeout=_remaining(deadline))
-
-    def _observed_pids(self) -> set[int]:
-        with self._descendants_lock:
-            return set(self.observed_descendants)
 
     def cleanup(self, deadline: float) -> None:
-        self._stop_tracker(deadline)
         with suppress(Exception):
-            _terminate_process_tree(self.process, deadline, self._observed_pids())
+            _terminate_owned_process(self.process, deadline)
         with suppress(subprocess.TimeoutExpired):
             self.process.wait(timeout=_remaining(deadline))
         for drainer in self.drainers:
@@ -406,6 +484,9 @@ def execute_repro(
         return _deferred("malformed generator output: test_body must be a string", started)
     if not _safe_path_component(candidate.task_id):
         return _deferred("unsafe task identity", started)
+    containment_reason = _process_containment_unavailable_reason()
+    if containment_reason is not None:
+        return _deferred(containment_reason, started)
 
     work_dir = (
         repo_root
@@ -418,6 +499,11 @@ def execute_repro(
     junit_path = work_dir / "junit.xml"
     site_dir = work_dir / "python_startup"
     network_marker = site_dir / "network-blocked"
+    process_guard_marker = site_dir / "process-guarded"
+    process_containment_marker = site_dir / "process-contained"
+    process_attempt_marker = site_dir / "process-attempted"
+    process_replacement_marker = site_dir / "process-replacement-attempted"
+    thread_attempt_marker = site_dir / "thread-attempted"
     raw_process: subprocess.Popen[bytes] | None = None
     owner: _OwnedProcess | None = None
     failure: Exception | None = None
@@ -427,10 +513,26 @@ def execute_repro(
         site_dir.mkdir(exist_ok=True)
         generated_path.write_text(spec.test_body.rstrip("\n") + "\n", encoding="utf-8")
         (site_dir / "sitecustomize.py").write_text(
-            _sitecustomize(network_marker), encoding="utf-8"
+            _sitecustomize(
+                network_marker,
+                process_guard_marker,
+                process_containment_marker,
+                process_attempt_marker,
+                process_replacement_marker,
+                thread_attempt_marker,
+            ),
+            encoding="utf-8",
         )
         junit_path.unlink(missing_ok=True)
-        network_marker.unlink(missing_ok=True)
+        for marker in (
+            network_marker,
+            process_guard_marker,
+            process_containment_marker,
+            process_attempt_marker,
+            process_replacement_marker,
+            thread_attempt_marker,
+        ):
+            marker.unlink(missing_ok=True)
 
         env = os.environ.copy()
         env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
@@ -501,6 +603,53 @@ def execute_repro(
     stdout = _truncate_output(stdout_bytes, limits.output_bytes)
     stderr = _truncate_output(stderr_bytes, limits.output_bytes)
     network_blocked = network_marker.is_file()
+    process_guarded = process_guard_marker.is_file()
+    process_contained = os.name != "posix" or process_containment_marker.is_file()
+    if not process_guarded:
+        return _deferred(
+            "process guard did not initialize",
+            started,
+            exit_code=process.returncode,
+            stdout=stdout,
+            stderr=stderr,
+            network_blocked=network_blocked,
+        )
+    if not process_contained:
+        return _deferred(
+            "kernel process containment did not initialize",
+            started,
+            exit_code=process.returncode,
+            stdout=stdout,
+            stderr=stderr,
+            network_blocked=network_blocked,
+        )
+    if process_replacement_marker.is_file():
+        return _deferred(
+            "reproduction attempted to replace the pytest process",
+            started,
+            exit_code=process.returncode,
+            stdout=stdout,
+            stderr=stderr,
+            network_blocked=network_blocked,
+        )
+    if process_attempt_marker.is_file():
+        return _deferred(
+            "reproduction attempted to create a child process",
+            started,
+            exit_code=process.returncode,
+            stdout=stdout,
+            stderr=stderr,
+            network_blocked=network_blocked,
+        )
+    if thread_attempt_marker.is_file():
+        return _deferred(
+            "reproduction attempted to create a thread",
+            started,
+            exit_code=process.returncode,
+            stdout=stdout,
+            stderr=stderr,
+            network_blocked=network_blocked,
+        )
     if not network_blocked:
         return _deferred(
             "network guard did not initialize",
