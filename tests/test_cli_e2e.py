@@ -9,6 +9,7 @@ import pytest
 
 from attest.cli.main import main
 from attest.review.candidates import CandidateStore
+from attest.review.config import load_pricing
 from attest.review.gate import GateResult
 from attest.review.schema import Finding
 
@@ -43,6 +44,26 @@ def repo(tmp_path: Path) -> Path:
 
 def _payload(*findings: dict) -> str:
     return json.dumps({"findings": list(findings)})
+
+
+def _event_path(repo: Path, tmp_path: Path) -> Path:
+    base_sha = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    event = {
+        "number": 9,
+        "repository": {"full_name": "octo/widgets"},
+        "pull_request": {
+            "base": {"sha": base_sha},
+            "head": {"sha": base_sha, "repo": {"full_name": "octo/widgets"}},
+        },
+    }
+    path = tmp_path / "event.json"
+    path.write_text(json.dumps(event), encoding="utf-8")
+    return path
 
 
 FINDING_A = {
@@ -226,3 +247,116 @@ def test_unreachable_gate_does_not_construct_a_real_client(repo: Path, capsys, m
 
     assert rc == 2
     assert "unreachable" in capsys.readouterr().err
+
+
+def test_ci_rejects_missing_github_token(
+    repo: Path, tmp_path: Path, mocks: list[str], capsys, monkeypatch
+) -> None:
+    event_path = _event_path(repo, tmp_path)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+
+    rc = main(
+        [
+            "--repo",
+            str(repo),
+            "ci",
+            "--event-path",
+            str(event_path),
+            "--mock",
+            mocks[0],
+        ]
+    )
+
+    assert rc == 2
+    assert "GITHUB_TOKEN" in capsys.readouterr().err
+
+
+def test_ci_rejects_malformed_pull_request_event(
+    repo: Path, tmp_path: Path, mocks: list[str], capsys, monkeypatch
+) -> None:
+    event_path = tmp_path / "malformed-event.json"
+    event_path.write_text('{"repository": {}}', encoding="utf-8")
+    monkeypatch.setenv("GITHUB_TOKEN", "local-token")
+
+    rc = main(
+        [
+            "--repo",
+            str(repo),
+            "ci",
+            "--event-path",
+            str(event_path),
+            "--mock",
+            mocks[0],
+        ]
+    )
+
+    assert rc == 2
+    assert "event" in capsys.readouterr().err.lower()
+
+
+def test_ci_mock_provider_routes_offline_and_prints_one_json_result(
+    repo: Path, tmp_path: Path, capsys, monkeypatch
+) -> None:
+    from attest.github.client import GitHubClient
+
+    event_path = _event_path(repo, tmp_path)
+    empty_payload = tmp_path / "empty.json"
+    empty_payload.write_text(_payload(), encoding="utf-8")
+    monkeypatch.setenv("GITHUB_TOKEN", "local-token")
+    monkeypatch.setenv("GITHUB_API_URL", "http://127.0.0.1:9")
+
+    def unexpected_client(*args, **kwargs):  # noqa: ANN002, ANN003
+        raise AssertionError("offline --mock must not construct a paid API client")
+
+    def record_status(self, repository, number, marker, body):  # noqa: ANN001
+        return {"id": 1}
+
+    def unexpected_review(self, repository, number, commit_id, comments):  # noqa: ANN001
+        raise AssertionError("negative control must not post an inline review")
+
+    monkeypatch.setattr(anthropic, "Anthropic", unexpected_client)
+    monkeypatch.setattr(GitHubClient, "upsert_issue_comment", record_status)
+    monkeypatch.setattr(GitHubClient, "create_review", unexpected_review)
+
+    rc = main(
+        [
+            "--repo",
+            str(repo),
+            "ci",
+            "--event-path",
+            str(event_path),
+            "--verification-timeout",
+            "15",
+            "--budget",
+            "0.1",
+            "--model",
+            str(load_pricing()["default_model"]),
+            "--k",
+            "1",
+            "--mock",
+            str(empty_payload),
+        ]
+    )
+
+    assert rc == 0
+    output = capsys.readouterr().out
+    assert output.count("\n") == 1
+    result = json.loads(output)
+    assert set(result) == {
+        "task_id",
+        "candidate_count",
+        "surfaced_count",
+        "deferred_reason",
+        "spend_usd",
+        "elapsed_s",
+    }
+    assert result["candidate_count"] == 0
+    assert result["surfaced_count"] == 0
+    assert result["deferred_reason"] is None
+
+
+def test_ci_mock_without_files_is_rejected(repo: Path, tmp_path: Path) -> None:
+    event_path = _event_path(repo, tmp_path)
+
+    with pytest.raises(SystemExit):
+        main(["--repo", str(repo), "ci", "--event-path", str(event_path), "--mock"])

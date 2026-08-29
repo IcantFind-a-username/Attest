@@ -1,13 +1,18 @@
-"""attest CLI: review (diff -> proposer -> gate -> report), verify, feedback, stats."""
+"""attest CLI: review, two-stage CI, verify, feedback, and stats commands."""
 
 from __future__ import annotations
 
 import argparse
 import dataclasses
+import json
+import os
 import sys
 from pathlib import Path
 
+from attest.github.client import GitHubClient
+from attest.github.context import load_pull_request_context
 from attest.review.candidates import CandidateStore
+from attest.review.ci import run_ci
 from attest.review.config import load_config
 from attest.review.gate import GateResult, apply_verification
 from attest.review.ledger import Ledger
@@ -59,6 +64,67 @@ def cmd_review(args: argparse.Namespace) -> int:
             notes=review.notes,
         )
     )
+    return 0
+
+
+def cmd_ci(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if not token:
+        print("error: GITHUB_TOKEN is required for CI review", file=sys.stderr)
+        return 2
+    try:
+        context = load_pull_request_context(Path(args.event_path))
+    except (OSError, UnicodeError, ValueError) as exc:
+        print(f"error: malformed GitHub event: {exc}", file=sys.stderr)
+        return 2
+
+    config = load_config(repo)
+    overrides = {
+        key: value
+        for key, value in [
+            ("alpha", args.alpha),
+            ("budget_usd", args.budget),
+            ("model", args.model),
+            ("k_samples", args.k),
+        ]
+        if value is not None
+    }
+    if overrides:
+        try:
+            config = dataclasses.replace(config, **overrides)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+
+    provider: Provider
+    if args.mock is not None:
+        try:
+            payloads = [Path(path).read_text(encoding="utf-8") for path in args.mock]
+        except (OSError, UnicodeError) as exc:
+            print(f"error: cannot read mock payload: {exc}", file=sys.stderr)
+            return 2
+        provider = MockProvider(payloads)
+    else:
+        provider = ApiProvider(config.model)
+
+    client = GitHubClient(
+        token,
+        os.environ.get("GITHUB_API_URL", "https://api.github.com"),
+    )
+    try:
+        result = run_ci(
+            repo,
+            context,
+            client,
+            config,
+            provider,
+            verification_timeout_s=args.verification_timeout,
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(dataclasses.asdict(result), sort_keys=True))
     return 0
 
 
@@ -156,6 +222,27 @@ def main(argv: list[str] | None = None) -> int:
         "(at least one file — never silently falls through to real API calls)",
     )
     p_review.set_defaults(func=cmd_review)
+
+    p_ci = sub.add_parser("ci", help="run a two-stage pull-request review")
+    p_ci.add_argument("--event-path", required=True, help="GitHub pull_request event JSON")
+    p_ci.add_argument(
+        "--verification-timeout",
+        type=float,
+        default=600.0,
+        help="shared verification deadline in seconds (default: 600)",
+    )
+    p_ci.add_argument("--alpha", type=float, default=None)
+    p_ci.add_argument("--budget", type=float, default=None, help="USD cap for this review")
+    p_ci.add_argument("--model", default=None)
+    p_ci.add_argument("--k", type=int, default=None, help="proposer samples")
+    p_ci.add_argument(
+        "--mock",
+        nargs="+",
+        default=None,
+        help="offline mode: JSON payload files replayed instead of model calls "
+        "(at least one file — never silently falls through to real API calls)",
+    )
+    p_ci.set_defaults(func=cmd_ci)
 
     p_verify = sub.add_parser("verify", help="record a reproduction attempt for a finding")
     p_verify.add_argument("finding_id")
