@@ -25,6 +25,7 @@ from attest.review.proposer import Provider
 
 MAX_CONTEXT_LINES = 200
 MAX_REPRO_TOKENS = 2_000
+CLEANUP_TIMEOUT_S = 1.0
 
 REPRO_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -175,9 +176,12 @@ class _TailBuffer:
 
 
 def _drain_stream(stream: BinaryIO, tail: _TailBuffer) -> None:
-    with stream:
-        while chunk := stream.read(65_536):
-            tail.append(chunk)
+    try:
+        with stream:
+            while chunk := stream.read(65_536):
+                tail.append(chunk)
+    except (OSError, ValueError):
+        return
 
 
 def _resource_limiter(limits: ExecutorLimits) -> Callable[[], None] | None:
@@ -235,8 +239,47 @@ def _safe_path_component(value: str) -> bool:
     return bool(value) and value not in {".", ".."} and "/" not in value and "\\" not in value
 
 
-def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
+def _remaining(deadline: float) -> float:
+    return max(0.0, deadline - time.monotonic())
+
+
+def _posix_descendants(root_pid: int, deadline: float) -> list[int]:
+    timeout = _remaining(deadline)
+    if timeout == 0.0:
+        return []
+    try:
+        snapshot = subprocess.run(
+            ["ps", "-axo", "pid=,ppid="],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    children: dict[int, list[int]] = {}
+    for line in snapshot.stdout.splitlines():
+        try:
+            pid_text, parent_text = line.split()
+            pid, parent = int(pid_text), int(parent_text)
+        except (TypeError, ValueError):
+            continue
+        children.setdefault(parent, []).append(pid)
+    descendants: list[int] = []
+    pending = [root_pid]
+    while pending:
+        direct = children.get(pending.pop(), [])
+        descendants.extend(direct)
+        pending.extend(direct)
+    return descendants
+
+
+def _terminate_process_tree(process: subprocess.Popen[bytes], deadline: float) -> None:
     if os.name == "posix":
+        for pid in reversed(_posix_descendants(process.pid, deadline)):
+            with suppress(ProcessLookupError):
+                os.kill(pid, signal.SIGKILL)
         with suppress(ProcessLookupError):
             os.killpg(process.pid, signal.SIGKILL)
     elif os.name == "nt":
@@ -245,9 +288,61 @@ def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        killer.wait()
+        try:
+            killer.wait(timeout=_remaining(deadline))
+        except subprocess.TimeoutExpired:
+            killer.kill()
     if process.poll() is None:
         process.kill()
+
+
+class _OwnedProcess:
+    def __init__(self, process: subprocess.Popen[bytes], output_bytes: int):
+        self.process = process
+        self.stdout_tail = _TailBuffer(output_bytes)
+        self.stderr_tail = _TailBuffer(output_bytes)
+        self.drainers: list[threading.Thread] = []
+
+    def start_drainers(self) -> None:
+        if self.process.stdout is None or self.process.stderr is None:
+            raise RuntimeError("executor pipes were not created")
+        for stream, tail in (
+            (self.process.stdout, self.stdout_tail),
+            (self.process.stderr, self.stderr_tail),
+        ):
+            drainer = threading.Thread(target=_drain_stream, args=(stream, tail), daemon=True)
+            drainer.start()
+            self.drainers.append(drainer)
+
+    def wait(self, deadline: float) -> None:
+        self.process.wait(timeout=_remaining(deadline))
+        for drainer in self.drainers:
+            drainer.join(timeout=_remaining(deadline))
+        if any(drainer.is_alive() for drainer in self.drainers):
+            raise subprocess.TimeoutExpired(self.process.args, timeout=0)
+
+    def cleanup(self, deadline: float) -> None:
+        with suppress(Exception):
+            _terminate_process_tree(self.process, deadline)
+        with suppress(subprocess.TimeoutExpired):
+            self.process.wait(timeout=_remaining(deadline))
+        for drainer in self.drainers:
+            drainer.join(timeout=_remaining(deadline))
+        for stream in (self.process.stdout, self.process.stderr):
+            if stream is not None and not stream.closed:
+                with suppress(OSError):
+                    stream.close()
+        for drainer in self.drainers:
+            if drainer.is_alive():
+                drainer.join(timeout=_remaining(deadline))
+
+    @property
+    def stdout(self) -> bytes:
+        return bytes(self.stdout_tail.data)
+
+    @property
+    def stderr(self) -> bytes:
+        return bytes(self.stderr_tail.data)
 
 
 def execute_repro(
@@ -277,6 +372,9 @@ def execute_repro(
     junit_path = work_dir / "junit.xml"
     site_dir = work_dir / "python_startup"
     network_marker = site_dir / "network-blocked"
+    owner: _OwnedProcess | None = None
+    failure: Exception | None = None
+    timed_out = False
     try:
         work_dir.mkdir(parents=True, exist_ok=True)
         site_dir.mkdir(exist_ok=True)
@@ -314,31 +412,21 @@ def execute_repro(
                 getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
             ),
         )
-        if process.stdout is None or process.stderr is None:
-            raise RuntimeError("executor pipes were not created")
-        stdout_tail = _TailBuffer(limits.output_bytes)
-        stderr_tail = _TailBuffer(limits.output_bytes)
-        drainers = [
-            threading.Thread(target=_drain_stream, args=(process.stdout, stdout_tail), daemon=True),
-            threading.Thread(target=_drain_stream, args=(process.stderr, stderr_tail), daemon=True),
-        ]
-        deadline = time.monotonic() + limits.wall_timeout_s
-        for drainer in drainers:
-            drainer.start()
-        process.wait(timeout=max(0.0, deadline - time.monotonic()))
-        for drainer in drainers:
-            drainer.join(timeout=max(0.0, deadline - time.monotonic()))
-        if any(drainer.is_alive() for drainer in drainers):
-            raise subprocess.TimeoutExpired(process.args, limits.wall_timeout_s)
-        stdout_bytes = bytes(stdout_tail.data)
-        stderr_bytes = bytes(stderr_tail.data)
-    except subprocess.TimeoutExpired:
-        _terminate_process_tree(process)
-        process.wait()
-        for drainer in drainers:
-            drainer.join()
-        stdout_bytes = bytes(stdout_tail.data)
-        stderr_bytes = bytes(stderr_tail.data)
+        owner = _OwnedProcess(process, limits.output_bytes)
+        owner.start_drainers()
+        owner.wait(started + limits.wall_timeout_s)
+    except subprocess.TimeoutExpired as exc:
+        failure = exc
+        timed_out = True
+    except Exception as exc:  # noqa: BLE001 - infrastructure failures are ternary DEFER
+        failure = exc
+    finally:
+        if failure is not None and owner is not None:
+            owner.cleanup(time.monotonic() + CLEANUP_TIMEOUT_S)
+
+    stdout_bytes = owner.stdout if owner is not None else b""
+    stderr_bytes = owner.stderr if owner is not None else b""
+    if timed_out:
         return _deferred(
             f"reproduction timed out after {limits.wall_timeout_s:g}s",
             started,
@@ -346,13 +434,18 @@ def execute_repro(
             stderr=_truncate_output(stderr_bytes, limits.output_bytes),
             network_blocked=network_marker.is_file(),
         )
-    except Exception as exc:  # noqa: BLE001 - infrastructure failures are ternary DEFER
+    if failure is not None:
         return _deferred(
-            f"executor failure: {type(exc).__name__}: {exc}",
+            f"executor failure: {type(failure).__name__}: {failure}",
             started,
+            stdout=_truncate_output(stdout_bytes, limits.output_bytes),
+            stderr=_truncate_output(stderr_bytes, limits.output_bytes),
             network_blocked=network_marker.is_file(),
         )
 
+    if owner is None:
+        return _deferred("executor failure: process was not started", started)
+    process = owner.process
     stdout = _truncate_output(stdout_bytes, limits.output_bytes)
     stderr = _truncate_output(stderr_bytes, limits.output_bytes)
     network_blocked = network_marker.is_file()

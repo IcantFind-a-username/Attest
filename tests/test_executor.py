@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import signal
+import subprocess
 import time
 import tracemalloc
 from collections.abc import Callable
@@ -378,6 +379,103 @@ def test_execute_timeout_terminates_spawned_child_process(tmp_path: Path) -> Non
         alive = process_exists(child_pid)
     if alive:
         os.kill(child_pid, signal.SIGKILL)
+    assert not alive
+
+
+@pytest.mark.skipif(os.name != "posix", reason="requires POSIX sessions and file descriptors")
+def test_execute_timeout_kills_detached_child_that_retains_pipe(tmp_path: Path) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_repro,
+    )
+
+    pid_path = tmp_path / "detached-child.pid"
+    completed_path = tmp_path / "detached-child-completed"
+    result = execute_repro(
+        tmp_path,
+        candidate(line=1),
+        ReproSpec(
+            "import os\n"
+            "import stat\n"
+            "import subprocess\n"
+            "import sys\n"
+            "import time\n"
+            "def test_repro():\n"
+            "    pipe_fds = []\n"
+            "    for fd in range(3, 256):\n"
+            "        try:\n"
+            "            if stat.S_ISFIFO(os.fstat(fd).st_mode):\n"
+            "                pipe_fds.append(fd)\n"
+            "        except OSError:\n"
+            "            pass\n"
+            "    assert pipe_fds\n"
+            "    code = (\n"
+            "        \"import os, time; from pathlib import Path; \"\n"
+            "        \"Path('detached-child.pid').write_text(str(os.getpid())); \"\n"
+            "        \"time.sleep(4); Path('detached-child-completed').touch()\"\n"
+            "    )\n"
+            "    subprocess.Popen(\n"
+            "        [sys.executable, '-c', code],\n"
+            "        stdin=subprocess.DEVNULL,\n"
+            "        stdout=subprocess.DEVNULL,\n"
+            "        stderr=subprocess.DEVNULL,\n"
+            "        pass_fds=tuple(pipe_fds),\n"
+            "        start_new_session=True,\n"
+            "    )\n"
+            "    time.sleep(30)\n"
+        ),
+        ExecutorLimits(wall_timeout_s=0.4),
+    )
+
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    child_pid = int(pid_path.read_text(encoding="utf-8"))
+    alive = process_exists(child_pid)
+    observation_deadline = time.monotonic() + 1.0
+    while alive and time.monotonic() < observation_deadline:
+        time.sleep(0.02)
+        alive = process_exists(child_pid)
+    if alive:
+        os.kill(child_pid, signal.SIGKILL)
+    assert result.elapsed_s < 2.0
+    assert not alive
+    assert not completed_path.exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="PID liveness assertion uses POSIX signals")
+def test_execute_post_spawn_failure_cleans_up_owned_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import attest.review.executor as executor
+
+    real_popen = subprocess.Popen
+    spawned_pids: list[int] = []
+
+    def recording_popen(*args: Any, **kwargs: Any) -> subprocess.Popen[bytes]:
+        process = real_popen(*args, **kwargs)
+        spawned_pids.append(process.pid)
+        return process
+
+    def fail_to_start_drainer(self: Any) -> None:
+        raise RuntimeError("drainer startup failed")
+
+    monkeypatch.setattr(executor.subprocess, "Popen", recording_popen)
+    monkeypatch.setattr(executor.threading.Thread, "start", fail_to_start_drainer)
+
+    result = executor.execute_repro(
+        tmp_path,
+        candidate(line=1),
+        executor.ReproSpec("import time\ndef test_repro(): time.sleep(30)"),
+        executor.ExecutorLimits(wall_timeout_s=0.4),
+    )
+
+    pytest_pid = spawned_pids[0]
+    alive = process_exists(pytest_pid)
+    if alive:
+        os.killpg(pytest_pid, signal.SIGKILL)
+    assert result.outcome is executor.ExecutionOutcome.DEFERRED
+    assert "drainer startup failed" in result.reason
     assert not alive
 
 
