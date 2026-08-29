@@ -5,15 +5,32 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from enum import StrEnum
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
-_ROLES = frozenset(("buggy", "fixed"))
-_PROVENANCE_KINDS = frozenset(("upstream",))
+_ROLES = frozenset(("historical_bug_replay", "developer_fix_control"))
+_PROVENANCE_KINDS = frozenset(("historical_fix", "bug_introducing_commit"))
 _SPLITS = frozenset(("train", "validation", "test"))
+_NORMALIZATIONS = frozenset(("bytes", "normalized_text"))
 _OPAQUE_ID_RE = re.compile(r"bug|clean|defect", re.IGNORECASE)
 _HEX_RE = re.compile(r"[0-9a-f]+", re.IGNORECASE)
+
+
+class Placement(StrEnum):
+    """Final ci_final placement, independent from the gate action."""
+
+    INLINE = "inline"
+    OVERFLOW = "overflow"
+    DRAWER = "drawer"
+    DISCARD = "discard"
+
+
+def is_scored_placement(placement: Placement) -> bool:
+    """Return whether a final placement was visible to the pull-request author."""
+    return placement in (Placement.INLINE, Placement.OVERFLOW)
 
 
 @dataclass(frozen=True)
@@ -23,6 +40,26 @@ class ChangedLocation:
     path: str
     start_line: int
     end_line: int
+
+
+@dataclass(frozen=True)
+class PatchDescriptor:
+    """A hash-addressed external patch artifact, without embedding its contents."""
+
+    relative_path: str
+    sha256: str
+    normalization: str
+
+
+@dataclass(frozen=True)
+class TestDescriptor:
+    """A hash-addressed external regression-test artifact, without embedding its contents."""
+
+    __test__ = False
+
+    relative_path: str
+    sha256: str
+    normalization: str
 
 
 @dataclass(frozen=True)
@@ -37,8 +74,8 @@ class BenchmarkCase:
     source_license: str
     buggy_commit: str
     fixed_commit: str
-    patch_hash: str
-    test_hash: str
+    patch: PatchDescriptor
+    tests: TestDescriptor
     changed_locations: tuple[ChangedLocation, ...]
     split: str
 
@@ -62,9 +99,34 @@ class Prediction:
     case_id: str
     file: str
     line: int
-    placement: str
+    placement: Placement
     action: str
     repro_status: str
+
+    @classmethod
+    def from_joined_ci_final(
+        cls, candidate_row: Mapping[str, object], ci_final_row: Mapping[str, object]
+    ) -> Prediction:
+        """Create a prediction from one candidate row joined to its ci_final decision."""
+        finding_id = _mapping_string(candidate_row, "finding_id")
+        if finding_id != _mapping_string(ci_final_row, "finding_id"):
+            raise ValueError("candidate and ci_final finding_id must match")
+        try:
+            placement = Placement(_mapping_string(ci_final_row, "placement"))
+        except ValueError as exc:
+            raise ValueError("unknown ci_final placement") from exc
+        line = candidate_row.get("line")
+        if not isinstance(line, int) or isinstance(line, bool) or line < 1:
+            raise ValueError("candidate line must be a positive integer")
+        return cls(
+            finding_id=finding_id,
+            case_id=_mapping_string(candidate_row, "case_id"),
+            file=_mapping_string(candidate_row, "file"),
+            line=line,
+            placement=placement,
+            action=_mapping_string(ci_final_row, "action"),
+            repro_status=_mapping_string(candidate_row, "repro_status"),
+        )
 
 
 @dataclass(frozen=True)
@@ -88,6 +150,15 @@ class BenchmarkManifest:
     corpus_commit: str
     cases: tuple[BenchmarkCase, ...]
     truth_defects: tuple[TruthDefect, ...]
+
+
+def verify_descriptor_bytes(
+    descriptor: PatchDescriptor | TestDescriptor, contents: bytes
+) -> bool:
+    """Compare bytes supplied by a later corpus validator to a typed descriptor."""
+    if descriptor.normalization == "normalized_text":
+        contents = contents.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(contents).hexdigest() == descriptor.sha256
 
 
 def load_manifest(path: Path) -> BenchmarkManifest:
@@ -126,14 +197,8 @@ def _case(raw: dict[str, Any]) -> BenchmarkCase:
     source_license = _nonempty_string(raw, "source_license")
     buggy_commit = _commit(_nonempty_string(raw, "buggy_commit"), "buggy_commit")
     fixed_commit = _commit(_nonempty_string(raw, "fixed_commit"), "fixed_commit")
-    patch = _object(raw.get("patch"), "patch")
-    tests = _object(raw.get("tests"), "tests")
-    patch_hash = _hash(_nonempty_string(raw, "patch_hash"), "patch_hash")
-    test_hash = _hash(_nonempty_string(raw, "test_hash"), "test_hash")
-    if _canonical_hash(patch) != patch_hash:
-        raise ValueError("patch_hash does not match patch")
-    if _canonical_hash(tests) != test_hash:
-        raise ValueError("test_hash does not match tests")
+    patch = _patch_descriptor(_object(raw.get("patch"), "patch"))
+    tests = _test_descriptor(_object(raw.get("tests"), "tests"))
     locations = tuple(
         _location(_object(value, "changed location")) for value in _list(raw, "changed_locations")
     )
@@ -148,8 +213,8 @@ def _case(raw: dict[str, Any]) -> BenchmarkCase:
         source_license=source_license,
         buggy_commit=buggy_commit,
         fixed_commit=fixed_commit,
-        patch_hash=patch_hash,
-        test_hash=test_hash,
+        patch=patch,
+        tests=tests,
         changed_locations=locations,
         split=_enum(_nonempty_string(raw, "split"), _SPLITS, "split"),
     )
@@ -184,7 +249,31 @@ def _validate_pairs(cases: tuple[BenchmarkCase, ...]) -> None:
         by_pair.setdefault(case.pair_id, []).append(case)
     for pair_id, members in by_pair.items():
         if len(members) != 2 or {member.role for member in members} != _ROLES:
-            raise ValueError(f"pair {pair_id} must contain one buggy and one fixed role")
+            raise ValueError(
+                f"pair {pair_id} must contain historical_bug_replay and developer_fix_control"
+            )
+        first = members[0]
+        for member in members[1:]:
+            if (
+                member.source_id,
+                member.provenance_kind,
+                member.source_license,
+                member.buggy_commit,
+                member.fixed_commit,
+                member.patch,
+                member.tests,
+                member.split,
+            ) != (
+                first.source_id,
+                first.provenance_kind,
+                first.source_license,
+                first.buggy_commit,
+                first.fixed_commit,
+                first.patch,
+                first.tests,
+                first.split,
+            ):
+                raise ValueError(f"pair {pair_id} members must share corpus identity")
 
 
 def _validate_truth(cases: tuple[BenchmarkCase, ...], truths: tuple[TruthDefect, ...]) -> None:
@@ -192,18 +281,32 @@ def _validate_truth(cases: tuple[BenchmarkCase, ...], truths: tuple[TruthDefect,
     if len(defect_ids) != len(set(defect_ids)):
         raise ValueError("duplicate defect_id")
     roles_by_case = {case.case_id: case.role for case in cases}
+    truth_case_ids = {truth.case_id for truth in truths}
+    for case in cases:
+        if case.role == "historical_bug_replay" and case.case_id not in truth_case_ids:
+            raise ValueError("historical_bug_replay case must contain at least one truth defect")
     for truth in truths:
-        if roles_by_case.get(truth.case_id) != "buggy":
-            raise ValueError("truth defect must belong to a buggy case")
+        if roles_by_case.get(truth.case_id) != "historical_bug_replay":
+            raise ValueError("truth defect must belong to a historical_bug_replay case")
         if truth.start_line > truth.end_line:
             raise ValueError("truth defect start_line exceeds end_line")
 
 
-def _canonical_hash(value: object) -> str:
-    encoded = json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
+def _patch_descriptor(raw: dict[str, Any]) -> PatchDescriptor:
+    relative_path, sha256, normalization = _descriptor_parts(raw, "patch")
+    return PatchDescriptor(relative_path, sha256, normalization)
+
+
+def _test_descriptor(raw: dict[str, Any]) -> TestDescriptor:
+    relative_path, sha256, normalization = _descriptor_parts(raw, "tests")
+    return TestDescriptor(relative_path, sha256, normalization)
+
+
+def _descriptor_parts(raw: dict[str, Any], label: str) -> tuple[str, str, str]:
+    relative_path = _path(_nonempty_string(raw, "relative_path"))
+    sha256 = _hash(_nonempty_string(raw, "sha256"), f"{label}.sha256")
+    normalization = _enum(_nonempty_string(raw, "normalization"), _NORMALIZATIONS, "normalization")
+    return relative_path, sha256, normalization
 
 
 def _object(value: object, label: str) -> dict[str, Any]:
@@ -226,6 +329,13 @@ def _nonempty_string(raw: dict[str, Any], key: str) -> str:
     return value
 
 
+def _mapping_string(raw: Mapping[str, object], key: str) -> str:
+    value = raw.get(key)
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{key} must be a non-empty string")
+    return value
+
+
 def _enum(value: str, allowed: frozenset[str], label: str) -> str:
     if value not in allowed:
         raise ValueError(f"unknown {label}")
@@ -240,7 +350,15 @@ def _opaque_id(value: str, label: str) -> str:
 
 def _path(value: str) -> str:
     candidate = PurePosixPath(value)
-    if value.startswith("/") or "\\" in value or ".." in candidate.parts:
+    windows = PureWindowsPath(value)
+    if (
+        value.startswith("/")
+        or value.startswith("\\\\")
+        or windows.is_absolute()
+        or windows.drive
+        or "\\" in value
+        or ".." in candidate.parts
+    ):
         raise ValueError("path traversal is not allowed")
     if value in {"", "."}:
         raise ValueError("path must identify a file")

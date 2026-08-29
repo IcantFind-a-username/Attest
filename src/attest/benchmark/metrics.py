@@ -7,7 +7,13 @@ from dataclasses import dataclass
 from statistics import NormalDist
 
 from attest.benchmark.matcher import match_findings
-from attest.benchmark.schema import BenchmarkCase, Prediction, RunRecord, TruthDefect
+from attest.benchmark.schema import (
+    BenchmarkCase,
+    Prediction,
+    RunRecord,
+    TruthDefect,
+    is_scored_placement,
+)
 
 
 @dataclass(frozen=True)
@@ -59,11 +65,10 @@ def aggregate(
     runs: tuple[RunRecord, ...],
     *,
     line_slack: int = 0,
-    preregistered_repeat: int = 0,
 ) -> BenchmarkReport:
-    """Score only the preregistered repeat so correlated repeats never enlarge denominators."""
-    _validate_inputs(cases, runs, preregistered_repeat)
-    primary_runs = tuple(run for run in runs if run.repeat == preregistered_repeat)
+    """Score only fixed repeat zero so correlated repeats never enlarge denominators."""
+    _validate_inputs(cases, truth_defects, runs)
+    primary_runs = tuple(run for run in runs if run.repeat == 0)
     truths_by_case: dict[str, tuple[TruthDefect, ...]] = {}
     for truth in truth_defects:
         truths_by_case[truth.case_id] = truths_by_case.get(truth.case_id, ()) + (truth,)
@@ -76,8 +81,11 @@ def aggregate(
 
     for run in primary_runs:
         truths = truths_by_case.get(run.case_id, ())
+        case = next(case for case in cases if case.case_id == run.case_id)
         surfaced = tuple(
-            prediction for prediction in run.predictions if prediction.placement == "surface"
+            prediction
+            for prediction in run.predictions
+            if is_scored_placement(prediction.placement)
         )
         if not surfaced:
             abstentions += 1
@@ -87,7 +95,7 @@ def aggregate(
         finding_false_positives += len(matches) - matched_count
         duplicate_surfaces += _duplicate_count(surfaced)
 
-        if truths:
+        if case.role == "historical_bug_replay":
             if surfaced:
                 surfaced_positive_cases += 1
             if matched_count:
@@ -134,9 +142,22 @@ def aggregate(
 
 
 def _validate_inputs(
-    cases: tuple[BenchmarkCase, ...], runs: tuple[RunRecord, ...], preregistered_repeat: int
+    cases: tuple[BenchmarkCase, ...],
+    truth_defects: tuple[TruthDefect, ...],
+    runs: tuple[RunRecord, ...],
 ) -> None:
-    case_ids = {case.case_id for case in cases}
+    case_by_id = {case.case_id: case for case in cases}
+    case_ids = set(case_by_id)
+    if len(case_ids) != len(cases):
+        raise ValueError("duplicate case_id")
+    truth_case_ids = {truth.case_id for truth in truth_defects}
+    if not truth_case_ids <= case_ids:
+        raise ValueError("truth defect references an unknown case_id")
+    for case in cases:
+        if case.role == "historical_bug_replay" and case.case_id not in truth_case_ids:
+            raise ValueError("positive historical_bug_replay case requires truth")
+        if case.role == "developer_fix_control" and case.case_id in truth_case_ids:
+            raise ValueError("developer_fix_control case must not contain truth")
     primary_case_ids: set[str] = set()
     for run in runs:
         if run.case_id not in case_ids:
@@ -147,10 +168,13 @@ def _validate_inputs(
             raise ValueError("delivery_at_s must not be negative")
         if any(prediction.case_id != run.case_id for prediction in run.predictions):
             raise ValueError("prediction case_id must match run case_id")
-        if run.repeat == preregistered_repeat:
+        if run.repeat == 0:
             if run.case_id in primary_case_ids:
                 raise ValueError("duplicate preregistered run for case_id")
             primary_case_ids.add(run.case_id)
+    missing = case_ids - primary_case_ids
+    if missing:
+        raise ValueError("missing repeat 0 record for case_id")
 
 
 def _duplicate_count(predictions: tuple[Prediction, ...]) -> int:

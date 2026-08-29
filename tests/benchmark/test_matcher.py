@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from attest.benchmark.matcher import MatchResult, match_findings
-from attest.benchmark.schema import Prediction, TruthDefect
+from attest.benchmark.schema import Placement, Prediction, TruthDefect
 
 
 def _truth(defect_id: str, start_line: int, end_line: int) -> TruthDefect:
@@ -20,7 +20,7 @@ def _prediction(
     finding_id: str,
     line: int,
     *,
-    placement: str = "surface",
+    placement: Placement = Placement.INLINE,
     action: str = "DEFER",
     repro_status: str = "buggy_fail_fixed_pass",
     file: str = "src/pkg/worker.py",
@@ -68,8 +68,8 @@ def test_matcher_scores_duplicate_and_overflow_surfaces_independently_of_action(
     results = match_findings(
         (_truth("truth_001", 10, 10),),
         (
-            _prediction("finding_001", 10, action="SURFACE"),
-            _prediction("finding_002", 10, action="DEFER"),
+            _prediction("finding_001", 10, action="drawer"),
+            _prediction("finding_002", 10, placement=Placement.OVERFLOW, action="discard"),
         ),
     )
 
@@ -84,8 +84,8 @@ def test_matcher_excludes_drawer_and_discard_and_requires_differential_repro() -
     results = match_findings(
         (_truth("truth_001", 10, 10),),
         (
-            _prediction("finding_001", 10, placement="drawer"),
-            _prediction("finding_002", 10, placement="discard"),
+            _prediction("finding_001", 10, placement=Placement.DRAWER),
+            _prediction("finding_002", 10, placement=Placement.DISCARD),
             _prediction("finding_003", 10, repro_status="buggy_fail_fixed_fail"),
         ),
     )
@@ -104,4 +104,48 @@ def test_matcher_leaves_a_wrong_location_surface_unmatched() -> None:
 
     assert results == (
         MatchResult(finding_id="finding_001", defect_id=None, matched=False),
+    )
+
+
+def test_matcher_uses_literal_ci_final_placements_and_scores_fourth_overflow() -> None:
+    """Treating only inline comments as surfaced would hide overflow false positives."""
+    candidate = {
+        "finding_id": "finding_004",
+        "case_id": "case_001",
+        "file": "src/pkg/worker.py",
+        "line": 10,
+        "repro_status": "buggy_fail_fixed_pass",
+    }
+    ci_final = {"finding_id": "finding_004", "action": "drawer", "placement": "overflow"}
+    fourth = Prediction.from_joined_ci_final(candidate, ci_final)
+    results = match_findings(
+        (_truth("truth_001", 10, 10),),
+        (
+            _prediction("finding_001", 10),
+            _prediction("finding_002", 10, placement=Placement.OVERFLOW),
+            _prediction("finding_003", 30, placement=Placement.OVERFLOW),
+            fourth,
+        ),
+    )
+
+    assert fourth.placement is Placement.OVERFLOW
+    assert fourth.action == "drawer"
+    assert results == (
+        MatchResult(finding_id="finding_001", defect_id="truth_001", matched=True),
+        MatchResult(finding_id="finding_002", defect_id=None, matched=False),
+        MatchResult(finding_id="finding_003", defect_id=None, matched=False),
+        MatchResult(finding_id="finding_004", defect_id=None, matched=False),
+    )
+
+
+def test_matcher_breaks_equal_distance_ties_by_defect_then_finding_id() -> None:
+    """Input-order tie resolution would make benchmark assignments non-reproducible."""
+    results = match_findings(
+        (_truth("defect_a", 10, 10), _truth("defect_b", 10, 10)),
+        (_prediction("finding_a", 10), _prediction("finding_b", 10)),
+    )
+
+    assert results == (
+        MatchResult(finding_id="finding_a", defect_id="defect_a", matched=True),
+        MatchResult(finding_id="finding_b", defect_id="defect_b", matched=True),
     )

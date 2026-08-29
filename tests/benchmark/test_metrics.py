@@ -8,26 +8,47 @@ from attest.benchmark.metrics import aggregate, wilson_interval
 from attest.benchmark.schema import (
     BenchmarkCase,
     ChangedLocation,
+    PatchDescriptor,
+    Placement,
     Prediction,
     RunRecord,
+    TestDescriptor,
     TruthDefect,
 )
 
+_PATCH = PatchDescriptor(
+    relative_path="patches/app.patch",
+    sha256="af4749a1580b936481c1c087bc72d5031e256c38e266d0ee8d4f2707d3aa0e58",
+    normalization="bytes",
+)
+_TEST = TestDescriptor(
+    relative_path="tests/test_app.py",
+    sha256="52ece453f7dd506d2a37a0f2e36732132f489cd662a1b92fad16545a56a3c3bd",
+    normalization="normalized_text",
+)
 
-def _case(case_id: str) -> BenchmarkCase:
+
+def _case(case_id: str, pair_id: str, role: str) -> BenchmarkCase:
     return BenchmarkCase(
         case_id=case_id,
-        pair_id="pair_001",
+        pair_id=pair_id,
         source_id="source_001",
-        role="buggy",
-        provenance_kind="upstream",
+        role=role,
+        provenance_kind="historical_fix",
         source_license="Apache-2.0",
         buggy_commit="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         fixed_commit="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        patch_hash="529431251f17f34724808f96b9dbe574b21e4f7024d7ac194b52bdc4a8b04bbd",
-        test_hash="0196e5c8601c41054c1cf094880415c863acd293bbe908a56a96a1d9fc32593f",
+        patch=_PATCH,
+        tests=_TEST,
         changed_locations=(ChangedLocation("src/app.py", 10, 12),),
         split="test",
+    )
+
+
+def _pair(pair_id: str) -> tuple[BenchmarkCase, BenchmarkCase]:
+    return (
+        _case(f"{pair_id}_replay", pair_id, "historical_bug_replay"),
+        _case(f"{pair_id}_control", pair_id, "developer_fix_control"),
     )
 
 
@@ -36,14 +57,15 @@ def _prediction(
     case_id: str,
     line: int,
     *,
-    action: str = "SURFACE",
+    placement: Placement = Placement.INLINE,
+    action: str = "drawer",
 ) -> Prediction:
     return Prediction(
         finding_id=finding_id,
         case_id=case_id,
         file="src/app.py",
         line=line,
-        placement="surface",
+        placement=placement,
         action=action,
         repro_status="buggy_fail_fixed_pass",
     )
@@ -92,23 +114,25 @@ def test_wilson_interval_returns_null_for_no_observations() -> None:
     assert wilson_interval(0, 0) is None
 
 
-def test_aggregate_scores_pr_and_finding_outcomes_and_delivery() -> None:
-    """Collapsing wrong-location or deferred clean surfaces would hide benchmark errors."""
-    cases = (_case("case_001"), _case("case_002"), _case("case_003"), _case("case_004"))
+def test_aggregate_scores_paired_roles_and_finding_outcomes_and_delivery() -> None:
+    """Inferring positives from truth allows malformed controls to alter PR metrics."""
+    replay_1, control_1 = _pair("pair_001")
+    replay_2, control_2 = _pair("pair_002")
+    cases = (replay_1, control_1, replay_2, control_2)
     truth = (
-        TruthDefect("truth_001", "case_001", "src/app.py", 10, 10),
-        TruthDefect("truth_002", "case_002", "src/app.py", 10, 10),
+        TruthDefect("truth_001", replay_1.case_id, "src/app.py", 10, 10),
+        TruthDefect("truth_002", replay_2.case_id, "src/app.py", 10, 10),
     )
     runs = (
-        _run("run_001", "case_001", (_prediction("finding_001", "case_001", 10),), 3.0),
-        _run("run_002", "case_002", (_prediction("finding_002", "case_002", 30),), 5.0),
+        _run("run_001", replay_1.case_id, (_prediction("finding_001", replay_1.case_id, 10),), 3.0),
         _run(
-            "run_003",
-            "case_003",
-            (_prediction("finding_003", "case_003", 10, action="DEFER"),),
+            "run_002",
+            control_1.case_id,
+            (_prediction("finding_002", control_1.case_id, 10, placement=Placement.OVERFLOW),),
             2.0,
         ),
-        _run("run_004", "case_004", (), None),
+        _run("run_003", replay_2.case_id, (_prediction("finding_003", replay_2.case_id, 30),), 5.0),
+        _run("run_004", control_2.case_id, (), None),
     )
 
     report = aggregate(cases, truth, runs)
@@ -118,12 +142,7 @@ def test_aggregate_scores_pr_and_finding_outcomes_and_delivery() -> None:
         report.false_positives,
         report.false_negatives,
         report.true_negatives,
-    ) == (
-        1,
-        1,
-        1,
-        1,
-    )
+    ) == (1, 1, 1, 1)
     assert (report.finding_true_positives, report.finding_false_positives) == (1, 2)
     assert report.clean_false_positive_rate == 0.5
     assert report.specificity == 0.5
@@ -136,21 +155,44 @@ def test_aggregate_scores_pr_and_finding_outcomes_and_delivery() -> None:
     assert (report.delivery_p50_s, report.delivery_p95_s) == (3.0, 5.0)
 
 
-def test_aggregate_counts_duplicate_surface_as_an_additional_finding_false_positive() -> None:
-    """Allowing both duplicate surfaces to match one truth inflates finding precision."""
+def test_aggregate_requires_truth_for_replay_and_rejects_truth_for_control() -> None:
+    """Role/truth disagreement would make positive and clean denominators ambiguous."""
+    replay, control = _pair("pair_001")
+    runs = (
+        _run("run_001", replay.case_id, (), 1.0),
+        _run("run_002", control.case_id, (), 1.0),
+    )
+
+    with pytest.raises(ValueError, match="positive"):
+        aggregate((replay, control), (), runs)
+    with pytest.raises(ValueError, match="control"):
+        aggregate(
+            (replay, control),
+            (
+                TruthDefect("truth_001", replay.case_id, "src/app.py", 10, 10),
+                TruthDefect("truth_002", control.case_id, "src/app.py", 10, 10),
+            ),
+            runs,
+        )
+
+
+def test_aggregate_counts_overflow_duplicate_as_an_additional_finding_false_positive() -> None:
+    """Allowing duplicate overflow surfaces to match one truth inflates precision."""
+    replay, control = _pair("pair_001")
     report = aggregate(
-        (_case("case_001"),),
-        (TruthDefect("truth_001", "case_001", "src/app.py", 10, 10),),
+        (replay, control),
+        (TruthDefect("truth_001", replay.case_id, "src/app.py", 10, 10),),
         (
             _run(
                 "run_001",
-                "case_001",
+                replay.case_id,
                 (
-                    _prediction("finding_001", "case_001", 10),
-                    _prediction("finding_002", "case_001", 10),
+                    _prediction("finding_001", replay.case_id, 10),
+                    _prediction("finding_002", replay.case_id, 10, placement=Placement.OVERFLOW),
                 ),
                 4.0,
             ),
+            _run("run_002", control.case_id, (), 4.0),
         ),
     )
 
@@ -158,32 +200,48 @@ def test_aggregate_counts_duplicate_surface_as_an_additional_finding_false_posit
     assert report.duplicate_surfaces == 1
 
 
-def test_aggregate_censors_late_delivery_and_excludes_repeats_from_headlines() -> None:
-    """Counting late or repeated runs in headline denominators fabricates certainty."""
-    report = aggregate(
-        (_case("case_001"),),
-        (TruthDefect("truth_001", "case_001", "src/app.py", 10, 10),),
-        (
-            _run("run_001", "case_001", (_prediction("finding_001", "case_001", 10),), 8.0),
-            _run(
-                "run_002",
-                "case_001",
-                (_prediction("finding_002", "case_001", 30),),
-                15.0,
-                repeat=1,
+def test_aggregate_requires_exactly_one_repeat_zero_record_for_each_case() -> None:
+    """Missing or duplicate repeat zero runs must not silently shrink a denominator."""
+    replay, control = _pair("pair_001")
+    truth = (TruthDefect("truth_001", replay.case_id, "src/app.py", 10, 10),)
+
+    with pytest.raises(ValueError, match="missing repeat 0"):
+        aggregate((replay, control), truth, (_run("run_001", replay.case_id, (), 1.0),))
+    with pytest.raises(ValueError, match="duplicate preregistered"):
+        aggregate(
+            (replay, control),
+            truth,
+            (
+                _run("run_001", replay.case_id, (), 1.0),
+                _run("run_002", replay.case_id, (), 1.0),
+                _run("run_003", control.case_id, (), 1.0),
             ),
-        ),
+        )
+
+
+def test_aggregate_censors_late_repeat_zero_delivery_and_uses_nearest_rank() -> None:
+    """A late repeat-zero delivery must be censored rather than counted in latency percentiles."""
+    replay_1, control_1 = _pair("pair_001")
+    replay_2, control_2 = _pair("pair_002")
+    replay_3, control_3 = _pair("pair_003")
+    cases = (replay_1, control_1, replay_2, control_2, replay_3, control_3)
+    truth = (
+        TruthDefect("truth_001", replay_1.case_id, "src/app.py", 10, 10),
+        TruthDefect("truth_002", replay_2.case_id, "src/app.py", 10, 10),
+        TruthDefect("truth_003", replay_3.case_id, "src/app.py", 10, 10),
+    )
+    runs = (
+        _run("run_001", replay_1.case_id, (), 1.0),
+        _run("run_002", control_1.case_id, (), 2.0),
+        _run("run_003", replay_2.case_id, (), 3.0),
+        _run("run_004", control_2.case_id, (), 4.0),
+        _run("run_005", replay_3.case_id, (), 5.0),
+        _run("run_006", control_3.case_id, (), 11.0),
+        _run("run_007", replay_1.case_id, (), 100.0, repeat=1),
     )
 
-    assert (
-        report.true_positives,
-        report.false_negatives,
-        report.finding_false_positives,
-    ) == (1, 0, 0)
-    assert report.all_positive_detection_interval is not None
-    assert tuple(round(value, 6) for value in report.all_positive_detection_interval) == (
-        0.206549,
-        1.0,
-    )
-    assert report.delivery_rate == 1.0
-    assert report.deadline_censored == 0
+    report = aggregate(cases, truth, runs)
+
+    assert report.delivery_rate == pytest.approx(5 / 6)
+    assert report.deadline_censored == 1
+    assert (report.delivery_p50_s, report.delivery_p95_s) == (3.0, 5.0)

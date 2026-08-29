@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
-from attest.benchmark.schema import Prediction, TruthDefect
+from attest.benchmark.schema import Prediction, TruthDefect, is_scored_placement
 
 
 @dataclass(frozen=True)
@@ -26,7 +26,9 @@ def match_findings(
     """Match only surfaced, differentially reproduced predictions to one truth each."""
     if line_slack < 0:
         raise ValueError("line_slack must not be negative")
-    surfaced = tuple(prediction for prediction in predictions if prediction.placement == "surface")
+    surfaced = tuple(
+        prediction for prediction in predictions if is_scored_placement(prediction.placement)
+    )
     edges = tuple(
         tuple(
             (truth_index, _anchor_distance(prediction.line, truth))
