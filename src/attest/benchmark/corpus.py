@@ -31,6 +31,40 @@ _MAX_CHANGED_LINES = 400
 _INFO_LINE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*)="([^"]*)"\s*$')
 _HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 _DIFF_PATH = re.compile(r"^diff --git a/(.+) b/(.+)$")
+_COPYRIGHT_LINE = re.compile(
+    r"^copyright(?:\s+(?:\(c\)|©))?\s+"
+    r"\d{4}(?:\s*[-–]\s*\d{2,4})?(?:\s*,\s*\d{4}(?:\s*[-–]\s*\d{2,4})?)*"
+    r"\s*,?\s+[\w][\w .&,()'/-]{0,199}$",
+    re.IGNORECASE,
+)
+_BSD3_HOLDER_NAME = re.compile(
+    r"(?<=Neither the name of )[\w][\w &,()'/-]{0,199}"
+    r"(?= nor the names of its contributors may be used)"
+)
+_LICENSE_BODY_STARTS = {
+    "MIT": "Permission is hereby granted, free of charge",
+    "BSD-2-Clause": "Redistribution and use in source and binary forms",
+    "BSD-3-Clause": "Redistribution and use in source and binary forms",
+}
+_LICENSE_BODY_SHA256 = {
+    # SHA-256 of whitespace-normalized standard SPDX template bodies after list-marker
+    # normalization. Full-body fingerprints make inserted, reordered, or appended terms
+    # fail closed without trying to enumerate every unsupported license family.
+    "MIT": "fe2a9817987f862eaced948f0468c7f51d2fedfc48c5c505b246a49a3870e9a5",
+    "BSD-2-Clause": "4f61a7bc7704d3ecdd43d1b61e887d81a5e0468581a08a1a3beac62e0156da13",
+    "BSD-3-Clause": "667a5ea561e27c5843aedc905ba64e45471dda8240aa1ca7a09e513363cba5ac",
+}
+_LICENSE_HEADERS = {
+    "MIT": frozenset(
+        {
+            "mit license",
+            "the mit license (mit)",
+            "released under the mit licence.",
+        }
+    ),
+    "BSD-2-Clause": frozenset({"bsd 2-clause license"}),
+    "BSD-3-Clause": frozenset({"bsd 3-clause license"}),
+}
 
 
 @dataclass(frozen=True)
@@ -993,85 +1027,44 @@ def _classify_license(contents: bytes) -> str | None:
         text = contents.decode("utf-8", errors="strict")
     except UnicodeDecodeError:
         return None
-    normalized = " ".join(text.split())
-    matches: list[tuple[str, int, int]] = []
-    mit_start = "Permission is hereby granted, free of charge"
-    mit_end = (
-        "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER "
-        "DEALINGS IN THE SOFTWARE."
-    )
-    mit_markers = (
-        mit_start,
-        "to deal in the Software without restriction",
-        "The above copyright notice and this permission notice shall be included",
-        'THE SOFTWARE IS PROVIDED "AS IS"',
-        "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT",
-        "IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE",
-        mit_end,
-    )
-    if normalized.count(mit_start) == 1 and all(
-        marker in normalized for marker in mit_markers
-    ):
-        matches.append(
-            ("MIT", normalized.index(mit_start), normalized.index(mit_end) + len(mit_end))
-        )
-
-    bsd_start = "Redistribution and use in source and binary forms"
-    bsd_end = "EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
-    bsd_markers = (
-        bsd_start,
-        "Redistributions of source code must retain",
-        "Redistributions in binary form must reproduce",
-        "THIS SOFTWARE IS PROVIDED",
-        "IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE",
-        "DISCLAIMED",
-        "IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE",
-        bsd_end,
-    )
-    if normalized.count(bsd_start) == 1 and all(
-        marker in normalized for marker in bsd_markers
-    ):
-        identifier = "BSD-3-Clause" if "Neither the name" in normalized else "BSD-2-Clause"
-        matches.append(
-            (
-                identifier,
-                normalized.index(bsd_start),
-                normalized.index(bsd_end) + len(bsd_end),
-            )
-        )
-
-    if len(matches) != 1 or _contains_complete_unsupported_license(normalized):
-        return None
-    identifier, _, end = matches[0]
-    if normalized[end:].strip():
-        return None
-    return identifier
+    lines = text.splitlines()
+    matches: set[str] = set()
+    for identifier, body_start in _LICENSE_BODY_STARTS.items():
+        for index, line in enumerate(lines):
+            if not line.strip().startswith(body_start):
+                continue
+            if not _allowed_license_prefix(lines[:index], identifier):
+                continue
+            normalized_body = _normalize_license_body(lines[index:])
+            digest = hashlib.sha256(normalized_body.encode("utf-8")).hexdigest()
+            if digest == _LICENSE_BODY_SHA256[identifier]:
+                matches.add(identifier)
+    return next(iter(matches)) if len(matches) == 1 else None
 
 
-def _contains_complete_unsupported_license(text: str) -> bool:
-    marker_sets = (
-        (
-            "Apache License",
-            "TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION",
-            'distributed under the License is distributed on an "AS IS" BASIS',
-        ),
-        (
-            "GNU GENERAL PUBLIC LICENSE",
-            "Everyone is permitted to copy and distribute verbatim copies",
-            "THERE IS NO WARRANTY FOR THE PROGRAM",
-        ),
-        (
-            "Mozilla Public Licen",
-            "This Source Code Form is subject to the terms",
-            "mozilla.org/MPL/2.0",
-        ),
-        (
-            "Permission to use, copy, modify, and/or distribute this software",
-            'THE SOFTWARE IS PROVIDED "AS IS"',
-            "IN NO EVENT SHALL THE AUTHOR BE LIABLE",
-        ),
-    )
-    return any(all(marker in text for marker in markers) for markers in marker_sets)
+def _allowed_license_prefix(lines: list[str], identifier: str) -> bool:
+    header_seen = False
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.casefold() in _LICENSE_HEADERS[identifier] and not header_seen:
+            header_seen = True
+            continue
+        if _COPYRIGHT_LINE.fullmatch(stripped):
+            continue
+        if identifier.startswith("BSD-") and stripped.casefold() == "all rights reserved.":
+            continue
+        return False
+    return True
+
+
+def _normalize_license_body(lines: list[str]) -> str:
+    without_list_markers = [
+        re.sub(r"^\s*(?:\*|[123][.)])\s+", "", line) for line in lines
+    ]
+    normalized = " ".join(" ".join(without_list_markers).split())
+    return _BSD3_HOLDER_NAME.sub("the copyright holder", normalized)
 
 
 def _read_info(path: Path) -> dict[str, str]:

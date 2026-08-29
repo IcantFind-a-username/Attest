@@ -58,7 +58,8 @@ modification, are permitted provided that the following conditions are met:
 1. Redistributions of source code must retain the above copyright notice,
    this list of conditions and the following disclaimer.
 2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation.
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -74,7 +75,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 _BSD3 = _BSD2.replace(
     "THIS SOFTWARE IS PROVIDED",
     "3. Neither the name of the copyright holder nor the names of its contributors may be "
-    "used to endorse or promote products derived from this software.\nTHIS SOFTWARE IS PROVIDED",
+    "used to endorse or promote products derived from this software without specific prior "
+    "written permission.\nTHIS SOFTWARE IS PROVIDED",
 )
 
 _APACHE_NOTICE = """Apache License
@@ -107,6 +109,14 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
 LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
+"""
+
+_CUSTOM_LICENSE = """Example Community License
+
+You may use this work for internal evaluation. Redistribution, modification,
+and commercial use require separate written permission from the authors.
+
+THE WORK IS PROVIDED WITHOUT WARRANTY, AND ALL LIABILITY IS DISCLAIMED.
 """
 
 
@@ -484,6 +494,124 @@ def test_import_rejects_multiple_or_additional_license_templates(
 
     assert result["selection"]["eligible_pairs"] == 0
     assert result["exclusions"][0]["reason"] == "source_license_missing"
+
+
+@pytest.mark.parametrize(
+    "license_text",
+    [
+        _CUSTOM_LICENSE + "\n" + _MIT,
+        "Copyright notice. Production use requires a fee.\n\n" + _MIT,
+        _MIT.replace(
+            "The above copyright notice",
+            "An additional fee is required for production use.\n\n"
+            "The above copyright notice",
+        ),
+        _BSD2.replace(
+            "2. Redistributions in binary form",
+            "Use by competitors requires written permission.\n"
+            "2. Redistributions in binary form",
+        ),
+    ],
+    ids=[
+        "unknown-before-mit",
+        "copyright-lookalike-before-mit",
+        "clause-inside-mit",
+        "clause-inside-bsd",
+    ],
+)
+def test_import_rejects_substantive_text_outside_a_complete_template(
+    tmp_path: Path, license_text: str
+) -> None:
+    """Terms before or inside a supported template make its SPDX identity ambiguous."""
+    source, _ = _source(tmp_path, bug_count=1, project_license=license_text)
+
+    result = import_bugsinpy(source, tmp_path / "manifest.json", limit=1, seed=1)
+
+    assert result["selection"]["eligible_pairs"] == 0
+    assert result["exclusions"][0]["reason"] == "source_license_missing"
+
+
+@pytest.mark.parametrize(
+    "license_text",
+    [
+        _MIT.replace(
+            "Permission is hereby granted, free of charge",
+            "The above copyright notice and this permission notice shall be included in "
+            "all copies or substantial portions of the Software.\n\n"
+            "Permission is hereby granted, free of charge",
+        ).replace(
+            "\n\nThe above copyright notice and this permission notice shall be included in all\n"
+            "copies or substantial portions of the Software.\n",
+            "\n",
+        ),
+        (
+            "1. Redistributions of source code must retain the above copyright notice,\n"
+            "   this list of conditions and the following disclaimer.\n"
+            + _BSD2.replace(
+                "1. Redistributions of source code must retain the above copyright notice,\n"
+                "   this list of conditions and the following disclaimer.\n",
+                "",
+            )
+        ),
+    ],
+    ids=["reordered-mit-paragraph", "scattered-bsd-clause"],
+)
+def test_import_rejects_reordered_or_scattered_license_markers(
+    tmp_path: Path, license_text: str
+) -> None:
+    """All familiar sentences must still appear as one supported template in order."""
+    source, _ = _source(tmp_path, bug_count=1, project_license=license_text)
+
+    result = import_bugsinpy(source, tmp_path / "manifest.json", limit=1, seed=1)
+
+    assert result["selection"]["eligible_pairs"] == 0
+    assert result["exclusions"][0]["reason"] == "source_license_missing"
+
+
+@pytest.mark.parametrize(
+    ("license_text", "identifier"),
+    [
+        (
+            "The MIT License (MIT)\n\n"
+            "Copyright (c) 2026 Example Authors\n\n"
+            + _MIT.partition("\n\n")[2],
+            "MIT",
+        ),
+        (
+            "Copyright (c) 2020-2026, Example Authors\n"
+            "All rights reserved.\n\n" + _BSD3,
+            "BSD-3-Clause",
+        ),
+    ],
+    ids=["mit-header-and-copyright", "bsd-copyright-and-rights"],
+)
+def test_import_accepts_one_contiguous_template_with_allowed_boilerplate(
+    tmp_path: Path, license_text: str, identifier: str
+) -> None:
+    """A known header and copyright notice may precede exactly one complete template."""
+    source, _ = _source(tmp_path, bug_count=1, project_license=license_text)
+
+    result = import_bugsinpy(source, tmp_path / "manifest.json", limit=1, seed=1)
+
+    assert result["selection"]["eligible_pairs"] == 1
+    assert result["sources"][0]["source_license"] == identifier
+
+
+def test_import_accepts_bsd3_copyright_holder_name_placeholder(tmp_path: Path) -> None:
+    """BSD-3 permits a named project in its non-endorsement clause."""
+    historical_cookiecutter_terms = _BSD3.replace(
+        "the copyright holder nor the names of its contributors",
+        "border nor the names of its contributors",
+        1,
+    )
+    source, _ = _source(
+        tmp_path, bug_count=1, project_license=historical_cookiecutter_terms
+    )
+
+    result = import_bugsinpy(source, tmp_path / "manifest.json", limit=1, seed=1)
+
+    assert result["selection"]["eligible_pairs"] == 1
+    assert result["sources"][0]["source_license"] == "BSD-3-Clause"
 
 
 def test_import_bugsinpy_rejects_uncommitted_or_non_repository_source(tmp_path: Path) -> None:
