@@ -42,4 +42,17 @@ python -m venv .venv
 
 Design decisions are logged in [DECISIONS.md](DECISIONS.md).
 
+## Origin
+
+attest grew out of [Corum](https://github.com/IcantFind-a-username/Corum), a
+preregistered research project on dependence-aware consensus among unreliable
+reviewers. Corum's formal experiment returned an honest negative result —
+clever aggregation has almost no headroom over simple reliability weighting —
+but the audit of that failure identified what *did* work: a calibrated betting
+core whose confidence stays honest under correlated evidence, and a redundancy
+discount that refuses to double-count clone opinions. attest is what those
+survivors became when the goal changed from "aggregate opinions better" to
+"speak only with evidence." The Corum repository is kept frozen as the
+research record.
+
 License: Apache-2.0. Copyright 2026 Franz Xu.
