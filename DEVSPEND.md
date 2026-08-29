@@ -24,6 +24,7 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-08-30 | post-fix null trials, 45 runs including rename refactors (0 false confirmations) | $0.2335 |
 | 2026-08-30 | post-fix recovery check: real regression in a root-conftest project now certifies | $0.0019 |
 | 2026-08-30 | ten-repeat live stability measurement on one preregistered diff (10/10 stable decisions) | $0.2841 |
+| 2026-08-30 | first live evaluation pilot on receipt-validated corpus pairs, 3 rounds / 10 case-runs (0 false positives, 0 surfaced, all safe defers) | $1.0592 |
 | 2026-08-29 | phase-3 acceptance run 33267601438 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0242 |
 | 2026-08-29 | phase-3 acceptance run 33267602736 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0115 |
 | 2026-08-29 | phase-3 acceptance run 33268274146 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182623-6ffc59) | $0.0230 |
@@ -33,7 +34,7 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-08-29 | phase-3 acceptance run 33268347262 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0132 |
 | 2026-08-29 | phase-3 acceptance run 33268350447 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0272 |
 
-**Total API spend: $2.5338 of $10.00.** (26 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $3.5930 of $10.00.** (27 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 
