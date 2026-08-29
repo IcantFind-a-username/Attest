@@ -8,6 +8,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NoReturn
 
 from attest.review.budget import Budget, BudgetExceeded
 from attest.review.candidates import CandidateStore
@@ -89,6 +90,50 @@ def _review_run_entry(
     return entry
 
 
+def _raise_execution_error(
+    *,
+    cause: OSError | RuntimeError,
+    ledger: Ledger,
+    task_id: str,
+    phase: str,
+    elapsed_s: float,
+    budget: Budget,
+    config: ReviewConfig,
+    alpha: float,
+    files: int,
+    candidate_count: int,
+) -> NoReturn:
+    reason = f"review execution failed during {phase.replace('_', ' ')}"
+    with suppress(OSError, RuntimeError):
+        ledger.append(
+            {
+                "kind": "defer",
+                "task_id": task_id,
+                "reason": reason,
+                "phase": phase,
+            }
+        )
+    with suppress(OSError, RuntimeError):
+        ledger.append(
+            _review_run_entry(
+                task_id=task_id,
+                elapsed_s=elapsed_s,
+                budget=budget,
+                config=config,
+                alpha=alpha,
+                files=files,
+                phase=phase,
+            )
+        )
+    raise ReviewExecutionError(
+        task_id=task_id,
+        phase=phase,
+        budget=budget,
+        candidate_count=candidate_count,
+        elapsed_s=elapsed_s,
+    ) from cause
+
+
 def run_review(
     repo: Path,
     base: str | None,
@@ -116,9 +161,12 @@ def run_review(
             elapsed_s=clock() - started,
         )
 
-    ledger = Ledger(repo)
-    alpha = ledger.current_alpha(config.alpha) if config.auto_tighten_alpha else config.alpha
-    alpha, tighten_note = ledger.maybe_tighten_alpha(alpha, config.auto_tighten_alpha)
+    try:
+        ledger = Ledger(repo)
+        alpha = ledger.current_alpha(config.alpha) if config.auto_tighten_alpha else config.alpha
+        alpha, tighten_note = ledger.maybe_tighten_alpha(alpha, config.auto_tighten_alpha)
+    except (OSError, RuntimeError) as exc:
+        raise ReviewSetupError("review setup failed") from exc
     notes = [tighten_note] if tighten_note else []
     task_id = task_id or make_task_id(diff.text)
 
@@ -184,47 +232,44 @@ def run_review(
         ledger.append({"kind": "defer", "task_id": task_id, "reason": deferred_reason})
     except (OSError, RuntimeError) as exc:
         elapsed = clock() - started
-        reason = f"review execution failed during {phase.replace('_', ' ')}"
-        with suppress(OSError, RuntimeError):
-            ledger.append(
-                {
-                    "kind": "defer",
-                    "task_id": task_id,
-                    "reason": reason,
-                    "phase": phase,
-                }
-            )
-        with suppress(OSError, RuntimeError):
-            ledger.append(
-                _review_run_entry(
-                    task_id=task_id,
-                    elapsed_s=elapsed,
-                    budget=budget,
-                    config=config,
-                    alpha=alpha,
-                    files=len(diff.files),
-                    phase=phase,
-                )
-            )
-        raise ReviewExecutionError(
+        _raise_execution_error(
+            cause=exc,
+            ledger=ledger,
             task_id=task_id,
             phase=phase,
-            budget=budget,
-            candidate_count=len(results),
-            elapsed_s=elapsed,
-        ) from exc
-
-    elapsed = clock() - started
-    ledger.append(
-        _review_run_entry(
-            task_id=task_id,
             elapsed_s=elapsed,
             budget=budget,
             config=config,
             alpha=alpha,
             files=len(diff.files),
+            candidate_count=len(results),
         )
-    )
+
+    elapsed = clock() - started
+    try:
+        ledger.append(
+            _review_run_entry(
+                task_id=task_id,
+                elapsed_s=elapsed,
+                budget=budget,
+                config=config,
+                alpha=alpha,
+                files=len(diff.files),
+            )
+        )
+    except (OSError, RuntimeError) as exc:
+        _raise_execution_error(
+            cause=exc,
+            ledger=ledger,
+            task_id=task_id,
+            phase="review_run_accounting",
+            elapsed_s=elapsed,
+            budget=budget,
+            config=config,
+            alpha=alpha,
+            files=len(diff.files),
+            candidate_count=len(results),
+        )
     return ReviewRun(
         task_id=task_id,
         alpha=alpha,

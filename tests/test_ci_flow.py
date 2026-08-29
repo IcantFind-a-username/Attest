@@ -525,6 +525,43 @@ def test_invalid_base_defers_with_immediate_comment_events_under_one_task(
     assert defer["task_id"] == result.task_id
 
 
+def test_pre_provider_ledger_preparation_failure_is_zero_spend_setup_defer(
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub, monkeypatch
+) -> None:
+    from attest.review.ci import run_ci
+    from attest.review.ledger import Ledger
+
+    repo, base_sha, head_sha = planted_repo
+    provider = RecordingProvider(_finding_payload(), '{"test_body":"assert False"}')
+
+    def fail_alpha_preparation(self, configured):  # noqa: ANN001
+        raise OSError("private ledger preparation failure detail")
+
+    monkeypatch.setattr(Ledger, "current_alpha", fail_alpha_preparation)
+    try:
+        result = run_ci(
+            repo,
+            _context(base_sha, head_sha),
+            GitHubClient("local-token", github_server.url),
+            ReviewConfig(k_samples=1, tier0_commands=[]),
+            provider,
+        )
+    except OSError:
+        pytest.fail("pre-provider ledger failure escaped instead of becoming setup DEFER")
+
+    assert provider.calls == []
+    assert result.task_id is not None
+    assert result.candidate_count == 0
+    assert result.spend_usd == 0.0
+    assert result.deferred_reason == "review setup failed: ReviewSetupError"
+    assert "private ledger preparation failure detail" not in result.deferred_reason
+    comment_rows = [
+        row for row in _ledger_rows(repo) if row["kind"] == "github_comment"
+    ]
+    assert [row["phase"] for row in comment_rows] == ["running", "defer"]
+    assert {row["task_id"] for row in comment_rows} == {result.task_id}
+
+
 def test_post_provider_persistence_failure_retains_spend_phase_and_task_accounting(
     planted_repo: tuple[Path, str, str], github_server: RecordingGitHub, monkeypatch
 ) -> None:
@@ -566,6 +603,52 @@ def test_post_provider_persistence_failure_retains_spend_phase_and_task_accounti
     assert review_run["task_id"] == result.task_id
     assert float(review_run["spend_usd"]) == pytest.approx(result.spend_usd)
     assert review_run["phase"] == "candidate_persistence"
+
+
+def test_final_review_run_accounting_failure_becomes_post_provider_defer(
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub, monkeypatch
+) -> None:
+    from attest.review.ci import run_ci
+    from attest.review.ledger import Ledger
+
+    repo, base_sha, head_sha = planted_repo
+    provider = RecordingProvider(_finding_payload(), '{"test_body":"assert False"}')
+    original_append = Ledger.append
+
+    def fail_unphased_review_run(self, entry):  # noqa: ANN001
+        if entry.get("kind") == "review_run" and "phase" not in entry:
+            raise OSError("private final accounting failure detail")
+        original_append(self, entry)
+
+    monkeypatch.setattr(Ledger, "append", fail_unphased_review_run)
+    try:
+        result = run_ci(
+            repo,
+            _context(base_sha, head_sha),
+            GitHubClient("local-token", github_server.url),
+            ReviewConfig(k_samples=1, tier0_commands=[]),
+            provider,
+        )
+    except OSError:
+        pytest.fail("final review-run accounting failure escaped the typed execution boundary")
+
+    assert len(provider.calls) == 1
+    assert result.task_id is not None
+    assert result.candidate_count == 1
+    assert result.spend_usd > 0
+    assert result.deferred_reason == "review execution failed during review run accounting"
+    assert "private final accounting failure detail" not in result.deferred_reason
+    rows = _ledger_rows(repo)
+    comment_rows = [row for row in rows if row["kind"] == "github_comment"]
+    assert [row["phase"] for row in comment_rows] == ["running", "defer"]
+    assert {row["task_id"] for row in comment_rows} == {result.task_id}
+    defer = next(row for row in rows if row["kind"] == "defer")
+    assert defer["phase"] == "review_run_accounting"
+    review_runs = [row for row in rows if row["kind"] == "review_run"]
+    assert len(review_runs) == 1
+    assert review_runs[0]["task_id"] == result.task_id
+    assert review_runs[0]["phase"] == "review_run_accounting"
+    assert float(review_runs[0]["spend_usd"]) == pytest.approx(result.spend_usd)
 
 
 def test_surface_overflow_stays_visible_without_extra_inline_placement(
