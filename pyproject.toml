@@ -34,7 +34,8 @@ src = ["src", "tests"]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 
 [tool.mypy]
-python_version = "3.11"
+# no python_version pin: numpy>=2.5 type stubs need 3.12+ syntax; mypy follows
+# the running interpreter
 strict = false
 warn_unused_ignores = true
 warn_redundant_casts = true
