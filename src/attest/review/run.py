@@ -18,7 +18,7 @@ from attest.review.diffs import git_diff
 from attest.review.gate import GateOutcome, GateResult, apply_gate, evaluate_finding
 from attest.review.ledger import Ledger
 from attest.review.proposer import Provider, propose
-from attest.review.tier0 import collect_signals, signals_near
+from attest.review.tier0 import collect_signals, signals_near, unresolved_identifiers
 
 
 @dataclass
@@ -213,6 +213,22 @@ def run_review(
         if proposal.successful_samples == 0:
             deferred_reason = "all provider samples failed or were malformed"
             ledger.append({"kind": "defer", "task_id": task_id, "reason": deferred_reason})
+        # Observation only — this vetoes nothing and changes no wealth. Every
+        # candidate below still reaches the gate exactly as it would without
+        # this block; the rows exist so the would-be veto rate can be measured
+        # before anyone decides whether it should ever become a gate.
+        phase = "identifier_resolution"
+        for candidate in proposal.candidates:
+            unresolved = unresolved_identifiers(repo, candidate)
+            if unresolved:
+                ledger.append(
+                    {
+                        "kind": "identifier_check",
+                        "task_id": task_id,
+                        "finding_id": candidate.finding_id,
+                        "unresolved": unresolved,
+                    }
+                )
         phase = "static_analysis"
         signals = (
             []
