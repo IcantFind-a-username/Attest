@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Drive and verify Phase 3 acceptance in an owner-controlled scratch repository.
 
+Three pull requests are opened against one seeded base tree, matching what
+differential evidence can and cannot certify: a regression that deletes an
+existing guard (must produce a verified inline finding), a semantics-preserving
+refactor (must stay silent), and a defective helper that does not exist on base
+(must stay silent while recording the run as an unpriced new-code candidate).
+
 The acceptance policy is kept in :class:`AcceptanceService`; subprocess and
 filesystem effects are adapters so local tests never contact GitHub or expose a
 credential.  The executable path is intentionally opt-in and retains the
@@ -33,8 +39,81 @@ MODEL_KEY_PREFIX = "sk-ant-"
 MIN_MODEL_KEY_LENGTH = 24
 SCRATCH_PREFIX = "attest-phase3-"
 SOURCE_REPOSITORY = "IcantFind-a-username/Attest"
-BUG_COMMENT_PHASES = ("running", "candidate_count", "review", "complete")
+STICKY_LIMIT_SECONDS = 60.0
+RESERVED_SPEND_USD = 0.50
+REGRESSION_COMMENT_PHASES = ("running", "candidate_count", "review", "complete")
+# tests/test_ci_flow.py imports this tuple under its former name for its own
+# surfaced-finding run; both names describe the same phase sequence.
+BUG_COMMENT_PHASES = REGRESSION_COMMENT_PHASES
 CONTROL_COMMENT_PHASES = ("running", "candidate_count", "complete")
+# The new-code arm never reaches "complete": its candidate is recognised, recorded
+# and then deliberately left unpriced, which the CI flow reports as a DEFER status.
+NEW_CODE_COMMENT_PHASES = ("running", "candidate_count", "defer")
+REGRESSION_EVIDENCE_CLASS = "regression_reproduced"
+NEW_CODE_EVIDENCE_CLASS = "new_code_candidate"
+DEFERRED_OUTCOME = "deferred"
+
+# Base tree: `average` is correct here, and the seeded suite covers the guarded
+# empty case, so the reviewed diffs below are a deletion and an addition of code
+# rather than two additions.
+SEED_STATS_SOURCE = (
+    "def total(items: list[int]) -> int:\n"
+    "    return sum(items)\n"
+    "\n"
+    "\n"
+    "def average(items: list[int]) -> float:\n"
+    "    if not items:\n"
+    "        return 0.0\n"
+    "    return sum(items) / len(items)\n"
+)
+SEED_TESTS_SOURCE = (
+    "from sample.stats import average, total\n"
+    "\n"
+    "\n"
+    "def test_total() -> None:\n"
+    "    assert total([1, 2]) == 3\n"
+    "\n"
+    "\n"
+    "def test_average() -> None:\n"
+    "    assert average([1, 3]) == 2.0\n"
+    "\n"
+    "\n"
+    "def test_average_of_empty_input_is_zero() -> None:\n"
+    "    assert average([]) == 0.0\n"
+)
+# Regression arm: the guard is removed, so one reproduction fails on head and
+# passes on base -- the only pattern differential evidence certifies.
+REGRESSION_STATS_SOURCE = (
+    "def total(items: list[int]) -> int:\n"
+    "    return sum(items)\n"
+    "\n"
+    "\n"
+    "def average(items: list[int]) -> float:\n"
+    "    return sum(items) / len(items)\n"
+)
+# Negative control: the same semantics-preserving rename of a local value as
+# before, now carrying the guarded `average` through untouched so the diff stays
+# a refactor rather than a deletion.
+CONTROL_STATS_SOURCE = (
+    "def total(items: list[int]) -> int:\n"
+    "    values = tuple(items)\n"
+    "    return sum(values)\n"
+    "\n"
+    "\n"
+    "def average(items: list[int]) -> float:\n"
+    "    if not items:\n"
+    "        return 0.0\n"
+    "    return sum(items) / len(items)\n"
+)
+# New-code arm: a defective helper that exists nowhere on base. The reproduction
+# fails on head with an assertion and fails on base because the symbol is absent,
+# which is recorded as an unpriced new-code candidate.
+NEW_CODE_STATS_SOURCE = SEED_STATS_SOURCE + (
+    "\n"
+    "\n"
+    "def truncate(text: str, limit: int) -> str:\n"
+    '    return text[:limit] + "..."\n'
+)
 
 
 class AcceptanceError(RuntimeError):
@@ -116,10 +195,12 @@ class LocalFileSystem:
 @dataclass(frozen=True)
 class AcceptanceResult:
     repository_url: str
-    bug_pr_url: str
+    regression_pr_url: str
     control_pr_url: str
-    bug_sticky_seconds: float
+    new_code_pr_url: str
+    regression_sticky_seconds: float
     control_sticky_seconds: float
+    new_code_sticky_seconds: float
     queue_seconds: dict[int, float]
     spend_usd: float
     run_urls: dict[int, str] = field(default_factory=dict)
@@ -211,6 +292,47 @@ class LedgerArtifact:
             }
             if not inline_set.issubset(surfaced_ids):
                 raise AcceptanceError("inline finding identities are not final surfaced decisions")
+
+    def evidence_class_of(self, finding_id: str) -> str | None:
+        """The last differential evidence class recorded for one candidate."""
+        classes = [
+            str(row["evidence_class"])
+            for row in self.rows
+            if row.get("kind") == "verification"
+            and row.get("finding_id") == finding_id
+            and isinstance(row.get("evidence_class"), str)
+        ]
+        return classes[-1] if classes else None
+
+    def assert_regression_evidence(self, inline_finding_ids: Sequence[str]) -> None:
+        """Every inline finding must be bought by head-fail/base-pass evidence:
+        a regression on existing code is the only certifiable pattern."""
+        for finding_id in inline_finding_ids:
+            recorded = self.evidence_class_of(finding_id)
+            if recorded != REGRESSION_EVIDENCE_CLASS:
+                raise AcceptanceError(
+                    f"inline finding {finding_id} recorded evidence class {recorded!r}, "
+                    f"expected {REGRESSION_EVIDENCE_CLASS!r}"
+                )
+
+    def assert_new_code_recorded(self) -> None:
+        """A defect in newly added code must be recognised and written down as an
+        unpriced deferral, never silently missed."""
+        rows = [
+            row
+            for row in self.rows
+            if row.get("kind") == "verification"
+            and row.get("evidence_class") == NEW_CODE_EVIDENCE_CLASS
+        ]
+        if not rows:
+            raise AcceptanceError(
+                f"ledger has no {NEW_CODE_EVIDENCE_CLASS} verification row: the new-code "
+                "defect was missed rather than deliberately left unpriced"
+            )
+        if any(row.get("outcome") != DEFERRED_OUTCOME for row in rows):
+            raise AcceptanceError(
+                f"{NEW_CODE_EVIDENCE_CLASS} verification rows must stay deferred and unpriced"
+            )
 
 
 @dataclass(frozen=True)
@@ -306,7 +428,7 @@ class AcceptanceService:
 
     def run_acceptance(self, action_ref: str, *, keep_repo: bool = True) -> AcceptanceResult:
         self.preflight()
-        self.ensure_spend_headroom(0.50)
+        self.ensure_spend_headroom(RESERVED_SPEND_USD)
         if not action_ref.strip():
             raise AcceptanceError("action ref must not be empty")
         owner = self._json_command(("gh", "api", "user"), "authenticated owner").get("login")
@@ -324,30 +446,36 @@ class AcceptanceService:
                 checkout = Path(raw_checkout)
                 self._seed_repository(checkout, repository, action_ref)
                 self._install_secrets(repository)
-                bug_pr = self._create_bug_pr(checkout, repository)
+                regression_pr = self._create_regression_pr(checkout, repository)
                 control_pr = self._create_control_pr(checkout, repository)
-                bug_run = self._inspect_run(repository, bug_pr, checkout / "artifacts")
-                self.record_spend(str(bug_run.run_id), bug_run.ledger.spend_usd, repository_url)
-                control_run = self._inspect_run(repository, control_pr, checkout / "artifacts")
+                new_code_pr = self._create_new_code_pr(checkout, repository)
+                artifacts = checkout / "artifacts"
+                regression_run = self._inspect_run(repository, regression_pr, artifacts)
+                self.record_spend(
+                    str(regression_run.run_id), regression_run.ledger.spend_usd, repository_url
+                )
+                control_run = self._inspect_run(repository, control_pr, artifacts)
                 self.record_spend(
                     str(control_run.run_id), control_run.ledger.spend_usd, repository_url
                 )
-                self._assert_matrix(bug_run, control_run)
+                new_code_run = self._inspect_run(repository, new_code_pr, artifacts)
+                self.record_spend(
+                    str(new_code_run.run_id), new_code_run.ledger.spend_usd, repository_url
+                )
+                self._assert_matrix(regression_run, control_run, new_code_run)
 
+                runs = (regression_run, control_run, new_code_run)
                 result = AcceptanceResult(
                     repository_url=repository_url,
-                    bug_pr_url=bug_pr.url,
+                    regression_pr_url=regression_pr.url,
                     control_pr_url=control_pr.url,
-                    bug_sticky_seconds=bug_run.sticky_seconds,
+                    new_code_pr_url=new_code_pr.url,
+                    regression_sticky_seconds=regression_run.sticky_seconds,
                     control_sticky_seconds=control_run.sticky_seconds,
-                    queue_seconds={
-                        bug_run.run_id: bug_run.queue_seconds,
-                        control_run.run_id: control_run.queue_seconds,
-                    },
-                    spend_usd=round(
-                        bug_run.ledger.spend_usd + control_run.ledger.spend_usd, 6
-                    ),
-                    run_urls={bug_run.run_id: bug_run.url, control_run.run_id: control_run.url},
+                    new_code_sticky_seconds=new_code_run.sticky_seconds,
+                    queue_seconds={run.run_id: run.queue_seconds for run in runs},
+                    spend_usd=round(sum(run.ledger.spend_usd for run in runs), 6),
+                    run_urls={run.run_id: run.url for run in runs},
                 )
                 self._record_live_success(result)
                 if not keep_repo:
@@ -370,17 +498,9 @@ class AcceptanceService:
         self.filesystem.mkdir(checkout / ".github" / "workflows")
         self.filesystem.mkdir(checkout / "sample")
         self.filesystem.mkdir(checkout / "tests")
-        self.filesystem.write_text(
-            checkout / "sample" / "stats.py",
-            "def total(items: list[int]) -> int:\n    return sum(items)\n",
-        )
+        self.filesystem.write_text(checkout / "sample" / "stats.py", SEED_STATS_SOURCE)
         self.filesystem.write_text(checkout / "sample" / "__init__.py", "")
-        self.filesystem.write_text(
-            checkout / "tests" / "test_stats.py",
-            "from sample.stats import total\n\n\n"
-            "def test_total() -> None:\n"
-            "    assert total([1, 2]) == 3\n",
-        )
+        self.filesystem.write_text(checkout / "tests" / "test_stats.py", SEED_TESTS_SOURCE)
         self.filesystem.write_text(
             checkout / "pyproject.toml",
             "[project]\nname = \"attest-acceptance-sample\"\nversion = \"0.0.1\"\n"
@@ -428,29 +548,43 @@ class AcceptanceService:
             raise AcceptanceError("GitHub source-repository token is unavailable")
         return token
 
-    def _create_bug_pr(self, checkout: Path, repository: str) -> _PullRequest:
-        branch = "acceptance/planted-empty-input-crash"
+    def _create_regression_pr(self, checkout: Path, repository: str) -> _PullRequest:
+        """The reviewed diff deletes an existing empty-input guard, so the same
+        reproduction fails on head and passes on base."""
+        branch = "acceptance/average-drops-empty-input-guard"
         self._checked(("git", "switch", "-c", branch, "main"), cwd=checkout)
         self.filesystem.write_text(
-            checkout / "sample" / "stats.py",
-            "def total(items: list[int]) -> int:\n    return sum(items)\n\n\n"
-            "def average(items: list[int]) -> float:\n    return sum(items) / len(items)\n",
+            checkout / "sample" / "stats.py", REGRESSION_STATS_SOURCE
         )
         self._checked(("git", "add", "sample/stats.py"), cwd=checkout)
-        self._checked(("git", "commit", "-m", "test: plant empty input crash"), cwd=checkout)
+        self._checked(
+            ("git", "commit", "-m", "refactor: drop the empty-input branch from average"),
+            cwd=checkout,
+        )
         self._checked(("git", "push", "-u", "origin", branch), cwd=checkout)
-        return self._open_pr(repository, branch, "Plant deterministic empty-input crash")
+        return self._open_pr(
+            repository, branch, "Simplify average by removing the empty-input branch"
+        )
+
+    def _create_new_code_pr(self, checkout: Path, repository: str) -> _PullRequest:
+        """The reviewed diff adds a defective helper that exists nowhere on base,
+        which attest must recognise and record without pricing it."""
+        branch = "acceptance/new-truncate-helper"
+        self._checked(("git", "switch", "main"), cwd=checkout)
+        self._checked(("git", "switch", "-c", branch), cwd=checkout)
+        self.filesystem.write_text(checkout / "sample" / "stats.py", NEW_CODE_STATS_SOURCE)
+        self._checked(("git", "add", "sample/stats.py"), cwd=checkout)
+        self._checked(
+            ("git", "commit", "-m", "feat: add a truncate helper for summaries"), cwd=checkout
+        )
+        self._checked(("git", "push", "-u", "origin", branch), cwd=checkout)
+        return self._open_pr(repository, branch, "Add a truncate helper for summaries")
 
     def _create_control_pr(self, checkout: Path, repository: str) -> _PullRequest:
         branch = "acceptance/clean-refactor"
         self._checked(("git", "switch", "main"), cwd=checkout)
         self._checked(("git", "switch", "-c", branch), cwd=checkout)
-        self.filesystem.write_text(
-            checkout / "sample" / "stats.py",
-            "def total(items: list[int]) -> int:\n"
-            "    values = tuple(items)\n"
-            "    return sum(values)\n",
-        )
+        self.filesystem.write_text(checkout / "sample" / "stats.py", CONTROL_STATS_SOURCE)
         self._checked(("git", "add", "sample/stats.py"), cwd=checkout)
         self._checked(("git", "commit", "-m", "refactor: name materialized values"), cwd=checkout)
         self._checked(("git", "push", "-u", "origin", branch), cwd=checkout)
@@ -591,27 +725,46 @@ class AcceptanceService:
         raise AcceptanceError(f"workflow run did not appear for branch {branch}")
 
     @staticmethod
-    def _assert_matrix(bug_run: _WorkflowRun, control_run: _WorkflowRun) -> None:
-        if bug_run.sticky_seconds > 60:
-            raise AcceptanceError(
-                f"planted-bug sticky status took {bug_run.sticky_seconds:.3f}s (limit 60s)"
-            )
-        if control_run.sticky_seconds > 60:
-            raise AcceptanceError(
-                f"control sticky status took {control_run.sticky_seconds:.3f}s (limit 60s)"
-            )
-        if not bug_run.comments.findings:
-            raise AcceptanceError("planted-bug PR has no verified inline finding")
+    def _assert_matrix(
+        regression_run: _WorkflowRun,
+        control_run: _WorkflowRun,
+        new_code_run: _WorkflowRun,
+    ) -> None:
+        """Three arms: a regression is certified, a clean refactor is silent, and
+        a defect in newly added code is silent but recorded as unpriced."""
+        for label, run in (
+            ("regression", regression_run),
+            ("negative-control", control_run),
+            ("new-code", new_code_run),
+        ):
+            if run.sticky_seconds > STICKY_LIMIT_SECONDS:
+                raise AcceptanceError(
+                    f"{label} sticky status took {run.sticky_seconds:.3f}s "
+                    f"(limit {STICKY_LIMIT_SECONDS:.0f}s)"
+                )
+        if not regression_run.comments.findings:
+            raise AcceptanceError("regression PR has no verified inline finding")
         if control_run.comments.findings:
             raise AcceptanceError("negative-control PR unexpectedly has finding comments")
-        bug_run.ledger.assert_event_coverage(
-            expected_comment_phases=BUG_COMMENT_PHASES,
-            inline_finding_ids=bug_run.comments.finding_ids,
+        if new_code_run.comments.findings:
+            raise AcceptanceError(
+                "new-code PR unexpectedly has finding comments; a defect in newly added "
+                "code must stay unpriced"
+            )
+        regression_run.ledger.assert_event_coverage(
+            expected_comment_phases=REGRESSION_COMMENT_PHASES,
+            inline_finding_ids=regression_run.comments.finding_ids,
         )
+        regression_run.ledger.assert_regression_evidence(regression_run.comments.finding_ids)
         control_run.ledger.assert_event_coverage(
             expected_comment_phases=CONTROL_COMMENT_PHASES,
             inline_finding_ids=control_run.comments.finding_ids,
         )
+        new_code_run.ledger.assert_event_coverage(
+            expected_comment_phases=NEW_CODE_COMMENT_PHASES,
+            inline_finding_ids=new_code_run.comments.finding_ids,
+        )
+        new_code_run.ledger.assert_new_code_recorded()
 
     def _checked(
         self,
@@ -723,10 +876,14 @@ def render_report(result: AcceptanceResult) -> str:
         "Acceptance passed against a retained private scratch repository.",
         "",
         f"- Repository: {result.repository_url}",
-        f"- Planted-bug PR: {result.bug_pr_url}",
-        f"- Negative-control PR: {result.control_pr_url}",
-        f"- Planted-bug sticky latency (job start to comment): {result.bug_sticky_seconds:.3f}s",
+        f"- Regression PR (existing guard deleted): {result.regression_pr_url}",
+        f"- Negative-control PR (semantics-preserving refactor): {result.control_pr_url}",
+        f"- New-code PR (defective helper absent from base): {result.new_code_pr_url}",
+        "- Regression sticky latency (job start to comment): "
+        f"{result.regression_sticky_seconds:.3f}s",
         f"- Control sticky latency (job start to comment): {result.control_sticky_seconds:.3f}s",
+        "- New-code sticky latency (job start to comment): "
+        f"{result.new_code_sticky_seconds:.3f}s",
         f"- Development API spend: ${result.spend_usd:.4f}",
         "",
         "## Workflow runs",
@@ -738,9 +895,26 @@ def render_report(result: AcceptanceResult) -> str:
     lines.extend(
         [
             "",
-            "The planted bug produced verified inline evidence, the control produced no finding "
-            "comments, both sticky comments met the 60-second job-start limit, and downloaded "
-            "ledger artifacts accounted for review, verification, and comment events.",
+            "## What each arm shows",
+            "",
+            "- **Regression PR**: the reviewed diff deletes an empty-input guard from a "
+            "function that already exists on base, so the generated reproduction fails on "
+            "head and passes on base. That is the only pattern differential evidence "
+            "certifies, and it produced a verified inline finding whose verification row "
+            f"records evidence class `{REGRESSION_EVIDENCE_CLASS}`.",
+            "- **Negative-control PR**: a semantics-preserving refactor produced zero finding "
+            "comments.",
+            "- **New-code PR**: the reviewed diff adds a defective helper that exists nowhere "
+            "on base. attest posted zero finding comments and recorded a verification row with "
+            f"evidence class `{NEW_CODE_EVIDENCE_CLASS}`, left deferred. The defect is "
+            "recognised and written down, not missed -- and deliberately not priced, because "
+            "certifying a defect in newly added code needs a likelihood ratio that has not "
+            "been introduced. Silence on new code is the designed behaviour and the honest "
+            "limit of what this evidence can buy.",
+            "",
+            "All three sticky comments met the 60-second job-start limit, and the downloaded "
+            "ledger artifacts accounted for review, verification, and comment events on every "
+            "arm.",
             "",
         ]
     )
@@ -799,6 +973,10 @@ def _validate_ledger_row(row: dict[str, Any], number: int) -> None:
     for field_name in event_required.get(kind, ("task_id",)):
         if field_name not in row or row[field_name] in (None, ""):
             raise AcceptanceError(f"ledger line {number} is missing {field_name}")
+    if kind == "verification" and "evidence_class" in row:
+        evidence_class = row["evidence_class"]
+        if not isinstance(evidence_class, str) or not evidence_class:
+            raise AcceptanceError(f"ledger line {number} has invalid evidence_class")
     if kind == "review" and "spend" in row and not _is_number(row["spend"]):
         raise AcceptanceError(f"ledger line {number} has invalid spend")
     if kind == "review_run" and not _is_number(row["spend_usd"]):

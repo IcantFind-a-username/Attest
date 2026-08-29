@@ -10,7 +10,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.acceptance.phase3 import (  # noqa: E402
+    CONTROL_COMMENT_PHASES,
     MODEL_KEY_ENV,
+    NEW_CODE_COMMENT_PHASES,
+    NEW_CODE_EVIDENCE_CLASS,
+    REGRESSION_COMMENT_PHASES,
+    REGRESSION_EVIDENCE_CLASS,
     AcceptanceError,
     AcceptanceResult,
     AcceptanceService,
@@ -190,6 +195,74 @@ def test_seed_configures_repo_scoped_gh_credential_helper_before_push() -> None:
     assert all("token" not in " ".join(command).lower() for command in commands)
 
 
+SCRATCH = Path("/scratch")
+STATS_PATH = SCRATCH / "sample" / "stats.py"
+SCRATCH_REPOSITORY = "octocat/attest-phase3-test"
+_PR_VIEW = CommandResult(
+    0, stdout=json.dumps({"number": 7, "url": "https://github.invalid/pull/7"})
+)
+
+
+def _seeded_service(git_commands: int) -> tuple[AcceptanceService, FakeRunner]:
+    """A service whose scratch checkout already holds the seeded base tree."""
+    runner = FakeRunner([CommandResult(0)] * (9 + git_commands + 1) + [_PR_VIEW])
+    service = _service(runner)
+    service._seed_repository(SCRATCH, SCRATCH_REPOSITORY, "feature/phase-3-action")
+    return service, runner
+
+
+def test_seed_base_tree_guards_the_empty_case_and_tests_it() -> None:
+    service, _ = _seeded_service(0)
+
+    stats = service.filesystem.read_text(STATS_PATH)
+    suite = service.filesystem.read_text(SCRATCH / "tests" / "test_stats.py")
+
+    assert "def average(items: list[int]) -> float:" in stats
+    assert "    if not items:\n        return 0.0\n" in stats
+    assert "assert average([]) == 0.0" in suite
+
+
+def test_regression_pr_deletes_a_guard_that_already_exists_on_base() -> None:
+    service, runner = _seeded_service(4)
+    base_stats = service.filesystem.read_text(STATS_PATH)
+
+    pull_request = service._create_regression_pr(SCRATCH, SCRATCH_REPOSITORY)
+
+    head_stats = service.filesystem.read_text(STATS_PATH)
+    assert "    if not items:\n        return 0.0\n" in base_stats
+    assert "def average(items: list[int]) -> float:" in head_stats
+    assert "if not items:" not in head_stats
+    assert pull_request.branch == "acceptance/average-drops-empty-input-guard"
+    assert all("plant" not in " ".join(call[0]).lower() for call in runner.calls)
+
+
+def test_new_code_pr_adds_a_helper_that_is_absent_on_base() -> None:
+    service, _ = _seeded_service(5)
+    base_stats = service.filesystem.read_text(STATS_PATH)
+
+    pull_request = service._create_new_code_pr(SCRATCH, SCRATCH_REPOSITORY)
+
+    head_stats = service.filesystem.read_text(STATS_PATH)
+    assert "truncate" not in base_stats
+    assert "def truncate(text: str, limit: int) -> str:" in head_stats
+    assert 'return text[:limit] + "..."' in head_stats
+    # only the added symbol differs, so the base run can fail for exactly one
+    # reason: the symbol does not exist there
+    assert base_stats in head_stats
+    assert pull_request.branch == "acceptance/new-truncate-helper"
+
+
+def test_control_pr_carries_every_base_behaviour_through_unchanged() -> None:
+    service, _ = _seeded_service(5)
+
+    service._create_control_pr(SCRATCH, SCRATCH_REPOSITORY)
+
+    head_stats = service.filesystem.read_text(STATS_PATH)
+    assert "values = tuple(items)" in head_stats
+    assert "    if not items:\n        return 0.0\n" in head_stats
+    assert "truncate" not in head_stats
+
+
 def test_source_repository_secret_uses_gh_token_only_through_stdin() -> None:
     source_token = "github_pat_source_repo_capable_0123456789"
     runner = FakeRunner([CommandResult(0), CommandResult(0)])
@@ -308,17 +381,14 @@ def test_comment_classification_rejects_verified_finding_without_stable_id() -> 
         classify_comments([], [review_comment])
 
 
-BUG_COMMENT_PHASES = ("running", "candidate_count", "review", "complete")
-CONTROL_COMMENT_PHASES = ("running", "candidate_count", "complete")
-
-
 def _ledger_text(
     *,
-    phases: tuple[str, ...] = BUG_COMMENT_PHASES,
+    phases: tuple[str, ...] = REGRESSION_COMMENT_PHASES,
     task_id: str = "task-1",
     review_id: str = "finding-1",
     verification_id: str = "finding-1",
     comment_outcome: str = "posted",
+    evidence_class: str = REGRESSION_EVIDENCE_CLASS,
 ) -> str:
     rows = [
         {
@@ -333,6 +403,7 @@ def _ledger_text(
             "task_id": task_id,
             "finding_id": verification_id,
             "outcome": "reproduced",
+            "evidence_class": evidence_class,
         },
         *[
             {
@@ -353,7 +424,7 @@ def test_parse_ledger_validates_json_objects_and_required_event_fields() -> None
     assert ledger.spend_usd == pytest.approx(0.012)
     assert ledger.task_ids == frozenset({"task-1"})
     ledger.assert_event_coverage(
-        expected_comment_phases=BUG_COMMENT_PHASES,
+        expected_comment_phases=REGRESSION_COMMENT_PHASES,
         inline_finding_ids=("finding-1",),
     )
 
@@ -371,14 +442,14 @@ def test_parse_ledger_rejects_malformed_artifact(text: str, message: str) -> Non
         parse_ledger(text)
 
 
-@pytest.mark.parametrize("missing_phase", BUG_COMMENT_PHASES)
-def test_ledger_coverage_rejects_each_missing_bug_comment_phase(missing_phase: str) -> None:
-    phases = tuple(phase for phase in BUG_COMMENT_PHASES if phase != missing_phase)
+@pytest.mark.parametrize("missing_phase", REGRESSION_COMMENT_PHASES)
+def test_ledger_coverage_rejects_each_missing_regression_comment_phase(missing_phase: str) -> None:
+    phases = tuple(phase for phase in REGRESSION_COMMENT_PHASES if phase != missing_phase)
     ledger = parse_ledger(_ledger_text(phases=phases))
 
     with pytest.raises(AcceptanceError, match="comment phases"):
         ledger.assert_event_coverage(
-            expected_comment_phases=BUG_COMMENT_PHASES,
+            expected_comment_phases=REGRESSION_COMMENT_PHASES,
             inline_finding_ids=("finding-1",),
         )
 
@@ -388,7 +459,7 @@ def test_ledger_coverage_rejects_failed_comment_phase() -> None:
 
     with pytest.raises(AcceptanceError, match="successful.*comment"):
         ledger.assert_event_coverage(
-            expected_comment_phases=BUG_COMMENT_PHASES,
+            expected_comment_phases=REGRESSION_COMMENT_PHASES,
             inline_finding_ids=("finding-1",),
         )
 
@@ -406,7 +477,7 @@ def test_ledger_coverage_rejects_reproduced_foreign_candidate() -> None:
 
     with pytest.raises(AcceptanceError, match="verification.*reviewed candidate"):
         ledger.assert_event_coverage(
-            expected_comment_phases=BUG_COMMENT_PHASES,
+            expected_comment_phases=REGRESSION_COMMENT_PHASES,
             inline_finding_ids=("finding-1",),
         )
 
@@ -416,7 +487,7 @@ def test_ledger_coverage_rejects_inline_finding_identity_mismatch() -> None:
 
     with pytest.raises(AcceptanceError, match="inline finding.*ledger"):
         ledger.assert_event_coverage(
-            expected_comment_phases=BUG_COMMENT_PHASES,
+            expected_comment_phases=REGRESSION_COMMENT_PHASES,
             inline_finding_ids=("finding-2",),
         )
 
@@ -426,7 +497,7 @@ def test_ledger_coverage_rejects_duplicate_inline_finding_count() -> None:
 
     with pytest.raises(AcceptanceError, match="inline finding.*ledger"):
         ledger.assert_event_coverage(
-            expected_comment_phases=BUG_COMMENT_PHASES,
+            expected_comment_phases=REGRESSION_COMMENT_PHASES,
             inline_finding_ids=("finding-1", "finding-1"),
         )
 
@@ -455,13 +526,13 @@ def test_ledger_coverage_allows_reproduced_overflow_without_inline_placement() -
     ledger = parse_ledger("\n".join(json.dumps(row) for row in rows))
 
     ledger.assert_event_coverage(
-        expected_comment_phases=BUG_COMMENT_PHASES,
+        expected_comment_phases=REGRESSION_COMMENT_PHASES,
         inline_finding_ids=("finding-1",),
     )
 
 
-def test_control_ledger_requires_exact_non_review_comment_phases() -> None:
-    rows = [
+def _control_ledger_text() -> str:
+    return "\n".join(
         json.dumps(
             {
                 "kind": "github_comment",
@@ -471,13 +542,123 @@ def test_control_ledger_requires_exact_non_review_comment_phases() -> None:
             }
         )
         for phase in CONTROL_COMMENT_PHASES
-    ]
-    ledger = parse_ledger("\n".join(rows))
+    )
+
+
+def test_control_ledger_requires_exact_non_review_comment_phases() -> None:
+    ledger = parse_ledger(_control_ledger_text())
 
     ledger.assert_event_coverage(
         expected_comment_phases=CONTROL_COMMENT_PHASES,
         inline_finding_ids=(),
     )
+
+
+def _new_code_ledger_text(
+    *,
+    task_id: str = "task-new-code",
+    finding_id: str = "finding-new",
+    evidence_class: str = NEW_CODE_EVIDENCE_CLASS,
+    outcome: str = "deferred",
+    phases: tuple[str, ...] = NEW_CODE_COMMENT_PHASES,
+) -> str:
+    rows: list[dict[str, object]] = [
+        {
+            "kind": "review",
+            "task_id": task_id,
+            "finding_id": finding_id,
+            "spend": 0.009,
+            "action": "drawer",
+        },
+        {
+            "kind": "verification",
+            "task_id": task_id,
+            "finding_id": finding_id,
+            "outcome": outcome,
+            "evidence_class": evidence_class,
+            "reason": "new-code candidate: symbol absent on base; not priced",
+        },
+        *[
+            {"kind": "github_comment", "task_id": task_id, "phase": phase, "outcome": "posted"}
+            for phase in phases
+        ],
+        {
+            "kind": "ci_final",
+            "task_id": task_id,
+            "decisions": [
+                {"finding_id": finding_id, "action": "drawer", "placement": "drawer"}
+            ],
+            "spend_usd": 0.011,
+        },
+    ]
+    return "\n".join(json.dumps(row) for row in rows)
+
+
+def test_new_code_ledger_records_recognised_but_unpriced_candidate() -> None:
+    ledger = parse_ledger(_new_code_ledger_text())
+
+    ledger.assert_event_coverage(
+        expected_comment_phases=NEW_CODE_COMMENT_PHASES, inline_finding_ids=()
+    )
+    ledger.assert_new_code_recorded()
+    assert ledger.evidence_class_of("finding-new") == NEW_CODE_EVIDENCE_CLASS
+
+
+def test_new_code_assertion_rejects_a_ledger_that_never_saw_the_defect() -> None:
+    ledger = parse_ledger(_new_code_ledger_text(evidence_class="not_reproduced"))
+
+    with pytest.raises(AcceptanceError, match="missed rather than deliberately"):
+        ledger.assert_new_code_recorded()
+
+
+def test_new_code_assertion_rejects_a_priced_new_code_row() -> None:
+    ledger = parse_ledger(_new_code_ledger_text(outcome="reproduced"))
+
+    with pytest.raises(AcceptanceError, match="deferred and unpriced"):
+        ledger.assert_new_code_recorded()
+
+
+def test_new_code_arm_requires_the_deferred_status_phase_sequence() -> None:
+    ledger = parse_ledger(
+        _new_code_ledger_text(phases=("running", "candidate_count", "complete"))
+    )
+
+    with pytest.raises(AcceptanceError, match="comment phases"):
+        ledger.assert_event_coverage(
+            expected_comment_phases=NEW_CODE_COMMENT_PHASES, inline_finding_ids=()
+        )
+
+
+def test_inline_finding_must_be_bought_by_regression_evidence() -> None:
+    ledger = parse_ledger(_ledger_text())
+
+    ledger.assert_regression_evidence(("finding-1",))
+    assert ledger.evidence_class_of("finding-1") == REGRESSION_EVIDENCE_CLASS
+
+
+@pytest.mark.parametrize("recorded", [NEW_CODE_EVIDENCE_CLASS, "unfaithful"])
+def test_inline_finding_with_other_evidence_class_is_rejected(recorded: str) -> None:
+    ledger = parse_ledger(_ledger_text(evidence_class=recorded))
+
+    with pytest.raises(AcceptanceError, match="evidence class"):
+        ledger.assert_regression_evidence(("finding-1",))
+
+
+def test_inline_finding_without_any_evidence_class_is_rejected() -> None:
+    rows = [json.loads(line) for line in _ledger_text().splitlines()]
+    del rows[1]["evidence_class"]
+    ledger = parse_ledger("\n".join(json.dumps(row) for row in rows))
+
+    with pytest.raises(AcceptanceError, match="evidence class None"):
+        ledger.assert_regression_evidence(("finding-1",))
+
+
+def test_parse_ledger_rejects_non_string_evidence_class() -> None:
+    rows = [json.loads(line) for line in _ledger_text().splitlines()]
+    rows[1]["evidence_class"] = 7
+
+    with pytest.raises(AcceptanceError, match="evidence_class"):
+        parse_ledger("\n".join(json.dumps(row) for row in rows))
 
 
 def test_spend_cap_rejects_cumulative_development_spend() -> None:
@@ -535,6 +716,116 @@ def test_spend_insertion_is_idempotent_by_run_id_and_updates_total() -> None:
     assert "**Total API spend: $0.2000 of $10.00.**" in updated
 
 
+def _matrix_run(
+    ledger_text: str,
+    *,
+    run_id: int,
+    finding_ids: tuple[str, ...] = (),
+    sticky_seconds: float = 1.0,
+) -> _WorkflowRun:
+    findings = tuple(
+        {"id": index, "body": finding_id, "path": "sample/stats.py", "line": 3}
+        for index, finding_id in enumerate(finding_ids, start=100)
+    )
+    return _WorkflowRun(
+        run_id=run_id,
+        url=f"https://github.invalid/actions/runs/{run_id}",
+        created_at="2026-08-29T00:00:00Z",
+        job_started_at="2026-08-29T00:00:01Z",
+        queue_seconds=1.0,
+        sticky_seconds=sticky_seconds,
+        comments=CommentClassification(
+            sticky=({"id": 1, "body": "<!-- attest:status -->"},),
+            findings=findings,
+            finding_ids=finding_ids,
+        ),
+        ledger=parse_ledger(ledger_text),
+    )
+
+
+def _matrix_arms() -> tuple[_WorkflowRun, _WorkflowRun, _WorkflowRun]:
+    return (
+        _matrix_run(
+            _ledger_text(), run_id=101, finding_ids=("finding-1",), sticky_seconds=12.5
+        ),
+        _matrix_run(_control_ledger_text(), run_id=102, sticky_seconds=8.0),
+        _matrix_run(_new_code_ledger_text(), run_id=103, sticky_seconds=5.25),
+    )
+
+
+def test_matrix_accepts_verified_regression_silent_control_and_recorded_new_code() -> None:
+    AcceptanceService._assert_matrix(*_matrix_arms())
+
+
+def test_matrix_requires_a_verified_inline_finding_on_the_regression_arm() -> None:
+    regression, control, new_code = _matrix_arms()
+    silent = _matrix_run(_ledger_text(phases=CONTROL_COMMENT_PHASES), run_id=101)
+
+    with pytest.raises(AcceptanceError, match="regression PR has no verified inline finding"):
+        AcceptanceService._assert_matrix(silent, control, new_code)
+
+
+def test_matrix_rejects_a_speaking_negative_control() -> None:
+    regression, _, new_code = _matrix_arms()
+    noisy = _matrix_run(_ledger_text(), run_id=102, finding_ids=("finding-1",))
+
+    with pytest.raises(AcceptanceError, match="negative-control PR unexpectedly"):
+        AcceptanceService._assert_matrix(regression, noisy, new_code)
+
+
+def test_matrix_rejects_a_priced_finding_on_the_new_code_arm() -> None:
+    regression, control, _ = _matrix_arms()
+    noisy = _matrix_run(
+        _new_code_ledger_text(finding_id="finding-new"),
+        run_id=103,
+        finding_ids=("finding-new",),
+    )
+
+    with pytest.raises(AcceptanceError, match="new-code PR unexpectedly"):
+        AcceptanceService._assert_matrix(regression, control, noisy)
+
+
+def test_matrix_rejects_a_new_code_arm_that_never_recorded_the_class() -> None:
+    regression, control, _ = _matrix_arms()
+    unaware = _matrix_run(
+        _new_code_ledger_text(evidence_class="not_reproduced"), run_id=103
+    )
+
+    with pytest.raises(AcceptanceError, match="missed rather than deliberately"):
+        AcceptanceService._assert_matrix(regression, control, unaware)
+
+
+def test_matrix_rejects_an_inline_finding_not_bought_by_regression_evidence() -> None:
+    _, control, new_code = _matrix_arms()
+    mispriced = _matrix_run(
+        _ledger_text(evidence_class=NEW_CODE_EVIDENCE_CLASS),
+        run_id=101,
+        finding_ids=("finding-1",),
+    )
+
+    with pytest.raises(AcceptanceError, match="evidence class"):
+        AcceptanceService._assert_matrix(mispriced, control, new_code)
+
+
+@pytest.mark.parametrize(
+    ("index", "label"), [(0, "regression"), (1, "negative-control"), (2, "new-code")]
+)
+def test_matrix_holds_every_arm_to_the_sixty_second_sticky_limit(
+    index: int, label: str
+) -> None:
+    arms = list(_matrix_arms())
+    slow = arms[index]
+    arms[index] = _matrix_run(
+        (_ledger_text(), _control_ledger_text(), _new_code_ledger_text())[index],
+        run_id=slow.run_id,
+        finding_ids=slow.comments.finding_ids,
+        sticky_seconds=60.001,
+    )
+
+    with pytest.raises(AcceptanceError, match=f"{label} sticky status"):
+        AcceptanceService._assert_matrix(*arms)
+
+
 def _workflow_run(run_id: int, spend: float) -> _WorkflowRun:
     return _WorkflowRun(
         run_id=run_id,
@@ -572,13 +863,18 @@ def _acceptance_orchestrator(
     monkeypatch.setattr(service, "_install_secrets", lambda *args: None)
     monkeypatch.setattr(
         service,
-        "_create_bug_pr",
-        lambda *args: _PullRequest(1, "https://github.invalid/pull/1", "bug"),
+        "_create_regression_pr",
+        lambda *args: _PullRequest(1, "https://github.invalid/pull/1", "regression"),
     )
     monkeypatch.setattr(
         service,
         "_create_control_pr",
         lambda *args: _PullRequest(2, "https://github.invalid/pull/2", "control"),
+    )
+    monkeypatch.setattr(
+        service,
+        "_create_new_code_pr",
+        lambda *args: _PullRequest(3, "https://github.invalid/pull/3", "new-code"),
     )
 
     def inspect(*args: object) -> _WorkflowRun:
@@ -606,11 +902,12 @@ def test_acceptance_records_first_artifact_spend_when_second_run_fails(
     assert "phase-3 acceptance run 102" not in ledger
 
 
-def test_acceptance_records_both_artifact_spends_before_matrix_assertion(
+def test_acceptance_records_every_artifact_spend_before_matrix_assertion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service = _acceptance_orchestrator(
-        monkeypatch, [_workflow_run(101, 0.03), _workflow_run(102, 0.02)]
+        monkeypatch,
+        [_workflow_run(101, 0.03), _workflow_run(102, 0.02), _workflow_run(103, 0.01)],
     )
     monkeypatch.setattr(
         service,
@@ -622,31 +919,56 @@ def test_acceptance_records_both_artifact_spends_before_matrix_assertion(
         service.run_acceptance("local-ref")
 
     ledger = service.filesystem.read_text(Path("/workspace/DEVSPEND.md"))
-    assert ledger.count("phase-3 acceptance run 101") == 1
-    assert ledger.count("phase-3 acceptance run 102") == 1
+    for run_id in (101, 102, 103):
+        assert ledger.count(f"phase-3 acceptance run {run_id}") == 1
 
 
-def test_report_contains_inspectable_repository_pr_and_run_urls() -> None:
+def test_acceptance_reports_all_three_arms_on_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _acceptance_orchestrator(monkeypatch, list(_matrix_arms()))
+
+    result = service.run_acceptance("local-ref")
+
+    assert result.regression_pr_url == "https://github.invalid/pull/1"
+    assert result.control_pr_url == "https://github.invalid/pull/2"
+    assert result.new_code_pr_url == "https://github.invalid/pull/3"
+    assert set(result.queue_seconds) == {101, 102, 103}
+    assert result.new_code_sticky_seconds == 5.25
+    assert result.spend_usd == pytest.approx(0.023)
+    report = service.filesystem.read_text(Path("/workspace/docs/acceptance/phase-3.md"))
+    assert NEW_CODE_EVIDENCE_CLASS in report
+
+
+def test_report_describes_three_arms_with_inspectable_urls() -> None:
     result = AcceptanceResult(
         repository_url="https://github.com/octocat/attest-phase3-20260829",
-        bug_pr_url="https://github.com/octocat/attest-phase3-20260829/pull/1",
+        regression_pr_url="https://github.com/octocat/attest-phase3-20260829/pull/1",
         control_pr_url="https://github.com/octocat/attest-phase3-20260829/pull/2",
-        bug_sticky_seconds=12.5,
+        new_code_pr_url="https://github.com/octocat/attest-phase3-20260829/pull/3",
+        regression_sticky_seconds=12.5,
         control_sticky_seconds=8.0,
-        queue_seconds={101: 4.25, 102: 1.5},
+        new_code_sticky_seconds=5.25,
+        queue_seconds={101: 4.25, 102: 1.5, 103: 2.0},
         spend_usd=0.0345,
         run_urls={
-            101: "https://github.com/octocat/attest-phase3-20260829/actions/runs/101",
-            102: "https://github.com/octocat/attest-phase3-20260829/actions/runs/102",
+            run_id: f"https://github.com/octocat/attest-phase3-20260829/actions/runs/{run_id}"
+            for run_id in (101, 102, 103)
         },
     )
 
     report = render_report(result)
 
     assert "https://github.com/octocat/attest-phase3-20260829" in report
-    assert result.bug_pr_url in report
+    assert result.regression_pr_url in report
     assert result.control_pr_url in report
-    assert result.run_urls[101] in report
-    assert result.run_urls[102] in report
+    assert result.new_code_pr_url in report
+    for run_id in (101, 102, 103):
+        assert result.run_urls[run_id] in report
     assert "12.500s" in report
+    assert "5.250s" in report
     assert "$0.0345" in report
+    assert REGRESSION_EVIDENCE_CLASS in report
+    assert NEW_CODE_EVIDENCE_CLASS in report
+    assert "not priced" in report
+    assert "recognised" in report

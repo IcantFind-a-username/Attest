@@ -203,15 +203,14 @@ def classify_failure_signature(result: ExecutionResult) -> FailureSignature:
     return FailureSignature.OTHER
 
 
-def _side_signature(runs: list[ExecutionResult]) -> FailureSignature:
-    """The signature shared by every failing run on one side; OTHER when the
-    runs disagree or when nothing failed."""
-    signatures = {
-        classify_failure_signature(run)
-        for run in runs
-        if run.outcome is ExecutionOutcome.REPRODUCED
-    }
-    return signatures.pop() if len(signatures) == 1 else FailureSignature.OTHER
+def _no_run_reports_the_symbol_absent(runs: list[ExecutionResult]) -> bool:
+    """True when not one of these runs failed because the symbol under test was
+    missing. Used on the head side, where every run is already a genuine test
+    failure, to separate *the code misbehaved* from *the symbol was never
+    there*."""
+    return all(
+        classify_failure_signature(run) is not FailureSignature.SYMBOL_ABSENT for run in runs
+    )
 
 
 def _anchor_context(repo: Path, candidate: StoredCandidate) -> str:
@@ -976,9 +975,16 @@ def execute_differential(
             return deferred(
                 f"flaky reproduction on head ({head_failures}/{repeats} runs failed)"
             )
-        # a fabricated finding fails on head because its symbol exists nowhere,
-        # so only an assertion-class head can ever reach NEW_CODE_CANDIDATE
-        head_is_assertion = _side_signature(head_runs) is FailureSignature.ASSERTION
+        # Head runs only reach this point as genuine test failures (exit 1,
+        # failures > 0, errors == 0), so the head signature distinguishes *the
+        # code misbehaved* -- an assertion OR a real crash such as
+        # ZeroDivisionError, TypeError or IndexError -- from *the symbol was
+        # never there*. Demanding an assertion misclassified the common case,
+        # because most real bug reproductions crash rather than assert. The
+        # fabrication guard is unchanged and still load-bearing: a reproduction
+        # naming a symbol that exists nowhere fails on HEAD with SYMBOL_ABSENT,
+        # so it can never be classified as new code.
+        head_symbol_is_present = _no_run_reports_the_symbol_absent(head_runs)
 
         for index in range(1, repeats + 1):
             run = run_once("base", index, trees_dir / "base")
@@ -988,7 +994,7 @@ def execute_differential(
             if run.outcome is ExecutionOutcome.NOT_REPRODUCED:
                 continue
             if (
-                head_is_assertion
+                head_symbol_is_present
                 and classify_failure_signature(run) is FailureSignature.SYMBOL_ABSENT
             ):
                 # the reviewed diff added the symbol: real signal, but pricing it

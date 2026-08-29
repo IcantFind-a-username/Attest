@@ -34,6 +34,18 @@ NEW_MODULE_BODY = 'import newmod\n\ndef test_repro():\n    assert newmod.parse("
 FABRICATED_BODY = (
     "import mod\n\ndef test_repro():\n    assert mod.totally_absent_symbol(2) == 4\n"
 )
+# The live acceptance case: base ships only total(); head adds average() with no
+# empty-input guard, and the reproduction crashes rather than asserting.
+TOTAL_ONLY_MODULE = "def total(items):\n    return sum(items)\n"
+AVERAGE_MODULE = TOTAL_ONLY_MODULE + "\n\ndef average(items):\n    return sum(items) / len(items)\n"
+AVERAGE_CRASH_BODY = "import mod\n\ndef test_repro():\n    mod.average([])\n"
+LABEL_MODULE = TOTAL_ONLY_MODULE + '\n\ndef label(count):\n    return "n=" + count\n'
+LABEL_CRASH_BODY = "import mod\n\ndef test_repro():\n    mod.label(3)\n"
+FIRST_MODULE = TOTAL_ONLY_MODULE + "\n\ndef first(items):\n    return items[0]\n"
+FIRST_CRASH_BODY = "import mod\n\ndef test_repro():\n    mod.first([])\n"
+# Symbol present on BOTH trees and the assertion is false on both: genuinely
+# unfaithful, and must stay that way.
+BOTH_TREES_FALSE_BODY = "import mod\n\ndef test_repro():\n    assert mod.add(2, 2) == 5\n"
 
 
 class RecordingProvider:
@@ -1818,15 +1830,182 @@ def test_verify_candidate_new_module_on_head_is_a_new_code_candidate(tmp_path: P
     assert_worktrees_cleaned(repo, stored)
 
 
-def test_verify_candidate_fabricated_symbol_can_never_be_a_new_code_candidate(
+def test_verify_candidate_crashing_reproduction_on_added_function_is_a_new_code_candidate(
     tmp_path: Path,
 ) -> None:
-    """Fabrication guard: a test naming a symbol that exists on neither tree
-    fails symbol-absent on HEAD, so the head side is never assertion-class."""
+    """The live acceptance case. The reviewed diff ADDS `average(items)` with no
+    empty-input guard; the generated reproduction calls `average([])` and lets
+    ZeroDivisionError propagate -- a genuine crash, not an assertion -- while
+    base fails symbol-absent because `average` does not exist there. Most real
+    bug reproductions crash rather than assert, so this is the common case, and
+    the DEFER copy that reaches the pull request must not call it unfaithful."""
     from attest.review.executor import (
         EvidenceClass,
         ExecutionOutcome,
         ExecutorLimits,
+        FailureSignature,
+        classify_failure_signature,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": TOTAL_ONLY_MODULE}, {"mod.py": AVERAGE_MODULE}
+    )
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": AVERAGE_CRASH_BODY}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    # the head crash is genuinely not assertion-class: that is what used to
+    # push this run into UNFAITHFUL
+    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
+    assert all(
+        classify_failure_signature(run) is FailureSignature.OTHER
+        for run in verification.execution.head_runs
+    )
+    assert (
+        classify_failure_signature(verification.execution.base_runs[0])
+        is FailureSignature.SYMBOL_ABSENT
+    )
+    assert verification.execution.evidence_class is EvidenceClass.NEW_CODE_CANDIDATE
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert verification.execution.reason == (
+        "new-code candidate: reproduction fails on head and the symbol is absent "
+        "on base; not priced"
+    )
+    assert "new-code" in verification.execution.reason
+    assert "unfaithful" not in verification.execution.reason
+    # buys nothing: the caller's gate result comes back untouched
+    assert verification.gate_result is gate
+    assert verification.gate_result.wealth == stored.wealth
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
+    row = Ledger(repo).entries()[-1]
+    assert row["outcome"] == "deferred"
+    assert row["evidence_class"] == "new_code_candidate"
+    assert "unfaithful" not in row["reason"]
+    assert_worktrees_cleaned(repo, stored)
+
+
+@pytest.mark.parametrize(
+    ("head_module", "test_body"),
+    [
+        (AVERAGE_MODULE, AVERAGE_CRASH_BODY),
+        (LABEL_MODULE, LABEL_CRASH_BODY),
+        (FIRST_MODULE, FIRST_CRASH_BODY),
+    ],
+    ids=["zero_division", "type_error", "index_error"],
+)
+def test_verify_candidate_any_genuine_crash_on_added_code_is_a_new_code_candidate(
+    tmp_path: Path, head_module: str, test_body: str
+) -> None:
+    """ZeroDivisionError, TypeError and IndexError are all *the code
+    misbehaved*, not *the symbol was never there*; each pairs with a
+    symbol-absent base into the same unpriced class."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": TOTAL_ONLY_MODULE}, {"mod.py": head_module}
+    )
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert verification.execution.evidence_class is EvidenceClass.NEW_CODE_CANDIDATE
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert "unfaithful" not in verification.execution.reason
+    assert verification.gate_result is gate
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
+    assert Ledger(repo).entries()[-1]["evidence_class"] == "new_code_candidate"
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_false_assertion_on_both_trees_is_still_unfaithful(
+    tmp_path: Path,
+) -> None:
+    """`add` exists on head and base alike and the assertion is false on both:
+    widening the head-side condition must not let this buy the new-code class."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": BOTH_TREES_FALSE_BODY}),
+            input_tokens=2,
+            output_tokens=3,
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert verification.execution.evidence_class is EvidenceClass.UNFAITHFUL
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert verification.execution.reason == "unfaithful generated test: fails on base as well"
+    assert verification.gate_result is gate
+    assert Ledger(repo).entries()[-1]["evidence_class"] == "unfaithful"
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_fabricated_symbol_can_never_be_a_new_code_candidate(
+    tmp_path: Path,
+) -> None:
+    """Fabrication guard: a test naming a symbol that exists on neither tree
+    fails symbol-absent on HEAD, which the new-code rule excludes outright."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        FailureSignature,
+        classify_failure_signature,
         verify_candidate,
     )
 
@@ -1850,6 +2029,11 @@ def test_verify_candidate_fabricated_symbol_can_never_be_a_new_code_candidate(
         head_sha=head_sha,
     )
 
+    # the load-bearing mechanism: HEAD itself reports the symbol as absent
+    assert all(
+        classify_failure_signature(run) is FailureSignature.SYMBOL_ABSENT
+        for run in verification.execution.head_runs
+    )
     assert verification.execution.evidence_class is not EvidenceClass.NEW_CODE_CANDIDATE
     assert verification.execution.evidence_class in (
         EvidenceClass.UNFAITHFUL,

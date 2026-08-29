@@ -99,7 +99,7 @@ def signals_near(signals: list[Tier0Signal], file: str, line: int) -> list[Tier0
 # worst failure this project has. Two facts keep it unpriced for now:
 #   - hallucinated symbols are already stopped downstream for free: a
 #     reproduction test naming a symbol that exists nowhere fails on HEAD with
-#     a symbol-absent signature, which is not assertion-class and so can never
+#     a symbol-absent signature on head, which the classifier excludes and so can never
 #     buy V evidence;
 #   - resolution consults ONLY the anchored file, so a correct reference to a
 #     helper defined elsewhere looks identical to an invented one.
