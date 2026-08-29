@@ -26,6 +26,8 @@ from attest.review.proposer import Provider
 MAX_CONTEXT_LINES = 200
 MAX_REPRO_TOKENS = 2_000
 CLEANUP_TIMEOUT_S = 1.0
+DESCENDANT_POLL_S = 0.025
+DESCENDANT_SNAPSHOT_TIMEOUT_S = 0.2
 
 REPRO_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -275,9 +277,15 @@ def _posix_descendants(root_pid: int, deadline: float) -> list[int]:
     return descendants
 
 
-def _terminate_process_tree(process: subprocess.Popen[bytes], deadline: float) -> None:
+def _terminate_process_tree(
+    process: subprocess.Popen[bytes],
+    deadline: float,
+    observed_descendants: set[int] | None = None,
+) -> None:
     if os.name == "posix":
-        for pid in reversed(_posix_descendants(process.pid, deadline)):
+        descendants = set(_posix_descendants(process.pid, deadline))
+        descendants.update(observed_descendants or ())
+        for pid in descendants:
             with suppress(ProcessLookupError):
                 os.kill(pid, signal.SIGKILL)
         with suppress(ProcessLookupError):
@@ -296,16 +304,43 @@ def _terminate_process_tree(process: subprocess.Popen[bytes], deadline: float) -
         process.kill()
 
 
+def _cleanup_raw_process(process: subprocess.Popen[bytes], deadline: float) -> None:
+    with suppress(Exception):
+        _terminate_process_tree(process, deadline)
+    with suppress(subprocess.TimeoutExpired):
+        process.wait(timeout=_remaining(deadline))
+    for stream in (process.stdout, process.stderr):
+        if stream is not None and not stream.closed:
+            with suppress(OSError):
+                stream.close()
+
+
 class _OwnedProcess:
     def __init__(self, process: subprocess.Popen[bytes], output_bytes: int):
         self.process = process
         self.stdout_tail = _TailBuffer(output_bytes)
         self.stderr_tail = _TailBuffer(output_bytes)
         self.drainers: list[threading.Thread] = []
+        self.observed_descendants: set[int] = set()
+        self._descendants_lock = threading.Lock()
+        self._tracker_stop = threading.Event()
+        self._tracker: threading.Thread | None = None
 
-    def start_drainers(self) -> None:
+    def _track_descendants(self) -> None:
+        while not self._tracker_stop.is_set() and self.process.poll() is None:
+            snapshot_deadline = time.monotonic() + DESCENDANT_SNAPSHOT_TIMEOUT_S
+            descendants = _posix_descendants(self.process.pid, snapshot_deadline)
+            with self._descendants_lock:
+                self.observed_descendants.update(descendants)
+            self._tracker_stop.wait(DESCENDANT_POLL_S)
+
+    def start(self) -> None:
         if self.process.stdout is None or self.process.stderr is None:
             raise RuntimeError("executor pipes were not created")
+        if os.name == "posix":
+            tracker = threading.Thread(target=self._track_descendants, daemon=True)
+            tracker.start()
+            self._tracker = tracker
         for stream, tail in (
             (self.process.stdout, self.stdout_tail),
             (self.process.stderr, self.stderr_tail),
@@ -320,10 +355,21 @@ class _OwnedProcess:
             drainer.join(timeout=_remaining(deadline))
         if any(drainer.is_alive() for drainer in self.drainers):
             raise subprocess.TimeoutExpired(self.process.args, timeout=0)
+        self._stop_tracker(deadline)
+
+    def _stop_tracker(self, deadline: float) -> None:
+        self._tracker_stop.set()
+        if self._tracker is not None:
+            self._tracker.join(timeout=_remaining(deadline))
+
+    def _observed_pids(self) -> set[int]:
+        with self._descendants_lock:
+            return set(self.observed_descendants)
 
     def cleanup(self, deadline: float) -> None:
+        self._stop_tracker(deadline)
         with suppress(Exception):
-            _terminate_process_tree(self.process, deadline)
+            _terminate_process_tree(self.process, deadline, self._observed_pids())
         with suppress(subprocess.TimeoutExpired):
             self.process.wait(timeout=_remaining(deadline))
         for drainer in self.drainers:
@@ -372,6 +418,7 @@ def execute_repro(
     junit_path = work_dir / "junit.xml"
     site_dir = work_dir / "python_startup"
     network_marker = site_dir / "network-blocked"
+    raw_process: subprocess.Popen[bytes] | None = None
     owner: _OwnedProcess | None = None
     failure: Exception | None = None
     timed_out = False
@@ -392,7 +439,7 @@ def execute_repro(
         env["PYTHONPATH"] = (
             str(site_dir) if not old_pythonpath else str(site_dir) + os.pathsep + old_pythonpath
         )
-        process = subprocess.Popen(
+        raw_process = subprocess.Popen(
             [
                 sys.executable,
                 "-m",
@@ -406,14 +453,15 @@ def execute_repro(
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            bufsize=0,
             preexec_fn=_resource_limiter(limits),
             start_new_session=os.name == "posix",
             creationflags=(
                 getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
             ),
         )
-        owner = _OwnedProcess(process, limits.output_bytes)
-        owner.start_drainers()
+        owner = _OwnedProcess(raw_process, limits.output_bytes)
+        owner.start()
         owner.wait(started + limits.wall_timeout_s)
     except subprocess.TimeoutExpired as exc:
         failure = exc
@@ -421,8 +469,12 @@ def execute_repro(
     except Exception as exc:  # noqa: BLE001 - infrastructure failures are ternary DEFER
         failure = exc
     finally:
-        if failure is not None and owner is not None:
-            owner.cleanup(time.monotonic() + CLEANUP_TIMEOUT_S)
+        if failure is not None:
+            cleanup_deadline = time.monotonic() + CLEANUP_TIMEOUT_S
+            if owner is not None:
+                owner.cleanup(cleanup_deadline)
+            elif raw_process is not None:
+                _cleanup_raw_process(raw_process, cleanup_deadline)
 
     stdout_bytes = owner.stdout if owner is not None else b""
     stderr_bytes = owner.stderr if owner is not None else b""
