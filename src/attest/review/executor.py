@@ -860,6 +860,10 @@ DEADLINE_REASON = "shared verification deadline exceeded during differential exe
 NEW_CODE_REASON = (
     "new-code candidate: reproduction fails on head and the symbol is absent on base; not priced"
 )
+STALE_REFERENCE_REASON = (
+    "unfaithful generated test: it references a symbol absent from head, "
+    "so its head failure is a stale reference rather than a defect"
+)
 
 
 def execute_differential(
@@ -875,8 +879,10 @@ def execute_differential(
     clock: Callable[[], float] = time.monotonic,
 ) -> DifferentialExecution:
     """Run the same reproduction repeatedly against detached head/base
-    worktrees. Only a deterministic head failure paired with a deterministic
-    base pass counts as REPRODUCED; every other pattern is DEFERRED (flaky or
+    worktrees. Only a deterministic head failure that shows the code
+    misbehaving -- never merely reporting the symbol absent -- paired with a
+    deterministic base pass counts as REPRODUCED; every other pattern is
+    DEFERRED (flaky or
     unfaithful evidence must never purchase V). Every result also carries an
     evidence class, which describes what was seen without pricing it: a
     new-code candidate is recorded and still DEFERRED."""
@@ -983,7 +989,9 @@ def execute_differential(
         # because most real bug reproductions crash rather than assert. The
         # fabrication guard is unchanged and still load-bearing: a reproduction
         # naming a symbol that exists nowhere fails on HEAD with SYMBOL_ABSENT,
-        # so it can never be classified as new code.
+        # so it can never be classified as new code. This condition gates BOTH
+        # base outcomes below -- the unpriced new-code class and certification
+        # alike -- because both must first establish that the code misbehaved.
         head_symbol_is_present = _no_run_reports_the_symbol_absent(head_runs)
 
         for index in range(1, repeats + 1):
@@ -1005,6 +1013,20 @@ def execute_differential(
             return deferred(
                 "unfaithful generated test: fails on base as well", EvidenceClass.UNFAITHFUL
             )
+        # Every base run passed. That alone is NOT enough to certify: the same
+        # head-side condition the new-code class already demands must hold here
+        # too, and for the same reason. Read the four quadrants together --
+        #   head absent + base absent  -> unfaithful (fails on both trees)
+        #   head present + base absent -> the new-code case, recorded unpriced
+        #   head present + base pass   -> the regression this channel prices
+        #   head absent  + base pass   -> a stale/moved/renamed reference: the
+        #       reproduction names something the reviewed revision no longer
+        #       has, so the head failure says nothing about behaviour. Without
+        #       this branch a pure rename refactor certifies and buys V.
+        # -- and one invariant covers all four: the head runs must show the code
+        # MISBEHAVING before anything is bought.
+        if not head_symbol_is_present:
+            return deferred(STALE_REFERENCE_REASON, EvidenceClass.UNFAITHFUL)
         return finish(
             ExecutionOutcome.REPRODUCED,
             f"head FAIL {repeats}/{repeats}, base PASS {repeats}/{repeats}",

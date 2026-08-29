@@ -46,6 +46,39 @@ FIRST_CRASH_BODY = "import mod\n\ndef test_repro():\n    mod.first([])\n"
 # Symbol present on BOTH trees and the assertion is false on both: genuinely
 # unfaithful, and must stay that way.
 BOTH_TREES_FALSE_BODY = "import mod\n\ndef test_repro():\n    assert mod.add(2, 2) == 5\n"
+# A pure rename refactor: the private helper changes name, its caller follows,
+# and behaviour is identical on both trees. A reproduction still naming the old
+# helper is a stale reference, not evidence of a defect.
+RENAMED_BASE_MODULE = (
+    "def _validate(s):\n"
+    "    return bool(s)\n"
+    "\n"
+    "\n"
+    "def describe(s):\n"
+    '    return "filled" if _validate(s) else "empty"\n'
+)
+RENAMED_HEAD_MODULE = (
+    "def _is_nonempty(s):\n"
+    "    return bool(s)\n"
+    "\n"
+    "\n"
+    "def describe(s):\n"
+    '    return "filled" if _is_nonempty(s) else "empty"\n'
+)
+STALE_RENAME_BODY = (
+    'import mypkg.calc as m\n\ndef test_x():\n    assert m._validate("") is False\n'
+)
+# A crash-shaped genuine regression: `mean` exists on both trees, base guards
+# the empty list and head does not, so head fails with ZeroDivisionError rather
+# than an assertion (the D-022 widening).
+GUARDED_MEAN_MODULE = (
+    "def mean(items):\n"
+    "    if not items:\n"
+    "        return 0.0\n"
+    "    return sum(items) / len(items)\n"
+)
+UNGUARDED_MEAN_MODULE = "def mean(items):\n    return sum(items) / len(items)\n"
+MEAN_CRASH_BODY = "import mod\n\ndef test_repro():\n    mod.mean([])\n"
 
 
 class RecordingProvider:
@@ -165,6 +198,7 @@ def two_commit_repo(
     repo.mkdir()
     run_git(repo, "init", "--initial-branch=main")
     for name, text in base_files.items():
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
         (repo / name).write_text(text, encoding="utf-8")
     run_git(repo, "add", "--all")
     run_git(repo, "commit", "-m", "base")
@@ -173,6 +207,7 @@ def two_commit_repo(
         if name not in head_files:
             (repo / name).unlink()
     for name, text in head_files.items():
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
         (repo / name).write_text(text, encoding="utf-8")
     run_git(repo, "add", "--all")
     run_git(repo, "commit", "-m", "head")
@@ -2080,4 +2115,207 @@ def test_execute_differential_flaky_head_is_indeterminate(tmp_path: Path) -> Non
 
     assert result.outcome is ExecutionOutcome.DEFERRED
     assert result.evidence_class is EvidenceClass.INDETERMINATE
+    assert_worktrees_cleaned(repo, stored)
+
+
+@pytest.mark.parametrize(
+    (
+        "base_files",
+        "head_files",
+        "test_body",
+        "head_signature",
+        "evidence_class",
+        "outcome",
+        "wealth",
+        "channels",
+        "reason_fragment",
+    ),
+    [
+        pytest.param(
+            {"mypkg/__init__.py": "", "mypkg/calc.py": RENAMED_BASE_MODULE},
+            {"mypkg/__init__.py": "", "mypkg/calc.py": RENAMED_HEAD_MODULE},
+            STALE_RENAME_BODY,
+            "symbol_absent",
+            "unfaithful",
+            "deferred",
+            8.0,
+            ["S"],
+            "absent from head",
+            id="head_symbol_absent__base_pass__unfaithful",
+        ),
+        pytest.param(
+            {"mod.py": GOOD_MODULE},
+            {"mod.py": BUGGY_MODULE},
+            DIFFERENTIAL_BODY,
+            "assertion",
+            "regression_reproduced",
+            "reproduced",
+            160.0,
+            ["S", "V"],
+            "head FAIL 3/3, base PASS 3/3",
+            id="head_assertion__base_pass__certifies",
+        ),
+        pytest.param(
+            {"mod.py": GUARDED_MEAN_MODULE},
+            {"mod.py": UNGUARDED_MEAN_MODULE},
+            MEAN_CRASH_BODY,
+            "other",
+            "regression_reproduced",
+            "reproduced",
+            160.0,
+            ["S", "V"],
+            "head FAIL 3/3, base PASS 3/3",
+            id="head_crash__base_pass__certifies",
+        ),
+        pytest.param(
+            {"mod.py": TOTAL_ONLY_MODULE},
+            {"mod.py": AVERAGE_MODULE},
+            AVERAGE_CRASH_BODY,
+            "other",
+            "new_code_candidate",
+            "deferred",
+            8.0,
+            ["S"],
+            "new-code candidate",
+            id="head_crash__base_symbol_absent__new_code",
+        ),
+        pytest.param(
+            {"mod.py": GOOD_MODULE},
+            {"mod.py": GOOD_MODULE + "# head touches nothing the test names\n"},
+            FABRICATED_BODY,
+            "symbol_absent",
+            "unfaithful",
+            "deferred",
+            8.0,
+            ["S"],
+            "fails on base as well",
+            id="head_symbol_absent__base_symbol_absent__unfaithful",
+        ),
+    ],
+)
+def test_differential_certification_requires_the_head_code_to_misbehave(
+    tmp_path: Path,
+    base_files: dict[str, str],
+    head_files: dict[str, str],
+    test_body: str,
+    head_signature: str,
+    evidence_class: str,
+    outcome: str,
+    wealth: float,
+    channels: list[str],
+    reason_fragment: str,
+) -> None:
+    """The full head-signature x base-outcome table. One invariant runs through
+    every row: the head runs must show the code MISBEHAVING before anything is
+    bought. A head that merely reports the symbol absent never certifies, no
+    matter how cleanly base passes."""
+    from attest.review.executor import (
+        ExecutorLimits,
+        classify_failure_signature,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = two_commit_repo(tmp_path, base_files, head_files)
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
+    assert {
+        classify_failure_signature(run).value for run in verification.execution.head_runs
+    } == {head_signature}
+    assert verification.execution.evidence_class.value == evidence_class
+    assert verification.execution.outcome.value == outcome
+    assert reason_fragment in verification.execution.reason
+    assert verification.gate_result.wealth == wealth
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == channels
+    if outcome == "deferred":
+        # buys nothing at all: the caller's own gate result comes straight back,
+        # so neither V nor V_FAILED can have been applied
+        assert verification.gate_result is gate
+    else:
+        assert verification.gate_result is not gate
+    row = Ledger(repo).entries()[-1]
+    assert row["kind"] == "verification"
+    assert row["outcome"] == outcome
+    assert row["evidence_class"] == evidence_class
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_rename_refactor_never_buys_evidence(tmp_path: Path) -> None:
+    """The reproduced defect. Base and head differ only by renaming the private
+    helper `_validate` to `_is_nonempty`; behaviour is identical. A reproduction
+    still naming `_validate` raises AttributeError on head (3/3, symbol absent)
+    and passes on base (3/3), which used to certify REGRESSION_REPRODUCED and
+    buy V=20 on a pull request that changed no behaviour."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        FailureSignature,
+        classify_failure_signature,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path,
+        {"mypkg/__init__.py": "", "mypkg/calc.py": RENAMED_BASE_MODULE},
+        {"mypkg/__init__.py": "", "mypkg/calc.py": RENAMED_HEAD_MODULE},
+    )
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": STALE_RENAME_BODY}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    # the head/base pattern that used to look exactly like a regression
+    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
+    assert all(
+        classify_failure_signature(run) is FailureSignature.SYMBOL_ABSENT
+        for run in verification.execution.head_runs
+    )
+    assert [run.outcome.value for run in verification.execution.base_runs] == [
+        "not_reproduced"
+    ] * 3
+
+    assert verification.execution.evidence_class is EvidenceClass.UNFAITHFUL
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert "absent from head" in verification.execution.reason
+    assert "unfaithful" in verification.execution.reason
+    # the gate result comes back by identity: no V, no V_FAILED
+    assert verification.gate_result is gate
+    assert verification.gate_result.wealth == stored.wealth
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
+    row = Ledger(repo).entries()[-1]
+    assert row["outcome"] == "deferred"
+    assert row["evidence_class"] == "unfaithful"
+    assert "absent from head" in row["reason"]
     assert_worktrees_cleaned(repo, stored)
