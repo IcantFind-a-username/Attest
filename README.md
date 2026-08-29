@@ -7,15 +7,25 @@ across repeated runs (N=3 per side) — otherwise it stays silent or explicitly 
 At most 3 things per PR, in under 60 seconds, each backed by a test you can click and
 re-run yourself. 宁可不说,不说错: better silent than wrong.
 
-Underneath, a sequential betting engine (e-process, wealth threshold) prices every
-piece of evidence — correlation-discounted votes, capped static corroboration,
-differential reproduction — and keeps an auditable ledger of why each finding did or
-did not speak. Its wealth threshold, and nothing else, decides: surface at wealth >=
-1/alpha, discard at wealth <= alpha, hold in the drawer otherwise. At the factory
-constants, votes and corroboration alone can never clear that bar — reproduction is
-the only evidence strong enough to, by design (see DECISIONS.md, D-008). No vote
-counting, no vibes-based confidence scores: the engine prices and audits; reproduction
-is what actually lets attest speak.
+Underneath, a sequential betting process prices every piece of evidence —
+correlation-discounted votes, capped static corroboration, differential reproduction —
+and keeps an auditable ledger of why each finding did or did not speak. Its wealth
+threshold, and nothing else, decides: surface at wealth >= 1/alpha, discard at wealth
+<= alpha, hold in the drawer otherwise. At the factory constants, votes and
+corroboration alone can never clear that bar — reproduction is the only evidence
+strong enough to, by design (see DECISIONS.md, D-008). No vote counting, no
+vibes-based confidence scores.
+
+Be precise about where the error control comes from, because it is not where you
+might assume. The vote and corroboration channels price only positive evidence and
+have no factor below one, so they are not valid e-values and the wealth process is
+not an e-process; a measured diagnostic puts their null expectation at 1.8-2.3x and
+1.1-1.5x rather than the 1.0 an e-value requires (DECISIONS.md, D-026). What actually
+holds the line at the shipped settings is arithmetic plus reproduction: the caps make
+votes and corroboration unable to reach the gate at all, so the false-certification
+rate equals the rate at which a differential reproduction confirms something false.
+That is why reproduction must fail on head and pass on base across repeated runs —
+it is not a feature on top of the guarantee, it is the guarantee.
 
 ## Status
 

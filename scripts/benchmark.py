@@ -24,9 +24,16 @@ from attest.benchmark.corpus import (
     validate_corpus,
 )
 from attest.benchmark.experiments import (
+    DEFAULT_BOOTSTRAP_RESAMPLES,
+    DEFAULT_BOOTSTRAP_SEED,
     DEFAULT_GAMMAS,
+    DEFAULT_NULL_ASSUMPTIONS,
+    DEFAULT_NULL_GAMMAS,
     DEFAULT_SEEDS,
+    DEFAULT_VILLE_ALPHAS,
     FACTORY_ALPHAS,
+    NullAssumptions,
+    run_e_validity_experiment,
     run_rho_ablation,
 )
 from attest.benchmark.report import REPLAY_MODE, ReportExclusion, build_report, write_report
@@ -122,6 +129,70 @@ def _parser() -> argparse.ArgumentParser:
     replay.add_argument("--deadline", type=float, default=60.0)
     replay.add_argument("--wall-timeout", type=float, default=60.0)
     replay.add_argument("--verification-timeout", type=float, default=600.0)
+    evalue = commands.add_parser(
+        "experiment-evalue",
+        help="offline e-value diagnostic: measures E[LR | theta=0] for each "
+        "factory channel and compares the realized wrong-certification rate "
+        "against the Ville bound (experiment only, changes no constant)",
+    )
+    evalue.add_argument("--gammas", type=float, nargs="+", default=list(DEFAULT_NULL_GAMMAS))
+    evalue.add_argument("--alphas", type=float, nargs="+", default=list(DEFAULT_VILLE_ALPHAS))
+    evalue.add_argument("--k", type=int, default=5)
+    evalue.add_argument("--tasks", type=int, default=2000)
+    evalue.add_argument("--seeds", type=int, nargs="+", default=list(DEFAULT_SEEDS))
+    evalue.add_argument(
+        "--judge-accuracy",
+        type=float,
+        help="per-vote accuracy; defaults to the accuracy at which LR1 is exactly "
+        "the likelihood ratio of one positive vote",
+    )
+    evalue.add_argument(
+        "--tier0-signal-slots",
+        type=int,
+        default=DEFAULT_NULL_ASSUMPTIONS.tier0_signal_slots,
+        help="ASSUMPTION (never measured): independent chances for a spurious "
+        "static signal to overlap a false finding's anchor",
+    )
+    evalue.add_argument(
+        "--tier0-signal-rate",
+        type=float,
+        default=DEFAULT_NULL_ASSUMPTIONS.tier0_signal_rate,
+        help="ASSUMPTION (never measured): per-slot spurious static signal rate "
+        "used by the Ville section",
+    )
+    evalue.add_argument(
+        "--tier0-signal-rates",
+        type=float,
+        nargs="+",
+        default=list(DEFAULT_NULL_ASSUMPTIONS.tier0_signal_rate_sweep),
+        help="sweep of the same assumption, all points reported",
+    )
+    evalue.add_argument(
+        "--verification-reproduce-rate",
+        type=float,
+        default=DEFAULT_NULL_ASSUMPTIONS.verification_reproduce_rate,
+        help="ASSUMPTION (never measured): rate at which a false finding's "
+        "generated reproduction is classified as a reproduced regression",
+    )
+    evalue.add_argument(
+        "--verification-no-purchase-rate",
+        type=float,
+        default=DEFAULT_NULL_ASSUMPTIONS.verification_no_purchase_rate,
+        help="ASSUMPTION (never measured): rate at which no V purchase happens "
+        "at all (deferral or no attempt)",
+    )
+    evalue.add_argument(
+        "--verification-reproduce-rates",
+        type=float,
+        nargs="+",
+        default=list(DEFAULT_NULL_ASSUMPTIONS.verification_reproduce_rate_sweep),
+        help="sweep of the same assumption, all points reported",
+    )
+    evalue.add_argument(
+        "--bootstrap-resamples", type=int, default=DEFAULT_BOOTSTRAP_RESAMPLES
+    )
+    evalue.add_argument("--bootstrap-seed", type=int, default=DEFAULT_BOOTSTRAP_SEED)
+    evalue.add_argument("--output", type=Path, required=True)
     return parser
 
 
@@ -130,6 +201,7 @@ _COMMANDS = {
     "validate": lambda args: _validate(args),
     "experiment-rho": lambda args: _experiment(args),
     "replay": lambda args: _replay(args),
+    "experiment-evalue": lambda args: _experiment_evalue(args),
 }
 
 
@@ -393,6 +465,55 @@ def _head_ref(case: BenchmarkCase) -> str:
 
 def _exclusion_reason(result: ProjectEvaluationResult) -> str:
     return result.abstain_reason or "not_executed"
+
+
+def _experiment_evalue(args: argparse.Namespace) -> dict[str, object]:
+    """Offline by construction: pure numpy over seeded null-only panels.
+
+    Reads the production channel functions and constants to ask whether each
+    evidence purchase is a valid e-value under the null, and whether the
+    realized wrong-certification rate stays inside the Ville bound. It measures;
+    it proposes nothing. The T and V null rates are assumptions, surfaced as
+    flags and swept, never fitted. Below 500 global ledger labels the emitted
+    report is a recommendation only (architecture red line 5), and a channel
+    schedule is an owner decision (ground rule 8).
+    """
+    assumptions = NullAssumptions(
+        tier0_signal_slots=args.tier0_signal_slots,
+        tier0_signal_rate=args.tier0_signal_rate,
+        tier0_signal_rate_sweep=tuple(args.tier0_signal_rates),
+        verification_reproduce_rate=args.verification_reproduce_rate,
+        verification_no_purchase_rate=args.verification_no_purchase_rate,
+        verification_reproduce_rate_sweep=tuple(args.verification_reproduce_rates),
+    )
+    report = run_e_validity_experiment(
+        gammas=tuple(args.gammas),
+        alphas=tuple(args.alphas),
+        k=args.k,
+        n_tasks=args.tasks,
+        seeds=tuple(args.seeds),
+        judge_accuracy=args.judge_accuracy,
+        assumptions=assumptions,
+        bootstrap_resamples=args.bootstrap_resamples,
+        bootstrap_seed=args.bootstrap_seed,
+    )
+    payload = report.to_json_dict()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    _write_canonical_json(args.output, payload)
+    derived = report.derived
+    assert isinstance(derived, dict)
+    return {
+        "status": "ok",
+        "offline": True,
+        "experiment": report.experiment,
+        "recommendation_status": report.status,
+        "output": str(args.output),
+        "digest": report.digest,
+        "expectations": len(report.expectations),
+        "ville_cells": len(report.ville),
+        "e_value_violations": derived["e_value_violations"],
+        "ville_bound_breaches": derived["ville_bound_breaches"],
+    }
 
 
 def _interpreters(values: list[str]) -> dict[str, tuple[str, ...]]:
