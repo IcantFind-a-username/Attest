@@ -28,8 +28,21 @@ Candidates are excluded before selection when any of these conditions holds:
 - an artifact is binary, a symlink, escapes the pinned source, changes a
   non-Python file, renames a file, or changes more than 400 lines;
 - the prepared upstream git cache does not contain both commits and a locally
-  auditable LICENSE/LICENCE/COPYING at both commits with the same recognized
-  MIT, Apache-2.0, or BSD-3-Clause terms.
+  auditable LICENSE/LICENCE/COPYING at both commits with the same recognized,
+  complete MIT, BSD-2-Clause, or BSD-3-Clause terms. Recognition requires the
+  full grant, conditions, warranty disclaimer, and liability disclaimer after
+  whitespace normalization. Mixed-license text is not reduced to one SPDX id.
+
+`bug_patch.txt` is a source patch and upstream fixes commonly add their
+regression test in the same commit. Patch integrity therefore means byte-for-
+byte equality after newline and volatile `index`-line normalization with
+`git diff --no-ext-diff --no-color BUGGY FIXED -- PATH...`, where `PATH...` is
+the unique safe Python path set declared by the patch itself. Direction is
+always buggy to fixed; reversing either commit fails validation. Unified-diff
+hunks are walked with separate old/new cursors. Only `-` and `+` lines create
+changed ranges; context is not counted. Old/new ranges remain distinct, while
+the size filter counts each contiguous edit group as the larger of its removed
+or added side so replacement lines are not double-counted.
 
 All exclusions and reasons are retained in the manifest. Not being selected by
 the seeded limit is not an exclusion.
@@ -42,24 +55,38 @@ IDs, hash-addressed patch/test descriptors, changed locations, runtime argv,
 and hidden truth without branching on `provenance.kind`.
 
 Third-party materialization is caller-owned and lives outside this repository.
-Each runtime row names a relative prepared checkout and an argv array. Default
-validation is offline and never clones, fetches, invokes a provider, reads API
-credentials, calls `gh`, or executes upstream `setup.sh`. A caller may prepare
-an environment independently and map each opaque source ID to an interpreter;
-container orchestration, if used, must likewise be explicit and external.
+Each runtime row names a pair- and role-specific relative prepared checkout and
+a typed command (`python` or an explicitly mapped tool plus arguments). Bare
+`python`, `python3`, `pytest`, and `tox` are never resolved through `PATH`.
+Default validation is offline and never clones, fetches, invokes a provider,
+reads API credentials, calls `gh`, or executes upstream `setup.sh`. A caller
+may prepare an environment independently and map each opaque source ID to an
+absolute interpreter/tool. Execution additionally requires the caller to
+assert an already-established network-isolation boundary; environment proxy
+variables are not treated as isolation.
 
 ## Differential oracle
 
-For every materialized pair, verify patch/test SHA-256 values and exact checkout
-commits first. Then run the fixed command three consecutive times and require
+For every materialized pair, verify patch/test SHA-256 values, clean worktrees,
+exact checkout roots and HEAD commits, buggy-to-fixed patch equivalence, and
+the descriptor command/cwd binding first. Then run the fixed command three consecutive times and require
 PASS each time. Run the buggy command three consecutive times and require FAIL
 with one normalized failure signature each time. Timeout, fixed failure,
 buggy pass, flaky status, dependency/setup error, inconsistent signature, or
 integrity drift excludes the pair; none is scored as a silent negative.
 
 Commands run without a shell, with explicit cwd and a small explicit
-environment, a finite timeout, bounded combined output, deterministic Python
-hash seed, and a caller-provided interpreter.
+environment, a finite timeout, continuously drained bounded combined output,
+deterministic Python hash seed, and a caller-provided interpreter/tool map.
+Each invocation owns a fresh process group/session so timeout cleanup kills its
+descendants without polling unrelated PIDs.
+
+Validation reports `command_success` independently from `corpus_valid`.
+Without a prepared root the command is `not_executed`, unscorable, and exits
+nonzero; it is never described as successful validation. Any validated subset
+produces a receipt containing the exact manifest SHA-256, the sorted allowlist
+of validated pair IDs, and a validation-results digest. Downstream evaluators
+must load that manifest-bound receipt and refuse pair IDs absent from it.
 
 ## Freeze and scoring
 

@@ -8,17 +8,27 @@ import os
 import random
 import re
 import shlex
+import signal
 import subprocess
+import threading
+import time
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
-from attest.benchmark.schema import load_manifest, verify_descriptor_bytes
+from attest.benchmark.schema import (
+    BenchmarkCase,
+    RuntimeDescriptor,
+    load_manifest,
+    normalize_unified_diff_bytes,
+    verify_descriptor_bytes,
+)
 
 _MAX_CHANGED_LINES = 400
 _INFO_LINE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*)="([^"]*)"\s*$')
-_HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+\d+(?:,\d+)? @@")
+_HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 _DIFF_PATH = re.compile(r"^diff --git a/(.+) b/(.+)$")
 
 
@@ -31,10 +41,22 @@ class RunOutcome:
     timed_out: bool
 
 
+@dataclass(frozen=True)
+class ValidationReceipt:
+    """Manifest-bound allowlist of pairs that passed the differential oracle."""
+
+    schema_version: str
+    manifest_sha256: str
+    validated_pair_ids: tuple[str, ...]
+    validation_results_sha256: str
+
+
 class CorpusRunner(Protocol):
     """Execution boundary for generic prepared-corpus validation."""
 
-    def run(self, source_id: str, argv: tuple[str, ...], cwd: Path) -> RunOutcome:
+    def run(
+        self, source_id: str, tool: str, args: tuple[str, ...], cwd: Path
+    ) -> RunOutcome:
         """Run one test command without a shell."""
 
 
@@ -45,66 +67,127 @@ class SubprocessCorpusRunner:
         self,
         interpreters: Mapping[str, tuple[str, ...]],
         *,
+        allowed_tools: Mapping[tuple[str, str], tuple[str, ...]] | None = None,
+        network_isolated: bool = False,
         timeout_s: float = 60,
         max_output_bytes: int = 65_536,
     ) -> None:
         if timeout_s <= 0 or max_output_bytes <= 0:
             raise ValueError("runner limits must be positive")
         self._interpreters = dict(interpreters)
+        self._allowed_tools = dict(allowed_tools or {})
+        self._network_isolated = network_isolated
         self._timeout_s = timeout_s
         self._max_output_bytes = max_output_bytes
 
-    def run(self, source_id: str, argv: tuple[str, ...], cwd: Path) -> RunOutcome:
-        if not argv:
-            raise ValueError("test argv must not be empty")
-        interpreter = self._interpreters.get(source_id)
-        if interpreter is None:
-            raise ValueError(f"no interpreter configured for {source_id}")
-        command = (*interpreter, *argv[1:]) if argv[0] == "{python}" else argv
+    def run(
+        self, source_id: str, tool: str, args: tuple[str, ...], cwd: Path
+    ) -> RunOutcome:
+        if not self._network_isolated:
+            raise ValueError("network isolation must be established before execution")
+        prefix = (
+            self._interpreters.get(source_id)
+            if tool == "python"
+            else self._allowed_tools.get((source_id, tool))
+        )
+        if prefix is None:
+            if tool == "python":
+                raise ValueError(f"no interpreter configured for {source_id}")
+            raise ValueError(f"tool is not allowed: {tool}")
+        _require_explicit_executable(prefix, tool)
+        command = (*prefix, *args)
         environment = {
             key: value
             for key, value in os.environ.items()
-            if key in {"PATH", "SYSTEMROOT", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL"}
+            if key in {"SYSTEMROOT", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL"}
         }
         environment.update(
             {
                 "PYTHONHASHSEED": "0",
                 "PYTHONDONTWRITEBYTECODE": "1",
-                "NO_PROXY": "*",
-                "no_proxy": "*",
+                "PYTEST_ADDOPTS": "-p no:cacheprovider",
             }
         )
-        process = subprocess.Popen(
+        start_new_session = os.name == "posix"
+        creationflags = (
+            int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+            if os.name == "nt"
+            else 0
+        )
+        process: subprocess.Popen[bytes] = subprocess.Popen(
             list(command),
             cwd=cwd,
             env=environment,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            bufsize=0,
+            start_new_session=start_new_session,
+            creationflags=creationflags,
         )
+        stdout = process.stdout
+        assert stdout is not None
+        tail = bytearray()
+
+        def drain() -> None:
+            while chunk := stdout.read(65_536):
+                tail.extend(chunk)
+                excess = len(tail) - self._max_output_bytes
+                if excess > 0:
+                    del tail[:excess]
+
+        reader = threading.Thread(target=drain, daemon=True)
+        reader.start()
+        deadline = time.monotonic() + self._timeout_s
+        timed_out = False
         try:
-            output, _ = process.communicate(timeout=self._timeout_s)
-            return RunOutcome(process.returncode, output[: self._max_output_bytes], False)
+            process.wait(timeout=max(0.0, deadline - time.monotonic()))
+            reader.join(timeout=max(0.0, deadline - time.monotonic()))
+            if reader.is_alive():
+                raise subprocess.TimeoutExpired(list(command), self._timeout_s)
         except subprocess.TimeoutExpired:
-            process.kill()
-            output, _ = process.communicate()
-            return RunOutcome(process.returncode, output[: self._max_output_bytes], True)
+            timed_out = True
+            _kill_owned_process_tree(process)
+            try:
+                process.wait(timeout=1)
+            except subprocess.TimeoutExpired:  # pragma: no cover - OS-level failure
+                process.kill()
+                process.wait()
+            reader.join(timeout=1)
+        finally:
+            stdout.close()
+        return RunOutcome(process.returncode, bytes(tail), timed_out)
+
+
+def _require_explicit_executable(prefix: tuple[str, ...], tool: str) -> None:
+    if not prefix:
+        raise ValueError(f"empty executable mapping for {tool}")
+    executable = Path(prefix[0])
+    if not executable.is_absolute() or not executable.is_file() or not os.access(
+        executable, os.X_OK
+    ):
+        raise ValueError(f"executable mapping for {tool} must use an absolute executable")
+
+
+def _kill_owned_process_tree(process: subprocess.Popen[bytes]) -> None:
+    """Kill only the process group/session created for this invocation."""
+    if os.name == "posix":
+        with suppress(ProcessLookupError):
+            os.killpg(process.pid, signal.SIGKILL)
+    elif os.name == "nt":  # pragma: no cover - exercised on Windows
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    elif process.poll() is None:  # pragma: no cover - exotic platforms
+        process.kill()
 
 
 def validate_corpus(manifest: Path, root: Path, runner: CorpusRunner) -> dict[str, Any]:
     """Validate generic prepared pairs with a repeated differential-test oracle."""
     typed = load_manifest(manifest)
-    document = _json_object(manifest)
-    runtime_rows = document.get("runtime")
-    if not isinstance(runtime_rows, list):
-        raise ValueError("manifest runtime must be a list")
-    runtimes: dict[str, dict[str, Any]] = {}
-    for value in runtime_rows:
-        if not isinstance(value, dict) or not isinstance(value.get("case_id"), str):
-            raise ValueError("runtime row must contain case_id")
-        case_id = value["case_id"]
-        if case_id in runtimes:
-            raise ValueError("duplicate runtime case_id")
-        runtimes[case_id] = value
+    runtimes = {runtime.case_id: runtime for runtime in typed.runtime}
     if set(runtimes) != {case.case_id for case in typed.cases}:
         raise ValueError("runtime rows must exactly cover manifest cases")
 
@@ -137,55 +220,186 @@ def validate_corpus(manifest: Path, root: Path, runner: CorpusRunner) -> dict[st
                     "buggy_runs": [_run_json(outcome) for outcome in buggy_runs],
                 }
             )
+        except _IntegrityError as exc:
+            results.append({"pair_id": pair_id, "status": "excluded", "reason": exc.reason})
         except (OSError, subprocess.CalledProcessError, ValueError):
             results.append(
                 {"pair_id": pair_id, "status": "excluded", "reason": "integrity_failure"}
             )
-    validated = sum(result["status"] == "validated" for result in results)
+    validated_pair_ids = sorted(
+        result["pair_id"] for result in results if result["status"] == "validated"
+    )
+    validated = len(validated_pair_ids)
+    total = len(results)
+    corpus_valid = total > 0 and validated == total
+    validation_status = (
+        "empty"
+        if total == 0
+        else "valid"
+        if corpus_valid
+        else "partial"
+        if validated
+        else "invalid"
+    )
+    receipt = (
+        _validation_receipt(manifest, results, validated_pair_ids)
+        if validated_pair_ids
+        else None
+    )
     return {
         "manifest": manifest.name,
+        "manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        "command_success": True,
+        "corpus_valid": corpus_valid,
+        "validation_status": validation_status,
+        "scorable": validated > 0,
         "validated_pairs": validated,
-        "excluded_pairs": len(results) - validated,
+        "excluded_pairs": total - validated,
         "results": results,
+        "receipt": receipt,
     }
+
+
+def _validation_receipt(
+    manifest: Path,
+    results: list[dict[str, Any]],
+    validated_pair_ids: list[str],
+) -> dict[str, object]:
+    canonical_results = json.dumps(
+        results, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode()
+    return {
+        "schema_version": "1",
+        "manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        "validated_pair_ids": validated_pair_ids,
+        "validation_results_sha256": hashlib.sha256(canonical_results).hexdigest(),
+    }
+
+
+def load_validation_receipt(path: Path, manifest: Path) -> ValidationReceipt:
+    """Load a strict receipt and reject one issued for different manifest bytes."""
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("validation receipt must be valid JSON") from exc
+    if not isinstance(value, dict) or set(value) != {
+        "schema_version",
+        "manifest_sha256",
+        "validated_pair_ids",
+        "validation_results_sha256",
+    }:
+        raise ValueError("validation receipt has invalid fields")
+    schema_version = value["schema_version"]
+    manifest_sha256 = value["manifest_sha256"]
+    result_sha256 = value["validation_results_sha256"]
+    pair_ids = value["validated_pair_ids"]
+    if schema_version != "1":
+        raise ValueError("unsupported validation receipt schema")
+    if not isinstance(manifest_sha256, str) or re.fullmatch(
+        r"[0-9a-f]{64}", manifest_sha256
+    ) is None:
+        raise ValueError("validation receipt manifest digest is invalid")
+    if manifest_sha256 != hashlib.sha256(manifest.read_bytes()).hexdigest():
+        raise ValueError("validation receipt manifest digest does not match")
+    if not isinstance(result_sha256, str) or re.fullmatch(
+        r"[0-9a-f]{64}", result_sha256
+    ) is None:
+        raise ValueError("validation receipt results digest is invalid")
+    if (
+        not isinstance(pair_ids, list)
+        or not pair_ids
+        or any(
+            not isinstance(pair_id, str)
+            or re.fullmatch(r"pair-[0-9a-f]{12}", pair_id) is None
+            for pair_id in pair_ids
+        )
+        or pair_ids != sorted(set(pair_ids))
+    ):
+        raise ValueError("validation receipt pair ids are invalid")
+    manifest_pair_ids = {case.pair_id for case in load_manifest(manifest).cases}
+    if not set(pair_ids) <= manifest_pair_ids:
+        raise ValueError("validation receipt contains unknown pair ids")
+    return ValidationReceipt(
+        schema_version=schema_version,
+        manifest_sha256=manifest_sha256,
+        validated_pair_ids=tuple(pair_ids),
+        validation_results_sha256=result_sha256,
+    )
+
+
+def require_validated_pair(receipt: ValidationReceipt, pair_id: str) -> None:
+    """Fail closed unless a downstream evaluator selects a receipted pair."""
+    if pair_id not in receipt.validated_pair_ids:
+        raise ValueError(f"pair {pair_id} is not in validation receipt")
 
 
 def _verify_pair_integrity(
     root: Path,
-    replay: Any,
-    control: Any,
-    runtimes: Mapping[str, dict[str, Any]],
+    replay: BenchmarkCase,
+    control: BenchmarkCase,
+    runtimes: Mapping[str, RuntimeDescriptor],
 ) -> None:
     patch_path = _contained_file(root, replay.patch.relative_path)
     test_path = _contained_file(root, replay.tests.relative_path)
     if not verify_descriptor_bytes(replay.patch, patch_path.read_bytes()):
-        raise ValueError("patch hash mismatch")
+        raise _IntegrityError("descriptor_hash_mismatch")
     if not verify_descriptor_bytes(replay.tests, test_path.read_bytes()):
-        raise ValueError("test hash mismatch")
+        raise _IntegrityError("descriptor_hash_mismatch")
+    if (runtimes[replay.case_id].tool, runtimes[replay.case_id].args) != (
+        runtimes[control.case_id].tool,
+        runtimes[control.case_id].args,
+    ):
+        raise _IntegrityError("test_command_mismatch")
+    try:
+        test_command = _command_from_test_descriptor(test_path.read_bytes())
+    except _Excluded as exc:
+        raise _IntegrityError("test_command_mismatch") from exc
+    if test_command != {
+        "tool": runtimes[replay.case_id].tool,
+        "args": list(runtimes[replay.case_id].args),
+    }:
+        raise _IntegrityError("test_command_mismatch")
     for case, commit in ((replay, replay.buggy_commit), (control, control.fixed_commit)):
         cwd = _runtime_cwd(root, runtimes[case.case_id])
+        if Path(_git(cwd, "rev-parse", "--show-toplevel")).resolve() != cwd:
+            raise _IntegrityError("checkout_root_mismatch")
         if _git(cwd, "rev-parse", "HEAD") != commit:
-            raise ValueError("checkout commit mismatch")
+            raise _IntegrityError("checkout_commit_mismatch")
+        if _git(cwd, "status", "--porcelain"):
+            raise _IntegrityError("dirty_checkout")
+    patch_bytes = patch_path.read_bytes()
+    diff_paths = _unified_diff_paths(patch_bytes)
+    actual_patch = subprocess.run(
+        [
+            "git",
+            "diff",
+            "--no-ext-diff",
+            "--no-color",
+            replay.buggy_commit,
+            replay.fixed_commit,
+            "--",
+            *diff_paths,
+        ],
+        cwd=_runtime_cwd(root, runtimes[replay.case_id]),
+        check=True,
+        capture_output=True,
+    ).stdout
+    if normalize_unified_diff_bytes(actual_patch) != normalize_unified_diff_bytes(
+        patch_bytes
+    ):
+        raise _IntegrityError("patch_mismatch")
 
 
 def _run_three(
-    case: Any,
-    runtime: dict[str, Any],
+    case: BenchmarkCase,
+    runtime: RuntimeDescriptor,
     root: Path,
     runner: CorpusRunner,
 ) -> list[RunOutcome]:
-    argv_value = runtime.get("test_argv")
-    if (
-        not isinstance(argv_value, list)
-        or not argv_value
-        or any(not isinstance(value, str) or not value for value in argv_value)
-    ):
-        raise ValueError("test_argv must be a non-empty string list")
-    argv = tuple(argv_value)
     cwd = _runtime_cwd(root, runtime)
     outcomes: list[RunOutcome] = []
     for _ in range(3):
-        outcome = runner.run(case.source_id, argv, cwd)
+        outcome = runner.run(case.source_id, runtime.tool, runtime.args, cwd)
         outcomes.append(outcome)
         if outcome.timed_out:
             break
@@ -246,11 +460,8 @@ def _run_json(outcome: RunOutcome) -> dict[str, object]:
     }
 
 
-def _runtime_cwd(root: Path, runtime: dict[str, Any]) -> Path:
-    value = runtime.get("cwd")
-    if not isinstance(value, str) or not value:
-        raise ValueError("runtime cwd must be a relative path")
-    path = root / value
+def _runtime_cwd(root: Path, runtime: RuntimeDescriptor) -> Path:
+    path = root / runtime.cwd
     try:
         resolved = path.resolve(strict=True)
         resolved.relative_to(root.resolve())
@@ -259,6 +470,31 @@ def _runtime_cwd(root: Path, runtime: dict[str, Any]) -> Path:
     if path.is_symlink() or not resolved.is_dir():
         raise ValueError("runtime cwd must be a real directory")
     return resolved
+
+
+class _IntegrityError(Exception):
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(reason)
+
+
+def _command_from_test_descriptor(contents: bytes) -> dict[str, object]:
+    try:
+        text = contents.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    except UnicodeDecodeError as exc:
+        raise _Excluded("missing_regression_test") from exc
+    commands = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(commands) != 1 or any(
+        token in commands[0] for token in ("&&", "||", ";", "`", "$(")
+    ):
+        raise _Excluded("missing_regression_test")
+    try:
+        argv = shlex.split(commands[0])
+    except ValueError as exc:
+        raise _Excluded("missing_regression_test") from exc
+    if not argv:
+        raise _Excluded("missing_regression_test")
+    return _typed_command(argv)
 
 
 def _contained_file(root: Path, relative_path: str) -> Path:
@@ -350,15 +586,18 @@ def import_bugsinpy(
                     "case_id": case_id,
                     "role": role,
                     "cwd": (
-                        f"{base['source_id']}/replay"
+                        f"{base['source_id']}/{base['pair_id']}/replay"
                         if role == "historical_bug_replay"
-                        else f"{base['source_id']}/control"
+                        else f"{base['source_id']}/{base['pair_id']}/control"
                     ),
-                    "test_argv": candidate["test_argv"],
+                    "command": candidate["command"],
                     "python_version": candidate["python_version"],
                 }
             )
-        for index, location in enumerate(base["changed_locations"], start=1):
+        old_locations = [
+            location for location in base["changed_locations"] if location["side"] == "old"
+        ]
+        for index, location in enumerate(old_locations, start=1):
             truths.append(
                 {
                     "defect_id": f"truth_{candidate['pair_id'][5:]}_{index}",
@@ -469,6 +708,9 @@ def _import_candidate(
     except UnicodeDecodeError as exc:
         raise _Excluded("binary_patch") from exc
     locations = _changed_locations(patch_text)
+    project_checkout = project_cache / project
+    if not _project_patch_matches(project_checkout, buggy_commit, fixed_commit, patch_bytes):
+        raise _Excluded("patch_mismatch")
     test_bytes = run_test.read_bytes()
     try:
         command_text = test_bytes.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
@@ -483,6 +725,7 @@ def _import_candidate(
         raise _Excluded("missing_regression_test") from exc
     if not test_argv or any(token in commands[0] for token in ("&&", "||", ";", "`", "$(`")):
         raise _Excluded("missing_regression_test")
+    command = _typed_command(test_argv)
 
     pair_id = _opaque("pair", f"{corpus_commit}:{upstream_case}")
     source_id = _opaque("source", f"{corpus_commit}:{project_url}")
@@ -501,7 +744,7 @@ def _import_candidate(
         "pair_id": pair_id,
         "source": source_entry,
         "python_version": info.get("python_version", "unknown"),
-        "test_argv": test_argv,
+        "command": command,
         "case": {
             "pair_id": pair_id,
             "source_id": source_id,
@@ -511,8 +754,8 @@ def _import_candidate(
             "fixed_commit": fixed_commit,
             "patch": {
                 "relative_path": relative_patch,
-                "sha256": hashlib.sha256(patch_bytes).hexdigest(),
-                "normalization": "bytes",
+                "sha256": hashlib.sha256(normalize_unified_diff_bytes(patch_bytes)).hexdigest(),
+                "normalization": "unified_diff",
             },
             "tests": {
                 "relative_path": relative_test,
@@ -544,16 +787,10 @@ def _license_evidence(root: Path, path: Path) -> tuple[str, str] | None:
     try:
         evidence_path = _safe_file(root, path)
         contents = evidence_path.read_bytes()
-        text = contents.decode("utf-8", errors="strict")
-    except (_Excluded, OSError, UnicodeDecodeError):
+    except (_Excluded, OSError):
         return None
-    if "MIT License" in text and "Permission is hereby granted" in text:
-        identifier = "MIT"
-    elif "Apache License" in text and "Version 2.0" in text:
-        identifier = "Apache-2.0"
-    elif "Redistribution and use in source and binary forms" in text:
-        identifier = "BSD-3-Clause"
-    else:
+    identifier = _classify_license(contents)
+    if identifier is None:
         return None
     return identifier, hashlib.sha256(contents).hexdigest()
 
@@ -621,15 +858,39 @@ def _classify_license(contents: bytes) -> str | None:
         text = contents.decode("utf-8", errors="strict")
     except UnicodeDecodeError:
         return None
-    if (
-        "Permission is hereby granted, free of charge" in text
-        and 'THE SOFTWARE IS PROVIDED "AS IS"' in text
-    ) or ("MIT License" in text and "Permission is hereby granted" in text):
+    normalized = " ".join(text.split())
+    if "Mozilla Public License" in normalized and "MIT License" in normalized:
+        return None
+    if all(
+        phrase in normalized
+        for phrase in (
+            "Permission is hereby granted, free of charge",
+            "to deal in the Software without restriction",
+            "The above copyright notice and this permission notice shall be included",
+            'THE SOFTWARE IS PROVIDED "AS IS"',
+            "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT",
+            "IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE",
+            "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER "
+            "DEALINGS IN THE SOFTWARE",
+        )
+    ):
         return "MIT"
-    if "Apache License" in text and "Version 2.0" in text:
-        return "Apache-2.0"
-    if "Redistribution and use in source and binary forms" in text:
-        return "BSD-3-Clause"
+    if all(
+        phrase in normalized
+        for phrase in (
+            "Redistribution and use in source and binary forms",
+            "Redistributions of source code must retain",
+            "Redistributions in binary form must reproduce",
+            "THIS SOFTWARE IS PROVIDED",
+            "IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE",
+            "DISCLAIMED",
+            "IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE",
+            "EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE",
+        )
+    ):
+        if "Neither the name" in normalized:
+            return "BSD-3-Clause"
+        return "BSD-2-Clause"
     return None
 
 
@@ -649,12 +910,33 @@ def _full_commit(value: str | None, label: str) -> str:
 
 
 def _changed_locations(patch: str) -> list[dict[str, object]]:
+    locations, changed_lines = parse_unified_diff(patch)
+    if not locations or not any(location["side"] == "old" for location in locations):
+        raise _Excluded("missing_python_hunk")
+    if changed_lines > _MAX_CHANGED_LINES:
+        raise _Excluded("oversized_diff")
+    return locations
+
+
+def parse_unified_diff(patch: str) -> tuple[list[dict[str, object]], int]:
+    """Return contiguous changed ranges on both sides and their exact line count."""
     locations: list[dict[str, object]] = []
     current: str | None = None
+    old_line: int | None = None
+    new_line: int | None = None
     changed_lines = 0
-    for line in patch.splitlines():
+    group_old = 0
+    group_new = 0
+
+    def flush_change_group() -> None:
+        nonlocal changed_lines, group_old, group_new
+        changed_lines += max(group_old, group_new)
+        group_old = group_new = 0
+
+    for line in patch.replace("\r\n", "\n").replace("\r", "\n").splitlines():
         path_match = _DIFF_PATH.fullmatch(line)
         if path_match:
+            flush_change_group()
             if path_match.group(1) != path_match.group(2):
                 raise _Excluded("renamed_file")
             current = path_match.group(1)
@@ -662,26 +944,104 @@ def _changed_locations(patch: str) -> list[dict[str, object]]:
                 raise _Excluded("non_python_change")
             if current.startswith("/") or ".." in Path(current).parts or "\\" in current:
                 raise _Excluded("unsafe_patch_path")
+            old_line = new_line = None
             continue
         hunk = _HUNK.match(line)
         if hunk and current:
-            start = int(hunk.group(1))
-            count = int(hunk.group(2) or "1")
-            changed_lines += count
-            locations.append(
-                {
-                    "path": current,
-                    "start_line": max(1, start),
-                    "end_line": max(1, start + count - 1),
-                }
-            )
-        elif line.startswith(("+", "-")) and not line.startswith(("+++", "---")):
-            changed_lines += 1
-    if not locations:
-        raise _Excluded("missing_python_hunk")
-    if changed_lines > _MAX_CHANGED_LINES:
-        raise _Excluded("oversized_diff")
-    return locations
+            flush_change_group()
+            old_line = int(hunk.group(1))
+            new_line = int(hunk.group(3))
+            continue
+        if current is None or old_line is None or new_line is None:
+            continue
+        if line.startswith(" "):
+            flush_change_group()
+            old_line += 1
+            new_line += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            _append_changed_line(locations, current, "old", old_line)
+            old_line += 1
+            group_old += 1
+        elif line.startswith("+") and not line.startswith("+++"):
+            _append_changed_line(locations, current, "new", new_line)
+            new_line += 1
+            group_new += 1
+        elif line.startswith("\\"):
+            continue
+        else:
+            flush_change_group()
+    flush_change_group()
+    return locations, changed_lines
+
+
+def _append_changed_line(
+    locations: list[dict[str, object]], path: str, side: str, line: int
+) -> None:
+    if (
+        locations
+        and locations[-1]["path"] == path
+        and locations[-1]["side"] == side
+        and locations[-1]["end_line"] == line - 1
+    ):
+        locations[-1]["end_line"] = line
+        return
+    locations.append({"path": path, "side": side, "start_line": line, "end_line": line})
+
+
+def _project_patch_matches(
+    checkout: Path, buggy_commit: str, fixed_commit: str, patch_bytes: bytes
+) -> bool:
+    try:
+        paths = _unified_diff_paths(patch_bytes)
+        actual = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--no-ext-diff",
+                "--no-color",
+                buggy_commit,
+                fixed_commit,
+                "--",
+                *paths,
+            ],
+            cwd=checkout,
+            check=True,
+            capture_output=True,
+        ).stdout
+        return normalize_unified_diff_bytes(actual) == normalize_unified_diff_bytes(patch_bytes)
+    except (OSError, subprocess.CalledProcessError, ValueError):
+        return False
+
+
+def _unified_diff_paths(patch_bytes: bytes) -> tuple[str, ...]:
+    try:
+        text = patch_bytes.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    except UnicodeDecodeError as exc:
+        raise ValueError("unified diff must be UTF-8 text") from exc
+    paths: list[str] = []
+    for line in text.splitlines():
+        match = _DIFF_PATH.fullmatch(line)
+        if match is None:
+            continue
+        old_path, new_path = match.groups()
+        if old_path != new_path or old_path.startswith("/") or ".." in Path(old_path).parts:
+            raise ValueError("unified diff contains an unsafe path")
+        paths.append(old_path)
+    if not paths or len(paths) != len(set(paths)):
+        raise ValueError("unified diff paths must be non-empty and unique")
+    return tuple(paths)
+
+
+def _typed_command(argv: list[str]) -> dict[str, object]:
+    executable, *args = argv
+    name = Path(executable).name
+    if name in {"python", "python3", "{python}"}:
+        return {"tool": "python", "args": args}
+    if name == "pytest":
+        return {"tool": "python", "args": ["-m", "pytest", *args]}
+    if name == "tox":
+        return {"tool": "tox", "args": args}
+    raise _Excluded("unsupported_test_tool")
 
 
 def _opaque(prefix: str, material: str) -> str:

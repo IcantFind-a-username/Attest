@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .test_corpus import _source
+from .test_corpus import _oracle_fixture, _source
 
 _SCRIPT = Path(__file__).parents[2] / "scripts" / "benchmark.py"
 
@@ -111,7 +111,7 @@ def test_validate_offline_never_invokes_network_provider_or_credentials(tmp_path
     first = _run("validate", "--manifest", str(manifest), "--offline", env=environment)
     second = _run("validate", "--manifest", str(manifest), "--offline", env=environment)
 
-    assert first.returncode == 0
+    assert first.returncode == 3
     assert first.stdout == second.stdout
     assert json.loads(first.stdout) == {
         "excluded_pairs": 0,
@@ -121,7 +121,12 @@ def test_validate_offline_never_invokes_network_provider_or_credentials(tmp_path
         "manifest": "manifest.json",
         "offline": True,
         "results": [],
-        "status": "ok",
+        "command_success": False,
+        "corpus_valid": False,
+        "validation_status": "not_executed",
+        "scorable": False,
+        "receipt": None,
+        "manifest_sha256": __import__("hashlib").sha256(manifest.read_bytes()).hexdigest(),
         "validated_pairs": 0,
     }
     assert not marker.exists()
@@ -136,11 +141,52 @@ def test_validate_offline_without_prepared_root_excludes_each_pair(tmp_path: Pat
 
     completed = _run("validate", "--manifest", str(manifest), "--offline")
 
-    assert completed.returncode == 0
+    assert completed.returncode == 3
     assert json.loads(completed.stdout)["results"] == [
         {
             "pair_id": document["cases"][0]["pair_id"],
             "reason": "prepared_environment_required",
-            "status": "excluded",
+            "status": "not_executed",
         }
     ]
+
+
+def test_validate_prepared_root_requires_network_isolation_and_writes_receipt(
+    tmp_path: Path,
+) -> None:
+    """A prepared root is only executable behind an explicit isolation boundary."""
+    manifest, root, source_id = _oracle_fixture(tmp_path)
+    receipt = tmp_path / "validation-receipt.json"
+
+    refused = _run(
+        "validate",
+        "--manifest",
+        str(manifest),
+        "--offline",
+        "--root",
+        str(root),
+        "--python",
+        f"{source_id}={sys.executable}",
+    )
+    assert refused.returncode == 2
+    assert "network isolation" in json.loads(refused.stderr)["error"]
+
+    completed = _run(
+        "validate",
+        "--manifest",
+        str(manifest),
+        "--offline",
+        "--root",
+        str(root),
+        "--python",
+        f"{source_id}={sys.executable}",
+        "--network-isolated",
+        "--receipt-out",
+        str(receipt),
+    )
+    report = json.loads(completed.stdout)
+    assert completed.returncode == 0
+    assert report["command_success"] is True
+    assert report["corpus_valid"] is True
+    assert report["validation_status"] == "valid"
+    assert json.loads(receipt.read_text()) == report["receipt"]

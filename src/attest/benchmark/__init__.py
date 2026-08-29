@@ -4,7 +4,10 @@ from attest.benchmark.corpus import (
     CorpusRunner,
     RunOutcome,
     SubprocessCorpusRunner,
+    ValidationReceipt,
     import_bugsinpy,
+    load_validation_receipt,
+    require_validated_pair,
     validate_corpus,
 )
 from attest.benchmark.matcher import MatchResult, match_findings
@@ -43,14 +46,17 @@ __all__ = [
     "RunOutcome",
     "RuntimeDescriptor",
     "SubprocessCorpusRunner",
+    "ValidationReceipt",
     "TestDescriptor",
     "TruthDefect",
     "is_scored_placement",
     "import_bugsinpy",
+    "load_validation_receipt",
     "load_manifest",
     "match_findings",
     "aggregate",
     "wilson_interval",
     "verify_descriptor_bytes",
+    "require_validated_pair",
     "validate_corpus",
 ]

@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
+import time
+import tracemalloc
 from pathlib import Path
 
 import pytest
@@ -14,9 +18,61 @@ from attest.benchmark.corpus import (
     RunOutcome,
     SubprocessCorpusRunner,
     import_bugsinpy,
+    load_validation_receipt,
+    parse_unified_diff,
+    require_validated_pair,
     validate_corpus,
 )
-from attest.benchmark.schema import load_manifest, verify_descriptor_bytes
+from attest.benchmark.schema import (
+    load_manifest,
+    normalize_unified_diff_bytes,
+    verify_descriptor_bytes,
+)
+
+_MIT = """MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
+_BSD2 = """Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+"""
+
+_BSD3 = _BSD2.replace(
+    "THIS SOFTWARE IS PROVIDED",
+    "3. Neither the name of the copyright holder nor the names of its contributors may be "
+    "used to endorse or promote products derived from this software.\nTHIS SOFTWARE IS PROVIDED",
+)
 
 
 def _git(path: Path, *args: str) -> str:
@@ -66,7 +122,7 @@ def _source(
     tmp_path: Path,
     bug_count: int = 3,
     *,
-    project_license: str = "MIT License\n\nPermission is hereby granted, free of charge",
+    project_license: str = _MIT,
     license_filename: str = "LICENSE",
 ) -> tuple[Path, str]:
     upstream = tmp_path / "project-cache" / "demo"
@@ -79,7 +135,7 @@ def _source(
     (upstream / "value.py").write_text("VALUE = 0\n")
     _git(upstream, "add", ".")
     _git(upstream, "commit", "-qm", "base")
-    commits: list[tuple[str, str]] = []
+    commits: list[tuple[str, str, bytes]] = []
     for number in range(1, bug_count + 1):
         (upstream / "value.py").write_text(f"VALUE = -{number}\n")
         _git(upstream, "add", ".")
@@ -88,7 +144,14 @@ def _source(
         (upstream / "value.py").write_text(f"VALUE = {number}\n")
         _git(upstream, "add", ".")
         _git(upstream, "commit", "-qm", f"fixed {number}")
-        commits.append((buggy_commit, _git(upstream, "rev-parse", "HEAD")))
+        fixed_commit = _git(upstream, "rev-parse", "HEAD")
+        patch = subprocess.run(
+            ["git", "diff", buggy_commit, fixed_commit, "--"],
+            cwd=upstream,
+            check=True,
+            capture_output=True,
+        ).stdout
+        commits.append((buggy_commit, fixed_commit, patch))
 
     source = tmp_path / "BugsInPy"
     source.mkdir()
@@ -96,16 +159,20 @@ def _source(
     _git(source, "config", "user.email", "fixture@example.invalid")
     _git(source, "config", "user.name", "Fixture")
     _git(source, "remote", "add", "origin", "https://example.invalid/BugsInPy.git")
-    (source / "LICENSE").write_text("MIT License\n\nPermission is hereby granted, free of charge")
+    (source / "LICENSE").write_text(_MIT)
     project = source / "projects" / "demo"
     project.mkdir(parents=True)
     (project / "project.info").write_text(
         'github_url="https://example.invalid/demo.git"\n',
         encoding="utf-8",
     )
-    for number, (buggy_commit, fixed_commit) in enumerate(commits, start=1):
+    for number, (buggy_commit, fixed_commit, patch) in enumerate(commits, start=1):
         _write_bug(
-            source, number, buggy_commit=buggy_commit, fixed_commit=fixed_commit
+            source,
+            number,
+            buggy_commit=buggy_commit,
+            fixed_commit=fixed_commit,
+            patch=patch,
         )
     _git(source, "add", ".")
     _git(source, "commit", "-qm", "fixture")
@@ -150,14 +217,27 @@ def test_import_bugsinpy_writes_deterministic_pinned_opaque_pairs(tmp_path: Path
     ]
     assert len(result["sources"][0]["license_commits_verified"]) == 4
     assert all(case["buggy_commit"] != case["fixed_commit"] for case in result["cases"])
-    assert all(case["patch"]["normalization"] == "bytes" for case in result["cases"])
+    assert all(case["patch"]["normalization"] == "unified_diff" for case in result["cases"])
     assert all(case["tests"]["normalization"] == "normalized_text" for case in result["cases"])
-    assert all(case["changed_locations"][0]["path"] == "src/calc.py" for case in result["cases"])
-    assert all(case["changed_locations"][0]["start_line"] >= 5 for case in result["cases"])
+    assert all(case["changed_locations"][0]["path"] == "value.py" for case in result["cases"])
+    location_sides = {
+        location["side"] for case in result["cases"] for location in case["changed_locations"]
+    }
+    assert location_sides == {
+        "old",
+        "new",
+    }
     source_by_case = {case["case_id"]: case["source_id"] for case in result["cases"]}
     for runtime in result["runtime"]:
+        case = next(case for case in result["cases"] if case["case_id"] == runtime["case_id"])
         role_dir = "replay" if runtime["role"] == "historical_bug_replay" else "control"
-        assert runtime["cwd"] == f"{source_by_case[runtime['case_id']]}/{role_dir}"
+        expected_cwd = f"{source_by_case[runtime['case_id']]}/{case['pair_id']}/{role_dir}"
+        assert runtime["cwd"] == expected_cwd
+        assert runtime["command"] == {
+            "tool": "python",
+            "args": ["-m", "pytest", "-q", "tests/test_calc.py"],
+        }
+    assert len({runtime["cwd"] for runtime in result["runtime"]}) == 4
 
     manifest = load_manifest(first)
     assert len(manifest.cases) == 4
@@ -166,6 +246,31 @@ def test_import_bugsinpy_writes_deterministic_pinned_opaque_pairs(tmp_path: Path
         assert verify_descriptor_bytes(case.patch, artifact.read_bytes())
         test_artifact = source / case.tests.relative_path
         assert verify_descriptor_bytes(case.tests, test_artifact.read_bytes())
+
+
+def test_parse_unified_diff_tracks_only_changed_old_and_new_lines() -> None:
+    """Context lines and hunk sizes must not inflate defect ranges or the size filter."""
+    patch = """diff --git a/app.py b/app.py
+--- a/app.py
++++ b/app.py
+@@ -10,5 +10,6 @@
+ context
+-old one
+-old two
++new one
+ context
++new tail
+ context
+"""
+
+    assert parse_unified_diff(patch) == (
+        [
+            {"path": "app.py", "side": "old", "start_line": 11, "end_line": 12},
+            {"path": "app.py", "side": "new", "start_line": 11, "end_line": 11},
+            {"path": "app.py", "side": "new", "start_line": 13, "end_line": 13},
+        ],
+        3,
+    )
 
 
 @pytest.mark.parametrize(
@@ -197,6 +302,13 @@ def test_import_bugsinpy_writes_deterministic_pinned_opaque_pairs(tmp_path: Path
                 "@@ -1,401 +1,401 @@\n" + "-old\n+new\n" * 401
             ),
             "oversized_diff",
+        ),
+        (
+            lambda source, bug: (bug / "bug_patch.txt").write_text(
+                "diff --git a/value.py b/value.py\n--- a/value.py\n+++ b/value.py\n"
+                "@@ -1 +1 @@\n-VALUE = 999\n+VALUE = 1000\n"
+            ),
+            "patch_mismatch",
         ),
         (lambda source, bug: (bug / "run_test.sh").unlink(), "missing_regression_test"),
     ],
@@ -246,9 +358,7 @@ def test_import_recognizes_complete_mit_terms_without_american_header_spelling(
         tmp_path,
         bug_count=1,
         project_license=(
-            "Released under the MIT licence.\n"
-            "Permission is hereby granted, free of charge, to any person obtaining a copy.\n"
-            'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.\n'
+            _MIT.replace("MIT License", "Released under the MIT licence.")
         ),
         license_filename="LICENCE",
     )
@@ -256,6 +366,65 @@ def test_import_recognizes_complete_mit_terms_without_american_header_spelling(
     result = import_bugsinpy(source, tmp_path / "manifest.json", limit=1, seed=1)
 
     assert result["selection"]["selected_pairs"] == 1
+    assert result["sources"][0]["source_license"] == "MIT"
+
+
+@pytest.mark.parametrize(
+    ("license_text", "identifier"),
+    [(_BSD2, "BSD-2-Clause"), (_BSD3, "BSD-3-Clause")],
+)
+def test_import_distinguishes_complete_bsd_license_terms(
+    tmp_path: Path, license_text: str, identifier: str
+) -> None:
+    """BSD two- and three-clause grants must be classified from complete terms."""
+    source, _ = _source(tmp_path, bug_count=1, project_license=license_text)
+
+    result = import_bugsinpy(source, tmp_path / "manifest.json", limit=1, seed=1)
+
+    assert result["sources"][0]["source_license"] == identifier
+
+
+def test_import_rejects_incomplete_license_excerpt(tmp_path: Path) -> None:
+    """A familiar header plus one sentence is not auditable complete license evidence."""
+    source, _ = _source(
+        tmp_path,
+        bug_count=1,
+        project_license="MIT License\nPermission is hereby granted, free of charge",
+    )
+
+    result = import_bugsinpy(source, tmp_path / "manifest.json", limit=1, seed=1)
+
+    assert result["exclusions"] == [
+        {"upstream_case": "demo/1", "reason": "source_license_missing"}
+    ]
+
+
+@pytest.mark.parametrize(
+    "license_text",
+    [_MIT.partition("IN NO EVENT")[0], _BSD2.partition("IN NO EVENT")[0]],
+)
+def test_import_rejects_license_missing_complete_disclaimer(
+    tmp_path: Path, license_text: str
+) -> None:
+    """A grant without the complete liability disclaimer must not infer an SPDX id."""
+    source, _ = _source(tmp_path, bug_count=1, project_license=license_text)
+
+    result = import_bugsinpy(source, tmp_path / "manifest.json", limit=1, seed=1)
+
+    assert result["selection"]["eligible_pairs"] == 0
+    assert result["exclusions"][0]["reason"] == "source_license_missing"
+
+
+def test_import_recognizes_complete_mit_terms_across_line_wrapping(tmp_path: Path) -> None:
+    """Pinned license evidence is semantic text, not one repository's wrapping width."""
+    wrapped = _MIT.replace(
+        "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT",
+        "FITNESS FOR A PARTICULAR\nPURPOSE AND NONINFRINGEMENT",
+    )
+    source, _ = _source(tmp_path, bug_count=1, project_license=wrapped)
+
+    result = import_bugsinpy(source, tmp_path / "manifest.json", limit=1, seed=1)
+
     assert result["sources"][0]["source_license"] == "MIT"
 
 
@@ -302,8 +471,9 @@ def _oracle_fixture(tmp_path: Path) -> tuple[Path, Path, str]:
 
     root = tmp_path / "cache"
     source_id = "source-111111111111"
+    pair_id = "pair-222222222222"
     for role, commit in (("replay", buggy_commit), ("control", fixed_commit)):
-        checkout = root / source_id / role
+        checkout = root / source_id / pair_id / role
         checkout.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
             ["git", "clone", "-q", str(upstream), str(checkout)], check=True, capture_output=True
@@ -321,7 +491,6 @@ def _oracle_fixture(tmp_path: Path) -> tuple[Path, Path, str]:
     test_command = b"{python} -m pytest -q test_calc.py\n"
     (artifacts / "test.argv").write_bytes(test_command)
     sha = __import__("hashlib").sha256
-    pair_id = "pair-222222222222"
     replay_id = "case-333333333333"
     control_id = "case-444444444444"
     common = {
@@ -333,8 +502,8 @@ def _oracle_fixture(tmp_path: Path) -> tuple[Path, Path, str]:
         "fixed_commit": fixed_commit,
         "patch": {
             "relative_path": "artifacts/fix.patch",
-            "sha256": sha(patch).hexdigest(),
-            "normalization": "bytes",
+            "sha256": sha(normalize_unified_diff_bytes(patch)).hexdigest(),
+            "normalization": "unified_diff",
         },
         "tests": {
             "relative_path": "artifacts/test.argv",
@@ -364,13 +533,19 @@ def _oracle_fixture(tmp_path: Path) -> tuple[Path, Path, str]:
         "runtime": [
             {
                 "case_id": replay_id,
-                "cwd": f"{source_id}/replay",
-                "test_argv": ["{python}", "-m", "pytest", "-q", "test_calc.py"],
+                "cwd": f"{source_id}/{pair_id}/replay",
+                "command": {
+                    "tool": "python",
+                    "args": ["-m", "pytest", "-q", "test_calc.py"],
+                },
             },
             {
                 "case_id": control_id,
-                "cwd": f"{source_id}/control",
-                "test_argv": ["{python}", "-m", "pytest", "-q", "test_calc.py"],
+                "cwd": f"{source_id}/{pair_id}/control",
+                "command": {
+                    "tool": "python",
+                    "args": ["-m", "pytest", "-q", "test_calc.py"],
+                },
             },
         ],
     }
@@ -385,7 +560,10 @@ def test_validate_corpus_requires_three_real_fixed_passes_and_stable_buggy_failu
     """A one-off or non-differential test result must not become benchmark truth."""
     manifest, root, source_id = _oracle_fixture(tmp_path)
     runner = SubprocessCorpusRunner(
-        interpreters={source_id: (sys.executable,)}, timeout_s=10, max_output_bytes=16_384
+        interpreters={source_id: (sys.executable,)},
+        timeout_s=10,
+        max_output_bytes=16_384,
+        network_isolated=True,
     )
 
     report = validate_corpus(manifest, root, runner)
@@ -398,13 +576,215 @@ def test_validate_corpus_requires_three_real_fixed_passes_and_stable_buggy_failu
     assert all(run["returncode"] == 0 for run in report["results"][0]["fixed_runs"])
     assert all(run["returncode"] != 0 for run in report["results"][0]["buggy_runs"])
     assert re.fullmatch(r"[0-9a-f]{64}", report["results"][0]["failure_signature"])
+    assert report["command_success"] is True
+    assert report["corpus_valid"] is True
+    assert report["validation_status"] == "valid"
+    assert report["scorable"] is True
+    assert report["receipt"]["validated_pair_ids"] == ["pair-222222222222"]
+    assert report["receipt"]["manifest_sha256"] == __import__("hashlib").sha256(
+        manifest.read_bytes()
+    ).hexdigest()
+
+
+def test_validation_receipt_is_manifest_bound_and_only_allows_validated_pairs(
+    tmp_path: Path,
+) -> None:
+    """Downstream evaluators must not score excluded pairs or a changed manifest."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    passing = [RunOutcome(0, b"pass", False)] * 3
+    failing = [
+        RunOutcome(1, b"FAILED test_calc.py::test_value - assert 0 == 1", False)
+    ] * 3
+    report = validate_corpus(manifest, root, _SequenceRunner(passing + failing))
+    receipt_path = tmp_path / "receipt.json"
+    receipt_path.write_text(json.dumps(report["receipt"]), encoding="utf-8")
+
+    receipt = load_validation_receipt(receipt_path, manifest)
+    require_validated_pair(receipt, "pair-222222222222")
+    with pytest.raises(ValueError, match="not in validation receipt"):
+        require_validated_pair(receipt, "pair-999999999999")
+
+    manifest.write_text(manifest.read_text() + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="manifest digest"):
+        load_validation_receipt(receipt_path, manifest)
+
+
+def test_validation_models_empty_and_partial_corpora_separately_from_command_success(
+    tmp_path: Path,
+) -> None:
+    """A completed validator command does not imply every pair is valid or scorable."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    document = json.loads(manifest.read_text())
+    source_id = "source-111111111111"
+    original_pair = "pair-222222222222"
+    second_pair = "pair-333333333333"
+    original_cases = list(document["cases"])
+    original_runtime = {row["case_id"]: row for row in document["runtime"]}
+    for case in original_cases:
+        copied = json.loads(json.dumps(case))
+        copied["pair_id"] = second_pair
+        copied["case_id"] = (
+            "case-333333333331"
+            if case["role"] == "historical_bug_replay"
+            else "case-333333333332"
+        )
+        document["cases"].append(copied)
+        runtime = json.loads(json.dumps(original_runtime[case["case_id"]]))
+        runtime["case_id"] = copied["case_id"]
+        role_dir = "replay" if copied["role"] == "historical_bug_replay" else "control"
+        runtime["cwd"] = f"{source_id}/{second_pair}/{role_dir}"
+        document["runtime"].append(runtime)
+        if copied["role"] == "historical_bug_replay":
+            truth = json.loads(json.dumps(document["truth_defects"][0]))
+            truth["defect_id"] = "truth_2"
+            truth["case_id"] = copied["case_id"]
+            document["truth_defects"].append(truth)
+        shutil.copytree(
+            root / source_id / original_pair / role_dir,
+            root / source_id / second_pair / role_dir,
+        )
+    manifest.write_text(json.dumps(document), encoding="utf-8")
+    passing = [RunOutcome(0, b"pass", False)] * 3
+    stable_failure = [
+        RunOutcome(1, b"FAILED test_calc.py::test_value - assert 0 == 1", False)
+    ] * 3
+    dependency_failure = [RunOutcome(1, b"ModuleNotFoundError: missing", False)]
+
+    partial = validate_corpus(
+        manifest,
+        root,
+        _SequenceRunner(passing + stable_failure + dependency_failure),
+    )
+    assert partial["command_success"] is True
+    assert partial["corpus_valid"] is False
+    assert partial["validation_status"] == "partial"
+    assert partial["scorable"] is True
+    assert partial["receipt"]["validated_pair_ids"] == [original_pair]
+
+    document["cases"] = []
+    document["runtime"] = []
+    document["truth_defects"] = []
+    manifest.write_text(json.dumps(document), encoding="utf-8")
+    empty = validate_corpus(manifest, root, _SequenceRunner([]))
+    assert empty["command_success"] is True
+    assert empty["corpus_valid"] is False
+    assert empty["validation_status"] == "empty"
+    assert empty["scorable"] is False
+    assert empty["receipt"] is None
+
+
+def test_subprocess_runner_requires_network_isolation_and_explicit_tool_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Offline mode must never resolve python, pytest, tox, or arbitrary tools through PATH."""
+    source_id = "source-111111111111"
+    trap = tmp_path / "tox"
+    marker = tmp_path / "path-tool-ran"
+    trap.write_text(f"#!/bin/sh\ntouch '{marker}'\n")
+    trap.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    no_isolation = SubprocessCorpusRunner(interpreters={source_id: (sys.executable,)})
+    with pytest.raises(ValueError, match="network isolation"):
+        no_isolation.run(source_id, "python", ("-c", "pass"), tmp_path)
+
+    runner = SubprocessCorpusRunner(
+        interpreters={source_id: (sys.executable,)}, network_isolated=True
+    )
+    with pytest.raises(ValueError, match="not allowed"):
+        runner.run(source_id, "tox", (), tmp_path)
+    assert not marker.exists()
+
+    explicit_marker = tmp_path / "explicit-tool-ran"
+    allowed = SubprocessCorpusRunner(
+        interpreters={source_id: (sys.executable,)},
+        allowed_tools={
+            (source_id, "tox"): (
+                sys.executable,
+                "-c",
+                f"from pathlib import Path; Path({str(explicit_marker)!r}).touch()",
+            )
+        },
+        network_isolated=True,
+    )
+    outcome = allowed.run(source_id, "tox", (), tmp_path)
+    assert outcome.returncode == 0
+    assert explicit_marker.is_file()
+    assert not marker.exists()
+
+
+def test_subprocess_runner_bounds_streaming_output_memory(tmp_path: Path) -> None:
+    """Large child output must be drained continuously without an unbounded parent buffer."""
+    source_id = "source-111111111111"
+    runner = SubprocessCorpusRunner(
+        interpreters={source_id: (sys.executable,)},
+        max_output_bytes=128,
+        network_isolated=True,
+    )
+    tracemalloc.start()
+    tracemalloc.reset_peak()
+    try:
+        outcome = runner.run(
+            source_id,
+            "python",
+            ("-c", "import os; [os.write(1, b'x' * 65536) for _ in range(128)]"),
+            tmp_path,
+        )
+        _, peak_bytes = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert outcome.returncode == 0
+    assert 0 < len(outcome.output) <= 128
+    assert peak_bytes < 4_000_000
+
+
+@pytest.mark.skipif(os.name != "posix", reason="process-group ownership is POSIX-only")
+def test_subprocess_runner_timeout_cleans_child_pipe_holder(tmp_path: Path) -> None:
+    """A descendant holding stdout open must be killed with the owned process group."""
+    source_id = "source-111111111111"
+    marker = tmp_path / "orphan-ran"
+    child = (
+        "import time; from pathlib import Path; time.sleep(1); "
+        f"Path({str(marker)!r}).touch()"
+    )
+    parent = (
+        "import subprocess,sys; "
+        f"subprocess.Popen([sys.executable, '-c', {child!r}], stdout=sys.stdout); "
+        "sys.exit(0)"
+    )
+    runner = SubprocessCorpusRunner(
+        interpreters={source_id: (sys.executable,)},
+        timeout_s=0.2,
+        network_isolated=True,
+    )
+
+    started = time.monotonic()
+    outcome = runner.run(source_id, "python", ("-c", parent), tmp_path)
+    elapsed = time.monotonic() - started
+    observation_deadline = time.monotonic() + 1.2
+    while not marker.exists() and time.monotonic() < observation_deadline:
+        time.sleep(0.02)
+
+    assert outcome.timed_out
+    assert elapsed < 1.0
+    assert not marker.exists()
+
+
+def test_real_pilot_runtime_uses_typed_tools_not_path_executables() -> None:
+    """Frozen commands must require caller mappings rather than bare PATH resolution."""
+    manifest = load_manifest(Path(__file__).parents[2] / "benchmarks/attest-v1/manifest.json")
+
+    assert {runtime.tool for runtime in manifest.runtime} <= {"python", "tox"}
+    assert all(runtime.args and runtime.args[0] != runtime.tool for runtime in manifest.runtime)
 
 
 class _SequenceRunner:
     def __init__(self, outcomes: list[RunOutcome]) -> None:
         self.outcomes = iter(outcomes)
 
-    def run(self, source_id: str, argv: tuple[str, ...], cwd: Path) -> RunOutcome:
+    def run(
+        self, source_id: str, tool: str, args: tuple[str, ...], cwd: Path
+    ) -> RunOutcome:
         return next(self.outcomes)
 
 
@@ -451,15 +831,77 @@ def test_validate_corpus_excludes_unreliable_oracle_outcomes(
 
 def test_validate_corpus_excludes_tampered_artifacts_and_wrong_checkout(tmp_path: Path) -> None:
     """Hash or commit drift in caller materialization must fail closed before test execution."""
-    manifest, root, source_id = _oracle_fixture(tmp_path)
+    manifest, root, _ = _oracle_fixture(tmp_path)
     (root / "artifacts/fix.patch").write_text("tampered")
-    runner = SubprocessCorpusRunner(interpreters={source_id: (sys.executable,)})
 
-    report = validate_corpus(manifest, root, runner)
+    report = validate_corpus(manifest, root, _SequenceRunner([]))
 
     assert report["results"] == [
-        {"pair_id": "pair-222222222222", "status": "excluded", "reason": "integrity_failure"}
+        {
+            "pair_id": "pair-222222222222",
+            "status": "excluded",
+            "reason": "descriptor_hash_mismatch",
+        }
     ]
+
+
+@pytest.mark.parametrize(("role", "path"), [("replay", "calc.py"), ("control", "test_calc.py")])
+def test_validate_corpus_rejects_dirty_source_or_test_checkout(
+    tmp_path: Path, role: str, path: str
+) -> None:
+    """Locally edited source or regression tests must invalidate the historical oracle."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    checkout = root / "source-111111111111/pair-222222222222" / role
+    (checkout / path).write_text("tampered\n")
+
+    report = validate_corpus(manifest, root, _SequenceRunner([]))
+
+    assert report["results"][0]["reason"] == "dirty_checkout"
+
+
+def test_validate_corpus_requires_exact_head_for_each_pair_role(tmp_path: Path) -> None:
+    """A clean checkout at the other member's commit is still the wrong oracle input."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    document = json.loads(manifest.read_text())
+    control = root / "source-111111111111/pair-222222222222/control"
+    _git(control, "checkout", "-q", document["cases"][0]["buggy_commit"])
+
+    report = validate_corpus(manifest, root, _SequenceRunner([]))
+
+    assert report["results"][0]["reason"] == "checkout_commit_mismatch"
+
+
+def test_validate_corpus_binds_descriptor_test_to_executed_command(tmp_path: Path) -> None:
+    """A manifest must not hash one regression command and execute another."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    document = json.loads(manifest.read_text())
+    document["runtime"][0]["command"]["args"][-1] = "different_test.py"
+    manifest.write_text(json.dumps(document))
+
+    report = validate_corpus(manifest, root, _SequenceRunner([]))
+
+    assert report["results"][0]["reason"] == "test_command_mismatch"
+
+
+def test_validate_corpus_rejects_patch_not_equal_to_checkout_diff(tmp_path: Path) -> None:
+    """A self-consistent descriptor hash cannot bless the wrong commit direction or patch."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    document = json.loads(manifest.read_text())
+    reversed_patch = subprocess.run(
+        ["git", "diff", document["cases"][0]["fixed_commit"], document["cases"][0]["buggy_commit"]],
+        cwd=root / "source-111111111111/pair-222222222222/replay",
+        check=True,
+        capture_output=True,
+    ).stdout
+    (root / "artifacts/fix.patch").write_bytes(reversed_patch)
+    digest = __import__("hashlib").sha256(normalize_unified_diff_bytes(reversed_patch)).hexdigest()
+    for case in document["cases"]:
+        case["patch"]["sha256"] = digest
+    manifest.write_text(json.dumps(document))
+
+    report = validate_corpus(manifest, root, _SequenceRunner([]))
+
+    assert report["results"][0]["reason"] == "patch_mismatch"
 
 
 def test_real_pilot_manifest_is_large_diverse_pinned_and_preregistered() -> None:
@@ -487,7 +929,7 @@ def test_real_pilot_manifest_is_large_diverse_pinned_and_preregistered() -> None
     assert all(len(source["license_commits_verified"]) >= 2 for source in document["sources"])
     assert len(manifest.sources) == 4
     assert len(manifest.runtime) == len(manifest.cases)
-    assert len(manifest.exclusions) == 459
+    assert len(manifest.exclusions) == 463
     assert manifest.provenance is not None
     assert manifest.provenance.license_status == "UNSPECIFIED"
     for source in manifest.sources:
@@ -498,6 +940,22 @@ def test_real_pilot_manifest_is_large_diverse_pinned_and_preregistered() -> None
             for commit in (case.buggy_commit, case.fixed_commit)
         }
         assert case_commits <= set(source.license_commits_verified)
+    cookiecutter = next(
+        source
+        for source in manifest.sources
+        if source.project_url == "https://github.com/cookiecutter/cookiecutter"
+    )
+    assert cookiecutter.source_license == "BSD-3-Clause"
+    assert cookiecutter.license_file == "LICENSE"
+    assert cookiecutter.license_sha256 == (
+        "7cc392465cc129046da7e088d618be67238e0c1a440e207f494333979f1e60dc"
+    )
+    assert set(cookiecutter.license_commits_verified) == {
+        "5c282f020a8db7e5e7c4e7b51b010556ca31fb7f",
+        "7129d474206761a6156925db78eee4b62a0e3944",
+        "7f6804c4953a18386809f11faf4d86898570debc",
+        "c15633745df6abdb24e02746b82aadb20b8cdf8c",
+    }
     expected = __import__("hashlib").sha256(
         protocol_path.read_bytes() + b"\0" + manifest_path.read_bytes()
     ).hexdigest()

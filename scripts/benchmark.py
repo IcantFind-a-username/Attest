@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -33,12 +34,25 @@ def _parser() -> argparse.ArgumentParser:
     validator.add_argument("--offline", action="store_true", required=True)
     validator.add_argument("--root", type=Path)
     validator.add_argument(
+        "--network-isolated",
+        action="store_true",
+        help="assert that the prepared runtime is already network isolated",
+    )
+    validator.add_argument(
         "--python",
         action="append",
         default=[],
         metavar="SOURCE_ID=INTERPRETER",
         help="caller-prepared Python interpreter for one opaque source id",
     )
+    validator.add_argument(
+        "--tool",
+        action="append",
+        default=[],
+        metavar="SOURCE_ID:TOOL=EXECUTABLE",
+        help="explicit executable for a non-Python typed tool",
+    )
+    validator.add_argument("--receipt-out", type=Path)
     validator.add_argument("--timeout", type=float, default=60)
     validator.add_argument("--max-output-bytes", type=int, default=65_536)
     return parser
@@ -52,6 +66,12 @@ def main(argv: list[str] | None = None) -> int:
         _emit({"error": str(exc), "status": "error"}, stream=sys.stderr)
         return 2
     _emit(result, stream=sys.stdout)
+    if args.command == "validate":
+        status = result.get("validation_status")
+        if status in {"not_executed", "empty"}:
+            return 3
+        if status != "valid":
+            return 4
     return 0
 
 
@@ -91,30 +111,46 @@ def _validate(args: argparse.Namespace) -> dict[str, object]:
         pair_ids = sorted({case.pair_id for case in manifest.cases})
         results: dict[str, object] = {
             "manifest": args.manifest.name,
+            "manifest_sha256": hashlib.sha256(args.manifest.read_bytes()).hexdigest(),
+            "command_success": False,
+            "corpus_valid": False,
+            "validation_status": "not_executed",
+            "scorable": False,
             "validated_pairs": 0,
             "excluded_pairs": len(pair_ids),
             "results": [
                 {
                     "pair_id": pair_id,
-                    "status": "excluded",
+                    "status": "not_executed",
                     "reason": "prepared_environment_required",
                 }
                 for pair_id in pair_ids
             ],
+            "receipt": None,
         }
     else:
         if not args.root.is_dir():
             raise ValueError("root must be an existing prepared directory")
+        if not args.network_isolated:
+            raise ValueError("network isolation must be established for prepared execution")
         interpreters = _interpreters(args.python)
+        allowed_tools = _allowed_tools(args.tool)
         runner = SubprocessCorpusRunner(
             interpreters,
+            allowed_tools=allowed_tools,
+            network_isolated=True,
             timeout_s=args.timeout,
             max_output_bytes=args.max_output_bytes,
         )
         results = validate_corpus(args.manifest, args.root, runner)
-    results.update(
-        {"status": "ok", "offline": True, "import_exclusions": import_exclusions}
-    )
+        receipt = results.get("receipt")
+        if args.receipt_out is not None and receipt is not None:
+            args.receipt_out.parent.mkdir(parents=True, exist_ok=True)
+            args.receipt_out.write_text(
+                json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n",
+                encoding="utf-8",
+            )
+    results.update({"offline": True, "import_exclusions": import_exclusions})
     return results
 
 
@@ -129,7 +165,30 @@ def _interpreters(values: list[str]) -> dict[str, tuple[str, ...]]:
         path = Path(interpreter)
         if not path.is_file():
             raise ValueError("interpreter must be an existing file")
-        result[source_id] = (str(path.resolve()),)
+        result[source_id] = (str(path.absolute()),)
+    return result
+
+
+def _allowed_tools(values: list[str]) -> dict[tuple[str, str], tuple[str, ...]]:
+    result: dict[tuple[str, str], tuple[str, ...]] = {}
+    for value in values:
+        binding, separator, executable = value.partition("=")
+        source_id, tool_separator, tool = binding.partition(":")
+        if (
+            not separator
+            or not tool_separator
+            or not source_id
+            or not tool
+            or not executable
+        ):
+            raise ValueError("--tool must use SOURCE_ID:TOOL=EXECUTABLE")
+        key = (source_id, tool)
+        if key in result:
+            raise ValueError("duplicate --tool source id and tool")
+        path = Path(executable)
+        if not path.is_file():
+            raise ValueError("tool executable must be an existing file")
+        result[key] = (str(path.absolute()),)
     return result
 
 

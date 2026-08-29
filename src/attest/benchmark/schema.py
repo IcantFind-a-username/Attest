@@ -14,7 +14,7 @@ from typing import Any
 _ROLES = frozenset(("historical_bug_replay", "developer_fix_control"))
 _PROVENANCE_KINDS = frozenset(("historical_fix", "bug_introducing_commit"))
 _SPLITS = frozenset(("train", "validation", "test"))
-_NORMALIZATIONS = frozenset(("bytes", "normalized_text"))
+_NORMALIZATIONS = frozenset(("bytes", "normalized_text", "unified_diff"))
 _EXPOSED_ID_PATTERNS = {
     "case_id": re.compile(r"case-[0-9a-f]{12}\Z"),
     "pair_id": re.compile(r"pair-[0-9a-f]{12}\Z"),
@@ -44,6 +44,7 @@ class ChangedLocation:
     path: str
     start_line: int
     end_line: int
+    side: str = "old"
 
 
 @dataclass(frozen=True)
@@ -96,7 +97,8 @@ class RuntimeDescriptor:
 
     case_id: str
     cwd: str
-    test_argv: tuple[str, ...]
+    tool: str
+    args: tuple[str, ...]
     role: str | None
     python_version: str | None
 
@@ -214,7 +216,23 @@ def verify_descriptor_bytes(
     """Compare bytes supplied by a later corpus validator to a typed descriptor."""
     if descriptor.normalization == "normalized_text":
         contents = contents.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    elif descriptor.normalization == "unified_diff":
+        try:
+            contents = normalize_unified_diff_bytes(contents)
+        except ValueError:
+            return False
     return hashlib.sha256(contents).hexdigest() == descriptor.sha256
+
+
+def normalize_unified_diff_bytes(contents: bytes) -> bytes:
+    """Canonicalize textual git diff bytes while retaining direction and hunks."""
+    try:
+        text = contents.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError("unified diff must be UTF-8 text") from exc
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    lines = [line for line in text.splitlines() if not line.startswith("index ")]
+    return ("\n".join(lines) + "\n").encode()
 
 
 def load_manifest(path: Path) -> BenchmarkManifest:
@@ -309,16 +327,19 @@ def _source(raw: dict[str, Any]) -> BenchmarkSource:
 
 
 def _runtime(raw: dict[str, Any]) -> RuntimeDescriptor:
-    argv = tuple(_string_value(value, "test argv") for value in _list(raw, "test_argv"))
-    if not argv:
-        raise ValueError("test_argv must not be empty")
+    command = _object(raw.get("command"), "runtime command")
+    tool = _enum(
+        _nonempty_string(command, "tool"), frozenset(("python", "tox")), "runtime tool"
+    )
+    args = tuple(_string_value(value, "command arg") for value in _list(command, "args"))
     role = _optional_string(raw.get("role"), "role")
     if role is not None:
         role = _enum(role, _ROLES, "role")
     return RuntimeDescriptor(
         case_id=_opaque_id(_nonempty_string(raw, "case_id"), "case_id"),
         cwd=_path(_nonempty_string(raw, "cwd")),
-        test_argv=argv,
+        tool=tool,
+        args=args,
         role=role,
         python_version=_optional_string(raw.get("python_version"), "python_version"),
     )
@@ -352,6 +373,13 @@ def _validate_extensions(
         roles = {case.case_id: case.role for case in cases}
         if any(row.role is not None and row.role != roles[row.case_id] for row in runtime):
             raise ValueError("runtime role must match case role")
+        cases_by_id = {case.case_id: case for case in cases}
+        for row in runtime:
+            case = cases_by_id[row.case_id]
+            role_dir = "replay" if case.role == "historical_bug_replay" else "control"
+            expected_cwd = f"{case.source_id}/{case.pair_id}/{role_dir}"
+            if row.cwd != expected_cwd:
+                raise ValueError("runtime cwd must identify its source, pair, and role")
 
 
 def _case(raw: dict[str, Any]) -> BenchmarkCase:
@@ -404,7 +432,10 @@ def _location(raw: dict[str, Any]) -> ChangedLocation:
     if start_line > end_line:
         raise ValueError("changed location start_line exceeds end_line")
     return ChangedLocation(
-        path=_path(_nonempty_string(raw, "path")), start_line=start_line, end_line=end_line
+        path=_path(_nonempty_string(raw, "path")),
+        start_line=start_line,
+        end_line=end_line,
+        side=_enum(raw.get("side", "old"), frozenset(("old", "new")), "changed side"),
     )
 
 
