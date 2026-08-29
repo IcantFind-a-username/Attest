@@ -525,6 +525,49 @@ def test_invalid_base_defers_with_immediate_comment_events_under_one_task(
     assert defer["task_id"] == result.task_id
 
 
+def test_post_provider_persistence_failure_retains_spend_phase_and_task_accounting(
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub, monkeypatch
+) -> None:
+    from attest.review.candidates import CandidateStore
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = planted_repo
+    provider = RecordingProvider(_finding_payload(), '{"test_body":"assert False"}')
+
+    def fail_candidate_persistence(self, task_id, alpha, results):  # noqa: ANN001
+        raise OSError("private persistence failure detail")
+
+    monkeypatch.setattr(CandidateStore, "append", fail_candidate_persistence)
+
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(k_samples=1, tier0_commands=[]),
+        provider,
+    )
+
+    assert len(provider.calls) == 1
+    assert result.task_id is not None
+    assert result.candidate_count == 1
+    assert result.spend_usd > 0
+    assert result.deferred_reason == "review execution failed during candidate persistence"
+    assert "private persistence failure detail" not in result.deferred_reason
+    assert len(github_server.status_bodies) == 2
+    assert "DEFER" in github_server.status_bodies[-1]
+    rows = _ledger_rows(repo)
+    comment_rows = [row for row in rows if row["kind"] == "github_comment"]
+    assert [row["phase"] for row in comment_rows] == ["running", "defer"]
+    assert {row["task_id"] for row in comment_rows} == {result.task_id}
+    defer = next(row for row in rows if row["kind"] == "defer")
+    assert defer["task_id"] == result.task_id
+    assert defer["phase"] == "candidate_persistence"
+    review_run = next(row for row in rows if row["kind"] == "review_run")
+    assert review_run["task_id"] == result.task_id
+    assert float(review_run["spend_usd"]) == pytest.approx(result.spend_usd)
+    assert review_run["phase"] == "candidate_persistence"
+
+
 def test_surface_overflow_stays_visible_without_extra_inline_placement(
     planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
 ) -> None:

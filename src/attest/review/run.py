@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import time
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,12 +32,61 @@ class ReviewRun:
     elapsed_s: float
 
 
+class ReviewSetupError(RuntimeError):
+    """Review input could not be prepared before any provider work."""
+
+
+class ReviewExecutionError(RuntimeError):
+    """Review failed after execution began, with accounting state attached."""
+
+    def __init__(
+        self,
+        *,
+        task_id: str,
+        phase: str,
+        budget: Budget,
+        candidate_count: int,
+        elapsed_s: float,
+    ) -> None:
+        super().__init__(f"review execution failed during {phase.replace('_', ' ')}")
+        self.task_id = task_id
+        self.phase = phase
+        self.budget = budget
+        self.candidate_count = candidate_count
+        self.elapsed_s = elapsed_s
+
+
 def _empty_outcome() -> GateOutcome:
     return GateOutcome(formal=[], drawer_overflow=[], drawer=[], discarded=[])
 
 
 def make_task_id(seed: str) -> str:
     return time.strftime("%Y%m%d-%H%M%S") + "-" + hashlib.sha256(seed.encode()).hexdigest()[:8]
+
+
+def _review_run_entry(
+    *,
+    task_id: str,
+    elapsed_s: float,
+    budget: Budget,
+    config: ReviewConfig,
+    alpha: float,
+    files: int,
+    phase: str | None = None,
+) -> dict[str, object]:
+    entry: dict[str, object] = {
+        "kind": "review_run",
+        "task_id": task_id,
+        "elapsed_s": round(elapsed_s, 2),
+        "spend_usd": round(budget.spent_usd, 6),
+        "model": config.model,
+        "alpha": alpha,
+        "files": files,
+    }
+    if phase is not None:
+        entry["phase"] = phase
+        entry["outcome"] = "deferred"
+    return entry
 
 
 def run_review(
@@ -49,7 +99,10 @@ def run_review(
     task_id: str | None = None,
 ) -> ReviewRun:
     started = clock()
-    diff = git_diff(repo, base)
+    try:
+        diff = git_diff(repo, base)
+    except (OSError, RuntimeError) as exc:
+        raise ReviewSetupError("review setup failed") from exc
     budget = Budget(limit_usd=config.budget_usd, model=config.model)
     if not diff.hunks:
         return ReviewRun(
@@ -93,17 +146,22 @@ def run_review(
     results: list[GateResult] = []
     outcome = _empty_outcome()
     deferred_reason = None
+    phase = "proposal"
     try:
         proposal = propose(diff, config, budget, provider)
+        phase = "static_analysis"
         signals = collect_signals(repo, diff.files, config.tier0_commands)
+        phase = "candidate_evaluation"
         results = [
             evaluate_finding(finding, alpha, signals_near(signals, finding.file, finding.line))
             for finding in proposal.candidates
         ]
         outcome = apply_gate(results, config.max_findings)
+        phase = "candidate_persistence"
         CandidateStore(repo).append(task_id, alpha, results)
 
         n_results = max(1, len(results))
+        phase = "review_accounting"
         for result in results:
             ledger.record_review(
                 task_id=task_id,
@@ -124,18 +182,48 @@ def run_review(
     except BudgetExceeded as exc:
         deferred_reason = f"budget: {exc.reason}"
         ledger.append({"kind": "defer", "task_id": task_id, "reason": deferred_reason})
+    except (OSError, RuntimeError) as exc:
+        elapsed = clock() - started
+        reason = f"review execution failed during {phase.replace('_', ' ')}"
+        with suppress(OSError, RuntimeError):
+            ledger.append(
+                {
+                    "kind": "defer",
+                    "task_id": task_id,
+                    "reason": reason,
+                    "phase": phase,
+                }
+            )
+        with suppress(OSError, RuntimeError):
+            ledger.append(
+                _review_run_entry(
+                    task_id=task_id,
+                    elapsed_s=elapsed,
+                    budget=budget,
+                    config=config,
+                    alpha=alpha,
+                    files=len(diff.files),
+                    phase=phase,
+                )
+            )
+        raise ReviewExecutionError(
+            task_id=task_id,
+            phase=phase,
+            budget=budget,
+            candidate_count=len(results),
+            elapsed_s=elapsed,
+        ) from exc
 
     elapsed = clock() - started
     ledger.append(
-        {
-            "kind": "review_run",
-            "task_id": task_id,
-            "elapsed_s": round(elapsed, 2),
-            "spend_usd": round(budget.spent_usd, 6),
-            "model": config.model,
-            "alpha": alpha,
-            "files": len(diff.files),
-        }
+        _review_run_entry(
+            task_id=task_id,
+            elapsed_s=elapsed,
+            budget=budget,
+            config=config,
+            alpha=alpha,
+            files=len(diff.files),
+        )
     )
     return ReviewRun(
         task_id=task_id,

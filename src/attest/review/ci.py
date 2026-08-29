@@ -21,7 +21,7 @@ from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_cand
 from attest.review.gate import GateResult, apply_gate
 from attest.review.ledger import Ledger
 from attest.review.proposer import Provider
-from attest.review.run import make_task_id, run_review
+from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
 
 
 @dataclass
@@ -174,7 +174,7 @@ def run_ci(
             clock=clock,
             task_id=task_id,
         )
-    except (OSError, RuntimeError) as exc:
+    except ReviewSetupError as exc:
         reason = f"review setup failed: {type(exc).__name__}"
         ledger.append({"kind": "defer", "task_id": task_id, "reason": reason})
         reason = _post_deferred(
@@ -190,6 +190,24 @@ def run_ci(
             surfaced_count=0,
             deferred_reason=reason,
             spend_usd=0.0,
+            started=started,
+            clock=clock,
+        )
+    except ReviewExecutionError as exc:
+        reason = str(exc)
+        reason = _post_deferred(
+            context=context,
+            client=client,
+            ledger=ledger,
+            task_id=exc.task_id,
+            reason=reason,
+        )
+        return _ci_run(
+            task_id=exc.task_id,
+            candidate_count=exc.candidate_count,
+            surfaced_count=0,
+            deferred_reason=reason,
+            spend_usd=exc.budget.spent_usd,
             started=started,
             clock=clock,
         )
