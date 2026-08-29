@@ -47,9 +47,14 @@ wealth threshold decides who speaks** — surface at wealth ≥ 1/alpha, discard
    `C:\Users\user\Desktop\attest-seed` are research archives. Never modify,
    never commit there, never "fix" anything in them. (They may be absent in a
    sandboxed environment; they are not needed to build.)
-3. **No remotes, no publishing**: do not create or push to any remote, do not
-   publish to PyPI or any marketplace, until the owner explicitly says so.
-   Local git only.
+3. **Remotes: private-for-testing allowed, public forbidden.** Owner has
+   authorized (2026-08-29) creating **private** GitHub repositories under the
+   owner's account solely for automated acceptance testing (the attest mirror
+   and scratch test repos), pushing to them, and setting the
+   `ANTHROPIC_API_KEY` secret on them via `gh secret set` piped from the
+   environment (never echo the value). Anything public — public repos, PyPI,
+   Marketplace, issues/PRs on repos the owner doesn't own — remains forbidden
+   without a new explicit owner instruction.
 4. **Spend**: development API budget is **$10 total**; log every call in
    `DEVSPEND.md` (failed $0 calls noted as such). Never print or echo API keys;
    verify presence by length/prefix only. The product's per-PR budget knob is
@@ -159,14 +164,38 @@ Settled design points (do not re-derive):
 - Fork PRs in v1: skip with a clear note (no secrets, no execution of head
   code); document the unprivileged-job + `workflow_run` two-workflow pattern
   for later.
-- **Build vs acceptance are separate gates**: everything above is built and
-  tested locally (unit + integration with a mocked GitHub API + `act` if
-  useful) with **no remote created**. The live acceptance run — scratch repo,
-  real PRs — happens only after the owner creates the remote and approves the
-  push (ground rules 3/8). Acceptance criteria, run by the owner: first status
-  comment < 60s; a planted-bug PR gets its finding verified and posted; a
-  negative-control PR gets zero finding comments; all spend within budget;
-  ledger rows written for every event.
+- **Automated acceptance — agent-run, end-to-end, no owner in the loop**
+  (owner directive 2026-08-29: "开发完下一阶段立刻自动测试,不用交给我人工跑"):
+  1. *Precondition check (the only allowed stop)*: GitHub CLI authenticated —
+     `gh auth status` passes or `GH_TOKEN` is set with `repo` scope. `gh` is
+     NOT currently installed on this machine: install it yourself
+     (`winget install GitHub.cli`), but the login itself needs the owner once;
+     if neither auth path exists, stop and ask for exactly that.
+  2. Build locally first: unit + integration tests with a mocked GitHub API
+     all green.
+  3. Create **private** repos under the owner's account: push this repo to a
+     private `attest` mirror; create a private scratch repo seeded with a
+     small real Python project.
+  4. In the scratch workflow, obtain the action via `actions/checkout` of the
+     private mirror (`repository:` + token) into a subdirectory, then
+     `uses: ./<subdir>` — avoids cross-repo private action sharing issues.
+     Set `ANTHROPIC_API_KEY` as a repo secret via `gh secret set` (piped from
+     env, never printed).
+  5. Drive the test matrix programmatically: PR #1 planted real bug
+     (reintroduce a fixed crash), PR #2 negative control (clean refactor).
+     Poll with `gh run watch`; assert via API.
+  6. *Acceptance criteria (asserted by script, timestamps from the GitHub
+     API)*: status-only sticky comment ≤ 60s after the workflow **job start**
+     (runner queue time excluded, but report it); planted-bug PR ends with a
+     verified finding posted inline; negative-control PR has **zero** finding
+     comments; ledger rows exist for every event; total CI spend logged in
+     DEVSPEND.md and within the $10 cap.
+  7. On failure: diagnose, fix, rerun — iterating autonomously is the point.
+     When all criteria pass, write the acceptance report (URLs, timings,
+     spend) into `docs/acceptance/phase-3.md`, commit, and only then proceed
+     to Phase 4.
+  8. Keep the scratch repo (private) for owner inspection; report its URL in
+     the acceptance report.
 
 ### Phase 4 — feedback flywheel
 
@@ -177,6 +206,10 @@ Settled design points (do not re-derive):
   not retrigger workflows).
 - `attest stats` merges local + branch ledgers; precision SLA (≥90% on
   surfaced findings) computed and reported from real labels.
+- Acceptance is likewise agent-automated in the scratch repo: add reactions to
+  the bot's own comments via the API, post `/attest` commands, assert the next
+  run picks both up into the ledger and that alpha-tightening bookkeeping
+  behaves; write `docs/acceptance/phase-4.md`.
 
 ### Phase 5 — hardening for first external users
 
