@@ -131,6 +131,14 @@ def test_config_validation() -> None:
         EngineConfig(alpha=0.0)
     with pytest.raises(ValueError):
         EngineConfig(judges=("A", "B", "C", "D"))  # D has no price
+    with pytest.raises(ValueError):  # 4 judges rejected even when all priced
+        EngineConfig(judges=("A", "B", "C", "D"), prices=dict.fromkeys("ABCD", 1.0))
+    with pytest.raises(ValueError):
+        EngineConfig(judges=())
+    with pytest.raises(ValueError):  # dogfood finding: zero price divides VOI
+        EngineConfig(prices={"A": 1.0, "B": 0.5, "C": 0.0})
+    with pytest.raises(ValueError):  # dogfood finding: zero smoothing -> NaN
+        EngineConfig(smoothing=0.0)
 
 
 def test_task_result_shape() -> None:

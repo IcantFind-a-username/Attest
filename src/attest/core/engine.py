@@ -61,6 +61,11 @@ class EngineConfig:
         missing = set(self.judges) - set(self.prices)
         if missing:
             raise ValueError(f"no price for judges {sorted(missing)}")
+        bad_prices = [j for j in self.judges if self.prices[j] <= 0]
+        if bad_prices:  # price-aware VOI divides by price
+            raise ValueError(f"prices must be positive; got <= 0 for {bad_prices}")
+        if self.smoothing <= 0:  # zero smoothing yields silent NaN plug-ins
+            raise ValueError("smoothing must be positive")
 
 
 @dataclass
