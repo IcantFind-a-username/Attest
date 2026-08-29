@@ -22,6 +22,8 @@ class Tables:
     def __init__(self, judges: Sequence[str] = ("A", "B", "C"), smoothing: float = 1.0):
         if len(set(judges)) != len(judges):
             raise ValueError("duplicate judge names")
+        if smoothing <= 0:  # zero smoothing turns empty cells into silent NaN
+            raise ValueError("smoothing must be positive")
         self.judges: list[str] = list(judges)
         self.s = float(smoothing)
         self.idx: dict[str, int] = {j: i for i, j in enumerate(self.judges)}

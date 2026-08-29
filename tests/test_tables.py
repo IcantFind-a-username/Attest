@@ -125,6 +125,14 @@ def test_smoothing_parameter() -> None:
     assert t.p1("A", {}, 1) == pytest.approx((1 + 0.5) / (1 + 1.0))
 
 
+def test_zero_smoothing_rejected() -> None:
+    # dogfood finding: smoothing=0 made empty cells silently NaN
+    with pytest.raises(ValueError):
+        Tables(smoothing=0.0)
+    with pytest.raises(ValueError):
+        Tables(smoothing=-1.0)
+
+
 def test_update_ignores_missing_judges() -> None:
     t = Tables()
     t.update(1, {"A": 1, "C": 0})
