@@ -4,9 +4,13 @@ import json
 import subprocess
 from pathlib import Path
 
+import anthropic
 import pytest
 
 from attest.cli.main import main
+from attest.review.candidates import CandidateStore
+from attest.review.gate import GateResult
+from attest.review.schema import Finding
 
 CLEAN = """def total(items):
     return sum(items)
@@ -140,6 +144,20 @@ def test_review_no_diff(repo: Path, mocks: list[str], capsys) -> None:
     assert "no diff" in out
 
 
+def test_review_no_diff_does_not_construct_a_real_client(repo: Path, capsys, monkeypatch) -> None:
+    subprocess.run(["git", "-C", str(repo), "checkout", "--", "app.py"], check=True)
+
+    def unexpected_client(*args, **kwargs):  # noqa: ANN002, ANN003
+        raise AssertionError("real client should not be constructed")
+
+    monkeypatch.setattr(anthropic, "Anthropic", unexpected_client)
+
+    rc = main(["--repo", str(repo), "review"])
+
+    assert rc == 0
+    assert "no diff" in capsys.readouterr().out
+
+
 def test_mock_without_files_rejected(repo: Path) -> None:
     # regression: `--mock` with zero files must NEVER fall through to the
     # real paid API — argparse rejects it outright
@@ -159,8 +177,52 @@ def test_verify_unknown_id(repo: Path, capsys) -> None:
     assert rc == 2
 
 
+def test_verify_uses_the_selected_task_for_duplicate_finding_ids(repo: Path, capsys) -> None:
+    finding = Finding(
+        claim="average() divides by zero when items is empty.",
+        file="app.py",
+        line=6,
+        failure_scenario="average([]) raises ZeroDivisionError",
+        falsification_plan="call average([]) and observe the exception",
+    )
+    store = CandidateStore(repo)
+    store.append("first-task", 0.1, [GateResult(finding=finding, wealth=2.0)])
+    store.append("second-task", 0.1, [GateResult(finding=finding, wealth=0.2)])
+
+    rc = main(
+        [
+            "--repo",
+            str(repo),
+            "verify",
+            finding.finding_id,
+            "--task-id",
+            "first-task",
+            "--reproduced",
+        ]
+    )
+
+    assert rc == 0
+    assert "wealth 2.0 -> 40.0 => surface" in capsys.readouterr().out
+    entries = [
+        json.loads(line) for line in (repo / ".attest" / "ledger.jsonl").read_text().splitlines()
+    ]
+    assert entries[-1]["task_id"] == "first-task"
+
+
 def test_unreachable_gate_refused(repo: Path, mocks: list[str], capsys) -> None:
     rc = main(["--repo", str(repo), "review", "--alpha", "0.001", "--k", "3", "--mock", *mocks])
     assert rc == 2
     err = capsys.readouterr().err
     assert "unreachable" in err
+
+
+def test_unreachable_gate_does_not_construct_a_real_client(repo: Path, capsys, monkeypatch) -> None:
+    def unexpected_client(*args, **kwargs):  # noqa: ANN002, ANN003
+        raise AssertionError("real client should not be constructed")
+
+    monkeypatch.setattr(anthropic, "Anthropic", unexpected_client)
+
+    rc = main(["--repo", str(repo), "review", "--alpha", "0.001"])
+
+    assert rc == 2
+    assert "unreachable" in capsys.readouterr().err

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from threading import Lock
 from typing import Any, Protocol
 
 from attest.review.budget import Budget, BudgetExceeded
@@ -53,15 +54,24 @@ class ApiProvider:
     """Messages API provider; model id comes from configuration."""
 
     def __init__(self, model: str, timeout: float = 120.0):
-        import anthropic
-
         self.model = model
-        self.client = anthropic.Anthropic(timeout=timeout)
+        self.timeout = timeout
+        self.client: Any | None = None
+        self._client_lock = Lock()
+
+    def _client(self) -> Any:
+        if self.client is None:
+            with self._client_lock:
+                if self.client is None:
+                    import anthropic
+
+                    self.client = anthropic.Anthropic(timeout=self.timeout)
+        return self.client
 
     def sample(
         self, system: str, prompt: str, schema: dict[str, Any], max_tokens: int
     ) -> ProviderResult:
-        response = self.client.messages.create(
+        response = self._client().messages.create(
             model=self.model,
             max_tokens=max_tokens,
             system=system,

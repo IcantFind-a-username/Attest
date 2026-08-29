@@ -67,7 +67,15 @@ def cmd_verify(args: argparse.Namespace) -> int:
     config = load_config(repo)
     ledger = Ledger(repo)
     alpha = ledger.current_alpha(config.alpha)
-    candidate = CandidateStore(repo).latest(args.finding_id)
+    store = CandidateStore(repo)
+    task_id = args.task_id
+    if task_id is None:
+        matches = []
+        for stored in store.load():
+            if stored.finding.finding_id == args.finding_id:
+                matches.append(stored)
+        task_id = matches[-1].task_id if matches else None
+    candidate = store.latest(args.finding_id, task_id) if task_id is not None else None
     if candidate is None:
         print(f"error: unknown finding id {args.finding_id}", file=sys.stderr)
         return 2
@@ -151,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_verify = sub.add_parser("verify", help="record a reproduction attempt for a finding")
     p_verify.add_argument("finding_id")
+    p_verify.add_argument("--task-id", default=None, help="review task containing the finding")
     group = p_verify.add_mutually_exclusive_group(required=True)
     group.add_argument("--reproduced", dest="reproduced", action="store_true")
     group.add_argument("--not-reproduced", dest="reproduced", action="store_false")
