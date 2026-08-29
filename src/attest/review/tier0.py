@@ -65,9 +65,12 @@ def collect_signals(repo: Path, files: list[str], commands: list[str]) -> list[T
 
 
 def signals_near(signals: list[Tier0Signal], file: str, line: int) -> list[Tier0Signal]:
+    """Signals overlapping the anchor. Path match requires a component
+    boundary: tests/utils.py must NOT corroborate utils.py."""
     norm = file.replace("\\", "/")
-    return [
-        s
-        for s in signals
-        if s.file.replace("\\", "/").endswith(norm) and abs(s.line - line) <= ANCHOR_SLACK
-    ]
+    out = []
+    for s in signals:
+        sf = s.file.replace("\\", "/")
+        if (sf == norm or sf.endswith("/" + norm)) and abs(s.line - line) <= ANCHOR_SLACK:
+            out.append(s)
+    return out

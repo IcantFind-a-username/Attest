@@ -125,12 +125,26 @@ def test_review_budget_defer(repo: Path, mocks: list[str], capsys) -> None:
     assert any(e["kind"] == "defer" for e in entries)
 
 
-def test_review_no_diff(repo: Path, capsys) -> None:
+def test_review_no_diff(repo: Path, mocks: list[str], capsys) -> None:
     subprocess.run(["git", "-C", str(repo), "checkout", "--", "app.py"], check=True)
-    rc = main(["--repo", str(repo), "review", "--mock"])
+    rc = main(["--repo", str(repo), "review", "--mock", mocks[0]])
     out = capsys.readouterr().out
     assert rc == 0
     assert "no diff" in out
+
+
+def test_mock_without_files_rejected(repo: Path) -> None:
+    # regression: `--mock` with zero files must NEVER fall through to the
+    # real paid API — argparse rejects it outright
+    with pytest.raises(SystemExit):
+        main(["--repo", str(repo), "review", "--mock"])
+
+
+def test_invalid_cli_override_rejected(repo: Path, mocks: list[str], capsys) -> None:
+    # regression: CLI overrides must go through config validation
+    rc = main(["--repo", str(repo), "review", "--alpha", "5.0", "--mock", *mocks])
+    assert rc == 2
+    assert "alpha" in capsys.readouterr().err
 
 
 def test_verify_unknown_id(repo: Path, capsys) -> None:

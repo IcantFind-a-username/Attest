@@ -79,11 +79,13 @@ class Ledger:
     def surfaced_precision(self, window: int = PRECISION_WINDOW) -> tuple[float | None, int]:
         """Precision over the last `window` surfaced findings that have
         feedback labels. Returns (precision or None, n_labeled)."""
-        surfaced_ids = [
-            e["finding_id"]
-            for e in self.entries()
-            if e.get("kind") == "review" and str(e.get("action", "")).endswith("surface")
-        ]
+        surfaced_ids: list[str] = []
+        for e in self.entries():
+            if e.get("kind") == "review" and str(e.get("action", "")).endswith("surface"):
+                fid = e["finding_id"]
+                if fid in surfaced_ids:  # re-verification must not double-count
+                    surfaced_ids.remove(fid)
+                surfaced_ids.append(fid)
         labels: dict[str, bool] = {}
         for e in self.entries():
             if e.get("kind") == "feedback":
@@ -100,6 +102,15 @@ class Ledger:
         configurable off."""
         if not enabled:
             return alpha, None
+        entries = self.entries()
+        n_labels = sum(1 for e in entries if e.get("kind") == "feedback")
+        last_tighten = next(
+            (e for e in reversed(entries) if e.get("kind") == "alpha_tightened"), None
+        )
+        # watermark: never re-halve on the same stale label window — a new
+        # tightening needs at least one label recorded since the last one
+        if last_tighten is not None and last_tighten.get("label_count") == n_labels:
+            return alpha, None
         precision, n = self.surfaced_precision()
         if precision is None or n < 10 or precision >= PRECISION_TARGET:
             return alpha, None
@@ -110,7 +121,15 @@ class Ledger:
             f"precision {precision:.2f} over last {n} labeled surfaced findings "
             f"< {PRECISION_TARGET:.0%}: alpha {alpha} -> {new_alpha}"
         )
-        self.append({"kind": "alpha_tightened", "from": alpha, "to": new_alpha, "note": note})
+        self.append(
+            {
+                "kind": "alpha_tightened",
+                "from": alpha,
+                "to": new_alpha,
+                "label_count": n_labels,
+                "note": note,
+            }
+        )
         return new_alpha, note
 
     def current_alpha(self, configured: float) -> float:

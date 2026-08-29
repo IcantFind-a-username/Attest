@@ -12,7 +12,12 @@ import re
 from attest.review.schema import Finding
 
 LINE_SLACK = 3
-JACCARD_THRESHOLD = 0.4
+# same defect, different wording: independent samples describe one bug very
+# differently, so the lexical bar is graded by anchor agreement — an exact
+# line match needs only weak overlap, a nearby line needs substantially more
+# (calibrated on the first dogfood run, D-013)
+JACCARD_EXACT_LINE = 0.15
+JACCARD_NEAR_LINE = 0.35
 
 _WORD_RE = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*")
 _STOP = {
@@ -54,11 +59,13 @@ def _tokens(text: str) -> set[str]:
 def _similar(a: Finding, b: Finding) -> bool:
     if a.file != b.file or abs(a.line - b.line) > LINE_SLACK:
         return False
-    ta, tb = _tokens(a.claim), _tokens(b.claim)
+    ta = _tokens(a.claim) | _tokens(a.failure_scenario)
+    tb = _tokens(b.claim) | _tokens(b.failure_scenario)
     if not ta or not tb:
         return False
     jaccard = len(ta & tb) / len(ta | tb)
-    return jaccard >= JACCARD_THRESHOLD
+    threshold = JACCARD_EXACT_LINE if a.line == b.line else JACCARD_NEAR_LINE
+    return jaccard >= threshold
 
 
 def merge_findings(per_sample: list[list[Finding]]) -> list[Finding]:

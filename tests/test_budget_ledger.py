@@ -87,16 +87,60 @@ def test_tighten_disabled_or_insufficient(tmp_path) -> None:
     assert alpha == 0.1 and note is None
 
 
-def test_tighten_floor(tmp_path) -> None:
+def test_tighten_floor_with_fresh_labels_each_round(tmp_path) -> None:
     led = Ledger(tmp_path)
     for i in range(20):
         fid = f"f{i}"
         led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
         led.record_feedback(fid, "dismiss")
     alpha = 0.1
-    for _ in range(6):
+    for round_ in range(6):
         alpha, _ = led.maybe_tighten_alpha(alpha, enabled=True)
+        # fresh bad label between rounds keeps the watermark moving
+        fid = f"extra{round_}"
+        led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(fid, "dismiss")
     assert alpha == 0.01  # floored
+
+
+def test_tighten_watermark_blocks_stale_rehalving(tmp_path) -> None:
+    """Regression: repeated review runs with ZERO new labels must not keep
+    halving alpha on the same stale window."""
+    led = Ledger(tmp_path)
+    for i in range(12):
+        fid = f"f{i}"
+        led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(fid, "dismiss")
+    alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
+    assert alpha == 0.05 and note is not None
+    # same stale window: no further tightening, run after run
+    for _ in range(4):
+        alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
+        assert alpha == 0.05 and note is None
+
+
+def test_reverify_not_double_counted_in_precision(tmp_path) -> None:
+    """Regression: repeated `attest verify` rows for one finding count once."""
+    led = Ledger(tmp_path)
+    led.record_review("t", "f1", ["S"], 0.0, 12.0, "surface")
+    led.record_review("t", "f1", ["V"], 0.0, 60.0, "verified_surface")
+    led.record_review("t", "f1", ["V"], 0.0, 60.0, "verified_surface")
+    led.record_review("t", "f2", ["S"], 0.0, 12.0, "surface")
+    led.record_feedback("f1", "dismiss")
+    led.record_feedback("f2", "good")
+    precision, n = led.surfaced_precision()
+    assert n == 2
+    assert precision == pytest.approx(0.5)
+
+
+def test_overflow_surface_counts_into_precision(tmp_path) -> None:
+    """Regression: findings past the gate but beyond the cap-3 layout are
+    spoken (drawer section) and must feed the precision loop."""
+    led = Ledger(tmp_path)
+    led.record_review("t", "f1", ["S"], 0.0, 12.0, "overflow_surface")
+    led.record_feedback("f1", "good")
+    precision, n = led.surfaced_precision()
+    assert (precision, n) == (1.0, 1)
 
 
 def test_good_precision_no_tighten(tmp_path) -> None:

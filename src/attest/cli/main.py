@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import json
 import sys
@@ -43,17 +44,25 @@ def cmd_review(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     t0 = time.monotonic()
     config = load_config(repo)
-    if args.alpha is not None:
-        config.alpha = args.alpha
-    if args.budget is not None:
-        config.budget_usd = args.budget
-    if args.model:
-        config.model = args.model
-    if args.k is not None:
-        config.k_samples = args.k
+    overrides = {
+        key: value
+        for key, value in [
+            ("alpha", args.alpha),
+            ("budget_usd", args.budget),
+            ("model", args.model),
+            ("k_samples", args.k),
+        ]
+        if value is not None
+    }
+    if overrides:  # replace() re-runs __post_init__ so CLI overrides are validated
+        try:
+            config = dataclasses.replace(config, **overrides)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
 
     ledger = Ledger(repo)
-    alpha = ledger.current_alpha(config.alpha)
+    alpha = ledger.current_alpha(config.alpha) if config.auto_tighten_alpha else config.alpha
     alpha, tighten_note = ledger.maybe_tighten_alpha(alpha, config.auto_tighten_alpha)
     notes = [tighten_note] if tighten_note else []
 
@@ -78,7 +87,7 @@ def cmd_review(args: argparse.Namespace) -> int:
 
     budget = Budget(limit_usd=config.budget_usd, model=config.model)
     provider: Provider
-    if args.mock:
+    if args.mock is not None:
         provider = MockProvider([Path(p).read_text(encoding="utf-8") for p in args.mock])
     else:
         provider = ApiProvider(config.model)
@@ -109,7 +118,9 @@ def cmd_review(args: argparse.Namespace) -> int:
                     channels_bought=[p.channel for p in r.purchases],
                     spend=budget.spent_usd / n,
                     wealth_final=r.wealth,
-                    action=r.action if r not in outcome.drawer_overflow else "drawer_overflow",
+                    # overflow findings DID pass the gate and are spoken in the
+                    # drawer section; the action must keep counting as surfaced
+                    action=r.action if r not in outcome.drawer_overflow else "overflow_surface",
                 )
                 fh.write(
                     json.dumps(
@@ -248,9 +259,10 @@ def main(argv: list[str] | None = None) -> int:
     p_review.add_argument("--k", type=int, default=None, help="proposer samples")
     p_review.add_argument(
         "--mock",
-        nargs="*",
+        nargs="+",
         default=None,
-        help="offline mode: JSON payload files replayed instead of model calls",
+        help="offline mode: JSON payload files replayed instead of model calls "
+        "(at least one file — never silently falls through to real API calls)",
     )
     p_review.set_defaults(func=cmd_review)
 

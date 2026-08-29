@@ -80,6 +80,8 @@ class MockProvider:
     """Replays canned JSON payloads; for tests and offline dry runs."""
 
     def __init__(self, payloads: list[str]):
+        if not payloads:
+            raise ValueError("mock provider needs at least one payload")
         self.payloads = list(payloads)
         self.calls = 0
 

@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from attest.review.diffs import DiffInfo
+from attest.review.diffs import DiffInfo, norm_path
 
 # JSON schema the proposer model is constrained to (structured output).
 PROPOSAL_SCHEMA: dict[str, Any] = {
@@ -67,8 +67,20 @@ class Finding:
         return hashlib.sha256(key).hexdigest()[:10]
 
 
+_CODE_SPAN_RE = re.compile(r"`[^`]*`")
+_ABBREV_RE = re.compile(r"\b(e\.g\.|i\.e\.|etc\.|vs\.|cf\.|et al\.)", re.IGNORECASE)
+# a sentence ends at .!? followed by whitespace + a capital/digit/quote, or at
+# the end of the text — dots inside identifiers (Token.Error), decimals,
+# ellipses, and common abbreviations do not count
+_SENTENCE_END_RE = re.compile(r"[.!?。!?]+(?=\s+[A-Z0-9\"'`(]|\s*$)")
+
+
 def _sentence_count(text: str) -> int:
-    return len([s for s in re.split(r"[.!?。!?]+", text.strip()) if s.strip()])
+    stripped = _CODE_SPAN_RE.sub(" ", text)
+    stripped = _ABBREV_RE.sub(" ", stripped).strip()
+    if not stripped:
+        return 0
+    return max(1, len(_SENTENCE_END_RE.findall(stripped)))
 
 
 def validate_finding(raw: dict[str, Any], diff: DiffInfo) -> tuple[Finding | None, str]:
@@ -82,7 +94,7 @@ def validate_finding(raw: dict[str, Any], diff: DiffInfo) -> tuple[Finding | Non
     claim = str(raw["claim"]).strip()
     if _sentence_count(claim) > 2:
         return None, "claim exceeds 2 sentences"
-    file = str(anchor["file"]).replace("\\", "/").lstrip("./")
+    file = norm_path(str(anchor["file"]))
     try:
         line = int(anchor["line"])
     except (TypeError, ValueError):

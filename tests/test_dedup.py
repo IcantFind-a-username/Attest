@@ -29,10 +29,32 @@ def test_far_lines_do_not_merge() -> None:
 
 
 def test_different_claims_do_not_merge() -> None:
-    a = _f("Division by zero when count is empty")
-    b = _f("SQL injection through unsanitized user input parameter")
+    a = _f(
+        "Division by zero when count is empty",
+        failure_scenario="calling stats() with an empty batch divides by zero",
+    )
+    b = _f(
+        "SQL injection through unsanitized user input parameter",
+        failure_scenario="attacker passes quoted payload into the name field",
+    )
     merged = merge_findings([[a], [b]])
     assert len(merged) == 2
+
+
+def test_same_line_weak_overlap_merges() -> None:
+    # regression from the first dogfood run: independent samples describe the
+    # same defect with very different wording but identical anchors
+    a = _f(
+        "Removing the wrapping breaks colorize when an Error occurs, causing a TypeError.",
+        failure_scenario="format a stream with error_color set; Error token raises TypeError",
+    )
+    b = _f(
+        "The new code passes raw bytes directly into colorize which concatenates str codes.",
+        failure_scenario="formatter with error_color hits an Error token and raises TypeError",
+    )
+    merged = merge_findings([[a], [b]])
+    assert len(merged) == 1
+    assert merged[0].votes == 2
 
 
 def test_repeat_mention_same_sample_not_double_voted() -> None:

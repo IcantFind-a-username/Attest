@@ -9,6 +9,7 @@ from attest.review.proposer import MockProvider, ProviderResult, build_prompt, p
 
 DIFF = parse_diff(
     """\
+diff --git a/app.py b/app.py
 --- a/app.py
 +++ b/app.py
 @@ -5,3 +5,4 @@

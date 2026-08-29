@@ -3,6 +3,7 @@ from attest.review.schema import validate_finding
 
 DIFF = parse_diff(
     """\
+diff --git a/app.py b/app.py
 --- a/app.py
 +++ b/app.py
 @@ -5,3 +5,4 @@
@@ -43,6 +44,18 @@ def test_three_sentence_claim_voids() -> None:
     f, reason = validate_finding(_raw(claim="One. Two. Three sentences here."), DIFF)
     assert f is None
     assert "2 sentences" in reason
+
+
+def test_code_spans_and_identifiers_not_counted_as_sentences() -> None:
+    # regression from the first dogfood run: dots inside backtick code spans,
+    # identifiers like Token.Error, and ellipses must not inflate the count
+    claim = (
+        '`colorize(color_key, text)` computes `codes[color_key] + text + codes["reset"]`, '
+        'but the diff now passes `line`, which is `bytes` (`b"%r\\t%r\\n" % (...)`), and '
+        "Token.Error handling breaks. This raises a TypeError instead of colorized output."
+    )
+    f, reason = validate_finding(_raw(claim=claim), DIFF)
+    assert f is not None, reason
 
 
 def test_anchor_outside_hunk_voids() -> None:
