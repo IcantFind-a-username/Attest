@@ -84,6 +84,13 @@ def test_review_verify_feedback_stats(repo: Path, mocks: list[str], capsys) -> N
     assert reviews[0]["action"] == "drawer"
     assert reviews[0]["channels_bought"] == ["S"]
     finding_id = reviews[0]["finding_id"]
+    # CandidateStore must skip malformed legacy/corrupt rows so a valid stored
+    # candidate remains verifiable.
+    candidates_path = repo / ".attest" / "candidates.jsonl"
+    candidates_path.write_text(
+        '{"task_id": "incomplete"}\n' + candidates_path.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
 
     # --- verify: reproduction pushes wealth past the gate
     rc = main(

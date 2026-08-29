@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from attest.review.budget import Budget
+from attest.review.budget import Budget, BudgetExceeded
 from attest.review.config import ReviewConfig
 from attest.review.dedup import merge_findings
 from attest.review.diffs import DiffInfo
@@ -113,10 +113,16 @@ def propose(
     """K parallel samples -> validate four-piece schema -> merge into candidates."""
     prompt = build_prompt(diff)
     k = config.k_samples
-    reservations = [
-        budget.reserve(f"sample-{i}", len(SYSTEM_PROMPT) + len(prompt), MAX_OUTPUT_TOKENS)
-        for i in range(k)
-    ]
+    reservations: list[float] = []
+    try:
+        for i in range(k):
+            reservations.append(
+                budget.reserve(f"sample-{i}", len(SYSTEM_PROMPT) + len(prompt), MAX_OUTPUT_TOKENS)
+            )
+    except BudgetExceeded:
+        for reservation in reservations:
+            budget.cancel(reservation)
+        raise
 
     def one(i: int) -> ProviderResult | Exception:
         try:

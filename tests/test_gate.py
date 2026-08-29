@@ -1,4 +1,5 @@
-from attest.review.gate import apply_gate, evaluate_finding
+from attest.review.channels import ChannelPurchase
+from attest.review.gate import GateResult, apply_gate, apply_verification, evaluate_finding
 from attest.review.schema import Finding
 from attest.review.tier0 import Tier0Signal
 
@@ -83,3 +84,47 @@ def test_apply_gate_splits_actions() -> None:
     outcome = apply_gate([surface, drawer], max_findings=3)
     assert outcome.formal == [surface]
     assert outcome.drawer == [drawer]
+
+
+def test_apply_verification_reproduced_surfaces_with_one_v_purchase() -> None:
+    result = GateResult(
+        finding=_f(2),
+        wealth=2.6390158215457884,
+        purchases=[ChannelPurchase("S", 2.6390158215457884, "2 of K samples assert")],
+        decision=None,
+    )
+
+    verified = apply_verification(result, alpha=0.1, reproduced=True)
+
+    assert verified.wealth == 52.78031643091577
+    assert verified.action == "surface"
+    assert [purchase.channel for purchase in verified.purchases] == ["S", "V"]
+
+
+def test_apply_verification_failed_reproduction_leaves_drawer() -> None:
+    result = GateResult(
+        finding=_f(2),
+        wealth=2.6390158215457884,
+        purchases=[ChannelPurchase("S", 2.6390158215457884, "2 of K samples assert")],
+        decision=None,
+    )
+
+    verified = apply_verification(result, alpha=0.1, reproduced=False)
+
+    assert verified.wealth == 1.3195079107728942
+    assert verified.action == "drawer"
+
+
+def test_apply_verification_does_not_mutate_the_input_result() -> None:
+    result = GateResult(
+        finding=_f(2),
+        wealth=2.6390158215457884,
+        purchases=[ChannelPurchase("S", 2.6390158215457884, "2 of K samples assert")],
+        decision=None,
+    )
+
+    apply_verification(result, alpha=0.1, reproduced=True)
+
+    assert result.wealth == 2.6390158215457884
+    assert result.decision is None
+    assert [purchase.channel for purchase in result.purchases] == ["S"]
