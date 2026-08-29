@@ -29,16 +29,33 @@ finding is a wager, evidence purchases multiply a wealth process, and **only the
 wealth threshold decides who speaks** — surface at wealth ≥ 1/alpha, discard at
 ≤ alpha, drawer otherwise. No vote counting, no self-reported confidence scores.
 
-## Current state (2026-08-29)
+## Current state (2026-08-29 continuation handoff)
 
-- `main` @ `71db3f4` (tracked files clean). Phases 0–2 complete, including
-  live-API validation (real review in 11.1s wall clock, $0.04; negative control
-  silent; V-channel refutation path exercised on real data). An
-  `ANTHROPIC_API_KEY` exists as a user-level environment variable on this
-  machine (new terminals inherit it; long-running processes may need
-  `[Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY','User')`).
-- 128 tests green, coverage 98% (core 100%), ruff + mypy clean.
-- Owner has approved continuing. Current work: **Phase 3** (see Roadmap).
+- Active development branch: `feature/real-data-evaluation`. The reviewed code
+  baseline is `0e2172d`; do not restart from `main` or recreate the benchmark.
+  Read `docs/real-data-evaluation-status.md` and
+  `docs/superpowers/plans/2026-08-29-real-data-evaluation.md` before changing
+  code.
+- Phases 0–3 are implemented locally. Phase-3 local gates and independent
+  review passed, but the private-remote live acceptance was not run from this
+  process because no model API key was available. Never turn that missing run
+  into a success claim.
+- Real-data evaluation Tasks 1–3 are complete and independently reviewed:
+  terminal CI decisions are preserved; strict benchmark schema/matching/metrics
+  exist; and a metadata-only BugsInPy adapter plus fail-closed corpus validator
+  are committed. The frozen pilot contains 20 pairs / 40 cases / 4 projects,
+  with 38 eligible pairs and 463 recorded exclusions.
+- The pilot has **no real validation receipt yet**: upstream environments have
+  not been materialized and the 3x fixed-PASS / 3x buggy-FAIL oracle has not run.
+  Therefore there is no defensible product precision/recall result yet. Tasks
+  4–8 remain; Task 4 (differential product V) is the next implementation task.
+- The fresh handoff gate at the reviewed code baseline is 390 tests with
+  92.18% total coverage; the focused core gate is 60 tests with 99.77%
+  coverage; ruff and mypy (38 source files) are clean. Re-run the gates locally
+  before making a later completion claim.
+- The earlier core live-API record remains in `DEVSPEND.md` ($0.1526 total).
+  This real-data branch made no paid model call, remote mutation, or third-party
+  write.
 
 ## Ground rules (non-negotiable)
 
@@ -87,6 +104,27 @@ wealth threshold decides who speaks** — surface at wealth ≥ 1/alpha, discard
 8. **Stop and ask the owner** before: changing any factory statistical constant
    (default alpha, channel caps, LR schedules), anything that touches a red
    line below, any remote/publish action, or exceeding the spend cap.
+
+## Continuation priorities
+
+1. Implement Task 4 with strict TDD: positive `VERIFIED` requires the same
+   generated test to fail on immutable head and pass on immutable base. A test
+   that fails on both sides is unfaithful and DEFERs; it buys no V evidence.
+2. Then expose the generic project evaluation API in Task 5. Corpus-specific
+   adapters must remain outside the evaluator core, and scoring must require a
+   manifest-digest-bound validation receipt.
+3. Task 6 measures one preregistered real diff ten times and compares three
+   arms (Attest, same-provider bare prompt, local Ruff baseline). Report
+   precision, silence precision, silence rate, decision stability, wealth
+   variance, latency, and spend; repeats do not enlarge accuracy denominators.
+4. Rewrite the README positioning only after differential V is implemented:
+   lead with “no differential reproduction, no published finding”; keep the
+   betting engine as an implementation detail and do not claim unmeasured
+   accuracy or stability.
+5. S/T-as-ranking with V-only certification, T neutralization, thin-cell LR
+   shrinkage, and monitor intervention remain experiment-only proposals. They
+   touch factory statistics/red lines and require an explicit owner decision;
+   fewer than 500 global labels cannot justify a production recalibration.
 
 ## Architecture red lines (audit-derived; violating one = rework)
 
