@@ -7,8 +7,11 @@ settled decisions (they live in DECISIONS.md with reversal conditions).
 
 ## Where this project lives (read first)
 
-- **Working directory: `C:\Users\user\Desktop\attest`** — this repository, the
-  one containing this file. It already holds phases 0–2 (9 commits, 128 tests).
+- **Working directory: the checkout containing this file.** The owner's
+  primary checkout is `/Users/franz/Documents/Attest` (macOS); earlier work
+  happened in `C:\Users\user\Desktop\attest` (Windows) and in dated agent
+  sandboxes. The path is machine-dependent — the invariant is that there is
+  exactly one working checkout per machine, tracking the `origin` below.
   **Never create a second attest project elsewhere**; never scaffold from
   scratch. If you find yourself running `git init` or `mkdir attest`, stop:
   you are in the wrong place.
