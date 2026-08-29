@@ -5,6 +5,17 @@ repository. It is self-contained: everything needed to continue development is
 here or in files referenced by relative path. Follow it exactly; do not re-open
 settled decisions (they live in DECISIONS.md with reversal conditions).
 
+## Where this project lives (read first)
+
+- **Working directory: `C:\Users\user\Desktop\attest`** — this repository, the
+  one containing this file. It already holds phases 0–2 (9 commits, 128 tests).
+  **Never create a second attest project elsewhere**; never scaffold from
+  scratch. If you find yourself running `git init` or `mkdir attest`, stop:
+  you are in the wrong place.
+- **Remote: `origin` → https://github.com/IcantFind-a-username/Attest.git**,
+  already configured, `main` pushed and tracking. Push feature work here;
+  the no-public-release rule (ground rule 3) still governs PyPI/Marketplace.
+
 ## What this project is
 
 **attest** — fast, precise, evidence-first AI code review
@@ -47,14 +58,15 @@ wealth threshold decides who speaks** — surface at wealth ≥ 1/alpha, discard
    `C:\Users\user\Desktop\attest-seed` are research archives. Never modify,
    never commit there, never "fix" anything in them. (They may be absent in a
    sandboxed environment; they are not needed to build.)
-3. **Remotes: private-for-testing allowed, public forbidden.** Owner has
-   authorized (2026-08-29) creating **private** GitHub repositories under the
-   owner's account solely for automated acceptance testing (the attest mirror
-   and scratch test repos), pushing to them, and setting the
-   `ANTHROPIC_API_KEY` secret on them via `gh secret set` piped from the
-   environment (never echo the value). Anything public — public repos, PyPI,
-   Marketplace, issues/PRs on repos the owner doesn't own — remains forbidden
-   without a new explicit owner instruction.
+3. **Remotes: `origin` plus private test repos allowed; public release
+   forbidden.** `origin` (above) is the owner's own repository — push branches
+   and `main` there normally. Owner has also authorized (2026-08-29) creating
+   **private** GitHub repos under the owner's account for automated acceptance
+   testing (scratch repos), pushing to them, and setting the
+   `ANTHROPIC_API_KEY` secret via `gh secret set` piped from the environment
+   (never echo the value). Still forbidden without a new owner instruction:
+   publishing to PyPI or the Actions Marketplace, changing `origin`'s
+   visibility, and any interaction with repositories the owner does not own.
 4. **Spend**: development API budget is **$10 total**; log every call in
    `DEVSPEND.md` (failed $0 calls noted as such). Never print or echo API keys;
    verify presence by length/prefix only. The product's per-PR budget knob is
@@ -173,14 +185,13 @@ Settled design points (do not re-derive):
      if neither auth path exists, stop and ask for exactly that.
   2. Build locally first: unit + integration tests with a mocked GitHub API
      all green.
-  3. Create **private** repos under the owner's account: push this repo to a
-     private `attest` mirror; create a private scratch repo seeded with a
-     small real Python project.
-  4. In the scratch workflow, obtain the action via `actions/checkout` of the
-     private mirror (`repository:` + token) into a subdirectory, then
-     `uses: ./<subdir>` — avoids cross-repo private action sharing issues.
-     Set `ANTHROPIC_API_KEY` as a repo secret via `gh secret set` (piped from
-     env, never printed).
+  3. Create a **private scratch repo** under the owner's account, seeded with
+     a small real Python project. (No mirror needed — `origin` already exists.)
+  4. In the scratch workflow, obtain the action by `actions/checkout` of
+     `origin` (`repository: IcantFind-a-username/Attest` + token) into a
+     subdirectory, then `uses: ./<subdir>` — this works regardless of
+     `origin`'s visibility. Set `ANTHROPIC_API_KEY` as a scratch-repo secret
+     via `gh secret set` (piped from env, never printed).
   5. Drive the test matrix programmatically: PR #1 planted real bug
      (reintroduce a fixed crash), PR #2 negative control (clean refactor).
      Poll with `gh run watch`; assert via API.
