@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
+import signal
+import time
+import tracemalloc
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -9,7 +13,10 @@ import pytest
 
 from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
+from attest.review.channels import ChannelPurchase
 from attest.review.config import load_pricing
+from attest.review.gate import GateResult
+from attest.review.ledger import Ledger
 from attest.review.proposer import ProviderResult
 from attest.review.schema import Finding
 
@@ -59,6 +66,25 @@ def write_anchor_file(repo: Path, lines: int = 300) -> None:
     path = repo / "pkg" / "example.py"
     path.parent.mkdir(parents=True)
     path.write_text("".join(f"line_{number} = {number}\n" for number in range(1, lines + 1)))
+
+
+def process_exists(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def original_gate(stored: StoredCandidate) -> GateResult:
+    return GateResult(
+        finding=stored.finding,
+        wealth=stored.wealth,
+        purchases=[ChannelPurchase("S", 2.0, "existing evidence")],
+        decision=None,
+    )
 
 
 def test_generate_uses_literal_schema_and_candidate_details(tmp_path: Path) -> None:
@@ -312,6 +338,49 @@ def test_execute_timeout_is_deferred(tmp_path: Path) -> None:
     assert result.elapsed_s < 2.0
 
 
+@pytest.mark.skipif(os.name != "posix", reason="PID liveness assertion uses POSIX signals")
+def test_execute_timeout_terminates_spawned_child_process(tmp_path: Path) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_repro,
+    )
+
+    pid_path = tmp_path / "spawned-child.pid"
+    result = execute_repro(
+        tmp_path,
+        candidate(line=1),
+        ReproSpec(
+            "import subprocess\n"
+            "import sys\n"
+            "import time\n"
+            "from pathlib import Path\n"
+            "def test_repro():\n"
+            "    child = subprocess.Popen(\n"
+            "        [sys.executable, '-c', 'import time; time.sleep(30)'],\n"
+            "        stdin=subprocess.DEVNULL,\n"
+            "        stdout=subprocess.DEVNULL,\n"
+            "        stderr=subprocess.DEVNULL,\n"
+            "    )\n"
+            "    Path('spawned-child.pid').write_text(str(child.pid))\n"
+            "    time.sleep(30)\n"
+        ),
+        ExecutorLimits(wall_timeout_s=0.8),
+    )
+
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    child_pid = int(pid_path.read_text(encoding="utf-8"))
+    alive = process_exists(child_pid)
+    deadline = time.monotonic() + 2.0
+    while alive and time.monotonic() < deadline:
+        time.sleep(0.02)
+        alive = process_exists(child_pid)
+    if alive:
+        os.kill(child_pid, signal.SIGKILL)
+    assert not alive
+
+
 def test_execute_non_python_anchor_is_deferred_without_artifacts(tmp_path: Path) -> None:
     from attest.review.executor import (
         ExecutionOutcome,
@@ -353,6 +422,39 @@ def test_execute_unsafe_task_identity_is_deferred_without_path_escape(tmp_path: 
     assert not (tmp_path / "escaped").exists()
 
 
+def test_execute_resolves_relative_repository_before_building_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_repro,
+    )
+
+    repo = tmp_path / "relative-repo"
+    repo.mkdir()
+    monkeypatch.chdir(tmp_path)
+    stored = candidate(line=1)
+
+    result = execute_repro(
+        Path("relative-repo"),
+        stored,
+        ReproSpec("def test_repro(): assert True"),
+        ExecutorLimits(),
+    )
+
+    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert (
+        repo
+        / ".attest"
+        / "repro"
+        / stored.task_id
+        / stored.finding.finding_id
+        / "test_repro.py"
+    ).is_file()
+
+
 def test_execute_truncates_each_output_stream_to_last_bytes(tmp_path: Path) -> None:
     from attest.review.executor import ExecutorLimits, ReproSpec, execute_repro
 
@@ -374,6 +476,40 @@ def test_execute_truncates_each_output_stream_to_last_bytes(tmp_path: Path) -> N
     assert not result.stdout.startswith("A" * 128)
 
 
+def test_execute_high_volume_output_uses_bounded_parent_memory(tmp_path: Path) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_repro,
+    )
+
+    tracemalloc.start()
+    tracemalloc.reset_peak()
+    try:
+        result = execute_repro(
+            tmp_path,
+            candidate(line=1),
+            ReproSpec(
+                "import os\n"
+                "def test_repro():\n"
+                "    for _ in range(128):\n"
+                "        os.write(1, b'A' * 65536)\n"
+                "        os.write(2, b'B' * 65536)\n"
+                "    assert False\n"
+            ),
+            ExecutorLimits(wall_timeout_s=10.0, output_bytes=256),
+        )
+        _, peak_bytes = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED
+    assert len(result.stdout.encode("utf-8")) <= 256
+    assert len(result.stderr.encode("utf-8")) <= 256
+    assert peak_bytes < 4_000_000
+
+
 def test_execute_blocks_socket_connections_with_sitecustomize(tmp_path: Path) -> None:
     from attest.review.executor import (
         ExecutionOutcome,
@@ -387,8 +523,10 @@ def test_execute_blocks_socket_connections_with_sitecustomize(tmp_path: Path) ->
         candidate(line=1),
         ReproSpec(
             "import socket\n"
+            "import sys\n"
             "import pytest\n"
             "def test_repro():\n"
+            "    assert sys.flags.safe_path\n"
             "    with pytest.raises(PermissionError, match='network disabled'):\n"
             "        socket.create_connection(('127.0.0.1', 9))\n"
         ),
@@ -398,3 +536,161 @@ def test_execute_blocks_socket_connections_with_sitecustomize(tmp_path: Path) ->
     assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
     assert result.exit_code == 0
     assert result.network_blocked is True
+
+
+def test_execute_repository_sitecustomize_cannot_shadow_network_guard(tmp_path: Path) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_repro,
+    )
+
+    (tmp_path / "sitecustomize.py").write_text(
+        "import socket\nsocket.create_connection = lambda *args, **kwargs: None\n",
+        encoding="utf-8",
+    )
+    result = execute_repro(
+        tmp_path,
+        candidate(line=1),
+        ReproSpec(
+            "import socket\n"
+            "import sys\n"
+            "import pytest\n"
+            "def test_repro():\n"
+            "    assert sys.flags.safe_path\n"
+            "    with pytest.raises(PermissionError, match='network disabled'):\n"
+            "        socket.create_connection(('127.0.0.1', 9))\n"
+        ),
+        ExecutorLimits(),
+    )
+
+    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert result.network_blocked is True
+
+
+def test_execute_reports_network_unblocked_when_process_never_starts(tmp_path: Path) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_repro,
+    )
+
+    repo_file = tmp_path / "not-a-repository"
+    repo_file.write_text("not a directory", encoding="utf-8")
+    result = execute_repro(
+        repo_file,
+        candidate(line=1),
+        ReproSpec("def test_repro(): assert False"),
+        ExecutorLimits(),
+    )
+
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.network_blocked is False
+
+
+@pytest.mark.parametrize(
+    ("test_body", "outcome", "wealth", "detail"),
+    [
+        (
+            "def test_repro():\n    assert False",
+            "reproduced",
+            160.0,
+            "reproduced",
+        ),
+        (
+            "def test_repro():\n    assert True",
+            "not_reproduced",
+            4.0,
+            "reproduction failed",
+        ),
+    ],
+)
+def test_verify_candidate_applies_only_conclusive_evidence_and_records_it(
+    tmp_path: Path,
+    test_body: str,
+    outcome: str,
+    wealth: float,
+    detail: str,
+) -> None:
+    from attest.review.executor import ExecutorLimits, verify_candidate
+
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        tmp_path,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+    )
+
+    assert verification.execution.outcome.value == outcome
+    assert verification.gate_result is not gate
+    assert verification.gate_result.wealth == wealth
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S", "V"]
+    assert verification.gate_result.purchases[-1].detail == detail
+    row = Ledger(tmp_path).entries()[-1]
+    assert row["kind"] == "verification"
+    assert row["task_id"] == stored.task_id
+    assert row["finding_id"] == stored.finding.finding_id
+    assert row["outcome"] == outcome
+    assert row["evidence"]
+
+
+@pytest.mark.parametrize(
+    ("stored", "provider_result", "reason_fragment"),
+    [
+        (
+            candidate(line=1),
+            ProviderResult(text="{}", input_tokens=2, output_tokens=3),
+            "generator output",
+        ),
+        (candidate(line=1), RuntimeError("provider down"), "provider down"),
+        (
+            candidate(file="pkg/example.js", line=1),
+            ProviderResult(
+                text='{"test_body":"def test_repro(): assert False"}',
+                input_tokens=2,
+                output_tokens=3,
+            ),
+            "unsupported anchor language",
+        ),
+    ],
+)
+def test_verify_candidate_defers_failures_without_buying_v_evidence(
+    tmp_path: Path,
+    stored: StoredCandidate,
+    provider_result: ProviderResult | Exception,
+    reason_fragment: str,
+) -> None:
+    from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
+
+    gate = original_gate(stored)
+    verification = verify_candidate(
+        tmp_path,
+        stored,
+        gate,
+        RecordingProvider(provider_result),
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+    )
+
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert reason_fragment in verification.execution.reason
+    assert verification.gate_result is gate
+    assert [purchase.channel for purchase in gate.purchases] == ["S"]
+    row = Ledger(tmp_path).entries()[-1]
+    assert row["kind"] == "verification"
+    assert row["task_id"] == stored.task_id
+    assert row["finding_id"] == stored.finding.finding_id
+    assert row["outcome"] == "deferred"
+    assert reason_fragment in row["reason"]
