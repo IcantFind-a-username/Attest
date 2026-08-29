@@ -10,8 +10,12 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-08-29 | pygments live review, K=5 (surfaced the RawTokenFormatter crash; 11.1s) | $0.0402 |
 | 2026-08-29 | corum live review, K=5 (negative control; drawer candidate refuted via verify; 20.4s) | $0.1124 |
 | 2026-08-30 | live key validation smoke test (15 in / 4 out, default model) | $0.0001 |
+| 2026-08-30 | differential-V live validation: regression review K=5 (7.4s, 2 drawer candidates) | $0.0281 |
+| 2026-08-30 | differential-V live validation: 2 differential verifications, both head FAIL 3/3 + base PASS 3/3 | $0.0091 |
+| 2026-08-30 | negative control review K=5 on a semantics-preserving refactor (0 candidates, 3.8s) | $0.0119 |
+| 2026-08-30 | adversarial fabricated-finding verification (not reproduced; wealth 2.95 -> 1.48) | $0.0018 |
 
-**Total API spend: $0.1527 of $10.00.**
+**Total API spend: $0.2036 of $10.00.**
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 
