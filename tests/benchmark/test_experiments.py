@@ -19,38 +19,73 @@ import pytest
 
 from attest.benchmark.experiments import (
     ASSUMED_SCHEDULE,
+    CANARY_CONFIGURATION,
     DEFAULT_GAMMAS,
     DEFAULT_NULL_ASSUMPTIONS,
     DEFAULT_NULL_GAMMAS,
+    DEFAULT_NULL_GRID_ALPHAS,
+    DEFAULT_NULL_GRID_LENGTHS,
+    DEFAULT_NULL_GRID_PANEL_GAMMAS,
+    DEFAULT_NULL_GRID_SEEDS,
     DEFAULT_SEEDS,
+    DEFAULT_TWO_LEDGER_ALPHAS,
+    DEFAULT_TWO_LEDGER_ASSUMPTIONS,
     DEFAULT_VILLE_ALPHAS,
     DISCOUNTED_ARM,
     FACTORY_ALPHAS,
+    FACTORY_LEDGER_ARM,
     FULL_CHANNELS,
+    HEALTHY_CONFIGURATION,
+    MONITOR_POLICIES,
     NAIVE_ARM,
+    NULL_GRID_ACCURACIES,
     ORACLE_SCHEDULE,
+    OUTCOME_NO_PURCHASE,
+    OUTCOME_NOT_REPRODUCED,
+    OUTCOME_REPRODUCED,
+    POLICY_EXPLORATION_RECOVERY,
+    POLICY_LEDGER_ONLY,
+    POLICY_QUARANTINE,
     PRODUCTION_ARM,
+    TWO_LEDGER_ARM,
     TWO_SIDED_ARM,
     VOTES_ONLY,
+    CandidateRecord,
     NullAssumptions,
+    TwoLedgerAssumptions,
+    arm_decisions,
     calibrated_vote_accuracy,
     clone_rate_for_pairwise_correlation,
     discount_speech_window,
+    factory_terminal_wealth,
+    make_canary_stream,
+    make_null_stream,
     mean_pairwise_correlation,
     measure_channel_e_validity,
     measure_ville_bound,
     measured_pairwise_correlation,
     naive_votes_lr,
+    optimism_alarm_judges,
     oracle_panel_lr,
     panel_vote_distribution,
     run_e_validity_experiment,
+    run_monitor_policy_experiment,
+    run_null_grid,
+    run_policy_stream,
     run_rho_ablation,
+    run_two_ledger_experiment,
     schedule_oracle_mismatch,
     shared_speech_alpha,
     simulate_panel,
+    st_priority,
+    synthesize_candidate_records,
+    two_ledger_certification_wealth,
     two_sided_votes_lr,
     verification_e_validity_ceiling,
 )
+from attest.core.engine import Engine, EngineConfig
+from attest.core.monitor import WinnersCurseMonitor
+from attest.core.stream import make_stream
 from attest.review.channels import (
     LR1,
     RHO,
@@ -1360,6 +1395,965 @@ def test_evalue_cli_rejects_an_invalid_configuration(tmp_path: Path) -> None:
             "--alphas",
             "0.4",
             "--verification-reproduce-rate",
+            "1.4",
+            "--tasks",
+            "100",
+            "--seeds",
+            "11",
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert code == 2
+    assert not output.exists()
+
+
+# ===========================================================================
+# Task 8 remainder, experiment A: multi-seed null grids on the REAL core
+# engine. These tests pin the protocol — the null stream construction, the
+# use of the shipped Engine, determinism, and the reporting contract — never
+# a hand-picked zero-error seed.
+# ===========================================================================
+
+
+_GRID_SEEDS = (11, 22)
+
+
+def _null_grid(**overrides: Any) -> Any:
+    kwargs: dict[str, Any] = {
+        "alphas": (0.1, 0.2),
+        "stream_lengths": (300,),
+        "panel_gammas": (0.0, 0.9),
+        "seeds": _GRID_SEEDS,
+    }
+    kwargs.update(overrides)
+    return run_null_grid(**kwargs)
+
+
+def _grid_cell(report: Any, gamma: float, alpha: float, length: int) -> Any:
+    for cell in report.cells:
+        if (cell.clone_gamma, cell.alpha, cell.stream_length) == (gamma, alpha, length):
+            return cell
+    raise AssertionError("missing null-grid cell")
+
+
+def test_null_stream_is_make_streams_draw_under_a_null_truth() -> None:
+    """The null stream must be the REAL make_stream draw, re-expressed with a
+    null ground truth: each judge's per-task agreement is preserved exactly, so
+    the verdict is the original XOR the original truth, and the clone edge
+    between B and C survives the transformation."""
+    acc_a, acc_b, acc_c = NULL_GRID_ACCURACIES
+    stream = make_stream(acc_a, acc_b, acc_c, 0.9, seed=11, n=300, warmup=0)
+    null = make_null_stream(acc_a, acc_b, acc_c, 0.9, seed=11, n=300)
+
+    assert (null.theta == 0).all()
+    for judge in ("A", "B", "C"):
+        assert (
+            null.verdicts[judge] == np.bitwise_xor(stream.verdicts[judge], stream.theta)
+        ).all()
+
+    cloned = make_null_stream(acc_a, acc_b, acc_c, 1.0, seed=11, n=300)
+    assert (cloned.verdicts["C"] == cloned.verdicts["B"]).all()
+
+
+def test_null_grid_report_is_deterministic() -> None:
+    first = _null_grid()
+    second = _null_grid()
+    shifted = _null_grid(seeds=(11, 23))
+
+    assert first.digest == second.digest
+    assert len(first.digest) == 64
+    assert first.to_json_dict() == second.to_json_dict()
+    assert first.digest != shifted.digest
+
+    payload = first.to_json_dict()
+    digest = payload.pop("digest")
+    assert digest == first.digest
+    assert json.dumps(payload, sort_keys=True)
+
+
+def test_null_grid_runs_the_real_core_engine() -> None:
+    """Protocol pin: a per-seed row must be exactly what the shipped Engine
+    produces on the same null stream with the same engine seed. If the harness
+    forked the engine, this equality would be the first thing to break."""
+    report = _null_grid(alphas=(0.1,), panel_gammas=(0.0,), stream_lengths=(300,))
+    cell = _grid_cell(report, 0.0, 0.1, 300)
+
+    acc_a, acc_b, acc_c = NULL_GRID_ACCURACIES
+    stream = make_null_stream(acc_a, acc_b, acc_c, 0.0, seed=11, n=300)
+    engine = Engine(EngineConfig(alpha=0.1, seed=11))
+    results = engine.run_stream(stream)
+    surfaced = sum(1 for _, res in results if res.decision == 1)
+    discarded = sum(1 for _, res in results if res.decision == 0)
+    spend = sum(sum(res.spend.values()) for _, res in results)
+
+    row = next(row for row in cell.per_seed if row.seed == 11)
+    assert row.tasks == 300
+    assert row.certifications == surfaced
+    assert row.wrong_certifications == surfaced
+    assert row.discards == discarded
+    assert row.abstentions == 300 - surfaced - discarded
+    assert row.total_spend == pytest.approx(spend)
+    assert set(row.alarm_kinds) <= {"winners_curse_optimism", "spend_share_drift"}
+
+
+def test_null_grid_covers_every_preregistered_axis_and_seed() -> None:
+    report = _null_grid()
+
+    assert len(report.cells) == 2 * 2 * 1
+    labels = [cell.label for cell in report.cells]
+    assert len(set(labels)) == len(labels)
+    for cell in report.cells:
+        assert tuple(row.seed for row in cell.per_seed) == _GRID_SEEDS
+        assert sum(row.tasks for row in cell.per_seed) == cell.tasks
+        assert sum(row.certifications for row in cell.per_seed) == cell.certifications
+        assert (
+            sum(row.wrong_certifications for row in cell.per_seed)
+            == cell.wrong_certifications
+        )
+        assert sum(row.abstentions for row in cell.per_seed) == cell.abstentions
+        assert cell.panel == ("independent" if cell.clone_gamma == 0.0 else "correlated")
+
+
+def test_null_grid_reports_rates_intervals_and_alarm_kinds() -> None:
+    report = _null_grid()
+
+    for cell in report.cells:
+        assert cell.wrong_certifications == cell.certifications
+        assert cell.wrong_certification_rate_per_task == pytest.approx(
+            cell.wrong_certifications / cell.tasks
+        )
+        interval = cell.wrong_certification_interval_per_task
+        assert interval is not None
+        low, high = interval
+        assert 0.0 <= low <= cell.wrong_certification_rate_per_task <= high <= 1.0
+        assert set(cell.alarm_kinds_fired) <= {
+            "winners_curse_optimism",
+            "spend_share_drift",
+        }
+        assert cell.runs == len(_GRID_SEEDS)
+        assert 0 <= cell.runs_with_any_alarm <= cell.runs
+        assert cell.abstention_rate == pytest.approx(cell.abstentions / cell.tasks)
+
+
+def test_null_grid_defaults_match_the_preregistered_protocol() -> None:
+    """The defaults are the preregistration: three alphas including both
+    factory gates, independent and correlated panels, several lengths, and
+    twenty seeds — not one favourable configuration."""
+    assert DEFAULT_NULL_GRID_ALPHAS == (0.05, 0.1, 0.2)
+    assert set(FACTORY_ALPHAS) <= set(DEFAULT_NULL_GRID_ALPHAS)
+    assert 0.0 in DEFAULT_NULL_GRID_PANEL_GAMMAS
+    assert any(gamma > 0.5 for gamma in DEFAULT_NULL_GRID_PANEL_GAMMAS)
+    assert len(DEFAULT_NULL_GRID_LENGTHS) >= 2
+    assert len(DEFAULT_NULL_GRID_SEEDS) == 20
+    assert len(set(DEFAULT_NULL_GRID_SEEDS)) == 20
+
+
+def test_null_grid_declares_its_honesty_and_provenance() -> None:
+    report = _null_grid()
+    payload = report.to_json_dict()
+    notes = " ".join(report.honesty)
+
+    assert report.status == "insufficient_labels/recommendation_only"
+    assert report.offline is True
+    assert "null-only" in notes
+    assert "synthetic" in notes
+    assert "500" in notes
+    assert "no_seed_selection" in notes
+
+    external = report.derived["prior_external_measurement"]
+    assert external["independently_reproduced"] is False
+    assert "owner-provided" in external["note"]
+
+    monitor = WinnersCurseMonitor()
+    constants = payload["constants"]
+    assert constants["monitor"]["window"] == monitor.window
+    assert constants["monitor"]["optimism_threshold"] == monitor.optimism_threshold
+    assert constants["monitor"]["drift_threshold"] == monitor.drift_threshold
+    engine_defaults = EngineConfig()
+    assert constants["engine"]["variant"] == engine_defaults.variant
+    assert constants["engine"]["tau"] == engine_defaults.tau
+    assert constants["engine"]["cell_target"] == engine_defaults.cell_target
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"alphas": ()},
+        {"alphas": (0.0,)},
+        {"alphas": (1.0,)},
+        {"stream_lengths": ()},
+        {"stream_lengths": (0,)},
+        {"panel_gammas": ()},
+        {"panel_gammas": (1.5,)},
+        {"seeds": ()},
+        {"seeds": (1, 1)},
+        {"accuracies": (0.8, 0.75)},
+        {"accuracies": (0.8, 0.75, 1.5)},
+        {"alarm_poll_every": 0},
+    ],
+)
+def test_null_grid_rejects_an_invalid_configuration(override: dict[str, Any]) -> None:
+    with pytest.raises(ValueError):
+        _null_grid(**override)
+
+
+def test_null_grid_cli_writes_deterministic_offline_json(tmp_path: Path) -> None:
+    cli = _cli()
+    first = tmp_path / "first.json"
+    second = tmp_path / "second.json"
+    argv = [
+        "experiment-nullgrid",
+        "--alphas",
+        "0.1",
+        "--lengths",
+        "200",
+        "--panel-gammas",
+        "0.0",
+        "0.9",
+        "--seeds",
+        "11",
+        "22",
+    ]
+
+    assert cli.main([*argv, "--output", str(first)]) == 0
+    assert cli.main([*argv, "--output", str(second)]) == 0
+
+    assert first.read_bytes() == second.read_bytes()
+    payload = json.loads(first.read_text(encoding="utf-8"))
+    assert payload["offline"] is True
+    assert payload["status"] == "insufficient_labels/recommendation_only"
+    assert payload["experiment"] == "core_engine_null_grid"
+    assert len(payload["cells"]) == 2
+
+
+def test_null_grid_cli_rejects_an_invalid_configuration(tmp_path: Path) -> None:
+    cli = _cli()
+    output = tmp_path / "out.json"
+    code = cli.main(
+        [
+            "experiment-nullgrid",
+            "--alphas",
+            "1.5",
+            "--lengths",
+            "100",
+            "--panel-gammas",
+            "0.0",
+            "--seeds",
+            "11",
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert code == 2
+    assert not output.exists()
+
+
+# ===========================================================================
+# Task 8 remainder, experiment B: monitor intervention policies. The policy
+# driver must be the shipped engine loop with two reversible interventions
+# added; its ledger-only mode is pinned equal to the real Engine, and drift
+# alarms are never allowed to trigger a brake.
+# ===========================================================================
+
+
+_POLICY_SEEDS = (11, 22)
+
+
+def _policy_report(**overrides: Any) -> Any:
+    kwargs: dict[str, Any] = {
+        "alpha": 0.1,
+        "n_tasks": 600,
+        "seeds": _POLICY_SEEDS,
+    }
+    kwargs.update(overrides)
+    return run_monitor_policy_experiment(**kwargs)
+
+
+def _policy_cell(report: Any, configuration: str, policy: str) -> Any:
+    for cell in report.cells:
+        if (cell.configuration, cell.policy) == (configuration, policy):
+            return cell
+    raise AssertionError("missing policy cell")
+
+
+def _canary_stream(seed: int = 11, n: int = 1200) -> Any:
+    acc_a, acc_b, acc_c = NULL_GRID_ACCURACIES
+    return make_canary_stream(
+        acc_a,
+        acc_b,
+        acc_c,
+        0.0,
+        seed=seed,
+        n=n,
+        canary_accuracy=0.1,
+        shift=n // 2,
+    )
+
+
+def test_ledger_only_policy_reproduces_the_shipped_engine_exactly() -> None:
+    """Protocol pin, the experiment's licence to exist: with no intervention,
+    the policy driver and the real Engine must produce identical decisions,
+    wealth, exploration flags, and spend on the same stream and seed. The
+    driver is a rebuild of Engine.review_task (the same approach the Ville
+    section takes to gate.evaluate_finding), and this equality is what keeps
+    the rebuild honest."""
+    acc_a, acc_b, acc_c = NULL_GRID_ACCURACIES
+    stream = make_stream(acc_a, acc_b, acc_c, 0.0, seed=5, n=400, warmup=0)
+    engine = Engine(EngineConfig(alpha=0.1, seed=5))
+    results = engine.run_stream(stream)
+
+    run = run_policy_stream(stream, alpha=0.1, policy=POLICY_LEDGER_ONLY, engine_seed=5)
+
+    assert run.policy == POLICY_LEDGER_ONLY
+    assert list(run.decisions) == [res.decision for _, res in results]
+    for ours, (_, theirs) in zip(run.wealth, results, strict=True):
+        assert ours == pytest.approx(theirs.wealth)
+    assert list(run.explored) == [res.explored for _, res in results]
+    assert list(run.orders) == [tuple(res.order) for _, res in results]
+    assert sum(run.spend) == pytest.approx(
+        sum(sum(res.spend.values()) for _, res in results)
+    )
+    assert run.intervention_episodes == 0
+    assert not any(run.intervention_active)
+    assert not any(run.forced_exploration)
+
+
+def test_optimism_alarm_judges_ignores_spend_share_drift() -> None:
+    """D-004 separation: drift alone is never evidence of invalid evidence,
+    so the intervention trigger reads only winners_curse_optimism alarms."""
+    alarms = [
+        {"kind": "spend_share_drift", "judge": "A", "drift": 0.4},
+        {
+            "kind": "winners_curse_optimism",
+            "judge": "C",
+            "mean_realized_minus_estimated": -0.3,
+        },
+        {
+            "kind": "winners_curse_optimism",
+            "judge": "B",
+            "mean_realized_minus_estimated": -0.2,
+        },
+    ]
+
+    assert optimism_alarm_judges(alarms) == ("B", "C")
+    assert optimism_alarm_judges([alarms[0]]) == ()
+    assert optimism_alarm_judges([]) == ()
+
+
+def test_canary_stream_shifts_only_the_canary_judge_after_the_shift() -> None:
+    acc_a, acc_b, acc_c = NULL_GRID_ACCURACIES
+    healthy = make_stream(acc_a, acc_b, acc_c, 0.0, seed=11, n=1200, warmup=0)
+    canary = _canary_stream(seed=11, n=1200)
+
+    assert (canary.theta == healthy.theta).all()
+    assert (canary.verdicts["B"] == healthy.verdicts["B"]).all()
+    assert (canary.verdicts["C"] == healthy.verdicts["C"]).all()
+    assert (canary.verdicts["A"][:600] == healthy.verdicts["A"][:600]).all()
+    assert (canary.verdicts["A"][600:] != healthy.verdicts["A"][600:]).any()
+
+    post = canary.verdicts["A"][600:]
+    truth = canary.theta[600:]
+    agreement = float((post == truth).mean())
+    assert agreement < 0.2
+
+
+def test_interventions_trigger_exactly_when_an_optimism_alarm_is_active() -> None:
+    """Reversibility and the trigger, in one pin: the intervention is active on
+    precisely the tasks where the rolling window shows a winners_curse_optimism
+    alarm — it switches on with the alarm and off when the window clears, and
+    drift alarms never activate it."""
+    stream = _canary_stream()
+
+    quarantine = run_policy_stream(
+        stream, alpha=0.1, policy=POLICY_QUARANTINE, engine_seed=11
+    )
+    recovery = run_policy_stream(
+        stream, alpha=0.1, policy=POLICY_EXPLORATION_RECOVERY, engine_seed=11
+    )
+    ledger = run_policy_stream(
+        stream, alpha=0.1, policy=POLICY_LEDGER_ONLY, engine_seed=11
+    )
+
+    assert list(quarantine.intervention_active) == list(quarantine.optimism_active)
+    assert list(recovery.forced_exploration) == list(recovery.optimism_active)
+    assert list(recovery.intervention_active) == list(recovery.optimism_active)
+    assert not any(ledger.intervention_active)
+    assert any(quarantine.optimism_active)
+    assert quarantine.intervention_episodes >= 1
+
+
+def test_quarantine_removes_the_optimistic_judge_from_adaptive_purchases() -> None:
+    """The quarantined judge is never bought adaptively while the alarm is
+    active, but exploration tasks still buy every judge — that is what lets the
+    tables recover and the alarm clear, which makes the policy reversible."""
+    stream = _canary_stream()
+    run = run_policy_stream(stream, alpha=0.1, policy=POLICY_QUARANTINE, engine_seed=11)
+
+    quarantined_adaptive = [
+        index
+        for index in range(len(run.decisions))
+        if run.quarantined[index] and not run.explored[index]
+    ]
+    assert quarantined_adaptive
+    for index in quarantined_adaptive:
+        assert not set(run.orders[index]) & set(run.quarantined[index])
+
+    quarantined_explored = [
+        index
+        for index in range(len(run.decisions))
+        if run.quarantined[index] and run.explored[index]
+    ]
+    for index in quarantined_explored:
+        assert set(run.orders[index]) == {"A", "B", "C"}
+
+
+def test_the_canary_produces_wrong_certifications_without_intervention() -> None:
+    """A canary that never errs tests nothing. Under ledger-only monitoring the
+    stale-table shift must actually produce wrong certifications, or the
+    missed-unsafe-run metric would be vacuous."""
+    report = _policy_report(seeds=(11, 22, 33), n_tasks=1500)
+    cell = _policy_cell(report, CANARY_CONFIGURATION, POLICY_LEDGER_ONLY)
+
+    assert cell.wrong_certifications > 0
+    assert cell.wrong_certifications_post_shift > 0
+
+
+def test_policy_cells_cover_every_configuration_and_seed() -> None:
+    report = _policy_report()
+
+    assert len(report.cells) == 2 * len(MONITOR_POLICIES)
+    for cell in report.cells:
+        assert cell.configuration in (HEALTHY_CONFIGURATION, CANARY_CONFIGURATION)
+        assert cell.policy in MONITOR_POLICIES
+        assert tuple(row.seed for row in cell.per_seed) == _POLICY_SEEDS
+        assert sum(row.tasks for row in cell.per_seed) == cell.tasks
+        assert (
+            sum(row.wrong_certifications for row in cell.per_seed)
+            == cell.wrong_certifications
+        )
+        assert sum(row.abstentions for row in cell.per_seed) == cell.abstentions
+        assert cell.runs == len(_POLICY_SEEDS)
+        rate = cell.wrong_certification_rate_per_task
+        assert rate == pytest.approx(cell.wrong_certifications / cell.tasks)
+        assert cell.wrong_certification_interval_per_task is not None
+
+
+def test_false_brakes_and_missed_runs_live_on_the_right_cells() -> None:
+    """False brakes are only measurable where nothing is wrong; missed unsafe
+    runs only where something is. The ledger-only arm cannot brake at all, so
+    its 'response' is the optimism alarm itself and its false-brake rate is
+    unknown rather than zero."""
+    report = _policy_report()
+
+    for policy in MONITOR_POLICIES:
+        healthy = _policy_cell(report, HEALTHY_CONFIGURATION, policy)
+        canary = _policy_cell(report, CANARY_CONFIGURATION, policy)
+
+        assert healthy.missed_unsafe_run_rate is None
+        assert canary.false_brake_rate is None
+        if policy == POLICY_LEDGER_ONLY:
+            assert healthy.intervention_capable is False
+            assert healthy.false_brake_rate is None
+            assert canary.missed_unsafe_run_rate == pytest.approx(
+                (canary.runs - canary.runs_with_optimism_alarm) / canary.runs
+            )
+        else:
+            assert healthy.intervention_capable is True
+            assert healthy.false_brake_rate == pytest.approx(
+                healthy.runs_with_intervention / healthy.runs
+            )
+            assert canary.missed_unsafe_run_rate == pytest.approx(
+                (canary.runs - canary.runs_with_intervention) / canary.runs
+            )
+
+
+def test_the_report_says_whether_any_policy_catches_the_canary() -> None:
+    report = _policy_report()
+    derived = report.derived
+
+    catching = derived["policies_catching_canary"]
+    assert isinstance(catching, list)
+    assert derived["canary_caught_by_any_policy"] == bool(catching)
+    for policy in catching:
+        cell = _policy_cell(report, CANARY_CONFIGURATION, policy)
+        assert cell.runs_with_response > 0
+    assert set(derived["canary_wrong_certifications_by_policy"]) == set(MONITOR_POLICIES)
+
+
+def test_policy_report_is_deterministic() -> None:
+    first = _policy_report()
+    second = _policy_report()
+    shifted = _policy_report(seeds=(11, 23))
+
+    assert first.digest == second.digest
+    assert first.to_json_dict() == second.to_json_dict()
+    assert first.digest != shifted.digest
+
+    payload = first.to_json_dict()
+    digest = payload.pop("digest")
+    assert digest == first.digest
+    assert json.dumps(payload, sort_keys=True)
+
+
+def test_policy_report_declares_its_honesty() -> None:
+    report = _policy_report()
+    notes = " ".join(report.honesty)
+
+    assert report.status == "insufficient_labels/recommendation_only"
+    assert report.offline is True
+    assert "synthetic" in notes
+    assert "500" in notes
+    assert "no_seed_selection" in notes
+    assert "spend_share_drift" in notes
+    assert "winners_curse_optimism" in notes
+    assert "rebuild" in notes
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"alpha": 0.0},
+        {"alpha": 1.0},
+        {"n_tasks": 0},
+        {"seeds": ()},
+        {"seeds": (1, 1)},
+        {"gamma": 1.5},
+        {"canary_accuracy": 1.5},
+        {"canary_shift_fraction": 0.0},
+        {"canary_shift_fraction": 1.0},
+        {"policies": ()},
+        {"policies": ("unknown_policy",)},
+        {"accuracies": (0.8, 0.75, 1.5)},
+    ],
+)
+def test_policy_report_rejects_an_invalid_configuration(
+    override: dict[str, Any],
+) -> None:
+    with pytest.raises(ValueError):
+        _policy_report(**override)
+
+
+def test_policy_cli_writes_deterministic_offline_json(tmp_path: Path) -> None:
+    cli = _cli()
+    first = tmp_path / "first.json"
+    second = tmp_path / "second.json"
+    argv = [
+        "experiment-monitor",
+        "--alpha",
+        "0.1",
+        "--tasks",
+        "400",
+        "--seeds",
+        "11",
+        "22",
+    ]
+
+    assert cli.main([*argv, "--output", str(first)]) == 0
+    assert cli.main([*argv, "--output", str(second)]) == 0
+
+    assert first.read_bytes() == second.read_bytes()
+    payload = json.loads(first.read_text(encoding="utf-8"))
+    assert payload["offline"] is True
+    assert payload["status"] == "insufficient_labels/recommendation_only"
+    assert payload["experiment"] == "monitor_intervention_policies"
+    assert len(payload["cells"]) == 2 * len(MONITOR_POLICIES)
+
+
+def test_policy_cli_rejects_an_invalid_configuration(tmp_path: Path) -> None:
+    cli = _cli()
+    output = tmp_path / "out.json"
+    code = cli.main(
+        [
+            "experiment-monitor",
+            "--alpha",
+            "1.4",
+            "--tasks",
+            "100",
+            "--seeds",
+            "11",
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert code == 2
+    assert not output.exists()
+
+
+# ===========================================================================
+# Task 8 remainder, experiment C: V-only speech with S/T as ranking — the
+# two-ledger model. Speech stays exactly certification_wealth >= 1/alpha;
+# S/T order the verification queue and buy nothing. The record shape accepts
+# real labeled data later; nothing here is a patch.
+# ===========================================================================
+
+
+_LEDGER_SEEDS = (11, 22)
+
+
+def _two_ledger(**overrides: Any) -> Any:
+    kwargs: dict[str, Any] = {
+        "alphas": (0.05, 0.1, 0.4),
+        "k": 5,
+        "n_tasks": 400,
+        "seeds": _LEDGER_SEEDS,
+        "bootstrap_resamples": 200,
+    }
+    kwargs.update(overrides)
+    return run_two_ledger_experiment(**kwargs)
+
+
+def _ledger_cell(report: Any, alpha: float, rate: float) -> Any:
+    for cell in report.cells:
+        if (cell.alpha, cell.false_reproduce_rate) == (alpha, rate):
+            return cell
+    raise AssertionError("missing two-ledger cell")
+
+
+def test_candidate_records_share_draws_across_the_rate_sweep() -> None:
+    """Sweeping the assumed false-reproduction rate must re-threshold the same
+    uniforms, not redraw the panel: truth, votes, signals, and every true
+    finding's outcome are identical across rates, and only null outcomes move."""
+    kwargs: dict[str, Any] = {
+        "k": 5,
+        "gamma": RHO,
+        "judge_accuracy": 0.65,
+        "n_tasks": 400,
+        "seed": 11,
+        "assumptions": DEFAULT_TWO_LEDGER_ASSUMPTIONS,
+    }
+    zero = synthesize_candidate_records(false_reproduce_rate=0.0, **kwargs)
+    half = synthesize_candidate_records(false_reproduce_rate=0.5, **kwargs)
+    again = synthesize_candidate_records(false_reproduce_rate=0.0, **kwargs)
+
+    assert zero == again
+    assert len(zero) == len(half)
+    for low, high in zip(zero, half, strict=True):
+        assert (low.candidate_id, low.theta, low.votes, low.tier0_signals) == (
+            high.candidate_id,
+            high.theta,
+            high.votes,
+            high.tier0_signals,
+        )
+        assert low.votes >= 1
+        if low.theta == 1:
+            assert low.verification_outcome == high.verification_outcome
+        if low.theta == 0:
+            assert low.verification_outcome != OUTCOME_REPRODUCED
+
+    assert any(
+        record.verification_outcome == OUTCOME_REPRODUCED
+        for record in half
+        if record.theta == 0
+    )
+
+
+def test_two_ledger_speech_is_exactly_the_certification_wealth_threshold() -> None:
+    """certification_wealth is purchased by V and only V; speech remains
+    wealth >= 1/alpha through the shipped decide()."""
+    assert two_ledger_certification_wealth(OUTCOME_REPRODUCED, verified=True) == V_CAP
+    assert (
+        two_ledger_certification_wealth(OUTCOME_NOT_REPRODUCED, verified=True) == V_FAILED
+    )
+    assert two_ledger_certification_wealth(OUTCOME_NO_PURCHASE, verified=True) == 1.0
+    assert two_ledger_certification_wealth(OUTCOME_REPRODUCED, verified=False) == 1.0
+    with pytest.raises(ValueError):
+        two_ledger_certification_wealth("unknown", verified=True)
+
+    reproduced = CandidateRecord(
+        candidate_id="external/1",
+        seed=0,
+        theta=0,
+        votes=3,
+        tier0_signals=1,
+        verification_outcome=OUTCOME_REPRODUCED,
+    )
+    failed = CandidateRecord(
+        candidate_id="external/2",
+        seed=0,
+        theta=0,
+        votes=3,
+        tier0_signals=1,
+        verification_outcome=OUTCOME_NOT_REPRODUCED,
+    )
+
+    assert arm_decisions(reproduced, alpha=0.1) == (1, 1)
+    assert arm_decisions(failed, alpha=0.1) == (None, None)
+    assert arm_decisions(reproduced, alpha=0.04) == (1, None)
+    assert arm_decisions(reproduced, alpha=0.1, verified=False) == (None, None)
+
+
+def test_factory_arm_follows_the_gate_purchase_order() -> None:
+    """The factory arm is the shipped purchase order with early stopping: at a
+    loose gate two votes certify before V is ever bought, and at a factory gate
+    the wealth is the full S*T*V product."""
+    assert factory_terminal_wealth(
+        votes=2, signals=1, outcome=OUTCOME_REPRODUCED, alpha=0.4, verified=True
+    ) == pytest.approx(votes_lr(2))
+    assert factory_terminal_wealth(
+        votes=1, signals=1, outcome=OUTCOME_REPRODUCED, alpha=0.05, verified=True
+    ) == pytest.approx(votes_lr(1) * tier0_lr(1) * V_CAP)
+    assert factory_terminal_wealth(
+        votes=1, signals=0, outcome=OUTCOME_NOT_REPRODUCED, alpha=0.05, verified=True
+    ) == pytest.approx(votes_lr(1) * V_FAILED)
+    assert factory_terminal_wealth(
+        votes=1, signals=2, outcome=OUTCOME_NO_PURCHASE, alpha=0.05, verified=True
+    ) == pytest.approx(votes_lr(1) * tier0_lr(2))
+
+
+def test_the_arms_are_nested_and_analysed_as_paired_data() -> None:
+    """Both arms see the same draws, and the two-ledger certification set is a
+    subset of the factory's, so every discordant pair runs one way and the
+    paired machinery — not interval overlap — is the comparison."""
+    report = _two_ledger()
+
+    for cell in report.cells:
+        paired = cell.paired
+        assert paired.arms_are_nested is True
+        assert paired.two_ledger_only == 0
+        assert paired.pairs == cell.factory.null_candidates
+        assert paired.pairs == cell.two_ledger.null_candidates
+        assert paired.denominator == "null_candidate_tasks"
+
+
+def test_wrong_certifications_carry_both_denominators() -> None:
+    report = _two_ledger()
+    cell = _ledger_cell(report, 0.4, DEFAULT_TWO_LEDGER_ASSUMPTIONS.false_reproduce_rate)
+    arm = cell.factory
+
+    assert arm.null_candidates < arm.null_tasks
+    assert arm.wrong_certification_rate_per_null_candidate == pytest.approx(
+        arm.wrong_certifications / arm.null_candidates
+    )
+    assert arm.wrong_certification_rate_per_null_task == pytest.approx(
+        arm.wrong_certifications / arm.null_tasks
+    )
+    assert (
+        arm.wrong_certification_rate_per_null_candidate
+        > arm.wrong_certification_rate_per_null_task
+    )
+
+
+def test_zero_false_reproduction_silences_both_arms_at_factory_alpha() -> None:
+    """At the factory gates neither arm can speak without V (cap arithmetic),
+    so with an assumed false-reproduction rate of zero the wrong-certification
+    count is exactly zero in both arms — and the report must say that this is
+    the assumption speaking, not a measurement."""
+    report = _two_ledger()
+
+    for alpha in (0.05, 0.1):
+        cell = _ledger_cell(report, alpha, 0.0)
+        assert cell.is_factory_alpha == (alpha in FACTORY_ALPHAS)
+        assert cell.factory.wrong_certifications == 0
+        assert cell.two_ledger.wrong_certifications == 0
+        assert cell.paired.mcnemar_exact_p is None
+
+
+def test_a_loose_gate_separates_the_arms() -> None:
+    """At alpha 0.4 the factory arm certifies on votes alone, which the
+    two-ledger arm never does; the discordant pairs all run one way and the
+    paired difference excludes zero."""
+    rate = DEFAULT_TWO_LEDGER_ASSUMPTIONS.false_reproduce_rate
+    report = _two_ledger()
+    cell = _ledger_cell(report, 0.4, rate)
+
+    assert cell.factory.wrong_certifications > 0
+    assert cell.paired.factory_only > 0
+    assert cell.paired.mcnemar_exact_p is not None
+    assert cell.paired.mcnemar_exact_p < 1e-3
+    assert cell.paired.difference_per_null_candidate > 0.0
+    assert cell.paired.difference_interval_per_null_candidate[0] > 0.0
+    assert cell.label in report.derived["cells_where_arms_differ"]
+
+    assert cell.two_ledger.wrong_certification_rate_per_null_candidate <= (
+        cell.factory.wrong_certification_rate_per_null_candidate
+    )
+    assert cell.two_ledger.discards == 0
+    assert cell.two_ledger.abstention_rate > cell.factory.abstention_rate
+
+
+def test_speech_feasibility_is_reported_per_alpha() -> None:
+    report = _two_ledger(alphas=(0.04, 0.1))
+    feasibility = report.derived["speech_feasibility"]
+
+    for alpha in (0.04, 0.1):
+        entry = feasibility[str(alpha)]
+        assert entry["two_ledger_v_only"] == (1.0 / alpha <= V_CAP)
+        assert entry["factory_with_verification"] == (
+            1.0 / alpha <= S_CAP * T_CAP * V_CAP
+        )
+        assert entry["factory_without_verification"] == (1.0 / alpha <= S_CAP * T_CAP)
+
+    rate = DEFAULT_TWO_LEDGER_ASSUMPTIONS.false_reproduce_rate
+    infeasible = _ledger_cell(report, 0.04, rate)
+    assert infeasible.two_ledger.certifications == 0
+
+
+def test_voi_ordering_saves_verification_budget_at_fixed_recall() -> None:
+    """The owner's number: the budget the S/T priority queue needs to reach a
+    fixed recall, against first-come-first-served, on the same draws."""
+    report = _two_ledger(n_tasks=800)
+
+    assert report.budget
+    for row in report.budget:
+        assert 0.0 < row.recall_target <= 1.0
+        if row.budget_voi is not None and row.budget_fcfs is not None:
+            assert row.budget_voi <= row.budget_fcfs
+            assert row.cost_voi == pytest.approx(
+                row.budget_voi * row.verification_cost_per_candidate
+            )
+            if row.budget_fcfs > 0:
+                assert row.budget_saving_fraction == pytest.approx(
+                    1.0 - row.budget_voi / row.budget_fcfs
+                )
+        assert tuple(entry.seed for entry in row.per_seed) == _LEDGER_SEEDS
+
+    savings = [
+        row.budget_saving_fraction
+        for row in report.budget
+        if row.budget_saving_fraction is not None
+    ]
+    assert savings
+    assert any(saving > 0.0 for saving in savings)
+
+
+def test_st_priority_is_the_st_wealth_and_buys_nothing() -> None:
+    """The ranking score is the S*T wealth the factory would hold before V —
+    used only to order the verification queue in the two-ledger arm."""
+    assert st_priority(votes=3, tier0_signals=1) == pytest.approx(
+        votes_lr(3) * tier0_lr(1)
+    )
+    assert st_priority(votes=1, tier0_signals=0) == pytest.approx(votes_lr(1))
+    assert st_priority(votes=5, tier0_signals=2) > st_priority(votes=1, tier0_signals=0)
+
+
+def test_two_ledger_report_is_deterministic() -> None:
+    first = _two_ledger()
+    second = _two_ledger()
+    shifted = _two_ledger(seeds=(11, 23))
+
+    assert first.digest == second.digest
+    assert first.to_json_dict() == second.to_json_dict()
+    assert first.digest != shifted.digest
+
+    payload = first.to_json_dict()
+    digest = payload.pop("digest")
+    assert digest == first.digest
+    assert json.dumps(payload, sort_keys=True)
+
+
+def test_two_ledger_cells_report_every_seed() -> None:
+    report = _two_ledger()
+
+    assert len(report.cells) == 3 * len(
+        DEFAULT_TWO_LEDGER_ASSUMPTIONS.false_reproduce_rates()
+    )
+    for cell in report.cells:
+        for arm in (cell.factory, cell.two_ledger):
+            assert tuple(row.seed for row in arm.per_seed) == _LEDGER_SEEDS
+            assert sum(row.wrong_certifications for row in arm.per_seed) == (
+                arm.wrong_certifications
+            )
+            assert sum(row.null_candidates for row in arm.per_seed) == arm.null_candidates
+            assert sum(row.true_certifications for row in arm.per_seed) == (
+                arm.true_certifications
+            )
+        assert cell.factory.arm == FACTORY_LEDGER_ARM
+        assert cell.two_ledger.arm == TWO_LEDGER_ARM
+
+
+def test_two_ledger_report_declares_its_honesty() -> None:
+    report = _two_ledger()
+    payload = report.to_json_dict()
+    notes = " ".join(report.honesty)
+
+    assert report.status == "insufficient_labels/recommendation_only"
+    assert report.offline is True
+    assert "synthetic" in notes
+    assert "500" in notes
+    assert "no_seed_selection" in notes
+    assert "certification_wealth >= 1/alpha" in notes
+    assert "NOT a proposed" in notes or "not a patch" in notes
+    assert "ASSUMPTION" in notes
+    assert payload["config"]["assumptions"]["measured"] is False
+    assert "interfaces_a_two_ledger_model_would_change" in report.derived
+    assert set(DEFAULT_TWO_LEDGER_ALPHAS) >= set(FACTORY_ALPHAS)
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"alphas": ()},
+        {"alphas": (0.0,)},
+        {"alphas": (1.0,)},
+        {"k": 0},
+        {"n_tasks": 0},
+        {"seeds": ()},
+        {"seeds": (1, 1)},
+        {"gamma": 1.5},
+        {"judge_accuracy": 0.0},
+        {"recall_targets": ()},
+        {"recall_targets": (0.0,)},
+        {"recall_targets": (1.5,)},
+        {"verification_cost": 0.0},
+        {"bootstrap_resamples": 0},
+        {"assumptions": TwoLedgerAssumptions(true_reproduce_rate=1.5)},
+        {"assumptions": TwoLedgerAssumptions(false_reproduce_rate=1.5)},
+        {
+            "assumptions": TwoLedgerAssumptions(
+                false_reproduce_rate=0.6, verification_no_purchase_rate=0.5
+            )
+        },
+        {"assumptions": TwoLedgerAssumptions(tier0_signal_slots=-1)},
+    ],
+)
+def test_two_ledger_rejects_an_invalid_configuration(override: dict[str, Any]) -> None:
+    with pytest.raises(ValueError):
+        _two_ledger(**override)
+
+
+def test_two_ledger_cli_writes_deterministic_offline_json(tmp_path: Path) -> None:
+    cli = _cli()
+    first = tmp_path / "first.json"
+    second = tmp_path / "second.json"
+    argv = [
+        "experiment-twoledger",
+        "--alphas",
+        "0.1",
+        "0.4",
+        "--tasks",
+        "300",
+        "--seeds",
+        "11",
+        "22",
+        "--bootstrap-resamples",
+        "100",
+    ]
+
+    assert cli.main([*argv, "--output", str(first)]) == 0
+    assert cli.main([*argv, "--output", str(second)]) == 0
+
+    assert first.read_bytes() == second.read_bytes()
+    payload = json.loads(first.read_text(encoding="utf-8"))
+    assert payload["offline"] is True
+    assert payload["status"] == "insufficient_labels/recommendation_only"
+    assert payload["experiment"] == "v_only_speech_two_ledger"
+    assert payload["cells"]
+    assert payload["budget"]
+
+
+def test_two_ledger_cli_rejects_an_invalid_configuration(tmp_path: Path) -> None:
+    cli = _cli()
+    output = tmp_path / "out.json"
+    code = cli.main(
+        [
+            "experiment-twoledger",
+            "--alphas",
+            "0.1",
+            "--false-reproduce-rate",
             "1.4",
             "--tasks",
             "100",

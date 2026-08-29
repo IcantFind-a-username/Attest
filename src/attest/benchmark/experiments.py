@@ -1,6 +1,6 @@
 """Experiment-only diagnostics for the factory evidence channels (D-007, D-023).
 
-Two independent measurements live here, sharing one synthetic panel generator:
+Five independent measurements live here, sharing one synthetic panel generator:
 
 1. :func:`run_rho_ablation` — the correlated-panel ablation (D-023): the naive
    independent product ``LR1 ** votes`` against the production discount.
@@ -12,6 +12,17 @@ Two independent measurements live here, sharing one synthetic panel generator:
    so no factor below one is ever applied to a false finding. This module
    measures the resulting null expectations instead of arguing about them, and
    compares the realized wrong-certification rate against the bound ``alpha``.
+3. :func:`run_null_grid` — Task 8's multi-seed null grid: the REAL
+   :class:`attest.core.engine.Engine` on null-only streams derived from the
+   shipped generator's own draws, reproducing in-repo the external grid the
+   status document could only quote.
+4. :func:`run_monitor_policy_experiment` — D-004 follow-up: two reversible
+   intervention policies against the alarm-only baseline, with the alarm kinds
+   kept strictly separate and a high-error canary that actually errs.
+5. :func:`run_two_ledger_experiment` — the owner's architecture question: S/T
+   as verification PRIORITY only, certification wealth purchased by V alone,
+   speech unchanged at ``certification_wealth >= 1/alpha``, and the
+   verification budget a VOI queue saves over FCFS at fixed recall.
 
 Neither measurement is a policy and neither is a patch. Both **read** the
 factory constants from :mod:`attest.review.channels`; nothing here redefines a
@@ -69,14 +80,20 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import numpy as np
 
 from attest.benchmark.metrics import wilson_interval
-from attest.core.betting import decide
+from attest.core.allocation import choose_next, expected_log_e_signed
+from attest.core.betting import decide, task_lr_purchase_order
+from attest.core.engine import Engine, EngineConfig
+from attest.core.exploration import ExplorationSchedule
+from attest.core.monitor import WinnersCurseMonitor
+from attest.core.stream import Stream, make_stream
+from attest.core.tables import Tables
 from attest.review.channels import (
     LR1,
     RHO,
@@ -2325,5 +2342,2180 @@ def _ville_json(cell: VilleCell) -> dict[str, object]:
                 "discards": entry.discards,
             }
             for entry in cell.per_seed
+        ],
+    }
+
+
+# ===========================================================================
+# Task 8, experiment A: multi-seed null grids on the REAL core engine.
+#
+# The status document records an earlier external null grid (0 wrong
+# certifications at alpha 0.05 over 80k tasks, 3 at 0.1, 544 at 0.2) that was
+# never reproduced inside this repository. This section reproduces the
+# measurement properly: preregistered seeds, the shipped attest.core Engine,
+# null-only streams built from make_stream's own draws, independent and
+# correlated panels, several stream lengths, both alarm kinds reported.
+# ===========================================================================
+
+NULL_GRID_EXPERIMENT = "core_engine_null_grid"
+
+#: Preregistered grid. Three alphas including both factory gates plus the
+#: loosened 0.2 the external grid used; independent and correlated panels;
+#: two stream lengths; twenty seeds. Fixed before any cell was looked at.
+DEFAULT_NULL_GRID_ALPHAS: tuple[float, ...] = (0.05, 0.1, 0.2)
+DEFAULT_NULL_GRID_LENGTHS: tuple[int, ...] = (500, 2000)
+DEFAULT_NULL_GRID_PANEL_GAMMAS: tuple[float, ...] = (0.0, 0.9)
+DEFAULT_NULL_GRID_SEEDS: tuple[int, ...] = tuple(range(1, 21))
+
+#: The repository's canonical informative three-judge panel (the accuracies
+#: the core behavioural tests run). An uninformative panel cannot certify at
+#: all, which would make the grid vacuous rather than safe.
+NULL_GRID_ACCURACIES: tuple[float, float, float] = (0.8, 0.75, 0.7)
+
+#: Rolling-window alarms are polled at this cadence and at the final task;
+#: the cadence is part of the protocol and of the digest.
+DEFAULT_ALARM_POLL_EVERY = 100
+
+_ALARM_KINDS = ("spend_share_drift", "winners_curse_optimism")
+
+#: Owner-provided figures from docs/real-data-evaluation-status.md, recorded
+#: for comparison only. They were produced outside this repository, under an
+#: unknown protocol, and are never merged into this grid's counts.
+_PRIOR_EXTERNAL_MEASUREMENT: dict[str, object] = {
+    "wrong_certifications_by_alpha": {"0.05": 0, "0.1": 3, "0.2": 544},
+    "tasks_per_alpha": 80000,
+    "alarm_summary": (
+        "alarms in 12 of 40 runs, all spend_share_drift; a high-error canary "
+        "run had no alarm"
+    ),
+    "independently_reproduced": False,
+    "note": (
+        "owner-provided figures from docs/real-data-evaluation-status.md; the "
+        "generating scripts were never visible in this workspace, so the "
+        "numbers are recorded for comparison only and never merged into this "
+        "grid's counts"
+    ),
+}
+
+NULL_GRID_HONESTY_NOTES: tuple[str, ...] = (
+    "synthetic_streams: verdicts are the shipped make_stream generator's own "
+    "draws, re-expressed under a null-only truth; nothing here samples a real "
+    "model and no network or subprocess call is made.",
+    "null-only truth: every task's ground truth is theta=0, so every "
+    "certified-true decision is a wrong certification by construction and "
+    "the theta=1 rows of the learned tables never move off their Laplace "
+    "prior. That degeneracy is the real code path on an all-null stream, not "
+    "a harness artifact.",
+    "one_denominator_by_design: the engine judges every task in the stream — "
+    "there is no candidate-selection filter in front of this gate — so the "
+    "per-task denominator IS the per-decision denominator here, and it is "
+    "named per_task to keep it comparable with reports that do have both.",
+    "clone_rate_is_not_correlation: the panel parameter gamma is judge C's "
+    "clone rate on judge B, not a pairwise panel correlation; the two "
+    "correlated judges are B and C only.",
+    "alarm_polling: rolling-window alarms are polled at a preregistered "
+    "cadence and at the final task; a kind is counted once per poll in which "
+    "it is present, so poll counts are not alarm-event counts.",
+    "recommendation_only: this harness reads production code and constants "
+    "and never writes them. Fewer than 500 global ledger labels exist "
+    "(architecture red line 5), so every number here is a recommendation for "
+    "the owner, never an authorisation.",
+    "no_seed_selection: every preregistered seed is reported per cell, "
+    "including any seed that produces wrong certifications.",
+)
+
+
+@dataclass(frozen=True)
+class NullGridSeedRow:
+    """One engine run: one seed, one stream, published in full."""
+
+    seed: int
+    tasks: int
+    certifications: int
+    wrong_certifications: int
+    discards: int
+    abstentions: int
+    explored_tasks: int
+    total_spend: float
+    alarm_kinds: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class NullGridCell:
+    """Pooled counts for one (panel, alpha, stream length) configuration."""
+
+    label: str
+    panel: str
+    clone_gamma: float
+    alpha: float
+    stream_length: int
+    runs: int
+    tasks: int
+    certifications: int
+    wrong_certifications: int
+    discards: int
+    abstentions: int
+    wrong_certification_rate_per_task: float | None
+    wrong_certification_interval_per_task: tuple[float, float] | None
+    exceeds_alpha_per_task: bool
+    abstention_rate: float | None
+    mean_spend_per_task: float | None
+    alarm_polls: int
+    alarm_poll_counts: dict[str, int]
+    alarm_kinds_fired: tuple[str, ...]
+    runs_with_any_alarm: int
+    runs_with_optimism_alarm: int
+    runs_with_drift_alarm: int
+    per_seed: tuple[NullGridSeedRow, ...]
+
+
+@dataclass(frozen=True)
+class NullGridReport:
+    """The whole grid, content-addressed for pinning."""
+
+    experiment: str
+    status: str
+    offline: bool
+    config: dict[str, object]
+    constants: dict[str, object]
+    derived: dict[str, object]
+    honesty: tuple[str, ...]
+    cells: tuple[NullGridCell, ...]
+    digest: str
+
+    def to_json_dict(self) -> dict[str, object]:
+        payload = self._payload()
+        payload["digest"] = self.digest
+        return payload
+
+    def _payload(self) -> dict[str, object]:
+        return {
+            "experiment": self.experiment,
+            "status": self.status,
+            "offline": self.offline,
+            "config": self.config,
+            "constants": self.constants,
+            "derived": self.derived,
+            "honesty": list(self.honesty),
+            "cells": [_null_grid_cell_json(cell) for cell in self.cells],
+        }
+
+
+def make_null_stream(
+    acc_a: float, acc_b: float, acc_c: float, gamma: float, *, seed: int, n: int
+) -> Stream:
+    """The REAL :func:`attest.core.stream.make_stream` draw under a null truth.
+
+    ``make_stream`` draws a mixed-truth stream; conditioning every task on
+    ``theta = 0`` while keeping each judge's per-task agreement draw is exactly
+    the XOR of the drawn verdict with the drawn truth. The clone edge survives:
+    on a clone task C's verdict equals B's, and XOR by the same truth preserves
+    the equality. Nothing is redrawn, so the null stream is byte-derived from
+    the shipped generator rather than from a re-implementation of it.
+    """
+    for name, value in (("acc_a", acc_a), ("acc_b", acc_b), ("acc_c", acc_c)):
+        _check_unit(name, value, closed=False)
+    _check_unit("gamma", gamma, closed=True)
+    if n < 1:
+        raise ValueError("n must be at least one")
+    stream = make_stream(acc_a, acc_b, acc_c, gamma, seed=seed, n=n, warmup=0)
+    verdicts = {
+        judge: np.bitwise_xor(votes, stream.theta)
+        for judge, votes in stream.verdicts.items()
+    }
+    return Stream(np.zeros_like(stream.theta), verdicts, stream.explore)
+
+
+def _verdict_getter(stream: Stream, index: int) -> Callable[[str], int]:
+    """One task's verdict lookup, bound eagerly so the loop variable cannot leak."""
+
+    def verdict(judge: str) -> int:
+        return int(stream.verdicts[judge][index])
+
+    return verdict
+
+
+def _null_grid_engine_run(
+    stream: Stream, *, alpha: float, engine_seed: int, poll_every: int
+) -> tuple[NullGridSeedRow, dict[str, int]]:
+    """One shipped-Engine run over one null stream, with periodic alarm polls.
+
+    The loop is :meth:`attest.core.engine.Engine.run_stream` with a poll added;
+    a test pins a row of this function against a direct ``run_stream`` call so
+    the equivalence is checked rather than asserted. Returns the per-seed row
+    and, separately, the number of polls in which each alarm kind was present.
+    """
+    engine = Engine(EngineConfig(alpha=alpha, seed=engine_seed))
+    n = len(stream.theta)
+    certifications = discards = explored = 0
+    spend = 0.0
+    poll_counts = {kind: 0 for kind in _ALARM_KINDS}
+    kinds: set[str] = set()
+    for index in range(n):
+        result = engine.review_task(_verdict_getter(stream, index))
+        engine.learn(int(stream.theta[index]), result)
+        certifications += result.decision == 1
+        discards += result.decision == 0
+        explored += result.explored
+        spend += sum(result.spend.values())
+        if (index + 1) % poll_every == 0 or index == n - 1:
+            present = {str(alarm["kind"]) for alarm in engine.monitor.alarms()}
+            kinds |= present
+            for kind in present:
+                poll_counts[kind] = poll_counts.get(kind, 0) + 1
+    row = NullGridSeedRow(
+        seed=engine_seed,
+        tasks=n,
+        certifications=certifications,
+        wrong_certifications=certifications,
+        discards=discards,
+        abstentions=n - certifications - discards,
+        explored_tasks=explored,
+        total_spend=spend,
+        alarm_kinds=tuple(sorted(kinds)),
+    )
+    return row, poll_counts
+
+
+def run_null_grid(
+    *,
+    alphas: Sequence[float] = DEFAULT_NULL_GRID_ALPHAS,
+    stream_lengths: Sequence[int] = DEFAULT_NULL_GRID_LENGTHS,
+    panel_gammas: Sequence[float] = DEFAULT_NULL_GRID_PANEL_GAMMAS,
+    seeds: Sequence[int] = DEFAULT_NULL_GRID_SEEDS,
+    accuracies: tuple[float, float, float] = NULL_GRID_ACCURACIES,
+    alarm_poll_every: int = DEFAULT_ALARM_POLL_EVERY,
+) -> NullGridReport:
+    """Run the shipped Engine over every preregistered null-grid cell.
+
+    Every task in every stream is a false finding, so every certified-true
+    decision is a wrong certification. Both alarm kinds are polled and reported
+    separately; the engine seed equals the stream seed so no second seed axis
+    exists to select over.
+    """
+    if not alphas:
+        raise ValueError("at least one alpha is required")
+    for alpha in alphas:
+        _check_unit("alpha", alpha, closed=False)
+    if not stream_lengths:
+        raise ValueError("at least one stream length is required")
+    for length in stream_lengths:
+        if length < 1:
+            raise ValueError("stream lengths must be at least one")
+    if not panel_gammas:
+        raise ValueError("at least one panel gamma is required")
+    for gamma in panel_gammas:
+        _check_unit("gamma", gamma, closed=True)
+    if not seeds:
+        raise ValueError("at least one seed is required")
+    if len(set(seeds)) != len(seeds):
+        raise ValueError("seeds must be unique")
+    if len(accuracies) != 3:
+        raise ValueError("exactly three judge accuracies are required")
+    for accuracy in accuracies:
+        _check_unit("judge_accuracy", accuracy, closed=False)
+    if alarm_poll_every < 1:
+        raise ValueError("alarm_poll_every must be at least one")
+
+    acc_a, acc_b, acc_c = accuracies
+    cells: list[NullGridCell] = []
+    for gamma in panel_gammas:
+        for alpha in alphas:
+            for length in stream_lengths:
+                runs = [
+                    _null_grid_engine_run(
+                        make_null_stream(
+                            acc_a, acc_b, acc_c, gamma, seed=seed, n=length
+                        ),
+                        alpha=alpha,
+                        engine_seed=seed,
+                        poll_every=alarm_poll_every,
+                    )
+                    for seed in seeds
+                ]
+                rows = tuple(row for row, _ in runs)
+                poll_counts = {kind: 0 for kind in _ALARM_KINDS}
+                for _, counts in runs:
+                    for kind, count in counts.items():
+                        poll_counts[kind] += count
+                cells.append(
+                    _null_grid_cell(
+                        gamma, alpha, length, rows, alarm_poll_every, poll_counts
+                    )
+                )
+
+    engine_defaults = EngineConfig()
+    monitor_defaults = WinnersCurseMonitor()
+    report = NullGridReport(
+        experiment=NULL_GRID_EXPERIMENT,
+        status="insufficient_labels/recommendation_only",
+        offline=True,
+        config={
+            "alphas": [_num(alpha) for alpha in alphas],
+            "stream_lengths": list(stream_lengths),
+            "panel_gammas": [_num(gamma) for gamma in panel_gammas],
+            "seeds": list(seeds),
+            "accuracies": [_num(accuracy) for accuracy in accuracies],
+            "alarm_poll_every": alarm_poll_every,
+            "theta": "null-only: every task's ground truth is theta=0",
+            "engine_seed_rule": "engine seed equals stream seed",
+            "gammas_are_clone_rates": True,
+        },
+        constants={
+            "engine": {
+                "judges": list(engine_defaults.judges),
+                "prices": {j: _num(engine_defaults.prices[j]) for j in engine_defaults.judges},
+                "variant": engine_defaults.variant,
+                "tau": _num(engine_defaults.tau),
+                "smoothing": _num(engine_defaults.smoothing),
+                "price_aware": engine_defaults.price_aware,
+                "eps_hot": _num(engine_defaults.eps_hot),
+                "eps_cold": _num(engine_defaults.eps_cold),
+                "cell_target": engine_defaults.cell_target,
+            },
+            "monitor": {
+                "window": monitor_defaults.window,
+                "optimism_threshold": _num(monitor_defaults.optimism_threshold),
+                "min_samples": monitor_defaults.min_samples,
+                "drift_threshold": _num(monitor_defaults.drift_threshold),
+            },
+        },
+        derived={
+            "prior_external_measurement": dict(_PRIOR_EXTERNAL_MEASUREMENT),
+            "wrong_certification_totals_by_alpha": {
+                str(_num(alpha)): sum(
+                    cell.wrong_certifications for cell in cells if cell.alpha == alpha
+                )
+                for alpha in alphas
+            },
+            "tasks_by_alpha": {
+                str(_num(alpha)): sum(cell.tasks for cell in cells if cell.alpha == alpha)
+                for alpha in alphas
+            },
+            "cells_exceeding_alpha_per_task": [
+                cell.label for cell in cells if cell.exceeds_alpha_per_task
+            ],
+            "alarm_kinds_ever_fired": sorted(
+                {kind for cell in cells for kind in cell.alarm_kinds_fired}
+            ),
+            "optimism_alarm_ever_fired": any(
+                "winners_curse_optimism" in cell.alarm_kinds_fired for cell in cells
+            ),
+        },
+        honesty=NULL_GRID_HONESTY_NOTES,
+        cells=tuple(cells),
+        digest="",
+    )
+    return replace(report, digest=_digest(report._payload()))
+
+
+def _null_grid_cell(
+    gamma: float,
+    alpha: float,
+    length: int,
+    rows: tuple[NullGridSeedRow, ...],
+    poll_every: int,
+    poll_counts: dict[str, int],
+) -> NullGridCell:
+    tasks = sum(row.tasks for row in rows)
+    certifications = sum(row.certifications for row in rows)
+    wrong = sum(row.wrong_certifications for row in rows)
+    discards = sum(row.discards for row in rows)
+    abstentions = sum(row.abstentions for row in rows)
+    spend = sum(row.total_spend for row in rows)
+    interval = _interval(wrong, tasks)
+    polls_per_run = (length + poll_every - 1) // poll_every
+    kinds = sorted({kind for row in rows for kind in row.alarm_kinds})
+    return NullGridCell(
+        label=f"gamma={_num(gamma)}/alpha={_num(alpha)}/n={length}",
+        panel="independent" if gamma == 0.0 else "correlated",
+        clone_gamma=gamma,
+        alpha=alpha,
+        stream_length=length,
+        runs=len(rows),
+        tasks=tasks,
+        certifications=certifications,
+        wrong_certifications=wrong,
+        discards=discards,
+        abstentions=abstentions,
+        wrong_certification_rate_per_task=_rate(wrong, tasks),
+        wrong_certification_interval_per_task=interval,
+        exceeds_alpha_per_task=interval is not None and interval[0] > alpha,
+        abstention_rate=_rate(abstentions, tasks),
+        mean_spend_per_task=None if tasks == 0 else spend / tasks,
+        alarm_polls=polls_per_run * len(rows),
+        alarm_poll_counts=poll_counts,
+        alarm_kinds_fired=tuple(kinds),
+        runs_with_any_alarm=sum(1 for row in rows if row.alarm_kinds),
+        runs_with_optimism_alarm=sum(
+            1 for row in rows if "winners_curse_optimism" in row.alarm_kinds
+        ),
+        runs_with_drift_alarm=sum(
+            1 for row in rows if "spend_share_drift" in row.alarm_kinds
+        ),
+        per_seed=rows,
+    )
+
+
+def _null_grid_cell_json(cell: NullGridCell) -> dict[str, object]:
+    return {
+        "label": cell.label,
+        "panel": cell.panel,
+        "clone_gamma": _num(cell.clone_gamma),
+        "alpha": _num(cell.alpha),
+        "stream_length": cell.stream_length,
+        "runs": cell.runs,
+        "tasks": cell.tasks,
+        "certifications": cell.certifications,
+        "wrong_certifications": cell.wrong_certifications,
+        "discards": cell.discards,
+        "abstentions": cell.abstentions,
+        "wrong_certification_rate_per_task": _optional(
+            cell.wrong_certification_rate_per_task
+        ),
+        "wrong_certification_interval_per_task": _pair(
+            cell.wrong_certification_interval_per_task
+        ),
+        "exceeds_alpha_per_task": cell.exceeds_alpha_per_task,
+        "abstention_rate": _optional(cell.abstention_rate),
+        "mean_spend_per_task": _optional(cell.mean_spend_per_task),
+        "alarm_polls": cell.alarm_polls,
+        "alarm_poll_counts": dict(cell.alarm_poll_counts),
+        "alarm_kinds_fired": list(cell.alarm_kinds_fired),
+        "runs_with_any_alarm": cell.runs_with_any_alarm,
+        "runs_with_optimism_alarm": cell.runs_with_optimism_alarm,
+        "runs_with_drift_alarm": cell.runs_with_drift_alarm,
+        "per_seed": [
+            {
+                "seed": row.seed,
+                "tasks": row.tasks,
+                "certifications": row.certifications,
+                "wrong_certifications": row.wrong_certifications,
+                "discards": row.discards,
+                "abstentions": row.abstentions,
+                "explored_tasks": row.explored_tasks,
+                "total_spend": _num(row.total_spend),
+                "alarm_kinds": list(row.alarm_kinds),
+            }
+            for row in cell.per_seed
+        ],
+    }
+
+
+# ===========================================================================
+# Task 8, experiment B: monitor intervention policies.
+#
+# D-004's winner's-curse monitor is alarm-only. This section simulates two
+# reversible interventions against the ledger-only baseline on seeded
+# streams, keeping winners_curse_optimism strictly separate from
+# spend_share_drift throughout: drift alone is never treated as evidence of
+# invalid evidence and never triggers a brake. A high-error canary — a
+# mid-stream distribution shift that leaves the learned tables stale — is
+# included so 'missed unsafe run' is measured against a stream that really
+# does produce wrong certifications.
+# ===========================================================================
+
+MONITOR_POLICY_EXPERIMENT = "monitor_intervention_policies"
+
+POLICY_LEDGER_ONLY = "ledger_only"
+POLICY_QUARANTINE = "quarantine_optimistic_judge"
+POLICY_EXPLORATION_RECOVERY = "exploration_only_recovery"
+MONITOR_POLICIES: tuple[str, ...] = (
+    POLICY_LEDGER_ONLY,
+    POLICY_QUARANTINE,
+    POLICY_EXPLORATION_RECOVERY,
+)
+
+HEALTHY_CONFIGURATION = "healthy"
+CANARY_CONFIGURATION = "high_error_canary"
+
+#: The judge whose behaviour shifts mid-stream in the canary. Judge A is the
+#: only judge with no clone edge in make_stream, so shifting it never touches
+#: the B/C correlation structure.
+CANARY_JUDGE = "A"
+
+DEFAULT_POLICY_SEEDS: tuple[int, ...] = DEFAULT_SEEDS
+DEFAULT_POLICY_TASKS = 2000
+DEFAULT_CANARY_ACCURACY = 0.1
+DEFAULT_CANARY_SHIFT_FRACTION = 0.5
+
+#: Second generator per seed for the canary's post-shift draws, so the healthy
+#: prefix stays byte-identical to the healthy stream at the same seed.
+_CANARY_TAG = 20260831
+
+MONITOR_POLICY_HONESTY_NOTES: tuple[str, ...] = (
+    "synthetic_streams: verdicts come from the shipped make_stream generator "
+    "(plus a tagged post-shift redraw for the canary judge); nothing here "
+    "samples a real model and no network or subprocess call is made.",
+    "engine_loop_is_a_pinned_rebuild: the policy driver is a rebuild of "
+    "Engine.review_task/learn (po_calib) with two reversible interventions "
+    "added — the same approach the Ville section takes to gate."
+    "evaluate_finding — and a test pins its ledger-only mode equal to the "
+    "shipped Engine, decision for decision, on the same stream and seed.",
+    "alarm_kind_separation: winners_curse_optimism and spend_share_drift are "
+    "reported separately everywhere, and ONLY winners_curse_optimism can "
+    "trigger an intervention. spend_share_drift alone is never treated as "
+    "evidence of invalid evidence; it is recorded and left alone.",
+    "reversible_interventions_only: quarantine removes the optimistic judge "
+    "from ADAPTIVE purchases while its alarm is active — exploration tasks "
+    "still buy every judge, which is what lets the tables recover and the "
+    "alarm clear — and exploration-only recovery forces the all-buy "
+    "calibration slice while any optimism alarm is active. Both switch off "
+    "by themselves when the window clears; neither writes to any table "
+    "schedule or constant.",
+    "designed_canary: the high-error configuration is a preregistered "
+    "mid-stream distribution shift (the canary judge's accuracy drops after "
+    "the shift point while the learned tables stay stale), not a measured "
+    "failure mode of any real judge. It exists so 'missed unsafe run' has an "
+    "actually-unsafe run to miss.",
+    "recommendation_only: this harness reads production code and constants "
+    "and never writes them. Fewer than 500 global ledger labels exist "
+    "(architecture red line 5), and monitor behaviour is factory behaviour "
+    "under ground rule 8, so every number here is a recommendation for the "
+    "owner, never an authorisation.",
+    "no_seed_selection: every preregistered seed is reported per cell and "
+    "per policy, including seeds where a policy brakes falsely or misses.",
+)
+
+
+class PolicyRun(NamedTuple):
+    """One policy-driven stream run, exposed task by task for pinning."""
+
+    policy: str
+    decisions: tuple[int | None, ...]
+    wealth: tuple[float, ...]
+    explored: tuple[bool, ...]
+    forced_exploration: tuple[bool, ...]
+    intervention_active: tuple[bool, ...]
+    optimism_active: tuple[bool, ...]
+    drift_active: tuple[bool, ...]
+    quarantined: tuple[tuple[str, ...], ...]
+    orders: tuple[tuple[str, ...], ...]
+    spend: tuple[float, ...]
+    intervention_episodes: int
+
+
+@dataclass(frozen=True)
+class PolicySeedRow:
+    """One (configuration, policy, seed) run, published in full."""
+
+    seed: int
+    tasks: int
+    decided: int
+    surfaced: int
+    discarded: int
+    wrong_certifications: int
+    wrong_certifications_post_shift: int
+    abstentions: int
+    explored_tasks: int
+    forced_exploration_tasks: int
+    intervention_tasks: int
+    intervention_episodes: int
+    optimism_alarm_tasks: int
+    drift_alarm_tasks: int
+    total_spend: float
+    intervened: bool
+    optimism_alarmed: bool
+    drift_alarmed: bool
+    responded: bool
+
+
+@dataclass(frozen=True)
+class PolicyCell:
+    """Pooled outcome for one (configuration, policy) pair.
+
+    ``false_brake_rate`` exists only on healthy cells and only for policies
+    that can intervene at all; ``missed_unsafe_run_rate`` exists only on
+    canary cells. For the ledger-only baseline the response under measurement
+    is the optimism alarm itself, because that arm cannot brake by design.
+    """
+
+    label: str
+    configuration: str
+    policy: str
+    alpha: float
+    runs: int
+    tasks: int
+    decided: int
+    surfaced: int
+    discarded: int
+    wrong_certifications: int
+    wrong_certifications_post_shift: int
+    abstentions: int
+    wrong_certification_rate_per_task: float | None
+    wrong_certification_interval_per_task: tuple[float, float] | None
+    abstention_rate: float | None
+    mean_spend_per_task: float | None
+    explored_tasks: int
+    forced_exploration_tasks: int
+    intervention_tasks: int
+    intervention_episodes: int
+    runs_with_intervention: int
+    runs_with_optimism_alarm: int
+    runs_with_drift_alarm: int
+    runs_with_response: int
+    intervention_capable: bool
+    false_brake_rate: float | None
+    false_brake_interval: tuple[float, float] | None
+    missed_unsafe_run_rate: float | None
+    missed_unsafe_interval: tuple[float, float] | None
+    per_seed: tuple[PolicySeedRow, ...]
+
+
+@dataclass(frozen=True)
+class MonitorPolicyReport:
+    """The whole policy comparison, content-addressed for pinning."""
+
+    experiment: str
+    status: str
+    offline: bool
+    config: dict[str, object]
+    constants: dict[str, object]
+    derived: dict[str, object]
+    honesty: tuple[str, ...]
+    cells: tuple[PolicyCell, ...]
+    digest: str
+
+    def to_json_dict(self) -> dict[str, object]:
+        payload = self._payload()
+        payload["digest"] = self.digest
+        return payload
+
+    def _payload(self) -> dict[str, object]:
+        return {
+            "experiment": self.experiment,
+            "status": self.status,
+            "offline": self.offline,
+            "config": self.config,
+            "constants": self.constants,
+            "derived": self.derived,
+            "honesty": list(self.honesty),
+            "cells": [_policy_cell_json(cell) for cell in self.cells],
+        }
+
+
+def optimism_alarm_judges(alarms: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+    """Judges named by winners_curse_optimism alarms — and nothing else.
+
+    This is the ONLY reading of the alarm list any intervention is allowed to
+    act on: spend_share_drift alarms are ignored here by design, because drift
+    alone is never evidence of invalid evidence (D-004).
+    """
+    return tuple(
+        sorted(
+            {
+                str(alarm["judge"])
+                for alarm in alarms
+                if alarm.get("kind") == "winners_curse_optimism"
+            }
+        )
+    )
+
+
+def make_canary_stream(
+    acc_a: float,
+    acc_b: float,
+    acc_c: float,
+    gamma: float,
+    *,
+    seed: int,
+    n: int,
+    canary_accuracy: float,
+    shift: int,
+) -> Stream:
+    """A healthy make_stream draw whose canary judge degrades after ``shift``.
+
+    Tasks before the shift are byte-identical to the healthy stream at the
+    same seed. From the shift onward, judge A's verdicts are redrawn from a
+    tagged second generator at ``canary_accuracy``, so the tables the engine
+    learned on the healthy prefix are stale — the winner's-curse shape.
+    B and C are untouched, so the clone structure is preserved exactly.
+    """
+    for name, value in (("acc_a", acc_a), ("acc_b", acc_b), ("acc_c", acc_c)):
+        _check_unit(name, value, closed=False)
+    _check_unit("gamma", gamma, closed=True)
+    _check_unit("canary_accuracy", canary_accuracy, closed=True)
+    if n < 2:
+        raise ValueError("n must be at least two")
+    if not 1 <= shift < n:
+        raise ValueError("shift must lie strictly inside the stream")
+
+    healthy = make_stream(acc_a, acc_b, acc_c, gamma, seed=seed, n=n, warmup=0)
+    rng = np.random.default_rng([seed, _CANARY_TAG])
+    agrees = rng.random(n) < canary_accuracy
+    shifted = np.where(agrees, healthy.theta, 1 - healthy.theta)
+    verdicts = dict(healthy.verdicts)
+    canary_votes = verdicts[CANARY_JUDGE].copy()
+    canary_votes[shift:] = shifted[shift:]
+    verdicts[CANARY_JUDGE] = canary_votes
+    return Stream(healthy.theta, verdicts, healthy.explore)
+
+
+def run_policy_stream(
+    stream: Stream, *, alpha: float, policy: str, engine_seed: int
+) -> PolicyRun:
+    """Drive one stream through the engine loop under one monitor policy.
+
+    This is a faithful rebuild of ``Engine.review_task``/``learn`` in the
+    default ``po_calib`` variant — same RNG draw order, same purchase rule,
+    same monitor records, same calibration-slice learning — with exactly two
+    additions, both inert under ``ledger_only``:
+
+    * ``quarantine_optimistic_judge``: judges currently named by a
+      winners_curse_optimism alarm are excluded from the ADAPTIVE candidate
+      list. Exploration tasks still buy all judges, which is what feeds the
+      tables and lets the alarm clear.
+    * ``exploration_only_recovery``: while any winners_curse_optimism alarm
+      is active, every task is an all-buy exploration task.
+
+    A test pins the ledger-only mode equal to the shipped Engine on the same
+    stream and seed, which is what licenses the rebuild.
+    """
+    if policy not in MONITOR_POLICIES:
+        raise ValueError(f"unknown policy {policy!r}")
+    config = EngineConfig(alpha=alpha, seed=engine_seed)
+    tables = Tables(config.judges, config.smoothing)
+    schedule = ExplorationSchedule(config.eps_hot, config.eps_cold, config.cell_target)
+    monitor = WinnersCurseMonitor()
+    rng = np.random.default_rng(config.seed)
+
+    n = len(stream.theta)
+    decisions: list[int | None] = []
+    wealths: list[float] = []
+    explored_flags: list[bool] = []
+    forced_flags: list[bool] = []
+    active_flags: list[bool] = []
+    optimism_flags: list[bool] = []
+    drift_flags: list[bool] = []
+    quarantined_rows: list[tuple[str, ...]] = []
+    orders: list[tuple[str, ...]] = []
+    spends: list[float] = []
+    episodes = 0
+    previously_active = False
+
+    for index in range(n):
+        alarms = monitor.alarms()
+        optimism = optimism_alarm_judges(alarms)
+        drift = any(alarm.get("kind") == "spend_share_drift" for alarm in alarms)
+        quarantined = optimism if policy == POLICY_QUARANTINE else ()
+        forced = bool(optimism) and policy == POLICY_EXPLORATION_RECOVERY
+        explored = schedule.should_explore(rng, tables) or forced
+
+        order: list[str] = []
+        verdicts: dict[str, int] = {}
+        spend = 0.0
+        if explored:
+            all_order = list(config.judges)
+            rng.shuffle(all_order)
+            wealth = 1.0
+            for judge in all_order:
+                p1post = wealth / (1.0 + wealth)
+                estimated = expected_log_e_signed(tables, judge, verdicts, p1post)
+                verdict = int(stream.verdicts[judge][index])
+                realized = float(np.log(tables.lr_factor(judge, verdicts, verdict)))
+                order.append(judge)
+                verdicts[judge] = verdict
+                spend += config.prices[judge]
+                monitor.record(judge, estimated, realized, config.prices[judge])
+                wealth = task_lr_purchase_order(tables, order, verdicts)
+        else:
+            wealth = 1.0
+            while True:
+                if decide(wealth, config.alpha) is not None:
+                    break
+                candidates = [
+                    judge
+                    for judge in config.judges
+                    if judge not in verdicts and judge not in quarantined
+                ]
+                if not candidates:
+                    break
+                best, _ = choose_next(
+                    tables,
+                    candidates,
+                    verdicts,
+                    wealth,
+                    config.prices,
+                    config.price_aware,
+                    config.tau,
+                )
+                if best is None:
+                    break
+                p1post = wealth / (1.0 + wealth)
+                estimated = expected_log_e_signed(tables, best, verdicts, p1post)
+                verdict = int(stream.verdicts[best][index])
+                realized = float(np.log(tables.lr_factor(best, verdicts, verdict)))
+                order.append(best)
+                verdicts[best] = verdict
+                spend += config.prices[best]
+                monitor.record(best, estimated, realized, config.prices[best])
+                wealth = task_lr_purchase_order(tables, order, verdicts)
+
+        if explored:
+            tables.update(int(stream.theta[index]), verdicts)
+
+        active = bool(quarantined) or forced
+        if active and not previously_active:
+            episodes += 1
+        previously_active = active
+
+        decisions.append(decide(wealth, config.alpha))
+        wealths.append(wealth)
+        explored_flags.append(explored)
+        forced_flags.append(forced)
+        active_flags.append(active)
+        optimism_flags.append(bool(optimism))
+        drift_flags.append(drift)
+        quarantined_rows.append(tuple(quarantined))
+        orders.append(tuple(order))
+        spends.append(spend)
+
+    return PolicyRun(
+        policy=policy,
+        decisions=tuple(decisions),
+        wealth=tuple(wealths),
+        explored=tuple(explored_flags),
+        forced_exploration=tuple(forced_flags),
+        intervention_active=tuple(active_flags),
+        optimism_active=tuple(optimism_flags),
+        drift_active=tuple(drift_flags),
+        quarantined=tuple(quarantined_rows),
+        orders=tuple(orders),
+        spend=tuple(spends),
+        intervention_episodes=episodes,
+    )
+
+
+def run_monitor_policy_experiment(
+    *,
+    alpha: float = 0.1,
+    n_tasks: int = DEFAULT_POLICY_TASKS,
+    seeds: Sequence[int] = DEFAULT_POLICY_SEEDS,
+    gamma: float = 0.0,
+    accuracies: tuple[float, float, float] = NULL_GRID_ACCURACIES,
+    canary_accuracy: float = DEFAULT_CANARY_ACCURACY,
+    canary_shift_fraction: float = DEFAULT_CANARY_SHIFT_FRACTION,
+    policies: Sequence[str] = MONITOR_POLICIES,
+) -> MonitorPolicyReport:
+    """Compare the three policies on shared healthy and canary streams.
+
+    Every policy sees the identical stream at a given (configuration, seed),
+    so differences between policies are differences in intervention behaviour
+    and its knock-on effect on learning, never in the draw.
+    """
+    _check_unit("alpha", alpha, closed=False)
+    if n_tasks < 2:
+        raise ValueError("n_tasks must be at least two")
+    if not seeds:
+        raise ValueError("at least one seed is required")
+    if len(set(seeds)) != len(seeds):
+        raise ValueError("seeds must be unique")
+    _check_unit("gamma", gamma, closed=True)
+    if len(accuracies) != 3:
+        raise ValueError("exactly three judge accuracies are required")
+    for accuracy in accuracies:
+        _check_unit("judge_accuracy", accuracy, closed=False)
+    _check_unit("canary_accuracy", canary_accuracy, closed=True)
+    if not 0.0 < canary_shift_fraction < 1.0:
+        raise ValueError("canary_shift_fraction must lie strictly inside (0, 1)")
+    if not policies:
+        raise ValueError("at least one policy is required")
+    for policy in policies:
+        if policy not in MONITOR_POLICIES:
+            raise ValueError(f"unknown policy {policy!r}")
+    if len(set(policies)) != len(policies):
+        raise ValueError("policies must be unique")
+
+    shift = int(n_tasks * canary_shift_fraction)
+    shift = min(max(shift, 1), n_tasks - 1)
+    acc_a, acc_b, acc_c = accuracies
+    streams: dict[tuple[str, int], Stream] = {}
+    for seed in seeds:
+        streams[(HEALTHY_CONFIGURATION, seed)] = make_stream(
+            acc_a, acc_b, acc_c, gamma, seed=seed, n=n_tasks, warmup=0
+        )
+        streams[(CANARY_CONFIGURATION, seed)] = make_canary_stream(
+            acc_a,
+            acc_b,
+            acc_c,
+            gamma,
+            seed=seed,
+            n=n_tasks,
+            canary_accuracy=canary_accuracy,
+            shift=shift,
+        )
+
+    cells: list[PolicyCell] = []
+    for configuration in (HEALTHY_CONFIGURATION, CANARY_CONFIGURATION):
+        for policy in policies:
+            rows = tuple(
+                _policy_seed_row(
+                    streams[(configuration, seed)],
+                    alpha=alpha,
+                    policy=policy,
+                    seed=seed,
+                    shift=shift,
+                )
+                for seed in seeds
+            )
+            cells.append(_policy_cell(configuration, policy, alpha, rows))
+
+    engine_defaults = EngineConfig()
+    monitor_defaults = WinnersCurseMonitor()
+    canary_cells = [cell for cell in cells if cell.configuration == CANARY_CONFIGURATION]
+    catching = [cell.policy for cell in canary_cells if cell.runs_with_response > 0]
+    report = MonitorPolicyReport(
+        experiment=MONITOR_POLICY_EXPERIMENT,
+        status="insufficient_labels/recommendation_only",
+        offline=True,
+        config={
+            "alpha": _num(alpha),
+            "n_tasks": n_tasks,
+            "seeds": list(seeds),
+            "gamma": _num(gamma),
+            "accuracies": [_num(accuracy) for accuracy in accuracies],
+            "canary_judge": CANARY_JUDGE,
+            "canary_accuracy": _num(canary_accuracy),
+            "canary_shift_fraction": _num(canary_shift_fraction),
+            "canary_shift_index": shift,
+            "policies": list(policies),
+            "engine_seed_rule": "engine seed equals stream seed",
+            "streams_shared_across_policies": True,
+        },
+        constants={
+            "engine": {
+                "judges": list(engine_defaults.judges),
+                "prices": {j: _num(engine_defaults.prices[j]) for j in engine_defaults.judges},
+                "variant": engine_defaults.variant,
+                "tau": _num(engine_defaults.tau),
+                "eps_hot": _num(engine_defaults.eps_hot),
+                "eps_cold": _num(engine_defaults.eps_cold),
+                "cell_target": engine_defaults.cell_target,
+            },
+            "monitor": {
+                "window": monitor_defaults.window,
+                "optimism_threshold": _num(monitor_defaults.optimism_threshold),
+                "min_samples": monitor_defaults.min_samples,
+                "drift_threshold": _num(monitor_defaults.drift_threshold),
+            },
+        },
+        derived={
+            "policies_catching_canary": catching,
+            "canary_caught_by_any_policy": bool(catching),
+            "canary_wrong_certifications_by_policy": {
+                cell.policy: cell.wrong_certifications for cell in canary_cells
+            },
+            "canary_post_shift_wrong_certifications_by_policy": {
+                cell.policy: cell.wrong_certifications_post_shift for cell in canary_cells
+            },
+            "false_brake_rate_by_policy": {
+                cell.policy: _optional(cell.false_brake_rate)
+                for cell in cells
+                if cell.configuration == HEALTHY_CONFIGURATION
+            },
+            "missed_unsafe_run_rate_by_policy": {
+                cell.policy: _optional(cell.missed_unsafe_run_rate)
+                for cell in canary_cells
+            },
+            "mean_spend_per_task_by_cell": {
+                cell.label: _optional(cell.mean_spend_per_task) for cell in cells
+            },
+            "drift_never_triggers_note": (
+                "spend_share_drift is reported but can never activate an "
+                "intervention; only winners_curse_optimism can"
+            ),
+        },
+        honesty=MONITOR_POLICY_HONESTY_NOTES,
+        cells=tuple(cells),
+        digest="",
+    )
+    return replace(report, digest=_digest(report._payload()))
+
+
+def _policy_seed_row(
+    stream: Stream, *, alpha: float, policy: str, seed: int, shift: int
+) -> PolicySeedRow:
+    run = run_policy_stream(stream, alpha=alpha, policy=policy, engine_seed=seed)
+    theta = stream.theta
+    n = len(theta)
+    decided = surfaced = discarded = wrong = wrong_post = 0
+    for index, decision in enumerate(run.decisions):
+        if decision is None:
+            continue
+        decided += 1
+        surfaced += decision == 1
+        discarded += decision == 0
+        if decision != int(theta[index]):
+            wrong += 1
+            wrong_post += index >= shift
+    intervention_tasks = sum(run.intervention_active)
+    optimism_tasks = sum(run.optimism_active)
+    drift_tasks = sum(run.drift_active)
+    capable = policy != POLICY_LEDGER_ONLY
+    intervened = intervention_tasks > 0
+    optimism_alarmed = optimism_tasks > 0
+    return PolicySeedRow(
+        seed=seed,
+        tasks=n,
+        decided=decided,
+        surfaced=surfaced,
+        discarded=discarded,
+        wrong_certifications=wrong,
+        wrong_certifications_post_shift=wrong_post,
+        abstentions=n - decided,
+        explored_tasks=sum(run.explored),
+        forced_exploration_tasks=sum(run.forced_exploration),
+        intervention_tasks=intervention_tasks,
+        intervention_episodes=run.intervention_episodes,
+        optimism_alarm_tasks=optimism_tasks,
+        drift_alarm_tasks=drift_tasks,
+        total_spend=float(sum(run.spend)),
+        intervened=intervened,
+        optimism_alarmed=optimism_alarmed,
+        drift_alarmed=drift_tasks > 0,
+        responded=intervened if capable else optimism_alarmed,
+    )
+
+
+def _policy_cell(
+    configuration: str, policy: str, alpha: float, rows: tuple[PolicySeedRow, ...]
+) -> PolicyCell:
+    runs = len(rows)
+    tasks = sum(row.tasks for row in rows)
+    wrong = sum(row.wrong_certifications for row in rows)
+    abstentions = sum(row.abstentions for row in rows)
+    spend = sum(row.total_spend for row in rows)
+    capable = policy != POLICY_LEDGER_ONLY
+    runs_with_intervention = sum(1 for row in rows if row.intervened)
+    runs_with_optimism = sum(1 for row in rows if row.optimism_alarmed)
+    runs_with_response = sum(1 for row in rows if row.responded)
+
+    false_brake: float | None = None
+    false_brake_interval: tuple[float, float] | None = None
+    missed: float | None = None
+    missed_interval: tuple[float, float] | None = None
+    if configuration == HEALTHY_CONFIGURATION and capable:
+        false_brake = _rate(runs_with_intervention, runs)
+        false_brake_interval = _interval(runs_with_intervention, runs)
+    if configuration == CANARY_CONFIGURATION:
+        missed_count = runs - (runs_with_intervention if capable else runs_with_optimism)
+        missed = _rate(missed_count, runs)
+        missed_interval = _interval(missed_count, runs)
+
+    return PolicyCell(
+        label=f"{configuration}/{policy}",
+        configuration=configuration,
+        policy=policy,
+        alpha=alpha,
+        runs=runs,
+        tasks=tasks,
+        decided=sum(row.decided for row in rows),
+        surfaced=sum(row.surfaced for row in rows),
+        discarded=sum(row.discarded for row in rows),
+        wrong_certifications=wrong,
+        wrong_certifications_post_shift=sum(
+            row.wrong_certifications_post_shift for row in rows
+        ),
+        abstentions=abstentions,
+        wrong_certification_rate_per_task=_rate(wrong, tasks),
+        wrong_certification_interval_per_task=_interval(wrong, tasks),
+        abstention_rate=_rate(abstentions, tasks),
+        mean_spend_per_task=None if tasks == 0 else spend / tasks,
+        explored_tasks=sum(row.explored_tasks for row in rows),
+        forced_exploration_tasks=sum(row.forced_exploration_tasks for row in rows),
+        intervention_tasks=sum(row.intervention_tasks for row in rows),
+        intervention_episodes=sum(row.intervention_episodes for row in rows),
+        runs_with_intervention=runs_with_intervention,
+        runs_with_optimism_alarm=runs_with_optimism,
+        runs_with_drift_alarm=sum(1 for row in rows if row.drift_alarmed),
+        runs_with_response=runs_with_response,
+        intervention_capable=capable,
+        false_brake_rate=false_brake,
+        false_brake_interval=false_brake_interval,
+        missed_unsafe_run_rate=missed,
+        missed_unsafe_interval=missed_interval,
+        per_seed=rows,
+    )
+
+
+def _policy_cell_json(cell: PolicyCell) -> dict[str, object]:
+    return {
+        "label": cell.label,
+        "configuration": cell.configuration,
+        "policy": cell.policy,
+        "alpha": _num(cell.alpha),
+        "runs": cell.runs,
+        "tasks": cell.tasks,
+        "decided": cell.decided,
+        "surfaced": cell.surfaced,
+        "discarded": cell.discarded,
+        "wrong_certifications": cell.wrong_certifications,
+        "wrong_certifications_post_shift": cell.wrong_certifications_post_shift,
+        "abstentions": cell.abstentions,
+        "wrong_certification_rate_per_task": _optional(
+            cell.wrong_certification_rate_per_task
+        ),
+        "wrong_certification_interval_per_task": _pair(
+            cell.wrong_certification_interval_per_task
+        ),
+        "abstention_rate": _optional(cell.abstention_rate),
+        "mean_spend_per_task": _optional(cell.mean_spend_per_task),
+        "explored_tasks": cell.explored_tasks,
+        "forced_exploration_tasks": cell.forced_exploration_tasks,
+        "intervention_tasks": cell.intervention_tasks,
+        "intervention_episodes": cell.intervention_episodes,
+        "runs_with_intervention": cell.runs_with_intervention,
+        "runs_with_optimism_alarm": cell.runs_with_optimism_alarm,
+        "runs_with_drift_alarm": cell.runs_with_drift_alarm,
+        "runs_with_response": cell.runs_with_response,
+        "intervention_capable": cell.intervention_capable,
+        "false_brake_rate": _optional(cell.false_brake_rate),
+        "false_brake_interval": _pair(cell.false_brake_interval),
+        "missed_unsafe_run_rate": _optional(cell.missed_unsafe_run_rate),
+        "missed_unsafe_interval": _pair(cell.missed_unsafe_interval),
+        "per_seed": [
+            {
+                "seed": row.seed,
+                "tasks": row.tasks,
+                "decided": row.decided,
+                "surfaced": row.surfaced,
+                "discarded": row.discarded,
+                "wrong_certifications": row.wrong_certifications,
+                "wrong_certifications_post_shift": row.wrong_certifications_post_shift,
+                "abstentions": row.abstentions,
+                "explored_tasks": row.explored_tasks,
+                "forced_exploration_tasks": row.forced_exploration_tasks,
+                "intervention_tasks": row.intervention_tasks,
+                "intervention_episodes": row.intervention_episodes,
+                "optimism_alarm_tasks": row.optimism_alarm_tasks,
+                "drift_alarm_tasks": row.drift_alarm_tasks,
+                "total_spend": _num(row.total_spend),
+                "intervened": row.intervened,
+                "optimism_alarmed": row.optimism_alarmed,
+                "drift_alarmed": row.drift_alarmed,
+                "responded": row.responded,
+            }
+            for row in cell.per_seed
+        ],
+    }
+
+
+# ===========================================================================
+# Task 8, experiment C: V-only speech with S/T as ranking — the two-ledger
+# model. The owner's central architecture question: what changes if S and T
+# stop buying certification wealth and instead only ORDER the verification
+# queue, with a separate certification wealth purchased by V alone, while
+# speech remains exactly certification_wealth >= 1/alpha?
+#
+# Nothing here is a patch. The factory arm composes the shipped channel
+# functions in the shipped purchase order; the two-ledger arm exists only in
+# this harness. Records are a plain typed shape so real labeled ledger rows
+# can be fed through the same arms later.
+# ===========================================================================
+
+TWO_LEDGER_EXPERIMENT = "v_only_speech_two_ledger"
+
+FACTORY_LEDGER_ARM = "factory_single_ledger"
+TWO_LEDGER_ARM = "v_only_two_ledger"
+
+VOI_ORDERING = "st_wealth_priority"
+FCFS_ORDERING = "first_come_first_served"
+
+OUTCOME_REPRODUCED = "reproduced"
+OUTCOME_NOT_REPRODUCED = "not_reproduced"
+OUTCOME_NO_PURCHASE = "no_purchase"
+_OUTCOMES = (OUTCOME_REPRODUCED, OUTCOME_NOT_REPRODUCED, OUTCOME_NO_PURCHASE)
+
+DEFAULT_TWO_LEDGER_ALPHAS: tuple[float, ...] = (0.05, 0.1, 0.25, 0.4)
+DEFAULT_RECALL_TARGETS: tuple[float, ...] = (0.25, 0.5, 0.75, 0.9)
+
+#: Third generator per seed, so the T and V draws cannot perturb the panel
+#: and a rate sweep re-thresholds the same uniforms instead of redrawing.
+_TWO_LEDGER_TAG = 20260901
+
+TWO_LEDGER_HONESTY_NOTES: tuple[str, ...] = (
+    "synthetic_records: candidates are synthetic panels plus assumed T and V "
+    "behaviour, not real ledger rows. No model, network, or subprocess call "
+    "was made; nothing here is a measurement of the product. The record shape "
+    "(CandidateRecord) is deliberately plain so real labeled records can be "
+    "fed through the identical arms later.",
+    "assumed_channel_rates: the T signal rates and BOTH reproduction rates "
+    "are ASSUMPTION parameters, stated and swept, never fitted. The only "
+    "measured anchor is D-031's null-rate measurement (0 false confirmations "
+    "in 296 constructed trials, Wilson interval [0, 0.0128]), which is why "
+    "the false-reproduction sweep includes 0 and the 0.0128 ceiling; the "
+    "true-reproduction rate has no measurement at all.",
+    "speech_rule_unchanged: in BOTH arms speech is exactly "
+    "certification_wealth >= 1/alpha through the shipped decide(). The arms "
+    "differ only in what purchases certification wealth: every channel in "
+    "the factory arm, V and only V in the two-ledger arm, where S/T are a "
+    "verification PRIORITY (queue ordering) and buy nothing.",
+    "not_a_patch: the two-ledger arm is NOT a proposed change and is not "
+    "reachable from production code. Adopting it would change "
+    "attest.review.gate.evaluate_finding's wealth composition, the CI "
+    "verification loop's ordering, and the role of the S/T schedules — all "
+    "owner decisions under ground rule 8, none justifiable on synthetic "
+    "evidence below 500 global ledger labels (architecture red line 5).",
+    "two_denominators: wrong-certification rates are reported per null "
+    "candidate (the findings the gate judges — the population alpha bounds) "
+    "and per null task (silent panels included). The per-task figure is "
+    "always the smaller and is never 'the rate'.",
+    "paired_arms: both arms are evaluated on the identical records, and the "
+    "two-ledger certification set is a subset of the factory's, so the "
+    "comparison is discordant pairs, exact McNemar, and a bootstrap interval "
+    "on the paired difference — never overlapping independent intervals.",
+    "budget_is_simulated: the verification cost per candidate and the budget "
+    "cap are simulation parameters, not measured costs. The VOI-versus-FCFS "
+    "saving prices the wealth-as-scheduler proposal under the stated "
+    "assumptions only.",
+    "recommendation_only: this harness reads the production constants and "
+    "never writes them. Fewer than 500 global ledger labels exist, so every "
+    "number here is a recommendation for the owner, never an authorisation.",
+    "no_seed_selection: every preregistered seed is reported per cell and "
+    "per budget row, including seeds where the ordering saves nothing.",
+)
+
+
+@dataclass(frozen=True)
+class TwoLedgerAssumptions:
+    """Assumed T and V behaviour for synthetic candidate records.
+
+    **These are assumptions, not measurements.** The false-reproduction sweep
+    is anchored to D-031 (0/296 trials, interval [0, 0.0128]) but the headline
+    rate and everything about the true findings' behaviour is unmeasured.
+    """
+
+    true_reproduce_rate: float = 0.8
+    false_reproduce_rate: float = 0.005
+    false_reproduce_rate_sweep: tuple[float, ...] = (0.0, 0.005, 0.0128)
+    verification_no_purchase_rate: float = 0.1
+    tier0_signal_slots: int = 2
+    tier0_true_signal_rate: float = 0.3
+    tier0_false_signal_rate: float = 0.1
+
+    def false_reproduce_rates(self) -> tuple[float, ...]:
+        """Sweep points, always including the headline rate."""
+        return tuple(sorted({*self.false_reproduce_rate_sweep, self.false_reproduce_rate}))
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {
+            "true_reproduce_rate": _num(self.true_reproduce_rate),
+            "false_reproduce_rate": _num(self.false_reproduce_rate),
+            "false_reproduce_rate_sweep": [
+                _num(rate) for rate in self.false_reproduce_rates()
+            ],
+            "verification_no_purchase_rate": _num(self.verification_no_purchase_rate),
+            "tier0_signal_slots": self.tier0_signal_slots,
+            "tier0_true_signal_rate": _num(self.tier0_true_signal_rate),
+            "tier0_false_signal_rate": _num(self.tier0_false_signal_rate),
+            "measured": False,
+            "note": "assumed T and V behaviour; never measured on real data",
+        }
+
+
+DEFAULT_TWO_LEDGER_ASSUMPTIONS = TwoLedgerAssumptions()
+
+
+@dataclass(frozen=True)
+class CandidateRecord:
+    """One candidate finding, in the shape a real labeled ledger row can fill.
+
+    ``verification_outcome`` is the outcome a verification WOULD record if it
+    were purchased; whether it is purchased is the budget policy's decision,
+    which is exactly the separation the two-ledger model proposes.
+    """
+
+    candidate_id: str
+    seed: int
+    theta: int
+    votes: int
+    tier0_signals: int
+    verification_outcome: str
+
+    def __post_init__(self) -> None:
+        if not self.candidate_id:
+            raise ValueError("candidate_id must be non-empty")
+        if self.theta not in (0, 1):
+            raise ValueError("theta must be 0 or 1")
+        if self.votes < 1:
+            raise ValueError("a candidate exists only if at least one sample voted")
+        if self.tier0_signals < 0:
+            raise ValueError("tier0_signals must not be negative")
+        _check_outcome(self.verification_outcome)
+
+
+class _SeedRecords(NamedTuple):
+    seed: int
+    null_tasks: int
+    true_tasks: int
+    records: tuple[CandidateRecord, ...]
+
+
+@dataclass(frozen=True)
+class TwoLedgerSeedRow:
+    seed: int
+    null_tasks: int
+    true_tasks: int
+    candidates: int
+    null_candidates: int
+    true_candidates: int
+    certifications: int
+    wrong_certifications: int
+    true_certifications: int
+    discards: int
+    abstentions: int
+
+
+@dataclass(frozen=True)
+class TwoLedgerArmOutcome:
+    """One arm's decisions over the shared records, both denominators named."""
+
+    arm: str
+    tasks: int
+    null_tasks: int
+    true_tasks: int
+    candidates: int
+    null_candidates: int
+    true_candidates: int
+    certifications: int
+    wrong_certifications: int
+    true_certifications: int
+    discards: int
+    abstentions: int
+    wrong_certification_rate_per_null_candidate: float | None
+    wrong_certification_interval_per_null_candidate: tuple[float, float] | None
+    wrong_certification_rate_per_null_task: float | None
+    wrong_certification_interval_per_null_task: tuple[float, float] | None
+    alpha_excess_per_null_candidate: float | None
+    exceeds_alpha_per_null_candidate: bool
+    true_certification_rate_per_true_candidate: float | None
+    abstention_rate: float | None
+    per_seed: tuple[TwoLedgerSeedRow, ...]
+
+
+@dataclass(frozen=True)
+class ArmPairing:
+    """Factory versus two-ledger wrong certifications as paired data.
+
+    The arms share every record, and the two-ledger certification set is a
+    subset of the factory's (V alone can never certify what the full product
+    would not), so every discordant pair runs one way.
+    """
+
+    denominator: str
+    pairs: int
+    both_wrong: int
+    factory_only: int
+    two_ledger_only: int
+    neither_wrong: int
+    arms_are_nested: bool
+    difference_per_null_candidate: float | None
+    difference_interval_per_null_candidate: tuple[float, float] | None
+    mcnemar_exact_p: float | None
+    intervals_overlap: bool
+
+
+@dataclass(frozen=True)
+class TwoLedgerCell:
+    label: str
+    alpha: float
+    false_reproduce_rate: float
+    is_factory_alpha: bool
+    factory: TwoLedgerArmOutcome
+    two_ledger: TwoLedgerArmOutcome
+    paired: ArmPairing
+
+
+@dataclass(frozen=True)
+class BudgetSeedRow:
+    seed: int
+    candidates: int
+    certifiable_true: int
+    required_true_certifications: int | None
+    budget_voi: int | None
+    budget_fcfs: int | None
+
+
+@dataclass(frozen=True)
+class BudgetRow:
+    """Verification budget to reach one recall target, per ordering.
+
+    ``budget_*`` counts verifications; ``cost_*`` multiplies by the simulated
+    per-candidate verification cost. The recall denominator is the number of
+    true candidates the two-ledger arm could certify with an unlimited budget
+    at this alpha.
+    """
+
+    alpha: float
+    recall_target: float
+    candidates: int
+    certifiable_true: int
+    required_true_certifications: int | None
+    budget_voi: int | None
+    budget_fcfs: int | None
+    budget_saving_fraction: float | None
+    verification_cost_per_candidate: float
+    cost_voi: float | None
+    cost_fcfs: float | None
+    per_seed: tuple[BudgetSeedRow, ...]
+
+
+@dataclass(frozen=True)
+class TwoLedgerReport:
+    """The whole comparison, content-addressed for pinning."""
+
+    experiment: str
+    status: str
+    offline: bool
+    config: dict[str, object]
+    constants: dict[str, object]
+    derived: dict[str, object]
+    honesty: tuple[str, ...]
+    cells: tuple[TwoLedgerCell, ...]
+    budget: tuple[BudgetRow, ...]
+    digest: str
+
+    def to_json_dict(self) -> dict[str, object]:
+        payload = self._payload()
+        payload["digest"] = self.digest
+        return payload
+
+    def _payload(self) -> dict[str, object]:
+        return {
+            "experiment": self.experiment,
+            "status": self.status,
+            "offline": self.offline,
+            "config": self.config,
+            "constants": self.constants,
+            "derived": self.derived,
+            "honesty": list(self.honesty),
+            "cells": [_two_ledger_cell_json(cell) for cell in self.cells],
+            "budget": [_budget_row_json(row) for row in self.budget],
+        }
+
+
+def _check_outcome(outcome: str) -> None:
+    if outcome not in _OUTCOMES:
+        raise ValueError(f"unknown verification outcome {outcome!r}")
+
+
+def _check_two_ledger_assumptions(assumptions: TwoLedgerAssumptions) -> None:
+    _check_unit("true_reproduce_rate", assumptions.true_reproduce_rate, closed=True)
+    _check_unit(
+        "verification_no_purchase_rate",
+        assumptions.verification_no_purchase_rate,
+        closed=True,
+    )
+    if assumptions.tier0_signal_slots < 0:
+        raise ValueError("tier0_signal_slots must not be negative")
+    _check_unit("tier0_true_signal_rate", assumptions.tier0_true_signal_rate, closed=True)
+    _check_unit("tier0_false_signal_rate", assumptions.tier0_false_signal_rate, closed=True)
+    for rate in assumptions.false_reproduce_rates():
+        _check_unit("false_reproduce_rate", rate, closed=True)
+        if rate + assumptions.verification_no_purchase_rate > 1.0:
+            raise ValueError("verification outcome probabilities must not exceed one")
+    if (
+        assumptions.true_reproduce_rate + assumptions.verification_no_purchase_rate
+        > 1.0
+    ):
+        raise ValueError("verification outcome probabilities must not exceed one")
+
+
+def st_priority(*, votes: int, tier0_signals: int) -> float:
+    """The S*T wealth the factory would hold before V — as a QUEUE KEY only.
+
+    In the two-ledger model this number buys nothing: it decides which
+    candidate gets the next verification slot, and certification wealth is
+    untouched until V reports.
+    """
+    if votes < 0:
+        raise ValueError("votes must not be negative")
+    if tier0_signals < 0:
+        raise ValueError("tier0_signals must not be negative")
+    return float(votes_lr(votes) * tier0_lr(tier0_signals))
+
+
+def two_ledger_certification_wealth(outcome: str, *, verified: bool = True) -> float:
+    """Certification wealth purchased by V and only V.
+
+    Unverified candidates (and no-purchase outcomes, D-022's unpriced classes)
+    hold wealth exactly 1: silence, not evidence.
+    """
+    _check_outcome(outcome)
+    if not verified or outcome == OUTCOME_NO_PURCHASE:
+        return 1.0
+    return float(verification_lr(outcome == OUTCOME_REPRODUCED))
+
+
+def factory_terminal_wealth(
+    *, votes: int, signals: int, outcome: str, alpha: float, verified: bool = True
+) -> float:
+    """The factory arm: shipped channels in the shipped purchase order.
+
+    S first, T only when a signal exists, V only when a verdict exists — and
+    every later purchase skipped once the gate has decided, exactly as
+    :func:`attest.review.gate.evaluate_finding` composes wealth (the same
+    ``_wealth_trace`` rebuild the Ville section pins).
+    """
+    if votes < 0:
+        raise ValueError("votes must not be negative")
+    if signals < 0:
+        raise ValueError("signals must not be negative")
+    _check_outcome(outcome)
+    _check_unit("alpha", alpha, closed=False)
+    verification = None
+    if verified and outcome != OUTCOME_NO_PURCHASE:
+        verification = verification_lr(outcome == OUTCOME_REPRODUCED)
+    wealth, _ = _wealth_trace(
+        vote_lr=votes_lr(votes),
+        tier0=tier0_lr(signals) if signals >= 1 else None,
+        verification=verification,
+        alpha=alpha,
+    )
+    return wealth
+
+
+def arm_decisions(
+    record: CandidateRecord, *, alpha: float, verified: bool = True
+) -> tuple[int | None, int | None]:
+    """(factory decision, two-ledger decision) for one record via decide()."""
+    factory = decide(
+        factory_terminal_wealth(
+            votes=record.votes,
+            signals=record.tier0_signals,
+            outcome=record.verification_outcome,
+            alpha=alpha,
+            verified=verified,
+        ),
+        alpha,
+    )
+    ledger = decide(
+        two_ledger_certification_wealth(record.verification_outcome, verified=verified),
+        alpha,
+    )
+    return factory, ledger
+
+
+def _seed_records(
+    *,
+    k: int,
+    gamma: float,
+    judge_accuracy: float,
+    n_tasks: int,
+    seed: int,
+    assumptions: TwoLedgerAssumptions,
+    false_reproduce_rate: float,
+) -> _SeedRecords:
+    """Draw one seed's mixed-truth panel and its assumed T/V outcomes.
+
+    Draw order is part of the contract: the panel comes from
+    :func:`simulate_panel` untouched; signals-then-no-purchase-then-reproduce
+    uniforms come from a tagged second generator, so sweeping an assumed rate
+    re-thresholds the same draws instead of redrawing them.
+    """
+    panel = simulate_panel(
+        gamma=gamma,
+        theta_prior=0.5,
+        judge_accuracy=judge_accuracy,
+        k=k,
+        n_tasks=n_tasks,
+        seed=seed,
+    )
+    rng = np.random.default_rng([seed, _TWO_LEDGER_TAG])
+    signal_uniforms = rng.random((n_tasks, max(assumptions.tier0_signal_slots, 1)))
+    no_purchase_uniforms = rng.random(n_tasks)
+    reproduce_uniforms = rng.random(n_tasks)
+
+    records: list[CandidateRecord] = []
+    for index in range(n_tasks):
+        votes = int(panel.votes[index])
+        if votes < 1:
+            continue
+        theta = int(panel.theta[index])
+        signal_rate = (
+            assumptions.tier0_true_signal_rate
+            if theta
+            else assumptions.tier0_false_signal_rate
+        )
+        slots = signal_uniforms[index, : assumptions.tier0_signal_slots]
+        signals = int((slots < signal_rate).sum())
+        if no_purchase_uniforms[index] < assumptions.verification_no_purchase_rate:
+            outcome = OUTCOME_NO_PURCHASE
+        else:
+            reproduce_rate = (
+                assumptions.true_reproduce_rate if theta else false_reproduce_rate
+            )
+            outcome = (
+                OUTCOME_REPRODUCED
+                if reproduce_uniforms[index] < reproduce_rate
+                else OUTCOME_NOT_REPRODUCED
+            )
+        records.append(
+            CandidateRecord(
+                candidate_id=f"seed{seed}/task{index}",
+                seed=seed,
+                theta=theta,
+                votes=votes,
+                tier0_signals=signals,
+                verification_outcome=outcome,
+            )
+        )
+    return _SeedRecords(
+        seed=seed,
+        null_tasks=int((panel.theta == 0).sum()),
+        true_tasks=int((panel.theta == 1).sum()),
+        records=tuple(records),
+    )
+
+
+def synthesize_candidate_records(
+    *,
+    k: int,
+    gamma: float,
+    judge_accuracy: float,
+    n_tasks: int,
+    seed: int,
+    assumptions: TwoLedgerAssumptions = DEFAULT_TWO_LEDGER_ASSUMPTIONS,
+    false_reproduce_rate: float,
+) -> tuple[CandidateRecord, ...]:
+    """Public record synthesizer; see :func:`_seed_records` for the contract."""
+    _check_two_ledger_assumptions(assumptions)
+    _check_unit("false_reproduce_rate", false_reproduce_rate, closed=True)
+    if false_reproduce_rate + assumptions.verification_no_purchase_rate > 1.0:
+        raise ValueError("verification outcome probabilities must not exceed one")
+    return _seed_records(
+        k=k,
+        gamma=gamma,
+        judge_accuracy=judge_accuracy,
+        n_tasks=n_tasks,
+        seed=seed,
+        assumptions=assumptions,
+        false_reproduce_rate=false_reproduce_rate,
+    ).records
+
+
+def run_two_ledger_experiment(
+    *,
+    alphas: Sequence[float] = DEFAULT_TWO_LEDGER_ALPHAS,
+    k: int = 5,
+    gamma: float = RHO,
+    n_tasks: int = 2000,
+    seeds: Sequence[int] = DEFAULT_SEEDS,
+    judge_accuracy: float | None = None,
+    assumptions: TwoLedgerAssumptions = DEFAULT_TWO_LEDGER_ASSUMPTIONS,
+    recall_targets: Sequence[float] = DEFAULT_RECALL_TARGETS,
+    verification_cost: float = 1.0,
+    bootstrap_resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
+    bootstrap_seed: int = DEFAULT_BOOTSTRAP_SEED,
+) -> TwoLedgerReport:
+    """Factory arm versus the two-ledger arm over the preregistered grid.
+
+    The arm comparison verifies every candidate the gate has not already
+    decided (unlimited budget), isolating what the wealth composition changes.
+    The budget section then prices the scheduler: within the two-ledger arm,
+    verifications proceed in S/T-priority order versus arrival order under a
+    per-candidate cost, and the row reports the budget each ordering needs to
+    reach a fixed recall.
+    """
+    if not alphas:
+        raise ValueError("at least one alpha is required")
+    for alpha in alphas:
+        _check_unit("alpha", alpha, closed=False)
+    if k < 1:
+        raise ValueError("k must be at least one")
+    if n_tasks < 1:
+        raise ValueError("n_tasks must be at least one")
+    if not seeds:
+        raise ValueError("at least one seed is required")
+    if len(set(seeds)) != len(seeds):
+        raise ValueError("seeds must be unique")
+    _check_unit("gamma", gamma, closed=True)
+    accuracy = calibrated_vote_accuracy() if judge_accuracy is None else judge_accuracy
+    _check_unit("judge_accuracy", accuracy, closed=False)
+    _check_two_ledger_assumptions(assumptions)
+    if not recall_targets:
+        raise ValueError("at least one recall target is required")
+    for target in recall_targets:
+        if not 0.0 < target <= 1.0:
+            raise ValueError("recall targets must lie in (0, 1]")
+    if verification_cost <= 0.0:
+        raise ValueError("verification_cost must be positive")
+    if bootstrap_resamples < 1:
+        raise ValueError("bootstrap_resamples must be at least one")
+
+    rates = assumptions.false_reproduce_rates()
+    seed_data: dict[float, tuple[_SeedRecords, ...]] = {
+        rate: tuple(
+            _seed_records(
+                k=k,
+                gamma=gamma,
+                judge_accuracy=accuracy,
+                n_tasks=n_tasks,
+                seed=seed,
+                assumptions=assumptions,
+                false_reproduce_rate=rate,
+            )
+            for seed in seeds
+        )
+        for rate in rates
+    }
+
+    cells = tuple(
+        _two_ledger_cell(
+            alpha=alpha,
+            rate=rate,
+            data=seed_data[rate],
+            bootstrap_seed=bootstrap_seed,
+            resamples=bootstrap_resamples,
+        )
+        for alpha in alphas
+        for rate in rates
+    )
+    budget = tuple(
+        _budget_row(
+            alpha=alpha,
+            target=target,
+            data=seed_data[assumptions.false_reproduce_rate],
+            cost=verification_cost,
+        )
+        for alpha in alphas
+        for target in recall_targets
+    )
+
+    report = TwoLedgerReport(
+        experiment=TWO_LEDGER_EXPERIMENT,
+        status="insufficient_labels/recommendation_only",
+        offline=True,
+        config={
+            "alphas": [_num(alpha) for alpha in alphas],
+            "k": k,
+            "gamma": _num(gamma),
+            "gamma_is_a_clone_rate": True,
+            "n_tasks": n_tasks,
+            "seeds": list(seeds),
+            "theta_prior": 0.5,
+            "judge_accuracy": _num(accuracy),
+            "judge_accuracy_is_lr1_calibrated": accuracy == calibrated_vote_accuracy(),
+            "assumptions": assumptions.to_json_dict(),
+            "recall_targets": [_num(target) for target in recall_targets],
+            "verification_cost": _num(verification_cost),
+            "bootstrap_resamples": bootstrap_resamples,
+            "bootstrap_seed": bootstrap_seed,
+            "orderings": [VOI_ORDERING, FCFS_ORDERING],
+            "budget_rate_note": (
+                "budget rows use the headline false-reproduction rate; recall "
+                "counts only true candidates, so the rows are identical at "
+                "every swept rate"
+            ),
+        },
+        constants={
+            "lr1": LR1,
+            "rho": RHO,
+            "s_cap": S_CAP,
+            "t_cap": T_CAP,
+            "v_cap": V_CAP,
+            "v_failed": V_FAILED,
+            "vote_lr": list(VOTE_LR),
+        },
+        derived={
+            "speech_feasibility": {
+                str(_num(alpha)): {
+                    "factory_without_verification": bool(
+                        max_reachable_wealth(False) >= 1.0 / alpha
+                    ),
+                    "factory_with_verification": bool(
+                        max_reachable_wealth(True) >= 1.0 / alpha
+                    ),
+                    "two_ledger_v_only": bool(1.0 / alpha <= V_CAP),
+                }
+                for alpha in alphas
+            },
+            "gate_feasibility_factory": {
+                str(_num(alpha)): gate_feasibility(alpha) for alpha in alphas
+            },
+            "factory_alphas": list(FACTORY_ALPHAS),
+            "cells_where_arms_differ": [
+                cell.label
+                for cell in cells
+                if cell.paired.factory_only + cell.paired.two_ledger_only > 0
+            ],
+            "cells_where_arms_are_not_nested": [
+                cell.label for cell in cells if not cell.paired.arms_are_nested
+            ],
+            "interfaces_a_two_ledger_model_would_change": [
+                "attest.review.gate.evaluate_finding: certification wealth would "
+                "be purchased by V only instead of S*T*V",
+                "attest.review.ci: the verification loop would order drawer "
+                "candidates by S/T priority instead of arrival order",
+                "attest.review.channels: the S and T schedules would become "
+                "queue keys and stop buying wealth (constants untouched but "
+                "their role redefined)",
+            ],
+            "owner_decision_required": True,
+        },
+        honesty=TWO_LEDGER_HONESTY_NOTES,
+        cells=cells,
+        budget=budget,
+        digest="",
+    )
+    return replace(report, digest=_digest(report._payload()))
+
+
+def _two_ledger_cell(
+    *,
+    alpha: float,
+    rate: float,
+    data: tuple[_SeedRecords, ...],
+    bootstrap_seed: int,
+    resamples: int,
+) -> TwoLedgerCell:
+    label = f"alpha={_num(alpha)}/false_reproduce_rate={_num(rate)}"
+    factory_rows: list[TwoLedgerSeedRow] = []
+    ledger_rows: list[TwoLedgerSeedRow] = []
+    factory_wrong_flags: list[np.ndarray] = []
+    ledger_wrong_flags: list[np.ndarray] = []
+    for entry in data:
+        factory_seed: dict[str, int] = {"cert": 0, "wrong": 0, "true": 0, "discard": 0}
+        ledger_seed: dict[str, int] = {"cert": 0, "wrong": 0, "true": 0, "discard": 0}
+        factory_null: list[bool] = []
+        ledger_null: list[bool] = []
+        for record in entry.records:
+            factory, ledger = arm_decisions(record, alpha=alpha, verified=True)
+            for decision, counts in ((factory, factory_seed), (ledger, ledger_seed)):
+                if decision == 1:
+                    counts["cert"] += 1
+                    counts["wrong" if record.theta == 0 else "true"] += 1
+                elif decision == 0:
+                    counts["discard"] += 1
+            if record.theta == 0:
+                factory_null.append(factory == 1)
+                ledger_null.append(ledger == 1)
+        null_candidates = len(factory_null)
+        true_candidates = len(entry.records) - null_candidates
+        for counts, rows in ((factory_seed, factory_rows), (ledger_seed, ledger_rows)):
+            rows.append(
+                TwoLedgerSeedRow(
+                    seed=entry.seed,
+                    null_tasks=entry.null_tasks,
+                    true_tasks=entry.true_tasks,
+                    candidates=len(entry.records),
+                    null_candidates=null_candidates,
+                    true_candidates=true_candidates,
+                    certifications=counts["cert"],
+                    wrong_certifications=counts["wrong"],
+                    true_certifications=counts["true"],
+                    discards=counts["discard"],
+                    abstentions=len(entry.records) - counts["cert"] - counts["discard"],
+                )
+            )
+        factory_wrong_flags.append(np.asarray(factory_null, dtype=bool))
+        ledger_wrong_flags.append(np.asarray(ledger_null, dtype=bool))
+
+    factory_wrong = (
+        np.concatenate(factory_wrong_flags) if factory_wrong_flags else np.array([], bool)
+    )
+    ledger_wrong = (
+        np.concatenate(ledger_wrong_flags) if ledger_wrong_flags else np.array([], bool)
+    )
+    return TwoLedgerCell(
+        label=label,
+        alpha=alpha,
+        false_reproduce_rate=rate,
+        is_factory_alpha=alpha in FACTORY_ALPHAS,
+        factory=_two_ledger_arm(FACTORY_LEDGER_ARM, tuple(factory_rows), alpha),
+        two_ledger=_two_ledger_arm(TWO_LEDGER_ARM, tuple(ledger_rows), alpha),
+        paired=_arm_pairing(
+            factory_wrong,
+            ledger_wrong,
+            seed=_row_seed(bootstrap_seed, label, "two_ledger_paired"),
+            resamples=resamples,
+        ),
+    )
+
+
+def _two_ledger_arm(
+    arm: str, rows: tuple[TwoLedgerSeedRow, ...], alpha: float
+) -> TwoLedgerArmOutcome:
+    null_tasks = sum(row.null_tasks for row in rows)
+    true_tasks = sum(row.true_tasks for row in rows)
+    candidates = sum(row.candidates for row in rows)
+    null_candidates = sum(row.null_candidates for row in rows)
+    true_candidates = sum(row.true_candidates for row in rows)
+    certifications = sum(row.certifications for row in rows)
+    wrong = sum(row.wrong_certifications for row in rows)
+    true = sum(row.true_certifications for row in rows)
+    discards = sum(row.discards for row in rows)
+    abstentions = sum(row.abstentions for row in rows)
+    per_candidate = _rate(wrong, null_candidates)
+    candidate_interval = _interval(wrong, null_candidates)
+    return TwoLedgerArmOutcome(
+        arm=arm,
+        tasks=null_tasks + true_tasks,
+        null_tasks=null_tasks,
+        true_tasks=true_tasks,
+        candidates=candidates,
+        null_candidates=null_candidates,
+        true_candidates=true_candidates,
+        certifications=certifications,
+        wrong_certifications=wrong,
+        true_certifications=true,
+        discards=discards,
+        abstentions=abstentions,
+        wrong_certification_rate_per_null_candidate=per_candidate,
+        wrong_certification_interval_per_null_candidate=candidate_interval,
+        wrong_certification_rate_per_null_task=_rate(wrong, null_tasks),
+        wrong_certification_interval_per_null_task=_interval(wrong, null_tasks),
+        alpha_excess_per_null_candidate=(
+            None if per_candidate is None else per_candidate / alpha
+        ),
+        exceeds_alpha_per_null_candidate=(
+            candidate_interval is not None and candidate_interval[0] > alpha
+        ),
+        true_certification_rate_per_true_candidate=_rate(true, true_candidates),
+        abstention_rate=_rate(abstentions, candidates),
+        per_seed=rows,
+    )
+
+
+def _arm_pairing(
+    factory_wrong: np.ndarray, ledger_wrong: np.ndarray, *, seed: int, resamples: int
+) -> ArmPairing:
+    pairs = int(factory_wrong.size)
+    both = int((factory_wrong & ledger_wrong).sum())
+    factory_only = int((factory_wrong & ~ledger_wrong).sum())
+    ledger_only = int((ledger_wrong & ~factory_wrong).sum())
+    difference: float | None = None
+    interval: tuple[float, float] | None = None
+    if pairs:
+        deltas = factory_wrong.astype(float) - ledger_wrong.astype(float)
+        difference = float(deltas.mean())
+        interval = _bootstrap_interval(deltas, seed=seed, resamples=resamples)
+    factory_interval = _interval(both + factory_only, pairs)
+    ledger_interval = _interval(both + ledger_only, pairs)
+    overlap = (
+        factory_interval is not None
+        and ledger_interval is not None
+        and factory_interval[0] <= ledger_interval[1]
+        and ledger_interval[0] <= factory_interval[1]
+    )
+    return ArmPairing(
+        denominator="null_candidate_tasks",
+        pairs=pairs,
+        both_wrong=both,
+        factory_only=factory_only,
+        two_ledger_only=ledger_only,
+        neither_wrong=pairs - both - factory_only - ledger_only,
+        arms_are_nested=bool((ledger_wrong <= factory_wrong).all()),
+        difference_per_null_candidate=difference,
+        difference_interval_per_null_candidate=interval,
+        mcnemar_exact_p=_mcnemar_exact_p(factory_only, ledger_only),
+        intervals_overlap=overlap,
+    )
+
+
+def _certified_true_flags(
+    records: Sequence[CandidateRecord], alpha: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """(certifiable-true flag, priority) per record under the two-ledger arm."""
+    certified = np.array(
+        [
+            record.theta == 1
+            and decide(
+                two_ledger_certification_wealth(record.verification_outcome), alpha
+            )
+            == 1
+            for record in records
+        ],
+        dtype=bool,
+    )
+    priority = np.array(
+        [
+            st_priority(votes=record.votes, tier0_signals=record.tier0_signals)
+            for record in records
+        ],
+        dtype=float,
+    )
+    return certified, priority
+
+
+def _minimal_budget(
+    order: Sequence[int], certified: np.ndarray, required: int
+) -> int | None:
+    """Verifications needed, following ``order``, to certify ``required`` trues."""
+    reached = 0
+    for spent, index in enumerate(order, start=1):
+        reached += bool(certified[index])
+        if reached >= required:
+            return spent
+    return None
+
+
+def _budget_orders(priority: np.ndarray) -> tuple[list[int], list[int]]:
+    """(VOI order, FCFS order) over record indices; arrival breaks VOI ties."""
+    arrival = list(range(priority.size))
+    voi = sorted(arrival, key=lambda index: (-priority[index], index))
+    return voi, arrival
+
+
+def _budget_row(
+    *, alpha: float, target: float, data: tuple[_SeedRecords, ...], cost: float
+) -> BudgetRow:
+    pooled_records = [record for entry in data for record in entry.records]
+    certified, priority = _certified_true_flags(pooled_records, alpha)
+    certifiable = int(certified.sum())
+    required: int | None = None
+    budget_voi: int | None = None
+    budget_fcfs: int | None = None
+    if certifiable > 0:
+        required = math.ceil(target * certifiable)
+        voi_order, fcfs_order = _budget_orders(priority)
+        budget_voi = _minimal_budget(voi_order, certified, required)
+        budget_fcfs = _minimal_budget(fcfs_order, certified, required)
+
+    per_seed: list[BudgetSeedRow] = []
+    for entry in data:
+        seed_certified, seed_priority = _certified_true_flags(entry.records, alpha)
+        seed_total = int(seed_certified.sum())
+        seed_required: int | None = None
+        seed_voi: int | None = None
+        seed_fcfs: int | None = None
+        if seed_total > 0:
+            seed_required = math.ceil(target * seed_total)
+            voi_order, fcfs_order = _budget_orders(seed_priority)
+            seed_voi = _minimal_budget(voi_order, seed_certified, seed_required)
+            seed_fcfs = _minimal_budget(fcfs_order, seed_certified, seed_required)
+        per_seed.append(
+            BudgetSeedRow(
+                seed=entry.seed,
+                candidates=len(entry.records),
+                certifiable_true=seed_total,
+                required_true_certifications=seed_required,
+                budget_voi=seed_voi,
+                budget_fcfs=seed_fcfs,
+            )
+        )
+
+    saving: float | None = None
+    if budget_voi is not None and budget_fcfs is not None and budget_fcfs > 0:
+        saving = 1.0 - budget_voi / budget_fcfs
+    return BudgetRow(
+        alpha=alpha,
+        recall_target=target,
+        candidates=len(pooled_records),
+        certifiable_true=certifiable,
+        required_true_certifications=required,
+        budget_voi=budget_voi,
+        budget_fcfs=budget_fcfs,
+        budget_saving_fraction=saving,
+        verification_cost_per_candidate=cost,
+        cost_voi=None if budget_voi is None else budget_voi * cost,
+        cost_fcfs=None if budget_fcfs is None else budget_fcfs * cost,
+        per_seed=tuple(per_seed),
+    )
+
+
+def _two_ledger_arm_json(arm: TwoLedgerArmOutcome) -> dict[str, object]:
+    return {
+        "arm": arm.arm,
+        "tasks": arm.tasks,
+        "null_tasks": arm.null_tasks,
+        "true_tasks": arm.true_tasks,
+        "candidates": arm.candidates,
+        "null_candidates": arm.null_candidates,
+        "true_candidates": arm.true_candidates,
+        "certifications": arm.certifications,
+        "wrong_certifications": arm.wrong_certifications,
+        "true_certifications": arm.true_certifications,
+        "discards": arm.discards,
+        "abstentions": arm.abstentions,
+        "wrong_certification_rate_per_null_candidate": _optional(
+            arm.wrong_certification_rate_per_null_candidate
+        ),
+        "wrong_certification_interval_per_null_candidate": _pair(
+            arm.wrong_certification_interval_per_null_candidate
+        ),
+        "wrong_certification_rate_per_null_task": _optional(
+            arm.wrong_certification_rate_per_null_task
+        ),
+        "wrong_certification_interval_per_null_task": _pair(
+            arm.wrong_certification_interval_per_null_task
+        ),
+        "alpha_excess_per_null_candidate": _optional(arm.alpha_excess_per_null_candidate),
+        "exceeds_alpha_per_null_candidate": arm.exceeds_alpha_per_null_candidate,
+        "true_certification_rate_per_true_candidate": _optional(
+            arm.true_certification_rate_per_true_candidate
+        ),
+        "abstention_rate": _optional(arm.abstention_rate),
+        "per_seed": [
+            {
+                "seed": row.seed,
+                "null_tasks": row.null_tasks,
+                "true_tasks": row.true_tasks,
+                "candidates": row.candidates,
+                "null_candidates": row.null_candidates,
+                "true_candidates": row.true_candidates,
+                "certifications": row.certifications,
+                "wrong_certifications": row.wrong_certifications,
+                "true_certifications": row.true_certifications,
+                "discards": row.discards,
+                "abstentions": row.abstentions,
+            }
+            for row in arm.per_seed
+        ],
+    }
+
+
+def _two_ledger_cell_json(cell: TwoLedgerCell) -> dict[str, object]:
+    return {
+        "label": cell.label,
+        "alpha": _num(cell.alpha),
+        "false_reproduce_rate": _num(cell.false_reproduce_rate),
+        "is_factory_alpha": cell.is_factory_alpha,
+        "factory": _two_ledger_arm_json(cell.factory),
+        "two_ledger": _two_ledger_arm_json(cell.two_ledger),
+        "paired": {
+            "denominator": cell.paired.denominator,
+            "pairs": cell.paired.pairs,
+            "both_wrong": cell.paired.both_wrong,
+            "factory_only": cell.paired.factory_only,
+            "two_ledger_only": cell.paired.two_ledger_only,
+            "neither_wrong": cell.paired.neither_wrong,
+            "arms_are_nested": cell.paired.arms_are_nested,
+            "difference_per_null_candidate": _optional(
+                cell.paired.difference_per_null_candidate
+            ),
+            "difference_interval_per_null_candidate": _pair(
+                cell.paired.difference_interval_per_null_candidate
+            ),
+            "mcnemar_exact_p": _optional(cell.paired.mcnemar_exact_p),
+            "intervals_overlap": cell.paired.intervals_overlap,
+        },
+    }
+
+
+def _budget_row_json(row: BudgetRow) -> dict[str, object]:
+    return {
+        "alpha": _num(row.alpha),
+        "recall_target": _num(row.recall_target),
+        "candidates": row.candidates,
+        "certifiable_true": row.certifiable_true,
+        "required_true_certifications": row.required_true_certifications,
+        "budget_voi": row.budget_voi,
+        "budget_fcfs": row.budget_fcfs,
+        "budget_saving_fraction": _optional(row.budget_saving_fraction),
+        "verification_cost_per_candidate": _num(row.verification_cost_per_candidate),
+        "cost_voi": _optional(row.cost_voi),
+        "cost_fcfs": _optional(row.cost_fcfs),
+        "orderings": {"voi": VOI_ORDERING, "fcfs": FCFS_ORDERING},
+        "per_seed": [
+            {
+                "seed": entry.seed,
+                "candidates": entry.candidates,
+                "certifiable_true": entry.certifiable_true,
+                "required_true_certifications": entry.required_true_certifications,
+                "budget_voi": entry.budget_voi,
+                "budget_fcfs": entry.budget_fcfs,
+            }
+            for entry in row.per_seed
         ],
     }

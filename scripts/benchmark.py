@@ -29,17 +29,34 @@ from attest.benchmark.corpus import (
     validate_corpus,
 )
 from attest.benchmark.experiments import (
+    DEFAULT_ALARM_POLL_EVERY,
     DEFAULT_BOOTSTRAP_RESAMPLES,
     DEFAULT_BOOTSTRAP_SEED,
+    DEFAULT_CANARY_ACCURACY,
+    DEFAULT_CANARY_SHIFT_FRACTION,
     DEFAULT_GAMMAS,
     DEFAULT_NULL_ASSUMPTIONS,
     DEFAULT_NULL_GAMMAS,
+    DEFAULT_NULL_GRID_ALPHAS,
+    DEFAULT_NULL_GRID_LENGTHS,
+    DEFAULT_NULL_GRID_PANEL_GAMMAS,
+    DEFAULT_NULL_GRID_SEEDS,
+    DEFAULT_POLICY_SEEDS,
+    DEFAULT_POLICY_TASKS,
+    DEFAULT_RECALL_TARGETS,
     DEFAULT_SEEDS,
+    DEFAULT_TWO_LEDGER_ALPHAS,
+    DEFAULT_TWO_LEDGER_ASSUMPTIONS,
     DEFAULT_VILLE_ALPHAS,
     FACTORY_ALPHAS,
+    NULL_GRID_ACCURACIES,
     NullAssumptions,
+    TwoLedgerAssumptions,
     run_e_validity_experiment,
+    run_monitor_policy_experiment,
+    run_null_grid,
     run_rho_ablation,
+    run_two_ledger_experiment,
 )
 from attest.benchmark.report import (
     REPLAY_MODE,
@@ -281,6 +298,140 @@ def _parser() -> argparse.ArgumentParser:
     )
     evalue.add_argument("--bootstrap-seed", type=int, default=DEFAULT_BOOTSTRAP_SEED)
     evalue.add_argument("--output", type=Path, required=True)
+
+    nullgrid = commands.add_parser(
+        "experiment-nullgrid",
+        help="offline multi-seed null grid on the REAL core engine: null-only "
+        "streams, independent and correlated panels, both alarm kinds "
+        "(experiment only, changes no constant)",
+    )
+    nullgrid.add_argument(
+        "--alphas", type=float, nargs="+", default=list(DEFAULT_NULL_GRID_ALPHAS)
+    )
+    nullgrid.add_argument(
+        "--lengths", type=int, nargs="+", default=list(DEFAULT_NULL_GRID_LENGTHS)
+    )
+    nullgrid.add_argument(
+        "--panel-gammas",
+        type=float,
+        nargs="+",
+        default=list(DEFAULT_NULL_GRID_PANEL_GAMMAS),
+        help="judge C's clone rate on judge B (a clone rate, not a correlation)",
+    )
+    nullgrid.add_argument(
+        "--seeds", type=int, nargs="+", default=list(DEFAULT_NULL_GRID_SEEDS)
+    )
+    nullgrid.add_argument(
+        "--accuracies",
+        type=float,
+        nargs=3,
+        default=list(NULL_GRID_ACCURACIES),
+        metavar=("ACC_A", "ACC_B", "ACC_C"),
+    )
+    nullgrid.add_argument(
+        "--alarm-poll-every", type=int, default=DEFAULT_ALARM_POLL_EVERY
+    )
+    nullgrid.add_argument("--output", type=Path, required=True)
+
+    policy = commands.add_parser(
+        "experiment-monitor",
+        help="offline monitor intervention policies: ledger-only baseline vs "
+        "quarantine and exploration-only recovery on shared seeded streams, "
+        "with a high-error canary (experiment only, changes no constant)",
+    )
+    policy.add_argument("--alpha", type=float, default=0.1)
+    policy.add_argument("--tasks", type=int, default=DEFAULT_POLICY_TASKS)
+    policy.add_argument("--seeds", type=int, nargs="+", default=list(DEFAULT_POLICY_SEEDS))
+    policy.add_argument("--gamma", type=float, default=0.0)
+    policy.add_argument(
+        "--accuracies",
+        type=float,
+        nargs=3,
+        default=list(NULL_GRID_ACCURACIES),
+        metavar=("ACC_A", "ACC_B", "ACC_C"),
+    )
+    policy.add_argument("--canary-accuracy", type=float, default=DEFAULT_CANARY_ACCURACY)
+    policy.add_argument(
+        "--canary-shift-fraction", type=float, default=DEFAULT_CANARY_SHIFT_FRACTION
+    )
+    policy.add_argument("--output", type=Path, required=True)
+
+    twoledger = commands.add_parser(
+        "experiment-twoledger",
+        help="offline two-ledger comparison: factory wealth vs V-only "
+        "certification wealth with S/T as verification priority, plus the "
+        "VOI-vs-FCFS verification budget at fixed recall (experiment only, "
+        "changes no constant)",
+    )
+    twoledger.add_argument(
+        "--alphas", type=float, nargs="+", default=list(DEFAULT_TWO_LEDGER_ALPHAS)
+    )
+    twoledger.add_argument("--k", type=int, default=5)
+    twoledger.add_argument(
+        "--gamma",
+        type=float,
+        default=None,
+        help="panel clone rate; defaults to the production discount's rho",
+    )
+    twoledger.add_argument("--tasks", type=int, default=2000)
+    twoledger.add_argument("--seeds", type=int, nargs="+", default=list(DEFAULT_SEEDS))
+    twoledger.add_argument(
+        "--judge-accuracy",
+        type=float,
+        help="per-vote accuracy; defaults to the accuracy at which LR1 is exactly "
+        "the likelihood ratio of one positive vote",
+    )
+    twoledger.add_argument(
+        "--true-reproduce-rate",
+        type=float,
+        default=DEFAULT_TWO_LEDGER_ASSUMPTIONS.true_reproduce_rate,
+        help="ASSUMPTION (never measured): rate at which a true finding's "
+        "generated reproduction is classified as a reproduced regression",
+    )
+    twoledger.add_argument(
+        "--false-reproduce-rate",
+        type=float,
+        default=DEFAULT_TWO_LEDGER_ASSUMPTIONS.false_reproduce_rate,
+        help="ASSUMPTION (anchored only by D-031's 0-in-296 interval): rate at "
+        "which a false finding's reproduction is classified as reproduced",
+    )
+    twoledger.add_argument(
+        "--false-reproduce-rates",
+        type=float,
+        nargs="+",
+        default=list(DEFAULT_TWO_LEDGER_ASSUMPTIONS.false_reproduce_rate_sweep),
+        help="sweep of the same assumption, all points reported",
+    )
+    twoledger.add_argument(
+        "--no-purchase-rate",
+        type=float,
+        default=DEFAULT_TWO_LEDGER_ASSUMPTIONS.verification_no_purchase_rate,
+        help="ASSUMPTION: rate at which no V purchase happens at all",
+    )
+    twoledger.add_argument(
+        "--tier0-signal-slots",
+        type=int,
+        default=DEFAULT_TWO_LEDGER_ASSUMPTIONS.tier0_signal_slots,
+    )
+    twoledger.add_argument(
+        "--tier0-true-signal-rate",
+        type=float,
+        default=DEFAULT_TWO_LEDGER_ASSUMPTIONS.tier0_true_signal_rate,
+    )
+    twoledger.add_argument(
+        "--tier0-false-signal-rate",
+        type=float,
+        default=DEFAULT_TWO_LEDGER_ASSUMPTIONS.tier0_false_signal_rate,
+    )
+    twoledger.add_argument(
+        "--recall-targets", type=float, nargs="+", default=list(DEFAULT_RECALL_TARGETS)
+    )
+    twoledger.add_argument("--verification-cost", type=float, default=1.0)
+    twoledger.add_argument(
+        "--bootstrap-resamples", type=int, default=DEFAULT_BOOTSTRAP_RESAMPLES
+    )
+    twoledger.add_argument("--bootstrap-seed", type=int, default=DEFAULT_BOOTSTRAP_SEED)
+    twoledger.add_argument("--output", type=Path, required=True)
     return parser
 
 
@@ -319,6 +470,9 @@ _COMMANDS = {
     "stability": lambda args: _stability(args),
     "compare": lambda args: _compare(args),
     "experiment-evalue": lambda args: _experiment_evalue(args),
+    "experiment-nullgrid": lambda args: _experiment_nullgrid(args),
+    "experiment-monitor": lambda args: _experiment_monitor(args),
+    "experiment-twoledger": lambda args: _experiment_twoledger(args),
 }
 
 
@@ -834,6 +988,131 @@ def _experiment_evalue(args: argparse.Namespace) -> dict[str, object]:
         "ville_cells": len(report.ville),
         "e_value_violations": derived["e_value_violations"],
         "ville_bound_breaches": derived["ville_bound_breaches"],
+    }
+
+
+def _experiment_nullgrid(args: argparse.Namespace) -> dict[str, object]:
+    """Offline by construction: the REAL core Engine over seeded null streams.
+
+    Every stream's truth is null-only, so every certified-true decision is a
+    wrong certification. The harness reads production code and constants and
+    patches nothing; below 500 global ledger labels the emitted report is a
+    recommendation only (architecture red line 5).
+    """
+    report = run_null_grid(
+        alphas=tuple(args.alphas),
+        stream_lengths=tuple(args.lengths),
+        panel_gammas=tuple(args.panel_gammas),
+        seeds=tuple(args.seeds),
+        accuracies=(args.accuracies[0], args.accuracies[1], args.accuracies[2]),
+        alarm_poll_every=args.alarm_poll_every,
+    )
+    payload = report.to_json_dict()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    _write_canonical_json(args.output, payload)
+    derived = report.derived
+    return {
+        "status": "ok",
+        "offline": True,
+        "experiment": report.experiment,
+        "recommendation_status": report.status,
+        "output": str(args.output),
+        "digest": report.digest,
+        "cells": len(report.cells),
+        "wrong_certification_totals_by_alpha": derived[
+            "wrong_certification_totals_by_alpha"
+        ],
+        "cells_exceeding_alpha_per_task": derived["cells_exceeding_alpha_per_task"],
+        "alarm_kinds_ever_fired": derived["alarm_kinds_ever_fired"],
+    }
+
+
+def _experiment_monitor(args: argparse.Namespace) -> dict[str, object]:
+    """Offline by construction: monitor policies on shared seeded streams.
+
+    Interventions are simulated in an engine-loop rebuild pinned equal to the
+    shipped Engine; only winners_curse_optimism can trigger one, and drift is
+    reported but never acted on. Nothing here changes factory monitor
+    behaviour; below 500 global ledger labels the emitted report is a
+    recommendation only (architecture red line 5).
+    """
+    report = run_monitor_policy_experiment(
+        alpha=args.alpha,
+        n_tasks=args.tasks,
+        seeds=tuple(args.seeds),
+        gamma=args.gamma,
+        accuracies=(args.accuracies[0], args.accuracies[1], args.accuracies[2]),
+        canary_accuracy=args.canary_accuracy,
+        canary_shift_fraction=args.canary_shift_fraction,
+    )
+    payload = report.to_json_dict()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    _write_canonical_json(args.output, payload)
+    derived = report.derived
+    return {
+        "status": "ok",
+        "offline": True,
+        "experiment": report.experiment,
+        "recommendation_status": report.status,
+        "output": str(args.output),
+        "digest": report.digest,
+        "cells": len(report.cells),
+        "canary_caught_by_any_policy": derived["canary_caught_by_any_policy"],
+        "policies_catching_canary": derived["policies_catching_canary"],
+        "false_brake_rate_by_policy": derived["false_brake_rate_by_policy"],
+        "missed_unsafe_run_rate_by_policy": derived["missed_unsafe_run_rate_by_policy"],
+    }
+
+
+def _experiment_twoledger(args: argparse.Namespace) -> dict[str, object]:
+    """Offline by construction: the two-ledger model against the factory arm.
+
+    S/T order the verification queue and buy nothing; certification wealth is
+    purchased by V only; speech remains exactly certification_wealth >=
+    1/alpha. The T and V rates are assumptions, surfaced as flags and swept.
+    Nothing here patches the gate or the channels; adopting the model is an
+    owner decision (ground rule 8), and below 500 global ledger labels the
+    emitted report is a recommendation only (architecture red line 5).
+    """
+    assumptions = TwoLedgerAssumptions(
+        true_reproduce_rate=args.true_reproduce_rate,
+        false_reproduce_rate=args.false_reproduce_rate,
+        false_reproduce_rate_sweep=tuple(args.false_reproduce_rates),
+        verification_no_purchase_rate=args.no_purchase_rate,
+        tier0_signal_slots=args.tier0_signal_slots,
+        tier0_true_signal_rate=args.tier0_true_signal_rate,
+        tier0_false_signal_rate=args.tier0_false_signal_rate,
+    )
+    kwargs: dict[str, Any] = {
+        "alphas": tuple(args.alphas),
+        "k": args.k,
+        "n_tasks": args.tasks,
+        "seeds": tuple(args.seeds),
+        "judge_accuracy": args.judge_accuracy,
+        "assumptions": assumptions,
+        "recall_targets": tuple(args.recall_targets),
+        "verification_cost": args.verification_cost,
+        "bootstrap_resamples": args.bootstrap_resamples,
+        "bootstrap_seed": args.bootstrap_seed,
+    }
+    if args.gamma is not None:
+        kwargs["gamma"] = args.gamma
+    report = run_two_ledger_experiment(**kwargs)
+    payload = report.to_json_dict()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    _write_canonical_json(args.output, payload)
+    derived = report.derived
+    return {
+        "status": "ok",
+        "offline": True,
+        "experiment": report.experiment,
+        "recommendation_status": report.status,
+        "output": str(args.output),
+        "digest": report.digest,
+        "cells": len(report.cells),
+        "budget_rows": len(report.budget),
+        "speech_feasibility": derived["speech_feasibility"],
+        "cells_where_arms_differ": derived["cells_where_arms_differ"],
     }
 
 
