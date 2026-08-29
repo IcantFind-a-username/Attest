@@ -1,4 +1,5 @@
-from attest.review.channels import ChannelPurchase
+from attest.core.betting import decide
+from attest.review.channels import ChannelPurchase, tier0_lr, verification_lr, votes_lr
 from attest.review.gate import GateResult, apply_gate, apply_verification, evaluate_finding
 from attest.review.schema import Finding
 from attest.review.tier0 import Tier0Signal
@@ -128,3 +129,28 @@ def test_apply_verification_does_not_mutate_the_input_result() -> None:
     assert result.wealth == 2.6390158215457884
     assert result.decision is None
     assert [purchase.channel for purchase in result.purchases] == ["S"]
+
+
+def test_discard_is_unreachable_under_factory_constants() -> None:
+    # Pins the honesty rationale for the report copy (report.py): under the
+    # factory tables, decide() can never return 0 (discard) once a candidate
+    # has at least one proposer vote, even after a failed verification. Floor:
+    # votes=1, tier0=0 signals -> wealth = votes_lr(1) * 1.0 * V_FAILED
+    # = 2.0 * 1.0 * 0.5 = 1.0, which is already > alpha=0.1. So a report line
+    # that promises "certified-false" discards is a promise the tables cannot
+    # keep, and must not be printed as if it happened.
+    alpha = 0.1
+    for votes in range(1, 6):
+        for n_tier0 in range(0, 3):
+            wealth = votes_lr(votes)
+            if n_tier0:
+                wealth *= tier0_lr(n_tier0)
+            wealth *= verification_lr(False)  # failed reproduction: V_FAILED
+            assert wealth > alpha
+            assert decide(wealth, alpha) != 0
+
+            # cross-check through the real gate pipeline end-to-end
+            r = evaluate_finding(_f(votes), alpha, _sig(n_tier0), verification=False)
+            assert r.wealth > alpha
+            assert r.decision != 0
+

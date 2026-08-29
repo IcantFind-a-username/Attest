@@ -30,6 +30,11 @@ def render(
     out: list[str] = []
     threshold = 1.0 / alpha
 
+    n_surfaced = len(outcome.formal) + len(outcome.drawer_overflow)
+    n_drawer = len(outcome.drawer)
+    n_discarded = len(outcome.discarded)
+    n_total = n_surfaced + n_drawer + n_discarded
+
     if deferred_reason:
         out.append(f"DEFER: {deferred_reason}")
 
@@ -38,7 +43,13 @@ def render(
         for i, r in enumerate(outcome.formal, 1):
             out.append(_fmt_finding(i, r))
     elif not deferred_reason:
-        out.append("no findings cleared the evidence bar — saying nothing.")
+        if n_total == 0:
+            out.append("no candidates proposed — saying nothing.")
+        else:
+            out.append(
+                f"checked {n_total} candidate(s); no findings cleared the evidence bar "
+                f"(wealth >= {threshold:.0f}) — saying nothing."
+            )
 
     extra = outcome.drawer_overflow + outcome.drawer
     if extra:
@@ -55,6 +66,7 @@ def render(
 
     out.append(
         f"spend ${spend_usd:.4f} of ${budget_usd:.2f} budget; {elapsed_s:.1f}s; "
-        f"discarded {len(outcome.discarded)} certified-false candidate(s)."
+        f"{n_total} candidate(s): {n_surfaced} surfaced, {n_drawer} in drawer, "
+        f"{n_discarded} discarded."
     )
     return "\n".join(out)

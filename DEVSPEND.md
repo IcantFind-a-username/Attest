@@ -9,8 +9,9 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-08-29 | pygments live review, K=5 failed on schema 400s (unbilled, reservations cancelled) | $0.00 |
 | 2026-08-29 | pygments live review, K=5 (surfaced the RawTokenFormatter crash; 11.1s) | $0.0402 |
 | 2026-08-29 | corum live review, K=5 (negative control; drawer candidate refuted via verify; 20.4s) | $0.1124 |
+| 2026-08-30 | live key validation smoke test (15 in / 4 out, default model) | $0.0001 |
 
-**Total API spend: $0.1526 of $10.00.**
+**Total API spend: $0.1527 of $10.00.**
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 

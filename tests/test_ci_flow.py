@@ -158,8 +158,18 @@ def planted_repo(tmp_path: Path) -> tuple[Path, str, str]:
     git("init", "-b", "main")
     git("config", "user.email", "test@example.com")
     git("config", "user.name", "Test")
+    # Differential evidence certifies a REGRESSION: the same function exists on
+    # both sides, correct on base and broken on head. A generated reproduction
+    # can then fail on head and pass on base, which is the only pattern that
+    # buys V.
     (tmp_path / "app.py").write_text(
-        "def total(items):\n    return sum(items)\n", encoding="utf-8"
+        "def total(items):\n"
+        "    return sum(items)\n\n\n"
+        "def average(items):\n"
+        "    if not items:\n"
+        "        return 0\n"
+        "    return sum(items) / len(items)\n",
+        encoding="utf-8",
     )
     git("add", "app.py")
     git("commit", "-m", "base")
@@ -172,7 +182,7 @@ def planted_repo(tmp_path: Path) -> tuple[Path, str, str]:
         encoding="utf-8",
     )
     git("add", "app.py")
-    git("commit", "-m", "plant average bug")
+    git("commit", "-m", "regress average to divide by zero")
     return tmp_path, base_sha, git("rev-parse", "HEAD")
 
 

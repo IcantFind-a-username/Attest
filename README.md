@@ -1,21 +1,32 @@
 # attest
 
-Fast, precise, evidence-first AI code review. Says at most 3 things per PR, in under
-60 seconds, each with evidence you can click and re-run — and says nothing rather than
-something wrong.
+No differential reproduction, no published finding: attest is fast, precise,
+evidence-first AI code review that publishes a finding only when the same generated
+reproduction test deterministically fails on the reviewed head and passes on its base,
+across repeated runs (N=3 per side) — otherwise it stays silent or explicitly defers.
+At most 3 things per PR, in under 60 seconds, each backed by a test you can click and
+re-run yourself. 宁可不说,不说错: better silent than wrong.
 
-The core is a sequential betting engine over evidence channels: each candidate finding
-is a wager, evidence purchases multiply a wealth process (an e-process), and only the
-wealth threshold decides who gets to speak — surface at wealth >= 1/alpha, discard at
-wealth <= alpha, hold in the drawer otherwise. No vote counting, no vibes-based
-confidence scores.
+Underneath, a sequential betting engine (e-process, wealth threshold) prices every
+piece of evidence — correlation-discounted votes, capped static corroboration,
+differential reproduction — and keeps an auditable ledger of why each finding did or
+did not speak. Its wealth threshold, and nothing else, decides: surface at wealth >=
+1/alpha, discard at wealth <= alpha, hold in the drawer otherwise. At the factory
+constants, votes and corroboration alone can never clear that bar — reproduction is
+the only evidence strong enough to, by design (see DECISIONS.md, D-008). No vote
+counting, no vibes-based confidence scores: the engine prices and audits; reproduction
+is what actually lets attest speak.
 
 ## Status
 
 - Phase 0 — `attest.core` betting engine library: done (independently reviewed; regression-pinned to the seed experiment record)
 - Phase 1 — `attest review` CLI: done (independently reviewed)
 - Phase 2 — dogfood: done on 3 repos (5 verified findings surfaced, 2 negative controls silent, oversized diff budget-deferred)
+- Phase 3 — GitHub Action + differential-evidence executor: implemented locally (generates and runs the reproduction test that gates every finding)
 - Live-API validation: done (real review surfaced in 11.1s wall clock at $0.04; negative control silent incl. a V-channel refutation; see DEVSPEND.md)
+- Real-data benchmark: corpus frozen and preregistered — 20 bug-fix pairs, 40 cases, 4 open-source projects — no validation receipt yet, so no accuracy, stability, or precision numbers anywhere in this doc.
+
+No live numbers to report until that receipt exists; next step is running the frozen corpus through the real pipeline.
 
 ## Usage
 

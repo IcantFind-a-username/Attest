@@ -20,7 +20,34 @@ from attest.review.dedup import merge_findings
 from attest.review.diffs import DiffInfo
 from attest.review.schema import PROPOSAL_SCHEMA, Finding, validate_finding
 
-MAX_OUTPUT_TOKENS = 2000
+# Preregistered per-sample output-token bound for proposal sampling. It feeds
+# BOTH the budget reservation and the provider's max_tokens hard cap, so the
+# reserved bound is exactly the enforced bound.
+#
+# Worst case from PROPOSAL_SCHEMA (schema.py), prompt-capped at 5 findings
+# (~1.3 tokens per word of prose):
+#   claim               <= 2 sentences, ~20 words each     ~55 tokens
+#   anchor              deep file path + line + keys       ~25 tokens
+#   failure_scenario    ~50 words of concrete input/state  ~65 tokens
+#   falsification_plan  ~50 words                          ~65 tokens
+#   JSON syntax         keys/quotes/braces per finding     ~30 tokens
+#   per finding                                            ~240 tokens
+#   5 findings + {"findings": [...]} envelope (~10)      ~1,210 tokens
+# Headroom: 1,210 x 1.25 ~= 1,513, rounded UP to 1,600 (~32%) — truncation
+# destroys the JSON and voids the whole sample, so the bound must never clip
+# a legitimate maximal response. No dogfood ledger rows with recorded output
+# tokens existed at derivation time; the bound is schema-derived only.
+#
+# Product constraint (default model per pricing.toml: $2/MTok in, $10/MTok
+# out; default $0.25 budget; K=5). The K up-front reservations cost
+#   5 x (input_chars/3 x $2e-6 + 1,600 x $1e-5)
+#     = input_chars x $3.33e-6 + $0.08
+# so input_chars may reach (0.25 - 0.08) / 3.33e-6 = 51,000 chars — a diff
+# boundary of ~50,150 chars after prompt overhead (754 system prompt + 88
+# scaffolding). The old 2,000-token bound put that boundary at 44,158 diff
+# chars (5 reservations hit exactly $0.25), making --budget act as a diff-size
+# cutoff; a 44,158-char diff now reserves at ~$0.23 with headroom to spare.
+PROPOSER_MAX_OUTPUT_TOKENS = 1600
 
 SYSTEM_PROMPT = """You are a code reviewer that reports ONLY high-severity defects: crashes, \
 data loss or corruption, security vulnerabilities, and logic errors with real consequences. \
@@ -147,7 +174,9 @@ def propose(
     try:
         for i in range(k):
             reservations.append(
-                budget.reserve(f"sample-{i}", len(SYSTEM_PROMPT) + len(prompt), MAX_OUTPUT_TOKENS)
+                budget.reserve(
+                    f"sample-{i}", len(SYSTEM_PROMPT) + len(prompt), PROPOSER_MAX_OUTPUT_TOKENS
+                )
             )
     except BudgetExceeded:
         for reservation in reservations:
@@ -156,7 +185,9 @@ def propose(
 
     def one(i: int) -> ProviderResult | Exception:
         try:
-            return provider.sample(SYSTEM_PROMPT, prompt, PROPOSAL_SCHEMA, MAX_OUTPUT_TOKENS)
+            return provider.sample(
+                SYSTEM_PROMPT, prompt, PROPOSAL_SCHEMA, PROPOSER_MAX_OUTPUT_TOKENS
+            )
         except Exception as exc:  # noqa: BLE001 - error becomes a sample failure
             return exc
 

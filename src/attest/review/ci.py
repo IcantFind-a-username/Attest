@@ -294,6 +294,8 @@ def run_ci(
             provider,
             review.budget,
             default_limits,
+            base_sha=context.base_sha,
+            head_sha=context.head_sha,
             deadline=deadline,
             clock=clock,
         )

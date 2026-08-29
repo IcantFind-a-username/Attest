@@ -24,6 +24,9 @@ from attest.review.proposer import ProviderResult
 from attest.review.schema import Finding
 
 DEFAULT_MODEL = str(load_pricing()["default_model"])
+GOOD_MODULE = "def add(a, b):\n    return a + b\n"
+BUGGY_MODULE = "def add(a, b):\n    return a - b\n"
+DIFFERENTIAL_BODY = "import mod\n\ndef test_repro():\n    assert mod.add(2, 2) == 4"
 
 
 class RecordingProvider:
@@ -98,6 +101,48 @@ def original_gate(stored: StoredCandidate) -> GateResult:
     )
 
 
+def run_git(repo: Path, *args: str) -> str:
+    completed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.email=executor@example.test",
+            "-c",
+            "user.name=executor-tests",
+            "-c",
+            "commit.gpgsign=false",
+            *args,
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return completed.stdout.strip()
+
+
+def differential_repo(tmp_path: Path) -> tuple[Path, str, str]:
+    """Real repo: base commit with a working module, head commit with the bug."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_git(repo, "init", "--initial-branch=main")
+    (repo / "mod.py").write_text(GOOD_MODULE, encoding="utf-8")
+    run_git(repo, "add", "mod.py")
+    run_git(repo, "commit", "-m", "base: working module")
+    base_sha = run_git(repo, "rev-parse", "HEAD")
+    (repo / "mod.py").write_text(BUGGY_MODULE, encoding="utf-8")
+    run_git(repo, "commit", "-am", "head: introduce the bug")
+    head_sha = run_git(repo, "rev-parse", "HEAD")
+    return repo, base_sha, head_sha
+
+
+def assert_worktrees_cleaned(repo: Path, stored: StoredCandidate) -> None:
+    trees = repo / ".attest" / "repro" / stored.task_id / stored.finding.finding_id / "trees"
+    assert not trees.exists()
+    assert len(run_git(repo, "worktree", "list").splitlines()) == 1
+
+
 def test_generate_uses_literal_schema_and_candidate_details(tmp_path: Path) -> None:
     from attest.review.executor import generate_repro
 
@@ -139,6 +184,7 @@ def test_generate_uses_literal_schema_and_candidate_details(tmp_path: Path) -> N
 def test_verify_passes_remaining_shared_deadline_to_repro_provider(tmp_path: Path) -> None:
     from attest.review.executor import ExecutorLimits, verify_candidate
 
+    repo, base_sha, head_sha = differential_repo(tmp_path)
     provider = RecordingProvider(
         ProviderResult(
             text='{"test_body":"def test_repro(): assert True"}',
@@ -148,12 +194,14 @@ def test_verify_passes_remaining_shared_deadline_to_repro_provider(tmp_path: Pat
     )
 
     verify_candidate(
-        tmp_path,
+        repo,
         candidate(line=1),
         original_gate(candidate(line=1)),
         provider,
         Budget(limit_usd=1.0, model=DEFAULT_MODEL),
         ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
         deadline=15.0,
         clock=lambda: 10.0,
     )
@@ -867,6 +915,7 @@ def test_verification_subprocess_drops_credentials_and_redacts_ledger(
 ) -> None:
     from attest.review.executor import ExecutorLimits, verify_candidate
 
+    repo, base_sha, head_sha = differential_repo(tmp_path)
     secret = "credential-that-must-never-reach-artifacts"
     monkeypatch.setenv("GITHUB_TOKEN", secret)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "model-credential")
@@ -888,16 +937,20 @@ def test_verification_subprocess_drops_credentials_and_redacts_ledger(
     )
 
     verification = verify_candidate(
-        tmp_path,
+        repo,
         candidate(line=1),
         original_gate(candidate(line=1)),
         provider,
         Budget(limit_usd=1.0, model=DEFAULT_MODEL),
         ExecutorLimits(wall_timeout_s=10),
+        base_sha=base_sha,
+        head_sha=head_sha,
     )
 
-    assert verification.execution.outcome.value == "reproduced"
-    artifact = (tmp_path / ".attest" / "ledger.jsonl").read_text(encoding="utf-8")
+    # the version-independent failure reproduces on both trees: unfaithful
+    assert verification.execution.outcome.value == "deferred"
+    assert "unfaithful" in verification.execution.reason
+    artifact = (repo / ".attest" / "ledger.jsonl").read_text(encoding="utf-8")
     assert secret not in artifact
     assert "model-credential" not in artifact
     assert "[REDACTED]" in artifact
@@ -1053,19 +1106,33 @@ def test_execute_reports_network_unblocked_when_process_never_starts(tmp_path: P
 
 
 @pytest.mark.parametrize(
-    ("test_body", "outcome", "wealth", "detail"),
+    (
+        "test_body",
+        "outcome",
+        "reason",
+        "wealth",
+        "detail",
+        "head_run_outcomes",
+        "base_run_outcomes",
+    ),
     [
         (
-            "def test_repro():\n    assert False",
+            DIFFERENTIAL_BODY,
             "reproduced",
+            "head FAIL 3/3, base PASS 3/3",
             160.0,
             "reproduced",
+            ["reproduced"] * 3,
+            ["not_reproduced"] * 3,
         ),
         (
             "def test_repro():\n    assert True",
             "not_reproduced",
+            "pytest passed on head in 3/3 runs; base not executed",
             4.0,
             "reproduction failed",
+            ["not_reproduced"] * 3,
+            [],
         ),
     ],
 )
@@ -1073,11 +1140,15 @@ def test_verify_candidate_applies_only_conclusive_evidence_and_records_it(
     tmp_path: Path,
     test_body: str,
     outcome: str,
+    reason: str,
     wealth: float,
     detail: str,
+    head_run_outcomes: list[str],
+    base_run_outcomes: list[str],
 ) -> None:
     from attest.review.executor import ExecutorLimits, verify_candidate
 
+    repo, base_sha, head_sha = differential_repo(tmp_path)
     stored = candidate(line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
@@ -1087,25 +1158,35 @@ def test_verify_candidate_applies_only_conclusive_evidence_and_records_it(
     )
 
     verification = verify_candidate(
-        tmp_path,
+        repo,
         stored,
         gate,
         provider,
         Budget(limit_usd=1.0, model=DEFAULT_MODEL),
         ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
     )
 
     assert verification.execution.outcome.value == outcome
+    assert verification.execution.reason == reason
     assert verification.gate_result is not gate
     assert verification.gate_result.wealth == wealth
     assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S", "V"]
     assert verification.gate_result.purchases[-1].detail == detail
-    row = Ledger(tmp_path).entries()[-1]
+    row = Ledger(repo).entries()[-1]
     assert row["kind"] == "verification"
     assert row["task_id"] == stored.task_id
     assert row["finding_id"] == stored.finding.finding_id
     assert row["outcome"] == outcome
     assert row["evidence"]
+    assert row["mode"] == "differential"
+    assert row["base_sha"] == base_sha
+    assert row["head_sha"] == head_sha
+    assert row["head_runs"] == head_run_outcomes
+    assert row["base_runs"] == base_run_outcomes
+    assert row["repeats"] == 3
+    assert_worktrees_cleaned(repo, stored)
 
 
 @pytest.mark.parametrize(
@@ -1136,23 +1217,347 @@ def test_verify_candidate_defers_failures_without_buying_v_evidence(
 ) -> None:
     from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
 
+    repo, base_sha, head_sha = differential_repo(tmp_path)
     gate = original_gate(stored)
     verification = verify_candidate(
-        tmp_path,
+        repo,
         stored,
         gate,
         RecordingProvider(provider_result),
         Budget(limit_usd=1.0, model=DEFAULT_MODEL),
         ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
     )
 
     assert verification.execution.outcome is ExecutionOutcome.DEFERRED
     assert reason_fragment in verification.execution.reason
     assert verification.gate_result is gate
     assert [purchase.channel for purchase in gate.purchases] == ["S"]
-    row = Ledger(tmp_path).entries()[-1]
+    row = Ledger(repo).entries()[-1]
     assert row["kind"] == "verification"
     assert row["task_id"] == stored.task_id
     assert row["finding_id"] == stored.finding.finding_id
     assert row["outcome"] == "deferred"
     assert reason_fragment in row["reason"]
+
+
+def test_execute_repro_imports_code_from_the_given_tree(tmp_path: Path) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_repro,
+    )
+
+    for name, value in (("tree-one", 1), ("tree-two", 2)):
+        tree = tmp_path / name
+        (tree / "src").mkdir(parents=True)
+        (tree / "mod.py").write_text(f"VALUE = {value}\n", encoding="utf-8")
+        (tree / "src" / "nested.py").write_text(f"VALUE = {value}\n", encoding="utf-8")
+    body = (
+        "import mod\n"
+        "import nested\n"
+        "def test_repro():\n"
+        "    assert (mod.VALUE, nested.VALUE) == (1, 1)\n"
+    )
+    stored = candidate(line=1)
+
+    matching = execute_repro(
+        tmp_path,
+        stored,
+        ReproSpec(body),
+        ExecutorLimits(),
+        tree=tmp_path / "tree-one",
+        run_label="tree-one",
+    )
+    differing = execute_repro(
+        tmp_path,
+        stored,
+        ReproSpec(body),
+        ExecutorLimits(),
+        tree=tmp_path / "tree-two",
+        run_label="tree-two",
+    )
+
+    assert matching.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert matching.network_blocked is True
+    assert differing.outcome is ExecutionOutcome.REPRODUCED
+    work = tmp_path / ".attest" / "repro" / stored.task_id / stored.finding.finding_id
+    assert (work / "tree-one" / "test_repro.py").is_file()
+    assert (work / "tree-two" / "test_repro.py").is_file()
+
+
+def test_execute_differential_syntax_error_defers_and_cleans_worktrees(tmp_path: Path) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_differential,
+    )
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(line=1)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec("def test_repro(:\n    pass"),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert "collection/import/syntax" in result.reason
+    assert len(result.head_runs) == 1
+    assert result.base_runs == ()
+    assert result.base_sha == base_sha
+    assert result.head_sha == head_sha
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_execute_differential_expired_deadline_defers_before_any_run(tmp_path: Path) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_differential,
+    )
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(line=1)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(DIFFERENTIAL_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+        deadline=5.0,
+        clock=lambda: 10.0,
+    )
+
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.reason == "shared verification deadline exceeded during differential execution"
+    assert result.head_runs == ()
+    assert result.base_runs == ()
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_execute_differential_runs_one_test_source_with_one_interpreter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_differential,
+    )
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(line=1)
+    log = tmp_path / "interpreter-invocations"
+    wrapper = tmp_path / "project-python"
+    wrapper.write_text(
+        f"#!/bin/sh\nprintf 'run\\n' >> {str(log)!r}\nexec {sys.executable!r} \"$@\"\n",
+        encoding="utf-8",
+    )
+    wrapper.chmod(0o755)
+    monkeypatch.setenv("ATTEST_PROJECT_PYTHON", str(wrapper))
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(DIFFERENTIAL_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED
+    assert result.reason == "head FAIL 3/3, base PASS 3/3"
+    assert result.network_blocked is True
+    work = repo / ".attest" / "repro" / stored.task_id / stored.finding.finding_id
+    labels = ["head-1", "head-2", "head-3", "base-1", "base-2", "base-3"]
+    sources = {(work / label / "test_repro.py").read_bytes() for label in labels}
+    assert len(sources) == 1
+    assert log.read_text(encoding="utf-8").splitlines() == ["run"] * 6
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_unfaithful_test_failing_on_base_is_deferred(tmp_path: Path) -> None:
+    from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": "def test_repro():\n    assert False"}),
+            input_tokens=2,
+            output_tokens=3,
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert verification.execution.reason == "unfaithful generated test: fails on base as well"
+    assert verification.gate_result is gate
+    assert [purchase.channel for purchase in gate.purchases] == ["S"]
+    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
+    assert any(
+        run.outcome is ExecutionOutcome.REPRODUCED for run in verification.execution.base_runs
+    )
+    row = Ledger(repo).entries()[-1]
+    assert row["outcome"] == "deferred"
+    assert "unfaithful" in row["reason"]
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_flaky_head_reproduction_defers_without_buying_v(
+    tmp_path: Path,
+) -> None:
+    from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    counter = tmp_path / "flaky-counter"
+    body = (
+        "from pathlib import Path\n"
+        f"counter = Path({str(counter)!r})\n"
+        "def test_repro():\n"
+        "    n = int(counter.read_text()) if counter.exists() else 0\n"
+        "    counter.write_text(str(n + 1))\n"
+        "    assert n % 2 == 1\n"
+    )
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(text=json.dumps({"test_body": body}), input_tokens=2, output_tokens=3)
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert verification.execution.reason == "flaky reproduction on head (2/3 runs failed)"
+    assert verification.gate_result is gate
+    assert [run.outcome.value for run in verification.execution.head_runs] == [
+        "reproduced",
+        "not_reproduced",
+        "reproduced",
+    ]
+    assert verification.execution.base_runs == ()
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_deadline_expiring_after_generation_defers_differential(
+    tmp_path: Path,
+) -> None:
+    from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": DIFFERENTIAL_BODY}), input_tokens=1, output_tokens=1
+        )
+    )
+    times = [10.0]
+
+    def clock() -> float:
+        return times.pop(0) if times else 100.0
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+        deadline=15.0,
+        clock=clock,
+    )
+
+    assert len(provider.requests) == 1
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert (
+        verification.execution.reason
+        == "shared verification deadline exceeded during differential execution"
+    )
+    assert verification.execution.head_runs == ()
+    assert verification.gate_result is gate
+    assert_worktrees_cleaned(repo, stored)
+
+
+@pytest.mark.parametrize(
+    ("violation", "reason"),
+    [
+        ("dirty", "working tree is dirty; differential evidence requires immutable revisions"),
+        ("head_mismatch", "workspace HEAD does not match the reviewed head"),
+        ("unresolvable", "unresolvable base/head revision"),
+    ],
+)
+def test_verify_candidate_validates_revisions_before_calling_provider(
+    tmp_path: Path,
+    violation: str,
+    reason: str,
+) -> None:
+    from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    requested_base, requested_head = base_sha, head_sha
+    if violation == "dirty":
+        (repo / "mod.py").write_text("def add(a, b):\n    return 0\n", encoding="utf-8")
+    elif violation == "head_mismatch":
+        requested_head = base_sha
+    elif violation == "unresolvable":
+        requested_base = "0" * 40
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text='{"test_body":"def test_repro(): pass"}', input_tokens=1, output_tokens=1
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=requested_base,
+        head_sha=requested_head,
+    )
+
+    assert provider.requests == []
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert verification.execution.reason == reason
+    assert verification.gate_result is gate
+    row = Ledger(repo).entries()[-1]
+    assert row["outcome"] == "deferred"
+    assert row["reason"] == reason

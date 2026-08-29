@@ -111,19 +111,35 @@ class Ledger:
         elapsed_s: float,
         network_blocked: bool,
         evidence: str,
+        mode: str | None = None,
+        base_sha: str | None = None,
+        head_sha: str | None = None,
+        head_runs: list[str] | None = None,
+        base_runs: list[str] | None = None,
+        repeats: int | None = None,
     ) -> None:
-        self.append(
-            {
-                "kind": "verification",
-                "task_id": task_id,
-                "finding_id": finding_id,
-                "outcome": outcome,
-                "reason": reason,
-                "elapsed_s": round(elapsed_s, 6),
-                "network_blocked": network_blocked,
-                "evidence": evidence,
-            }
+        entry: dict[str, Any] = {
+            "kind": "verification",
+            "task_id": task_id,
+            "finding_id": finding_id,
+            "outcome": outcome,
+            "reason": reason,
+            "elapsed_s": round(elapsed_s, 6),
+            "network_blocked": network_blocked,
+            "evidence": evidence,
+        }
+        differential_fields = {
+            "mode": mode,
+            "base_sha": base_sha,
+            "head_sha": head_sha,
+            "head_runs": head_runs,
+            "base_runs": base_runs,
+            "repeats": repeats,
+        }
+        entry.update(
+            {name: value for name, value in differential_fields.items() if value is not None}
         )
+        self.append(entry)
 
     def record_ci_final(
         self,

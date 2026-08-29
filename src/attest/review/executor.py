@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -25,6 +26,8 @@ from attest.review.proposer import Provider
 MAX_CONTEXT_LINES = 200
 MAX_REPRO_TOKENS = 2_000
 CLEANUP_TIMEOUT_S = 1.0
+GIT_TIMEOUT_S = 60.0
+MAX_REASON_CHARS = 300
 CAP_SYS_ADMIN = 21
 CAP_SYS_RESOURCE = 24
 _CREDENTIAL_NAME_PARTS = ("TOKEN", "SECRET", "PASSWORD", "API_KEY", "CREDENTIAL")
@@ -118,8 +121,21 @@ class ExecutionResult:
 
 
 @dataclass(frozen=True)
+class DifferentialExecution:
+    head_runs: tuple[ExecutionResult, ...]
+    base_runs: tuple[ExecutionResult, ...]
+    outcome: ExecutionOutcome
+    reason: str
+    base_sha: str
+    head_sha: str
+    repeats: int
+    elapsed_s: float
+    network_blocked: bool  # every executed run confirmed the network guard
+
+
+@dataclass(frozen=True)
 class VerificationRun:
-    execution: ExecutionResult
+    execution: DifferentialExecution
     gate_result: GateResult
 
 
@@ -360,7 +376,7 @@ def _remaining(deadline: float) -> float:
     return max(0.0, deadline - time.monotonic())
 
 
-def _reproduction_environment(site_dir: Path) -> dict[str, str]:
+def _reproduction_environment(site_dir: Path, tree: Path | None = None) -> dict[str, str]:
     env = {
         name: value
         for name, value in os.environ.items()
@@ -368,10 +384,15 @@ def _reproduction_environment(site_dir: Path) -> dict[str, str]:
     }
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     env["PYTHONSAFEPATH"] = "1"
+    # tree entries come first so the revision under test shadows any installed
+    # copy; the guard sitecustomize is still resolved from site_dir via the
+    # remainder of the path scan (a tree-level shadow fails closed on markers)
+    entries = [] if tree is None else [str(tree), str(tree / "src")]
+    entries.append(str(site_dir))
     old_pythonpath = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = (
-        str(site_dir) if not old_pythonpath else str(site_dir) + os.pathsep + old_pythonpath
-    )
+    if old_pythonpath:
+        entries.append(old_pythonpath)
+    env["PYTHONPATH"] = os.pathsep.join(entries)
     return env
 
 
@@ -498,6 +519,9 @@ def execute_repro(
     candidate: StoredCandidate,
     spec: ReproSpec,
     limits: ExecutorLimits,
+    *,
+    tree: Path | None = None,
+    run_label: str = "",
 ) -> ExecutionResult:
     started = time.monotonic()
     repo_root = repo.resolve()
@@ -508,6 +532,8 @@ def execute_repro(
         return _deferred("malformed generator output: test_body must be a string", started)
     if not _safe_path_component(candidate.task_id):
         return _deferred("unsafe task identity", started)
+    if run_label and not _safe_path_component(run_label):
+        return _deferred("unsafe run label", started)
     containment_reason = _process_containment_unavailable_reason()
     if containment_reason is not None:
         return _deferred(containment_reason, started)
@@ -522,6 +548,8 @@ def execute_repro(
         / candidate.task_id
         / candidate.finding.finding_id
     )
+    if run_label:
+        work_dir = work_dir / run_label
     generated_path = work_dir / "test_repro.py"
     junit_path = work_dir / "junit.xml"
     site_dir = work_dir / "python_startup"
@@ -561,7 +589,7 @@ def execute_repro(
         ):
             marker.unlink(missing_ok=True)
 
-        env = _reproduction_environment(site_dir)
+        env = _reproduction_environment(site_dir, tree)
         raw_process = subprocess.Popen(
             [
                 interpreter,
@@ -572,7 +600,7 @@ def execute_repro(
                 "--junitxml",
                 str(junit_path),
             ],
-            cwd=repo_root,
+            cwd=repo_root if tree is None else tree,
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -722,6 +750,167 @@ def execute_repro(
     )
 
 
+def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", "-C", str(repo), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=GIT_TIMEOUT_S,
+    )
+
+
+def _resolve_commit(repo: Path, ref: str) -> str | None:
+    try:
+        resolved = _git(repo, "rev-parse", "--verify", f"{ref}^{{commit}}")
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return resolved.stdout.strip() if resolved.returncode == 0 else None
+
+
+def _working_tree_clean(repo: Path) -> bool:
+    try:
+        status = _git(repo, "status", "--porcelain", "--untracked-files=no")
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return status.returncode == 0 and not status.stdout.strip()
+
+
+def _bounded_reason(reason: str) -> str:
+    if len(reason) <= MAX_REASON_CHARS:
+        return reason
+    return reason[: MAX_REASON_CHARS - 3] + "..."
+
+
+DEADLINE_REASON = "shared verification deadline exceeded during differential execution"
+
+
+def execute_differential(
+    repo: Path,
+    candidate: StoredCandidate,
+    spec: ReproSpec,
+    limits: ExecutorLimits,
+    *,
+    base_sha: str,
+    head_sha: str,
+    repeats: int = 3,
+    deadline: float | None = None,
+    clock: Callable[[], float] = time.monotonic,
+) -> DifferentialExecution:
+    """Run the same reproduction repeatedly against detached head/base
+    worktrees. Only a deterministic head failure paired with a deterministic
+    base pass counts as REPRODUCED; every other pattern is DEFERRED (flaky or
+    unfaithful evidence must never purchase V)."""
+    started = time.monotonic()
+    repo_root = repo.resolve()
+    head_runs: list[ExecutionResult] = []
+    base_runs: list[ExecutionResult] = []
+
+    def finish(outcome: ExecutionOutcome, reason: str) -> DifferentialExecution:
+        runs = (*head_runs, *base_runs)
+        return DifferentialExecution(
+            head_runs=tuple(head_runs),
+            base_runs=tuple(base_runs),
+            outcome=outcome,
+            reason=reason,
+            base_sha=base_sha,
+            head_sha=head_sha,
+            repeats=repeats,
+            elapsed_s=time.monotonic() - started,
+            network_blocked=bool(runs) and all(run.network_blocked for run in runs),
+        )
+
+    def deferred(reason: str) -> DifferentialExecution:
+        return finish(ExecutionOutcome.DEFERRED, _bounded_reason(reason))
+
+    def run_once(side: str, index: int, tree: Path) -> ExecutionResult | None:
+        """One containment-guarded run against `tree`; None when the shared
+        deadline is exhausted."""
+        effective = limits
+        if deadline is not None:
+            remaining = deadline - clock()
+            if remaining <= 0:
+                return None
+            effective = replace(limits, wall_timeout_s=min(limits.wall_timeout_s, remaining))
+        return execute_repro(
+            repo_root,
+            candidate,
+            spec,
+            effective,
+            tree=tree,
+            run_label=f"{side}-{index}",
+        )
+
+    if repeats < 1:
+        return deferred("differential execution requires at least one run")
+    if not _safe_path_component(candidate.task_id):
+        return deferred("unsafe task identity")
+    if deadline is not None and deadline - clock() <= 0:
+        return deferred(DEADLINE_REASON)
+    trees_dir = (
+        repo_root
+        / ".attest"
+        / "repro"
+        / candidate.task_id
+        / candidate.finding.finding_id
+        / "trees"
+    )
+    created: list[Path] = []
+    try:
+        trees_dir.mkdir(parents=True, exist_ok=True)
+        for side, sha in (("head", head_sha), ("base", base_sha)):
+            try:
+                added = _git(
+                    repo_root, "worktree", "add", "--detach", str(trees_dir / side), sha
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                return deferred(f"could not create {side} worktree: {type(exc).__name__}")
+            if added.returncode != 0:
+                return deferred(f"could not create {side} worktree: {added.stderr.strip()}")
+            created.append(trees_dir / side)
+
+        for index in range(1, repeats + 1):
+            run = run_once("head", index, trees_dir / "head")
+            if run is None:
+                return deferred(DEADLINE_REASON)
+            head_runs.append(run)
+            if run.outcome is ExecutionOutcome.DEFERRED:
+                return deferred(f"head run {index}/{repeats} deferred: {run.reason}")
+        head_failures = sum(
+            1 for run in head_runs if run.outcome is ExecutionOutcome.REPRODUCED
+        )
+        if head_failures == 0:
+            return finish(
+                ExecutionOutcome.NOT_REPRODUCED,
+                f"pytest passed on head in {repeats}/{repeats} runs; base not executed",
+            )
+        if head_failures < repeats:
+            return deferred(
+                f"flaky reproduction on head ({head_failures}/{repeats} runs failed)"
+            )
+
+        for index in range(1, repeats + 1):
+            run = run_once("base", index, trees_dir / "base")
+            if run is None:
+                return deferred(DEADLINE_REASON)
+            base_runs.append(run)
+            if run.outcome is ExecutionOutcome.DEFERRED:
+                return deferred(f"base run {index}/{repeats} deferred: {run.reason}")
+            if run.outcome is ExecutionOutcome.REPRODUCED:
+                return deferred("unfaithful generated test: fails on base as well")
+        return finish(
+            ExecutionOutcome.REPRODUCED,
+            f"head FAIL {repeats}/{repeats}, base PASS {repeats}/{repeats}",
+        )
+    finally:
+        for tree in created:
+            with suppress(OSError, subprocess.SubprocessError):
+                _git(repo_root, "worktree", "remove", "--force", str(tree))
+        shutil.rmtree(trees_dir, ignore_errors=True)
+        with suppress(OSError, subprocess.SubprocessError):
+            _git(repo_root, "worktree", "prune")
+
+
 def _execution_evidence(result: ExecutionResult) -> str:
     parts = []
     if result.stdout:
@@ -729,6 +918,16 @@ def _execution_evidence(result: ExecutionResult) -> str:
     if result.stderr:
         parts.append(f"stderr:\n{result.stderr}")
     return "\n".join(parts)
+
+
+def _differential_evidence(execution: DifferentialExecution) -> str:
+    sections = []
+    for side, runs in (("head", execution.head_runs), ("base", execution.base_runs)):
+        for index, run in enumerate(runs, start=1):
+            evidence = _execution_evidence(run)
+            if evidence:
+                sections.append(f"{side} run {index}:\n{evidence}")
+    return "\n".join(sections)
 
 
 def verify_candidate(
@@ -739,40 +938,67 @@ def verify_candidate(
     budget: Budget,
     limits: ExecutorLimits,
     *,
+    base_sha: str,
+    head_sha: str,
+    repeats: int = 3,
     deadline: float | None = None,
     clock: Callable[[], float] = time.monotonic,
 ) -> VerificationRun:
     started = time.monotonic()
-    remaining_before_generation = None if deadline is None else max(0.0, deadline - clock())
-    try:
-        if remaining_before_generation is not None and remaining_before_generation <= 0:
-            raise TimeoutError("shared verification deadline exceeded before generation")
-        spec = generate_repro(
-            repo,
-            candidate,
-            provider,
-            budget,
-            timeout_s=remaining_before_generation,
+    resolved_base = _resolve_commit(repo, base_sha)
+    resolved_head = _resolve_commit(repo, head_sha)
+
+    def deferred_execution(reason: str) -> DifferentialExecution:
+        return DifferentialExecution(
+            head_runs=(),
+            base_runs=(),
+            outcome=ExecutionOutcome.DEFERRED,
+            reason=reason,
+            base_sha=resolved_base or base_sha,
+            head_sha=resolved_head or head_sha,
+            repeats=repeats,
+            elapsed_s=time.monotonic() - started,
+            network_blocked=False,
         )
-    except Exception as exc:  # noqa: BLE001 - generation failures are ternary DEFER
-        execution = _deferred(
-            f"generation failed: {type(exc).__name__}: {exc}",
-            started,
-        )
+
+    # differential evidence is only meaningful against immutable, reviewed
+    # revisions: validate before spending any generation budget
+    violation: str | None = None
+    if resolved_base is None or resolved_head is None:
+        violation = "unresolvable base/head revision"
+    elif _resolve_commit(repo, "HEAD") != resolved_head:
+        violation = "workspace HEAD does not match the reviewed head"
+    elif not _working_tree_clean(repo):
+        violation = "working tree is dirty; differential evidence requires immutable revisions"
+
+    if violation is not None:
+        execution = deferred_execution(violation)
     else:
-        remaining_s = None if deadline is None else max(0.0, deadline - clock())
-        if remaining_s is not None and remaining_s <= 0:
-            execution = _deferred(
-                "shared verification deadline exceeded after reproduction generation",
-                started,
+        remaining_before_generation = None if deadline is None else max(0.0, deadline - clock())
+        try:
+            if remaining_before_generation is not None and remaining_before_generation <= 0:
+                raise TimeoutError("shared verification deadline exceeded before generation")
+            spec = generate_repro(
+                repo,
+                candidate,
+                provider,
+                budget,
+                timeout_s=remaining_before_generation,
             )
+        except Exception as exc:  # noqa: BLE001 - generation failures are ternary DEFER
+            execution = deferred_execution(f"generation failed: {type(exc).__name__}: {exc}")
         else:
-            effective_limits = (
-                limits
-                if remaining_s is None
-                else replace(limits, wall_timeout_s=min(limits.wall_timeout_s, remaining_s))
+            execution = execute_differential(
+                repo,
+                candidate,
+                spec,
+                limits,
+                base_sha=resolved_base or base_sha,
+                head_sha=resolved_head or head_sha,
+                repeats=repeats,
+                deadline=deadline,
+                clock=clock,
             )
-            execution = execute_repro(repo, candidate, spec, effective_limits)
 
     Ledger(repo).record_verification(
         task_id=candidate.task_id,
@@ -781,7 +1007,13 @@ def verify_candidate(
         reason=execution.reason,
         elapsed_s=execution.elapsed_s,
         network_blocked=execution.network_blocked,
-        evidence=_execution_evidence(execution),
+        evidence=_differential_evidence(execution),
+        mode="differential",
+        base_sha=execution.base_sha,
+        head_sha=execution.head_sha,
+        head_runs=[run.outcome.value for run in execution.head_runs],
+        base_runs=[run.outcome.value for run in execution.base_runs],
+        repeats=execution.repeats,
     )
     if execution.outcome is ExecutionOutcome.DEFERRED:
         return VerificationRun(execution=execution, gate_result=gate_result)

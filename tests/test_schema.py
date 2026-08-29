@@ -79,3 +79,38 @@ def test_malformed_anchor_voids() -> None:
 def test_anchor_path_normalized() -> None:
     f, _ = validate_finding(_raw(anchor={"file": "./app.py", "line": 6}), DIFF)
     assert f is not None and f.file == "app.py"
+
+
+def test_git_prefixed_anchor_canonicalized() -> None:
+    diff = parse_diff(
+        """\
+diff --git a/pkg/mod.py b/pkg/mod.py
+--- a/pkg/mod.py
++++ b/pkg/mod.py
+@@ -5,3 +5,4 @@
+ context
++risky = 1 / n
+ context
+ context
+"""
+    )
+    ids = set()
+    for path in ("pkg/mod.py", "a/pkg/mod.py", "b/pkg/mod.py"):
+        f, reason = validate_finding(_raw(anchor={"file": path, "line": 6}), diff)
+        assert f is not None, reason
+        assert f.file == "pkg/mod.py"
+        ids.add(f.finding_id)
+    # canonicalization happens before id computation: one finding, one id
+    assert len(ids) == 1
+
+
+def test_prefixed_anchor_out_of_range_voids_with_input_path() -> None:
+    f, reason = validate_finding(_raw(anchor={"file": "a/app.py", "line": 99}), DIFF)
+    assert f is None
+    assert reason == "anchor a/app.py:99 not inside any diff hunk"
+
+
+def test_traversal_anchor_voids() -> None:
+    f, reason = validate_finding(_raw(anchor={"file": "a/../app.py", "line": 6}), DIFF)
+    assert f is None
+    assert "not inside" in reason
