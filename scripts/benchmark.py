@@ -16,6 +16,12 @@ from attest.benchmark.corpus import (
     import_bugsinpy,
     validate_corpus,
 )
+from attest.benchmark.experiments import (
+    DEFAULT_GAMMAS,
+    DEFAULT_SEEDS,
+    FACTORY_ALPHAS,
+    run_rho_ablation,
+)
 from attest.benchmark.schema import load_manifest
 
 
@@ -54,13 +60,39 @@ def _parser() -> argparse.ArgumentParser:
     validator.add_argument("--validation-results-out", type=Path)
     validator.add_argument("--timeout", type=float, default=60)
     validator.add_argument("--max-output-bytes", type=int, default=65_536)
+
+    experiment = commands.add_parser(
+        "experiment-rho",
+        help="offline correlated-panel ablation: naive independent votes vs the "
+        "production correlation discount (experiment only, changes no constant)",
+    )
+    experiment.add_argument("--gammas", type=float, nargs="+", default=list(DEFAULT_GAMMAS))
+    experiment.add_argument("--alphas", type=float, nargs="+", default=list(FACTORY_ALPHAS))
+    experiment.add_argument("--k", type=int, default=5)
+    experiment.add_argument("--tasks", type=int, default=2000)
+    experiment.add_argument("--seeds", type=int, nargs="+", default=list(DEFAULT_SEEDS))
+    experiment.add_argument("--theta-prior", type=float, default=0.5)
+    experiment.add_argument(
+        "--judge-accuracy",
+        type=float,
+        help="per-vote accuracy; defaults to the accuracy at which LR1 is exactly "
+        "the likelihood ratio of one positive vote",
+    )
+    experiment.add_argument("--output", type=Path, required=True)
     return parser
+
+
+_COMMANDS = {
+    "import-bugsinpy": lambda args: _import(args),
+    "validate": lambda args: _validate(args),
+    "experiment-rho": lambda args: _experiment(args),
+}
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
-        result = _import(args) if args.command == "import-bugsinpy" else _validate(args)
+        result = _COMMANDS[args.command](args)
     except (OSError, ValueError) as exc:
         _emit({"error": str(exc), "status": "error"}, stream=sys.stderr)
         return 2
@@ -166,6 +198,36 @@ def _validate(args: argparse.Namespace) -> dict[str, object]:
             )
     results.update({"offline": True, "import_exclusions": import_exclusions})
     return results
+
+
+def _experiment(args: argparse.Namespace) -> dict[str, object]:
+    """Offline by construction: pure numpy over seeded synthetic panels.
+
+    The harness reads the production channel constants and compares an
+    alternative aggregator; it patches nothing. Below 500 global ledger labels
+    the emitted report is a recommendation only (architecture red line 5).
+    """
+    report = run_rho_ablation(
+        gammas=tuple(args.gammas),
+        alphas=tuple(args.alphas),
+        k=args.k,
+        n_tasks=args.tasks,
+        seeds=tuple(args.seeds),
+        theta_prior=args.theta_prior,
+        judge_accuracy=args.judge_accuracy,
+    )
+    payload = report.to_json_dict()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    _write_canonical_json(args.output, payload)
+    return {
+        "status": "ok",
+        "offline": True,
+        "experiment": report.experiment,
+        "recommendation_status": report.status,
+        "output": str(args.output),
+        "digest": report.digest,
+        "cells": len(report.cells),
+    }
 
 
 def _interpreters(values: list[str]) -> dict[str, tuple[str, ...]]:
