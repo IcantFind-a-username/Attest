@@ -1,0 +1,96 @@
+{
+ "corpus": {
+  "positive": 218,
+  "negative": 185,
+  "repos": [
+   "black",
+   "flask",
+   "httpx",
+   "pygments",
+   "requests",
+   "rich"
+  ]
+ },
+ "hunk_fidelity": {
+  "hunks_checked": 650,
+  "range_mismatch": 0,
+  "content_mismatch": 0,
+  "past_eof": 0,
+  "files_dropped": 0,
+  "blob_unavailable": 0
+ },
+ "anchor_admissibility_pct": {
+  "positives": 218,
+  "omission_bugs": 17,
+  "with_true_line": 201,
+  "exact_path": 100.0,
+  "basename_only": 10.0,
+  "b_prefixed": 0.0,
+  "a_prefixed": 0.0,
+  "backslashes": 100.0,
+  "dot_slash": 100.0,
+  "off_by_one_lo": 97.5,
+  "off_by_one_hi": 99.0,
+  "all_true_lines_in_hunk": 100.0
+ },
+ "tier0_positive": {
+  "cases": 218,
+  "cases_ruff_failed": 0,
+  "true_lines": 438,
+  "true_lines_with_signal_pct": 20.3,
+  "background_lines": 846,
+  "background_lines_with_signal_pct": 17.6,
+  "empirical_lr": 1.15,
+  "cases_with_any_in_hunk_signal_pct": 35.3,
+  "tier0_p50_s": 0.01,
+  "tier0_max_s": 0.059,
+  "lr_ci95_low": 0.77,
+  "lr_ci95_high": 1.74,
+  "resamples": 4000
+ },
+ "tier0_negative": {
+  "cases": 185,
+  "cases_ruff_failed": 0,
+  "true_lines": 827,
+  "true_lines_with_signal_pct": 10.5,
+  "background_lines": 768,
+  "background_lines_with_signal_pct": 10.8,
+  "empirical_lr": 0.97,
+  "cases_with_any_in_hunk_signal_pct": 33.5,
+  "tier0_p50_s": 0.01,
+  "tier0_max_s": 0.068,
+  "lr_ci95_low": 0.66,
+  "lr_ci95_high": 1.38,
+  "resamples": 4000
+ },
+ "budget_pr_shape": {
+  "commits": 719,
+  "deferred_pct": 3.8,
+  "est_cost_k_p50": 0.1076,
+  "est_cost_k_p90": 0.1393,
+  "est_cost_k_max": 1.7063,
+  "files_named_vs_parsed_mismatch": 20,
+  "unparsed_files_by_reason": {
+   "deleted": 34,
+   "empty_file_added": 1,
+   "binary": 10,
+   "pure_rename": 5
+  }
+ },
+ "gate": {
+  "max_wealth_without_verification": 9.0,
+  "threshold": 10.0,
+  "surfacing_rows_without_verification": 0,
+  "states_enumerated": 45,
+  "decisions_reachable": [
+   "drawer",
+   "surface"
+  ],
+  "discard_reachable": false,
+  "min_wealth": 1.0,
+  "max_wealth": 180.0,
+  "discard_threshold": 0.1,
+  "surface_threshold": 10.0,
+  "surface_without_verification": 0
+ }
+}

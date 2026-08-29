@@ -1,0 +1,44 @@
+
+=== true-bug: pygments a7a008b4 pygments/lexers/rell.py:49
+    history says: Fix error scanning minus (-) due to lack of escaping backslash.
+no findings cleared the evidence bar — saying nothing.
+drawer (1 candidate(s) below the bar or beyond the cap):
+  - [26969a1249] pygments/lexers/rell.py:49 wealth 3.0 (drawer): Defect a later commit had to fix: Fix error scanning minus (-) due to lack of escaping backslash
+note: at alpha=0.1 the gate (wealth >= 10) is reachable only with reproduction evidence: drawer candidates surface via 'attest verify'.
+spend $0.0117 of $0.25 budget; 0.0s; discarded 0 certified-false candidate(s).
+    after V (reproduced): [26969a1249] pygments/lexers/rell.py:49 reproduced: wealth 3.0 -> 60.0 => surface
+      Defect a later commit had to fix: Fix error scanning minus (-) due to lack of escaping backslash
+      breaks when: Reached on the code path this change introduces.
+
+=== false-alarm: pygments 1f705077 pygments/lexers/asm.py:400
+    history says: LLVM: Support C-style comments (#3023)
+no findings cleared the evidence bar — saying nothing.
+drawer (1 candidate(s) below the bar or beyond the cap):
+  - [c1c0de3ee4] pygments/lexers/asm.py:400 wealth 3.0 (drawer): This line dereferences a value that can be None at runtime.
+note: at alpha=0.1 the gate (wealth >= 10) is reachable only with reproduction evidence: drawer candidates surface via 'attest verify'.
+spend $0.0119 of $0.25 budget; 0.1s; discarded 0 certified-false candidate(s).
+    after V (reproduced): [c1c0de3ee4] pygments/lexers/asm.py:400 reproduced: wealth 3.0 -> 60.0 => surface
+      This line dereferences a value that can be None at runtime.
+      breaks when: Reached on the code path this change introduces.
+
+=== true-bug: requests c32b0462 src/requests/utils.py:1054
+    history says: Fix missing space in error message
+no findings cleared the evidence bar — saying nothing.
+drawer (1 candidate(s) below the bar or beyond the cap):
+  - [f6753fcc86] src/requests/utils.py:1054 wealth 3.0 (drawer): Defect a later commit had to fix: Fix missing space in error message
+note: at alpha=0.1 the gate (wealth >= 10) is reachable only with reproduction evidence: drawer candidates surface via 'attest verify'.
+spend $0.0118 of $0.25 budget; 0.0s; discarded 0 certified-false candidate(s).
+    after V (reproduced): [f6753fcc86] src/requests/utils.py:1054 reproduced: wealth 3.0 -> 60.0 => surface
+      Defect a later commit had to fix: Fix missing space in error message
+      breaks when: Reached on the code path this change introduces.
+
+=== false-alarm: requests cd90742e src/requests/sessions.py:665
+    history says: docs: indent continuation line in Session.get :param params: (#7460)
+no findings cleared the evidence bar — saying nothing.
+drawer (1 candidate(s) below the bar or beyond the cap):
+  - [84b968ac37] src/requests/sessions.py:665 wealth 3.0 (drawer): This line dereferences a value that can be None at runtime.
+note: at alpha=0.1 the gate (wealth >= 10) is reachable only with reproduction evidence: drawer candidates surface via 'attest verify'.
+spend $0.0117 of $0.25 budget; 0.0s; discarded 0 certified-false candidate(s).
+    after V (reproduced): [84b968ac37] src/requests/sessions.py:665 reproduced: wealth 3.0 -> 60.0 => surface
+      This line dereferences a value that can be None at runtime.
+      breaks when: Reached on the code path this change introduces.
