@@ -17,7 +17,7 @@
 - Ground truth, fixed-tree content, fix messages, test output, and role labels must not enter proposer or generator prompts. Case identifiers exposed to the product are opaque.
 - Default mode performs no network, GitHub, or model calls even if credentials exist. Live local calls require `--allow-paid-api`; remote calls require a separate `--allow-remote` flag.
 - Every paid call is pre-reserved, settled, resumable without duplicate calls, and recorded in `DEVSPEND.md`; the existing $10 development cap remains binding.
-- Report precision, recall/detection, clean FPR/specificity, abstention, duplicates, delivery, p50/p95 latency, and spend. Coverage is never reported as review accuracy.
+- Report precision, recall/detection, clean FPR/specificity, silence precision `TN/(TN+FN)`, silence rate, abstention, duplicates, delivery, decision stability, wealth variance, p50/p95 latency, and spend. Coverage is never reported as review accuracy.
 - A generated test is benchmark-confirmed evidence only if it fails on the buggy tree and passes on the corresponding fixed tree under the same limits.
 - Product `VERIFIED` follows the same rule: head failure plus base pass buys positive V; head pass is not reproduced; base failure or either-side infrastructure failure is DEFER and buys no V.
 - The benchmark core is provider- and corpus-agnostic: callers can submit arbitrary local Git projects through a typed Python API. BugsInPy is an adapter, and the CLI is parameter adaptation over the same service.
@@ -193,6 +193,7 @@ git commit -m "feat: import reproducible Python bug pairs"
 - Modify: `src/attest/review/proposer.py`
 - Modify: `src/attest/review/report.py`
 - Modify: `src/attest/review/ledger.py`
+- Modify: `README.md`
 - Modify: `tests/test_executor.py`
 - Modify: `tests/test_ci_flow.py`
 - Modify: `tests/test_diffs.py`
@@ -228,13 +229,17 @@ Prove that one failed reproduction cannot cross the factory discard threshold fr
 
 Derive a preregistered bounded output limit from recorded live/cassette usage plus explicit schema worst-case headroom. Apply that same bound to provider `max_tokens` and budget reservation so the hard cap remains a pre-call guarantee. Assert a representative diff is not rejected solely by five speculative 2,000-token outputs, and assert a maximal response still cannot settle above the configured budget.
 
-- [ ] **Step 7: Run focused GREEN and commit**
+- [ ] **Step 7: Rewrite the README claim only after differential V is GREEN**
+
+Lead with the user-visible contract: Attest does not publish a finding unless the same generated reproduction fails on the reviewed head and passes on its base; otherwise it stays silent or explicitly defers. Move “sequential betting engine” out of the positioning paragraph into an implementation/design paragraph. Do not claim live accuracy, stability, or industrial superiority before Task 6 produces measurements.
+
+- [ ] **Step 8: Run focused GREEN and commit**
 
 ```bash
 .venv/bin/pytest tests/test_executor.py tests/test_ci_flow.py tests/test_diffs.py tests/test_schema.py tests/test_budget_ledger.py tests/test_config_report.py -q
 .venv/bin/ruff check src/attest/review tests
 .venv/bin/mypy src/attest/review
-git add src/attest/review tests
+git add src/attest/review tests README.md
 git commit -m "fix: require differential review evidence"
 ```
 
@@ -301,7 +306,56 @@ git commit -m "feat: replay real-data review benchmarks"
 
 ---
 
-### Task 6: Add Resumable Live-Local Evaluation and Calibration Report
+### Task 6: Measure Repeat Stability and Head-to-Head Baselines
+
+**Files:**
+- Create: `src/attest/benchmark/baselines.py`
+- Create: `src/attest/benchmark/stability.py`
+- Modify: `src/attest/benchmark/metrics.py`
+- Modify: `src/attest/benchmark/report.py`
+- Modify: `scripts/benchmark.py`
+- Create: `tests/benchmark/test_baselines.py`
+- Create: `tests/benchmark/test_stability.py`
+- Modify: `tests/benchmark/test_metrics.py`
+- Modify: `tests/benchmark/test_report.py`
+
+**Interfaces:**
+- Produces: `BarePromptBaseline`, `RuffBaseline`, `StabilityReport`, `compare_arms`, and CLI modes `stability` and `compare`.
+- Consumes: the same immutable cases, hidden truth, provider/budget accounting, oracle receipt, matcher location rules, and artifact store as Task 5.
+
+- [ ] **Step 1: Write the ten-repeat stability RED tests**
+
+For one preregistered real historical replay case, require exactly ten independent provider runs over identical diff bytes/configuration. Match cross-run findings by canonical file plus truth/location cluster, never by claim prose. Report per-cluster modal-decision stability, run-level outcome stability, pairwise surface-set Jaccard, wealth mean/variance/range, candidate-count variance, latency, spend, and all raw run IDs. A missing/failed run is DEFER, not silently removed.
+
+- [ ] **Step 2: Implement resumable stability execution**
+
+Predeclare case digest, repeat count `10`, provider configuration, and seeds where supported. Persist each completed repeat atomically so interruption does not duplicate paid calls. Repeats are variability observations and never enlarge accuracy confidence-interval denominators.
+
+- [ ] **Step 3: Write three-arm baseline RED tests**
+
+Use identical blinded diff bytes and truth. Arm A calls real Attest. Arm B makes one direct review call through the same configured provider and `PROPOSAL_SCHEMA`, with no S/T/V/gate; it surfaces every valid returned finding. Arm C runs local `.venv/bin/ruff check --output-format=json --select=F,E9` and keeps only diagnostics anchored in the diff. The baseline matcher uses preregistered location truth without pretending B/C purchased V; every result records its evidence class.
+
+- [ ] **Step 4: Implement fair comparison accounting**
+
+Primary comparison uses the same per-case USD ceiling; also disclose calls, input/output tokens, wall time, and deterministic-tool cost. Compute finding precision, PR detection, clean FPR, silence precision `TN/(TN+FN)`, silence rate, abstention, and Wilson intervals from repeat zero only. Never describe the Ruff arm as a general AI reviewer or infer a negative label from missing tool support.
+
+- [ ] **Step 5: Add fail-closed CLI/artifact tests**
+
+Default commands use recorded providers and local Ruff only. Paid comparison requires the existing explicit opt-in, validated oracle receipt, frozen preregistration, and resumable budget state. Reports include losing arms and failed/deferred runs; no selective omission.
+
+- [ ] **Step 6: Run fake/replay GREEN and commit**
+
+```bash
+.venv/bin/pytest tests/benchmark/test_baselines.py tests/benchmark/test_stability.py tests/benchmark/test_metrics.py tests/benchmark/test_report.py -q
+.venv/bin/ruff check src/attest/benchmark scripts/benchmark.py tests/benchmark
+.venv/bin/mypy src/attest/benchmark
+git add src/attest/benchmark scripts/benchmark.py tests/benchmark
+git commit -m "feat: compare review stability and baselines"
+```
+
+---
+
+### Task 7: Add Resumable Live-Local Evaluation and Calibration Report
 
 **Files:**
 - Create: `src/attest/benchmark/live.py`
@@ -369,7 +423,7 @@ git commit -m "docs: record real-data evaluation"
 
 ---
 
-### Task 7: Measure V-Only Speech and Core Safety Alternatives
+### Task 8: Measure V-Only Speech and Core Safety Alternatives
 
 **Files:**
 - Create: `src/attest/benchmark/experiments.py`
@@ -416,7 +470,7 @@ git commit -m "feat: compare evidence safety policies"
 
 ## Plan Self-Review
 
-- **Spec coverage:** real developer bug/fix provenance, paired controls, reproducible oracle, blind truth, product differential V, canonical anchors, truthful reporting, hard budget semantics, generic project API, product-path reuse, accuracy/abstention/latency/cost metrics, uncertainty, artifacts, replay/live separation, checkpointing, multi-seed null grids, experiment-only LR shrinkage/monitor brakes, and calibration limits each map to a task.
+- **Spec coverage:** real developer bug/fix provenance, paired controls, reproducible oracle, blind truth, product differential V, canonical anchors, evidence-first README copy, hard budget semantics, generic project API, ten-repeat stability, three-arm baselines, precision and silence correctness, product-path reuse, accuracy/abstention/latency/cost metrics, uncertainty, artifacts, replay/live separation, checkpointing, multi-seed null grids, experiment-only LR shrinkage/monitor brakes, and calibration limits each map to a task.
 - **Placeholder scan:** no deferred implementation placeholder appears; every task names files, interfaces, RED/GREEN commands, and commit boundaries.
 - **Type consistency:** `BenchmarkCase` feeds corpus materialization and `BenchmarkRunner`; `DifferentialExecution` is shared by product verification and benchmark diagnostics; `ProjectEvaluationRequest` feeds `evaluate_project`; `ProjectEvaluationResult` and `RunRecord` join product ledger/candidate data; `MatchResult` feeds `aggregate`; `BenchmarkReport` feeds JSON/Markdown rendering; live checkpoints key every paid call by benchmark run/case/repeat identity.
 - **Evidence honesty:** BugsInPy contains real defects and developer fixes, but reversed fixes are counterfactual review diffs. Reports must separate this from future naturally occurring bug-introducing PRs and from replay cassettes.
