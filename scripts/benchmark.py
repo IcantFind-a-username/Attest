@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -58,7 +59,16 @@ from attest.benchmark.experiments import (
     run_rho_ablation,
     run_two_ledger_experiment,
 )
+from attest.benchmark.live import (
+    REASON_PAID_API_NOT_ALLOWED,
+    LiveCase,
+    LivePreflightError,
+    preflight_live,
+    reserved_case_budget_usd,
+    run_live_local,
+)
 from attest.benchmark.report import (
+    LIVE_MODE,
     REPLAY_MODE,
     ReportAbstention,
     ReportExclusion,
@@ -73,6 +83,7 @@ from attest.benchmark.schema import BenchmarkCase, BenchmarkManifest, load_manif
 from attest.benchmark.stability import run_stability_study
 from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits
+from attest.review.proposer import ApiProvider
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -233,6 +244,77 @@ def _parser() -> argparse.ArgumentParser:
         "and a missing tool defers that arm rather than scoring it",
     )
     _add_review_arguments(compare)
+
+    live = commands.add_parser(
+        "live-local",
+        help="explicitly authorized PAID evaluation of the frozen corpus with the "
+        "real provider: requires --allow-paid-api plus a key, a frozen "
+        "preregistration, an immutable manifest, and development-cap headroom; "
+        "the full selected-case budget is reserved before the first call, every "
+        "case advances through an atomic checkpoint state machine, and "
+        "--resume RUN_ID continues an interrupted run without repeating a "
+        "completed model call",
+    )
+    live.add_argument("--manifest", type=Path, required=True)
+    live.add_argument("--output", type=Path, required=True)
+    live.add_argument(
+        "--allow-paid-api",
+        action="store_true",
+        help="explicit opt-in to paid provider calls; a present credential is "
+        "never taken as consent",
+    )
+    live.add_argument(
+        "--root",
+        type=Path,
+        help="caller-prepared checkout root; a case without one is excluded "
+        "before any budget is reserved",
+    )
+    live.add_argument("--workspace", type=Path)
+    live.add_argument("--run-id", help="predeclared identifier for a NEW run")
+    live.add_argument(
+        "--resume",
+        metavar="RUN_ID",
+        help="continue an interrupted run: completed model calls are never "
+        "repeated, artifact hashes are re-verified, and each cost is appended "
+        "exactly once",
+    )
+    live.add_argument(
+        "--state-dir",
+        type=Path,
+        help="resumable checkpoint state (default: OUTPUT/state)",
+    )
+    live.add_argument(
+        "--devspend",
+        type=Path,
+        default=Path("DEVSPEND.md"),
+        help="development spend ledger used for the hard-cap headroom check",
+    )
+    live.add_argument(
+        "--validation-receipt",
+        type=Path,
+        help="validation receipt bound to this manifest digest; without it the "
+        "calibration report withholds every accuracy metric and says so",
+    )
+    live.add_argument(
+        "--validation-results",
+        type=Path,
+        help="the exact validation-results artifact the receipt was issued over",
+    )
+    live.add_argument(
+        "--python",
+        action="append",
+        default=[],
+        metavar="SOURCE_ID=INTERPRETER",
+        help="caller-prepared project interpreter for one opaque source id, "
+        "exported to the executor as ATTEST_PROJECT_PYTHON for that case",
+    )
+    live.add_argument(
+        "--case",
+        action="append",
+        default=[],
+        help="restrict the run to these opaque case ids (a preregistered pilot)",
+    )
+    _add_review_arguments(live)
 
     evalue = commands.add_parser(
         "experiment-evalue",
@@ -469,6 +551,7 @@ _COMMANDS = {
     "replay": lambda args: _replay(args),
     "stability": lambda args: _stability(args),
     "compare": lambda args: _compare(args),
+    "live-local": lambda args: _live(args),
     "experiment-evalue": lambda args: _experiment_evalue(args),
     "experiment-nullgrid": lambda args: _experiment_nullgrid(args),
     "experiment-monitor": lambda args: _experiment_monitor(args),
@@ -490,7 +573,7 @@ def main(argv: list[str] | None = None) -> int:
             return 3
         if status != "valid":
             return 4
-    if args.command in {"replay", "stability", "compare"} and (
+    if args.command in {"replay", "stability", "compare", "live-local"} and (
         result.get("status") == "not_executed"
     ):
         return 3
@@ -929,6 +1012,187 @@ def _compare(args: argparse.Namespace) -> dict[str, object]:
         "report": str(report_path),
         "report_markdown": str(markdown_path),
     }
+
+
+def _live(args: argparse.Namespace) -> dict[str, object]:
+    """PAID by explicit opt-in only, and fail-closed everywhere else.
+
+    The opt-in flag is checked before the manifest is read and long before any
+    provider client could be constructed; a present credential is never taken
+    as consent. Selection and exclusion happen next, so the reservation covers
+    exactly the cases that will run; preflight then verifies the key by
+    presence and length only (never logging it), the frozen preregistration,
+    the manifest's immutability against that freeze, and development-cap
+    headroom for the full reservation. Only after all of that does the real
+    ``ApiProvider`` exist, one case at a time, inside the atomic checkpoint
+    state machine. GitHub is never touched: live-local reviews local
+    checkouts and mutates nothing remote.
+
+    Settled spend is printed so the operator can record it in DEVSPEND.md;
+    this command never edits the ledger itself.
+    """
+    if not args.allow_paid_api:
+        raise LivePreflightError(
+            REASON_PAID_API_NOT_ALLOWED,
+            "live-local is a paid mode; pass --allow-paid-api explicitly. "
+            "Refused before the manifest is read or any provider client is "
+            "constructed.",
+        )
+    if (args.run_id is None) == (args.resume is None):
+        raise ValueError(
+            "exactly one of --run-id (a new run) or --resume RUN_ID is required"
+        )
+    run_id = args.resume if args.resume is not None else args.run_id
+    resume = args.resume is not None
+    manifest = load_manifest(args.manifest)
+    receipt = _replay_receipt(args)
+    cases, exclusions = _live_plan(manifest, args, receipt)
+    interpreters = {
+        source_id: argv[0] for source_id, argv in _interpreters(args.python).items()
+    }
+    preflight = preflight_live(
+        allow_paid_api=True,
+        manifest_path=args.manifest,
+        devspend_path=args.devspend,
+        case_budgets_usd=tuple(
+            reserved_case_budget_usd(case.request) for case in cases
+        ),
+        env=os.environ,
+    )
+    if not cases:
+        return {
+            "status": "not_executed",
+            "mode": LIVE_MODE,
+            "offline": False,
+            "manifest": args.manifest.name,
+            "manifest_sha256": preflight.manifest_sha256,
+            "reason": "no_selected_cases",
+            "evaluated_cases": 0,
+            "abstained_cases": 0,
+            "excluded_cases": len(exclusions),
+            "exclusions": [row.to_json_dict() for row in exclusions],
+            "spend_usd": 0.0,
+        }
+    model = cases[0].request.config.model
+    state_dir = args.state_dir or (args.output / "state")
+    result = run_live_local(
+        cases,
+        run_id=run_id,
+        state_dir=state_dir,
+        output_dir=args.output,
+        manifest=manifest,
+        manifest_sha256=preflight.manifest_sha256,
+        preregistration_sha256=preflight.preregistration_sha256,
+        provider_factory=lambda request: ApiProvider(model),
+        resume=resume,
+        interpreters=interpreters,
+        exclusions=exclusions,
+        validation_receipt=receipt,
+        line_slack=args.line_slack,
+    )
+    report = result.report
+    return {
+        "status": "ok",
+        "mode": LIVE_MODE,
+        "offline": False,
+        "manifest": args.manifest.name,
+        "manifest_sha256": preflight.manifest_sha256,
+        "run_id": run_id,
+        "resumed": resume,
+        "evaluated_cases": report.underlying.evaluated_cases,
+        "abstained_cases": len(report.underlying.abstained_cases),
+        "excluded_cases": len(report.underlying.excluded_cases),
+        "executed_cases": result.executed_cases,
+        "resumed_cases": result.resumed_cases,
+        "reserved_usd": round(result.reserved_total_usd, 6),
+        "spend_usd": round(result.settled_spend_usd, 6),
+        "oracle_spend_usd": round(result.settled_oracle_spend_usd, 6),
+        "accuracy_status": (
+            "withheld" if report.accuracy_withheld_reason is not None else "reported"
+        ),
+        "accuracy_withheld_reason": report.accuracy_withheld_reason,
+        "sample_sufficiency": report.sample_sufficiency["status"],
+        "digest": report.digest,
+        "report": str(result.report_path),
+        "report_markdown": str(result.markdown_path),
+        "state_dir": str(state_dir / run_id),
+        "devspend_note": (
+            "record the settled spend in DEVSPEND.md before the next paid run; "
+            "this command never edits the ledger itself"
+        ),
+    }
+
+
+def _live_plan(
+    manifest: BenchmarkManifest,
+    args: argparse.Namespace,
+    receipt: ValidationReceipt | None,
+) -> tuple[list[LiveCase], list[ReportExclusion]]:
+    """Select exactly the cases the reservation will cover, excluding the rest.
+
+    Exclusion happens before any budget is reserved: an unreceipted pair, an
+    unprepared checkout, or an unselected case can never cost anything.
+    """
+    config = _review_config(args)
+    limits = ExecutorLimits(wall_timeout_s=args.wall_timeout)
+    workspace_root = args.workspace or (args.output / "workspace")
+    runtimes = {row.case_id: row for row in manifest.runtime}
+    truths: dict[str, tuple[Any, ...]] = {}
+    for truth in manifest.truth_defects:
+        truths[truth.case_id] = (*truths.get(truth.case_id, ()), truth)
+    selected = set(args.case)
+    unknown = selected - {case.case_id for case in manifest.cases}
+    if unknown:
+        raise ValueError(
+            "unknown --case id(s): " + ", ".join(sorted(unknown))
+        )
+    cases: list[LiveCase] = []
+    exclusions: list[ReportExclusion] = []
+    for case in manifest.cases:
+        if selected and case.case_id not in selected:
+            exclusions.append(ReportExclusion(case.case_id, "not_selected"))
+            continue
+        if receipt is not None:
+            try:
+                require_validated_pair(receipt, case.pair_id)
+            except ValueError:
+                exclusions.append(
+                    ReportExclusion(case.case_id, "pair_not_in_validation_receipt")
+                )
+                continue
+        runtime = runtimes.get(case.case_id)
+        repo = None if args.root is None or runtime is None else args.root / runtime.cwd
+        if repo is None or not (repo / ".git").exists():
+            exclusions.append(
+                ReportExclusion(case.case_id, "prepared_environment_required")
+            )
+            continue
+        cases.append(
+            LiveCase(
+                request=ProjectEvaluationRequest(
+                    case_id=case.case_id,
+                    repo=repo,
+                    base_ref=_base_ref(case),
+                    head_ref=_head_ref(case),
+                    workspace_root=workspace_root,
+                    config=config,
+                    limits=limits,
+                    verification_timeout_s=args.verification_timeout,
+                    repeats=args.repeats,
+                    deadline_s=args.deadline,
+                    line_slack=args.line_slack,
+                    truth=(
+                        ProjectTruth(
+                            fixed_ref=case.fixed_commit, defects=truths[case.case_id]
+                        )
+                        if case.case_id in truths
+                        else None
+                    ),
+                ),
+                source_id=case.source_id,
+            )
+        )
+    return cases, exclusions
 
 
 def _review_config(args: argparse.Namespace) -> ReviewConfig:
