@@ -187,16 +187,11 @@ class LedgerArtifact:
         if not reproduced_ids.issubset(reviewed_ids):
             raise AcceptanceError("ledger verification references an unreviewed candidate")
 
-        surfaced_ids = {
-            str(row["finding_id"])
-            for row in review_rows
-            if str(row.get("action", "")).endswith("surface")
-        }
         inline_ids = tuple(inline_finding_ids)
-        if len(inline_ids) != len(set(inline_ids)) or set(inline_ids) != surfaced_ids:
-            raise AcceptanceError("inline finding identities do not match surfaced ledger rows")
-        if not set(inline_ids).issubset(reproduced_ids):
-            raise AcceptanceError("inline finding lacks reproduced verification evidence")
+        if len(inline_ids) != len(set(inline_ids)) or set(inline_ids) != reproduced_ids:
+            raise AcceptanceError(
+                "inline finding identities do not match reproduced ledger rows"
+            )
 
 
 @dataclass(frozen=True)
@@ -844,6 +839,7 @@ jobs:
           repository: {SOURCE_REPOSITORY}
           ref: {action_ref}
           token: ${{{{ secrets.{SOURCE_TOKEN_SECRET} }}}}
+          persist-credentials: false
           path: _attest_action
       - name: Review pull request
         uses: ./_attest_action

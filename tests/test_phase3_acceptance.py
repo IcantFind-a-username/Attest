@@ -245,6 +245,7 @@ def test_scratch_workflow_uses_source_secret_for_cross_repository_checkout() -> 
 
     assert f"token: ${{{{ secrets.{TEST_SOURCE_TOKEN_SECRET} }}}}" in source_checkout
     assert "secrets.GITHUB_TOKEN" not in source_checkout
+    assert "persist-credentials: false" in source_checkout
 
 
 def test_sticky_timing_excludes_runner_queue_time() -> None:
@@ -320,7 +321,7 @@ def _ledger_text(
             "task_id": task_id,
             "finding_id": review_id,
             "spend": 0.012,
-            "action": "formal_surface",
+            "action": "drawer",
         },
         {
             "kind": "verification",

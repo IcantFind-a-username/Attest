@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import time
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -9,6 +10,14 @@ from pathlib import Path
 from threading import Lock, Thread
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.acceptance.phase3 import (  # noqa: E402
+    BUG_COMMENT_PHASES,
+    classify_comments,
+    parse_ledger,
+)
 
 from attest.github.client import STATUS_MARKER, GitHubClient
 from attest.github.context import PullRequestContext
@@ -265,6 +274,60 @@ def test_planted_bug_waits_for_failing_repro_before_speaking(
     assert [row["kind"] for row in scoped].count("verification") == 1
     assert [row["kind"] for row in scoped].count("github_comment") == 4
     assert all(STATUS_MARKER not in str(row.get("body", "")) for row in scoped)
+
+
+def test_real_ci_drawer_reproduction_inline_ledger_is_accepted(
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
+) -> None:
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = planted_repo
+    provider = RecordingProvider(
+        _finding_payload(),
+        json.dumps(
+            {
+                "test_body": "import runpy\n\n"
+                "def test_average_handles_empty_input():\n"
+                "    average = runpy.run_path('app.py')['average']\n"
+                "    assert average([]) == 0\n"
+            }
+        ),
+    )
+
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    assert result.surfaced_count == 1
+    rows = _ledger_rows(repo)
+    review = next(row for row in rows if row["kind"] == "review")
+    assert review["action"] == "drawer"
+    inline_payload = github_server.review_bodies[0]["comments"]
+    assert isinstance(inline_payload, list)
+    api_comments = [
+        {
+            "id": index,
+            "body": comment["body"],
+            "path": comment["path"],
+            "line": comment["line"],
+        }
+        for index, comment in enumerate(inline_payload, start=1)
+        if isinstance(comment, dict)
+    ]
+    comments = classify_comments([], api_comments)
+    ledger = parse_ledger(
+        (repo / ".attest" / "ledger.jsonl").read_text(encoding="utf-8")
+    )
+
+    ledger.assert_event_coverage(
+        expected_comment_phases=BUG_COMMENT_PHASES,
+        inline_finding_ids=comments.finding_ids,
+    )
 
 
 def test_clean_negative_control_posts_no_inline_review(
