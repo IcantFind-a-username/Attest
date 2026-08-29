@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -96,6 +97,24 @@ class ExecutionOutcome(str, Enum):  # noqa: UP042 - public API requires this exa
     DEFERRED = "deferred"
 
 
+class EvidenceClass(str, Enum):  # noqa: UP042 - public API requires this exact base shape
+    """What the head/base pair actually showed. Only REGRESSION_REPRODUCED is
+    priced today; NEW_CODE_CANDIDATE is recorded signal awaiting an owner
+    decision on its LR (D-020), so it purchases nothing."""
+
+    REGRESSION_REPRODUCED = "regression_reproduced"
+    NEW_CODE_CANDIDATE = "new_code_candidate"
+    UNFAITHFUL = "unfaithful"
+    NOT_REPRODUCED = "not_reproduced"
+    INDETERMINATE = "indeterminate"
+
+
+class FailureSignature(str, Enum):  # noqa: UP042 - public API requires this exact base shape
+    SYMBOL_ABSENT = "symbol_absent"
+    ASSERTION = "assertion"
+    OTHER = "other"
+
+
 @dataclass(frozen=True)
 class ExecutorLimits:
     wall_timeout_s: float = 60.0
@@ -131,12 +150,68 @@ class DifferentialExecution:
     repeats: int
     elapsed_s: float
     network_blocked: bool  # every executed run confirmed the network guard
+    evidence_class: EvidenceClass = EvidenceClass.INDETERMINATE
 
 
 @dataclass(frozen=True)
 class VerificationRun:
     execution: DifferentialExecution
     gate_result: GateResult
+
+
+_SYMBOL_ABSENT_EXCEPTIONS = (
+    "ModuleNotFoundError",
+    "ImportError",
+    "AttributeError",
+    "NameError",
+    "KeyError",
+)
+_ABSENT_ALTERNATION = "|".join(_SYMBOL_ABSENT_EXCEPTIONS)
+# Only lines pytest emits *at* the point of failure: the reported exception detail
+# ("E   AttributeError: ..."), the traceback location line, a raw interpreter
+# traceback, or a collection-error header. Echoed source lines
+# ("> with pytest.raises(KeyError):") deliberately do not count.
+_SYMBOL_ABSENT_MARKERS = tuple(
+    re.compile(pattern, re.MULTILINE)
+    for pattern in (
+        rf"^E\s+(?:{_ABSENT_ALTERNATION})\b",
+        rf"^.*:\d+: (?:{_ABSENT_ALTERNATION})\s*$",
+        rf"^(?:{_ABSENT_ALTERNATION}):",
+        rf"^(?:{_ABSENT_ALTERNATION}) while importing test module",
+    )
+)
+_ASSERTION_MARKERS = tuple(
+    re.compile(pattern, re.MULTILINE)
+    for pattern in (
+        r"^E\s+(?:assert\b|AssertionError\b)",
+        r"^.*:\d+: AssertionError\s*$",
+        r"^AssertionError\b",
+    )
+)
+
+
+def classify_failure_signature(result: ExecutionResult) -> FailureSignature:
+    """Why a run failed: the symbol under test is absent, a real assertion
+    fired, or neither. Deliberately conservative -- when both signatures appear
+    the assertion wins, so a bogus test cannot hide behind an incidental
+    KeyError raised somewhere in the same output."""
+    text = f"{result.stdout}\n{result.stderr}"
+    if any(marker.search(text) for marker in _ASSERTION_MARKERS):
+        return FailureSignature.ASSERTION
+    if any(marker.search(text) for marker in _SYMBOL_ABSENT_MARKERS):
+        return FailureSignature.SYMBOL_ABSENT
+    return FailureSignature.OTHER
+
+
+def _side_signature(runs: list[ExecutionResult]) -> FailureSignature:
+    """The signature shared by every failing run on one side; OTHER when the
+    runs disagree or when nothing failed."""
+    signatures = {
+        classify_failure_signature(run)
+        for run in runs
+        if run.outcome is ExecutionOutcome.REPRODUCED
+    }
+    return signatures.pop() if len(signatures) == 1 else FailureSignature.OTHER
 
 
 def _anchor_context(repo: Path, candidate: StoredCandidate) -> str:
@@ -783,6 +858,9 @@ def _bounded_reason(reason: str) -> str:
 
 
 DEADLINE_REASON = "shared verification deadline exceeded during differential execution"
+NEW_CODE_REASON = (
+    "new-code candidate: reproduction fails on head and the symbol is absent on base; not priced"
+)
 
 
 def execute_differential(
@@ -800,13 +878,19 @@ def execute_differential(
     """Run the same reproduction repeatedly against detached head/base
     worktrees. Only a deterministic head failure paired with a deterministic
     base pass counts as REPRODUCED; every other pattern is DEFERRED (flaky or
-    unfaithful evidence must never purchase V)."""
+    unfaithful evidence must never purchase V). Every result also carries an
+    evidence class, which describes what was seen without pricing it: a
+    new-code candidate is recorded and still DEFERRED."""
     started = time.monotonic()
     repo_root = repo.resolve()
     head_runs: list[ExecutionResult] = []
     base_runs: list[ExecutionResult] = []
 
-    def finish(outcome: ExecutionOutcome, reason: str) -> DifferentialExecution:
+    def finish(
+        outcome: ExecutionOutcome,
+        reason: str,
+        evidence_class: EvidenceClass = EvidenceClass.INDETERMINATE,
+    ) -> DifferentialExecution:
         runs = (*head_runs, *base_runs)
         return DifferentialExecution(
             head_runs=tuple(head_runs),
@@ -818,10 +902,13 @@ def execute_differential(
             repeats=repeats,
             elapsed_s=time.monotonic() - started,
             network_blocked=bool(runs) and all(run.network_blocked for run in runs),
+            evidence_class=evidence_class,
         )
 
-    def deferred(reason: str) -> DifferentialExecution:
-        return finish(ExecutionOutcome.DEFERRED, _bounded_reason(reason))
+    def deferred(
+        reason: str, evidence_class: EvidenceClass = EvidenceClass.INDETERMINATE
+    ) -> DifferentialExecution:
+        return finish(ExecutionOutcome.DEFERRED, _bounded_reason(reason), evidence_class)
 
     def run_once(side: str, index: int, tree: Path) -> ExecutionResult | None:
         """One containment-guarded run against `tree`; None when the shared
@@ -883,24 +970,39 @@ def execute_differential(
             return finish(
                 ExecutionOutcome.NOT_REPRODUCED,
                 f"pytest passed on head in {repeats}/{repeats} runs; base not executed",
+                EvidenceClass.NOT_REPRODUCED,
             )
         if head_failures < repeats:
             return deferred(
                 f"flaky reproduction on head ({head_failures}/{repeats} runs failed)"
             )
+        # a fabricated finding fails on head because its symbol exists nowhere,
+        # so only an assertion-class head can ever reach NEW_CODE_CANDIDATE
+        head_is_assertion = _side_signature(head_runs) is FailureSignature.ASSERTION
 
         for index in range(1, repeats + 1):
             run = run_once("base", index, trees_dir / "base")
             if run is None:
                 return deferred(DEADLINE_REASON)
             base_runs.append(run)
+            if run.outcome is ExecutionOutcome.NOT_REPRODUCED:
+                continue
+            if (
+                head_is_assertion
+                and classify_failure_signature(run) is FailureSignature.SYMBOL_ABSENT
+            ):
+                # the reviewed diff added the symbol: real signal, but pricing it
+                # needs an LR that only the owner may introduce (D-020)
+                return deferred(NEW_CODE_REASON, EvidenceClass.NEW_CODE_CANDIDATE)
             if run.outcome is ExecutionOutcome.DEFERRED:
                 return deferred(f"base run {index}/{repeats} deferred: {run.reason}")
-            if run.outcome is ExecutionOutcome.REPRODUCED:
-                return deferred("unfaithful generated test: fails on base as well")
+            return deferred(
+                "unfaithful generated test: fails on base as well", EvidenceClass.UNFAITHFUL
+            )
         return finish(
             ExecutionOutcome.REPRODUCED,
             f"head FAIL {repeats}/{repeats}, base PASS {repeats}/{repeats}",
+            EvidenceClass.REGRESSION_REPRODUCED,
         )
     finally:
         for tree in created:
@@ -1014,6 +1116,7 @@ def verify_candidate(
         head_runs=[run.outcome.value for run in execution.head_runs],
         base_runs=[run.outcome.value for run in execution.base_runs],
         repeats=execution.repeats,
+        evidence_class=execution.evidence_class.value,
     )
     if execution.outcome is ExecutionOutcome.DEFERRED:
         return VerificationRun(execution=execution, gate_result=gate_result)

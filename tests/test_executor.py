@@ -27,6 +27,13 @@ DEFAULT_MODEL = str(load_pricing()["default_model"])
 GOOD_MODULE = "def add(a, b):\n    return a + b\n"
 BUGGY_MODULE = "def add(a, b):\n    return a - b\n"
 DIFFERENTIAL_BODY = "import mod\n\ndef test_repro():\n    assert mod.add(2, 2) == 4"
+NEW_FUNCTION_MODULE = GOOD_MODULE + '\n\ndef parse(text):\n    return text.split(",")[-1]\n'
+NEW_FUNCTION_BODY = 'import mod\n\ndef test_repro():\n    assert mod.parse("a,b") == "a"\n'
+NEW_MODULE = 'def parse(text):\n    return text.split(",")[-1]\n'
+NEW_MODULE_BODY = 'import newmod\n\ndef test_repro():\n    assert newmod.parse("a,b") == "a"\n'
+FABRICATED_BODY = (
+    "import mod\n\ndef test_repro():\n    assert mod.totally_absent_symbol(2) == 4\n"
+)
 
 
 class RecordingProvider:
@@ -133,6 +140,30 @@ def differential_repo(tmp_path: Path) -> tuple[Path, str, str]:
     base_sha = run_git(repo, "rev-parse", "HEAD")
     (repo / "mod.py").write_text(BUGGY_MODULE, encoding="utf-8")
     run_git(repo, "commit", "-am", "head: introduce the bug")
+    head_sha = run_git(repo, "rev-parse", "HEAD")
+    return repo, base_sha, head_sha
+
+
+def two_commit_repo(
+    tmp_path: Path, base_files: dict[str, str], head_files: dict[str, str]
+) -> tuple[Path, str, str]:
+    """Real repo whose base commit holds `base_files` and whose head commit
+    holds exactly `head_files` (files absent from head are deleted)."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_git(repo, "init", "--initial-branch=main")
+    for name, text in base_files.items():
+        (repo / name).write_text(text, encoding="utf-8")
+    run_git(repo, "add", "--all")
+    run_git(repo, "commit", "-m", "base")
+    base_sha = run_git(repo, "rev-parse", "HEAD")
+    for name in base_files:
+        if name not in head_files:
+            (repo / name).unlink()
+    for name, text in head_files.items():
+        (repo / name).write_text(text, encoding="utf-8")
+    run_git(repo, "add", "--all")
+    run_git(repo, "commit", "-m", "head")
     head_sha = run_git(repo, "rev-parse", "HEAD")
     return repo, base_sha, head_sha
 
@@ -1114,6 +1145,7 @@ def test_execute_reports_network_unblocked_when_process_never_starts(tmp_path: P
         "detail",
         "head_run_outcomes",
         "base_run_outcomes",
+        "evidence_class",
     ),
     [
         (
@@ -1124,6 +1156,7 @@ def test_execute_reports_network_unblocked_when_process_never_starts(tmp_path: P
             "reproduced",
             ["reproduced"] * 3,
             ["not_reproduced"] * 3,
+            "regression_reproduced",
         ),
         (
             "def test_repro():\n    assert True",
@@ -1133,6 +1166,7 @@ def test_execute_reports_network_unblocked_when_process_never_starts(tmp_path: P
             "reproduction failed",
             ["not_reproduced"] * 3,
             [],
+            "not_reproduced",
         ),
     ],
 )
@@ -1145,6 +1179,7 @@ def test_verify_candidate_applies_only_conclusive_evidence_and_records_it(
     detail: str,
     head_run_outcomes: list[str],
     base_run_outcomes: list[str],
+    evidence_class: str,
 ) -> None:
     from attest.review.executor import ExecutorLimits, verify_candidate
 
@@ -1170,6 +1205,7 @@ def test_verify_candidate_applies_only_conclusive_evidence_and_records_it(
 
     assert verification.execution.outcome.value == outcome
     assert verification.execution.reason == reason
+    assert verification.execution.evidence_class.value == evidence_class
     assert verification.gate_result is not gate
     assert verification.gate_result.wealth == wealth
     assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S", "V"]
@@ -1186,6 +1222,7 @@ def test_verify_candidate_applies_only_conclusive_evidence_and_records_it(
     assert row["head_runs"] == head_run_outcomes
     assert row["base_runs"] == base_run_outcomes
     assert row["repeats"] == 3
+    assert row["evidence_class"] == evidence_class
     assert_worktrees_cleaned(repo, stored)
 
 
@@ -1388,7 +1425,12 @@ def test_execute_differential_runs_one_test_source_with_one_interpreter(
 
 
 def test_verify_candidate_unfaithful_test_failing_on_base_is_deferred(tmp_path: Path) -> None:
-    from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        verify_candidate,
+    )
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     stored = candidate(line=1)
@@ -1414,6 +1456,7 @@ def test_verify_candidate_unfaithful_test_failing_on_base_is_deferred(tmp_path: 
 
     assert verification.execution.outcome is ExecutionOutcome.DEFERRED
     assert verification.execution.reason == "unfaithful generated test: fails on base as well"
+    assert verification.execution.evidence_class is EvidenceClass.UNFAITHFUL
     assert verification.gate_result is gate
     assert [purchase.channel for purchase in gate.purchases] == ["S"]
     assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
@@ -1423,6 +1466,7 @@ def test_verify_candidate_unfaithful_test_failing_on_base_is_deferred(tmp_path: 
     row = Ledger(repo).entries()[-1]
     assert row["outcome"] == "deferred"
     assert "unfaithful" in row["reason"]
+    assert row["evidence_class"] == "unfaithful"
     assert_worktrees_cleaned(repo, stored)
 
 
@@ -1561,3 +1605,295 @@ def test_verify_candidate_validates_revisions_before_calling_provider(
     row = Ledger(repo).entries()[-1]
     assert row["outcome"] == "deferred"
     assert row["reason"] == reason
+
+
+ASSERTION_OUTPUT = """\
+=================================== FAILURES ===================================
+__________________________________ test_repro __________________________________
+
+    def test_repro():
+>       assert mod.add(2, 2) == 4
+E       assert 0 == 4
+E        +  where 0 = <function add at 0x104>(2, 2)
+
+/tmp/repro/test_repro.py:5: AssertionError
+=========================== short test summary info ============================
+FAILED /tmp/repro/test_repro.py::test_repro
+"""
+
+ATTRIBUTE_OUTPUT = """\
+=================================== FAILURES ===================================
+__________________________________ test_repro __________________________________
+
+    def test_repro():
+>       assert mod.parse("a,b") == "a"
+E       AttributeError: module 'mod' has no attribute 'parse'
+
+/tmp/repro/test_repro.py:5: AttributeError
+"""
+
+COLLECTION_OUTPUT = """\
+==================================== ERRORS ====================================
+_______________________ ERROR collecting test_repro.py _________________________
+ImportError while importing test module '/tmp/repro/test_repro.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+test_repro.py:1: in <module>
+    import newmod
+E   ModuleNotFoundError: No module named 'newmod'
+"""
+
+MIXED_OUTPUT = """\
+=================================== FAILURES ===================================
+_________________________________ test_lookup __________________________________
+E   KeyError: 'threshold'
+
+/tmp/repro/test_repro.py:5: KeyError
+__________________________________ test_repro __________________________________
+E   assert 3 == 4
+
+/tmp/repro/test_repro.py:9: AssertionError
+"""
+
+ECHOED_SOURCE_OUTPUT = """\
+=================================== FAILURES ===================================
+__________________________________ test_repro __________________________________
+
+    def test_repro():
+>       with pytest.raises(NameError):
+E       Failed: DID NOT RAISE
+
+/tmp/repro/test_repro.py:5: Failed
+"""
+
+
+@pytest.mark.parametrize(
+    ("stdout", "signature"),
+    [
+        (ASSERTION_OUTPUT, "assertion"),
+        (ATTRIBUTE_OUTPUT, "symbol_absent"),
+        (COLLECTION_OUTPUT, "symbol_absent"),
+        (MIXED_OUTPUT, "assertion"),
+        (ECHOED_SOURCE_OUTPUT, "other"),
+        ("", "other"),
+    ],
+)
+def test_classify_failure_signature_reads_the_failure_lines(stdout: str, signature: str) -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutionResult,
+        classify_failure_signature,
+    )
+
+    result = ExecutionResult(
+        outcome=ExecutionOutcome.REPRODUCED,
+        reason="pytest reported 1 failure(s) and 0 error(s)",
+        exit_code=1,
+        stdout=stdout,
+        stderr="",
+        elapsed_s=0.1,
+        network_blocked=True,
+    )
+
+    assert classify_failure_signature(result).value == signature
+
+
+def test_classify_failure_signature_reads_raw_stderr_tracebacks() -> None:
+    from attest.review.executor import (
+        ExecutionOutcome,
+        ExecutionResult,
+        classify_failure_signature,
+    )
+
+    result = ExecutionResult(
+        outcome=ExecutionOutcome.DEFERRED,
+        reason="pytest collection/import/syntax or infrastructure failure",
+        exit_code=2,
+        stdout="",
+        stderr=(
+            "Traceback (most recent call last):\n"
+            '  File "/tmp/repro/conftest.py", line 1, in <module>\n'
+            "    import newmod\n"
+            "ModuleNotFoundError: No module named 'newmod'\n"
+        ),
+        elapsed_s=0.1,
+        network_blocked=True,
+    )
+
+    assert classify_failure_signature(result).value == "symbol_absent"
+
+
+def test_verify_candidate_new_function_on_head_is_a_new_code_candidate(tmp_path: Path) -> None:
+    """The reviewed diff ADDS parse(): the reproduction fails by assertion on
+    head while the symbol is absent on base. Signal only -- no V is purchased."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": GOOD_MODULE}, {"mod.py": NEW_FUNCTION_MODULE}
+    )
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": NEW_FUNCTION_BODY}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert verification.execution.evidence_class is EvidenceClass.NEW_CODE_CANDIDATE
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert verification.execution.reason == (
+        "new-code candidate: reproduction fails on head and the symbol is absent "
+        "on base; not priced"
+    )
+    assert verification.gate_result is gate
+    assert verification.gate_result.wealth == stored.wealth
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
+    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
+    assert verification.execution.base_runs[0].outcome is ExecutionOutcome.REPRODUCED
+    row = Ledger(repo).entries()[-1]
+    assert row["outcome"] == "deferred"
+    assert row["evidence_class"] == "new_code_candidate"
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_new_module_on_head_is_a_new_code_candidate(tmp_path: Path) -> None:
+    """Same evidence class when the added symbol lives in a file absent from
+    base entirely: the base run is a ModuleNotFoundError collection error."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path,
+        {"mod.py": GOOD_MODULE},
+        {"mod.py": GOOD_MODULE, "newmod.py": NEW_MODULE},
+    )
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": NEW_MODULE_BODY}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert verification.execution.evidence_class is EvidenceClass.NEW_CODE_CANDIDATE
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert verification.gate_result is gate
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
+    assert verification.execution.base_runs[0].outcome is ExecutionOutcome.DEFERRED
+    row = Ledger(repo).entries()[-1]
+    assert row["evidence_class"] == "new_code_candidate"
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_fabricated_symbol_can_never_be_a_new_code_candidate(
+    tmp_path: Path,
+) -> None:
+    """Fabrication guard: a test naming a symbol that exists on neither tree
+    fails symbol-absent on HEAD, so the head side is never assertion-class."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": FABRICATED_BODY}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert verification.execution.evidence_class is not EvidenceClass.NEW_CODE_CANDIDATE
+    assert verification.execution.evidence_class in (
+        EvidenceClass.UNFAITHFUL,
+        EvidenceClass.INDETERMINATE,
+    )
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert verification.gate_result is gate
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
+    row = Ledger(repo).entries()[-1]
+    assert row["outcome"] == "deferred"
+    assert row["evidence_class"] != "new_code_candidate"
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_execute_differential_flaky_head_is_indeterminate(tmp_path: Path) -> None:
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        ReproSpec,
+        execute_differential,
+    )
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    counter = tmp_path / "flaky-counter"
+    body = (
+        "from pathlib import Path\n"
+        f"counter = Path({str(counter)!r})\n"
+        "def test_repro():\n"
+        "    n = int(counter.read_text()) if counter.exists() else 0\n"
+        "    counter.write_text(str(n + 1))\n"
+        "    assert n % 2 == 1\n"
+    )
+    stored = candidate(line=1)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(body),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.evidence_class is EvidenceClass.INDETERMINATE
+    assert_worktrees_cleaned(repo, stored)

@@ -153,6 +153,7 @@ class Ledger:
         head_runs: list[str] | None = None,
         base_runs: list[str] | None = None,
         repeats: int | None = None,
+        evidence_class: str | None = None,
     ) -> None:
         entry: dict[str, Any] = {
             "kind": "verification",
@@ -171,6 +172,7 @@ class Ledger:
             "head_runs": head_runs,
             "base_runs": base_runs,
             "repeats": repeats,
+            "evidence_class": evidence_class,
         }
         entry.update(
             {name: value for name, value in differential_fields.items() if value is not None}

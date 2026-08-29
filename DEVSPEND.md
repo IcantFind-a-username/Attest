@@ -14,8 +14,10 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-08-30 | differential-V live validation: 2 differential verifications, both head FAIL 3/3 + base PASS 3/3 | $0.0091 |
 | 2026-08-30 | negative control review K=5 on a semantics-preserving refactor (0 candidates, 3.8s) | $0.0119 |
 | 2026-08-30 | adversarial fabricated-finding verification (not reproduced; wealth 2.95 -> 1.48) | $0.0018 |
+| 2026-08-30 | new-code discriminator live check: review K=5 (7.2s, 1 drawer candidate) | $0.0259 |
+| 2026-08-30 | new-code discriminator live check: differential run classified new_code_candidate | $0.0035 |
 
-**Total API spend: $0.2036 of $10.00.**
+**Total API spend: $0.2330 of $10.00.**
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 
