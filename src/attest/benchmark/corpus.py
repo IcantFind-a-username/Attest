@@ -9,6 +9,7 @@ import random
 import re
 import shlex
 import signal
+import socket
 import subprocess
 import threading
 import time
@@ -51,6 +52,19 @@ class ValidationReceipt:
     validation_results_sha256: str
 
 
+@dataclass(frozen=True)
+class IsolationAdapter:
+    """Immutable command wrapper claiming one verifiable isolation capability."""
+
+    capability: str
+    wrapper_argv: tuple[str, ...]
+    wrapper_sha256: str
+
+
+class IsolationError(ValueError):
+    """The execution boundary could not prove network denial."""
+
+
 class CorpusRunner(Protocol):
     """Execution boundary for generic prepared-corpus validation."""
 
@@ -68,7 +82,7 @@ class SubprocessCorpusRunner:
         interpreters: Mapping[str, tuple[str, ...]],
         *,
         allowed_tools: Mapping[tuple[str, str], tuple[str, ...]] | None = None,
-        network_isolated: bool = False,
+        isolation: IsolationAdapter | None = None,
         timeout_s: float = 60,
         max_output_bytes: int = 65_536,
     ) -> None:
@@ -76,26 +90,86 @@ class SubprocessCorpusRunner:
             raise ValueError("runner limits must be positive")
         self._interpreters = dict(interpreters)
         self._allowed_tools = dict(allowed_tools or {})
-        self._network_isolated = network_isolated
+        self._isolation = isolation
+        self._isolation_verified = False
         self._timeout_s = timeout_s
         self._max_output_bytes = max_output_bytes
+
+    @property
+    def isolation_verified(self) -> bool:
+        """Return whether this runner passed its owned-boundary socket probe."""
+        if not self._isolation_verified:
+            return False
+        try:
+            self._validated_adapter()
+        except IsolationError:
+            return False
+        return True
 
     def run(
         self, source_id: str, tool: str, args: tuple[str, ...], cwd: Path
     ) -> RunOutcome:
-        if not self._network_isolated:
-            raise ValueError("network isolation must be established before execution")
+        interpreter = self._interpreters.get(source_id)
+        if interpreter is None:
+            raise ValueError(f"no interpreter configured for {source_id}")
+        self._verify_isolation(interpreter, cwd)
         prefix = (
-            self._interpreters.get(source_id)
+            interpreter
             if tool == "python"
             else self._allowed_tools.get((source_id, tool))
         )
         if prefix is None:
-            if tool == "python":
-                raise ValueError(f"no interpreter configured for {source_id}")
             raise ValueError(f"tool is not allowed: {tool}")
         _require_explicit_executable(prefix, tool)
-        command = (*prefix, *args)
+        isolation = self._validated_adapter()
+        command = (*isolation.wrapper_argv, *prefix, *args)
+        return self._execute(command, cwd, self._timeout_s)
+
+    def _verify_isolation(self, interpreter: tuple[str, ...], cwd: Path) -> None:
+        if self._isolation_verified:
+            self._validated_adapter()
+            return
+        isolation = self._validated_adapter()
+        _require_explicit_executable(interpreter, "python")
+        probe = (
+            "import socket,sys; s=socket.socket(); "
+            "code=s.connect_ex(('127.0.0.1',int(sys.argv[1]))); "
+            "raise SystemExit(73 if code == 0 else 0)"
+        )
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind(("127.0.0.1", 0))
+            listener.listen(1)
+            port = listener.getsockname()[1]
+            command = (
+                *isolation.wrapper_argv,
+                *interpreter,
+                "-c",
+                probe,
+                str(port),
+            )
+            outcome = self._execute(command, cwd, min(self._timeout_s, 5.0))
+        if outcome.timed_out or outcome.returncode != 0:
+            raise IsolationError("network isolation socket probe was not denied")
+        self._isolation_verified = True
+
+    def _validated_adapter(self) -> IsolationAdapter:
+        isolation = self._isolation
+        if isolation is None or isolation.capability != "attest.network-deny.v1":
+            raise IsolationError("a verified network isolation capability is required")
+        try:
+            _require_explicit_executable(isolation.wrapper_argv, "isolation wrapper")
+        except ValueError as exc:
+            raise IsolationError(str(exc)) from exc
+        wrapper = Path(isolation.wrapper_argv[0])
+        if (
+            re.fullmatch(r"[0-9a-f]{64}", isolation.wrapper_sha256) is None
+            or hashlib.sha256(wrapper.read_bytes()).hexdigest()
+            != isolation.wrapper_sha256
+        ):
+            raise IsolationError("isolation wrapper digest does not match")
+        return isolation
+
+    def _execute(self, command: tuple[str, ...], cwd: Path, timeout_s: float) -> RunOutcome:
         environment = {
             key: value
             for key, value in os.environ.items()
@@ -137,13 +211,13 @@ class SubprocessCorpusRunner:
 
         reader = threading.Thread(target=drain, daemon=True)
         reader.start()
-        deadline = time.monotonic() + self._timeout_s
+        deadline = time.monotonic() + timeout_s
         timed_out = False
         try:
             process.wait(timeout=max(0.0, deadline - time.monotonic()))
             reader.join(timeout=max(0.0, deadline - time.monotonic()))
             if reader.is_alive():
-                raise subprocess.TimeoutExpired(list(command), self._timeout_s)
+                raise subprocess.TimeoutExpired(list(command), timeout_s)
         except subprocess.TimeoutExpired:
             timed_out = True
             _kill_owned_process_tree(process)
@@ -195,6 +269,7 @@ def validate_corpus(manifest: Path, root: Path, runner: CorpusRunner) -> dict[st
     for case in typed.cases:
         by_pair.setdefault(case.pair_id, []).append(case)
     results: list[dict[str, Any]] = []
+    command_success = True
     for pair_id in sorted(by_pair):
         members = by_pair[pair_id]
         replay = next(case for case in members if case.role == "historical_bug_replay")
@@ -220,6 +295,11 @@ def validate_corpus(manifest: Path, root: Path, runner: CorpusRunner) -> dict[st
                     "buggy_runs": [_run_json(outcome) for outcome in buggy_runs],
                 }
             )
+        except IsolationError:
+            command_success = False
+            results.append(
+                {"pair_id": pair_id, "status": "excluded", "reason": "isolation_unverified"}
+            )
         except _IntegrityError as exc:
             results.append({"pair_id": pair_id, "status": "excluded", "reason": exc.reason})
         except (OSError, subprocess.CalledProcessError, ValueError):
@@ -241,43 +321,61 @@ def validate_corpus(manifest: Path, root: Path, runner: CorpusRunner) -> dict[st
         if validated
         else "invalid"
     )
+    manifest_sha256 = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    validation_results = {
+        "schema_version": "1",
+        "manifest_sha256": manifest_sha256,
+        "results": results,
+    }
+    validation_results_bytes = _canonical_json_bytes(validation_results)
+    isolation_verified = (
+        isinstance(runner, SubprocessCorpusRunner) and runner.isolation_verified
+    )
     receipt = (
-        _validation_receipt(manifest, results, validated_pair_ids)
-        if validated_pair_ids
+        _validation_receipt(
+            manifest_sha256, validation_results_bytes, validated_pair_ids
+        )
+        if validated_pair_ids and command_success and isolation_verified
         else None
     )
     return {
         "manifest": manifest.name,
-        "manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
-        "command_success": True,
+        "manifest_sha256": manifest_sha256,
+        "command_success": command_success,
         "corpus_valid": corpus_valid,
         "validation_status": validation_status,
-        "scorable": validated > 0,
+        "scorable": validated > 0 and command_success and isolation_verified,
         "validated_pairs": validated,
         "excluded_pairs": total - validated,
         "results": results,
+        "validation_results": validation_results,
         "receipt": receipt,
     }
 
 
 def _validation_receipt(
-    manifest: Path,
-    results: list[dict[str, Any]],
+    manifest_sha256: str,
+    validation_results_bytes: bytes,
     validated_pair_ids: list[str],
 ) -> dict[str, object]:
-    canonical_results = json.dumps(
-        results, sort_keys=True, separators=(",", ":"), ensure_ascii=True
-    ).encode()
     return {
         "schema_version": "1",
-        "manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        "manifest_sha256": manifest_sha256,
         "validated_pair_ids": validated_pair_ids,
-        "validation_results_sha256": hashlib.sha256(canonical_results).hexdigest(),
+        "validation_results_sha256": hashlib.sha256(validation_results_bytes).hexdigest(),
     }
 
 
-def load_validation_receipt(path: Path, manifest: Path) -> ValidationReceipt:
-    """Load a strict receipt and reject one issued for different manifest bytes."""
+def _canonical_json_bytes(value: object) -> bytes:
+    return (
+        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n"
+    ).encode()
+
+
+def load_validation_receipt(
+    path: Path, manifest: Path, validation_results: Path
+) -> ValidationReceipt:
+    """Derive the allowlist from exact manifest-bound validation-results bytes."""
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -305,9 +403,45 @@ def load_validation_receipt(path: Path, manifest: Path) -> ValidationReceipt:
         r"[0-9a-f]{64}", result_sha256
     ) is None:
         raise ValueError("validation receipt results digest is invalid")
+    try:
+        results_bytes = validation_results.read_bytes()
+        results_value = json.loads(results_bytes)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("validation results must be valid JSON") from exc
+    if result_sha256 != hashlib.sha256(results_bytes).hexdigest():
+        raise ValueError("validation results digest does not match receipt")
+    if results_bytes != _canonical_json_bytes(results_value):
+        raise ValueError("validation results must use canonical JSON encoding")
+    if not isinstance(results_value, dict) or set(results_value) != {
+        "schema_version",
+        "manifest_sha256",
+        "results",
+    }:
+        raise ValueError("validation results have invalid fields")
+    if (
+        results_value["schema_version"] != "1"
+        or results_value["manifest_sha256"] != manifest_sha256
+    ):
+        raise ValueError("validation results manifest digest does not match")
+    result_rows = results_value["results"]
+    if not isinstance(result_rows, list) or any(
+        not isinstance(row, dict)
+        or not isinstance(row.get("pair_id"), str)
+        or row.get("status") not in {"validated", "excluded"}
+        for row in result_rows
+    ):
+        raise ValueError("validation results rows are invalid")
+    result_pair_ids = [row["pair_id"] for row in result_rows]
+    manifest_pair_ids = {case.pair_id for case in load_manifest(manifest).cases}
+    if len(result_pair_ids) != len(set(result_pair_ids)) or set(result_pair_ids) != (
+        manifest_pair_ids
+    ):
+        raise ValueError("validation results must exactly cover manifest pairs")
+    derived_pair_ids = sorted(
+        row["pair_id"] for row in result_rows if row["status"] == "validated"
+    )
     if (
         not isinstance(pair_ids, list)
-        or not pair_ids
         or any(
             not isinstance(pair_id, str)
             or re.fullmatch(r"pair-[0-9a-f]{12}", pair_id) is None
@@ -316,13 +450,14 @@ def load_validation_receipt(path: Path, manifest: Path) -> ValidationReceipt:
         or pair_ids != sorted(set(pair_ids))
     ):
         raise ValueError("validation receipt pair ids are invalid")
-    manifest_pair_ids = {case.pair_id for case in load_manifest(manifest).cases}
-    if not set(pair_ids) <= manifest_pair_ids:
-        raise ValueError("validation receipt contains unknown pair ids")
+    if pair_ids != derived_pair_ids:
+        raise ValueError("validation receipt validated pair allowlist does not match results")
+    if not derived_pair_ids:
+        raise ValueError("validation receipt must contain a validated pair")
     return ValidationReceipt(
         schema_version=schema_version,
         manifest_sha256=manifest_sha256,
-        validated_pair_ids=tuple(pair_ids),
+        validated_pair_ids=tuple(derived_pair_ids),
         validation_results_sha256=result_sha256,
     )
 
@@ -859,39 +994,84 @@ def _classify_license(contents: bytes) -> str | None:
     except UnicodeDecodeError:
         return None
     normalized = " ".join(text.split())
-    if "Mozilla Public License" in normalized and "MIT License" in normalized:
+    matches: list[tuple[str, int, int]] = []
+    mit_start = "Permission is hereby granted, free of charge"
+    mit_end = (
+        "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER "
+        "DEALINGS IN THE SOFTWARE."
+    )
+    mit_markers = (
+        mit_start,
+        "to deal in the Software without restriction",
+        "The above copyright notice and this permission notice shall be included",
+        'THE SOFTWARE IS PROVIDED "AS IS"',
+        "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT",
+        "IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE",
+        mit_end,
+    )
+    if normalized.count(mit_start) == 1 and all(
+        marker in normalized for marker in mit_markers
+    ):
+        matches.append(
+            ("MIT", normalized.index(mit_start), normalized.index(mit_end) + len(mit_end))
+        )
+
+    bsd_start = "Redistribution and use in source and binary forms"
+    bsd_end = "EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
+    bsd_markers = (
+        bsd_start,
+        "Redistributions of source code must retain",
+        "Redistributions in binary form must reproduce",
+        "THIS SOFTWARE IS PROVIDED",
+        "IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE",
+        "DISCLAIMED",
+        "IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE",
+        bsd_end,
+    )
+    if normalized.count(bsd_start) == 1 and all(
+        marker in normalized for marker in bsd_markers
+    ):
+        identifier = "BSD-3-Clause" if "Neither the name" in normalized else "BSD-2-Clause"
+        matches.append(
+            (
+                identifier,
+                normalized.index(bsd_start),
+                normalized.index(bsd_end) + len(bsd_end),
+            )
+        )
+
+    if len(matches) != 1 or _contains_complete_unsupported_license(normalized):
         return None
-    if all(
-        phrase in normalized
-        for phrase in (
-            "Permission is hereby granted, free of charge",
-            "to deal in the Software without restriction",
-            "The above copyright notice and this permission notice shall be included",
+    identifier, _, end = matches[0]
+    if normalized[end:].strip():
+        return None
+    return identifier
+
+
+def _contains_complete_unsupported_license(text: str) -> bool:
+    marker_sets = (
+        (
+            "Apache License",
+            "TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION",
+            'distributed under the License is distributed on an "AS IS" BASIS',
+        ),
+        (
+            "GNU GENERAL PUBLIC LICENSE",
+            "Everyone is permitted to copy and distribute verbatim copies",
+            "THERE IS NO WARRANTY FOR THE PROGRAM",
+        ),
+        (
+            "Mozilla Public Licen",
+            "This Source Code Form is subject to the terms",
+            "mozilla.org/MPL/2.0",
+        ),
+        (
+            "Permission to use, copy, modify, and/or distribute this software",
             'THE SOFTWARE IS PROVIDED "AS IS"',
-            "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT",
-            "IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE",
-            "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER "
-            "DEALINGS IN THE SOFTWARE",
-        )
-    ):
-        return "MIT"
-    if all(
-        phrase in normalized
-        for phrase in (
-            "Redistribution and use in source and binary forms",
-            "Redistributions of source code must retain",
-            "Redistributions in binary form must reproduce",
-            "THIS SOFTWARE IS PROVIDED",
-            "IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE",
-            "DISCLAIMED",
-            "IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE",
-            "EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE",
-        )
-    ):
-        if "Neither the name" in normalized:
-            return "BSD-3-Clause"
-        return "BSD-2-Clause"
-    return None
+            "IN NO EVENT SHALL THE AUTHOR BE LIABLE",
+        ),
+    )
+    return any(all(marker in text for marker in markers) for markers in marker_sets)
 
 
 def _read_info(path: Path) -> dict[str, str]:

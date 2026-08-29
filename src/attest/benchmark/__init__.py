@@ -2,6 +2,8 @@
 
 from attest.benchmark.corpus import (
     CorpusRunner,
+    IsolationAdapter,
+    IsolationError,
     RunOutcome,
     SubprocessCorpusRunner,
     ValidationReceipt,
@@ -38,6 +40,8 @@ __all__ = [
     "CorpusExclusion",
     "CorpusProvenance",
     "CorpusRunner",
+    "IsolationAdapter",
+    "IsolationError",
     "MatchResult",
     "PatchDescriptor",
     "Placement",

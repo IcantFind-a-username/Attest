@@ -31,7 +31,10 @@ Candidates are excluded before selection when any of these conditions holds:
   auditable LICENSE/LICENCE/COPYING at both commits with the same recognized,
   complete MIT, BSD-2-Clause, or BSD-3-Clause terms. Recognition requires the
   full grant, conditions, warranty disclaimer, and liability disclaimer after
-  whitespace normalization. Mixed-license text is not reduced to one SPDX id.
+  whitespace normalization. Each supported template is detected independently
+  and an SPDX id is returned only when exactly one matches. Multiple supported
+  templates, a complete unsupported template, or appended license terms fail
+  closed rather than being reduced to one SPDX id.
 
 `bug_patch.txt` is a source patch and upstream fixes commonly add their
 regression test in the same commit. Patch integrity therefore means byte-for-
@@ -61,9 +64,14 @@ a typed command (`python` or an explicitly mapped tool plus arguments). Bare
 Default validation is offline and never clones, fetches, invokes a provider,
 reads API credentials, calls `gh`, or executes upstream `setup.sh`. A caller
 may prepare an environment independently and map each opaque source ID to an
-absolute interpreter/tool. Execution additionally requires the caller to
-assert an already-established network-isolation boundary; environment proxy
-variables are not treated as isolation.
+absolute interpreter/tool. Prepared execution additionally requires an
+explicit sandbox/container wrapper contract: an absolute wrapper executable,
+its exact SHA-256, and capability version `attest.network-deny.v1`. Before any
+test, the runner opens a loopback listening socket and attempts to connect to
+it through the same wrapper and owned process-session boundary. A successful
+connection, missing/unknown capability, wrapper drift, probe timeout, or broken
+wrapper fails closed. A caller boolean and environment proxy variables are not
+isolation evidence.
 
 ## Differential oracle
 
@@ -83,10 +91,15 @@ descendants without polling unrelated PIDs.
 
 Validation reports `command_success` independently from `corpus_valid`.
 Without a prepared root the command is `not_executed`, unscorable, and exits
-nonzero; it is never described as successful validation. Any validated subset
-produces a receipt containing the exact manifest SHA-256, the sorted allowlist
-of validated pair IDs, and a validation-results digest. Downstream evaluators
-must load that manifest-bound receipt and refuse pair IDs absent from it.
+nonzero; it is never described as successful validation. Only a validated
+subset executed by the built-in runner after its owned-boundary isolation
+probe produces a receipt containing the exact manifest SHA-256, the sorted allowlist
+of validated pair IDs, and the SHA-256 of a canonical validation-results JSON
+artifact. The loader must consume both files, verify the exact results bytes
+and manifest digest, require one result row for every manifest pair, derive the
+allowlist solely from `status=validated` rows, and compare that derivation with
+the receipt. Downstream evaluators must use only this derived allowlist and
+refuse pair IDs absent from it.
 
 ## Freeze and scoring
 

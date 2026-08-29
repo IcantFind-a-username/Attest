@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -15,6 +16,8 @@ from pathlib import Path
 import pytest
 
 from attest.benchmark.corpus import (
+    IsolationAdapter,
+    IsolationError,
     RunOutcome,
     SubprocessCorpusRunner,
     import_bugsinpy,
@@ -73,6 +76,38 @@ _BSD3 = _BSD2.replace(
     "3. Neither the name of the copyright holder nor the names of its contributors may be "
     "used to endorse or promote products derived from this software.\nTHIS SOFTWARE IS PROVIDED",
 )
+
+_APACHE_NOTICE = """Apache License
+Version 2.0, January 2004
+TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+You may reproduce and distribute copies of the Work provided that You give
+recipients a copy of this License and retain all notices.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND.
+END OF TERMS AND CONDITIONS
+"""
+
+_GPL_NOTICE = """GNU GENERAL PUBLIC LICENSE
+Version 3, 29 June 2007
+Everyone is permitted to copy and distribute verbatim copies of this license.
+You may convey verbatim copies of the Program's source code as you receive it.
+THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.
+END OF TERMS AND CONDITIONS
+"""
+
+_ISC = """Permission to use, copy, modify, and/or distribute this software for
+any purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+"""
 
 
 def _git(path: Path, *args: str) -> str:
@@ -428,6 +463,29 @@ def test_import_recognizes_complete_mit_terms_across_line_wrapping(tmp_path: Pat
     assert result["sources"][0]["source_license"] == "MIT"
 
 
+@pytest.mark.parametrize(
+    "license_text",
+    [
+        _MIT + _BSD2,
+        _MIT + _APACHE_NOTICE,
+        _MIT + _GPL_NOTICE,
+        _BSD2 + _BSD3,
+        _MIT + _ISC,
+    ],
+    ids=["mit-bsd", "mit-apache", "mit-gpl", "bsd2-bsd3", "mit-unknown"],
+)
+def test_import_rejects_multiple_or_additional_license_templates(
+    tmp_path: Path, license_text: str
+) -> None:
+    """A source license is auditable only when exactly one complete template matches."""
+    source, _ = _source(tmp_path, bug_count=1, project_license=license_text)
+
+    result = import_bugsinpy(source, tmp_path / "manifest.json", limit=1, seed=1)
+
+    assert result["selection"]["eligible_pairs"] == 0
+    assert result["exclusions"][0]["reason"] == "source_license_missing"
+
+
 def test_import_bugsinpy_rejects_uncommitted_or_non_repository_source(tmp_path: Path) -> None:
     """A mutable or non-git input cannot substantiate an exact corpus commit."""
     source, _ = _source(tmp_path, bug_count=1)
@@ -563,7 +621,7 @@ def test_validate_corpus_requires_three_real_fixed_passes_and_stable_buggy_failu
         interpreters={source_id: (sys.executable,)},
         timeout_s=10,
         max_output_bytes=16_384,
-        network_isolated=True,
+        isolation=_sandbox_isolation(),
     )
 
     report = validate_corpus(manifest, root, runner)
@@ -590,23 +648,127 @@ def test_validation_receipt_is_manifest_bound_and_only_allows_validated_pairs(
     tmp_path: Path,
 ) -> None:
     """Downstream evaluators must not score excluded pairs or a changed manifest."""
-    manifest, root, _ = _oracle_fixture(tmp_path)
-    passing = [RunOutcome(0, b"pass", False)] * 3
-    failing = [
-        RunOutcome(1, b"FAILED test_calc.py::test_value - assert 0 == 1", False)
-    ] * 3
-    report = validate_corpus(manifest, root, _SequenceRunner(passing + failing))
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    receipt_value, results_value = _two_pair_validation_artifacts(manifest)
     receipt_path = tmp_path / "receipt.json"
-    receipt_path.write_text(json.dumps(report["receipt"]), encoding="utf-8")
+    results_path = tmp_path / "validation-results.json"
+    _write_canonical_json(receipt_path, receipt_value)
+    _write_canonical_json(results_path, results_value)
 
-    receipt = load_validation_receipt(receipt_path, manifest)
+    receipt = load_validation_receipt(receipt_path, manifest, results_path)
     require_validated_pair(receipt, "pair-222222222222")
     with pytest.raises(ValueError, match="not in validation receipt"):
-        require_validated_pair(receipt, "pair-999999999999")
+        require_validated_pair(receipt, "pair-555555555555")
 
     manifest.write_text(manifest.read_text() + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="manifest digest"):
-        load_validation_receipt(receipt_path, manifest)
+        load_validation_receipt(receipt_path, manifest, results_path)
+
+
+def test_protocol_runner_without_verified_boundary_cannot_sign_receipt(tmp_path: Path) -> None:
+    """Synthetic outcomes can test oracle logic but cannot become scoring authority."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    outcomes = [RunOutcome(0, b"pass", False)] * 3 + [
+        RunOutcome(1, b"FAILED test_calc.py::test_value", False)
+    ] * 3
+
+    report = validate_corpus(manifest, root, _SequenceRunner(outcomes))
+
+    assert report["validated_pairs"] == 1
+    assert report["receipt"] is None
+    assert report["scorable"] is False
+
+
+def _write_canonical_json(path: Path, value: object) -> None:
+    path.write_text(
+        json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _two_pair_validation_artifacts(manifest: Path) -> tuple[dict[str, object], dict[str, object]]:
+    document = json.loads(manifest.read_text())
+    original_pair = "pair-222222222222"
+    second_pair = "pair-555555555555"
+    runtime_by_case = {row["case_id"]: row for row in document["runtime"]}
+    for case in list(document["cases"]):
+        copied = json.loads(json.dumps(case))
+        copied["pair_id"] = second_pair
+        copied["case_id"] = (
+            "case-555555555551"
+            if case["role"] == "historical_bug_replay"
+            else "case-555555555552"
+        )
+        document["cases"].append(copied)
+        runtime = json.loads(json.dumps(runtime_by_case[case["case_id"]]))
+        runtime["case_id"] = copied["case_id"]
+        role_dir = "replay" if copied["role"] == "historical_bug_replay" else "control"
+        runtime["cwd"] = f"source-111111111111/{second_pair}/{role_dir}"
+        document["runtime"].append(runtime)
+        if copied["role"] == "historical_bug_replay":
+            truth = json.loads(json.dumps(document["truth_defects"][0]))
+            truth["defect_id"] = "truth_known_second"
+            truth["case_id"] = copied["case_id"]
+            document["truth_defects"].append(truth)
+    manifest.write_text(json.dumps(document), encoding="utf-8")
+    manifest_sha256 = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    results: dict[str, object] = {
+        "schema_version": "1",
+        "manifest_sha256": manifest_sha256,
+        "results": [
+            {"pair_id": original_pair, "status": "validated"},
+            {"pair_id": second_pair, "status": "excluded", "reason": "timeout"},
+        ],
+    }
+    results_bytes = (
+        json.dumps(results, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode()
+    receipt: dict[str, object] = {
+        "schema_version": "1",
+        "manifest_sha256": manifest_sha256,
+        "validated_pair_ids": [original_pair],
+        "validation_results_sha256": hashlib.sha256(results_bytes).hexdigest(),
+    }
+    return receipt, results
+
+
+def test_validation_receipt_rejects_known_pair_substitution_and_arbitrary_hash(
+    tmp_path: Path,
+) -> None:
+    """A known manifest pair plus a well-shaped fake hash is not validation evidence."""
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    receipt, validation_results = _two_pair_validation_artifacts(manifest)
+    receipt["validated_pair_ids"] = ["pair-555555555555"]
+    receipt["validation_results_sha256"] = "a" * 64
+    receipt_path = tmp_path / "receipt.json"
+    results_path = tmp_path / "validation-results.json"
+    _write_canonical_json(receipt_path, receipt)
+    _write_canonical_json(results_path, validation_results)
+
+    with pytest.raises(ValueError, match="validation results digest"):
+        load_validation_receipt(receipt_path, manifest, results_path)
+
+
+def test_validation_receipt_rejects_results_and_allowlist_tampering(tmp_path: Path) -> None:
+    """The receipt allowlist must be derived from the exact signed-results bytes."""
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    receipt, validation_results = _two_pair_validation_artifacts(manifest)
+    receipt_path = tmp_path / "receipt.json"
+    results_path = tmp_path / "validation-results.json"
+    _write_canonical_json(receipt_path, receipt)
+    tampered_results = json.loads(json.dumps(validation_results))
+    tampered_results["results"][0]["status"] = "excluded"
+    tampered_results["results"][0]["reason"] = "forged"
+    _write_canonical_json(results_path, tampered_results)
+    with pytest.raises(ValueError, match="validation results digest"):
+        load_validation_receipt(receipt_path, manifest, results_path)
+
+    _write_canonical_json(results_path, validation_results)
+    tampered_receipt = dict(receipt)
+    tampered_receipt["validated_pair_ids"] = ["pair-555555555555"]
+    _write_canonical_json(receipt_path, tampered_receipt)
+    with pytest.raises(ValueError, match="validated pair allowlist"):
+        load_validation_receipt(receipt_path, manifest, results_path)
 
 
 def test_validation_models_empty_and_partial_corpora_separately_from_command_success(
@@ -658,8 +820,8 @@ def test_validation_models_empty_and_partial_corpora_separately_from_command_suc
     assert partial["command_success"] is True
     assert partial["corpus_valid"] is False
     assert partial["validation_status"] == "partial"
-    assert partial["scorable"] is True
-    assert partial["receipt"]["validated_pair_ids"] == [original_pair]
+    assert partial["scorable"] is False
+    assert partial["receipt"] is None
 
     document["cases"] = []
     document["runtime"] = []
@@ -684,11 +846,11 @@ def test_subprocess_runner_requires_network_isolation_and_explicit_tool_paths(
     trap.chmod(0o755)
     monkeypatch.setenv("PATH", str(tmp_path))
     no_isolation = SubprocessCorpusRunner(interpreters={source_id: (sys.executable,)})
-    with pytest.raises(ValueError, match="network isolation"):
+    with pytest.raises(IsolationError, match="capability"):
         no_isolation.run(source_id, "python", ("-c", "pass"), tmp_path)
 
     runner = SubprocessCorpusRunner(
-        interpreters={source_id: (sys.executable,)}, network_isolated=True
+        interpreters={source_id: (sys.executable,)}, isolation=_sandbox_isolation()
     )
     with pytest.raises(ValueError, match="not allowed"):
         runner.run(source_id, "tox", (), tmp_path)
@@ -704,7 +866,7 @@ def test_subprocess_runner_requires_network_isolation_and_explicit_tool_paths(
                 f"from pathlib import Path; Path({str(explicit_marker)!r}).touch()",
             )
         },
-        network_isolated=True,
+        isolation=_sandbox_isolation(),
     )
     outcome = allowed.run(source_id, "tox", (), tmp_path)
     assert outcome.returncode == 0
@@ -712,13 +874,77 @@ def test_subprocess_runner_requires_network_isolation_and_explicit_tool_paths(
     assert not marker.exists()
 
 
+def _sandbox_isolation() -> IsolationAdapter:
+    sandbox = Path("/usr/bin/sandbox-exec")
+    if sys.platform != "darwin" or not sandbox.is_file():
+        pytest.skip("requires a real OS network sandbox")
+    return IsolationAdapter(
+        capability="attest.network-deny.v1",
+        wrapper_argv=(
+            str(sandbox),
+            "-p",
+            "(version 1) (allow default) (deny network*)",
+        ),
+        wrapper_sha256=hashlib.sha256(sandbox.read_bytes()).hexdigest(),
+    )
+
+
+def test_plain_or_forged_isolation_cannot_execute_or_sign_receipt(tmp_path: Path) -> None:
+    """A claimed capability must fail when its real boundary can connect a socket."""
+    manifest, root, source_id = _oracle_fixture(tmp_path)
+    passthrough = tmp_path / "passthrough"
+    passthrough.write_text("#!/bin/sh\nexec \"$@\"\n", encoding="utf-8")
+    passthrough.chmod(0o755)
+    forged = IsolationAdapter(
+        capability="attest.network-deny.v1",
+        wrapper_argv=(str(passthrough),),
+        wrapper_sha256=hashlib.sha256(passthrough.read_bytes()).hexdigest(),
+    )
+    runner = SubprocessCorpusRunner(
+        interpreters={source_id: (sys.executable,)}, isolation=forged
+    )
+
+    report = validate_corpus(manifest, root, runner)
+
+    assert report["command_success"] is False
+    assert report["scorable"] is False
+    assert report["receipt"] is None
+    assert report["results"][0]["reason"] == "isolation_unverified"
+
+
+def test_isolation_capability_and_wrapper_hash_are_verified(tmp_path: Path) -> None:
+    """Missing, unknown, or file-drifted capability evidence must fail before execution."""
+    source_id = "source-111111111111"
+    with pytest.raises(IsolationError, match="capability"):
+        SubprocessCorpusRunner(interpreters={source_id: (sys.executable,)}).run(
+            source_id, "python", ("-c", "pass"), tmp_path
+        )
+    unknown = IsolationAdapter(
+        capability="caller-says-offline",
+        wrapper_argv=(sys.executable,),
+        wrapper_sha256=hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest(),
+    )
+    with pytest.raises(IsolationError, match="capability"):
+        SubprocessCorpusRunner(
+            interpreters={source_id: (sys.executable,)}, isolation=unknown
+        ).run(source_id, "python", ("-c", "pass"), tmp_path)
+    drifted = IsolationAdapter(
+        capability="attest.network-deny.v1",
+        wrapper_argv=(sys.executable,),
+        wrapper_sha256="0" * 64,
+    )
+    with pytest.raises(IsolationError, match="wrapper digest"):
+        SubprocessCorpusRunner(
+            interpreters={source_id: (sys.executable,)}, isolation=drifted
+        ).run(source_id, "python", ("-c", "pass"), tmp_path)
+
 def test_subprocess_runner_bounds_streaming_output_memory(tmp_path: Path) -> None:
     """Large child output must be drained continuously without an unbounded parent buffer."""
     source_id = "source-111111111111"
     runner = SubprocessCorpusRunner(
         interpreters={source_id: (sys.executable,)},
         max_output_bytes=128,
-        network_isolated=True,
+        isolation=_sandbox_isolation(),
     )
     tracemalloc.start()
     tracemalloc.reset_peak()
@@ -755,7 +981,7 @@ def test_subprocess_runner_timeout_cleans_child_pipe_holder(tmp_path: Path) -> N
     runner = SubprocessCorpusRunner(
         interpreters={source_id: (sys.executable,)},
         timeout_s=0.2,
-        network_isolated=True,
+        isolation=_sandbox_isolation(),
     )
 
     started = time.monotonic()

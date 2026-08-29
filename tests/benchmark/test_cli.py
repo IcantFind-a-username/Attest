@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from .test_corpus import _oracle_fixture, _source
 
 _SCRIPT = Path(__file__).parents[2] / "scripts" / "benchmark.py"
@@ -151,12 +153,13 @@ def test_validate_offline_without_prepared_root_excludes_each_pair(tmp_path: Pat
     ]
 
 
-def test_validate_prepared_root_requires_network_isolation_and_writes_receipt(
+def test_validate_prepared_root_requires_verified_isolation_and_writes_bound_artifacts(
     tmp_path: Path,
 ) -> None:
-    """A prepared root is only executable behind an explicit isolation boundary."""
+    """A flag or passthrough wrapper cannot self-assert isolation and sign a receipt."""
     manifest, root, source_id = _oracle_fixture(tmp_path)
     receipt = tmp_path / "validation-receipt.json"
+    results = tmp_path / "validation-results.json"
 
     refused = _run(
         "validate",
@@ -169,7 +172,37 @@ def test_validate_prepared_root_requires_network_isolation_and_writes_receipt(
         f"{source_id}={sys.executable}",
     )
     assert refused.returncode == 2
-    assert "network isolation" in json.loads(refused.stderr)["error"]
+    assert "isolation wrapper" in json.loads(refused.stderr)["error"]
+
+    passthrough = tmp_path / "passthrough"
+    passthrough.write_text("#!/bin/sh\nexec \"$@\"\n", encoding="utf-8")
+    passthrough.chmod(0o755)
+    unisolated = _run(
+        "validate",
+        "--manifest",
+        str(manifest),
+        "--offline",
+        "--root",
+        str(root),
+        "--python",
+        f"{source_id}={sys.executable}",
+        "--isolation-wrapper",
+        str(passthrough),
+        "--receipt-out",
+        str(receipt),
+        "--validation-results-out",
+        str(results),
+    )
+    unisolated_report = json.loads(unisolated.stdout)
+    assert unisolated.returncode == 4
+    assert unisolated_report["command_success"] is False
+    assert unisolated_report["receipt"] is None
+    assert not receipt.exists()
+    assert not results.exists()
+
+    sandbox = Path("/usr/bin/sandbox-exec")
+    if sys.platform != "darwin" or not sandbox.is_file():
+        pytest.skip("requires a real OS network sandbox")
 
     completed = _run(
         "validate",
@@ -180,9 +213,14 @@ def test_validate_prepared_root_requires_network_isolation_and_writes_receipt(
         str(root),
         "--python",
         f"{source_id}={sys.executable}",
-        "--network-isolated",
+        "--isolation-wrapper",
+        str(sandbox),
+        "--isolation-arg=-p",
+        "--isolation-arg=(version 1) (allow default) (deny network*)",
         "--receipt-out",
         str(receipt),
+        "--validation-results-out",
+        str(results),
     )
     report = json.loads(completed.stdout)
     assert completed.returncode == 0
@@ -190,3 +228,4 @@ def test_validate_prepared_root_requires_network_isolation_and_writes_receipt(
     assert report["corpus_valid"] is True
     assert report["validation_status"] == "valid"
     assert json.loads(receipt.read_text()) == report["receipt"]
+    assert json.loads(results.read_text()) == report["validation_results"]

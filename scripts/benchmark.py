@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from attest.benchmark.corpus import (
+    IsolationAdapter,
     SubprocessCorpusRunner,
     import_bugsinpy,
     validate_corpus,
@@ -33,11 +34,8 @@ def _parser() -> argparse.ArgumentParser:
     validator.add_argument("--manifest", type=Path, required=True)
     validator.add_argument("--offline", action="store_true", required=True)
     validator.add_argument("--root", type=Path)
-    validator.add_argument(
-        "--network-isolated",
-        action="store_true",
-        help="assert that the prepared runtime is already network isolated",
-    )
+    validator.add_argument("--isolation-wrapper", type=Path)
+    validator.add_argument("--isolation-arg", action="append", default=[])
     validator.add_argument(
         "--python",
         action="append",
@@ -53,6 +51,7 @@ def _parser() -> argparse.ArgumentParser:
         help="explicit executable for a non-Python typed tool",
     )
     validator.add_argument("--receipt-out", type=Path)
+    validator.add_argument("--validation-results-out", type=Path)
     validator.add_argument("--timeout", type=float, default=60)
     validator.add_argument("--max-output-bytes", type=int, default=65_536)
     return parser
@@ -131,24 +130,39 @@ def _validate(args: argparse.Namespace) -> dict[str, object]:
     else:
         if not args.root.is_dir():
             raise ValueError("root must be an existing prepared directory")
-        if not args.network_isolated:
-            raise ValueError("network isolation must be established for prepared execution")
+        if args.isolation_wrapper is None:
+            raise ValueError("an isolation wrapper is required for prepared execution")
+        if not args.isolation_wrapper.is_file():
+            raise ValueError("isolation wrapper must be an existing file")
+        if (args.receipt_out is None) != (args.validation_results_out is None):
+            raise ValueError("receipt and validation results output paths are both required")
         interpreters = _interpreters(args.python)
         allowed_tools = _allowed_tools(args.tool)
+        wrapper = str(args.isolation_wrapper.absolute())
+        isolation = IsolationAdapter(
+            capability="attest.network-deny.v1",
+            wrapper_argv=(wrapper, *args.isolation_arg),
+            wrapper_sha256=hashlib.sha256(args.isolation_wrapper.read_bytes()).hexdigest(),
+        )
         runner = SubprocessCorpusRunner(
             interpreters,
             allowed_tools=allowed_tools,
-            network_isolated=True,
+            isolation=isolation,
             timeout_s=args.timeout,
             max_output_bytes=args.max_output_bytes,
         )
         results = validate_corpus(args.manifest, args.root, runner)
         receipt = results.get("receipt")
-        if args.receipt_out is not None and receipt is not None:
+        if (
+            args.receipt_out is not None
+            and args.validation_results_out is not None
+            and receipt is not None
+        ):
             args.receipt_out.parent.mkdir(parents=True, exist_ok=True)
-            args.receipt_out.write_text(
-                json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n",
-                encoding="utf-8",
+            args.validation_results_out.parent.mkdir(parents=True, exist_ok=True)
+            _write_canonical_json(args.receipt_out, receipt)
+            _write_canonical_json(
+                args.validation_results_out, results["validation_results"]
             )
     results.update({"offline": True, "import_exclusions": import_exclusions})
     return results
@@ -201,6 +215,13 @@ def _read_object(path: Path) -> dict[str, Any]:
 
 def _emit(value: object, *, stream: Any) -> None:
     stream.write(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
+
+
+def _write_canonical_json(path: Path, value: object) -> None:
+    path.write_text(
+        json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
 
 
 if __name__ == "__main__":
