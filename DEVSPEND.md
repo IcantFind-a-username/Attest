@@ -22,7 +22,19 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 
 | 2026-08-29 | phase-3 acceptance run 33267602736 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0115 |
 
-**Total API spend: $0.2687 of $10.00.**
+| 2026-08-29 | phase-3 acceptance run 33268274146 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182623-6ffc59) | $0.0230 |
+
+| 2026-08-29 | phase-3 acceptance run 33268276734 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182623-6ffc59) | $0.0115 |
+
+| 2026-08-29 | phase-3 acceptance run 33268280907 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182623-6ffc59) | $0.0271 |
+
+| 2026-08-29 | phase-3 acceptance run 33268345406 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0220 |
+
+| 2026-08-29 | phase-3 acceptance run 33268347262 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0132 |
+
+| 2026-08-29 | phase-3 acceptance run 33268350447 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0272 |
+
+**Total API spend: $0.3927 of $10.00.**
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 
