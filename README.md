@@ -32,6 +32,12 @@ ledger in `.attest/` (gitignored).
 
 Local development only; not published.
 
+## GitHub Action
+
+The repository includes a self-installing composite action for pull-request review.
+Start with [the workflow example](examples/pull-request.yml) and read the
+[GitHub Action safety guide](docs/github-action.md) before enabling it.
+
 ## Development
 
 ```
