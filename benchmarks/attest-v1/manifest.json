@@ -1,0 +1,3863 @@
+{
+  "cases": [
+    {
+      "buggy_commit": "6f7f9268f6b03f42831dcfeaa5c15ba9813333ec",
+      "case_id": "case-0dfad8e3490a",
+      "changed_locations": [
+        {
+          "end_line": 295,
+          "path": "fastapi/routing.py",
+          "start_line": 285
+        },
+        {
+          "end_line": 305,
+          "path": "fastapi/routing.py",
+          "start_line": 299
+        }
+      ],
+      "fixed_commit": "c8df3ae57c57e119d115dd3c1f44efa78de1022a",
+      "pair_id": "pair-9390303e232c",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/13/bug_patch.txt",
+        "sha256": "6f1b505d39014f49731f46796b4f16b16df55f2d906587c52448de93e7ea0d79"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/13/run_test.sh",
+        "sha256": "251bf2f214c4fba55f1bd21b3d2f8bcc15ff0ad8da6dedc7d737cd5ec92c2284"
+      }
+    },
+    {
+      "buggy_commit": "026c81b83454f176a9f9253cbfb70be2c159d822",
+      "case_id": "case-14cd88d556a7",
+      "changed_locations": [
+        {
+          "end_line": 738,
+          "path": "black.py",
+          "start_line": 726
+        }
+      ],
+      "fixed_commit": "d6db1c12a8e14833fe22da377cddc2bd1f43dc14",
+      "pair_id": "pair-e6fd59112ec9",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/9/bug_patch.txt",
+        "sha256": "19e38b12bae8bf94882b61f5035db3d0d5857f7522f5516e819a8626143b52a9"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/9/run_test.sh",
+        "sha256": "08660ce2aef433c6c5a28f576062514b4afaac105b93b29743f35b1c6988ea4a"
+      }
+    },
+    {
+      "buggy_commit": "b77a43bcac3ec8e7edbe82543e777c60ae85c178",
+      "case_id": "case-17bf35cab7f3",
+      "changed_locations": [
+        {
+          "end_line": 57,
+          "path": "fastapi/routing.py",
+          "start_line": 52
+        }
+      ],
+      "fixed_commit": "38495fffa560fa57a8f0e6437d8e43c36c8e5612",
+      "pair_id": "pair-0fbfb60416da",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/10/bug_patch.txt",
+        "sha256": "24784c8a9601e6b3bfb43c0d2f2398d68ee943eb498f069dee8550db7d755f17"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/10/run_test.sh",
+        "sha256": "3bf5a3304fc50d8c1848e78dd97b11a05c1243cc720bacef75da80216479381b"
+      }
+    },
+    {
+      "buggy_commit": "65ea568e3301951f26e0e3b98f6d5dc80132e917",
+      "case_id": "case-1a25f8059f26",
+      "changed_locations": [
+        {
+          "end_line": 1486,
+          "path": "black.py",
+          "start_line": 1480
+        }
+      ],
+      "fixed_commit": "c7495b9aa098ef7a358fc74556359d21c6a4ba11",
+      "pair_id": "pair-8e39f89abba1",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/4/bug_patch.txt",
+        "sha256": "56da1a238ec8e61d932f51bc139a0e1d876f8ac7d37135ab18f197e1d7d90b86"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/4/run_test.sh",
+        "sha256": "2e1dd0725ca9e6b35a4bee6b3af6daf79b2509c1ff33e1ec74ef21380fd4e110"
+      }
+    },
+    {
+      "buggy_commit": "210af1fd3dc0f612a08fa02a0cb3f5adb81e5bfb",
+      "case_id": "case-1e11edb83454",
+      "changed_locations": [
+        {
+          "end_line": 504,
+          "path": "fastapi/routing.py",
+          "start_line": 498
+        }
+      ],
+      "fixed_commit": "02441ff0313d5b471b662293244c53e712f1243f",
+      "pair_id": "pair-dd13a8274105",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/2/bug_patch.txt",
+        "sha256": "8f1e6719004b781e146c638ace464f438fc814caeace13b91664ca15b92ec2ca"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/2/run_test.sh",
+        "sha256": "fc9a219514046c946f56c9eb45c5e24e9d6788c9820f8f62c22bee50e368f743"
+      }
+    },
+    {
+      "buggy_commit": "b77a43bcac3ec8e7edbe82543e777c60ae85c178",
+      "case_id": "case-2962f0a8e0d0",
+      "changed_locations": [
+        {
+          "end_line": 57,
+          "path": "fastapi/routing.py",
+          "start_line": 52
+        }
+      ],
+      "fixed_commit": "38495fffa560fa57a8f0e6437d8e43c36c8e5612",
+      "pair_id": "pair-0fbfb60416da",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/10/bug_patch.txt",
+        "sha256": "24784c8a9601e6b3bfb43c0d2f2398d68ee943eb498f069dee8550db7d755f17"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/10/run_test.sh",
+        "sha256": "3bf5a3304fc50d8c1848e78dd97b11a05c1243cc720bacef75da80216479381b"
+      }
+    },
+    {
+      "buggy_commit": "7cea84b74ca3106a7f861b774e9d215e5228728f",
+      "case_id": "case-2d2df549026a",
+      "changed_locations": [
+        {
+          "end_line": 103,
+          "path": "fastapi/utils.py",
+          "start_line": 97
+        }
+      ],
+      "fixed_commit": "75a07f24bf01a31225ee687f3e2b3fc1981b67ab",
+      "pair_id": "pair-2576571dc2f0",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/5/bug_patch.txt",
+        "sha256": "a0c81f69322f319835fc46be6fe414c682f35684a37acfa2877700397bc7e230"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/5/run_test.sh",
+        "sha256": "1b142738a1e6ce38452c90f558f4374cb0d93e94c7d3076cb0313d77cbd950a1"
+      }
+    },
+    {
+      "buggy_commit": "026c81b83454f176a9f9253cbfb70be2c159d822",
+      "case_id": "case-2dad0cb4c5b5",
+      "changed_locations": [
+        {
+          "end_line": 738,
+          "path": "black.py",
+          "start_line": 726
+        }
+      ],
+      "fixed_commit": "d6db1c12a8e14833fe22da377cddc2bd1f43dc14",
+      "pair_id": "pair-e6fd59112ec9",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/9/bug_patch.txt",
+        "sha256": "19e38b12bae8bf94882b61f5035db3d0d5857f7522f5516e819a8626143b52a9"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/9/run_test.sh",
+        "sha256": "08660ce2aef433c6c5a28f576062514b4afaac105b93b29743f35b1c6988ea4a"
+      }
+    },
+    {
+      "buggy_commit": "bef86db56654d271838b145ad77f7040a73a7b4d",
+      "case_id": "case-328c2b46824e",
+      "changed_locations": [
+        {
+          "end_line": 492,
+          "path": "tqdm/std.py",
+          "start_line": 485
+        },
+        {
+          "end_line": 509,
+          "path": "tqdm/std.py",
+          "start_line": 502
+        },
+        {
+          "end_line": 367,
+          "path": "tqdm/utils.py",
+          "start_line": 360
+        }
+      ],
+      "fixed_commit": "127af5caf19e7d29c346f5ca8a9c7ef3004b664b",
+      "pair_id": "pair-0b2a65779bab",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/tqdm/bugs/2/bug_patch.txt",
+        "sha256": "4a887e0af07c24fa8045fde6deea2383b6b14bc8bcfb473eb20c1744d4b2eea4"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-fb75526fb783",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/tqdm/bugs/2/run_test.sh",
+        "sha256": "a34275c58852ddc675261386198e461aa6975706195d0a9647aecbc70c660998"
+      }
+    },
+    {
+      "buggy_commit": "a7a92bc63768ccee3f3afc2b73b2c581928dfe75",
+      "case_id": "case-33c384091a07",
+      "changed_locations": [
+        {
+          "end_line": 564,
+          "path": "fastapi/dependencies/utils.py",
+          "start_line": 559
+        },
+        {
+          "end_line": 571,
+          "path": "fastapi/dependencies/utils.py",
+          "start_line": 566
+        },
+        {
+          "end_line": 579,
+          "path": "fastapi/dependencies/utils.py",
+          "start_line": 574
+        }
+      ],
+      "fixed_commit": "c5817912d2be25bb310bf9da517882f57bbe7bb5",
+      "pair_id": "pair-24409acb8274",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/9/bug_patch.txt",
+        "sha256": "006238c45bdb125aa68ce2f0d4e955d19258edffd666c8286deb515273f1f9d1"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/9/run_test.sh",
+        "sha256": "50e2d73846e04514db8abf209588217d02387bc14d03049ff3bb4bf07a3a35c5"
+      }
+    },
+    {
+      "buggy_commit": "c15633745df6abdb24e02746b82aadb20b8cdf8c",
+      "case_id": "case-3974cec9063e",
+      "changed_locations": [
+        {
+          "end_line": 88,
+          "path": "cookiecutter/generate.py",
+          "start_line": 82
+        }
+      ],
+      "fixed_commit": "7f6804c4953a18386809f11faf4d86898570debc",
+      "pair_id": "pair-2df44296f27d",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/cookiecutter/bugs/1/bug_patch.txt",
+        "sha256": "63c936e3dd4185ce668c144c6e37d4e03d6bdafd0c287180aa44d3041fb1d3d7"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-e7d1294a0cd4",
+      "source_license": "BSD-3-Clause",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/cookiecutter/bugs/1/run_test.sh",
+        "sha256": "8fa48fdd88c886fbdf244124c952d919743b1c4ca407a0b4d50d091d9fab4b34"
+      }
+    },
+    {
+      "buggy_commit": "a4b9c86db548b2d0dbb5af7a6bbdc26ab47e1eec",
+      "case_id": "case-3f0b0088540d",
+      "changed_locations": [
+        {
+          "end_line": 859,
+          "path": "tqdm/_tqdm.py",
+          "start_line": 853
+        }
+      ],
+      "fixed_commit": "6dad2e89019317e875c46d5a3a82a811ad6de2f9",
+      "pair_id": "pair-464ed34293d0",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/tqdm/bugs/6/bug_patch.txt",
+        "sha256": "23e141d7c60131298b90f369a4dfd5820478e8c94a1a97dd9ae1fadac2d59cf2"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-fb75526fb783",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/tqdm/bugs/6/run_test.sh",
+        "sha256": "71675b11ef44fb78af9f8227a4f6ac53f4bea08224048c536cf5ca066624961a"
+      }
+    },
+    {
+      "buggy_commit": "c15633745df6abdb24e02746b82aadb20b8cdf8c",
+      "case_id": "case-3fa22f0007b2",
+      "changed_locations": [
+        {
+          "end_line": 88,
+          "path": "cookiecutter/generate.py",
+          "start_line": 82
+        }
+      ],
+      "fixed_commit": "7f6804c4953a18386809f11faf4d86898570debc",
+      "pair_id": "pair-2df44296f27d",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/cookiecutter/bugs/1/bug_patch.txt",
+        "sha256": "63c936e3dd4185ce668c144c6e37d4e03d6bdafd0c287180aa44d3041fb1d3d7"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-e7d1294a0cd4",
+      "source_license": "BSD-3-Clause",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/cookiecutter/bugs/1/run_test.sh",
+        "sha256": "8fa48fdd88c886fbdf244124c952d919743b1c4ca407a0b4d50d091d9fab4b34"
+      }
+    },
+    {
+      "buggy_commit": "65ea568e3301951f26e0e3b98f6d5dc80132e917",
+      "case_id": "case-403482fc324b",
+      "changed_locations": [
+        {
+          "end_line": 1486,
+          "path": "black.py",
+          "start_line": 1480
+        }
+      ],
+      "fixed_commit": "c7495b9aa098ef7a358fc74556359d21c6a4ba11",
+      "pair_id": "pair-8e39f89abba1",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/4/bug_patch.txt",
+        "sha256": "56da1a238ec8e61d932f51bc139a0e1d876f8ac7d37135ab18f197e1d7d90b86"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/4/run_test.sh",
+        "sha256": "2e1dd0725ca9e6b35a4bee6b3af6daf79b2509c1ff33e1ec74ef21380fd4e110"
+      }
+    },
+    {
+      "buggy_commit": "92c825be6a7362099400c9c3fe8b01ea13add3dc",
+      "case_id": "case-4127b0b11097",
+      "changed_locations": [
+        {
+          "end_line": 31,
+          "path": "fastapi/encoders.py",
+          "start_line": 15
+        }
+      ],
+      "fixed_commit": "9745a5d1ae86a7fefacf79bdde8e5dd2d59fa2f4",
+      "pair_id": "pair-57b8168b3afb",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/16/bug_patch.txt",
+        "sha256": "eda15f49b7d43f6885aaa59564aa3e0bb65994694f7b68d87d5a7bdcc7e2044d"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/16/run_test.sh",
+        "sha256": "c9a81e50704a2fb1e6c4c38d03612fae141e24a79860c763a36880c7b99adce5"
+      }
+    },
+    {
+      "buggy_commit": "a4b9c86db548b2d0dbb5af7a6bbdc26ab47e1eec",
+      "case_id": "case-4593aef92b02",
+      "changed_locations": [
+        {
+          "end_line": 859,
+          "path": "tqdm/_tqdm.py",
+          "start_line": 853
+        }
+      ],
+      "fixed_commit": "6dad2e89019317e875c46d5a3a82a811ad6de2f9",
+      "pair_id": "pair-464ed34293d0",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/tqdm/bugs/6/bug_patch.txt",
+        "sha256": "23e141d7c60131298b90f369a4dfd5820478e8c94a1a97dd9ae1fadac2d59cf2"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-fb75526fb783",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/tqdm/bugs/6/run_test.sh",
+        "sha256": "71675b11ef44fb78af9f8227a4f6ac53f4bea08224048c536cf5ca066624961a"
+      }
+    },
+    {
+      "buggy_commit": "c2599e3cd6087429f48bae34347ec5d2473c8392",
+      "case_id": "case-499b2dd2cf1e",
+      "changed_locations": [
+        {
+          "end_line": 952,
+          "path": "tqdm/_tqdm.py",
+          "start_line": 947
+        }
+      ],
+      "fixed_commit": "73962a47026dd980ac0758820efc9c41cbf938e0",
+      "pair_id": "pair-f67c4ceb9eb4",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/tqdm/bugs/3/bug_patch.txt",
+        "sha256": "0ed88a5ee0f23deb568713bbd52e54e84799b7125581c9cc1cd971d121be47db"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-fb75526fb783",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/tqdm/bugs/3/run_test.sh",
+        "sha256": "38962eab7ed15017209aa152e2d83cec769dbcc4b3831d7fd4d72151829883b2"
+      }
+    },
+    {
+      "buggy_commit": "cc4c13e4ae3f65fc76c23962b316df4a60e0c7e0",
+      "case_id": "case-49a88b61aa24",
+      "changed_locations": [
+        {
+          "end_line": 3,
+          "path": "fastapi/exception_handlers.py",
+          "start_line": 1
+        },
+        {
+          "end_line": 23,
+          "path": "fastapi/exception_handlers.py",
+          "start_line": 19
+        }
+      ],
+      "fixed_commit": "19c77e35bdde33aeec1eb2cfa680f95016492b69",
+      "pair_id": "pair-7996e567431a",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/7/bug_patch.txt",
+        "sha256": "35a309d144f05ed183eb3bf932b9aa84001826a3f400977c234e5e3bd5b389c6"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/7/run_test.sh",
+        "sha256": "f0ab52af4bf4b60228c15761bf6dadb15ade0b239ab5e2b4774bc81e1667bab3"
+      }
+    },
+    {
+      "buggy_commit": "fb34c9e19589d05f92084a28940837151251ebd6",
+      "case_id": "case-4a83abc6fb64",
+      "changed_locations": [
+        {
+          "end_line": 2951,
+          "path": "black.py",
+          "start_line": 2941
+        }
+      ],
+      "fixed_commit": "42a3fe53319a8c02858c2a96989ed1339f84515a",
+      "pair_id": "pair-8419788e183e",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/16/bug_patch.txt",
+        "sha256": "f95265caa538393bc74fa781bea5dc259978676452357ef52984f098baef6ab6"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/16/run_test.sh",
+        "sha256": "8ad338f3627f6383ebee0de7037da12fa7866557fa89b7a2e9ddde2d1869536a"
+      }
+    },
+    {
+      "buggy_commit": "210af1fd3dc0f612a08fa02a0cb3f5adb81e5bfb",
+      "case_id": "case-539065952011",
+      "changed_locations": [
+        {
+          "end_line": 504,
+          "path": "fastapi/routing.py",
+          "start_line": 498
+        }
+      ],
+      "fixed_commit": "02441ff0313d5b471b662293244c53e712f1243f",
+      "pair_id": "pair-dd13a8274105",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/2/bug_patch.txt",
+        "sha256": "8f1e6719004b781e146c638ace464f438fc814caeace13b91664ca15b92ec2ca"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/2/run_test.sh",
+        "sha256": "fc9a219514046c946f56c9eb45c5e24e9d6788c9820f8f62c22bee50e368f743"
+      }
+    },
+    {
+      "buggy_commit": "caefe02fd6f3165e5634460ab20caf4c60400120",
+      "case_id": "case-543a925ffc11",
+      "changed_locations": [
+        {
+          "end_line": 95,
+          "path": "tqdm/_main.py",
+          "start_line": 89
+        }
+      ],
+      "fixed_commit": "4efd35246c924236f34d8130b1055a3c3ba78605",
+      "pair_id": "pair-427f09db280c",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/tqdm/bugs/7/bug_patch.txt",
+        "sha256": "88e3075726a70955eb474cf4650ec879cc8e1dff3a36b98c7f5ebd8f40b600c9"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-fb75526fb783",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/tqdm/bugs/7/run_test.sh",
+        "sha256": "e39f9095192088253b02688b5b459462b44d76f039eedc42b9442b6599394ef7"
+      }
+    },
+    {
+      "buggy_commit": "7ccd81f70653857bd8f3a15ee946aa3fb0edc2cb",
+      "case_id": "case-654c1349fddb",
+      "changed_locations": [
+        {
+          "end_line": 186,
+          "path": "fastapi/openapi/utils.py",
+          "start_line": 180
+        }
+      ],
+      "fixed_commit": "74c4d1c1dbe6bfdb05d6e4fc767ffe062398f0a3",
+      "pair_id": "pair-4cf4d5bbc077",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/4/bug_patch.txt",
+        "sha256": "3bb46f255cd6c4508a3f8a271b8b58b13d4fa649947da4dd558f9282133b2e50"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/4/run_test.sh",
+        "sha256": "35a5e03ca95459e50b993498d796b372bab8672f877fe70c1919d359b323ee0c"
+      }
+    },
+    {
+      "buggy_commit": "8de552eb4f0fbf1ad84812cde71489cc00d3ed1f",
+      "case_id": "case-65a1a817a08d",
+      "changed_locations": [
+        {
+          "end_line": 257,
+          "path": "black.py",
+          "start_line": 235
+        },
+        {
+          "end_line": 908,
+          "path": "black.py",
+          "start_line": 903
+        },
+        {
+          "end_line": 1544,
+          "path": "black.py",
+          "start_line": 1538
+        },
+        {
+          "end_line": 40,
+          "path": "blib2to3/pygram.py",
+          "start_line": 36
+        },
+        {
+          "end_line": 21,
+          "path": "tests/function.py",
+          "start_line": 14
+        },
+        {
+          "end_line": 102,
+          "path": "tests/function.py",
+          "start_line": 93
+        }
+      ],
+      "fixed_commit": "6316e293ac30a2837ec20eba289fd28a2a18cf89",
+      "pair_id": "pair-16d000d85c19",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/23/bug_patch.txt",
+        "sha256": "cef9c45394405f9e01ed1912e39ba1ff826f970158cd8a73d641e7e1e975fa61"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/23/run_test.sh",
+        "sha256": "56b6590ebb24f933a0972ad57a723d48ef6caa576b95e9224f4ea354b0355536"
+      }
+    },
+    {
+      "buggy_commit": "c2599e3cd6087429f48bae34347ec5d2473c8392",
+      "case_id": "case-74a5871e4a3d",
+      "changed_locations": [
+        {
+          "end_line": 952,
+          "path": "tqdm/_tqdm.py",
+          "start_line": 947
+        }
+      ],
+      "fixed_commit": "73962a47026dd980ac0758820efc9c41cbf938e0",
+      "pair_id": "pair-f67c4ceb9eb4",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/tqdm/bugs/3/bug_patch.txt",
+        "sha256": "0ed88a5ee0f23deb568713bbd52e54e84799b7125581c9cc1cd971d121be47db"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-fb75526fb783",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/tqdm/bugs/3/run_test.sh",
+        "sha256": "38962eab7ed15017209aa152e2d83cec769dbcc4b3831d7fd4d72151829883b2"
+      }
+    },
+    {
+      "buggy_commit": "bef86db56654d271838b145ad77f7040a73a7b4d",
+      "case_id": "case-76b16d9ea6ad",
+      "changed_locations": [
+        {
+          "end_line": 492,
+          "path": "tqdm/std.py",
+          "start_line": 485
+        },
+        {
+          "end_line": 509,
+          "path": "tqdm/std.py",
+          "start_line": 502
+        },
+        {
+          "end_line": 367,
+          "path": "tqdm/utils.py",
+          "start_line": 360
+        }
+      ],
+      "fixed_commit": "127af5caf19e7d29c346f5ca8a9c7ef3004b664b",
+      "pair_id": "pair-0b2a65779bab",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/tqdm/bugs/2/bug_patch.txt",
+        "sha256": "4a887e0af07c24fa8045fde6deea2383b6b14bc8bcfb473eb20c1744d4b2eea4"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-fb75526fb783",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/tqdm/bugs/2/run_test.sh",
+        "sha256": "a34275c58852ddc675261386198e461aa6975706195d0a9647aecbc70c660998"
+      }
+    },
+    {
+      "buggy_commit": "92c825be6a7362099400c9c3fe8b01ea13add3dc",
+      "case_id": "case-7ef101b7d20d",
+      "changed_locations": [
+        {
+          "end_line": 31,
+          "path": "fastapi/encoders.py",
+          "start_line": 15
+        }
+      ],
+      "fixed_commit": "9745a5d1ae86a7fefacf79bdde8e5dd2d59fa2f4",
+      "pair_id": "pair-57b8168b3afb",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/16/bug_patch.txt",
+        "sha256": "eda15f49b7d43f6885aaa59564aa3e0bb65994694f7b68d87d5a7bdcc7e2044d"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/16/run_test.sh",
+        "sha256": "c9a81e50704a2fb1e6c4c38d03612fae141e24a79860c763a36880c7b99adce5"
+      }
+    },
+    {
+      "buggy_commit": "caefe02fd6f3165e5634460ab20caf4c60400120",
+      "case_id": "case-885c4d896a0f",
+      "changed_locations": [
+        {
+          "end_line": 95,
+          "path": "tqdm/_main.py",
+          "start_line": 89
+        }
+      ],
+      "fixed_commit": "4efd35246c924236f34d8130b1055a3c3ba78605",
+      "pair_id": "pair-427f09db280c",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/tqdm/bugs/7/bug_patch.txt",
+        "sha256": "88e3075726a70955eb474cf4650ec879cc8e1dff3a36b98c7f5ebd8f40b600c9"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-fb75526fb783",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/tqdm/bugs/7/run_test.sh",
+        "sha256": "e39f9095192088253b02688b5b459462b44d76f039eedc42b9442b6599394ef7"
+      }
+    },
+    {
+      "buggy_commit": "cc4c13e4ae3f65fc76c23962b316df4a60e0c7e0",
+      "case_id": "case-89ac247e1391",
+      "changed_locations": [
+        {
+          "end_line": 3,
+          "path": "fastapi/exception_handlers.py",
+          "start_line": 1
+        },
+        {
+          "end_line": 23,
+          "path": "fastapi/exception_handlers.py",
+          "start_line": 19
+        }
+      ],
+      "fixed_commit": "19c77e35bdde33aeec1eb2cfa680f95016492b69",
+      "pair_id": "pair-7996e567431a",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/7/bug_patch.txt",
+        "sha256": "35a309d144f05ed183eb3bf932b9aa84001826a3f400977c234e5e3bd5b389c6"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/7/run_test.sh",
+        "sha256": "f0ab52af4bf4b60228c15761bf6dadb15ade0b239ab5e2b4774bc81e1667bab3"
+      }
+    },
+    {
+      "buggy_commit": "6f7f9268f6b03f42831dcfeaa5c15ba9813333ec",
+      "case_id": "case-90f82e09d6ec",
+      "changed_locations": [
+        {
+          "end_line": 295,
+          "path": "fastapi/routing.py",
+          "start_line": 285
+        },
+        {
+          "end_line": 305,
+          "path": "fastapi/routing.py",
+          "start_line": 299
+        }
+      ],
+      "fixed_commit": "c8df3ae57c57e119d115dd3c1f44efa78de1022a",
+      "pair_id": "pair-9390303e232c",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/13/bug_patch.txt",
+        "sha256": "6f1b505d39014f49731f46796b4f16b16df55f2d906587c52448de93e7ea0d79"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/13/run_test.sh",
+        "sha256": "251bf2f214c4fba55f1bd21b3d2f8bcc15ff0ad8da6dedc7d737cd5ec92c2284"
+      }
+    },
+    {
+      "buggy_commit": "7cea84b74ca3106a7f861b774e9d215e5228728f",
+      "case_id": "case-937d257033b0",
+      "changed_locations": [
+        {
+          "end_line": 103,
+          "path": "fastapi/utils.py",
+          "start_line": 97
+        }
+      ],
+      "fixed_commit": "75a07f24bf01a31225ee687f3e2b3fc1981b67ab",
+      "pair_id": "pair-2576571dc2f0",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/5/bug_patch.txt",
+        "sha256": "a0c81f69322f319835fc46be6fe414c682f35684a37acfa2877700397bc7e230"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/5/run_test.sh",
+        "sha256": "1b142738a1e6ce38452c90f558f4374cb0d93e94c7d3076cb0313d77cbd950a1"
+      }
+    },
+    {
+      "buggy_commit": "8de552eb4f0fbf1ad84812cde71489cc00d3ed1f",
+      "case_id": "case-99980f7a54ed",
+      "changed_locations": [
+        {
+          "end_line": 257,
+          "path": "black.py",
+          "start_line": 235
+        },
+        {
+          "end_line": 908,
+          "path": "black.py",
+          "start_line": 903
+        },
+        {
+          "end_line": 1544,
+          "path": "black.py",
+          "start_line": 1538
+        },
+        {
+          "end_line": 40,
+          "path": "blib2to3/pygram.py",
+          "start_line": 36
+        },
+        {
+          "end_line": 21,
+          "path": "tests/function.py",
+          "start_line": 14
+        },
+        {
+          "end_line": 102,
+          "path": "tests/function.py",
+          "start_line": 93
+        }
+      ],
+      "fixed_commit": "6316e293ac30a2837ec20eba289fd28a2a18cf89",
+      "pair_id": "pair-16d000d85c19",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/23/bug_patch.txt",
+        "sha256": "cef9c45394405f9e01ed1912e39ba1ff826f970158cd8a73d641e7e1e975fa61"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/23/run_test.sh",
+        "sha256": "56b6590ebb24f933a0972ad57a723d48ef6caa576b95e9224f4ea354b0355536"
+      }
+    },
+    {
+      "buggy_commit": "fb34c9e19589d05f92084a28940837151251ebd6",
+      "case_id": "case-99a012693940",
+      "changed_locations": [
+        {
+          "end_line": 2951,
+          "path": "black.py",
+          "start_line": 2941
+        }
+      ],
+      "fixed_commit": "42a3fe53319a8c02858c2a96989ed1339f84515a",
+      "pair_id": "pair-8419788e183e",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/16/bug_patch.txt",
+        "sha256": "f95265caa538393bc74fa781bea5dc259978676452357ef52984f098baef6ab6"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/16/run_test.sh",
+        "sha256": "8ad338f3627f6383ebee0de7037da12fa7866557fa89b7a2e9ddde2d1869536a"
+      }
+    },
+    {
+      "buggy_commit": "2e52a2b3ecc0fe025439c3db05a4457ab14f167b",
+      "case_id": "case-a8c943ae1d2b",
+      "changed_locations": [
+        {
+          "end_line": 348,
+          "path": "black.py",
+          "start_line": 341
+        }
+      ],
+      "fixed_commit": "06e95b1e9bcd43c4574840f8174ba4b2c5d281bd",
+      "pair_id": "pair-4b419e88adca",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/20/bug_patch.txt",
+        "sha256": "a8a3e4801447164fb21c9b43383d9d47d1a5deaf77901350eb62477d30b15a74"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/20/run_test.sh",
+        "sha256": "89dca792b4dcb3dd888e9c6d2a9c667b760438304b18926caa102afebea6a48e"
+      }
+    },
+    {
+      "buggy_commit": "a7a92bc63768ccee3f3afc2b73b2c581928dfe75",
+      "case_id": "case-ba0769bb4991",
+      "changed_locations": [
+        {
+          "end_line": 564,
+          "path": "fastapi/dependencies/utils.py",
+          "start_line": 559
+        },
+        {
+          "end_line": 571,
+          "path": "fastapi/dependencies/utils.py",
+          "start_line": 566
+        },
+        {
+          "end_line": 579,
+          "path": "fastapi/dependencies/utils.py",
+          "start_line": 574
+        }
+      ],
+      "fixed_commit": "c5817912d2be25bb310bf9da517882f57bbe7bb5",
+      "pair_id": "pair-24409acb8274",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/9/bug_patch.txt",
+        "sha256": "006238c45bdb125aa68ce2f0d4e955d19258edffd666c8286deb515273f1f9d1"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/9/run_test.sh",
+        "sha256": "50e2d73846e04514db8abf209588217d02387bc14d03049ff3bb4bf07a3a35c5"
+      }
+    },
+    {
+      "buggy_commit": "bbc09a4f013f2a584f143f3f5e3f76f6082367d4",
+      "case_id": "case-c22190aa4fc9",
+      "changed_locations": [
+        {
+          "end_line": 612,
+          "path": "black.py",
+          "start_line": 607
+        },
+        {
+          "end_line": 629,
+          "path": "black.py",
+          "start_line": 623
+        }
+      ],
+      "fixed_commit": "7fc6ce990669464f5172b63fafa3724f5f308be3",
+      "pair_id": "pair-acc00ce9f068",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/17/bug_patch.txt",
+        "sha256": "459b38dd1adaf6bbdd48ddbb502e89be199228f53d76cf5335140a251df1f1e4"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/17/run_test.sh",
+        "sha256": "09607b3b20887977a50e9f91100df899adea48b682cde6189aa23ccacd9836f2"
+      }
+    },
+    {
+      "buggy_commit": "bbc09a4f013f2a584f143f3f5e3f76f6082367d4",
+      "case_id": "case-d36fa1b0fafc",
+      "changed_locations": [
+        {
+          "end_line": 612,
+          "path": "black.py",
+          "start_line": 607
+        },
+        {
+          "end_line": 629,
+          "path": "black.py",
+          "start_line": 623
+        }
+      ],
+      "fixed_commit": "7fc6ce990669464f5172b63fafa3724f5f308be3",
+      "pair_id": "pair-acc00ce9f068",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/17/bug_patch.txt",
+        "sha256": "459b38dd1adaf6bbdd48ddbb502e89be199228f53d76cf5335140a251df1f1e4"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/17/run_test.sh",
+        "sha256": "09607b3b20887977a50e9f91100df899adea48b682cde6189aa23ccacd9836f2"
+      }
+    },
+    {
+      "buggy_commit": "7ccd81f70653857bd8f3a15ee946aa3fb0edc2cb",
+      "case_id": "case-d59a6e183767",
+      "changed_locations": [
+        {
+          "end_line": 186,
+          "path": "fastapi/openapi/utils.py",
+          "start_line": 180
+        }
+      ],
+      "fixed_commit": "74c4d1c1dbe6bfdb05d6e4fc767ffe062398f0a3",
+      "pair_id": "pair-4cf4d5bbc077",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/fastapi/bugs/4/bug_patch.txt",
+        "sha256": "3bb46f255cd6c4508a3f8a271b8b58b13d4fa649947da4dd558f9282133b2e50"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/fastapi/bugs/4/run_test.sh",
+        "sha256": "35a5e03ca95459e50b993498d796b372bab8672f877fe70c1919d359b323ee0c"
+      }
+    },
+    {
+      "buggy_commit": "c071af761e1550c6e4ebab8e5af747d2d8fdd48e",
+      "case_id": "case-e4ddbad5fcf1",
+      "changed_locations": [
+        {
+          "end_line": 2331,
+          "path": "black.py",
+          "start_line": 2325
+        }
+      ],
+      "fixed_commit": "8e7848c63efe36f09e4651bece8c0efc34a1c3e1",
+      "pair_id": "pair-c234f5f44e56",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/21/bug_patch.txt",
+        "sha256": "b8319fc597a1a21fcd61a9a97ad698130d25817ad049b51416f3c019832be45f"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/21/run_test.sh",
+        "sha256": "83a2e1c97e7386790f067243547e582bd284543060de5c7b10045f89c5559b72"
+      }
+    },
+    {
+      "buggy_commit": "c071af761e1550c6e4ebab8e5af747d2d8fdd48e",
+      "case_id": "case-ec15628da25c",
+      "changed_locations": [
+        {
+          "end_line": 2331,
+          "path": "black.py",
+          "start_line": 2325
+        }
+      ],
+      "fixed_commit": "8e7848c63efe36f09e4651bece8c0efc34a1c3e1",
+      "pair_id": "pair-c234f5f44e56",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/21/bug_patch.txt",
+        "sha256": "b8319fc597a1a21fcd61a9a97ad698130d25817ad049b51416f3c019832be45f"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "historical_bug_replay",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/21/run_test.sh",
+        "sha256": "83a2e1c97e7386790f067243547e582bd284543060de5c7b10045f89c5559b72"
+      }
+    },
+    {
+      "buggy_commit": "2e52a2b3ecc0fe025439c3db05a4457ab14f167b",
+      "case_id": "case-fd2d961af584",
+      "changed_locations": [
+        {
+          "end_line": 348,
+          "path": "black.py",
+          "start_line": 341
+        }
+      ],
+      "fixed_commit": "06e95b1e9bcd43c4574840f8174ba4b2c5d281bd",
+      "pair_id": "pair-4b419e88adca",
+      "patch": {
+        "normalization": "bytes",
+        "relative_path": "projects/black/bugs/20/bug_patch.txt",
+        "sha256": "a8a3e4801447164fb21c9b43383d9d47d1a5deaf77901350eb62477d30b15a74"
+      },
+      "provenance_kind": "historical_fix",
+      "role": "developer_fix_control",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT",
+      "split": "test",
+      "tests": {
+        "normalization": "normalized_text",
+        "relative_path": "projects/black/bugs/20/run_test.sh",
+        "sha256": "89dca792b4dcb3dd888e9c6d2a9c667b760438304b18926caa102afebea6a48e"
+      }
+    }
+  ],
+  "corpus_commit": "316b95e2353ecda832bad9b42f86fa7c2fcec8ac",
+  "exclusions": [
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/1"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/2"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/3"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/4"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/5"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/6"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/7"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/8"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/9"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/10"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/11"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/12"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/13"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/14"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/15"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/16"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/17"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "ansible/18"
+    },
+    {
+      "reason": "missing_regression_test",
+      "upstream_case": "black/6"
+    },
+    {
+      "reason": "oversized_diff",
+      "upstream_case": "black/15"
+    },
+    {
+      "reason": "oversized_diff",
+      "upstream_case": "black/22"
+    },
+    {
+      "reason": "missing_regression_test",
+      "upstream_case": "cookiecutter/2"
+    },
+    {
+      "reason": "oversized_diff",
+      "upstream_case": "fastapi/1"
+    },
+    {
+      "reason": "missing_regression_test",
+      "upstream_case": "fastapi/3"
+    },
+    {
+      "reason": "missing_regression_test",
+      "upstream_case": "fastapi/6"
+    },
+    {
+      "reason": "missing_regression_test",
+      "upstream_case": "fastapi/11"
+    },
+    {
+      "reason": "missing_regression_test",
+      "upstream_case": "fastapi/15"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "httpie/1"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "httpie/2"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "httpie/3"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "httpie/4"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "httpie/5"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/1"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/2"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/3"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/4"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/5"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/6"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/7"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/8"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/9"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/10"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/11"
+    },
+    {
+      "reason": "identical_commits",
+      "upstream_case": "keras/12"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/13"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/14"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/15"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/16"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/17"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/18"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/19"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/20"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/21"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/22"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/23"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/24"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/25"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/26"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/27"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/28"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/29"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/30"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/31"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/32"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/33"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/34"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/35"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/36"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/37"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/38"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/39"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/40"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/41"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/42"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/43"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/44"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "keras/45"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/1"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/2"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/3"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/4"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/5"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/6"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/7"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/8"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/9"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/10"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/11"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/12"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/13"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/14"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/15"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/16"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/17"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/18"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/19"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/20"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/21"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/22"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/23"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/24"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/25"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/26"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/27"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/28"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/29"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/30"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/31"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/32"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "luigi/33"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/1"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/2"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/3"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/4"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/5"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/6"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/7"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/8"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/9"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/10"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/11"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/12"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/13"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/14"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/15"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/16"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/17"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/18"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/19"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/20"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/21"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/22"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/23"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/24"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/25"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/26"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/27"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/28"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/29"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "matplotlib/30"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/1"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/2"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/3"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/4"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/5"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/6"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/7"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/8"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/9"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/10"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/11"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/12"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/13"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/14"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/15"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/16"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/17"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/18"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/19"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/20"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/21"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/22"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/23"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/24"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/25"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/26"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/27"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/28"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/29"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/30"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/31"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/32"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/33"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/34"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/35"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/36"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/37"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/38"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/39"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/40"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/41"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/42"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/43"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/44"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/45"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/46"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/47"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/48"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/49"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/50"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/51"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/52"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/53"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/54"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/55"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/56"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/57"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/58"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/59"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/60"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/61"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/62"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/63"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/64"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/65"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/66"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/67"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/68"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/69"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/70"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/71"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/72"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/73"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/74"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/75"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/76"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/77"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/78"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/79"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/80"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/81"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/82"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/83"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/84"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/85"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/86"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/87"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/88"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/89"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/90"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/91"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/92"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/93"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/94"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/95"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/96"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/97"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/98"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/99"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/100"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/101"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/102"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/103"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/104"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/105"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/106"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/107"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/108"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/109"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/110"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/111"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/112"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/113"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/114"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/115"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/116"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/117"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/118"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/119"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/120"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/121"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/122"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/123"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/124"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/125"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/126"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/127"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/128"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/129"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/130"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/131"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/132"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/133"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/134"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/135"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/136"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/137"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/138"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/139"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/140"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/141"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/142"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/143"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/144"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/145"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/146"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/147"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/148"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/149"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/150"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/151"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/152"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/153"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/154"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/155"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/156"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/157"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/158"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/159"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/160"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/161"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/162"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/163"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/164"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/165"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/166"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/167"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/168"
+    },
+    {
+      "reason": "invalid_buggy_commit",
+      "upstream_case": "pandas/169"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "PySnooper/1"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "PySnooper/2"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "PySnooper/3"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "sanic/1"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "sanic/2"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "sanic/3"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "sanic/4"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "sanic/5"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/1"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/2"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/3"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/4"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/5"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/6"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/7"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/8"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/9"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/10"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/11"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/12"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/13"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/14"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/15"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/16"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/17"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/18"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/19"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/20"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/21"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/22"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/23"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/24"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/25"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/26"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/27"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/28"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/29"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/30"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/31"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/32"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/33"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/34"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/35"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/36"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/37"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/38"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/39"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "scrapy/40"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "spacy/1"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "spacy/2"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "spacy/3"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "spacy/4"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "spacy/5"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "spacy/6"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "spacy/7"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "spacy/8"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "spacy/9"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "spacy/10"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/1"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/2"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/3"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/4"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/5"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/6"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/7"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/8"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/9"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/10"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/11"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/12"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/13"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/14"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/15"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/16"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/17"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/18"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/19"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/20"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/21"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/22"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/23"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/24"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/25"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/26"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/27"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/28"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/29"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/30"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/31"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "thefuck/32"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/1"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/2"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/3"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/4"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/5"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/6"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/7"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/8"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/9"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/10"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/11"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/12"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/13"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/14"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/15"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "tornado/16"
+    },
+    {
+      "reason": "missing_regression_test",
+      "upstream_case": "tqdm/9"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/1"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/2"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/3"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/4"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/5"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/6"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/7"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/8"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/9"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/10"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/11"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/12"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/13"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/14"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/15"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/16"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/17"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/18"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/19"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/20"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/21"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/22"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/23"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/24"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/25"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/26"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/27"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/28"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/29"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/30"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/31"
+    },
+    {
+      "reason": "source_license_missing",
+      "upstream_case": "youtube-dl/32"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/33"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/34"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/35"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/36"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/37"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/38"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/39"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/40"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/41"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/42"
+    },
+    {
+      "reason": "invalid_fixed_commit",
+      "upstream_case": "youtube-dl/43"
+    }
+  ],
+  "protocol_version": "1",
+  "provenance": {
+    "kind": "BugsInPy",
+    "license": null,
+    "license_file": null,
+    "license_sha256": null,
+    "license_status": "UNSPECIFIED",
+    "source_url": "https://github.com/reproducing-research-projects/BugsInPy.git"
+  },
+  "runtime": [
+    {
+      "case_id": "case-0dfad8e3490a",
+      "cwd": "source-2dc65bae261e/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "pytest",
+        "tests/test_additional_responses_router.py::test_openapi_schema"
+      ]
+    },
+    {
+      "case_id": "case-14cd88d556a7",
+      "cwd": "source-ace4efb05d87/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_python2_print_function"
+      ]
+    },
+    {
+      "case_id": "case-17bf35cab7f3",
+      "cwd": "source-2dc65bae261e/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "pytest",
+        "tests/test_skip_defaults.py::test_return_defaults"
+      ]
+    },
+    {
+      "case_id": "case-1a25f8059f26",
+      "cwd": "source-ace4efb05d87/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_beginning_backslash"
+      ]
+    },
+    {
+      "case_id": "case-1e11edb83454",
+      "cwd": "source-2dc65bae261e/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "pytest",
+        "tests/test_ws_router.py::test_router_ws_depends_with_override"
+      ]
+    },
+    {
+      "case_id": "case-2962f0a8e0d0",
+      "cwd": "source-2dc65bae261e/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "pytest",
+        "tests/test_skip_defaults.py::test_return_defaults"
+      ]
+    },
+    {
+      "case_id": "case-2d2df549026a",
+      "cwd": "source-2dc65bae261e/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "pytest",
+        "tests/test_filter_pydantic_sub_model.py::test_filter_sub_model"
+      ]
+    },
+    {
+      "case_id": "case-2dad0cb4c5b5",
+      "cwd": "source-ace4efb05d87/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_python2_print_function"
+      ]
+    },
+    {
+      "case_id": "case-328c2b46824e",
+      "cwd": "source-fb75526fb783/control",
+      "python_version": "3.6.9",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tqdm/tests/tests_tqdm.py::test_format_meter"
+      ]
+    },
+    {
+      "case_id": "case-33c384091a07",
+      "cwd": "source-2dc65bae261e/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "pytest",
+        "tests/test_request_body_parameters_media_type.py::test_openapi_schema"
+      ]
+    },
+    {
+      "case_id": "case-3974cec9063e",
+      "cwd": "source-e7d1294a0cd4/replay",
+      "python_version": "3.6.9",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "tox",
+        "tests/test_generate_context.py::test_generate_context_decodes_non_ascii_chars"
+      ]
+    },
+    {
+      "case_id": "case-3f0b0088540d",
+      "cwd": "source-fb75526fb783/control",
+      "python_version": "3.6.9",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tqdm/tests/tests_synchronisation.py::test_imap"
+      ]
+    },
+    {
+      "case_id": "case-3fa22f0007b2",
+      "cwd": "source-e7d1294a0cd4/control",
+      "python_version": "3.6.9",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "tox",
+        "tests/test_generate_context.py::test_generate_context_decodes_non_ascii_chars"
+      ]
+    },
+    {
+      "case_id": "case-403482fc324b",
+      "cwd": "source-ace4efb05d87/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_beginning_backslash"
+      ]
+    },
+    {
+      "case_id": "case-4127b0b11097",
+      "cwd": "source-2dc65bae261e/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "pytest",
+        "tests/test_jsonable_encoder.py::test_encode_model_with_config"
+      ]
+    },
+    {
+      "case_id": "case-4593aef92b02",
+      "cwd": "source-fb75526fb783/replay",
+      "python_version": "3.6.9",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tqdm/tests/tests_synchronisation.py::test_imap"
+      ]
+    },
+    {
+      "case_id": "case-499b2dd2cf1e",
+      "cwd": "source-fb75526fb783/replay",
+      "python_version": "3.6.9",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tqdm/tests/tests_tqdm.py::test_bool"
+      ]
+    },
+    {
+      "case_id": "case-49a88b61aa24",
+      "cwd": "source-2dc65bae261e/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "pytest",
+        "tests/test_multi_body_errors.py::test_jsonable_encoder_requiring_error"
+      ]
+    },
+    {
+      "case_id": "case-4a83abc6fb64",
+      "cwd": "source-ace4efb05d87/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_symlink_out_of_root_directory"
+      ]
+    },
+    {
+      "case_id": "case-539065952011",
+      "cwd": "source-2dc65bae261e/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "pytest",
+        "tests/test_ws_router.py::test_router_ws_depends_with_override"
+      ]
+    },
+    {
+      "case_id": "case-543a925ffc11",
+      "cwd": "source-fb75526fb783/replay",
+      "python_version": "3.6.9",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tqdm/tests/tests_main.py::test_main"
+      ]
+    },
+    {
+      "case_id": "case-654c1349fddb",
+      "cwd": "source-2dc65bae261e/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "pytest",
+        "tests/test_param_in_path_and_dependency.py::test_reused_param"
+      ]
+    },
+    {
+      "case_id": "case-65a1a817a08d",
+      "cwd": "source-ace4efb05d87/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_python2"
+      ]
+    },
+    {
+      "case_id": "case-74a5871e4a3d",
+      "cwd": "source-fb75526fb783/control",
+      "python_version": "3.6.9",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tqdm/tests/tests_tqdm.py::test_bool"
+      ]
+    },
+    {
+      "case_id": "case-76b16d9ea6ad",
+      "cwd": "source-fb75526fb783/replay",
+      "python_version": "3.6.9",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tqdm/tests/tests_tqdm.py::test_format_meter"
+      ]
+    },
+    {
+      "case_id": "case-7ef101b7d20d",
+      "cwd": "source-2dc65bae261e/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "pytest",
+        "tests/test_jsonable_encoder.py::test_encode_model_with_config"
+      ]
+    },
+    {
+      "case_id": "case-885c4d896a0f",
+      "cwd": "source-fb75526fb783/control",
+      "python_version": "3.6.9",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tqdm/tests/tests_main.py::test_main"
+      ]
+    },
+    {
+      "case_id": "case-89ac247e1391",
+      "cwd": "source-2dc65bae261e/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "pytest",
+        "tests/test_multi_body_errors.py::test_jsonable_encoder_requiring_error"
+      ]
+    },
+    {
+      "case_id": "case-90f82e09d6ec",
+      "cwd": "source-2dc65bae261e/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "pytest",
+        "tests/test_additional_responses_router.py::test_openapi_schema"
+      ]
+    },
+    {
+      "case_id": "case-937d257033b0",
+      "cwd": "source-2dc65bae261e/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "pytest",
+        "tests/test_filter_pydantic_sub_model.py::test_filter_sub_model"
+      ]
+    },
+    {
+      "case_id": "case-99980f7a54ed",
+      "cwd": "source-ace4efb05d87/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_python2"
+      ]
+    },
+    {
+      "case_id": "case-99a012693940",
+      "cwd": "source-ace4efb05d87/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_symlink_out_of_root_directory"
+      ]
+    },
+    {
+      "case_id": "case-a8c943ae1d2b",
+      "cwd": "source-ace4efb05d87/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_expression_diff"
+      ]
+    },
+    {
+      "case_id": "case-ba0769bb4991",
+      "cwd": "source-2dc65bae261e/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "pytest",
+        "tests/test_request_body_parameters_media_type.py::test_openapi_schema"
+      ]
+    },
+    {
+      "case_id": "case-c22190aa4fc9",
+      "cwd": "source-ace4efb05d87/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_empty"
+      ]
+    },
+    {
+      "case_id": "case-d36fa1b0fafc",
+      "cwd": "source-ace4efb05d87/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_empty"
+      ]
+    },
+    {
+      "case_id": "case-d59a6e183767",
+      "cwd": "source-2dc65bae261e/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "pytest",
+        "tests/test_param_in_path_and_dependency.py::test_reused_param"
+      ]
+    },
+    {
+      "case_id": "case-e4ddbad5fcf1",
+      "cwd": "source-ace4efb05d87/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_expression_ff"
+      ]
+    },
+    {
+      "case_id": "case-ec15628da25c",
+      "cwd": "source-ace4efb05d87/replay",
+      "python_version": "3.8.3",
+      "role": "historical_bug_replay",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_expression_ff"
+      ]
+    },
+    {
+      "case_id": "case-fd2d961af584",
+      "cwd": "source-ace4efb05d87/control",
+      "python_version": "3.8.3",
+      "role": "developer_fix_control",
+      "test_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "-q",
+        "tests.test_black.BlackTestCase.test_expression_diff"
+      ]
+    }
+  ],
+  "schema_version": "1",
+  "selection": {
+    "eligible_pairs": 42,
+    "requested_pair_limit": 20,
+    "seed": 20260829,
+    "selected_pairs": 20
+  },
+  "sources": [
+    {
+      "license_commits_verified": [
+        "02441ff0313d5b471b662293244c53e712f1243f",
+        "19c77e35bdde33aeec1eb2cfa680f95016492b69",
+        "210af1fd3dc0f612a08fa02a0cb3f5adb81e5bfb",
+        "38495fffa560fa57a8f0e6437d8e43c36c8e5612",
+        "6f7f9268f6b03f42831dcfeaa5c15ba9813333ec",
+        "74c4d1c1dbe6bfdb05d6e4fc767ffe062398f0a3",
+        "75a07f24bf01a31225ee687f3e2b3fc1981b67ab",
+        "7ccd81f70653857bd8f3a15ee946aa3fb0edc2cb",
+        "7cea84b74ca3106a7f861b774e9d215e5228728f",
+        "92c825be6a7362099400c9c3fe8b01ea13add3dc",
+        "9745a5d1ae86a7fefacf79bdde8e5dd2d59fa2f4",
+        "a7a92bc63768ccee3f3afc2b73b2c581928dfe75",
+        "b77a43bcac3ec8e7edbe82543e777c60ae85c178",
+        "c5817912d2be25bb310bf9da517882f57bbe7bb5",
+        "c8df3ae57c57e119d115dd3c1f44efa78de1022a",
+        "cc4c13e4ae3f65fc76c23962b316df4a60e0c7e0"
+      ],
+      "license_file": "LICENSE",
+      "license_sha256": "4ec89ffc81485b97fec584b2d4a961032eeffe834453894fd9c1274906cc744e",
+      "project_url": "https://github.com/tiangolo/fastapi",
+      "source_id": "source-2dc65bae261e",
+      "source_license": "MIT"
+    },
+    {
+      "license_commits_verified": [
+        "026c81b83454f176a9f9253cbfb70be2c159d822",
+        "06e95b1e9bcd43c4574840f8174ba4b2c5d281bd",
+        "2e52a2b3ecc0fe025439c3db05a4457ab14f167b",
+        "42a3fe53319a8c02858c2a96989ed1339f84515a",
+        "6316e293ac30a2837ec20eba289fd28a2a18cf89",
+        "65ea568e3301951f26e0e3b98f6d5dc80132e917",
+        "7fc6ce990669464f5172b63fafa3724f5f308be3",
+        "8de552eb4f0fbf1ad84812cde71489cc00d3ed1f",
+        "8e7848c63efe36f09e4651bece8c0efc34a1c3e1",
+        "bbc09a4f013f2a584f143f3f5e3f76f6082367d4",
+        "c071af761e1550c6e4ebab8e5af747d2d8fdd48e",
+        "c7495b9aa098ef7a358fc74556359d21c6a4ba11",
+        "d6db1c12a8e14833fe22da377cddc2bd1f43dc14",
+        "fb34c9e19589d05f92084a28940837151251ebd6"
+      ],
+      "license_file": "LICENSE",
+      "license_sha256": "9c0428f0c3b4779850cf5bd96e11aaa8afc72d4a86d4a36223d7aba2e58d6e00",
+      "project_url": "https://github.com/psf/black",
+      "source_id": "source-ace4efb05d87",
+      "source_license": "MIT"
+    },
+    {
+      "license_commits_verified": [
+        "c15633745df6abdb24e02746b82aadb20b8cdf8c",
+        "7f6804c4953a18386809f11faf4d86898570debc"
+      ],
+      "license_file": "LICENSE",
+      "license_sha256": "7cc392465cc129046da7e088d618be67238e0c1a440e207f494333979f1e60dc",
+      "project_url": "https://github.com/cookiecutter/cookiecutter",
+      "source_id": "source-e7d1294a0cd4",
+      "source_license": "BSD-3-Clause"
+    },
+    {
+      "license_commits_verified": [
+        "127af5caf19e7d29c346f5ca8a9c7ef3004b664b",
+        "4efd35246c924236f34d8130b1055a3c3ba78605",
+        "6dad2e89019317e875c46d5a3a82a811ad6de2f9",
+        "73962a47026dd980ac0758820efc9c41cbf938e0",
+        "a4b9c86db548b2d0dbb5af7a6bbdc26ab47e1eec",
+        "bef86db56654d271838b145ad77f7040a73a7b4d",
+        "c2599e3cd6087429f48bae34347ec5d2473c8392",
+        "caefe02fd6f3165e5634460ab20caf4c60400120"
+      ],
+      "license_file": "LICENCE",
+      "license_sha256": "1bbf12d09d437844527b3cdaba01d379dac651b5cbb5ebb0d764274684d2680b",
+      "project_url": "https://github.com/tqdm/tqdm",
+      "source_id": "source-fb75526fb783",
+      "source_license": "MIT"
+    }
+  ],
+  "truth_defects": [
+    {
+      "case_id": "case-76b16d9ea6ad",
+      "defect_id": "truth_0b2a65779bab_1",
+      "end_line": 492,
+      "file": "tqdm/std.py",
+      "start_line": 485
+    },
+    {
+      "case_id": "case-76b16d9ea6ad",
+      "defect_id": "truth_0b2a65779bab_2",
+      "end_line": 509,
+      "file": "tqdm/std.py",
+      "start_line": 502
+    },
+    {
+      "case_id": "case-76b16d9ea6ad",
+      "defect_id": "truth_0b2a65779bab_3",
+      "end_line": 367,
+      "file": "tqdm/utils.py",
+      "start_line": 360
+    },
+    {
+      "case_id": "case-17bf35cab7f3",
+      "defect_id": "truth_0fbfb60416da_1",
+      "end_line": 57,
+      "file": "fastapi/routing.py",
+      "start_line": 52
+    },
+    {
+      "case_id": "case-99980f7a54ed",
+      "defect_id": "truth_16d000d85c19_1",
+      "end_line": 257,
+      "file": "black.py",
+      "start_line": 235
+    },
+    {
+      "case_id": "case-99980f7a54ed",
+      "defect_id": "truth_16d000d85c19_2",
+      "end_line": 908,
+      "file": "black.py",
+      "start_line": 903
+    },
+    {
+      "case_id": "case-99980f7a54ed",
+      "defect_id": "truth_16d000d85c19_3",
+      "end_line": 1544,
+      "file": "black.py",
+      "start_line": 1538
+    },
+    {
+      "case_id": "case-99980f7a54ed",
+      "defect_id": "truth_16d000d85c19_4",
+      "end_line": 40,
+      "file": "blib2to3/pygram.py",
+      "start_line": 36
+    },
+    {
+      "case_id": "case-99980f7a54ed",
+      "defect_id": "truth_16d000d85c19_5",
+      "end_line": 21,
+      "file": "tests/function.py",
+      "start_line": 14
+    },
+    {
+      "case_id": "case-99980f7a54ed",
+      "defect_id": "truth_16d000d85c19_6",
+      "end_line": 102,
+      "file": "tests/function.py",
+      "start_line": 93
+    },
+    {
+      "case_id": "case-33c384091a07",
+      "defect_id": "truth_24409acb8274_1",
+      "end_line": 564,
+      "file": "fastapi/dependencies/utils.py",
+      "start_line": 559
+    },
+    {
+      "case_id": "case-33c384091a07",
+      "defect_id": "truth_24409acb8274_2",
+      "end_line": 571,
+      "file": "fastapi/dependencies/utils.py",
+      "start_line": 566
+    },
+    {
+      "case_id": "case-33c384091a07",
+      "defect_id": "truth_24409acb8274_3",
+      "end_line": 579,
+      "file": "fastapi/dependencies/utils.py",
+      "start_line": 574
+    },
+    {
+      "case_id": "case-937d257033b0",
+      "defect_id": "truth_2576571dc2f0_1",
+      "end_line": 103,
+      "file": "fastapi/utils.py",
+      "start_line": 97
+    },
+    {
+      "case_id": "case-3974cec9063e",
+      "defect_id": "truth_2df44296f27d_1",
+      "end_line": 88,
+      "file": "cookiecutter/generate.py",
+      "start_line": 82
+    },
+    {
+      "case_id": "case-543a925ffc11",
+      "defect_id": "truth_427f09db280c_1",
+      "end_line": 95,
+      "file": "tqdm/_main.py",
+      "start_line": 89
+    },
+    {
+      "case_id": "case-4593aef92b02",
+      "defect_id": "truth_464ed34293d0_1",
+      "end_line": 859,
+      "file": "tqdm/_tqdm.py",
+      "start_line": 853
+    },
+    {
+      "case_id": "case-a8c943ae1d2b",
+      "defect_id": "truth_4b419e88adca_1",
+      "end_line": 348,
+      "file": "black.py",
+      "start_line": 341
+    },
+    {
+      "case_id": "case-654c1349fddb",
+      "defect_id": "truth_4cf4d5bbc077_1",
+      "end_line": 186,
+      "file": "fastapi/openapi/utils.py",
+      "start_line": 180
+    },
+    {
+      "case_id": "case-4127b0b11097",
+      "defect_id": "truth_57b8168b3afb_1",
+      "end_line": 31,
+      "file": "fastapi/encoders.py",
+      "start_line": 15
+    },
+    {
+      "case_id": "case-89ac247e1391",
+      "defect_id": "truth_7996e567431a_1",
+      "end_line": 3,
+      "file": "fastapi/exception_handlers.py",
+      "start_line": 1
+    },
+    {
+      "case_id": "case-89ac247e1391",
+      "defect_id": "truth_7996e567431a_2",
+      "end_line": 23,
+      "file": "fastapi/exception_handlers.py",
+      "start_line": 19
+    },
+    {
+      "case_id": "case-99a012693940",
+      "defect_id": "truth_8419788e183e_1",
+      "end_line": 2951,
+      "file": "black.py",
+      "start_line": 2941
+    },
+    {
+      "case_id": "case-1a25f8059f26",
+      "defect_id": "truth_8e39f89abba1_1",
+      "end_line": 1486,
+      "file": "black.py",
+      "start_line": 1480
+    },
+    {
+      "case_id": "case-0dfad8e3490a",
+      "defect_id": "truth_9390303e232c_1",
+      "end_line": 295,
+      "file": "fastapi/routing.py",
+      "start_line": 285
+    },
+    {
+      "case_id": "case-0dfad8e3490a",
+      "defect_id": "truth_9390303e232c_2",
+      "end_line": 305,
+      "file": "fastapi/routing.py",
+      "start_line": 299
+    },
+    {
+      "case_id": "case-c22190aa4fc9",
+      "defect_id": "truth_acc00ce9f068_1",
+      "end_line": 612,
+      "file": "black.py",
+      "start_line": 607
+    },
+    {
+      "case_id": "case-c22190aa4fc9",
+      "defect_id": "truth_acc00ce9f068_2",
+      "end_line": 629,
+      "file": "black.py",
+      "start_line": 623
+    },
+    {
+      "case_id": "case-ec15628da25c",
+      "defect_id": "truth_c234f5f44e56_1",
+      "end_line": 2331,
+      "file": "black.py",
+      "start_line": 2325
+    },
+    {
+      "case_id": "case-1e11edb83454",
+      "defect_id": "truth_dd13a8274105_1",
+      "end_line": 504,
+      "file": "fastapi/routing.py",
+      "start_line": 498
+    },
+    {
+      "case_id": "case-2dad0cb4c5b5",
+      "defect_id": "truth_e6fd59112ec9_1",
+      "end_line": 738,
+      "file": "black.py",
+      "start_line": 726
+    },
+    {
+      "case_id": "case-499b2dd2cf1e",
+      "defect_id": "truth_f67c4ceb9eb4_1",
+      "end_line": 952,
+      "file": "tqdm/_tqdm.py",
+      "start_line": 947
+    }
+  ]
+}

@@ -67,6 +67,49 @@ class TestDescriptor:
 
 
 @dataclass(frozen=True)
+class CorpusProvenance:
+    """Adapter-neutral origin and licensing status for corpus metadata."""
+
+    kind: str
+    source_url: str
+    license_status: str
+    license: str | None
+    license_file: str | None
+    license_sha256: str | None
+
+
+@dataclass(frozen=True)
+class BenchmarkSource:
+    """One upstream project and its commit-addressed local license evidence."""
+
+    source_id: str
+    project_url: str
+    source_license: str
+    license_file: str
+    license_sha256: str
+    license_commits_verified: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class RuntimeDescriptor:
+    """Generic prepared checkout and argv for one opaque benchmark case."""
+
+    case_id: str
+    cwd: str
+    test_argv: tuple[str, ...]
+    role: str | None
+    python_version: str | None
+
+
+@dataclass(frozen=True)
+class CorpusExclusion:
+    """An import-time candidate exclusion retained for denominator auditing."""
+
+    upstream_case: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class BenchmarkCase:
     """Product-visible metadata for one buggy or fixed member of a pair."""
 
@@ -159,6 +202,10 @@ class BenchmarkManifest:
     corpus_commit: str
     cases: tuple[BenchmarkCase, ...]
     truth_defects: tuple[TruthDefect, ...]
+    sources: tuple[BenchmarkSource, ...] = ()
+    runtime: tuple[RuntimeDescriptor, ...] = ()
+    exclusions: tuple[CorpusExclusion, ...] = ()
+    provenance: CorpusProvenance | None = None
 
 
 def verify_descriptor_bytes(
@@ -186,13 +233,125 @@ def load_manifest(path: Path) -> BenchmarkManifest:
     truths = tuple(_truth(_object(value, "truth defect")) for value in raw_truth)
     _validate_pairs(cases)
     _validate_truth(cases, truths)
+    sources = tuple(
+        _source(_object(value, "source")) for value in _optional_list(document, "sources")
+    )
+    runtime = tuple(
+        _runtime(_object(value, "runtime")) for value in _optional_list(document, "runtime")
+    )
+    exclusions = tuple(
+        _exclusion(_object(value, "exclusion"))
+        for value in _optional_list(document, "exclusions")
+    )
+    provenance_raw = document.get("provenance")
+    provenance = (
+        _provenance(_object(provenance_raw, "provenance"))
+        if provenance_raw is not None
+        else None
+    )
+    _validate_extensions(cases, sources, runtime)
     return BenchmarkManifest(
         schema_version=schema_version,
         protocol_version=protocol_version,
         corpus_commit=corpus_commit,
         cases=cases,
         truth_defects=truths,
+        sources=sources,
+        runtime=runtime,
+        exclusions=exclusions,
+        provenance=provenance,
     )
+
+
+def _provenance(raw: dict[str, Any]) -> CorpusProvenance:
+    license_status = _enum(
+        _nonempty_string(raw, "license_status"),
+        frozenset(("DETECTED", "UNSPECIFIED")),
+        "license_status",
+    )
+    license_value = _optional_string(raw.get("license"), "license")
+    license_file_value = _optional_string(raw.get("license_file"), "license_file")
+    license_hash_value = _optional_string(raw.get("license_sha256"), "license_sha256")
+    if license_status == "DETECTED":
+        if license_value is None or license_file_value is None or license_hash_value is None:
+            raise ValueError("detected provenance license requires complete evidence")
+        license_file_value = _path(license_file_value)
+        license_hash_value = _hash(license_hash_value, "license_sha256")
+    elif any(
+        value is not None for value in (license_value, license_file_value, license_hash_value)
+    ):
+        raise ValueError("unspecified provenance license must not claim evidence")
+    return CorpusProvenance(
+        kind=_nonempty_string(raw, "kind"),
+        source_url=_nonempty_string(raw, "source_url"),
+        license_status=license_status,
+        license=license_value,
+        license_file=license_file_value,
+        license_sha256=license_hash_value,
+    )
+
+
+def _source(raw: dict[str, Any]) -> BenchmarkSource:
+    commits = tuple(
+        _commit(_string_value(value, "license commit"), "license commit")
+        for value in _list(raw, "license_commits_verified")
+    )
+    if not commits:
+        raise ValueError("license_commits_verified must not be empty")
+    return BenchmarkSource(
+        source_id=_opaque_id(_nonempty_string(raw, "source_id"), "source_id"),
+        project_url=_nonempty_string(raw, "project_url"),
+        source_license=_nonempty_string(raw, "source_license"),
+        license_file=_path(_nonempty_string(raw, "license_file")),
+        license_sha256=_hash(_nonempty_string(raw, "license_sha256"), "license_sha256"),
+        license_commits_verified=commits,
+    )
+
+
+def _runtime(raw: dict[str, Any]) -> RuntimeDescriptor:
+    argv = tuple(_string_value(value, "test argv") for value in _list(raw, "test_argv"))
+    if not argv:
+        raise ValueError("test_argv must not be empty")
+    role = _optional_string(raw.get("role"), "role")
+    if role is not None:
+        role = _enum(role, _ROLES, "role")
+    return RuntimeDescriptor(
+        case_id=_opaque_id(_nonempty_string(raw, "case_id"), "case_id"),
+        cwd=_path(_nonempty_string(raw, "cwd")),
+        test_argv=argv,
+        role=role,
+        python_version=_optional_string(raw.get("python_version"), "python_version"),
+    )
+
+
+def _exclusion(raw: dict[str, Any]) -> CorpusExclusion:
+    return CorpusExclusion(
+        upstream_case=_nonempty_string(raw, "upstream_case"),
+        reason=_nonempty_string(raw, "reason"),
+    )
+
+
+def _validate_extensions(
+    cases: tuple[BenchmarkCase, ...],
+    sources: tuple[BenchmarkSource, ...],
+    runtime: tuple[RuntimeDescriptor, ...],
+) -> None:
+    case_ids = {case.case_id for case in cases}
+    if sources:
+        source_ids = [source.source_id for source in sources]
+        if len(source_ids) != len(set(source_ids)):
+            raise ValueError("duplicate source_id")
+        if set(source_ids) != {case.source_id for case in cases}:
+            raise ValueError("sources must exactly cover manifest cases")
+    if runtime:
+        runtime_ids = [row.case_id for row in runtime]
+        if len(runtime_ids) != len(set(runtime_ids)):
+            raise ValueError("duplicate runtime case_id")
+        if set(runtime_ids) != case_ids:
+            raise ValueError("runtime must exactly cover manifest cases")
+        roles = {case.case_id: case.role for case in cases}
+        if any(row.role is not None and row.role != roles[row.case_id] for row in runtime):
+            raise ValueError("runtime role must match case role")
 
 
 def _case(raw: dict[str, Any]) -> BenchmarkCase:
@@ -331,6 +490,13 @@ def _list(raw: dict[str, Any], key: str) -> list[object]:
     return value
 
 
+def _optional_list(raw: dict[str, Any], key: str) -> list[object]:
+    value = raw.get(key, [])
+    if not isinstance(value, list):
+        raise ValueError(f"{key} must be a list")
+    return value
+
+
 def _nonempty_string(raw: dict[str, Any], key: str) -> str:
     value = raw.get(key)
     if not isinstance(value, str) or not value:
@@ -346,6 +512,12 @@ def _string_value(value: object, label: str) -> str:
     if not isinstance(value, str) or not value:
         raise ValueError(f"{label} must be a non-empty string")
     return value
+
+
+def _optional_string(value: object, label: str) -> str | None:
+    if value is None:
+        return None
+    return _string_value(value, label)
 
 
 def _enum(value: str, allowed: frozenset[str], label: str) -> str:
