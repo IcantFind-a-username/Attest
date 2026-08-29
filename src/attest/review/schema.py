@@ -14,8 +14,9 @@ PROPOSAL_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "findings": {
+            # no maxItems: the structured-output API rejects it for arrays;
+            # the <=5 cap is enforced by the prompt instead
             "type": "array",
-            "maxItems": 5,
             "items": {
                 "type": "object",
                 "properties": {
