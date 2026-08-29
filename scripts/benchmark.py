@@ -20,7 +20,10 @@ from attest.benchmark.artifacts import ArtifactStore, process_secrets
 from attest.benchmark.corpus import (
     IsolationAdapter,
     SubprocessCorpusRunner,
+    ValidationReceipt,
     import_bugsinpy,
+    load_validation_receipt,
+    require_validated_pair,
     validate_corpus,
 )
 from attest.benchmark.experiments import (
@@ -36,7 +39,13 @@ from attest.benchmark.experiments import (
     run_e_validity_experiment,
     run_rho_ablation,
 )
-from attest.benchmark.report import REPLAY_MODE, ReportExclusion, build_report, write_report
+from attest.benchmark.report import (
+    REPLAY_MODE,
+    ReportAbstention,
+    ReportExclusion,
+    build_report,
+    write_report,
+)
 from attest.benchmark.runner import Cassette, ReplayProvider, load_cassette
 from attest.benchmark.schema import BenchmarkCase, BenchmarkManifest, load_manifest
 from attest.review.config import ReviewConfig
@@ -113,6 +122,17 @@ def _parser() -> argparse.ArgumentParser:
         help="caller-prepared checkout root; without it every case is excluded",
     )
     replay.add_argument("--workspace", type=Path)
+    replay.add_argument(
+        "--validation-receipt",
+        type=Path,
+        help="validation receipt bound to this manifest digest; without it the "
+        "report withholds every accuracy metric and says so",
+    )
+    replay.add_argument(
+        "--validation-results",
+        type=Path,
+        help="the exact validation-results artifact the receipt was issued over",
+    )
     replay.add_argument("--alpha", type=float, default=0.1)
     replay.add_argument("--budget-usd", type=float, default=0.25)
     replay.add_argument("--k-samples", type=int, default=5)
@@ -352,20 +372,36 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
     """Offline by construction: recorded cassettes and a loopback GitHub only.
 
     No provider client is ever constructed, no credential is read, and no
-    remote host is contacted, whatever the environment holds. A case without a
-    recording or without a prepared checkout is an explicit exclusion; it is
-    never scored as a silent negative.
+    remote host is contacted, whatever the environment holds.
+
+    Three outcomes are kept apart, and none of them is a negative. A case
+    without a recording, without a prepared checkout, or outside the validation
+    receipt's allowlist is an **exclusion**: the product path never ran. A case
+    the product ran and DEFERRED is an **abstention**: attest could not decide
+    it, which is not the same as correctly staying silent, so it enters no
+    accuracy denominator. Only a completed run is **scored**, and only when a
+    receipt bound to this manifest digest authorises scoring at all (D-019).
     """
     manifest = load_manifest(args.manifest)
     manifest_sha256 = hashlib.sha256(args.manifest.read_bytes()).hexdigest()
-    requests, cassettes, exclusions = _replay_plan(manifest, args)
+    receipt = _replay_receipt(args)
+    requests, cassettes, exclusions = _replay_plan(manifest, args, receipt)
     store = ArtifactStore(args.output / "artifacts", secrets=process_secrets())
     results = evaluate_projects(
         requests,
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
         artifact_store=store,
     )
-    scored = tuple(result for result in results if result.task_id is not None)
+    scored = tuple(
+        result
+        for result in results
+        if result.task_id is not None and result.abstain_reason is None
+    )
+    abstentions: list[ReportAbstention] = []
+    for result in results:
+        reason = result.abstain_reason
+        if result.task_id is not None and reason is not None:
+            abstentions.append(ReportAbstention(result.case_id, reason))
     exclusions.extend(
         ReportExclusion(result.case_id, _exclusion_reason(result))
         for result in results
@@ -377,8 +413,10 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
         mode=REPLAY_MODE,
         manifest_sha256=manifest_sha256,
         exclusions=exclusions,
+        abstentions=abstentions,
         differential_repeats=args.repeats,
         line_slack=args.line_slack,
+        validation_receipt=receipt,
     )
     store.finalize()
     report_path, markdown_path = write_report(report, args.output)
@@ -389,17 +427,39 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
         "manifest": args.manifest.name,
         "manifest_sha256": manifest_sha256,
         "evaluated_cases": report.evaluated_cases,
+        "abstained_cases": len(report.abstained_cases),
         "excluded_cases": len(report.excluded_cases),
-        "spend_usd": round(sum(result.spend_usd for result in scored), 6),
-        "oracle_spend_usd": round(sum(result.oracle_spend_usd for result in scored), 6),
+        "metrics_status": "reported" if report.metrics is not None else "withheld",
+        "metrics_withheld_reason": report.metrics_withheld_reason,
+        "spend_usd": round(sum(result.spend_usd for result in results), 6),
+        "oracle_spend_usd": round(sum(result.oracle_spend_usd for result in results), 6),
         "digest": report.digest,
         "report": str(report_path),
         "report_markdown": str(markdown_path),
     }
 
 
+def _replay_receipt(args: argparse.Namespace) -> ValidationReceipt | None:
+    """Load the corpus validator's own receipt, or record that there is none.
+
+    The receipt loader is the single gate: it verifies the manifest digest, the
+    exact validation-results bytes, and the derived allowlist. A supplied but
+    unverifiable receipt fails the command closed rather than being downgraded
+    to a run without one.
+    """
+    if (args.validation_receipt is None) != (args.validation_results is None):
+        raise ValueError("a validation receipt requires its validation results file")
+    if args.validation_receipt is None:
+        return None
+    return load_validation_receipt(
+        args.validation_receipt, args.manifest, args.validation_results
+    )
+
+
 def _replay_plan(
-    manifest: BenchmarkManifest, args: argparse.Namespace
+    manifest: BenchmarkManifest,
+    args: argparse.Namespace,
+    receipt: ValidationReceipt | None,
 ) -> tuple[list[ProjectEvaluationRequest], dict[str, Cassette], list[ReportExclusion]]:
     """Build one request per case that has both a recording and a checkout."""
     config = ReviewConfig(
@@ -420,6 +480,14 @@ def _replay_plan(
     cassettes: dict[str, Cassette] = {}
     exclusions: list[ReportExclusion] = []
     for case in manifest.cases:
+        if receipt is not None:
+            try:
+                require_validated_pair(receipt, case.pair_id)
+            except ValueError:
+                exclusions.append(
+                    ReportExclusion(case.case_id, "pair_not_in_validation_receipt")
+                )
+                continue
         try:
             cassette = load_cassette(args.cassette_root, case.case_id)
         except ValueError:

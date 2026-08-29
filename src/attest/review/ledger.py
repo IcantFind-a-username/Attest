@@ -31,6 +31,23 @@ _LABEL_POLARITY: dict[str, str] = {
     "wrong": "false",
     "dismiss": "ambiguous",
 }
+_AMBIGUOUS_POLARITY = "ambiguous"
+
+
+def _label_polarity(entry: dict[str, Any]) -> str:
+    """Precision polarity of one feedback row, re-deriving it for older ledger
+    rows written before `label_polarity` was recorded. Unknown labels are
+    treated as ambiguous: they may never be counted as true or false."""
+    recorded = entry.get("label_polarity")
+    if isinstance(recorded, str):
+        return recorded
+    return _LABEL_POLARITY.get(str(entry.get("feedback", "")), _AMBIGUOUS_POLARITY)
+
+
+def _watermark(tighten_entry: dict[str, Any]) -> int:
+    """The label count an alpha_tightened row was recorded at."""
+    value = tighten_entry.get("label_count")
+    return value if isinstance(value, int) else 0
 
 
 def _known_secrets() -> tuple[str, ...]:
@@ -227,18 +244,14 @@ class Ledger:
         polarities: dict[str, str] = {}
         for e in entries:
             if e.get("kind") == "feedback":
-                # fall back to re-deriving polarity for older ledger rows
-                # written before label_polarity was recorded
-                polarities[e["finding_id"]] = e.get(
-                    "label_polarity", _LABEL_POLARITY.get(e.get("feedback", ""), "ambiguous")
-                )
+                polarities[e["finding_id"]] = _label_polarity(e)
         # ambiguous labels (legacy 'dismiss') are excluded from BOTH the
         # numerator and the denominator -- never silently counted as either
         # a true or a false label.
         labeled = [
             (fid, polarities[fid])
             for fid in surfaced_ids[-window:]
-            if fid in polarities and polarities[fid] != "ambiguous"
+            if fid in polarities and polarities[fid] != _AMBIGUOUS_POLARITY
         ]
         if not labeled:
             return None, 0
@@ -247,18 +260,33 @@ class Ledger:
 
     def maybe_tighten_alpha(self, alpha: float, enabled: bool) -> tuple[float, str | None]:
         """MVP auto-tighten rule: rolling surfaced precision < 90% (with at
-        least 10 labels) halves alpha, floored at 0.01. Recorded in the ledger;
+        least 10 labels) halves alpha, floored at 0.01. Recorded in the ledger
+        (`label_count` is the watermark: precision-bearing labels only);
         configurable off."""
         if not enabled:
             return alpha, None
         entries = self.entries()
-        n_labels = sum(1 for e in entries if e.get("kind") == "feedback")
+        # Only labels that can MOVE surfaced precision count toward the
+        # watermark. Ambiguous (legacy 'dismiss') labels are excluded from the
+        # precision ratio, so counting them here advanced the watermark while
+        # leaving the precision figure untouched -- which re-opened the gate on
+        # a stale window and let alpha be halved again, once per dismissal, all
+        # the way to the floor.
+        n_labels = sum(
+            1
+            for e in entries
+            if e.get("kind") == "feedback" and _label_polarity(e) != _AMBIGUOUS_POLARITY
+        )
         last_tighten = next(
             (e for e in reversed(entries) if e.get("kind") == "alpha_tightened"), None
         )
         # watermark: never re-halve on the same stale label window — a new
-        # tightening needs at least one label recorded since the last one
-        if last_tighten is not None and last_tighten.get("label_count") == n_labels:
+        # tightening needs at least one precision-bearing label recorded since
+        # the last one. The comparison is `<=` rather than `==` so that rows
+        # written before this count excluded ambiguous labels (whose recorded
+        # count was every feedback row, hence never smaller) still block rather
+        # than admit a stale re-halving.
+        if last_tighten is not None and n_labels <= _watermark(last_tighten):
             return alpha, None
         precision, n = self.surfaced_precision()
         if precision is None or n < 10 or precision >= PRECISION_TARGET:

@@ -178,6 +178,38 @@ def test_tighten_watermark_blocks_stale_rehalving(tmp_path) -> None:
         assert alpha == 0.05 and note is None
 
 
+def test_ambiguous_labels_do_not_advance_the_tighten_watermark(tmp_path) -> None:
+    """Regression: legacy `dismiss` labels are excluded from surfaced precision,
+    so they cannot move the figure that justifies a tightening. Counting them in
+    the watermark let each one re-open the gate on an UNCHANGED precision
+    figure, halving alpha again and again down to the floor on one stale window.
+    """
+    led = Ledger(tmp_path)
+    # 12 labels, 8 good / 4 wrong -> precision 0.667 < 0.9
+    for i in range(12):
+        fid = f"f{i}"
+        led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(fid, "good" if i < 8 else "wrong")
+    alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
+    assert alpha == 0.05 and note is not None
+    stale = led.surfaced_precision()
+
+    # ambiguous labels only: precision cannot move, so neither may alpha
+    for i in range(3):
+        fid = f"d{i}"
+        led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(fid, "dismiss")
+        alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
+        assert led.surfaced_precision() == stale
+        assert alpha == 0.05 and note is None
+
+    # a label that CAN move precision still re-tightens, exactly as before
+    led.record_review("t", "fresh", ["S"], 0.0, 12.0, "surface")
+    led.record_feedback("fresh", "wrong")
+    alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
+    assert alpha == 0.025 and note is not None
+
+
 def test_reverify_not_double_counted_in_precision(tmp_path) -> None:
     """Regression: repeated `attest verify` rows for one finding count once."""
     led = Ledger(tmp_path)

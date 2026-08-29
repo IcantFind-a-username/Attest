@@ -162,26 +162,61 @@ class VerificationRun:
     gate_result: GateResult
 
 
-_SYMBOL_ABSENT_EXCEPTIONS = (
-    "ModuleNotFoundError",
-    "ImportError",
-    "AttributeError",
-    "NameError",
-    "KeyError",
-)
-_ABSENT_ALTERNATION = "|".join(_SYMBOL_ABSENT_EXCEPTIONS)
-# Only lines pytest emits *at* the point of failure: the reported exception detail
-# ("E   AttributeError: ..."), the traceback location line, a raw interpreter
-# traceback, or a collection-error header. Echoed source lines
-# ("> with pytest.raises(KeyError):") deliberately do not count.
-_SYMBOL_ABSENT_MARKERS = tuple(
-    re.compile(pattern, re.MULTILINE)
-    for pattern in (
-        rf"^E\s+(?:{_ABSENT_ALTERNATION})\b",
-        rf"^.*:\d+: (?:{_ABSENT_ALTERNATION})\s*$",
-        rf"^(?:{_ABSENT_ALTERNATION}):",
-        rf"^(?:{_ABSENT_ALTERNATION}) while importing test module",
+def _failure_point_markers(*exceptions: str) -> tuple[re.Pattern[str], ...]:
+    """Only lines pytest emits *at* the point of failure: the reported exception
+    detail ("E   AttributeError: ..."), the traceback location line, a raw
+    interpreter traceback, or a collection-error header. Echoed source lines
+    ("> with pytest.raises(NameError):") deliberately do not count."""
+    alternation = "|".join(exceptions)
+    return tuple(
+        re.compile(pattern, re.MULTILINE)
+        for pattern in (
+            rf"^E\s+(?:{alternation})\b",
+            rf"^.*:\d+: (?:{alternation})\s*$",
+            rf"^(?:{alternation}):",
+            rf"^(?:{alternation}) while importing test module",
+        )
     )
+
+
+# Exceptions that can mean nothing except *a name could not be resolved*: an
+# import that found no module, or an unbound name.
+_UNRESOLVED_NAME_MARKERS = _failure_point_markers("ModuleNotFoundError", "ImportError", "NameError")
+# AttributeError is ambiguous. It is raised both when a definition is missing
+# from a namespace (the D-029 rename: `module 'calc' has no attribute
+# '_validate'`) and when the code under test produced a value of the wrong
+# shape (`'NoneType' object has no attribute 'strip'`), which is the code
+# misbehaving. The message says which, so it is read rather than the name.
+#
+# KeyError is deliberately absent from both lists. A mapping lookup is always a
+# question about DATA -- the interpreter never reports an unresolved name as a
+# KeyError -- so treating it as a missing symbol classified genuine defects
+# ("head stopped supplying the default and now raises KeyError") as
+# fabrications, and since certification requires the head code to misbehave,
+# that silently blocked true findings from buying any evidence.
+_AMBIGUOUS_NAME_MARKERS = _failure_point_markers("AttributeError")
+_ATTRIBUTE_ERROR_DETAIL = re.compile(r"^(?:E\s+)?AttributeError: (?P<detail>.+)$", re.MULTILINE)
+_INSTANCE_ATTRIBUTE_DETAIL = re.compile(r"^'(?P<type>[\w.]+)' object has no attribute")
+# Namespaces the interpreter owns. No reviewed diff can add or remove an
+# attribute on them, so a missing attribute here can only mean a value of the
+# wrong type arrived -- never a symbol that used to exist.
+_BUILTIN_VALUE_TYPES = frozenset(
+    {
+        "NoneType",
+        "bool",
+        "bytearray",
+        "bytes",
+        "complex",
+        "dict",
+        "float",
+        "frozenset",
+        "int",
+        "list",
+        "range",
+        "set",
+        "str",
+        "tuple",
+    }
 )
 _ASSERTION_MARKERS = tuple(
     re.compile(pattern, re.MULTILINE)
@@ -193,16 +228,38 @@ _ASSERTION_MARKERS = tuple(
 )
 
 
+def _attribute_error_names_a_missing_definition(detail: str) -> bool:
+    """Whether one AttributeError message is about a NAME the reviewed revision
+    does not have, rather than about the shape of a value. Unrecognised messages
+    stay conservative and count as a missing definition: erring that way defers,
+    while erring the other way could certify a rename refactor."""
+    if detail.startswith(("module ", "type object ")):
+        return True
+    instance = _INSTANCE_ATTRIBUTE_DETAIL.match(detail)
+    if instance is not None:
+        return instance.group("type") not in _BUILTIN_VALUE_TYPES
+    return True
+
+
 def classify_failure_signature(result: ExecutionResult) -> FailureSignature:
-    """Why a run failed: the symbol under test is absent, a real assertion
-    fired, or neither. Deliberately conservative -- when both signatures appear
-    the assertion wins, so a bogus test cannot hide behind an incidental
-    KeyError raised somewhere in the same output."""
+    """Why a run failed: a name the reproduction used could not be resolved, a
+    real assertion fired, or neither. Deliberately conservative -- when both
+    signatures appear the assertion wins, so a bogus test cannot hide behind an
+    incidental resolution failure raised somewhere in the same output."""
     text = f"{result.stdout}\n{result.stderr}"
     if any(marker.search(text) for marker in _ASSERTION_MARKERS):
         return FailureSignature.ASSERTION
-    if any(marker.search(text) for marker in _SYMBOL_ABSENT_MARKERS):
+    if any(marker.search(text) for marker in _UNRESOLVED_NAME_MARKERS):
         return FailureSignature.SYMBOL_ABSENT
+    if any(marker.search(text) for marker in _AMBIGUOUS_NAME_MARKERS):
+        details = [
+            match.group("detail").strip() for match in _ATTRIBUTE_ERROR_DETAIL.finditer(text)
+        ]
+        # no message at all (a bare location line): stay conservative
+        if not details or any(
+            _attribute_error_names_a_missing_definition(detail) for detail in details
+        ):
+            return FailureSignature.SYMBOL_ABSENT
     return FailureSignature.OTHER
 
 

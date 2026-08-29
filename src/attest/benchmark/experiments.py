@@ -26,10 +26,34 @@ evidence — the naive product ``LR1 ** votes`` — manufactures confidence that
 not in the data. The production schedule prices the correlation instead: vote
 ``m`` contributes ``LR1 ** ((1 - RHO) ** (m - 1))``, capped at ``S_CAP``.
 
+Three measurement rules this module had to be corrected on, each of which
+changes reported numbers rather than prose:
+
+* **the denominator is candidates, not tasks.** Nominal ``alpha`` bounds the
+  error rate of the things the gate actually judges, and the product only judges
+  a finding some sample proposed. Dividing by every task in the stream — silent
+  panels included — dilutes every rate, and dilutes it *hardest* exactly where
+  correlation is highest, because a cloned panel is more often unanimously
+  silent. Both denominators are reported and both are named in full;
+  ``per_candidate`` is the one comparable to ``alpha``.
+* **the arms are nested and paired.** Both aggregators see identical vote counts
+  from the same draw, so their decisions are a deterministic function of one
+  sample and the difference between them is not a difference between two
+  independent samples. Overlapping independent Wilson intervals establish
+  nothing about a paired difference; :class:`PairedDifference` reports the
+  discordant-pair counts, an exact McNemar p-value, and a bootstrap interval on
+  the difference itself.
+* **the swept parameter is a clone rate, not a correlation.**
+  :func:`simulate_panel` clones vote one, so the realized mean pairwise
+  correlation is :func:`mean_pairwise_correlation`, strictly below the nominal
+  ``gamma`` everywhere in ``(0, 1)``, and the panel is not exchangeable. Every
+  cell carries the correlation it truly generates, analytically and as measured
+  from the drawn ballots.
+
 Honesty boundaries, restated in every emitted report:
 
-* the panels are **synthetic** Bernoulli draws with a clone-correlation
-  parameter, not samples from any real model — nothing here was measured on a
+* the panels are **synthetic** Bernoulli draws with a clone-mixing parameter,
+  not samples from any real model — nothing here was measured on a
   live system, and no network, subprocess, or API call is involved;
 * the vote channel prices only *positive* votes (a candidate exists because some
   sample proposed it), so neither aggregator is a martingale-valid e-value; the
@@ -74,16 +98,64 @@ DISCOUNTED_ARM = "correlation_discounted"
 #: Alphas that the product actually ships or documents.
 FACTORY_ALPHAS: tuple[float, ...] = (0.05, 0.1)
 
-#: Preregistered sweep. Fixed before any result was looked at. ``RHO`` appears as
-#: a sweep point on purpose: it is the one correlation level at which the
-#: production discount's assumption is exactly true.
+#: Preregistered sweep. Fixed before any result was looked at, and deliberately
+#: NOT re-chosen after the axis was corrected: the swept quantity is the
+#: generator's **clone rate**, and the correlation each point truly produces is
+#: reported beside it by :func:`mean_pairwise_correlation`.
+#:
+#: ``RHO`` appears as a sweep point because the production discount names that
+#: number, and for no stronger reason. It is *not* a level at which the
+#: schedule's assumption becomes true: at a clone rate of ``RHO`` the realized
+#: mean pairwise correlation is lower than ``RHO``
+#: (:func:`clone_rate_for_pairwise_correlation` gives the rate that would hit
+#: it), and no clone rate whatsoever makes the schedule the panel's likelihood
+#: ratio (:func:`schedule_oracle_mismatch`).
 DEFAULT_GAMMAS: tuple[float, ...] = (0.0, 0.3, RHO, 0.9, 0.99)
 DEFAULT_SEEDS: tuple[int, ...] = (11, 22, 33, 44, 55)
 
+#: Shared resampling settings. Used by the ablation's paired difference and by
+#: the e-validity section's null expectations, so a single change moves both.
+DEFAULT_BOOTSTRAP_RESAMPLES = 2000
+DEFAULT_BOOTSTRAP_SEED = 90210
+_BOOTSTRAP_CONFIDENCE = 0.95
+#: Resampling proceeds in fixed blocks so a large sweep stays inside memory.
+#: The block size is part of the determinism contract: changing it changes the
+#: random stream and therefore the digest.
+_BOOTSTRAP_BLOCK = 250
+
 HONESTY_NOTES: tuple[str, ...] = (
     "synthetic_panels: votes are simulated Bernoulli draws with a clone "
-    "correlation parameter, not samples from any real model. No model, network, "
+    "mixing parameter, not samples from any real model. No model, network, "
     "or subprocess call was made; nothing here is a measurement of the product.",
+    "two_denominators: every wrong-certification rate is reported per_task and "
+    "per_candidate, never as an unqualified 'rate'. Nominal alpha bounds the "
+    "error rate of the findings the gate judges, and the product judges only "
+    "findings some sample proposed, so per_candidate is the quantity comparable "
+    "to alpha. per_task is strictly smaller wherever a panel is silent, and the "
+    "gap widens with correlation, so a per_task comparison against alpha "
+    "understates the very effect it is measuring.",
+    "paired_arms: the two aggregators are nested and share every draw — they "
+    "see identical vote counts, so the discounted arm certifies a subset of "
+    "what the naive arm certifies and the difference is deterministic given the "
+    "panel. Overlapping independent Wilson intervals are NOT a test of "
+    "equivalence here; the discordant-pair counts, the exact McNemar p-value, "
+    "and a bootstrap interval on the paired difference are.",
+    "clone_rate_is_not_correlation: the swept parameter gamma is the rate at "
+    "which a vote is replaced by a copy of vote one, not the pairwise ballot "
+    "correlation. Because only vote one is cloned the panel is not "
+    "exchangeable: corr(v1, vj) = gamma while corr(vi, vj) = gamma^2 for later "
+    "pairs, so the realized mean pairwise correlation is below gamma everywhere "
+    "in (0, 1). Each cell reports that correlation analytically and as measured "
+    "from the drawn ballots.",
+    "schedule_is_not_a_likelihood_ratio: the D-007 discount is a heuristic, not "
+    "the vote count's likelihood ratio under any clone rate. It is monotone in "
+    "the vote count by construction while the exact ratio is not once the panel "
+    "is correlated, so there is no correlation level at which the schedule's "
+    "assumption is literally true; the best achievable mismatch is reported.",
+    "independence_control_needs_a_shared_gate: a fairness check run only at the "
+    "factory alphas measures nothing about the discount, because the capped "
+    "schedule cannot reach those gates at all (D-008). The control is reported "
+    "at every swept gate together with whether BOTH arms could certify there.",
     "recommendation_only: this harness reads the production constants and never "
     "writes them. Fewer than 500 global ledger labels exist, and architecture "
     "red line 5 forbids recalibration below that threshold, so no number here "
@@ -117,9 +189,15 @@ class PanelResult(NamedTuple):
 
 @dataclass(frozen=True)
 class SeedCounts:
-    """Per-seed counts, published so no seed can be selected after the fact."""
+    """Per-seed counts, published so no seed can be selected after the fact.
+
+    Both denominators are carried per seed as well, so a reader can rebuild
+    either rate from the rows rather than trusting the pooled figure.
+    """
 
     seed: int
+    negative_tasks: int
+    negative_candidate_tasks: int
     certifications: int
     wrong_certifications: int
     true_certifications: int
@@ -128,20 +206,42 @@ class SeedCounts:
 
 @dataclass(frozen=True)
 class ArmOutcome:
-    """Pooled outcome for one aggregator at one (gamma, alpha) cell."""
+    """Pooled outcome for one aggregator at one (clone rate, alpha) cell.
+
+    **Two denominators, both named in full, neither called "the" rate.**
+    ``per_task`` divides by every null task in the stream, including those where
+    no sample proposed anything and no candidate ever existed. ``per_candidate``
+    divides by the null tasks that actually produced a candidate — the findings
+    the gate judges, and therefore the only population nominal ``alpha`` says
+    anything about. ``per_task`` is strictly the smaller of the two whenever any
+    panel is silent, and silence rises with correlation, so a ``per_task``
+    comparison against ``alpha`` understates the effect under study.
+    """
 
     aggregator: str
     tasks: int
     positive_tasks: int
     negative_tasks: int
+    candidate_tasks: int
+    positive_candidate_tasks: int
+    negative_candidate_tasks: int
+    candidate_rate: float | None
+    negative_candidate_rate: float | None
     certifications: int
     wrong_certifications: int
     true_certifications: int
     discards: int
     abstentions: int
-    wrong_certification_rate: float | None
-    wrong_certification_interval: tuple[float, float] | None
-    true_certification_rate: float | None
+    wrong_certification_rate_per_task: float | None
+    wrong_certification_interval_per_task: tuple[float, float] | None
+    wrong_certification_rate_per_candidate: float | None
+    wrong_certification_interval_per_candidate: tuple[float, float] | None
+    alpha_excess_per_task: float | None
+    alpha_excess_per_candidate: float | None
+    exceeds_alpha_per_task: bool
+    exceeds_alpha_per_candidate: bool
+    true_certification_rate_per_task: float | None
+    true_certification_rate_per_candidate: float | None
     certification_precision: float | None
     certification_precision_interval: tuple[float, float] | None
     abstention_rate: float | None
@@ -149,14 +249,72 @@ class ArmOutcome:
 
 
 @dataclass(frozen=True)
-class AblationCell:
-    """Both arms at one correlation level and one gate."""
+class PairedDifference:
+    """Naive minus discounted wrong certifications, analysed as paired data.
 
-    gamma: float
+    The arms are **nested and share every draw**: both aggregators are applied
+    to the same simulated panel and both depend on it only through the vote
+    count, so the discounted arm's certification set is a subset of the naive
+    arm's and the difference between them is a deterministic function of one
+    sample. Two consequences the original analysis missed:
+
+    * comparing the arms' separate Wilson intervals treats one sample as two
+      independent ones. It discards the pairing, is strictly conservative, and
+      can report "overlapping, therefore indistinguishable" for a difference
+      that is present in every single draw. ``intervals_overlap`` records what
+      that reading would have concluded, so the two verdicts can be seen to
+      disagree;
+    * the whole of the evidence is the discordant pairs — the tasks where
+      exactly one arm wrongly certified. ``mcnemar_exact_p`` is the exact
+      two-sided binomial test on them, and ``difference_interval_per_candidate``
+      bootstraps the paired difference itself rather than either arm's rate.
+
+    A cell with no discordant pairs at all reports ``mcnemar_exact_p = None``:
+    the arms made identical decisions on every task, which is a statement about
+    the draw, not a p-value.
+    """
+
+    denominator: str
+    pairs: int
+    both_wrong: int
+    naive_only: int
+    discounted_only: int
+    neither_wrong: int
+    arms_are_nested: bool
+    difference_per_candidate: float | None
+    difference_interval_per_candidate: tuple[float, float] | None
+    difference_per_task: float | None
+    mcnemar_exact_p: float | None
+    intervals_overlap: bool
+
+
+@dataclass(frozen=True)
+class AblationCell:
+    """Both arms at one clone rate and one gate.
+
+    ``clone_rate`` is the generator's mixing parameter. The correlation axis is
+    ``mean_pairwise_correlation`` — derived from the clone rate — and
+    ``measured_pairwise_correlation``, taken from the ballots that were actually
+    drawn, so the axis is a measurement rather than a restatement of the
+    arithmetic that produced it.
+
+    ``both_arms_can_certify`` marks the cells in which a comparison between the
+    arms means anything. Where it is false the discounted arm cannot reach the
+    gate at any vote count, so its silence is the D-008 cap arithmetic and not a
+    result about correlation.
+    """
+
+    label: str
+    clone_rate: float
+    mean_pairwise_correlation: float | None
+    measured_pairwise_correlation: float | None
     alpha: float
     discounted_can_certify: bool
+    naive_can_certify: bool
+    both_arms_can_certify: bool
     naive: ArmOutcome
     discounted: ArmOutcome
+    paired: PairedDifference
 
 
 @dataclass(frozen=True)
@@ -215,6 +373,153 @@ def discount_speech_window() -> tuple[float, float]:
     return 1.0 / S_CAP, 1.0 / VOTE_LR[2]
 
 
+def shared_speech_alpha() -> float:
+    """The one gate at which both arms can certify, used for every comparison
+    that claims to be about the *schedules* rather than about the caps.
+
+    Derived, never chosen by hand: the midpoint of
+    :func:`discount_speech_window`. A control or a comparison run only at the
+    factory alphas is uninformative about the discount, because the capped
+    schedule cannot reach those gates at any vote count (D-008), so the
+    discounted arm is shielded rather than tested there.
+    """
+    low, high = discount_speech_window()
+    return (low + high) / 2
+
+
+def mean_pairwise_correlation(*, k: int, gamma: float) -> float | None:
+    """Mean pairwise ballot correlation the generator actually produces.
+
+    :func:`simulate_panel` clones **vote one**, so the panel is not
+    exchangeable. Conditional on the truth, ``corr(b_1, b_j) = gamma`` for each
+    later vote, because vote ``j`` either is vote one or is drawn independently
+    of it. Two later votes are correlated only through the event that both
+    cloned vote one, giving ``corr(b_i, b_j) = gamma ** 2``. Averaging over the
+    ``C(k, 2)`` pairs::
+
+        ((k - 1) * gamma + C(k - 1, 2) * gamma ** 2) / C(k, 2)
+
+    which is strictly below ``gamma`` for every ``0 < gamma < 1``. The sweep
+    parameter is therefore a clone rate and this is the correlation axis;
+    labelling the sweep with ``gamma`` overstates the correlation at every
+    interior point. A panel of fewer than two votes has no pair and no
+    correlation, which is unknown rather than zero.
+    """
+    if k < 1:
+        raise ValueError("k must be at least one")
+    _check_unit("gamma", gamma, closed=True)
+    if k < 2:
+        return None
+    pairs = math.comb(k, 2)
+    with_first = (k - 1) * gamma
+    among_rest = math.comb(k - 1, 2) * gamma * gamma
+    return (with_first + among_rest) / pairs
+
+
+def clone_rate_for_pairwise_correlation(*, k: int, correlation: float) -> float | None:
+    """Invert :func:`mean_pairwise_correlation`: the clone rate that really
+    delivers ``correlation``.
+
+    Reported beside the sweep so the gap between a nominal ``gamma`` and the
+    correlation it produces is a number rather than a caveat.
+    """
+    if k < 1:
+        raise ValueError("k must be at least one")
+    _check_unit("correlation", correlation, closed=True)
+    if k < 2:
+        return None
+    quadratic = math.comb(k - 1, 2)
+    linear = k - 1
+    constant = -correlation * math.comb(k, 2)
+    if quadratic == 0:
+        return -constant / linear
+    root = math.sqrt(linear * linear - 4 * quadratic * constant)
+    return (-linear + root) / (2 * quadratic)
+
+
+def measured_pairwise_correlation(panel: PanelResult) -> float | None:
+    """Mean pairwise ballot correlation of the draw that actually happened.
+
+    Measured, not derived, so the reported correlation axis is evidence rather
+    than a second copy of the arithmetic that generated it. Ballots are centred
+    **inside each ground-truth group** first: two votes agree partly because
+    they saw the same ``theta``, and that shared truth is not panel correlation.
+
+    Returns ``None`` when no correlation is defined — fewer than two votes,
+    fewer than two tasks, or a column with no variation to correlate.
+    """
+    if panel.k < 2 or panel.n_tasks < 2:
+        return None
+    ballots = panel.ballots.astype(float)
+    centred = np.zeros_like(ballots)
+    for value in (0, 1):
+        mask = panel.theta == value
+        if not mask.any():
+            continue
+        centred[mask] = ballots[mask] - ballots[mask].mean(axis=0)
+    variance = (centred * centred).mean(axis=0)
+    if float(variance.min()) <= 0.0:
+        return None
+    covariance = centred.T @ centred / centred.shape[0]
+    correlation = covariance / np.sqrt(np.outer(variance, variance))
+    upper = correlation[np.triu_indices(panel.k, k=1)]
+    return float(upper.mean())
+
+
+def schedule_oracle_mismatch(
+    *, k: int, judge_accuracy: float, grid: int = 401
+) -> dict[str, object]:
+    """How close the D-007 schedule can get to the panel's true likelihood
+    ratio, minimised over the entire clone-rate axis.
+
+    The claim under test is that some correlation level makes the production
+    discount exact. It cannot: the schedule is monotone non-decreasing in the
+    vote count by construction, while the exact ratio
+    :func:`oracle_panel_lr` is **not** monotone once the panel is correlated —
+    on a clone panel a middling vote count is evidence *against* the finding,
+    because a real clone panel is nearly unanimous either way. Scanning every
+    clone rate and reporting the smallest achievable worst-case log ratio
+    settles the question with a number instead of an argument.
+    """
+    if k < 1:
+        raise ValueError("k must be at least one")
+    if grid < 1:
+        raise ValueError("grid must be at least one")
+    _check_unit("judge_accuracy", judge_accuracy, closed=False)
+
+    schedule = [votes_lr(votes) for votes in range(k + 1)]
+    best_rate = 0.0
+    best_error = math.inf
+    best_oracle: tuple[float, ...] = ()
+    for step in range(grid):
+        rate = step * 0.999 / max(1, grid - 1)
+        oracle = oracle_panel_lr(k=k, judge_accuracy=judge_accuracy, gamma=rate)
+        error = max(
+            abs(math.log(oracle[votes] / schedule[votes])) for votes in range(1, k + 1)
+        )
+        if error < best_error:
+            best_rate, best_error, best_oracle = rate, error, oracle
+    return {
+        "best_clone_rate": _num(best_rate),
+        "max_log_ratio": _num(best_error),
+        "max_ratio": _num(math.exp(best_error)),
+        "schedule_is_monotone": _is_monotone(schedule),
+        "oracle_is_monotone_at_best_clone_rate": _is_monotone(list(best_oracle)),
+        "note": (
+            "no clone rate makes the production schedule the vote count's "
+            "likelihood ratio; the schedule is monotone by construction and the "
+            "exact ratio is not once the panel is correlated"
+        ),
+    }
+
+
+def _is_monotone(table: Sequence[float]) -> bool:
+    return all(
+        later >= earlier
+        for earlier, later in zip(table[:-1], table[1:], strict=True)
+    )
+
+
 def naive_votes_lr(votes: int) -> float:
     """Counterfactual S channel: treat the K panel samples as independent
     witnesses and multiply. Uncapped by construction — this is the aggregator
@@ -241,6 +546,12 @@ def simulate_panel(
     is instead a clone of the first vote of the same panel. ``gamma = 0`` gives
     genuinely independent votes, ``gamma = 1`` a single witness repeated ``k``
     times.
+
+    ``gamma`` is a **clone rate and not the pairwise correlation it produces**.
+    Only vote one is copied, so the panel is not exchangeable and the realized
+    mean pairwise correlation is :func:`mean_pairwise_correlation`, strictly
+    below ``gamma`` at every interior point. Anything that reports a correlation
+    axis must report that function of ``gamma``, not ``gamma`` itself.
 
     :func:`attest.core.stream.make_stream` is deliberately not reused: it models
     three *heterogeneous named* judges with one clone edge and an exploration
@@ -291,6 +602,8 @@ def run_rho_ablation(
     seeds: Sequence[int],
     theta_prior: float = 0.5,
     judge_accuracy: float | None = None,
+    paired_resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
+    paired_seed: int = DEFAULT_BOOTSTRAP_SEED,
 ) -> AblationReport:
     """Run both aggregators through the production gate over the whole grid.
 
@@ -298,6 +611,12 @@ def run_rho_ablation(
     aggregator are each pushed through :func:`attest.core.betting.decide`. Counts
     are pooled across seeds; per-seed rows are retained so no favourable seed can
     be selected afterwards.
+
+    Both arms run on the *same* panels, which is what makes the comparison sharp
+    and also what makes an independent-sample comparison between them invalid.
+    Each cell therefore carries a :class:`PairedDifference` alongside the two
+    :class:`ArmOutcome` rows, and every rate is reported on both the per-task and
+    the per-candidate denominator.
     """
     if not gammas:
         raise ValueError("at least one gamma is required")
@@ -316,6 +635,8 @@ def run_rho_ablation(
     for alpha in alphas:
         _check_unit("alpha", alpha, closed=False)
     _check_unit("theta_prior", theta_prior, closed=True)
+    if paired_resamples < 1:
+        raise ValueError("paired_resamples must be at least one")
     accuracy = calibrated_vote_accuracy() if judge_accuracy is None else judge_accuracy
     _check_unit("judge_accuracy", accuracy, closed=False)
 
@@ -334,17 +655,33 @@ def run_rho_ablation(
 
     cells: list[AblationCell] = []
     for gamma in gammas:
+        runs = [panels[(gamma, seed)] for seed in seeds]
+        correlation = _pooled_measured_correlation(runs)
         for alpha in alphas:
             naive_map = _decision_map(naive_votes_lr, k, alpha)
             discounted_map = _decision_map(votes_lr, k, alpha)
-            runs = [panels[(gamma, seed)] for seed in seeds]
+            label = f"clone_rate={_num(gamma)}/alpha={_num(alpha)}"
+            naive_can = any(code == 1 for code in naive_map)
+            discounted_can = any(code == 1 for code in discounted_map)
             cells.append(
                 AblationCell(
-                    gamma=gamma,
+                    label=label,
+                    clone_rate=gamma,
+                    mean_pairwise_correlation=mean_pairwise_correlation(k=k, gamma=gamma),
+                    measured_pairwise_correlation=correlation,
                     alpha=alpha,
-                    discounted_can_certify=any(code == 1 for code in discounted_map),
-                    naive=_arm_outcome(NAIVE_ARM, naive_map, runs),
-                    discounted=_arm_outcome(DISCOUNTED_ARM, discounted_map, runs),
+                    discounted_can_certify=discounted_can,
+                    naive_can_certify=naive_can,
+                    both_arms_can_certify=naive_can and discounted_can,
+                    naive=_arm_outcome(NAIVE_ARM, naive_map, runs, alpha),
+                    discounted=_arm_outcome(DISCOUNTED_ARM, discounted_map, runs, alpha),
+                    paired=_paired_difference(
+                        naive_map=naive_map,
+                        discounted_map=discounted_map,
+                        runs=runs,
+                        seed=_row_seed(paired_seed, label, "paired"),
+                        resamples=paired_resamples,
+                    ),
                 )
             )
 
@@ -362,6 +699,10 @@ def run_rho_ablation(
             "theta_prior": _num(theta_prior),
             "judge_accuracy": _num(accuracy),
             "judge_accuracy_is_lr1_calibrated": accuracy == calibrated_vote_accuracy(),
+            "paired_resamples": paired_resamples,
+            "paired_seed": paired_seed,
+            "paired_confidence": _BOOTSTRAP_CONFIDENCE,
+            "gammas_are_clone_rates": True,
         },
         constants={
             "lr1": LR1,
@@ -371,10 +712,62 @@ def run_rho_ablation(
         },
         derived={
             "discount_speech_window": [_num(low), _num(high)],
+            "shared_speech_alpha": _num(shared_speech_alpha()),
             "factory_alphas": list(FACTORY_ALPHAS),
             "factory_gate_reachable_on_votes_alone": {
                 str(_num(alpha)): bool(1.0 / alpha <= S_CAP) for alpha in FACTORY_ALPHAS
             },
+            "mean_pairwise_correlation_by_clone_rate": {
+                str(_num(gamma)): _optional(mean_pairwise_correlation(k=k, gamma=gamma))
+                for gamma in gammas
+            },
+            "clone_rate_matching_rho": _optional(
+                clone_rate_for_pairwise_correlation(k=k, correlation=RHO)
+            ),
+            "clone_rate_axis_note": (
+                "the swept parameter is a clone rate, not a correlation; the "
+                "correlation each point produces is reported per cell, "
+                "analytically and as measured from the drawn ballots"
+            ),
+            "schedule_oracle_mismatch": schedule_oracle_mismatch(
+                k=k, judge_accuracy=accuracy
+            ),
+            "cells_where_both_arms_can_certify": [
+                cell.label for cell in cells if cell.both_arms_can_certify
+            ],
+            "cells_where_the_discounted_arm_is_shielded": [
+                cell.label for cell in cells if not cell.discounted_can_certify
+            ],
+            "independence_control": [
+                _independence_control_json(cell)
+                for cell in cells
+                if cell.clone_rate == 0.0
+            ],
+            "alpha_breaches_per_candidate": [
+                f"{cell.label}/{arm.aggregator}"
+                for cell in cells
+                for arm in (cell.naive, cell.discounted)
+                if arm.exceeds_alpha_per_candidate
+            ],
+            "alpha_breaches_per_task": [
+                f"{cell.label}/{arm.aggregator}"
+                for cell in cells
+                for arm in (cell.naive, cell.discounted)
+                if arm.exceeds_alpha_per_task
+            ],
+            "paired_separations": [
+                cell.label
+                for cell in cells
+                if cell.paired.mcnemar_exact_p is not None
+                and cell.paired.mcnemar_exact_p < 1.0 - _BOOTSTRAP_CONFIDENCE
+            ],
+            "paired_verdict_disagrees_with_interval_overlap": [
+                cell.label
+                for cell in cells
+                if cell.paired.intervals_overlap
+                and cell.paired.mcnemar_exact_p is not None
+                and cell.paired.mcnemar_exact_p < 1.0 - _BOOTSTRAP_CONFIDENCE
+            ],
         },
         honesty=HONESTY_NOTES,
         cells=tuple(cells),
@@ -395,25 +788,42 @@ def _decision_map(
 
 
 def _arm_outcome(
-    aggregator: str, decision_map: Sequence[int | None], runs: Sequence[PanelResult]
+    aggregator: str,
+    decision_map: Sequence[int | None],
+    runs: Sequence[PanelResult],
+    alpha: float,
 ) -> ArmOutcome:
+    """Pool one aggregator's decisions on **both** denominators.
+
+    A candidate exists exactly when at least one of the K samples asserted the
+    finding, which is the condition under which the product ever reaches the
+    gate. Wrong certifications are counted once and divided twice: by every null
+    task, and by the null tasks that produced a candidate. Only the second is
+    comparable to ``alpha``.
+    """
     certify = np.array([code == 1 for code in decision_map])
     discard = np.array([code == 0 for code in decision_map])
 
     per_seed: list[SeedCounts] = []
     tasks = positives = negatives = 0
+    candidates = positive_candidates = negative_candidates = 0
     certifications = wrong = true = discards = abstentions = 0
     for panel in runs:
         certified = certify[panel.votes]
         discarded = discard[panel.votes]
+        proposed = panel.votes >= 1
         seed_certified = int(certified.sum())
         seed_wrong = int((certified & (panel.theta == 0)).sum())
         seed_true = int((certified & (panel.theta == 1)).sum())
         seed_discards = int(discarded.sum())
         seed_abstentions = panel.n_tasks - seed_certified - seed_discards
+        seed_negatives = int((panel.theta == 0).sum())
+        seed_negative_candidates = int((proposed & (panel.theta == 0)).sum())
         per_seed.append(
             SeedCounts(
                 seed=panel.seed,
+                negative_tasks=seed_negatives,
+                negative_candidate_tasks=seed_negative_candidates,
                 certifications=seed_certified,
                 wrong_certifications=seed_wrong,
                 true_certifications=seed_true,
@@ -422,31 +832,188 @@ def _arm_outcome(
         )
         tasks += panel.n_tasks
         positives += int((panel.theta == 1).sum())
-        negatives += int((panel.theta == 0).sum())
+        negatives += seed_negatives
+        candidates += int(proposed.sum())
+        positive_candidates += int((proposed & (panel.theta == 1)).sum())
+        negative_candidates += seed_negative_candidates
         certifications += seed_certified
         wrong += seed_wrong
         true += seed_true
         discards += seed_discards
         abstentions += seed_abstentions
 
+    per_task = _rate(wrong, negatives)
+    per_candidate = _rate(wrong, negative_candidates)
+    task_interval = _interval(wrong, negatives)
+    candidate_interval = _interval(wrong, negative_candidates)
     return ArmOutcome(
         aggregator=aggregator,
         tasks=tasks,
         positive_tasks=positives,
         negative_tasks=negatives,
+        candidate_tasks=candidates,
+        positive_candidate_tasks=positive_candidates,
+        negative_candidate_tasks=negative_candidates,
+        candidate_rate=_rate(candidates, tasks),
+        negative_candidate_rate=_rate(negative_candidates, negatives),
         certifications=certifications,
         wrong_certifications=wrong,
         true_certifications=true,
         discards=discards,
         abstentions=abstentions,
-        wrong_certification_rate=_rate(wrong, negatives),
-        wrong_certification_interval=_interval(wrong, negatives),
-        true_certification_rate=_rate(true, positives),
+        wrong_certification_rate_per_task=per_task,
+        wrong_certification_interval_per_task=task_interval,
+        wrong_certification_rate_per_candidate=per_candidate,
+        wrong_certification_interval_per_candidate=candidate_interval,
+        alpha_excess_per_task=None if per_task is None else per_task / alpha,
+        alpha_excess_per_candidate=(
+            None if per_candidate is None else per_candidate / alpha
+        ),
+        exceeds_alpha_per_task=task_interval is not None and task_interval[0] > alpha,
+        exceeds_alpha_per_candidate=(
+            candidate_interval is not None and candidate_interval[0] > alpha
+        ),
+        true_certification_rate_per_task=_rate(true, positives),
+        true_certification_rate_per_candidate=_rate(true, positive_candidates),
         certification_precision=_rate(true, certifications),
         certification_precision_interval=_interval(true, certifications),
         abstention_rate=_rate(abstentions, tasks),
         per_seed=tuple(per_seed),
     )
+
+
+def _paired_difference(
+    *,
+    naive_map: Sequence[int | None],
+    discounted_map: Sequence[int | None],
+    runs: Sequence[PanelResult],
+    seed: int,
+    resamples: int,
+) -> PairedDifference:
+    """Discordant-pair analysis of the two arms on the null tasks they share.
+
+    Both arms are evaluated on the same panels, so every null candidate task
+    contributes one *pair* of decisions. The difference in wrong-certification
+    rates is the mean of the per-task difference, which is why a bootstrap over
+    that single vector — not over either arm separately — is the interval that
+    belongs to it.
+    """
+    naive_certify = np.array([code == 1 for code in naive_map])
+    discounted_certify = np.array([code == 1 for code in discounted_map])
+    nested = bool((discounted_certify <= naive_certify).all())
+
+    naive_flags: list[np.ndarray] = []
+    discounted_flags: list[np.ndarray] = []
+    negatives = 0
+    for panel in runs:
+        selected = (panel.theta == 0) & (panel.votes >= 1)
+        votes = panel.votes[selected]
+        naive_flags.append(naive_certify[votes])
+        discounted_flags.append(discounted_certify[votes])
+        negatives += int((panel.theta == 0).sum())
+
+    naive_wrong = np.concatenate(naive_flags) if naive_flags else np.array([], dtype=bool)
+    discounted_wrong = (
+        np.concatenate(discounted_flags) if discounted_flags else np.array([], dtype=bool)
+    )
+    pairs = int(naive_wrong.size)
+    naive_only = int((naive_wrong & ~discounted_wrong).sum())
+    discounted_only = int((discounted_wrong & ~naive_wrong).sum())
+    both = int((naive_wrong & discounted_wrong).sum())
+
+    difference: float | None = None
+    interval: tuple[float, float] | None = None
+    if pairs:
+        deltas = naive_wrong.astype(float) - discounted_wrong.astype(float)
+        difference = float(deltas.mean())
+        interval = _bootstrap_interval(deltas, seed=seed, resamples=resamples)
+
+    naive_interval = _interval(both + naive_only, pairs)
+    discounted_interval = _interval(both + discounted_only, pairs)
+    overlap = (
+        naive_interval is not None
+        and discounted_interval is not None
+        and naive_interval[0] <= discounted_interval[1]
+        and discounted_interval[0] <= naive_interval[1]
+    )
+    return PairedDifference(
+        denominator="negative_candidate_tasks",
+        pairs=pairs,
+        both_wrong=both,
+        naive_only=naive_only,
+        discounted_only=discounted_only,
+        neither_wrong=pairs - both - naive_only - discounted_only,
+        arms_are_nested=nested,
+        difference_per_candidate=difference,
+        difference_interval_per_candidate=interval,
+        difference_per_task=_rate(naive_only - discounted_only, negatives),
+        mcnemar_exact_p=_mcnemar_exact_p(naive_only, discounted_only),
+        intervals_overlap=overlap,
+    )
+
+
+def _mcnemar_exact_p(naive_only: int, discounted_only: int) -> float | None:
+    """Exact two-sided McNemar p-value from the discordant counts.
+
+    Under the null that the two arms are equally likely to be the one that
+    wrongly certifies, the discordant pairs split Binomial(b + c, 1/2). Computed
+    in log space because the counts here reach the thousands.
+
+    ``None`` when there are no discordant pairs at all: the arms decided
+    identically on every task, which is a property of the draw and not a test
+    result.
+    """
+    total = naive_only + discounted_only
+    if total == 0:
+        return None
+    smaller = min(naive_only, discounted_only)
+    log_half = -total * math.log(2)
+    tail = math.fsum(
+        math.exp(_log_comb(total, index) + log_half) for index in range(smaller + 1)
+    )
+    return min(1.0, 2 * tail)
+
+
+def _log_comb(total: int, chosen: int) -> float:
+    return (
+        math.lgamma(total + 1) - math.lgamma(chosen + 1) - math.lgamma(total - chosen + 1)
+    )
+
+
+def _pooled_measured_correlation(runs: Sequence[PanelResult]) -> float | None:
+    """Mean of the per-seed measured correlations; unknown if none is defined."""
+    measured = [
+        value
+        for value in (measured_pairwise_correlation(panel) for panel in runs)
+        if value is not None
+    ]
+    return sum(measured) / len(measured) if measured else None
+
+
+def _independence_control_json(cell: AblationCell) -> dict[str, object]:
+    """The fairness control, reported per gate rather than asserted once.
+
+    The control only means something where both arms can reach the gate. Where
+    the discounted arm is shielded by the cap it cannot be anti-conservative at
+    any vote count, so 'the discount is not anti-conservative here' is the D-008
+    arithmetic restated and carries no information about correlation pricing.
+    """
+    return {
+        "label": cell.label,
+        "alpha": _num(cell.alpha),
+        "both_arms_can_certify": cell.both_arms_can_certify,
+        "naive_exceeds_alpha_per_candidate": cell.naive.exceeds_alpha_per_candidate,
+        "discounted_exceeds_alpha_per_candidate": (
+            cell.discounted.exceeds_alpha_per_candidate
+        ),
+        "naive_alpha_excess_per_candidate": _optional(
+            cell.naive.alpha_excess_per_candidate
+        ),
+        "discounted_alpha_excess_per_candidate": _optional(
+            cell.discounted.alpha_excess_per_candidate
+        ),
+        "informative": cell.both_arms_can_certify,
+    }
 
 
 def _rate(numerator: int, denominator: int) -> float | None:
@@ -484,20 +1051,46 @@ def _arm_json(arm: ArmOutcome) -> dict[str, object]:
         "tasks": arm.tasks,
         "positive_tasks": arm.positive_tasks,
         "negative_tasks": arm.negative_tasks,
+        "candidate_tasks": arm.candidate_tasks,
+        "positive_candidate_tasks": arm.positive_candidate_tasks,
+        "negative_candidate_tasks": arm.negative_candidate_tasks,
+        "candidate_rate": _optional(arm.candidate_rate),
+        "negative_candidate_rate": _optional(arm.negative_candidate_rate),
         "certifications": arm.certifications,
         "wrong_certifications": arm.wrong_certifications,
         "true_certifications": arm.true_certifications,
         "discards": arm.discards,
         "abstentions": arm.abstentions,
-        "wrong_certification_rate": _optional(arm.wrong_certification_rate),
-        "wrong_certification_interval": _pair(arm.wrong_certification_interval),
-        "true_certification_rate": _optional(arm.true_certification_rate),
+        "wrong_certification_rate_per_task": _optional(
+            arm.wrong_certification_rate_per_task
+        ),
+        "wrong_certification_interval_per_task": _pair(
+            arm.wrong_certification_interval_per_task
+        ),
+        "wrong_certification_rate_per_candidate": _optional(
+            arm.wrong_certification_rate_per_candidate
+        ),
+        "wrong_certification_interval_per_candidate": _pair(
+            arm.wrong_certification_interval_per_candidate
+        ),
+        "alpha_excess_per_task": _optional(arm.alpha_excess_per_task),
+        "alpha_excess_per_candidate": _optional(arm.alpha_excess_per_candidate),
+        "exceeds_alpha_per_task": arm.exceeds_alpha_per_task,
+        "exceeds_alpha_per_candidate": arm.exceeds_alpha_per_candidate,
+        "true_certification_rate_per_task": _optional(
+            arm.true_certification_rate_per_task
+        ),
+        "true_certification_rate_per_candidate": _optional(
+            arm.true_certification_rate_per_candidate
+        ),
         "certification_precision": _optional(arm.certification_precision),
         "certification_precision_interval": _pair(arm.certification_precision_interval),
         "abstention_rate": _optional(arm.abstention_rate),
         "per_seed": [
             {
                 "seed": row.seed,
+                "negative_tasks": row.negative_tasks,
+                "negative_candidate_tasks": row.negative_candidate_tasks,
                 "certifications": row.certifications,
                 "wrong_certifications": row.wrong_certifications,
                 "true_certifications": row.true_certifications,
@@ -508,13 +1101,38 @@ def _arm_json(arm: ArmOutcome) -> dict[str, object]:
     }
 
 
+def _paired_json(paired: PairedDifference) -> dict[str, object]:
+    return {
+        "denominator": paired.denominator,
+        "pairs": paired.pairs,
+        "both_wrong": paired.both_wrong,
+        "naive_only": paired.naive_only,
+        "discounted_only": paired.discounted_only,
+        "neither_wrong": paired.neither_wrong,
+        "arms_are_nested": paired.arms_are_nested,
+        "difference_per_candidate": _optional(paired.difference_per_candidate),
+        "difference_interval_per_candidate": _pair(
+            paired.difference_interval_per_candidate
+        ),
+        "difference_per_task": _optional(paired.difference_per_task),
+        "mcnemar_exact_p": _optional(paired.mcnemar_exact_p),
+        "intervals_overlap": paired.intervals_overlap,
+    }
+
+
 def _cell_json(cell: AblationCell) -> dict[str, object]:
     return {
-        "gamma": _num(cell.gamma),
+        "label": cell.label,
+        "clone_rate": _num(cell.clone_rate),
+        "mean_pairwise_correlation": _optional(cell.mean_pairwise_correlation),
+        "measured_pairwise_correlation": _optional(cell.measured_pairwise_correlation),
         "alpha": _num(cell.alpha),
         "discounted_can_certify": cell.discounted_can_certify,
+        "naive_can_certify": cell.naive_can_certify,
+        "both_arms_can_certify": cell.both_arms_can_certify,
         "naive": _arm_json(cell.naive),
         "discounted": _arm_json(cell.discounted),
+        "paired": _paired_json(cell.paired),
     }
 
 
@@ -555,13 +1173,8 @@ DEFAULT_NULL_GAMMAS: tuple[float, ...] = (0.0, RHO, 0.9)
 #: evidence of a bound (D-008).
 DEFAULT_VILLE_ALPHAS: tuple[float, ...] = (0.05, 0.1, 0.25, 0.4, 0.5)
 
-DEFAULT_BOOTSTRAP_RESAMPLES = 2000
-DEFAULT_BOOTSTRAP_SEED = 90210
-_BOOTSTRAP_CONFIDENCE = 0.95
-#: Resampling proceeds in fixed blocks so a large sweep stays inside memory.
-#: The block size is part of the determinism contract: changing it changes the
-#: random stream and therefore the digest.
-_BOOTSTRAP_BLOCK = 250
+#: Resampling settings are shared with the ablation and defined beside the
+#: preregistered sweep; they are preregistered for this section too.
 
 #: Second generator per seed, so the T and V draws cannot perturb the panel
 #: draws and a stream is byte-identical to the ablation's panel at the same seed.

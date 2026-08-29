@@ -79,6 +79,66 @@ GUARDED_MEAN_MODULE = (
 )
 UNGUARDED_MEAN_MODULE = "def mean(items):\n    return sum(items) / len(items)\n"
 MEAN_CRASH_BODY = "import mod\n\ndef test_repro():\n    mod.mean([])\n"
+# Two genuine regressions whose reproductions fail with KeyError. `threshold`
+# and `settings` exist on BOTH trees; base honours the defaults and head drops
+# them. The first raises its KeyError deep inside the code under test, the
+# second at the reproduction's own assertion -- neither says anything about a
+# symbol being absent.
+DEFAULTED_LOOKUP_MODULE = (
+    'DEFAULTS = {"threshold": 5}\n'
+    "\n"
+    "\n"
+    "def threshold(config):\n"
+    '    return config.get("threshold", DEFAULTS["threshold"])\n'
+)
+UNDEFAULTED_LOOKUP_MODULE = (
+    'DEFAULTS = {"threshold": 5}\n'
+    "\n"
+    "\n"
+    "def threshold(config):\n"
+    '    return config["threshold"]\n'
+)
+DEEP_KEY_ERROR_BODY = "import mod\n\ndef test_repro():\n    assert mod.threshold({}) == 5\n"
+MERGED_SETTINGS_MODULE = (
+    'DEFAULTS = {"threshold": 5}\n'
+    "\n"
+    "\n"
+    "def settings(overrides):\n"
+    "    merged = dict(DEFAULTS)\n"
+    "    merged.update(overrides)\n"
+    "    return merged\n"
+)
+DROPPED_SETTINGS_MODULE = (
+    'DEFAULTS = {"threshold": 5}\n'
+    "\n"
+    "\n"
+    "def settings(overrides):\n"
+    "    return dict(overrides)\n"
+)
+TEST_FRAME_KEY_ERROR_BODY = (
+    'import mod\n\ndef test_repro():\n    assert mod.settings({})["threshold"] == 5\n'
+)
+# The rename refactor of D-029, but on a METHOD rather than a module-level
+# helper: the reproduction still names the old attribute on an instance.
+RENAMED_METHOD_BASE_MODULE = (
+    "class Calculator:\n"
+    "    def _validate(self, s):\n"
+    "        return bool(s)\n"
+    "\n"
+    "    def describe(self, s):\n"
+    '        return "filled" if self._validate(s) else "empty"\n'
+)
+RENAMED_METHOD_HEAD_MODULE = (
+    "class Calculator:\n"
+    "    def _is_nonempty(self, s):\n"
+    "        return bool(s)\n"
+    "\n"
+    "    def describe(self, s):\n"
+    '        return "filled" if self._is_nonempty(s) else "empty"\n'
+)
+STALE_METHOD_RENAME_BODY = (
+    'import mod\n\ndef test_repro():\n    assert mod.Calculator()._validate("") is False\n'
+)
 
 # A root-level conftest.py is innocuous on its own, but pytest's prepend import
 # mode inserts the directory holding it at the front of sys.path, ahead of
@@ -1922,6 +1982,84 @@ E       Failed: DID NOT RAISE
 """
 
 
+# Verbatim pytest output for a KeyError raised inside the code under test.
+DEEP_KEY_ERROR_OUTPUT = """\
+=================================== FAILURES ===================================
+__________________________________ test_repro __________________________________
+
+    def test_repro():
+>       assert mod.threshold({}) == 5
+               ^^^^^^^^^^^^^^^^^
+
+/tmp/repro/test_repro.py:5:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+config = {}
+
+    def threshold(config):
+>       return config["threshold"]
+               ^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'threshold'
+
+/tmp/repro/mod.py:5: KeyError
+"""
+
+# The same defect asserted directly on the returned mapping: the KeyError is
+# raised in the reproduction's own frame, and still says nothing about symbols.
+TEST_FRAME_KEY_ERROR_OUTPUT = """\
+=================================== FAILURES ===================================
+__________________________________ test_repro __________________________________
+
+    def test_repro():
+>       assert mod.settings({})["threshold"] == 5
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'threshold'
+
+/tmp/repro/test_repro.py:5: KeyError
+"""
+
+# An AttributeError about a VALUE, not a definition: head returned None where
+# the reproduction expected an object. The interpreter owns NoneType's
+# namespace, so no diff can have removed `strip` from it.
+NONETYPE_ATTRIBUTE_OUTPUT = """\
+=================================== FAILURES ===================================
+__________________________________ test_repro __________________________________
+
+    def test_repro():
+>       assert mod.normalize(" a ").strip() == "a"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'NoneType' object has no attribute 'strip'
+
+/tmp/repro/test_repro.py:5: AttributeError
+"""
+
+# An AttributeError about a DEFINITION reached through an instance: the
+# renamed-method form of the D-029 refactor.
+INSTANCE_ATTRIBUTE_OUTPUT = """\
+=================================== FAILURES ===================================
+__________________________________ test_repro __________________________________
+
+    def test_repro():
+>       assert mod.Calculator()._validate("") is False
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Calculator' object has no attribute '_validate'
+
+/tmp/repro/test_repro.py:5: AttributeError
+"""
+
+NAME_ERROR_OUTPUT = """\
+=================================== FAILURES ===================================
+__________________________________ test_repro __________________________________
+
+    def test_repro():
+>       assert totally_absent_symbol(2) == 4
+               ^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'totally_absent_symbol' is not defined
+
+/tmp/repro/test_repro.py:2: NameError
+"""
+
+
 @pytest.mark.parametrize(
     ("stdout", "signature"),
     [
@@ -1931,6 +2069,14 @@ E       Failed: DID NOT RAISE
         (MIXED_OUTPUT, "assertion"),
         (ECHOED_SOURCE_OUTPUT, "other"),
         ("", "other"),
+        # a lookup that failed at runtime on data is NOT a missing symbol,
+        # wherever the mapping access happened to sit
+        (DEEP_KEY_ERROR_OUTPUT, "other"),
+        (TEST_FRAME_KEY_ERROR_OUTPUT, "other"),
+        (NONETYPE_ATTRIBUTE_OUTPUT, "other"),
+        # ... but a name that could not be resolved still is
+        (INSTANCE_ATTRIBUTE_OUTPUT, "symbol_absent"),
+        (NAME_ERROR_OUTPUT, "symbol_absent"),
     ],
 )
 def test_classify_failure_signature_reads_the_failure_lines(stdout: str, signature: str) -> None:
@@ -2524,4 +2670,193 @@ def test_verify_candidate_rename_refactor_never_buys_evidence(tmp_path: Path) ->
     assert row["outcome"] == "deferred"
     assert row["evidence_class"] == "unfaithful"
     assert "absent from head" in row["reason"]
+    assert_worktrees_cleaned(repo, stored)
+
+
+@pytest.mark.parametrize(
+    ("base_module", "head_module", "test_body"),
+    [
+        (DEFAULTED_LOOKUP_MODULE, UNDEFAULTED_LOOKUP_MODULE, DEEP_KEY_ERROR_BODY),
+        (MERGED_SETTINGS_MODULE, DROPPED_SETTINGS_MODULE, TEST_FRAME_KEY_ERROR_BODY),
+    ],
+    ids=["raised_inside_the_code_under_test", "raised_at_the_reproduction_assertion"],
+)
+def test_verify_candidate_key_error_regression_certifies(
+    tmp_path: Path, base_module: str, head_module: str, test_body: str
+) -> None:
+    """The reproduced defect. A genuine regression whose reproduction fails with
+    KeyError: the symbol is present on BOTH trees, base honours the default and
+    head genuinely misbehaves. Reading the exception NAME called this a missing
+    symbol, and since certification now requires the head code to misbehave,
+    that silently blocked a true finding from buying any evidence at all."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        FailureSignature,
+        classify_failure_signature,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": base_module}, {"mod.py": head_module}
+    )
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    # head fails 3/3 with a KeyError, and that is the code misbehaving
+    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
+    assert all(
+        classify_failure_signature(run) is not FailureSignature.SYMBOL_ABSENT
+        for run in verification.execution.head_runs
+    )
+    assert "KeyError" in verification.execution.head_runs[0].stdout
+    assert [run.outcome.value for run in verification.execution.base_runs] == [
+        "not_reproduced"
+    ] * 3
+
+    assert verification.execution.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    assert verification.execution.outcome is ExecutionOutcome.REPRODUCED
+    assert verification.execution.reason == "head FAIL 3/3, base PASS 3/3"
+    # V is purchased: 8.0 * 20
+    assert verification.gate_result is not gate
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S", "V"]
+    assert verification.gate_result.wealth == 160.0
+    row = Ledger(repo).entries()[-1]
+    assert row["outcome"] == "reproduced"
+    assert row["evidence_class"] == "regression_reproduced"
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_symbol_that_exists_nowhere_still_buys_nothing(
+    tmp_path: Path,
+) -> None:
+    """Fabrication guard, stated against the loosened classifier: a reproduction
+    naming a symbol present on NEITHER tree must still be classified
+    symbol-absent on head, and must still buy nothing. Discriminating KeyError
+    and data-shaped AttributeErrors must not touch this path."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        FailureSignature,
+        classify_failure_signature,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path,
+        {"mod.py": DEFAULTED_LOOKUP_MODULE},
+        {"mod.py": UNDEFAULTED_LOOKUP_MODULE},
+    )
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": FABRICATED_BODY}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    # the load-bearing mechanism: HEAD itself reports the symbol as absent,
+    # even though this very diff is a real KeyError regression
+    assert all(
+        classify_failure_signature(run) is FailureSignature.SYMBOL_ABSENT
+        for run in verification.execution.head_runs
+    )
+    assert verification.execution.evidence_class is not EvidenceClass.REGRESSION_REPRODUCED
+    assert verification.execution.evidence_class is not EvidenceClass.NEW_CODE_CANDIDATE
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    # buys nothing: the caller's gate result comes back by identity
+    assert verification.gate_result is gate
+    assert verification.gate_result.wealth == stored.wealth
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
+    row = Ledger(repo).entries()[-1]
+    assert row["outcome"] == "deferred"
+    assert row["evidence_class"] != "regression_reproduced"
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_renamed_method_never_buys_evidence(tmp_path: Path) -> None:
+    """Rename guard, extended to the instance case. D-029(a) reached head
+    through a module-level helper; the same refactor on a METHOD produces
+    `'Calculator' object has no attribute '_validate'`, which is still a name
+    the reviewed revision does not have. Base passes 3/3, so anything short of
+    symbol-absent on head certifies a behaviour-preserving refactor."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        FailureSignature,
+        classify_failure_signature,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path,
+        {"mod.py": RENAMED_METHOD_BASE_MODULE},
+        {"mod.py": RENAMED_METHOD_HEAD_MODULE},
+    )
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": STALE_METHOD_RENAME_BODY}),
+            input_tokens=2,
+            output_tokens=3,
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
+    assert all(
+        classify_failure_signature(run) is FailureSignature.SYMBOL_ABSENT
+        for run in verification.execution.head_runs
+    )
+    assert [run.outcome.value for run in verification.execution.base_runs] == [
+        "not_reproduced"
+    ] * 3
+    assert verification.execution.evidence_class is EvidenceClass.UNFAITHFUL
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert "absent from head" in verification.execution.reason
+    assert verification.gate_result is gate
+    assert verification.gate_result.wealth == stored.wealth
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
+    assert Ledger(repo).entries()[-1]["evidence_class"] == "unfaithful"
     assert_worktrees_cleaned(repo, stored)

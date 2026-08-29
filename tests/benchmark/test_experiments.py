@@ -34,14 +34,19 @@ from attest.benchmark.experiments import (
     VOTES_ONLY,
     NullAssumptions,
     calibrated_vote_accuracy,
+    clone_rate_for_pairwise_correlation,
     discount_speech_window,
+    mean_pairwise_correlation,
     measure_channel_e_validity,
     measure_ville_bound,
+    measured_pairwise_correlation,
     naive_votes_lr,
     oracle_panel_lr,
     panel_vote_distribution,
     run_e_validity_experiment,
     run_rho_ablation,
+    schedule_oracle_mismatch,
+    shared_speech_alpha,
     simulate_panel,
     two_sided_votes_lr,
     verification_e_validity_ceiling,
@@ -72,6 +77,7 @@ def _ablation(**overrides: Any) -> Any:
         "k": 5,
         "n_tasks": 400,
         "seeds": _SEEDS,
+        "paired_resamples": 300,
     }
     kwargs.update(overrides)
     return run_rho_ablation(**kwargs)
@@ -79,7 +85,7 @@ def _ablation(**overrides: Any) -> Any:
 
 def _cell(report: Any, gamma: float, alpha: float) -> Any:
     for cell in report.cells:
-        if cell.gamma == gamma and cell.alpha == alpha:
+        if cell.clone_rate == gamma and cell.alpha == alpha:
             return cell
     raise AssertionError("missing cell")
 
@@ -187,50 +193,342 @@ def test_discounted_aggregator_is_the_production_function() -> None:
 # --- the scientific claim --------------------------------------------------
 
 
-def test_independent_panels_do_not_indict_the_naive_arm() -> None:
-    """Fairness check: when independence truly holds the naive product is not
-    anti-conservative at the factory gates, so the discount buys nothing."""
+def test_at_factory_alpha_the_independence_control_cannot_test_the_discount() -> None:
+    """The control the ablation used to rest on, and what it actually shows.
+
+    At the factory alphas the capped schedule cannot reach the gate at any vote
+    count (D-008), so 'the discounted arm is not anti-conservative here' is the
+    cap arithmetic restated. The cell is marked uninformative for that reason;
+    only the naive arm is genuinely under test at these gates.
+    """
     report = _ablation(gammas=(0.0,), n_tasks=2000)
 
     for alpha in FACTORY_ALPHAS:
         cell = _cell(report, 0.0, alpha)
-        for arm in (cell.naive, cell.discounted):
-            assert arm.wrong_certification_rate is not None
-            assert arm.wrong_certification_rate <= alpha
+        assert cell.both_arms_can_certify is False
+        assert cell.discounted_can_certify is False
+        assert cell.discounted.certifications == 0
+        naive = cell.naive.wrong_certification_rate_per_candidate
+        assert naive is not None and naive <= alpha
+
+    control = report.derived["independence_control"]
+    assert control and all(row["informative"] is False for row in control)
+
+
+def test_the_independence_control_at_a_gate_both_arms_can_reach() -> None:
+    """Objection 3, adjudicated: run the gamma=0 control where the discounted
+    arm is not shielded, and it stops saying what it used to say.
+
+    Under *perfect independence* the naive product is already anti-conservative
+    at a gate it can share with the discount — it certifies on two votes, which
+    a null panel produces often — while the discounted arm stays inside alpha.
+    So the discount's advantage is not attributable to correlation pricing
+    alone: a capped one-sided schedule is simply more conservative at a loose
+    gate, correlation or no correlation.
+    """
+    alpha = shared_speech_alpha()
+    low, high = discount_speech_window()
+    assert low < alpha < high
+
+    report = _ablation(gammas=(0.0,), alphas=(alpha,), n_tasks=2000)
+    cell = _cell(report, 0.0, alpha)
+    naive = cell.naive
+    discounted = cell.discounted
+
+    assert cell.both_arms_can_certify is True
+    assert naive.wrong_certification_rate_per_candidate > alpha
+    assert naive.exceeds_alpha_per_candidate is True
+    assert discounted.wrong_certification_rate_per_candidate < alpha
+    assert discounted.exceeds_alpha_per_candidate is False
+    assert report.derived["independence_control"][0]["informative"] is True
 
 
 def test_correlated_panels_inflate_the_naive_wrong_certification_rate() -> None:
-    """The claim under test, across the preregistered seed set."""
+    """The claim under test, on the denominator nominal alpha bounds."""
     report = _ablation(gammas=(0.9,), n_tasks=2000, seeds=DEFAULT_SEEDS)
 
     for alpha in FACTORY_ALPHAS:
         cell = _cell(report, 0.9, alpha)
-        naive = cell.naive.wrong_certification_rate
-        discounted = cell.discounted.wrong_certification_rate
+        naive = cell.naive.wrong_certification_rate_per_candidate
+        discounted = cell.discounted.wrong_certification_rate_per_candidate
         assert naive is not None and discounted is not None
         assert naive > discounted
         assert naive > alpha
+        assert cell.naive.exceeds_alpha_per_candidate is True
 
 
 def test_wrong_certification_rate_rises_with_correlation() -> None:
-    """Monotone pressure, not a single lucky gamma.
+    """Monotone pressure, not a single lucky clone rate.
 
-    The rise is asserted only over the levels the design can separate. By
-    gamma=0.9 the panel is effectively one witness repeated, so gamma=0.9 and
-    gamma=0.99 saturate: their intervals overlap and no ordering is claimed.
+    On the per-candidate denominator the rise is strictly monotone across the
+    whole preregistered sweep, including the top two points. The apparent
+    saturation between clone rates 0.9 and 0.99 was an artifact of the per-task
+    denominator: a near-degenerate panel is more often unanimously silent, so
+    dividing by every task hides the last and largest step.
     """
     report = _ablation(gammas=DEFAULT_GAMMAS, alphas=(0.1,), n_tasks=2000)
     arms = [_cell(report, gamma, 0.1).naive for gamma in DEFAULT_GAMMAS]
-    rates = [arm.wrong_certification_rate for arm in arms]
+    per_candidate = [arm.wrong_certification_rate_per_candidate for arm in arms]
+    per_task = [arm.wrong_certification_rate_per_task for arm in arms]
 
-    assert all(rate is not None for rate in rates)
-    for lower, higher in zip(rates[:3], rates[1:4], strict=True):
+    assert all(rate is not None for rate in per_candidate)
+    for lower, higher in zip(per_candidate[:-1], per_candidate[1:], strict=True):
         assert lower < higher
 
-    saturated = arms[-2].wrong_certification_interval
-    extreme = arms[-1].wrong_certification_interval
+    saturated = arms[-2].wrong_certification_interval_per_task
+    extreme = arms[-1].wrong_certification_interval_per_task
     assert saturated is not None and extreme is not None
     assert saturated[0] <= extreme[1] and extreme[0] <= saturated[1]
+    assert per_task[-1] - per_task[-2] < per_candidate[-1] - per_candidate[-2]
+
+
+# --- objection 1: the denominator ------------------------------------------
+
+
+def test_wrong_certifications_are_divided_by_candidates_as_well_as_tasks() -> None:
+    """Objection 1, adjudicated: one numerator, two named denominators.
+
+    Nominal alpha bounds the error rate over the findings the gate judges, and
+    the gate only ever judges a finding some sample proposed. A per-task rate
+    counts silent panels in the denominator and is therefore diluted; both are
+    reported and both are named, so neither can be quoted as 'the rate'.
+    """
+    report = _ablation(gammas=(0.9,), alphas=(0.1,), n_tasks=2000)
+    arm = _cell(report, 0.9, 0.1).naive
+
+    assert arm.negative_candidate_tasks < arm.negative_tasks
+    assert arm.wrong_certification_rate_per_task == pytest.approx(
+        arm.wrong_certifications / arm.negative_tasks
+    )
+    assert arm.wrong_certification_rate_per_candidate == pytest.approx(
+        arm.wrong_certifications / arm.negative_candidate_tasks
+    )
+    assert (
+        arm.wrong_certification_rate_per_candidate > arm.wrong_certification_rate_per_task
+    )
+    assert arm.alpha_excess_per_candidate > arm.alpha_excess_per_task
+
+
+def test_the_per_task_denominator_dilutes_most_where_correlation_is_highest() -> None:
+    """Why the wrong denominator is not a harmless relabelling.
+
+    A cloned panel is more often unanimously silent, so the share of tasks that
+    ever produce a candidate falls as the clone rate rises. The dilution factor
+    therefore grows with exactly the quantity the ablation is measuring, and a
+    per-task comparison against alpha understates the effect it exists to show.
+    """
+    report = _ablation(gammas=DEFAULT_GAMMAS, alphas=(0.1,), n_tasks=2000)
+    arms = [_cell(report, gamma, 0.1).naive for gamma in DEFAULT_GAMMAS]
+    candidate_rates = [arm.negative_candidate_rate for arm in arms]
+    dilution = [
+        arm.wrong_certification_rate_per_candidate / arm.wrong_certification_rate_per_task
+        for arm in arms
+    ]
+
+    for higher, lower in zip(candidate_rates[:-1], candidate_rates[1:], strict=True):
+        assert higher > lower
+    for smaller, larger in zip(dilution[:-1], dilution[1:], strict=True):
+        assert smaller < larger
+    assert dilution[0] < 1.2 < dilution[-1]
+
+
+# --- objection 2: the arms are paired --------------------------------------
+
+
+def test_the_arms_are_nested_so_every_discordant_pair_runs_one_way() -> None:
+    """The structural fact that makes an independent-sample test wrong.
+
+    Both arms are applied to the same panel and depend on it only through the
+    vote count, and the naive product dominates the capped discount at every
+    count, so the discounted arm certifies a subset of what the naive arm
+    certifies. There is no draw in which the discount wrongly certifies and the
+    naive product does not.
+    """
+    report = _ablation(gammas=DEFAULT_GAMMAS, alphas=(0.1, shared_speech_alpha()))
+
+    for cell in report.cells:
+        assert cell.paired.arms_are_nested is True
+        assert cell.paired.discounted_only == 0
+        assert cell.paired.pairs == cell.naive.negative_candidate_tasks
+        assert cell.paired.pairs == cell.discounted.negative_candidate_tasks
+
+
+def test_paired_analysis_separates_the_arms_where_intervals_overlap() -> None:
+    """Objection 2, adjudicated: the check that exposes the wrong test.
+
+    At the shared-speech gate and a clone rate of 0.9 the two arms' independent
+    Wilson intervals overlap, which is what 'statistically indistinguishable'
+    was read from. The arms are paired and nested, so the correct analysis is
+    the discordant pairs — and they run one way in every draw, giving an exact
+    McNemar p-value far below any conventional threshold and a paired difference
+    interval that excludes zero.
+    """
+    alpha = shared_speech_alpha()
+    report = _ablation(gammas=(0.9,), alphas=(alpha,), n_tasks=2000, seeds=DEFAULT_SEEDS)
+    cell = _cell(report, 0.9, alpha)
+    paired = cell.paired
+
+    assert paired.intervals_overlap is True
+    assert paired.naive_only > 0 and paired.discounted_only == 0
+    assert paired.mcnemar_exact_p < 1e-6
+    assert paired.difference_per_candidate > 0.0
+    assert paired.difference_interval_per_candidate[0] > 0.0
+    assert cell.label in report.derived["paired_verdict_disagrees_with_interval_overlap"]
+
+
+def test_the_paired_difference_collapses_on_a_degenerate_panel() -> None:
+    """What actually vanishes at the top of the sweep: the size of the gap.
+
+    At a clone rate of 0.99 the panel is one witness repeated, almost no draw
+    lands between the two thresholds, and the discordant pairs nearly disappear.
+    The honest statement is that the discount's advantage shrinks to nothing —
+    not that the two arms were ever indistinguishable in a draw that separated
+    them.
+    """
+    alpha = shared_speech_alpha()
+    report = _ablation(
+        gammas=(0.9, 0.99), alphas=(alpha,), n_tasks=2000, seeds=DEFAULT_SEEDS
+    )
+    saturated = _cell(report, 0.9, alpha).paired
+    degenerate = _cell(report, 0.99, alpha).paired
+
+    assert degenerate.naive_only < saturated.naive_only
+    assert degenerate.difference_per_candidate < saturated.difference_per_candidate
+    assert degenerate.mcnemar_exact_p > saturated.mcnemar_exact_p
+
+
+def test_a_cell_with_no_discordant_pairs_reports_no_p_value() -> None:
+    """A test statistic over zero discordant pairs is unknown, never one.
+
+    At a gate loose enough that both thresholds land on the same vote count the
+    arms make identical decisions on every task. That is a property of the
+    lattice and the draw, not a finding of equivalence.
+    """
+    alpha = 0.4
+    report = _ablation(gammas=(0.0,), alphas=(alpha,), n_tasks=400)
+    cell = _cell(report, 0.0, alpha)
+    paired = cell.paired
+
+    assert cell.both_arms_can_certify is True
+    assert paired.pairs > 0
+    assert paired.naive_only == 0 and paired.discounted_only == 0
+    assert paired.mcnemar_exact_p is None
+    assert paired.difference_per_candidate == 0.0
+    assert cell.label not in report.derived["paired_separations"]
+
+
+# --- objection 4: the correlation axis -------------------------------------
+
+
+def test_the_clone_rate_is_not_the_pairwise_correlation() -> None:
+    """Objection 4, adjudicated by measurement rather than by argument.
+
+    Only vote one is cloned, so the panel is not exchangeable: a later vote is
+    correlated with vote one at the clone rate, but two later votes agree only
+    when both cloned vote one, at the square of it. The mean over pairs is
+    strictly below the nominal clone rate everywhere in (0, 1), so labelling the
+    sweep axis 'correlation' overstates it at every interior point.
+    """
+    accuracy = calibrated_vote_accuracy()
+    for gamma in (0.3, RHO, 0.9):
+        # theta is fixed, so every column correlation below is panel structure
+        # and not two votes agreeing because they saw the same ground truth.
+        fixed = simulate_panel(
+            gamma=gamma,
+            theta_prior=0.0,
+            judge_accuracy=accuracy,
+            k=5,
+            n_tasks=200000,
+            seed=101,
+        )
+        columns = np.corrcoef(fixed.ballots.astype(float), rowvar=False)
+        with_first = float(np.mean([columns[0, j] for j in range(1, 5)]))
+        among_rest = float(
+            np.mean([columns[i, j] for i in range(1, 5) for j in range(i + 1, 5)])
+        )
+        analytic = mean_pairwise_correlation(k=5, gamma=gamma)
+
+        assert with_first == pytest.approx(gamma, abs=0.01)
+        assert among_rest == pytest.approx(gamma * gamma, abs=0.01)
+        assert with_first > among_rest
+        assert analytic < gamma
+        assert measured_pairwise_correlation(fixed) == pytest.approx(analytic, abs=0.01)
+
+        # The same measurement on a mixed-truth stream, where the shared theta
+        # has to be partialled out before any of that is visible.
+        mixed = simulate_panel(
+            gamma=gamma,
+            theta_prior=0.5,
+            judge_accuracy=accuracy,
+            k=5,
+            n_tasks=200000,
+            seed=101,
+        )
+        raw = np.corrcoef(mixed.ballots.astype(float), rowvar=False)
+        raw_mean = float(
+            np.mean([raw[i, j] for i in range(5) for j in range(i + 1, 5)])
+        )
+        assert measured_pairwise_correlation(mixed) == pytest.approx(analytic, abs=0.01)
+        assert raw_mean > analytic
+
+
+def test_the_reported_correlation_axis_is_the_measured_one() -> None:
+    """Each cell carries the correlation it truly generates, not its nominal."""
+    report = _ablation(gammas=DEFAULT_GAMMAS, alphas=(0.1,), n_tasks=2000)
+
+    for gamma in DEFAULT_GAMMAS:
+        cell = _cell(report, gamma, 0.1)
+        assert cell.clone_rate == gamma
+        assert cell.mean_pairwise_correlation == mean_pairwise_correlation(
+            k=5, gamma=gamma
+        )
+        assert cell.measured_pairwise_correlation == pytest.approx(
+            cell.mean_pairwise_correlation, abs=0.02
+        )
+        if 0.0 < gamma < 1.0:
+            assert cell.mean_pairwise_correlation < gamma
+
+    matching = report.derived["clone_rate_matching_rho"]
+    assert matching > RHO
+    assert mean_pairwise_correlation(k=5, gamma=matching) == pytest.approx(RHO)
+
+
+def test_clone_rate_and_correlation_invert_each_other() -> None:
+    """The relabelling has to be reversible or it is not a relabelling."""
+    for k in (2, 3, 5, 8):
+        for correlation in (0.0, 0.25, RHO, 0.9, 1.0):
+            rate = clone_rate_for_pairwise_correlation(k=k, correlation=correlation)
+            assert 0.0 <= rate <= 1.0
+            assert mean_pairwise_correlation(k=k, gamma=rate) == pytest.approx(
+                correlation
+            )
+
+    assert mean_pairwise_correlation(k=1, gamma=0.5) is None
+    assert clone_rate_for_pairwise_correlation(k=1, correlation=0.5) is None
+
+
+def test_no_clone_rate_makes_the_production_schedule_exact() -> None:
+    """The second half of objection 4: 'the one level where D-007's assumption
+    is literally true' does not exist at any correlation.
+
+    The schedule is monotone non-decreasing in the vote count by construction.
+    The exact vote-count likelihood ratio is not, once the panel is correlated:
+    a middling count is evidence *against* a clone panel, which is nearly
+    unanimous either way. Scanning the whole clone-rate axis, the best
+    achievable worst-case disagreement is still large.
+    """
+    accuracy = calibrated_vote_accuracy()
+    mismatch = schedule_oracle_mismatch(k=5, judge_accuracy=accuracy)
+
+    assert mismatch["schedule_is_monotone"] is True
+    assert mismatch["oracle_is_monotone_at_best_clone_rate"] is False
+    assert mismatch["max_ratio"] > 2.0
+
+    exact = oracle_panel_lr(k=5, judge_accuracy=accuracy, gamma=RHO)
+    assert any(exact[votes] < exact[votes - 1] for votes in range(2, 6))
+    assert any(
+        abs(math.log(exact[votes] / VOTE_LR[votes])) > 0.5 for votes in range(1, 6)
+    )
 
 
 def test_discounted_arm_never_certifies_on_votes_alone_at_factory_alpha() -> None:
@@ -250,13 +548,14 @@ def test_loosened_gate_shows_the_discount_is_not_vacuously_silent() -> None:
     """Inside the derived window the discounted arm speaks, so the comparison
     is a real one rather than 'the safe arm never says anything'."""
     low, high = discount_speech_window()
-    alpha = 0.5 * (low + high)
+    alpha = shared_speech_alpha()
     report = _ablation(gammas=(0.9,), alphas=(alpha,), n_tasks=2000)
     cell = _cell(report, 0.9, alpha)
 
     assert low == pytest.approx(1.0 / S_CAP)
     assert high == pytest.approx(1.0 / VOTE_LR[2])
-    assert cell.discounted_can_certify is True
+    assert alpha == pytest.approx((low + high) / 2)
+    assert cell.both_arms_can_certify is True
     assert cell.discounted.certifications > 0
     assert cell.naive.certifications > cell.discounted.certifications
 
@@ -276,20 +575,31 @@ def test_every_configuration_and_seed_is_reported() -> None:
                 arm.wrong_certifications
             )
             assert sum(row.certifications for row in arm.per_seed) == arm.certifications
+            assert sum(row.negative_tasks for row in arm.per_seed) == arm.negative_tasks
+            assert sum(row.negative_candidate_tasks for row in arm.per_seed) == (
+                arm.negative_candidate_tasks
+            )
         assert cell.naive.aggregator == NAIVE_ARM
         assert cell.discounted.aggregator == DISCOUNTED_ARM
 
 
 def test_wilson_intervals_are_present_and_finite() -> None:
-    """Uncertainty must travel with every reported rate."""
+    """Uncertainty must travel with every reported rate, on both denominators."""
     report = _ablation(gammas=(0.9,), alphas=(0.1,), n_tasks=1000)
     naive = _cell(report, 0.9, 0.1).naive
-    interval = naive.wrong_certification_interval
+    pairs = (
+        (naive.wrong_certification_rate_per_task, naive.wrong_certification_interval_per_task),
+        (
+            naive.wrong_certification_rate_per_candidate,
+            naive.wrong_certification_interval_per_candidate,
+        ),
+    )
 
-    assert interval is not None
-    low, high = interval
-    assert math.isfinite(low) and math.isfinite(high)
-    assert 0.0 <= low <= naive.wrong_certification_rate <= high <= 1.0
+    for rate, interval in pairs:
+        assert interval is not None
+        low, high = interval
+        assert math.isfinite(low) and math.isfinite(high)
+        assert 0.0 <= low <= rate <= high <= 1.0
 
 
 def test_empty_denominators_report_none_rather_than_zero() -> None:
@@ -298,8 +608,13 @@ def test_empty_denominators_report_none_rather_than_zero() -> None:
     naive = _cell(report, 0.9, 0.1).naive
 
     assert naive.negative_tasks == 0
-    assert naive.wrong_certification_rate is None
-    assert naive.wrong_certification_interval is None
+    assert naive.negative_candidate_tasks == 0
+    assert naive.wrong_certification_rate_per_task is None
+    assert naive.wrong_certification_interval_per_task is None
+    assert naive.wrong_certification_rate_per_candidate is None
+    assert naive.wrong_certification_interval_per_candidate is None
+    assert naive.alpha_excess_per_candidate is None
+    assert naive.exceeds_alpha_per_candidate is False
 
     silent = _ablation(gammas=(0.9,), alphas=(0.1,), n_tasks=200).cells[0].discounted
     assert silent.certifications == 0
@@ -317,6 +632,9 @@ def test_report_declares_synthetic_data_and_recommendation_only_status() -> None
     assert report.offline is True
     assert "synthetic" in notes
     assert "500" in notes
+    assert "per_candidate" in notes
+    assert "Overlapping independent Wilson intervals are NOT" in notes
+    assert "clone_rate_is_not_correlation" in notes
     assert payload["constants"] == {
         "lr1": LR1,
         "rho": RHO,
@@ -324,6 +642,11 @@ def test_report_declares_synthetic_data_and_recommendation_only_status() -> None
         "vote_lr": list(VOTE_LR),
     }
     assert payload["status"] == report.status
+    assert payload["config"]["gammas_are_clone_rates"] is True
+    assert payload["cells"][0]["clone_rate"] == report.cells[0].clone_rate
+    assert "mean_pairwise_correlation" in payload["cells"][0]
+    assert "paired" in payload["cells"][0]
+    assert "gamma" not in payload["cells"][0]
 
 
 @pytest.mark.parametrize(
@@ -341,6 +664,7 @@ def test_report_declares_synthetic_data_and_recommendation_only_status() -> None
         {"n_tasks": 0},
         {"theta_prior": 1.5},
         {"judge_accuracy": 0.0},
+        {"paired_resamples": 0},
     ],
 )
 def test_invalid_configuration_is_rejected(override: dict[str, Any]) -> None:

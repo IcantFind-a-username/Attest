@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from attest.benchmark.corpus import ValidationReceipt
 from attest.benchmark.report import (
     LIVE_MODE,
     REPLAY_MODE,
+    ReportAbstention,
     ReportExclusion,
     build_report,
     render_markdown,
@@ -30,6 +32,16 @@ CONTROL_CASE = "case-bbbbbbbbbbbb"
 UNRUN_CASE = "case-cccccccccccc"
 UNRUN_CONTROL = "case-dddddddddddd"
 MANIFEST_SHA = "e" * 64
+
+
+def _receipt(manifest_sha256: str = MANIFEST_SHA) -> ValidationReceipt:
+    """A receipt bound to one manifest digest, as the corpus validator issues it."""
+    return ValidationReceipt(
+        schema_version="1",
+        manifest_sha256=manifest_sha256,
+        validated_pair_ids=("pair-111111111111", "pair-222222222222"),
+        validation_results_sha256="a" * 64,
+    )
 
 
 def _case(case_id: str, pair_id: str, role: str) -> BenchmarkCase:
@@ -129,17 +141,28 @@ def _runs() -> tuple[RunRecord, ...]:
     )
 
 
-def _report(mode: str = REPLAY_MODE):
+_VALID_RECEIPT = _receipt()
+
+
+def _report(
+    mode: str = REPLAY_MODE,
+    *,
+    validation_receipt: ValidationReceipt | None = _VALID_RECEIPT,
+    runs: tuple[RunRecord, ...] | None = None,
+    abstentions: tuple[ReportAbstention, ...] = (),
+):
     return build_report(
         _manifest(),
-        _runs(),
+        _runs() if runs is None else runs,
         mode=mode,
         manifest_sha256=MANIFEST_SHA,
         exclusions=(
             ReportExclusion(UNRUN_CASE, "prepared_environment_required"),
             ReportExclusion(UNRUN_CONTROL, "prepared_environment_required"),
         ),
+        abstentions=abstentions,
         differential_repeats=3,
+        validation_receipt=validation_receipt,
     )
 
 
@@ -210,6 +233,111 @@ def test_report_states_provenance_repeats_and_exclusions() -> None:
     assert report.repeats == 2
     assert report.differential_repeats == 3
     assert "differential repeats per side: 3" in markdown
+
+
+def test_report_withholds_accuracy_without_a_receipt_but_still_reports_operations() -> None:
+    """D-019 makes the receipt the thing that authorises scoring at all.
+
+    Latency, spend, and counts claim no correctness, so they survive the
+    refusal; precision and recall do not.
+    """
+    report = _report(validation_receipt=None)
+    payload = report.to_json_dict()
+
+    assert report.metrics is None
+    assert payload["metrics"] is None
+    assert report.metrics_withheld_reason == "validation_receipt_missing"
+    assert payload["metrics_withheld_reason"] == "validation_receipt_missing"
+    operational = payload["operational"]
+    assert operational["delivery_rate"] == 1.0
+    assert operational["delivery_p50_s"] == 9.0
+    assert operational["deadline_censored"] == 0
+    assert operational["decided_cases"] == 2
+    assert report.evaluated_cases == 2
+    limitations = " ".join(report.limitations)
+    assert "validation receipt" in limitations
+    assert "D-019" in limitations
+    markdown = render_markdown(report)
+    assert "validation receipt" in markdown
+    assert "delivery_rate" in markdown
+
+
+def test_report_withholds_accuracy_for_a_receipt_bound_to_another_manifest() -> None:
+    """A receipt earned by a different corpus authorises nothing here."""
+    report = _report(validation_receipt=_receipt("b" * 64))
+
+    assert report.metrics is None
+    assert report.metrics_withheld_reason == "validation_receipt_manifest_mismatch"
+    assert "validation receipt" in " ".join(report.limitations)
+
+
+def test_report_publishes_accuracy_for_a_receipt_bound_to_this_manifest() -> None:
+    """The gate is authorisation, not a blanket refusal that can never pass."""
+    report = _report()
+
+    assert report.metrics is not None
+    assert report.metrics_withheld_reason is None
+    assert report.to_json_dict()["metrics"]["true_positives"] == 1
+    assert report.to_json_dict()["operational"]["decided_cases"] == 2
+
+
+def test_report_surfaces_abstentions_with_counts_and_reasons() -> None:
+    """A run attest could not decide is an abstention, never earned silence."""
+    report = _report(
+        runs=(_runs()[0], _runs()[2]),
+        abstentions=(ReportAbstention(CONTROL_CASE, "budget: exhausted before review"),),
+    )
+    payload = report.to_json_dict()
+
+    assert [
+        (abstention.case_id, abstention.reason)
+        for abstention in report.abstained_cases
+    ] == [(CONTROL_CASE, "budget: exhausted before review")]
+    assert payload["abstained_cases"] == [
+        {"case_id": CONTROL_CASE, "reason": "budget: exhausted before review"}
+    ]
+    assert payload["operational"]["abstained_cases"] == 1
+    assert report.metrics is not None
+    assert report.metrics.true_negatives == 0
+    assert report.metrics.specificity is None
+    assert report.metrics.decided_cases == 1
+    limitations = " ".join(report.limitations)
+    assert "abstention" in limitations
+    markdown = render_markdown(report)
+    assert "## Abstentions" in markdown
+    assert f"| `{CONTROL_CASE}` | budget: exhausted before review |" in markdown
+
+
+def test_report_surfaces_an_inconclusive_oracle_exclusion_with_its_reason() -> None:
+    """An undecided oracle removes the case from scoring and says so in both reports."""
+    undecided = RunRecord(
+        run_id="run-1",
+        case_id=REPLAY_CASE,
+        repeat=0,
+        predictions=(
+            _prediction(
+                "f-undecided",
+                2,
+                repro_status="deferred",
+                evidence_class="indeterminate",
+            ),
+        ),
+        delivery_at_s=12.0,
+        deadline_s=60.0,
+    )
+    report = _report(runs=(undecided, _runs()[1]))
+    payload = report.to_json_dict()
+
+    assert report.metrics is not None
+    assert (report.metrics.false_negatives, report.metrics.finding_false_positives) == (0, 0)
+    assert report.metrics.decided_cases == 1
+    assert {
+        (exclusion["case_id"], exclusion["reason"])
+        for exclusion in payload["excluded_cases"]
+    } >= {(REPLAY_CASE, "oracle_inconclusive")}
+    assert payload["operational"]["excluded_cases"] == 3
+    assert "oracle_inconclusive" in render_markdown(report)
+    assert "oracle_inconclusive" in " ".join(report.limitations)
 
 
 def test_report_without_runs_reports_no_metrics_rather_than_zeros() -> None:

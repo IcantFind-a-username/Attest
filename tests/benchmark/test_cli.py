@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -306,10 +307,38 @@ def test_replay_without_prepared_root_excludes_each_case_and_stays_offline(
     ).read_bytes()
 
 
-def test_replay_with_a_prepared_root_runs_the_real_product_path(tmp_path: Path) -> None:
-    """A prepared checkout plus a cassette replays the whole product path offline."""
-    from attest.benchmark.artifacts import verify_artifacts
+def _receipt_artifacts(tmp_path: Path, manifest: Path) -> tuple[Path, Path]:
+    """A validation receipt and results bound to this exact manifest's bytes."""
+    document = json.loads(manifest.read_text(encoding="utf-8"))
+    pair_ids = sorted({case["pair_id"] for case in document["cases"]})
+    manifest_sha256 = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    results = {
+        "schema_version": "1",
+        "manifest_sha256": manifest_sha256,
+        "results": [{"pair_id": pair_id, "status": "validated"} for pair_id in pair_ids],
+    }
+    results_bytes = (
+        json.dumps(results, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode()
+    receipt = {
+        "schema_version": "1",
+        "manifest_sha256": manifest_sha256,
+        "validated_pair_ids": pair_ids,
+        "validation_results_sha256": hashlib.sha256(results_bytes).hexdigest(),
+    }
+    receipt_path = tmp_path / "validation-receipt.json"
+    results_path = tmp_path / "validation-results.json"
+    results_path.write_bytes(results_bytes)
+    receipt_path.write_bytes(
+        (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    )
+    return receipt_path, results_path
 
+
+def _replay_fixture(tmp_path: Path, *, control_proposal: str | None = None) -> tuple[
+    Path, Path, Path, str, str
+]:
+    """Manifest, prepared root, cassettes, and both opaque case ids."""
     manifest, root, _ = _oracle_fixture(tmp_path)
     document = json.loads(manifest.read_text(encoding="utf-8"))
     replay_id = next(
@@ -347,8 +376,24 @@ def test_replay_with_a_prepared_root_runs_the_real_product_path(tmp_path: Path) 
         ),
     )
     _cassette(
-        cassettes, control_id, json.dumps({"findings": []}), json.dumps({"test_body": ""})
+        cassettes,
+        control_id,
+        json.dumps({"findings": []}) if control_proposal is None else control_proposal,
+        json.dumps({"test_body": ""}),
     )
+    return manifest, root, cassettes, replay_id, control_id
+
+
+def test_replay_with_a_prepared_root_runs_the_real_product_path(tmp_path: Path) -> None:
+    """A prepared checkout plus a cassette replays the whole product path offline.
+
+    The corpus has no manifest-bound validation receipt yet, so the same run
+    that measures latency and spend must refuse to publish accuracy (D-019),
+    and must say which authorisation is missing.
+    """
+    from attest.benchmark.artifacts import verify_artifacts
+
+    manifest, root, cassettes, _, _ = _replay_fixture(tmp_path)
     environment = dict(os.environ)
     environment["ANTHROPIC_API_KEY"] = "must-not-be-used"
     output = tmp_path / "out"
@@ -375,11 +420,114 @@ def test_replay_with_a_prepared_root_runs_the_real_product_path(tmp_path: Path) 
     assert summary["status"] == "ok"
     assert summary["offline"] is True
     assert summary["evaluated_cases"] == 2
+    assert summary["metrics_status"] == "withheld"
     report = json.loads((output / "report.json").read_text(encoding="utf-8"))
     assert report["mode"] == "replay"
-    assert report["metrics"]["true_positives"] == 1
-    assert report["metrics"]["true_negatives"] == 1
-    assert report["metrics"]["finding_false_positives"] == 0
+    assert report["metrics"] is None
+    assert report["metrics_withheld_reason"] == "validation_receipt_missing"
+    assert report["operational"]["decided_cases"] == 2
+    assert report["operational"]["delivery_rate"] is not None
+    assert report["operational"]["abstained_cases"] == 0
+    assert "validation receipt" in " ".join(report["limitations"])
     assert report["evidence_class_counts"] == {"regression_reproduced": 1}
     assert "replay regression" in " ".join(report["limitations"])
     assert len(verify_artifacts(output / "artifacts")) > 0
+
+
+def test_replay_scores_only_when_a_receipt_for_this_manifest_authorises_it(
+    tmp_path: Path,
+) -> None:
+    """The gate authorises; it is not a refusal that can never be satisfied."""
+    manifest, root, cassettes, _, _ = _replay_fixture(tmp_path)
+    receipt, results = _receipt_artifacts(tmp_path, manifest)
+    environment = dict(os.environ)
+    environment["ANTHROPIC_API_KEY"] = "must-not-be-used"
+    output = tmp_path / "out-receipted"
+
+    completed = _run(
+        "replay",
+        "--manifest",
+        str(manifest),
+        "--cassette-root",
+        str(cassettes),
+        "--root",
+        str(root),
+        "--output",
+        str(output),
+        "--validation-receipt",
+        str(receipt),
+        "--validation-results",
+        str(results),
+        "--k-samples",
+        "2",
+        "--repeats",
+        "1",
+        env=environment,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout)["metrics_status"] == "reported"
+    report = json.loads((output / "report.json").read_text(encoding="utf-8"))
+    assert report["metrics_withheld_reason"] is None
+    assert report["metrics"]["true_positives"] == 1
+    assert report["metrics"]["true_negatives"] == 1
+    assert report["metrics"]["finding_false_positives"] == 0
+    assert report["operational"]["decided_cases"] == 2
+
+
+def test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence(
+    tmp_path: Path,
+) -> None:
+    """A case the tool could not decide is not a case it correctly stayed silent on.
+
+    Counting the deferral as a true negative would inflate specificity with a
+    case the tool never judged.
+    """
+    manifest, root, cassettes, _, control_id = _replay_fixture(
+        tmp_path, control_proposal="not-json-at-all"
+    )
+    receipt, results = _receipt_artifacts(tmp_path, manifest)
+    environment = dict(os.environ)
+    environment["ANTHROPIC_API_KEY"] = "must-not-be-used"
+    output = tmp_path / "out-deferred"
+
+    completed = _run(
+        "replay",
+        "--manifest",
+        str(manifest),
+        "--cassette-root",
+        str(cassettes),
+        "--root",
+        str(root),
+        "--output",
+        str(output),
+        "--validation-receipt",
+        str(receipt),
+        "--validation-results",
+        str(results),
+        "--k-samples",
+        "2",
+        "--repeats",
+        "1",
+        env=environment,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    summary = json.loads(completed.stdout)
+    assert summary["evaluated_cases"] == 1
+    assert summary["abstained_cases"] == 1
+    report = json.loads((output / "report.json").read_text(encoding="utf-8"))
+    assert [row["case_id"] for row in report["abstained_cases"]] == [control_id]
+    assert report["abstained_cases"][0]["reason"]
+    assert control_id not in {row["case_id"] for row in report["excluded_cases"]}
+    assert report["metrics"]["true_negatives"] == 0
+    assert report["metrics"]["false_positives"] == 0
+    assert report["metrics"]["specificity"] is None
+    assert report["metrics"]["clean_false_positive_rate"] is None
+    assert report["metrics"]["true_positives"] == 1
+    assert report["operational"]["decided_cases"] == 1
+    assert report["operational"]["abstained_cases"] == 1
+    markdown = (output / "report.md").read_text(encoding="utf-8")
+    assert "## Abstentions" in markdown
+    assert f"| `{control_id}` |" in markdown
+    assert "abstention" in " ".join(report["limitations"])

@@ -60,6 +60,7 @@ def _prediction(
     *,
     placement: Placement = Placement.INLINE,
     action: str = "drawer",
+    repro_status: str = "buggy_fail_fixed_pass",
 ) -> Prediction:
     return Prediction(
         finding_id=finding_id,
@@ -68,7 +69,7 @@ def _prediction(
         line=line,
         placement=placement,
         action=action,
-        repro_status="buggy_fail_fixed_pass",
+        repro_status=repro_status,
     )
 
 
@@ -154,6 +155,54 @@ def test_aggregate_scores_paired_roles_and_finding_outcomes_and_delivery() -> No
     assert report.delivery_rate == 0.75
     assert report.deadline_censored == 1
     assert (report.delivery_p50_s, report.delivery_p95_s) == (3.0, 5.0)
+
+
+def test_aggregate_excludes_a_case_whose_oracle_could_not_decide() -> None:
+    """An inconclusive oracle leaves no usable ground truth for that case.
+
+    Counting it costs the product twice for one undecided oracle: the surfaced
+    finding becomes a finding false positive and the case becomes a false
+    negative, so the same missing evidence is charged in both directions.
+    """
+    replay_1, control_1 = _pair(1)
+    replay_2, control_2 = _pair(2)
+    cases = (replay_1, control_1, replay_2, control_2)
+    truth = (
+        TruthDefect("truth_001", replay_1.case_id, "src/app.py", 10, 10),
+        TruthDefect("truth_002", replay_2.case_id, "src/app.py", 10, 10),
+    )
+    runs = (
+        _run("run_001", replay_1.case_id, (_prediction("finding_001", replay_1.case_id, 10),), 3.0),
+        _run("run_002", control_1.case_id, (), 2.0),
+        _run(
+            "run_003",
+            replay_2.case_id,
+            (
+                _prediction(
+                    "finding_003", replay_2.case_id, 10, repro_status="deferred"
+                ),
+            ),
+            4.0,
+        ),
+        _run("run_004", control_2.case_id, (), 5.0),
+    )
+
+    report = aggregate(cases, truth, runs)
+
+    assert [
+        (exclusion.case_id, exclusion.reason) for exclusion in report.excluded_cases
+    ] == [(replay_2.case_id, "oracle_inconclusive")]
+    assert (
+        report.true_positives,
+        report.false_positives,
+        report.false_negatives,
+        report.true_negatives,
+    ) == (1, 0, 0, 2)
+    assert (report.finding_true_positives, report.finding_false_positives) == (1, 0)
+    assert report.decided_cases == 3
+    assert report.all_positive_detection == 1.0
+    assert report.all_positive_detection_interval == wilson_interval(1, 1)
+    assert report.delivery_rate == 1.0
 
 
 def test_aggregate_requires_truth_for_replay_and_rejects_truth_for_control() -> None:

@@ -15,6 +15,22 @@ from attest.benchmark.schema import (
     is_scored_placement,
 )
 
+#: Oracle reproduction statuses that record an oracle which could not decide.
+#: The differential oracle is the only source of ground truth for a surfaced
+#: finding, so a case resting on one of these has no truth to be scored
+#: against: it is excluded, never charged to the product as a false positive
+#: and a false negative at once.
+INCONCLUSIVE_REPRO_STATUSES = frozenset({"deferred"})
+ORACLE_INCONCLUSIVE_REASON = "oracle_inconclusive"
+
+
+@dataclass(frozen=True)
+class MetricExclusion:
+    """One case removed from every accuracy denominator, with its reason."""
+
+    case_id: str
+    reason: str
+
 
 @dataclass(frozen=True)
 class BenchmarkReport:
@@ -24,6 +40,8 @@ class BenchmarkReport:
     false_positives: int
     false_negatives: int
     true_negatives: int
+    decided_cases: int
+    excluded_cases: tuple[MetricExclusion, ...]
     finding_true_positives: int
     finding_false_positives: int
     clean_false_positive_rate: float | None
@@ -66,7 +84,13 @@ def aggregate(
     *,
     line_slack: int = 0,
 ) -> BenchmarkReport:
-    """Score only fixed repeat zero so correlated repeats never enlarge denominators."""
+    """Score only fixed repeat zero so correlated repeats never enlarge denominators.
+
+    A case whose surfaced evidence carries an inconclusive oracle status is
+    recorded in ``excluded_cases`` and left out of every accuracy numerator and
+    denominator. Its delivery timing and silence are still measured: those are
+    observations of the run, not claims about correctness.
+    """
     _validate_inputs(cases, truth_defects, runs)
     primary_runs = tuple(run for run in runs if run.repeat == 0)
     truths_by_case: dict[str, tuple[TruthDefect, ...]] = {}
@@ -78,6 +102,7 @@ def aggregate(
     abstentions = deadline_censored = timely_deliveries = 0
     delivered_times: list[float] = []
     surfaced_positive_cases = 0
+    excluded: list[MetricExclusion] = []
 
     for run in primary_runs:
         truths = truths_by_case.get(run.case_id, ())
@@ -89,11 +114,23 @@ def aggregate(
         )
         if not surfaced:
             abstentions += 1
+        duplicate_surfaces += _duplicate_count(surfaced)
+
+        delivery_at_s = run.delivery_at_s
+        if delivery_at_s is not None and delivery_at_s <= run.deadline_s:
+            timely_deliveries += 1
+            delivered_times.append(delivery_at_s)
+        else:
+            deadline_censored += 1
+
+        if _oracle_inconclusive(surfaced):
+            excluded.append(MetricExclusion(run.case_id, ORACLE_INCONCLUSIVE_REASON))
+            continue
+
         matches = match_findings(truths, run.predictions, line_slack=line_slack)
         matched_count = sum(result.matched for result in matches)
         finding_true_positives += matched_count
         finding_false_positives += len(matches) - matched_count
-        duplicate_surfaces += _duplicate_count(surfaced)
 
         if case.role == "historical_bug_replay":
             if surfaced:
@@ -107,13 +144,6 @@ def aggregate(
         else:
             true_negatives += 1
 
-        delivery_at_s = run.delivery_at_s
-        if delivery_at_s is not None and delivery_at_s <= run.deadline_s:
-            timely_deliveries += 1
-            delivered_times.append(delivery_at_s)
-        else:
-            deadline_censored += 1
-
     clean_total = false_positives + true_negatives
     positive_total = true_positives + false_negatives
     finding_total = finding_true_positives + finding_false_positives
@@ -122,6 +152,8 @@ def aggregate(
         false_positives=false_positives,
         false_negatives=false_negatives,
         true_negatives=true_negatives,
+        decided_cases=clean_total + positive_total,
+        excluded_cases=tuple(excluded),
         finding_true_positives=finding_true_positives,
         finding_false_positives=finding_false_positives,
         clean_false_positive_rate=_ratio(false_positives, clean_total),
@@ -175,6 +207,13 @@ def _validate_inputs(
     missing = case_ids - primary_case_ids
     if missing:
         raise ValueError("missing repeat 0 record for case_id")
+
+
+def _oracle_inconclusive(surfaced: tuple[Prediction, ...]) -> bool:
+    """Whether the oracle failed to decide the evidence this case rests on."""
+    return any(
+        prediction.repro_status in INCONCLUSIVE_REPRO_STATUSES for prediction in surfaced
+    )
 
 
 def _duplicate_count(predictions: tuple[Prediction, ...]) -> int:
