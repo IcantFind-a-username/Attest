@@ -1,11 +1,14 @@
 import pytest
 
 from attest.review.budget import Budget, BudgetExceeded
+from attest.review.config import load_pricing
 from attest.review.ledger import Ledger
+
+DEFAULT_MODEL = str(load_pricing()["default_model"])
 
 
 def test_budget_estimate_and_reserve_settle() -> None:
-    b = Budget(limit_usd=0.25, model="claude-sonnet-5")
+    b = Budget(limit_usd=0.25, model=DEFAULT_MODEL)
     # 3000 chars -> 1000 tokens in at $2/M plus 2000 out at $10/M
     est = b.estimate_cost(3000, 2000)
     assert est == pytest.approx(1000 * 2e-6 + 2000 * 10e-6)
@@ -19,14 +22,14 @@ def test_budget_estimate_and_reserve_settle() -> None:
 
 
 def test_budget_defers_before_calling() -> None:
-    b = Budget(limit_usd=0.01, model="claude-sonnet-5")
+    b = Budget(limit_usd=0.01, model=DEFAULT_MODEL)
     with pytest.raises(BudgetExceeded) as exc:
         b.reserve("big", 300000, 2000)
     assert "exceeds budget" in exc.value.reason
 
 
 def test_budget_cancel_releases_reservation() -> None:
-    b = Budget(limit_usd=0.25, model="claude-sonnet-5")
+    b = Budget(limit_usd=0.25, model=DEFAULT_MODEL)
     r = b.reserve("s0", 3000, 2000)
     b.cancel(r)
     assert b.reserved_usd == 0.0

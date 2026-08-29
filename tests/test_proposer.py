@@ -3,9 +3,11 @@ from typing import Any
 import pytest
 
 from attest.review.budget import Budget
-from attest.review.config import ReviewConfig
+from attest.review.config import ReviewConfig, load_pricing
 from attest.review.diffs import parse_diff
 from attest.review.proposer import MockProvider, ProviderResult, build_prompt, propose
+
+DEFAULT_MODEL = str(load_pricing()["default_model"])
 
 DIFF = parse_diff(
     """\
@@ -33,7 +35,7 @@ class GarbageProvider:
 
 def test_provider_errors_cancel_reservations() -> None:
     cfg = ReviewConfig(k_samples=3)
-    budget = Budget(limit_usd=0.25, model="claude-sonnet-5")
+    budget = Budget(limit_usd=0.25, model=DEFAULT_MODEL)
     run = propose(DIFF, cfg, budget, ExplodingProvider())
     assert run.candidates == []
     assert len(run.sample_errors) == 3
@@ -44,7 +46,7 @@ def test_provider_errors_cancel_reservations() -> None:
 
 def test_unparseable_json_is_a_sample_error_but_spend_settles() -> None:
     cfg = ReviewConfig(k_samples=2)
-    budget = Budget(limit_usd=0.25, model="claude-sonnet-5")
+    budget = Budget(limit_usd=0.25, model=DEFAULT_MODEL)
     run = propose(DIFF, cfg, budget, GarbageProvider())
     assert run.candidates == []
     assert len(run.sample_errors) == 2
@@ -54,7 +56,7 @@ def test_unparseable_json_is_a_sample_error_but_spend_settles() -> None:
 
 def test_non_list_findings_tolerated() -> None:
     cfg = ReviewConfig(k_samples=1)
-    budget = Budget(limit_usd=0.25, model="claude-sonnet-5")
+    budget = Budget(limit_usd=0.25, model=DEFAULT_MODEL)
     run = propose(DIFF, cfg, budget, MockProvider(['{"findings": "nope"}']))
     assert run.candidates == []
     assert run.sample_errors == []

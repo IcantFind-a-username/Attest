@@ -12,9 +12,22 @@ confidence scores.
 
 ## Status
 
-- Phase 0 — `attest.core` betting engine library: in progress
-- Phase 1 — `attest review` CLI: pending
-- Phase 2 — dogfood: pending
+- Phase 0 — `attest.core` betting engine library: done (independently reviewed; regression-pinned to the seed experiment record)
+- Phase 1 — `attest review` CLI: done (independently reviewed)
+- Phase 2 — dogfood: done on 3 repos (5 verified findings surfaced, 2 negative controls silent, oversized diff budget-deferred); live-API path pending an ANTHROPIC_API_KEY
+
+## Usage
+
+```
+attest review [--base REF] [--alpha X] [--budget USD] [--k N]   # review the diff
+attest verify <finding-id> --reproduced|--not-reproduced        # record a reproduction attempt
+attest feedback <finding-id> --fix|--good|--dismiss             # label a finding
+attest stats                                                     # ledger summary
+```
+
+BYOK: set ANTHROPIC_API_KEY (resolved through the SDK's standard credential
+chain). Per-repo configuration lives in `.attest.toml`; the local evidence
+ledger in `.attest/` (gitignored).
 
 Local development only; not published.
 
