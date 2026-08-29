@@ -18,6 +18,7 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-08-30 | new-code discriminator live check: differential run classified new_code_candidate | $0.0035 |
 | 2026-08-30 | differential-V null-rate measurement, 12 clean-refactor trials (0 false confirmations) | $0.0446 |
 | 2026-08-30 | differential-V null-rate measurement, 40 clean-refactor trials (0 false confirmations) | $0.1510 |
+| 2026-08-30 | dogfood on a real third-party project: 617 added lines, 0 candidates, 20.4s | $0.2352 |
 | 2026-08-29 | phase-3 acceptance run 33267601438 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0242 |
 | 2026-08-29 | phase-3 acceptance run 33267602736 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0115 |
 | 2026-08-29 | phase-3 acceptance run 33268274146 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182623-6ffc59) | $0.0230 |
@@ -27,7 +28,7 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-08-29 | phase-3 acceptance run 33268347262 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0132 |
 | 2026-08-29 | phase-3 acceptance run 33268350447 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0272 |
 
-**Total API spend: $0.5883 of $10.00.** (20 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $0.8235 of $10.00.** (21 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 
