@@ -307,7 +307,7 @@ def test_fork_is_skipped_before_provider_or_executor_use(
         provider,
     )
 
-    assert result.task_id is None
+    assert result.task_id is not None
     assert result.deferred_reason is not None
     assert "fork" in result.deferred_reason.lower()
     assert provider.calls == []
@@ -315,6 +315,8 @@ def test_fork_is_skipped_before_provider_or_executor_use(
     assert len(github_server.status_bodies) == 1
     assert "DEFER" in github_server.status_bodies[0]
     assert "fork" in github_server.status_bodies[0].lower()
+    comment = next(row for row in _ledger_rows(repo) if row["kind"] == "github_comment")
+    assert comment["task_id"] == result.task_id
 
 
 def test_review_budget_defer_is_explicit_and_does_not_verify(
@@ -415,6 +417,56 @@ def test_expired_shared_deadline_defers_every_unprocessed_candidate_without_v(
     )
 
 
+def test_generation_latency_exhausts_deadline_before_executor_starts(
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
+) -> None:
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = planted_repo
+
+    class MutableClock:
+        now = 0.0
+
+        def __call__(self) -> float:
+            return self.now
+
+    clock = MutableClock()
+
+    class SlowGeneratorProvider:
+        calls = 0
+
+        def sample(
+            self, system: str, prompt: str, schema: dict[str, object], max_tokens: int
+        ) -> ProviderResult:
+            self.calls += 1
+            if "focused pytest reproduction" in system:
+                clock.now += 2.0
+                payload = json.dumps({"test_body": "def test_repro():\n    assert False\n"})
+            else:
+                payload = _finding_payload()
+            return ProviderResult(text=payload, input_tokens=10, output_tokens=10)
+
+    provider = SlowGeneratorProvider()
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(k_samples=1, tier0_commands=[]),
+        provider,
+        verification_timeout_s=1.0,
+        clock=clock,
+    )
+
+    assert provider.calls == 2
+    assert result.deferred_reason is not None
+    assert "deadline" in result.deferred_reason
+    assert result.surfaced_count == 0
+    assert not (repo / ".attest" / "repro").exists()
+    verification = next(row for row in _ledger_rows(repo) if row["kind"] == "verification")
+    assert verification["outcome"] == "deferred"
+    assert "deadline" in str(verification["reason"])
+
+
 def test_intermediate_github_failure_is_explicit_without_second_model_call(
     planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
 ) -> None:
@@ -439,6 +491,38 @@ def test_intermediate_github_failure_is_explicit_without_second_model_call(
     comment_rows = [row for row in _ledger_rows(repo) if row["kind"] == "github_comment"]
     assert comment_rows[-1]["outcome"] == "failed"
     assert {row["task_id"] for row in comment_rows} == {result.task_id}
+
+
+def test_invalid_base_defers_with_immediate_comment_events_under_one_task(
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
+) -> None:
+    from attest.review.ci import run_ci
+
+    repo, _, head_sha = planted_repo
+    provider = RecordingProvider(_finding_payload(), '{"test_body":"assert False"}')
+    try:
+        result = run_ci(
+            repo,
+            _context("missing-base-ref", head_sha),
+            GitHubClient("local-token", github_server.url),
+            ReviewConfig(k_samples=1, tier0_commands=[]),
+            provider,
+        )
+    except (RuntimeError, subprocess.CalledProcessError):
+        pytest.fail("review setup failure escaped instead of returning an explicit DEFER")
+
+    assert result.task_id is not None
+    assert result.deferred_reason is not None
+    assert "review setup failed" in result.deferred_reason
+    assert provider.calls == []
+    assert len(github_server.status_bodies) == 2
+    assert "Review running" in github_server.status_bodies[0]
+    assert "DEFER" in github_server.status_bodies[1]
+    comment_rows = [row for row in _ledger_rows(repo) if row["kind"] == "github_comment"]
+    assert [row["phase"] for row in comment_rows] == ["running", "defer"]
+    assert {row["task_id"] for row in comment_rows} == {result.task_id}
+    defer = next(row for row in _ledger_rows(repo) if row["kind"] == "defer")
+    assert defer["task_id"] == result.task_id
 
 
 def test_surface_overflow_stays_visible_without_extra_inline_placement(
@@ -500,3 +584,86 @@ def test_surface_overflow_stays_visible_without_extra_inline_placement(
     assert isinstance(comments, list)
     assert len(comments) == 3
     assert all(str(finding["claim"]) in github_server.status_bodies[-1] for finding in findings)
+
+
+def test_mixed_defer_summary_keeps_all_surfaced_overflow_and_hides_deferred_details(
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
+) -> None:
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = planted_repo
+    surfaced = [
+        {
+            "claim": "Empty batch division crashes request processing.",
+            "anchor": {"file": "app.py", "line": 6},
+            "failure_scenario": "A request submits an empty batch.",
+            "falsification_plan": "Call the helper with no batch entries.",
+        },
+        {
+            "claim": "Missing measurements abort the scheduled aggregation.",
+            "anchor": {"file": "app.py", "line": 6},
+            "failure_scenario": "A scheduled job receives no measurements.",
+            "falsification_plan": "Run the scheduled job without measurements.",
+        },
+        {
+            "claim": "Vacant samples terminate the health calculation.",
+            "anchor": {"file": "app.py", "line": 6},
+            "failure_scenario": "A health window contains vacant samples.",
+            "falsification_plan": "Evaluate a health window containing no samples.",
+        },
+        {
+            "claim": "Zero observations make the reporting endpoint unavailable.",
+            "anchor": {"file": "app.py", "line": 6},
+            "failure_scenario": "The endpoint handles a period with zero observations.",
+            "falsification_plan": "Request a report for an observation-free period.",
+        },
+    ]
+    deferred = {
+        "claim": "Absent telemetry corrupts the archival checkpoint.",
+        "anchor": {"file": "app.py", "line": 5},
+        "failure_scenario": "An archival checkpoint receives absent telemetry.",
+        "falsification_plan": "Inspect the private archival checkpoint path.",
+    }
+    proposal = _payload(*surfaced, deferred)
+    failing_repro = json.dumps(
+        {
+            "test_body": "import runpy\n\n"
+            "def test_empty_input_is_safe():\n"
+            "    average = runpy.run_path('app.py')['average']\n"
+            "    assert average([]) == 0\n"
+        }
+    )
+
+    class MixedProvider:
+        def sample(
+            self, system: str, prompt: str, schema: dict[str, object], max_tokens: int
+        ) -> ProviderResult:
+            if "focused pytest reproduction" not in system:
+                return ProviderResult(text=proposal, input_tokens=10, output_tokens=10)
+            payload = "{}" if str(deferred["claim"]) in prompt else failing_repro
+            return ProviderResult(text=payload, input_tokens=10, output_tokens=10)
+
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[]),
+        MixedProvider(),
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    assert result.candidate_count == 5
+    assert result.surfaced_count == 4
+    assert result.deferred_reason is not None
+    comments = github_server.review_bodies[0]["comments"]
+    assert isinstance(comments, list)
+    assert len(comments) == 3
+    sticky = github_server.status_bodies[-1]
+    assert "DEFER" in sticky
+    assert all(str(finding["claim"]) in sticky for finding in surfaced)
+    for private_detail in (
+        deferred["claim"],
+        deferred["failure_scenario"],
+        deferred["falsification_plan"],
+    ):
+        assert str(private_detail) not in sticky

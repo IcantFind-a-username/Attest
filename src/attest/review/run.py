@@ -35,6 +35,10 @@ def _empty_outcome() -> GateOutcome:
     return GateOutcome(formal=[], drawer_overflow=[], drawer=[], discarded=[])
 
 
+def make_task_id(seed: str) -> str:
+    return time.strftime("%Y%m%d-%H%M%S") + "-" + hashlib.sha256(seed.encode()).hexdigest()[:8]
+
+
 def run_review(
     repo: Path,
     base: str | None,
@@ -42,13 +46,14 @@ def run_review(
     provider: Provider,
     *,
     clock: Callable[[], float] = time.monotonic,
+    task_id: str | None = None,
 ) -> ReviewRun:
     started = clock()
     diff = git_diff(repo, base)
     budget = Budget(limit_usd=config.budget_usd, model=config.model)
     if not diff.hunks:
         return ReviewRun(
-            task_id="",
+            task_id=task_id or "",
             alpha=config.alpha,
             budget=budget,
             results=[],
@@ -62,9 +67,7 @@ def run_review(
     alpha = ledger.current_alpha(config.alpha) if config.auto_tighten_alpha else config.alpha
     alpha, tighten_note = ledger.maybe_tighten_alpha(alpha, config.auto_tighten_alpha)
     notes = [tighten_note] if tighten_note else []
-    task_id = (
-        time.strftime("%Y%m%d-%H%M%S") + "-" + hashlib.sha256(diff.text.encode()).hexdigest()[:8]
-    )
+    task_id = task_id or make_task_id(diff.text)
 
     feasibility = gate_feasibility(alpha)
     if not feasibility["reachable_with_verification"]:

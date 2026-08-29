@@ -11,7 +11,7 @@ import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
 from typing import Any, BinaryIO
@@ -717,6 +717,9 @@ def verify_candidate(
     provider: Provider,
     budget: Budget,
     limits: ExecutorLimits,
+    *,
+    deadline: float | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> VerificationRun:
     started = time.monotonic()
     try:
@@ -727,7 +730,19 @@ def verify_candidate(
             started,
         )
     else:
-        execution = execute_repro(repo, candidate, spec, limits)
+        remaining_s = None if deadline is None else max(0.0, deadline - clock())
+        if remaining_s is not None and remaining_s <= 0:
+            execution = _deferred(
+                "shared verification deadline exceeded after reproduction generation",
+                started,
+            )
+        else:
+            effective_limits = (
+                limits
+                if remaining_s is None
+                else replace(limits, wall_timeout_s=min(limits.wall_timeout_s, remaining_s))
+            )
+            execution = execute_repro(repo, candidate, spec, effective_limits)
 
     Ledger(repo).record_verification(
         task_id=candidate.task_id,

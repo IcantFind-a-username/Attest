@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 
 from attest.github.client import STATUS_MARKER, GitHubApiError, GitHubClient
@@ -21,7 +21,7 @@ from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_cand
 from attest.review.gate import GateResult, apply_gate
 from attest.review.ledger import Ledger
 from attest.review.proposer import Provider
-from attest.review.run import run_review
+from attest.review.run import make_task_id, run_review
 
 
 @dataclass
@@ -84,13 +84,21 @@ def _post_deferred(
     ledger: Ledger,
     task_id: str | None,
     reason: str,
+    surfaced: list[GateResult] | None = None,
+    spend_usd: float = 0.0,
+    elapsed_s: float = 0.0,
 ) -> str:
+    body = render_deferred(f"DEFER: {reason}")
+    if surfaced:
+        body = render_complete(surfaced, spend_usd, elapsed_s).replace(
+            "Review complete.", body, 1
+        )
     try:
         client.upsert_issue_comment(
             context.repository,
             context.number,
             STATUS_MARKER,
-            render_deferred(f"DEFER: {reason}"),
+            body,
         )
     except GitHubApiError as exc:
         github_reason = _github_reason(exc)
@@ -114,17 +122,20 @@ def run_ci(
     """Run a review whose candidate details remain private until verified."""
     started = clock()
     ledger = Ledger(repo)
+    task_id = make_task_id(
+        f"{context.repository}:{context.number}:{context.head_sha}:{started}"
+    )
     if context.is_fork:
         reason = "fork pull requests are skipped before model or head-code execution"
         reason = _post_deferred(
             context=context,
             client=client,
             ledger=ledger,
-            task_id=None,
+            task_id=task_id,
             reason=reason,
         )
         return _ci_run(
-            task_id=None,
+            task_id=task_id,
             candidate_count=0,
             surfaced_count=0,
             deferred_reason=reason,
@@ -142,9 +153,9 @@ def run_ci(
         )
     except GitHubApiError as exc:
         reason = _github_reason(exc)
-        _record_comment(ledger, None, "running", outcome="failed", reason=reason)
+        _record_comment(ledger, task_id, "running", outcome="failed", reason=reason)
         return _ci_run(
-            task_id=None,
+            task_id=task_id,
             candidate_count=0,
             surfaced_count=0,
             deferred_reason=reason,
@@ -153,9 +164,35 @@ def run_ci(
             clock=clock,
         )
 
-    review = run_review(repo, context.base_sha, config, provider, clock=clock)
-    task_id = review.task_id or None
     _record_comment(ledger, task_id, "running")
+    try:
+        review = run_review(
+            repo,
+            context.base_sha,
+            config,
+            provider,
+            clock=clock,
+            task_id=task_id,
+        )
+    except (OSError, RuntimeError) as exc:
+        reason = f"review setup failed: {type(exc).__name__}"
+        ledger.append({"kind": "defer", "task_id": task_id, "reason": reason})
+        reason = _post_deferred(
+            context=context,
+            client=client,
+            ledger=ledger,
+            task_id=task_id,
+            reason=reason,
+        )
+        return _ci_run(
+            task_id=task_id,
+            candidate_count=0,
+            surfaced_count=0,
+            deferred_reason=reason,
+            spend_usd=0.0,
+            started=started,
+            clock=clock,
+        )
     try:
         client.upsert_issue_comment(
             context.repository,
@@ -228,17 +265,15 @@ def run_ci(
                 )
                 verification_defers.append(reason)
             break
-        candidate_limits = replace(
-            default_limits,
-            wall_timeout_s=min(default_limits.wall_timeout_s, remaining_s),
-        )
         verification = verify_candidate(
             repo,
             candidate,
             results_by_id[candidate.finding.finding_id],
             provider,
             review.budget,
-            candidate_limits,
+            default_limits,
+            deadline=deadline,
+            clock=clock,
         )
         results_by_id[candidate.finding.finding_id] = verification.gate_result
         if verification.execution.outcome is ExecutionOutcome.DEFERRED:
@@ -264,6 +299,9 @@ def run_ci(
                 ledger=ledger,
                 task_id=task_id,
                 reason=reason,
+                surfaced=surfaced,
+                spend_usd=review.budget.spent_usd,
+                elapsed_s=clock() - started,
             )
             return _ci_run(
                 task_id=task_id,
@@ -286,6 +324,9 @@ def run_ci(
             ledger=ledger,
             task_id=task_id,
             reason=reason,
+            surfaced=surfaced,
+            spend_usd=review.budget.spent_usd,
+            elapsed_s=clock() - started,
         )
         return _ci_run(
             task_id=task_id,

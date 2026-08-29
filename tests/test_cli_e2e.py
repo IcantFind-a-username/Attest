@@ -360,3 +360,36 @@ def test_ci_mock_without_files_is_rejected(repo: Path, tmp_path: Path) -> None:
 
     with pytest.raises(SystemExit):
         main(["--repo", str(repo), "ci", "--event-path", str(event_path), "--mock"])
+
+
+def test_ci_invalid_model_override_remains_a_cli_error(
+    repo: Path, tmp_path: Path, mocks: list[str], capsys, monkeypatch
+) -> None:
+    from attest.github.client import GitHubClient
+
+    event_path = _event_path(repo, tmp_path)
+    monkeypatch.setenv("GITHUB_TOKEN", "local-token")
+    monkeypatch.setattr(
+        GitHubClient,
+        "upsert_issue_comment",
+        lambda self, repository, number, marker, body: {"id": 1},
+    )
+
+    rc = main(
+        [
+            "--repo",
+            str(repo),
+            "ci",
+            "--event-path",
+            str(event_path),
+            "--model",
+            "not-a-model",
+            "--k",
+            "1",
+            "--mock",
+            mocks[0],
+        ]
+    )
+
+    assert rc == 2
+    assert "pricing" in capsys.readouterr().err
