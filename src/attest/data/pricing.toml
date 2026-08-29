@@ -1,0 +1,16 @@
+# Factory pricing table: USD per million tokens (input / output).
+# Data file: model identifiers here are configuration, not code.
+
+default_model = "claude-sonnet-5"
+
+[models.claude-sonnet-5]
+input_per_mtok = 2.00
+output_per_mtok = 10.00
+
+[models.claude-opus-5]
+input_per_mtok = 5.00
+output_per_mtok = 25.00
+
+[models.claude-haiku-4-5]
+input_per_mtok = 1.00
+output_per_mtok = 5.00
