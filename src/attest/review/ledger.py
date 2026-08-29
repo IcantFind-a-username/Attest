@@ -21,6 +21,17 @@ PRECISION_TARGET = 0.90
 PRECISION_WINDOW = 50
 _SECRET_NAME_PARTS = ("TOKEN", "SECRET", "PASSWORD", "API_KEY", "CREDENTIAL")
 
+# feedback label -> precision polarity. "ambiguous" labels are excluded from
+# both the numerator and denominator of surfaced_precision (see
+# Ledger.record_feedback for why 'dismiss' is ambiguous rather than false).
+_LABEL_POLARITY: dict[str, str] = {
+    "fix": "true",
+    "good": "true",
+    "wontfix": "true",
+    "wrong": "false",
+    "dismiss": "ambiguous",
+}
+
 
 def _known_secrets() -> tuple[str, ...]:
     return tuple(
@@ -96,10 +107,35 @@ class Ledger:
         )
 
     def record_feedback(self, finding_id: str, feedback: str) -> None:
-        """feedback: 'fix' | 'good' -> true label; 'dismiss' -> false label."""
-        if feedback not in ("fix", "good", "dismiss"):
-            raise ValueError("feedback must be fix, good, or dismiss")
-        self.append({"kind": "feedback", "finding_id": finding_id, "feedback": feedback})
+        """Record a human label for a surfaced finding.
+
+        Labels and their precision polarity:
+          - 'fix'     -> true  (finding was correct, developer applied the fix)
+          - 'good'    -> true  (finding was correct)
+          - 'wontfix' -> true  (finding was CORRECT but deliberately not acted
+                         on -- out of scope, known, intentional, deferred; the
+                         tool was right, so this must not be miscounted as a
+                         false positive)
+          - 'wrong'   -> false (finding was incorrect: a genuine false positive)
+          - 'dismiss' -> ambiguous, legacy only. Historically 'dismiss'
+                         conflated 'wrong' and 'wontfix', so its polarity
+                         cannot be recovered after the fact. It is still
+                         accepted for backward compatibility but is excluded
+                         from precision entirely (see surfaced_precision) --
+                         silently folding it into either bucket would corrupt
+                         the precision SLA and the alpha auto-tighten rule.
+        """
+        polarity = _LABEL_POLARITY.get(feedback)
+        if polarity is None:
+            raise ValueError("feedback must be fix, good, wrong, wontfix, or dismiss")
+        self.append(
+            {
+                "kind": "feedback",
+                "finding_id": finding_id,
+                "feedback": feedback,
+                "label_polarity": polarity,
+            }
+        )
 
     def record_verification(
         self,
@@ -186,14 +222,25 @@ class Ledger:
                 if fid in surfaced_ids:  # re-verification must not double-count
                     surfaced_ids.remove(fid)
                 surfaced_ids.append(fid)
-        labels: dict[str, bool] = {}
+        polarities: dict[str, str] = {}
         for e in entries:
             if e.get("kind") == "feedback":
-                labels[e["finding_id"]] = e["feedback"] in ("fix", "good")
-        labeled = [(fid, labels[fid]) for fid in surfaced_ids[-window:] if fid in labels]
+                # fall back to re-deriving polarity for older ledger rows
+                # written before label_polarity was recorded
+                polarities[e["finding_id"]] = e.get(
+                    "label_polarity", _LABEL_POLARITY.get(e.get("feedback", ""), "ambiguous")
+                )
+        # ambiguous labels (legacy 'dismiss') are excluded from BOTH the
+        # numerator and the denominator -- never silently counted as either
+        # a true or a false label.
+        labeled = [
+            (fid, polarities[fid])
+            for fid in surfaced_ids[-window:]
+            if fid in polarities and polarities[fid] != "ambiguous"
+        ]
         if not labeled:
             return None, 0
-        precision = sum(1 for _, ok in labeled if ok) / len(labeled)
+        precision = sum(1 for _, polarity in labeled if polarity == "true") / len(labeled)
         return precision, len(labeled)
 
     def maybe_tighten_alpha(self, alpha: float, enabled: bool) -> tuple[float, str | None]:

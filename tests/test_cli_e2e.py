@@ -144,6 +144,37 @@ def test_review_verify_feedback_stats(repo: Path, mocks: list[str], capsys) -> N
     assert "surfaced: 1" in out  # the verified surface
 
 
+def test_feedback_flags_record_distinct_labels(repo: Path, capsys) -> None:
+    """--wrong and --wontfix must be distinguishable in the ledger, and the
+    legacy --dismiss flag must still work (marked ambiguous)."""
+    ledger_path = repo / ".attest" / "ledger.jsonl"
+    flag_to_label = {
+        "--fix": "fix",
+        "--good": "good",
+        "--wrong": "wrong",
+        "--wontfix": "wontfix",
+        "--dismiss": "dismiss",
+    }
+    for flag, label in flag_to_label.items():
+        rc = main(["--repo", str(repo), "feedback", f"finding-{label}", flag])
+        capsys.readouterr()
+        assert rc == 0
+
+    entries = [json.loads(x) for x in ledger_path.read_text().splitlines() if x.strip()]
+    by_finding = {e["finding_id"]: e for e in entries if e["kind"] == "feedback"}
+    expected_polarity = {
+        "fix": "true",
+        "good": "true",
+        "wrong": "false",
+        "wontfix": "true",
+        "dismiss": "ambiguous",
+    }
+    for label, polarity in expected_polarity.items():
+        entry = by_finding[f"finding-{label}"]
+        assert entry["feedback"] == label
+        assert entry["label_polarity"] == polarity
+
+
 def test_review_budget_defer(repo: Path, mocks: list[str], capsys) -> None:
     rc = main(["--repo", str(repo), "review", "--k", "3", "--budget", "0.000001", "--mock", *mocks])
     out = capsys.readouterr().out

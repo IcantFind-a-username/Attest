@@ -281,9 +281,29 @@ def main(argv: list[str] | None = None) -> int:
     p_fb = sub.add_parser("feedback", help="label a finding (feeds the precision loop)")
     p_fb.add_argument("finding_id")
     fb_group = p_fb.add_mutually_exclusive_group(required=True)
-    fb_group.add_argument("--fix", dest="label", action="store_const", const="fix")
-    fb_group.add_argument("--good", dest="label", action="store_const", const="good")
-    fb_group.add_argument("--dismiss", dest="label", action="store_const", const="dismiss")
+    fb_group.add_argument(
+        "--fix", dest="label", action="store_const", const="fix",
+        help="finding was correct; the fix was applied (true label)",
+    )
+    fb_group.add_argument(
+        "--good", dest="label", action="store_const", const="good",
+        help="finding was correct (true label)",
+    )
+    fb_group.add_argument(
+        "--wrong", dest="label", action="store_const", const="wrong",
+        help="finding was incorrect: a genuine false positive (false label, "
+        "counts against precision)",
+    )
+    fb_group.add_argument(
+        "--wontfix", dest="label", action="store_const", const="wontfix",
+        help="finding was correct but intentionally not acted on -- out of "
+        "scope, known, or deferred (true label; the tool was right)",
+    )
+    fb_group.add_argument(
+        "--dismiss", dest="label", action="store_const", const="dismiss",
+        help="legacy label, ambiguous: prefer --wrong (false positive) or "
+        "--wontfix (correct but not acted on). Excluded from precision.",
+    )
     p_fb.set_defaults(func=cmd_feedback)
 
     p_stats = sub.add_parser("stats", help="ledger summary")

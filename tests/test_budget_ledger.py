@@ -61,13 +61,50 @@ def test_ledger_bad_feedback_rejected(tmp_path) -> None:
         led.record_feedback("f1", "meh")
 
 
+def test_feedback_label_polarity_recorded(tmp_path) -> None:
+    """Every accepted label carries a derived polarity so downstream
+    consumers never have to re-derive the fix/good/wrong/wontfix/dismiss
+    mapping themselves."""
+    led = Ledger(tmp_path)
+    expected_polarity = {
+        "fix": "true",
+        "good": "true",
+        "wontfix": "true",
+        "wrong": "false",
+        "dismiss": "ambiguous",  # legacy, ambiguous polarity
+    }
+    for label in expected_polarity:
+        led.record_feedback(f"f-{label}", label)
+    by_finding = {e["finding_id"]: e for e in led.entries()}
+    for label, polarity in expected_polarity.items():
+        entry = by_finding[f"f-{label}"]
+        assert entry["feedback"] == label
+        assert entry["label_polarity"] == polarity
+
+
+def test_precision_excludes_legacy_dismiss_from_denominator(tmp_path) -> None:
+    """Legacy `dismiss` rows are polarity-ambiguous and must be excluded from
+    BOTH the numerator and the denominator of surfaced precision -- never
+    silently counted as either a true or a false label."""
+    led = Ledger(tmp_path)
+    labels = ["fix", "good", "wontfix", "wrong", "dismiss"]
+    for i, label in enumerate(labels):
+        fid = f"f{i}"
+        led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(fid, label)
+    precision, n = led.surfaced_precision()
+    # dismiss (ambiguous) excluded entirely: denominator is 4, not 5
+    assert n == 4
+    assert precision == pytest.approx(3 / 4)  # fix, good, wontfix true; wrong false
+
+
 def test_surfaced_precision_and_tighten(tmp_path) -> None:
     led = Ledger(tmp_path)
-    # 12 surfaced findings: 8 good, 4 dismissed -> precision 0.667 < 0.9
+    # 12 surfaced findings: 8 good, 4 genuinely wrong -> precision 0.667 < 0.9
     for i in range(12):
         fid = f"f{i}"
         led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
-        led.record_feedback(fid, "good" if i < 8 else "dismiss")
+        led.record_feedback(fid, "good" if i < 8 else "wrong")
     precision, n = led.surfaced_precision()
     assert n == 12
     assert precision == pytest.approx(8 / 12)
@@ -76,6 +113,23 @@ def test_surfaced_precision_and_tighten(tmp_path) -> None:
     assert note is not None
     # the tightening is recorded and current_alpha follows the chain
     assert led.current_alpha(0.1) == 0.05
+
+
+def test_wontfix_labels_do_not_tighten_alpha(tmp_path) -> None:
+    """wontfix means the finding was CORRECT but not acted on: it must count
+    as a true label for precision, not as a false positive."""
+    led = Ledger(tmp_path)
+    # same shape as test_surfaced_precision_and_tighten, but the 4 "bad"
+    # labels are wontfix rather than wrong -> precision stays 1.0
+    for i in range(12):
+        fid = f"f{i}"
+        led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(fid, "good" if i < 8 else "wontfix")
+    precision, n = led.surfaced_precision()
+    assert n == 12
+    assert precision == pytest.approx(1.0)
+    alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
+    assert alpha == 0.1 and note is None
 
 
 def test_tighten_disabled_or_insufficient(tmp_path) -> None:
@@ -97,14 +151,14 @@ def test_tighten_floor_with_fresh_labels_each_round(tmp_path) -> None:
     for i in range(20):
         fid = f"f{i}"
         led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
-        led.record_feedback(fid, "dismiss")
+        led.record_feedback(fid, "wrong")
     alpha = 0.1
     for round_ in range(6):
         alpha, _ = led.maybe_tighten_alpha(alpha, enabled=True)
         # fresh bad label between rounds keeps the watermark moving
         fid = f"extra{round_}"
         led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
-        led.record_feedback(fid, "dismiss")
+        led.record_feedback(fid, "wrong")
     assert alpha == 0.01  # floored
 
 
@@ -115,7 +169,7 @@ def test_tighten_watermark_blocks_stale_rehalving(tmp_path) -> None:
     for i in range(12):
         fid = f"f{i}"
         led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
-        led.record_feedback(fid, "dismiss")
+        led.record_feedback(fid, "wrong")
     alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
     assert alpha == 0.05 and note is not None
     # same stale window: no further tightening, run after run
@@ -131,7 +185,7 @@ def test_reverify_not_double_counted_in_precision(tmp_path) -> None:
     led.record_review("t", "f1", ["V"], 0.0, 60.0, "verified_surface")
     led.record_review("t", "f1", ["V"], 0.0, 60.0, "verified_surface")
     led.record_review("t", "f2", ["S"], 0.0, 12.0, "surface")
-    led.record_feedback("f1", "dismiss")
+    led.record_feedback("f1", "wrong")
     led.record_feedback("f2", "good")
     precision, n = led.surfaced_precision()
     assert n == 2
