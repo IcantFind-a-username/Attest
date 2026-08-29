@@ -14,7 +14,8 @@ confidence scores.
 
 - Phase 0 — `attest.core` betting engine library: done (independently reviewed; regression-pinned to the seed experiment record)
 - Phase 1 — `attest review` CLI: done (independently reviewed)
-- Phase 2 — dogfood: done on 3 repos (5 verified findings surfaced, 2 negative controls silent, oversized diff budget-deferred); live-API path pending an ANTHROPIC_API_KEY
+- Phase 2 — dogfood: done on 3 repos (5 verified findings surfaced, 2 negative controls silent, oversized diff budget-deferred)
+- Live-API validation: done (real review surfaced in 11.1s wall clock at $0.04; negative control silent incl. a V-channel refutation; see DEVSPEND.md)
 
 ## Usage
 
