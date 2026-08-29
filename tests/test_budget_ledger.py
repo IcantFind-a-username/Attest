@@ -154,3 +154,60 @@ def test_good_precision_no_tighten(tmp_path) -> None:
         led.record_feedback(fid, "good" if i < 19 else "dismiss")
     alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
     assert alpha == 0.1 and note is None
+
+
+@pytest.mark.parametrize(
+    ("outcome", "reason", "network_blocked", "evidence"),
+    [
+        (
+            "reproduced",
+            "pytest reported 1 failure(s) and 0 error(s)",
+            True,
+            "AssertionError: expected 4, got 5",
+        ),
+        ("not_reproduced", "pytest passed", True, "1 passed in 0.02s"),
+        ("deferred", "reproduction timed out after 60s", True, "last output bytes"),
+    ],
+)
+def test_record_verification_preserves_identity_and_evidence_without_changing_review(
+    tmp_path,
+    outcome: str,
+    reason: str,
+    network_blocked: bool,
+    evidence: str,
+) -> None:
+    led = Ledger(tmp_path)
+    led.record_review("task-9", "finding-a", ["S", "T"], 0.0123456, 8.12345, "drawer")
+
+    led.record_verification(
+        task_id="task-9",
+        finding_id="finding-a",
+        outcome=outcome,
+        reason=reason,
+        elapsed_s=1.23456789,
+        network_blocked=network_blocked,
+        evidence=evidence,
+    )
+
+    review, verification = led.entries()
+    assert review == {
+        "ts": review["ts"],
+        "kind": "review",
+        "task_id": "task-9",
+        "finding_id": "finding-a",
+        "channels_bought": ["S", "T"],
+        "spend": 0.012346,
+        "wealth_final": 8.1235,
+        "action": "drawer",
+    }
+    assert verification == {
+        "ts": verification["ts"],
+        "kind": "verification",
+        "task_id": "task-9",
+        "finding_id": "finding-a",
+        "outcome": outcome,
+        "reason": reason,
+        "elapsed_s": 1.234568,
+        "network_blocked": network_blocked,
+        "evidence": evidence,
+    }

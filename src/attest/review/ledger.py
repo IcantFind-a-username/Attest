@@ -76,6 +76,30 @@ class Ledger:
             raise ValueError("feedback must be fix, good, or dismiss")
         self.append({"kind": "feedback", "finding_id": finding_id, "feedback": feedback})
 
+    def record_verification(
+        self,
+        *,
+        task_id: str,
+        finding_id: str,
+        outcome: str,
+        reason: str,
+        elapsed_s: float,
+        network_blocked: bool,
+        evidence: str,
+    ) -> None:
+        self.append(
+            {
+                "kind": "verification",
+                "task_id": task_id,
+                "finding_id": finding_id,
+                "outcome": outcome,
+                "reason": reason,
+                "elapsed_s": round(elapsed_s, 6),
+                "network_blocked": network_blocked,
+                "evidence": evidence,
+            }
+        )
+
     def surfaced_precision(self, window: int = PRECISION_WINDOW) -> tuple[float | None, int]:
         """Precision over the last `window` surfaced findings that have
         feedback labels. Returns (precision or None, n_labeled)."""
