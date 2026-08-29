@@ -11,7 +11,10 @@ Variant semantics (spec-fixed):
   All-buy tasks use full-table updates: the slice is unbiased for every table
   simultaneously, so usage-matched updates would just throw away samples.
 - ``po_adaptive`` (experimental flag): purchase-order betting with usage-matched
-  updates from every task — statistically pure but slower to converge.
+  updates from every task. Closer to pure than canonical, but NOT fully
+  ignorable: the pooled pair table mixes both purchase directions while
+  inclusion depends on the first verdict, which biases the reverse-direction
+  read when orders are heterogeneous (D-011). Slower to converge, too.
 - ``canonical`` (legacy): the seed prototype's canonical-order variant, kept for
   comparison only.
 """
@@ -24,7 +27,7 @@ from typing import Any
 
 import numpy as np
 
-from attest.core.allocation import choose_next, expected_info
+from attest.core.allocation import choose_next, expected_log_e_signed
 from attest.core.betting import decide, task_lr_canonical, task_lr_purchase_order
 from attest.core.exploration import ExplorationSchedule
 from attest.core.monitor import WinnersCurseMonitor
@@ -51,6 +54,8 @@ class EngineConfig:
     def __post_init__(self) -> None:
         if self.variant not in VARIANTS:
             raise ValueError(f"unknown variant {self.variant!r}")
+        if len(self.judges) not in (2, 3):
+            raise ValueError("engine supports exactly 2 or 3 judges (MVP scope)")
         if not 0 < self.alpha < 1:
             raise ValueError("alpha must be in (0, 1)")
         missing = set(self.judges) - set(self.prices)
@@ -103,7 +108,7 @@ class Engine:
             wealth = 1.0
             for j in all_order:
                 p1post = wealth / (1.0 + wealth)
-                est = expected_info(self.tables, j, verdicts, p1post)
+                est = expected_log_e_signed(self.tables, j, verdicts, p1post)
                 v = int(get_verdict(j))
                 realized = float(np.log(self.tables.lr_factor(j, verdicts, v)))
                 order.append(j)
@@ -126,7 +131,7 @@ class Engine:
                 if best is None:
                     break
                 p1post = wealth / (1.0 + wealth)
-                est = expected_info(self.tables, best, verdicts, p1post)
+                est = expected_log_e_signed(self.tables, best, verdicts, p1post)
                 v = int(get_verdict(best))
                 realized = float(np.log(self.tables.lr_factor(best, verdicts, v)))
                 order.append(best)

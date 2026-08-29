@@ -99,9 +99,17 @@ class Tables:
         return float(out)
 
     def min_cell_count(self) -> int:
-        """Smallest raw count over marginal and pairwise cells (triple excluded:
-        it fills an order of magnitude slower and tau guards thin cells; D-003)."""
+        """Smallest raw count over marginal and pairwise cells (triple excluded;
+        see min_marginal_count for the exploration trigger)."""
         m = min(int(t.min()) for t in self.marg.values())
         if self.pairs:
             m = min(m, min(int(t.min()) for t in self.pair.values()))
         return m
+
+    def min_marginal_count(self) -> int:
+        """Smallest raw count over marginal cells only. The exploration
+        schedule keys on this (D-003 revised): pairwise cells can be
+        unattainable under near-deterministic cloning (a gamma=0.99 clone makes
+        disagreement cells arbitrarily rare), which would pin exploration hot
+        forever; thin pair/triple cells are guarded by the tau floor instead."""
+        return min(int(t.min()) for t in self.marg.values())

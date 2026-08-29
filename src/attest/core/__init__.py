@@ -6,7 +6,7 @@ as true, wealth <= alpha certifies it as false, anything else defers. There is n
 quorum or majority rule anywhere.
 """
 
-from attest.core.allocation import choose_next, expected_info, kl
+from attest.core.allocation import choose_next, expected_info, expected_log_e_signed, kl
 from attest.core.betting import decide, task_lr_canonical, task_lr_purchase_order
 from attest.core.engine import Engine, EngineConfig, TaskResult
 from attest.core.exploration import ExplorationSchedule
@@ -25,6 +25,7 @@ __all__ = [
     "choose_next",
     "decide",
     "expected_info",
+    "expected_log_e_signed",
     "kl",
     "make_stream",
     "task_lr_canonical",

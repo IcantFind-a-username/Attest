@@ -17,17 +17,17 @@ def _filled_tables(count: int) -> Tables:
 def test_rate_hot_until_cell_target() -> None:
     sched = ExplorationSchedule(eps_hot=0.10, eps_cold=0.02, cell_target=30)
     assert sched.rate(Tables()) == 0.10
-    # pair cells gain 2 per full sweep: 14 sweeps -> 28 < 30 still hot
-    assert sched.rate(_filled_tables(14)) == 0.10
-    # 15 sweeps -> 30 >= 30 -> cold
-    assert sched.rate(_filled_tables(15)) == 0.02
+    # marginal cells gain 4 per full sweep: 7 sweeps -> 28 < 30 still hot
+    assert sched.rate(_filled_tables(7)) == 0.10
+    # 8 sweeps -> 32 >= 30 -> cold
+    assert sched.rate(_filled_tables(8)) == 0.02
 
 
 def test_should_explore_matches_rate() -> None:
     sched = ExplorationSchedule(eps_hot=1.0, eps_cold=0.0, cell_target=30)
     rng = np.random.default_rng(0)
     assert sched.should_explore(rng, Tables()) is True
-    full = _filled_tables(15)
+    full = _filled_tables(8)
     assert sched.should_explore(rng, full) is False
 
 

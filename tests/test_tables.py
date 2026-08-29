@@ -95,6 +95,8 @@ def test_min_cell_count_excludes_triple() -> None:
                     t.update(th, {"A": va, "B": vb, "C": vc})
     # every marg cell has 4, every pair cell has 2, trip cells have 1 (excluded)
     assert t.min_cell_count() == 2
+    # marginal-only trigger for the exploration schedule
+    assert t.min_marginal_count() == 4
 
 
 def test_two_judges_supported_no_triple() -> None:

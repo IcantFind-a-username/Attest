@@ -107,6 +107,23 @@ def test_monitor_records_purchases() -> None:
     assert isinstance(eng.monitor.alarms(), list)
 
 
+def test_no_spurious_optimism_alarms_on_healthy_run() -> None:
+    """Regression (D-012): estimates are signed expected log-e, commensurable
+    with realized log LR — a healthy engine must not alarm."""
+    for gamma, seed in [(0.0, 1000), (0.99, 1099)]:
+        eng, _, _ = _run(INFO, gamma, 0.1, seed_stream=seed)
+        kinds = [a["kind"] for a in eng.monitor.alarms()]
+        assert "winners_curse_optimism" not in kinds, (gamma, kinds)
+
+
+def test_exploration_cools_when_marginals_fill() -> None:
+    """Regression (D-003 revised): the hot->cold transition must actually
+    happen — under the null the marginal cells fill fast and eps drops."""
+    eng, results, s = _run(NULL, 0.0, 0.1, seed_stream=2000)
+    assert eng.tables.min_marginal_count() >= eng.config.cell_target
+    assert s["explore_rate"] < 0.095  # below pure-hot ~0.10: cooling occurred
+
+
 def test_config_validation() -> None:
     with pytest.raises(ValueError):
         EngineConfig(variant="nope")

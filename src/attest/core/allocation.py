@@ -24,10 +24,23 @@ def kl(a: float, b: float) -> float:
 
 
 def expected_info(tables: Tables, j: str, seen: Mapping[str, int], p1post: float) -> float:
-    """Posterior-weighted expected log-e for buying judge j given verdicts seen."""
+    """Posterior-weighted expected log-e MAGNITUDE for buying judge j: the
+    allocation value (movement toward whichever certification is true). Always
+    nonnegative; do NOT compare it to realized signed log-e (use
+    expected_log_e_signed for that)."""
     q1 = tables.p1(j, seen, 1)
     q0 = tables.p1(j, seen, 0)
     return p1post * kl(q1, q0) + (1 - p1post) * kl(q0, q1)
+
+
+def expected_log_e_signed(tables: Tables, j: str, seen: Mapping[str, int], p1post: float) -> float:
+    """Model expectation of the SIGNED realized log LR of buying judge j:
+    p1post * KL(q1||q0) - (1-p1post) * KL(q0||q1). Under theta=0 the bet is
+    expected to lose log-wealth — that is the bet working. Commensurable with
+    log(lr_factor), so the winner's-curse monitor compares against this."""
+    q1 = tables.p1(j, seen, 1)
+    q0 = tables.p1(j, seen, 0)
+    return p1post * kl(q1, q0) - (1 - p1post) * kl(q0, q1)
 
 
 def choose_next(

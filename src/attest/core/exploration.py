@@ -1,9 +1,11 @@
 """Forced-exploration schedule.
 
-eps stays at the hot rate until every relevant table cell (marginal + pairwise;
-D-003) has cell_target samples, then drops to the cold rate. Exploration tasks
-buy ALL judges in randomized order and are the only tasks the default engine
-learns tables from (the non-adaptive calibration slice).
+eps stays at the hot rate until every MARGINAL table cell has cell_target
+samples, then drops to the cold rate (D-003 revised: pairwise cells can be
+unattainable under near-deterministic cloning, which would pin exploration hot
+forever; thin pair/triple cells are guarded by the tau floor). Exploration
+tasks buy ALL judges in randomized order and are the only tasks the default
+engine learns tables from (the non-adaptive calibration slice).
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ class ExplorationSchedule:
     cell_target: int = 30
 
     def rate(self, tables: Tables) -> float:
-        return self.eps_hot if tables.min_cell_count() < self.cell_target else self.eps_cold
+        return self.eps_hot if tables.min_marginal_count() < self.cell_target else self.eps_cold
 
     def should_explore(self, rng: np.random.Generator, tables: Tables) -> bool:
         return bool(rng.random() < self.rate(tables))
