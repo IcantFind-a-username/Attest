@@ -3,10 +3,6 @@
 
 set -eu
 
-github_token=${INPUT_GITHUB_TOKEN:-}
-model_api_key=${INPUT_MODEL_API_KEY:-}
-unset INPUT_GITHUB_TOKEN INPUT_MODEL_API_KEY
-
 if [ -z "${GITHUB_EVENT_PATH:-}" ]; then
     echo "error: GITHUB_EVENT_PATH is required" >&2
     exit 2
@@ -16,7 +12,7 @@ if [ ! -r "$GITHUB_EVENT_PATH" ]; then
     exit 2
 fi
 
-is_fork=$(
+is_trusted=$(
     python3 - "$GITHUB_EVENT_PATH" <<'PY'
 import json
 import sys
@@ -24,7 +20,9 @@ import sys
 try:
     with open(sys.argv[1], encoding="utf-8") as event_file:
         event = json.load(event_file)
-    print("true" if event["pull_request"]["head"]["repo"]["fork"] else "false")
+    repository = event["repository"]["full_name"]
+    head_repository = event["pull_request"]["head"]["repo"]["full_name"]
+    print("true" if head_repository == repository else "false")
 except (KeyError, TypeError, ValueError, OSError):
     sys.exit(2)
 PY
@@ -33,10 +31,14 @@ PY
     exit 2
 }
 
-if [ "$is_fork" = "true" ]; then
-    echo "attest: fork pull request skipped before head-code execution"
+if [ "$is_trusted" = "false" ]; then
+    echo "attest: fork pull request skipped before credentials or head-code execution"
     exit 0
 fi
+
+github_token=${INPUT_GITHUB_TOKEN:-}
+model_api_key=${INPUT_MODEL_API_KEY:-}
+unset INPUT_GITHUB_TOKEN INPUT_MODEL_API_KEY
 
 if [ -z "$github_token" ] || [ -z "$model_api_key" ]; then
     echo "error: trusted pull requests require both action credentials" >&2

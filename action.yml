@@ -22,9 +22,15 @@ inputs:
 runs:
   using: composite
   steps:
+    - id: trust
+      name: Classify pull request
+      shell: sh
+      run: sh "${{ github.action_path }}/scripts/action-gate.sh"
     - name: Set up uv
+      if: ${{ steps.trust.outputs.trusted == 'true' }}
       uses: astral-sh/setup-uv@v6
     - name: Install attest from this action
+      if: ${{ steps.trust.outputs.trusted == 'true' }}
       shell: sh
       env:
         ATTEST_VENV: ${{ runner.temp }}/attest-venv
@@ -32,6 +38,7 @@ runs:
         uv venv "$ATTEST_VENV"
         uv pip install --python "$ATTEST_VENV/bin/python" "${{ github.action_path }}"
     - name: Run attest CI review
+      if: ${{ steps.trust.outputs.trusted == 'true' }}
       shell: sh
       env:
         ATTEST_VENV: ${{ runner.temp }}/attest-venv

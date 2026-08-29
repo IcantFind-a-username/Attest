@@ -21,9 +21,11 @@ environment; it does not install a published package. `budget-usd`, `samples`, a
 
 ## Safety model
 
-Fork pull requests are detected and skipped before the entrypoint exports credentials
-or runs the review command against head code. This keeps the trusted token and model
-key out of the fork path; the skip is intentional and records no finding.
+The action first compares the head and destination repository names in a
+credential-free gate step. Cross-repository pull requests are skipped before the
+entrypoint receives credentials or runs the review command against head code. This
+keeps the trusted token and model key out of the fork path; the skip is intentional
+and records no finding.
 
 For trusted pull requests, review and generated reproduction tests run against the
 checked-out head. That code can mutate its ephemeral runner, so do not treat the
