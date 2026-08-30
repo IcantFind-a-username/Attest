@@ -31,7 +31,11 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from attest.benchmark.baselines import ArmRun, ComparisonMeasurements
+from attest.benchmark.baselines import (
+    ArmRun,
+    ComparisonMeasurements,
+    validate_arm_run_reconciliation,
+)
 from attest.benchmark.corpus import ValidationReceipt, require_validated_pair
 from attest.benchmark.metrics import (
     ORACLE_INCONCLUSIVE_REASON,
@@ -46,7 +50,7 @@ LIVE_MODE = "live"
 REPORT_SCHEMA_VERSION = "2"
 JSON_NAME = "report.json"
 MARKDOWN_NAME = "report.md"
-COMPARISON_SCHEMA_VERSION = "1"
+COMPARISON_SCHEMA_VERSION = "2"
 COMPARISON_JSON_NAME = "comparison.json"
 COMPARISON_MARKDOWN_NAME = "comparison.md"
 STABILITY_JSON_NAME = "stability.json"
@@ -621,6 +625,8 @@ def _arm_run_payload(run: ArmRun, authorized: bool) -> dict[str, object]:
         "oracle_spend_usd": _number(run.oracle_spend_usd),
         "wall_time_s": _number(run.wall_time_s),
         "tool_cost_s": _number(run.tool_cost_s),
+        "paid_calls": [dict(record) for record in run.paid_calls],
+        "paid_calls_sha256": run.paid_calls_sha256,
     }
 
 
@@ -641,6 +647,8 @@ def build_comparison_report(
     """
     if mode not in (REPLAY_MODE, LIVE_MODE):
         raise ValueError("mode must be replay or live")
+    for run in measurements.runs:
+        validate_arm_run_reconciliation(run)
     evaluated_ids = set(measurements.evaluated_case_ids)
     cases = tuple(case for case in manifest.cases if case.case_id in evaluated_ids)
     withheld = (

@@ -222,3 +222,22 @@ contract is active only when the owning architecture/acceptance document changes
   unresolved calls ambiguous and withhold metrics. A lock change must pass both declared
   interpreter Gates before replacing the accepted lock.
 - **Trace:** `INV-COST-001`, `G-CODE-001`, `G-MEASURE-003`; work order M-03.
+
+### D-046 — The composite Action consumes the audited primary environment
+
+- **Date/status/scope:** 2026-08-30 · accepted measurement environment · M-03 Action
+  bootstrap.
+- **Decision:** the composite Action selects CPython 3.12.8, installs the complete exact
+  `requirements-toolchain.lock`, installs Attest with dependency resolution and build
+  isolation disabled, and runs `pip check` before execution.
+- **Why:** M-03 explicitly owns the project lock and CI setup, while `G-CODE-001` requires
+  the locked supported toolchain. Selecting a floating `uv` runtime and resolving ranged
+  project metadata made the Action contradict the environment that the acceptance claim
+  audited. Narrowing the claim would leave a shipped M-03 execution path outside the
+  reproducibility contract.
+- **Consequences:** Action bootstrap may download exact locked distributions on a fresh
+  runner, but cannot select newer transitive versions. The minimum Python 3.11 environment
+  remains a clean-install Gate; the Action itself uses the declared primary Python.
+- **Reversal:** changing the primary interpreter or lock requires a reviewed lock update
+  and fresh minimum/primary full Gates bound to the replacement implementation SHA.
+- **Trace:** `G-CODE-001`; work order M-03; `action.yml`; `[tool.attest.toolchain]`.

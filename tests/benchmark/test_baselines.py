@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -417,6 +418,7 @@ def test_compare_arms_measures_all_three_arms_with_honest_evidence(tmp_path: Pat
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
         bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
         ruff_executable=_ruff_executable(),
+        checkpoint_root=tmp_path / "comparison-calls",
     )
 
     assert [arm.arm for arm in measurements.arms] == [ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF]
@@ -510,14 +512,160 @@ def test_comparison_checkpoint_root_replays_every_model_subcall(tmp_path: Path) 
     assert sum(p.proposal_calls + p.generator_calls for p in resumed_bare) == 0
 
 
+def test_comparison_defer_after_settled_response_preserves_paid_call_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    plan = plans[0]
+
+    def fail_after_response(
+        request: ProjectEvaluationRequest, *, provider: object, clock: object
+    ) -> object:
+        provider.sample("system", "prompt", {"type": "object"}, 20)
+        raise RuntimeError("failure after provider settlement")
+
+    monkeypatch.setattr(
+        "attest.benchmark.baselines.evaluate_project", fail_after_response
+    )
+    measurements = compare_arms(
+        [plan],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "calls",
+    )
+
+    product = next(run for run in measurements.runs if run.arm == ARM_PRODUCT)
+    assert product.status == "deferred"
+    assert product.spend_usd > 0
+    assert len(product.paid_calls) == 1
+    assert product.spend_usd == pytest.approx(
+        sum(float(row["cost_usd"]) for row in product.paid_calls)
+    )
+    assert product.paid_calls_sha256 == hashlib.sha256(
+        json.dumps(
+            product.paid_calls, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    ).hexdigest()
+
+    report = build_comparison_report(
+        load_manifest(manifest_path),
+        measurements,
+        manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        validation_receipt=None,
+    ).to_json_dict()
+    assert report["schema_version"] == "2"
+    product_payload = next(
+        run for run in report["runs"] if run["arm"] == ARM_PRODUCT
+    )
+    assert product_payload["paid_calls"] == list(product.paid_calls)
+    assert product_payload["paid_calls_sha256"] == product.paid_calls_sha256
+
+    corrupted = replace(
+        measurements,
+        runs=(
+            replace(product, paid_calls_sha256="0" * 64),
+            *(run for run in measurements.runs if run is not product),
+        ),
+    )
+    with pytest.raises(ValueError, match="reconciliation|paid.call"):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            corrupted,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    (
+        "missing_reconciliation",
+        "duplicate_spend",
+        "orphan_spend",
+        "mismatched_spend",
+        "missing_artifact",
+        "wrong_reconciliation_digest",
+    ),
+)
+def test_comparison_resume_rejects_incomplete_or_mismatched_paid_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, corruption: str
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    checkpoint_root = tmp_path / "calls"
+
+    def fail_after_response(
+        request: ProjectEvaluationRequest, *, provider: object, clock: object
+    ) -> object:
+        provider.sample("system", "prompt", {"type": "object"}, 20)
+        raise RuntimeError("failure after provider settlement")
+
+    monkeypatch.setattr(
+        "attest.benchmark.baselines.evaluate_project", fail_after_response
+    )
+    compare_arms(
+        [plan],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=checkpoint_root,
+    )
+
+    product_root = checkpoint_root / ARM_PRODUCT / plan.case.case_id
+    reconciliation = (
+        checkpoint_root
+        / "reconciliation"
+        / ARM_PRODUCT
+        / f"{plan.case.case_id}.json"
+    )
+    if corruption == "missing_reconciliation":
+        reconciliation.unlink()
+    elif corruption == "duplicate_spend":
+        spend = product_root / "costs.jsonl"
+        spend.write_text(
+            spend.read_text(encoding="utf-8") * 2,
+            encoding="utf-8",
+        )
+    elif corruption == "orphan_spend":
+        with (product_root / "costs.jsonl").open("a", encoding="utf-8") as stream:
+            stream.write('{"call_id":"orphan"}\n')
+    elif corruption == "mismatched_spend":
+        spend = product_root / "costs.jsonl"
+        row = json.loads(spend.read_text(encoding="utf-8"))
+        row["trial_id"] = "comparison:wrong-trial"
+        spend.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    elif corruption == "missing_artifact":
+        (product_root / "artifacts" / "000000.json").unlink()
+    else:
+        binding = json.loads(reconciliation.read_text(encoding="utf-8"))
+        binding["paid_calls_sha256"] = "0" * 64
+        reconciliation.write_text(json.dumps(binding) + "\n", encoding="utf-8")
+
+    resumed: list[ReplayProvider] = []
+
+    def provider_factory(request: ProjectEvaluationRequest) -> ReplayProvider:
+        provider = ReplayProvider(cassettes[request.case_id])
+        resumed.append(provider)
+        return provider
+
+    with pytest.raises(ValueError, match="reconciliation|spend|artifact|orphan"):
+        compare_arms(
+            [plan],
+            provider_factory=provider_factory,
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=checkpoint_root,
+        )
+    assert sum(provider.proposal_calls for provider in resumed) == 0
+
+
 def test_compare_arms_requires_repeat_zero_and_reports_deferred_arms(
     tmp_path: Path,
 ) -> None:
     """Wilson denominators come from repeat zero only, and an arm that cannot
     run appears as a DEFER instead of disappearing."""
     plans, cassettes, _ = _plans(tmp_path)
-
-    from dataclasses import replace
 
     shifted = [replace(plans[0], request=replace(plans[0].request, repeat=1)), *plans[1:]]
     with pytest.raises(ValueError, match="repeat zero"):
@@ -581,6 +729,7 @@ def test_comparison_report_withholds_accuracy_without_a_receipt(tmp_path: Path) 
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
         bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
         ruff_executable=_ruff_executable(),
+        checkpoint_root=tmp_path / "comparison-report-calls",
     )
 
     withheld = build_comparison_report(

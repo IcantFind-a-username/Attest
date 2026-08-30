@@ -74,7 +74,7 @@ from attest.benchmark.schema import (
     TruthDefect,
     is_scored_placement,
 )
-from attest.review.proposer import Provider
+from attest.review.proposer import Provider, ProviderResult
 
 LIVE_SCHEMA_VERSION = "3"
 CALIBRATION_SCHEMA_VERSION = "2"
@@ -636,7 +636,7 @@ def _advance_case(
             case_id,
             spend,
             oracle_spend,
-            _required_paid_calls(run_dir, case_id, payload),
+            _required_paid_calls(run_dir, case_id, payload, request.config.model),
         )
         checkpoint = replace(checkpoint, state=STATE_SETTLED)
         _commit(run_dir, checkpoint, on_transition)
@@ -647,7 +647,7 @@ def _advance_case(
             case_id,
             spend,
             oracle_spend,
-            _required_paid_calls(run_dir, case_id, payload),
+            _required_paid_calls(run_dir, case_id, payload, request.config.model),
         )
     return checkpoint, ran
 
@@ -721,7 +721,10 @@ def _live_paid_call_records(
 
 
 def _required_paid_calls(
-    run_dir: Path, case_id: str, payload: Mapping[str, object]
+    run_dir: Path,
+    case_id: str,
+    payload: Mapping[str, object],
+    model_id: str,
 ) -> tuple[dict[str, object], ...]:
     raw = payload.get("paid_calls")
     if not isinstance(raw, list):
@@ -787,7 +790,35 @@ def _required_paid_calls(
             raise ValueError(
                 f"case {case_id} paid-call spend rows are missing, duplicated, or mismatched"
             )
+    checkpointed = CheckpointedProvider(
+        _VerificationOnlyProvider(),
+        root=run_dir / "calls" / case_id,
+        trial_id=f"{run_dir.name}:{case_id}",
+        model_id=model_id,
+    )
+    authoritative_calls = tuple(
+        _live_paid_call_records(case_id, checkpointed.reconciliation_records())
+    )
+    if tuple(records) != authoritative_calls:
+        raise ValueError(
+            f"case {case_id} paid-call payload does not match its call checkpoints"
+        )
     return tuple(records)
+
+
+class _VerificationOnlyProvider:
+    """A verifier must never turn absent checkpoint evidence into a new call."""
+
+    def sample(
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
+    ) -> ProviderResult:  # pragma: no cover - reconciliation never dispatches
+        raise AssertionError("paid-call reconciliation must not dispatch a provider call")
 
 
 def _case_cost_row(

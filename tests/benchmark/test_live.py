@@ -570,6 +570,38 @@ class TestCheckpoints:
             {"case_id": case_id, **paid_call}
         ]
 
+    def test_completed_live_case_rejects_missing_paid_call_checkpoint(
+        self, tmp_path: Path
+    ) -> None:
+        case_id = "case-333333333333"
+        cases = [_fake_case(tmp_path, case_id)]
+
+        def evaluate(
+            request: ProjectEvaluationRequest, paid: Provider
+        ) -> ProjectEvaluationResult:
+            paid.sample("system", "prompt", {"type": "object"}, 20)
+            return _completed_result(request.case_id)
+
+        _run_fake(tmp_path, cases, evaluate)
+        call = (
+            tmp_path
+            / "state"
+            / "pilot-1"
+            / "calls"
+            / case_id
+            / "calls"
+            / "000000.json"
+        )
+        call.unlink()
+
+        def must_not_run(
+            request: ProjectEvaluationRequest, provider: Provider
+        ) -> ProjectEvaluationResult:  # pragma: no cover - fail closed first
+            raise AssertionError("resume must not evaluate an incomplete paid-call join")
+
+        with pytest.raises(ValueError, match="checkpoint|paid.call|orphan"):
+            _run_fake(tmp_path, cases, must_not_run, resume=True)
+
     def test_dispatched_without_response_is_ambiguous_and_never_retried(
         self, tmp_path: Path
     ) -> None:

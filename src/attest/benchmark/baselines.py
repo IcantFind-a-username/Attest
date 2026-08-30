@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import subprocess
 import time
@@ -69,6 +70,8 @@ ARM_PRODUCT = "attest_product"
 ARM_BARE_PROMPT = "bare_prompt"
 ARM_RUFF = "ruff_static"
 COMPARISON_CHECKPOINT_SCHEMA_VERSION = "1"
+COMPARISON_RECONCILIATION_SCHEMA_VERSION = "1"
+_EMPTY_PAID_CALLS_SHA256 = hashlib.sha256(b"[]").hexdigest()
 
 ARM_DESCRIPTIONS: Mapping[str, str] = {
     ARM_PRODUCT: (
@@ -121,6 +124,12 @@ class ArmRun:
     oracle_spend_usd: float
     wall_time_s: float
     tool_cost_s: float | None
+    paid_calls: tuple[Mapping[str, object], ...] = ()
+    paid_calls_sha256: str = _EMPTY_PAID_CALLS_SHA256
+
+
+class ComparisonEvidenceError(ValueError):
+    """Persisted comparison call evidence is incomplete or contradictory."""
 
 
 @dataclass(frozen=True)
@@ -270,6 +279,31 @@ class _MeteredProvider:
             self.input_tokens += result.input_tokens
             self.output_tokens += result.output_tokens
         return result
+
+
+class _FailClosedCheckpointProvider:
+    """Do not let an arm translate checkpoint-integrity failure into DEFER."""
+
+    def __init__(self, inner: CheckpointedProvider) -> None:
+        self._inner = inner
+
+    def sample(
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
+    ) -> ProviderResult:
+        try:
+            return self._inner.sample(
+                system, prompt, schema, max_tokens, timeout_s=timeout_s
+            )
+        except ValueError as exc:
+            raise ComparisonEvidenceError(
+                "comparison paid-call checkpoint reconciliation failed"
+            ) from exc
 
 
 class BarePromptBaseline:
@@ -627,6 +661,231 @@ def _executable_digest(executable: str | None) -> str | None:
         raise ValueError(f"static-tool executable {executable!r} is unreadable") from exc
 
 
+def _comparison_reconciliation_path(root: Path, arm: str, case_id: str) -> Path:
+    return root / "reconciliation" / arm / f"{case_id}.json"
+
+
+def _call_evidence_exists(root: Path) -> bool:
+    costs = root / "costs.jsonl"
+    return (
+        any((root / "calls").glob("*.json"))
+        or any((root / "artifacts").glob("*.json"))
+        or (costs.is_file() and costs.stat().st_size > 0)
+    )
+
+
+def _prepare_comparison_reconciliation(
+    checkpoint_root: Path, arm: str, case_id: str
+) -> tuple[Path, dict[str, object], bool]:
+    path = _comparison_reconciliation_path(checkpoint_root, arm, case_id)
+    trial_id = f"comparison:{arm}:{case_id}"
+    if path.exists():
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ComparisonEvidenceError(
+                f"comparison {arm}/{case_id} reconciliation is unreadable"
+            ) from exc
+        if (
+            not isinstance(raw, dict)
+            or raw.get("schema_version") != COMPARISON_RECONCILIATION_SCHEMA_VERSION
+            or raw.get("arm") != arm
+            or raw.get("case_id") != case_id
+            or raw.get("trial_id") != trial_id
+            or raw.get("status") not in {"running", "settled"}
+        ):
+            raise ComparisonEvidenceError(
+                f"comparison {arm}/{case_id} reconciliation identity is invalid"
+            )
+        return path, dict(raw), False
+    call_root = checkpoint_root / arm / case_id
+    if _call_evidence_exists(call_root):
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} paid-call reconciliation is missing"
+        )
+    running: dict[str, object] = {
+        "schema_version": COMPARISON_RECONCILIATION_SCHEMA_VERSION,
+        "arm": arm,
+        "case_id": case_id,
+        "trial_id": trial_id,
+        "status": "running",
+    }
+    _atomic_write_json(path, running)
+    return path, running, True
+
+
+def _paid_call_binding(
+    records: Sequence[Mapping[str, object]],
+) -> tuple[tuple[dict[str, object], ...], str, float]:
+    normalized = tuple(dict(record) for record in records)
+    encoded = json.dumps(normalized, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    spend = 0.0
+    for record in normalized:
+        cost = record.get("cost_usd")
+        if (
+            isinstance(cost, bool)
+            or not isinstance(cost, (int, float))
+            or not math.isfinite(float(cost))
+            or float(cost) < 0
+        ):
+            raise ComparisonEvidenceError(
+                "comparison paid-call reconciliation has unknown settled spend"
+            )
+        spend += float(cost)
+    return normalized, hashlib.sha256(encoded).hexdigest(), spend
+
+
+def _settled_reconciliation_payload(
+    arm: str,
+    case_id: str,
+    records: Sequence[Mapping[str, object]],
+    digest: str,
+) -> dict[str, object]:
+    return {
+        "schema_version": COMPARISON_RECONCILIATION_SCHEMA_VERSION,
+        "arm": arm,
+        "case_id": case_id,
+        "trial_id": f"comparison:{arm}:{case_id}",
+        "status": "settled",
+        "call_count": len(records),
+        "paid_calls": [dict(record) for record in records],
+        "paid_calls_sha256": digest,
+    }
+
+
+def _verified_checkpoint_records(
+    checkpointed: CheckpointedProvider,
+) -> tuple[tuple[dict[str, object], ...], str, float]:
+    try:
+        return _paid_call_binding(checkpointed.reconciliation_records())
+    except AmbiguousCostError:
+        raise
+    except ValueError as exc:
+        raise ComparisonEvidenceError(
+            "comparison paid-call checkpoint reconciliation failed"
+        ) from exc
+
+
+def _verify_existing_reconciliation(
+    stored: Mapping[str, object],
+    *,
+    fresh: bool,
+    checkpointed: CheckpointedProvider,
+) -> None:
+    if fresh:
+        return
+    records, digest, _ = _verified_checkpoint_records(checkpointed)
+    if stored.get("status") == "running":
+        if not records:
+            raise ComparisonEvidenceError(
+                "comparison reconciliation was interrupted before durable call evidence; "
+                "automatic dispatch is refused"
+            )
+        return
+    expected = _settled_reconciliation_payload(
+        str(stored["arm"]), str(stored["case_id"]), records, digest
+    )
+    if dict(stored) != expected:
+        raise ComparisonEvidenceError(
+            "comparison reconciliation rows or digest do not match paid-call evidence"
+        )
+
+
+def _checkpointed_comparison_provider(
+    inner: Provider,
+    *,
+    checkpoint_root: Path,
+    arm: str,
+    case_id: str,
+    model_id: str,
+) -> tuple[CheckpointedProvider, Path, dict[str, object]]:
+    path, stored, fresh = _prepare_comparison_reconciliation(
+        checkpoint_root, arm, case_id
+    )
+    try:
+        checkpointed = CheckpointedProvider(
+            inner,
+            root=checkpoint_root / arm / case_id,
+            trial_id=f"comparison:{arm}:{case_id}",
+            model_id=model_id,
+        )
+    except ValueError as exc:
+        raise ComparisonEvidenceError(
+            "comparison paid-call checkpoint reconciliation failed"
+        ) from exc
+    _verify_existing_reconciliation(
+        stored, fresh=fresh, checkpointed=checkpointed
+    )
+    return checkpointed, path, stored
+
+
+def _attach_comparison_reconciliation(
+    run: ArmRun,
+    checkpointed: CheckpointedProvider,
+    path: Path,
+    stored: Mapping[str, object],
+) -> ArmRun:
+    records, digest, spend = _verified_checkpoint_records(checkpointed)
+    settled = _settled_reconciliation_payload(run.arm, run.case_id, records, digest)
+    if stored.get("status") == "settled":
+        if dict(stored) != settled:
+            raise ComparisonEvidenceError(
+                "comparison reconciliation rows or digest changed during replay"
+            )
+    else:
+        _atomic_write_json(path, settled)
+    return replace(
+        run,
+        spend_usd=spend,
+        paid_calls=records,
+        paid_calls_sha256=digest,
+    )
+
+
+def validate_arm_run_reconciliation(run: ArmRun) -> None:
+    """Fail report publication closed on missing, duplicate, or mismatched joins."""
+    records, digest, spend = _paid_call_binding(run.paid_calls)
+    if digest != run.paid_calls_sha256:
+        raise ComparisonEvidenceError(
+            f"comparison {run.arm}/{run.case_id} paid-call reconciliation digest mismatch"
+        )
+    if run.model_calls != len(records):
+        raise ComparisonEvidenceError(
+            f"comparison {run.arm}/{run.case_id} has missing reconciliation rows"
+        )
+    call_ids: set[str] = set()
+    trial_id = f"comparison:{run.arm}:{run.case_id}"
+    for ordinal, record in enumerate(records):
+        call_id = record.get("call_id")
+        if (
+            record.get("trial_id") != trial_id
+            or record.get("ordinal") != ordinal
+            or call_id != f"{trial_id}:{ordinal}"
+            or not isinstance(call_id, str)
+            or call_id in call_ids
+        ):
+            raise ComparisonEvidenceError(
+                f"comparison {run.arm}/{run.case_id} paid-call trial binding mismatch"
+            )
+        call_ids.add(call_id)
+    if records and not math.isclose(run.spend_usd, spend, rel_tol=0.0, abs_tol=1e-12):
+        raise ComparisonEvidenceError(
+            f"comparison {run.arm}/{run.case_id} spend does not match reconciliation rows"
+        )
+
+
+def _atomic_write_json(path: Path, payload: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    encoded = (
+        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode("utf-8")
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_bytes(encoded)
+    os.replace(temporary, path)
+
+
 def _product_arm(
     plan: ComparisonPlan,
     provider_factory: Callable[[ProjectEvaluationRequest], Provider],
@@ -635,28 +894,27 @@ def _product_arm(
 ) -> ArmRun:
     request = plan.request
     inner = provider_factory(request)
-    checkpointed = (
-        None
-        if checkpoint_root is None
-        else CheckpointedProvider(
+    reconciliation: tuple[CheckpointedProvider, Path, dict[str, object]] | None = None
+    if checkpoint_root is not None:
+        reconciliation = _checkpointed_comparison_provider(
             inner,
-            root=checkpoint_root / ARM_PRODUCT / request.case_id,
-            trial_id=f"comparison:{ARM_PRODUCT}:{request.case_id}",
+            checkpoint_root=checkpoint_root,
+            arm=ARM_PRODUCT,
+            case_id=request.case_id,
             model_id=request.config.model,
         )
+    meter = _MeteredProvider(
+        inner
+        if reconciliation is None
+        else _FailClosedCheckpointProvider(reconciliation[0])
     )
-    meter = _MeteredProvider(inner if checkpointed is None else checkpointed)
     started = clock()
     try:
         result = evaluate_project(request, provider=meter, clock=clock)
-        if checkpointed is not None:
-            checkpointed.raise_if_ambiguous()
-    except AmbiguousCostError:
+    except (AmbiguousCostError, ComparisonEvidenceError):
         raise
     except Exception as exc:  # noqa: BLE001 - a failed product run is a DEFER
-        if checkpointed is not None:
-            checkpointed.raise_if_ambiguous()
-        return ArmRun(
+        run = ArmRun(
             arm=ARM_PRODUCT,
             case_id=request.case_id,
             role=plan.case.role,
@@ -672,6 +930,9 @@ def _product_arm(
             wall_time_s=clock() - started,
             tool_cost_s=None,
         )
+        if reconciliation is not None:
+            run = _attach_comparison_reconciliation(run, *reconciliation)
+        return run
     deferred = result.abstain_reason is not None
     findings = (
         ()
@@ -686,7 +947,7 @@ def _product_arm(
             if is_scored_placement(prediction.placement)
         )
     )
-    return ArmRun(
+    run = ArmRun(
         arm=ARM_PRODUCT,
         case_id=request.case_id,
         role=plan.case.role,
@@ -702,6 +963,9 @@ def _product_arm(
         wall_time_s=result.latency_s,
         tool_cost_s=None,
     )
+    if reconciliation is not None:
+        run = _attach_comparison_reconciliation(run, *reconciliation)
+    return run
 
 
 def _baseline_arms(
@@ -713,29 +977,34 @@ def _baseline_arms(
 ) -> tuple[ArmRun, ArmRun]:
     request = plan.request
     role = plan.case.role
+    bare: ArmRun | None = None
     try:
         with _materialized_diff(request) as (worktree, diff):
             inner = bare_provider_factory(request.case_id)
-            checkpointed = (
-                None
-                if checkpoint_root is None
-                else CheckpointedProvider(
+            reconciliation: tuple[
+                CheckpointedProvider, Path, dict[str, object]
+            ] | None = None
+            if checkpoint_root is not None:
+                reconciliation = _checkpointed_comparison_provider(
                     inner,
-                    root=checkpoint_root / ARM_BARE_PROMPT / request.case_id,
-                    trial_id=f"comparison:{ARM_BARE_PROMPT}:{request.case_id}",
+                    checkpoint_root=checkpoint_root,
+                    arm=ARM_BARE_PROMPT,
+                    case_id=request.case_id,
                     model_id=request.config.model,
                 )
-            )
             bare = BarePromptBaseline(
-                inner if checkpointed is None else checkpointed, clock=clock
+                inner
+                if reconciliation is None
+                else _FailClosedCheckpointProvider(reconciliation[0]),
+                clock=clock,
             ).evaluate(
                 case_id=request.case_id,
                 role=role,
                 diff=diff,
                 config=request.config,
             )
-            if checkpointed is not None:
-                checkpointed.raise_if_ambiguous()
+            if reconciliation is not None:
+                bare = _attach_comparison_reconciliation(bare, *reconciliation)
             ruff = RuffBaseline(ruff_executable, clock=clock).evaluate(
                 case_id=request.case_id,
                 role=role,
@@ -743,12 +1012,14 @@ def _baseline_arms(
                 worktree=worktree,
             )
         return bare, ruff
-    except AmbiguousCostError:
+    except (AmbiguousCostError, ComparisonEvidenceError):
         raise
     except Exception as exc:  # noqa: BLE001 - an unpreparable case is a DEFER
         reason = f"diff_unavailable: {type(exc).__name__}"
         return (
-            _shared_defer(ARM_BARE_PROMPT, request.case_id, role, reason),
+            bare
+            if bare is not None
+            else _shared_defer(ARM_BARE_PROMPT, request.case_id, role, reason),
             _shared_defer(ARM_RUFF, request.case_id, role, reason),
         )
 
