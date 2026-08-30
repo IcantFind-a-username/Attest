@@ -69,7 +69,7 @@ from attest.review.schema import PROPOSAL_SCHEMA, validate_finding
 ARM_PRODUCT = "attest_product"
 ARM_BARE_PROMPT = "bare_prompt"
 ARM_RUFF = "ruff_static"
-COMPARISON_CHECKPOINT_SCHEMA_VERSION = "3"
+COMPARISON_CHECKPOINT_SCHEMA_VERSION = "4"
 COMPARISON_RECONCILIATION_SCHEMA_VERSION = "1"
 _EMPTY_PAID_CALLS_SHA256 = hashlib.sha256(b"[]").hexdigest()
 
@@ -600,7 +600,13 @@ def compare_arms(
             "line_slack": line_slack,
             "provider_id": provider_id,
             "ruff_sha256": _executable_digest(ruff_executable),
-            "bindings": [binding.to_json_dict() for binding in bindings],
+            "bindings": [
+                {
+                    "case_id": plan.case.case_id,
+                    "binding": binding.to_json_dict(),
+                }
+                for plan, binding in zip(plans, bindings, strict=True)
+            ],
             "paid_trials": [
                 {
                     "case_id": plan.case.case_id,
@@ -933,15 +939,24 @@ class _VerificationOnlyComparisonProvider:
 def validate_comparison_measurements(measurements: ComparisonMeasurements) -> None:
     """Re-read authoritative call/spend/artifact joins immediately before publication."""
     paid_runs = tuple(run for run in measurements.runs if run.arm != ARM_RUFF)
-    if paid_runs and measurements.checkpoint_root is None:
+    if measurements.checkpoint_root is None:
         raise ComparisonEvidenceError(
             "comparison report has no authoritative checkpoint root"
         )
-    paid_trials = (
-        {}
-        if measurements.checkpoint_root is None
-        else _comparison_predeclared_paid_trials(measurements.checkpoint_root)
+    paid_trials, declared_line_slack, declared_budget = (
+        _comparison_predeclared_paid_trials(
+            measurements.checkpoint_root
+        )
     )
+    if measurements.line_slack != declared_line_slack or not math.isclose(
+        measurements.budget_ceiling_usd,
+        declared_budget,
+        rel_tol=0.0,
+        abs_tol=1e-12,
+    ):
+        raise ComparisonEvidenceError(
+            "comparison measurement policy does not match its frozen predeclaration"
+        )
     paid_run_keys = tuple((run.case_id, run.arm) for run in paid_runs)
     if len(set(paid_run_keys)) != len(paid_run_keys) or set(paid_trials) != set(
         paid_run_keys
@@ -977,12 +992,16 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
         raise ComparisonEvidenceError(
             "comparison arm summaries do not match their authoritative runs"
         )
-    if measurements.checkpoint_root is not None:
-        marker_keys = _comparison_reconciliation_keys(measurements.checkpoint_root)
-        if marker_keys != set(paid_trials):
-            raise ComparisonEvidenceError(
-                "comparison reconciliation markers do not match predeclared paid trials"
-            )
+    marker_keys = _comparison_reconciliation_keys(measurements.checkpoint_root)
+    if marker_keys != set(paid_trials):
+        raise ComparisonEvidenceError(
+            "comparison reconciliation markers do not match predeclared paid trials"
+        )
+    call_root_keys = _comparison_paid_call_root_keys(measurements.checkpoint_root)
+    if call_root_keys != set(paid_trials):
+        raise ComparisonEvidenceError(
+            "comparison paid-call roots do not match predeclared paid trials"
+        )
     for run in measurements.runs:
         validate_arm_run_reconciliation(run)
         if run.arm == ARM_RUFF:
@@ -993,7 +1012,6 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
                 f"comparison {run.arm}/{run.case_id} model does not match its frozen "
                 "predeclaration binding"
             )
-        assert measurements.checkpoint_root is not None
         path = _comparison_reconciliation_path(
             measurements.checkpoint_root, run.arm, run.case_id
         )
@@ -1030,7 +1048,7 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
 
 def _comparison_predeclared_paid_trials(
     root: Path,
-) -> dict[tuple[str, str], tuple[str, str]]:
+) -> tuple[dict[tuple[str, str], tuple[str, str]], int, float]:
     path = root / "comparison.json"
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -1040,10 +1058,53 @@ def _comparison_predeclared_paid_trials(
         ) from exc
     version = raw.get("schema_version") if isinstance(raw, dict) else None
     trials = raw.get("paid_trials") if isinstance(raw, dict) else None
-    if version != COMPARISON_CHECKPOINT_SCHEMA_VERSION or not isinstance(trials, list):
+    bindings = raw.get("bindings") if isinstance(raw, dict) else None
+    line_slack = raw.get("line_slack") if isinstance(raw, dict) else None
+    provider_id = raw.get("provider_id") if isinstance(raw, dict) else None
+    if (
+        version != COMPARISON_CHECKPOINT_SCHEMA_VERSION
+        or not isinstance(trials, list)
+        or not isinstance(bindings, list)
+        or isinstance(line_slack, bool)
+        or not isinstance(line_slack, int)
+        or line_slack < 0
+        or not isinstance(provider_id, str)
+        or not provider_id
+    ):
         raise ComparisonEvidenceError(
             f"comparison predeclaration schema/paid-trial binding is invalid; supported "
             f"version is {COMPARISON_CHECKPOINT_SCHEMA_VERSION}"
+        )
+    binding_models: dict[str, str] = {}
+    budgets: set[float] = set()
+    for row in bindings:
+        case_id = row.get("case_id") if isinstance(row, dict) else None
+        binding = row.get("binding") if isinstance(row, dict) else None
+        model_id = binding.get("model_id") if isinstance(binding, dict) else None
+        binding_provider = (
+            binding.get("provider_id") if isinstance(binding, dict) else None
+        )
+        budget = binding.get("budget_usd") if isinstance(binding, dict) else None
+        if (
+            not isinstance(case_id, str)
+            or not case_id
+            or case_id in binding_models
+            or not isinstance(model_id, str)
+            or not model_id
+            or binding_provider != provider_id
+            or isinstance(budget, bool)
+            or not isinstance(budget, (int, float))
+            or not math.isfinite(float(budget))
+            or float(budget) < 0
+        ):
+            raise ComparisonEvidenceError(
+                "comparison predeclaration contains an invalid frozen binding"
+            )
+        binding_models[case_id] = model_id
+        budgets.add(float(budget))
+    if len(budgets) > 1:
+        raise ComparisonEvidenceError(
+            "comparison predeclaration contains inconsistent budget bindings"
         )
     normalized: dict[tuple[str, str], tuple[str, str]] = {}
     for row in trials:
@@ -1058,6 +1119,7 @@ def _comparison_predeclared_paid_trials(
             or trial_id != f"comparison:{arm}:{case_id}"
             or not isinstance(model_id, str)
             or not model_id
+            or binding_models.get(case_id) != model_id
         ):
             raise ComparisonEvidenceError(
                 "comparison predeclaration contains an invalid paid-trial binding"
@@ -1069,14 +1131,25 @@ def _comparison_predeclared_paid_trials(
             )
         assert isinstance(arm, str) and isinstance(trial_id, str)
         normalized[key] = (trial_id, model_id)
-    return normalized
+    expected = {
+        (case_id, arm)
+        for case_id in binding_models
+        for arm in (ARM_PRODUCT, ARM_BARE_PROMPT)
+    }
+    if set(normalized) != expected:
+        raise ComparisonEvidenceError(
+            "comparison paid trials do not exactly cover frozen bindings"
+        )
+    return normalized, line_slack, next(iter(budgets), 0.0)
 
 
 def _comparison_reconciliation_keys(root: Path) -> set[tuple[str, str]]:
     reconciliation_root = root / "reconciliation"
+    if not reconciliation_root.exists():
+        return set()
     if not reconciliation_root.is_dir():
         raise ComparisonEvidenceError(
-            "comparison reconciliation marker directory is missing"
+            "comparison reconciliation marker path is not a directory"
         )
     keys: set[tuple[str, str]] = set()
     for path in reconciliation_root.rglob("*"):
@@ -1098,6 +1171,31 @@ def _comparison_reconciliation_keys(root: Path) -> set[tuple[str, str]]:
                 "comparison reconciliation contains a duplicate marker"
             )
         keys.add(key)
+    return keys
+
+
+def _comparison_paid_call_root_keys(root: Path) -> set[tuple[str, str]]:
+    allowed = {"comparison.json", "reconciliation", ARM_PRODUCT, ARM_BARE_PROMPT}
+    for path in root.iterdir():
+        if path.name not in allowed:
+            raise ComparisonEvidenceError(
+                "comparison checkpoint root contains orphan paid-call evidence"
+            )
+    keys: set[tuple[str, str]] = set()
+    for arm in (ARM_PRODUCT, ARM_BARE_PROMPT):
+        arm_root = root / arm
+        if not arm_root.exists():
+            continue
+        if not arm_root.is_dir():
+            raise ComparisonEvidenceError(
+                "comparison paid-call arm root is not a directory"
+            )
+        for case_root in arm_root.iterdir():
+            if not case_root.is_dir() or not case_root.name:
+                raise ComparisonEvidenceError(
+                    "comparison paid-call arm contains orphan evidence"
+                )
+            keys.add((case_root.name, arm))
     return keys
 
 

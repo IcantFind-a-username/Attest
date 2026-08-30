@@ -785,6 +785,133 @@ def test_comparison_report_rejects_unbound_evaluated_cases_and_arm_summary(
         )
 
 
+def test_comparison_report_rejects_self_consistent_empty_measurements(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    measurements = compare_arms(
+        [plans[0]],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "calls",
+    )
+    erased = compare_arms(
+        [],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=None,
+    )
+    assert any((measurements.checkpoint_root or tmp_path).rglob("*.json"))
+
+    with pytest.raises(ValueError, match="checkpoint|authoritative|paid|evidence"):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            erased,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
+def test_comparison_report_rejects_paid_trial_model_divergence_from_binding(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    checkpoint_root = tmp_path / "calls"
+    measurements = compare_arms(
+        [plans[0]],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=checkpoint_root,
+    )
+    declaration_path = checkpoint_root / "comparison.json"
+    declaration = json.loads(declaration_path.read_text(encoding="utf-8"))
+    for row in declaration["paid_trials"]:
+        if row["arm"] == ARM_PRODUCT:
+            row["model_id"] = "claude-opus-5"
+    declaration_path.write_text(json.dumps(declaration) + "\n", encoding="utf-8")
+    tampered = replace(
+        measurements,
+        runs=tuple(
+            replace(run, model_id="claude-opus-5")
+            if run.arm == ARM_PRODUCT
+            else run
+            for run in measurements.runs
+        ),
+    )
+
+    with pytest.raises(ValueError, match="binding|model|predeclaration"):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            tampered,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
+def test_comparison_report_rejects_orphan_paid_call_roots(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    checkpoint_root = tmp_path / "calls"
+    compare_arms(
+        [plans[0]],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=checkpoint_root,
+    )
+    declaration_path = checkpoint_root / "comparison.json"
+    declaration = json.loads(declaration_path.read_text(encoding="utf-8"))
+    declaration["paid_trials"] = []
+    declaration_path.write_text(json.dumps(declaration) + "\n", encoding="utf-8")
+    for marker in (checkpoint_root / "reconciliation").rglob("*.json"):
+        marker.unlink()
+    erased = replace(
+        compare_arms(
+            [],
+            provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=None,
+        ),
+        checkpoint_root=checkpoint_root,
+    )
+
+    with pytest.raises(ValueError, match="orphan|checkpoint|binding|paid|evidence"):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            erased,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
+def test_comparison_report_allows_predeclared_empty_plan(
+    tmp_path: Path,
+) -> None:
+    _, _, manifest_path = _plans(tmp_path)
+    measurements = compare_arms(
+        [],
+        provider_factory=lambda request: pytest.fail("empty plan dispatched product"),
+        bare_provider_factory=lambda case_id: pytest.fail("empty plan dispatched bare"),
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "empty-calls",
+    )
+
+    payload = build_comparison_report(
+        load_manifest(manifest_path),
+        measurements,
+        manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        validation_receipt=None,
+    ).to_json_dict()
+
+    assert payload["runs"] == []
+    assert len(payload["arms"]) == 3
+
+
 @pytest.mark.parametrize(
     "corruption",
     (
