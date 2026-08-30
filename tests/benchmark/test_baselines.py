@@ -666,6 +666,47 @@ def test_comparison_report_rechecks_authoritative_artifacts_at_publication(
         )
 
 
+def test_comparison_report_rejects_model_drift_from_frozen_predeclaration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    plan = plans[0]
+
+    def fail_after_response(
+        request: ProjectEvaluationRequest, *, provider: object, clock: object
+    ) -> object:
+        provider.sample("system", "prompt", {"type": "object"}, 20)
+        raise RuntimeError("failure after provider settlement")
+
+    monkeypatch.setattr(
+        "attest.benchmark.baselines.evaluate_project", fail_after_response
+    )
+    measurements = compare_arms(
+        [plan],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "calls",
+    )
+    tampered = replace(
+        measurements,
+        runs=tuple(
+            replace(run, model_id="claude-opus-5")
+            if run.arm == ARM_PRODUCT
+            else run
+            for run in measurements.runs
+        ),
+    )
+
+    with pytest.raises(ValueError, match="model|predeclaration|binding"):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            tampered,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
 @pytest.mark.parametrize(
     "corruption",
     (

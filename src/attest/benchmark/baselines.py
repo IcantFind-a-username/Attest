@@ -69,7 +69,7 @@ from attest.review.schema import PROPOSAL_SCHEMA, validate_finding
 ARM_PRODUCT = "attest_product"
 ARM_BARE_PROMPT = "bare_prompt"
 ARM_RUFF = "ruff_static"
-COMPARISON_CHECKPOINT_SCHEMA_VERSION = "1"
+COMPARISON_CHECKPOINT_SCHEMA_VERSION = "2"
 COMPARISON_RECONCILIATION_SCHEMA_VERSION = "1"
 _EMPTY_PAID_CALLS_SHA256 = hashlib.sha256(b"[]").hexdigest()
 
@@ -601,6 +601,10 @@ def compare_arms(
             "provider_id": provider_id,
             "ruff_sha256": _executable_digest(ruff_executable),
             "bindings": [binding.to_json_dict() for binding in bindings],
+            "case_models": {
+                plan.case.case_id: binding.model_id
+                for plan, binding in zip(plans, bindings, strict=True)
+            },
         }
         _require_comparison_predeclaration(checkpoint_root, predeclaration)
         plans = tuple(
@@ -922,14 +926,31 @@ class _VerificationOnlyComparisonProvider:
 
 def validate_comparison_measurements(measurements: ComparisonMeasurements) -> None:
     """Re-read authoritative call/spend/artifact joins immediately before publication."""
+    paid_runs = tuple(run for run in measurements.runs if run.arm != ARM_RUFF)
+    if paid_runs and measurements.checkpoint_root is None:
+        raise ComparisonEvidenceError(
+            "comparison report has no authoritative checkpoint root"
+        )
+    case_models = (
+        {}
+        if measurements.checkpoint_root is None
+        else _comparison_predeclared_models(measurements.checkpoint_root)
+    )
+    if set(case_models) != {run.case_id for run in paid_runs}:
+        raise ComparisonEvidenceError(
+            "comparison predeclaration case/model bindings do not match report runs"
+        )
     for run in measurements.runs:
         validate_arm_run_reconciliation(run)
         if run.arm == ARM_RUFF:
             continue
-        if measurements.checkpoint_root is None or run.model_id is None:
+        expected_model = case_models.get(run.case_id)
+        if run.model_id != expected_model or not isinstance(expected_model, str):
             raise ComparisonEvidenceError(
-                f"comparison {run.arm}/{run.case_id} has no authoritative checkpoint root"
+                f"comparison {run.arm}/{run.case_id} model does not match its frozen "
+                "predeclaration binding"
             )
+        assert measurements.checkpoint_root is not None
         path = _comparison_reconciliation_path(
             measurements.checkpoint_root, run.arm, run.case_id
         )
@@ -943,7 +964,7 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
                 _VerificationOnlyComparisonProvider(),
                 root=measurements.checkpoint_root / run.arm / run.case_id,
                 trial_id=f"comparison:{run.arm}:{run.case_id}",
-                model_id=run.model_id,
+                model_id=expected_model,
             )
         except ValueError as exc:
             raise ComparisonEvidenceError(
@@ -962,6 +983,36 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
             raise ComparisonEvidenceError(
                 f"comparison {run.arm}/{run.case_id} report evidence is not authoritative"
             )
+
+
+def _comparison_predeclared_models(root: Path) -> dict[str, str]:
+    path = root / "comparison.json"
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ComparisonEvidenceError(
+            "comparison predeclaration is unreadable at report publication"
+        ) from exc
+    version = raw.get("schema_version") if isinstance(raw, dict) else None
+    models = raw.get("case_models") if isinstance(raw, dict) else None
+    if version != COMPARISON_CHECKPOINT_SCHEMA_VERSION or not isinstance(models, dict):
+        raise ComparisonEvidenceError(
+            f"comparison predeclaration schema/model binding is invalid; supported "
+            f"version is {COMPARISON_CHECKPOINT_SCHEMA_VERSION}"
+        )
+    normalized: dict[str, str] = {}
+    for case_id, model_id in models.items():
+        if (
+            not isinstance(case_id, str)
+            or not case_id
+            or not isinstance(model_id, str)
+            or not model_id
+        ):
+            raise ComparisonEvidenceError(
+                "comparison predeclaration contains an invalid case/model binding"
+            )
+        normalized[case_id] = model_id
+    return normalized
 
 
 def _atomic_write_json(path: Path, payload: Mapping[str, object]) -> None:
