@@ -1,0 +1,62 @@
+Preparing worktree (detached HEAD bf0a84b)
+HEAD is now at bf0a84b fix(benchmark): bind roles through report authority
+Python 3.12.8
+Looking in links: /private/tmp/attest-wheelhouse.WAGZer
+Ignoring numpy: markers 'python_version < "3.12"' don't match your environment
+Processing /private/tmp/attest-wheelhouse.WAGZer/annotated_types-0.8.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 17))
+Processing /private/tmp/attest-wheelhouse.WAGZer/anthropic-1.2.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 18))
+Processing /private/tmp/attest-wheelhouse.WAGZer/anyio-4.14.2-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 19))
+Processing /private/tmp/attest-wheelhouse.WAGZer/ast_serialize-0.8.0-cp39-abi3-macosx_11_0_arm64.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 20))
+Processing /private/tmp/attest-wheelhouse.WAGZer/coverage-7.16.0-cp312-cp312-macosx_11_0_arm64.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 21))
+Processing /private/tmp/attest-wheelhouse.WAGZer/docstring_parser-0.18.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 22))
+Processing /private/tmp/attest-wheelhouse.WAGZer/editables-0.6-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 23))
+Processing /private/tmp/attest-wheelhouse.WAGZer/h11-0.16.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 24))
+Processing /private/tmp/attest-wheelhouse.WAGZer/hatchling-1.32.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 25))
+Processing /private/tmp/attest-wheelhouse.WAGZer/httpcore2-2.12.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 26))
+Processing /private/tmp/attest-wheelhouse.WAGZer/httpx2-2.12.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 27))
+Processing /private/tmp/attest-wheelhouse.WAGZer/idna-3.19-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 28))
+Processing /private/tmp/attest-wheelhouse.WAGZer/iniconfig-2.3.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 29))
+Processing /private/tmp/attest-wheelhouse.WAGZer/jiter-0.16.0-cp312-cp312-macosx_11_0_arm64.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 30))
+Processing /private/tmp/attest-wheelhouse.WAGZer/librt-0.15.0-cp312-cp312-macosx_11_0_arm64.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 31))
+Processing /private/tmp/attest-wheelhouse.WAGZer/mypy-2.3.1-cp312-cp312-macosx_11_0_arm64.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 32))
+Processing /private/tmp/attest-wheelhouse.WAGZer/mypy_extensions-1.1.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 33))
+Processing /private/tmp/attest-wheelhouse.WAGZer/numpy-2.5.2-cp312-cp312-macosx_14_0_arm64.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 35))
+Processing /private/tmp/attest-wheelhouse.WAGZer/packaging-26.3-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 36))
+Processing /private/tmp/attest-wheelhouse.WAGZer/pathspec-1.1.1-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 37))
+Processing /private/tmp/attest-wheelhouse.WAGZer/pip-26.2.1-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 38))
+Processing /private/tmp/attest-wheelhouse.WAGZer/pluggy-1.6.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 39))
+Processing /private/tmp/attest-wheelhouse.WAGZer/pydantic-2.13.4-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 40))
+Processing /private/tmp/attest-wheelhouse.WAGZer/pydantic_core-2.46.4-cp312-cp312-macosx_11_0_arm64.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 41))
+Processing /private/tmp/attest-wheelhouse.WAGZer/pygments-2.21.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 42))
+Processing /private/tmp/attest-wheelhouse.WAGZer/pytest-9.1.1-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 43))
+Processing /private/tmp/attest-wheelhouse.WAGZer/pytest_cov-7.1.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 44))
+Processing /private/tmp/attest-wheelhouse.WAGZer/ruff-0.16.5-py3-none-macosx_11_0_arm64.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 45))
+Processing /private/tmp/attest-wheelhouse.WAGZer/setuptools-83.0.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 46))
+Processing /private/tmp/attest-wheelhouse.WAGZer/sniffio-1.3.1-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 47))
+Processing /private/tmp/attest-wheelhouse.WAGZer/tomlkit-0.15.1-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 48))
+Processing /private/tmp/attest-wheelhouse.WAGZer/trove_classifiers-2026.6.1.19-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 49))
+Processing /private/tmp/attest-wheelhouse.WAGZer/truststore-0.10.4-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 50))
+Processing /private/tmp/attest-wheelhouse.WAGZer/typing_extensions-4.16.0-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 51))
+Processing /private/tmp/attest-wheelhouse.WAGZer/typing_inspection-0.4.4-py3-none-any.whl (from -r /private/tmp/attest-m03-role-final-312.ivbOyF/checkout/requirements-toolchain.lock (line 52))
+Installing collected packages: trove-classifiers, typing-extensions, truststore, tomlkit, sniffio, setuptools, ruff, pygments, pluggy, pip, pathspec, packaging, numpy, mypy-extensions, librt, jiter, iniconfig, idna, h11, editables, docstring-parser, coverage, ast-serialize, annotated-types, typing-inspection, pytest, pydantic-core, mypy, httpcore2, hatchling, anyio, pytest-cov, pydantic, httpx2, anthropic
+  Attempting uninstall: pip
+    Found existing installation: pip 24.3.1
+    Uninstalling pip-24.3.1:
+      Successfully uninstalled pip-24.3.1
+Successfully installed annotated-types-0.8.0 anthropic-1.2.0 anyio-4.14.2 ast-serialize-0.8.0 coverage-7.16.0 docstring-parser-0.18.0 editables-0.6 h11-0.16.0 hatchling-1.32.0 httpcore2-2.12.0 httpx2-2.12.0 idna-3.19 iniconfig-2.3.0 jiter-0.16.0 librt-0.15.0 mypy-2.3.1 mypy-extensions-1.1.0 numpy-2.5.2 packaging-26.3 pathspec-1.1.1 pip-26.2.1 pluggy-1.6.0 pydantic-2.13.4 pydantic-core-2.46.4 pygments-2.21.0 pytest-9.1.1 pytest-cov-7.1.0 ruff-0.16.5 setuptools-83.0.0 sniffio-1.3.1 tomlkit-0.15.1 trove-classifiers-2026.6.1.19 truststore-0.10.4 typing-extensions-4.16.0 typing-inspection-0.4.4
+Looking in links: /private/tmp/attest-wheelhouse.WAGZer
+Obtaining file:///private/tmp/attest-m03-role-final-312.ivbOyF/checkout
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: attest
+  Building editable for attest (pyproject.toml): started
+  Building editable for attest (pyproject.toml): finished with status 'done'
+  Created wheel for attest: filename=attest-0.0.1-py3-none-any.whl size=9262 sha256=b16af63eb4c6f57facf2b2de0786ead4a1f51444ccbbc5d3b754d2039bcff8b0
+  Stored in directory: /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pip-ephem-wheel-cache-owx68p5l/wheels/7d/7d/6f/391d19361b7d50fd7317e7f11de92076392d386c9be12bd705
+Successfully built attest
+Installing collected packages: attest
+Successfully installed attest-0.0.1
+No broken requirements found.
+bf0a84b531ec444cfff2f9b2daa49e13ac2ddda8

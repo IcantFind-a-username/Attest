@@ -14,6 +14,11 @@ historical evidence, but it is not a current M-03 completion claim.
 > → GREEN repair, fresh SHA-bound Python 3.11/3.12 Gates, and a new independent
 > review with P0/P1=0.
 
+> **REVALIDATION — 2026-08-31.** The role-aware contract was subsequently corrected and
+> accepted only after fresh final-SHA Gates and a new independent review. See the
+> [2026-08-31 revalidation](2026-08-31-m03-role-revalidation.md). This `81bf625`
+> record remains INVALIDATED historical evidence and is not reinstated.
+
 This report supersedes, but does not erase, the explicitly
 [INVALIDATED historical acceptance](2026-08-30-m03-deterministic-crash-safe-measurement.md).
 The accepted implementation is

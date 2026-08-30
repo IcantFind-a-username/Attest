@@ -1,0 +1,54 @@
+M-03 ROLE-ACCOUNTING FINAL-SHA CLEAN GATE SUMMARY
+date: 2026-08-31
+implementation_sha: bce13f00e5f3e5002b457a930d9378ec8d171e88
+dirty_state: clean in both detached checkouts before and after Gate
+lock_sha256: 76908dd8dc527b59e95ab856cf67656946a4c1bf8eecbb0d95430a2161341c11
+wheelhouse_inventory_sha256: 65e07106d4b90c72b204012a1bbec7cf78f6866c815312cbb9db620a3131c325
+
+Fresh installation in each environment:
+git worktree add --detach <fresh>/checkout bce13f00e5f3e5002b457a930d9378ec8d171e88
+pythonX.Y -m venv <fresh>/venv
+<fresh>/venv/bin/python -m pip install --no-index --find-links <wheelhouse> -r requirements-toolchain.lock
+<fresh>/venv/bin/python -m pip install --no-index --find-links <wheelhouse> --no-deps --no-build-isolation -e .
+<fresh>/venv/bin/python -m pip check
+
+Commands in each clean checkout/venv:
+pytest tests/test_phase3_acceptance.py tests/benchmark/test_checkpoints.py tests/benchmark/test_live.py tests/benchmark/test_stability.py tests/benchmark/test_api.py tests/benchmark/test_baselines.py -q
+pytest tests/benchmark -q
+pytest -q
+ruff check .
+mypy src/attest
+pytest --cov=src/attest --cov-report=term-missing -q
+pip check
+git diff --check
+test -z "$(git status --porcelain=v1)"
+
+Python 3.11.5 / cpython-3.11.5-darwin-arm64:
+focused=213 PASS
+benchmark=479 PASS
+full=860 PASS
+ruff=PASS
+mypy=PASS (47 source files)
+coverage=92.36% PASS
+attest.core=>=99% PASS
+pip_check=PASS
+diff_check=PASS
+clean_tree=PASS
+full_gate_log_sha256=185441da9e0a8be5c116fba42443c20c4fe18314e5659f55fbbeb1ee8f48b108
+
+Python 3.12.8 / cpython-3.12.8-darwin-arm64:
+focused=213 PASS
+benchmark=479 PASS
+full=860 PASS
+ruff=PASS
+mypy=PASS (47 source files)
+coverage=92.36% PASS
+attest.core=>=99% PASS
+pip_check=PASS
+diff_check=PASS
+clean_tree=PASS
+full_gate_log_sha256=bec933ff46e2829a708e0a510be1df72756e78e7b500da3c7cc6f33aaa41a5bc
+
+paid_actions=none
+remote_mutations=none
+network_provider_calls=none

@@ -164,11 +164,11 @@ changes.
 - [ ] **M-02 — receipt authority and raw validation evidence.** Reject incomplete/manual
   validation rows, retain bounded fixed/buggy run evidence, and distinguish integrity,
   provenance, and semantic authority.
-- [ ] **M-03 — deterministic and crash-safe measurement.** The `81bf625` PASS record
-  is explicitly INVALIDATED after role-accounting P1 findings; see its preserved
-  [`erratum and historical evidence`](acceptance/2026-08-30-m03-revalidation.md).
-  Completion now requires role-bound paid-call authority, fresh Python 3.11/3.12
-  Gates from the corrected implementation SHA, and a new independent review.
+- [x] **M-03 — deterministic and crash-safe measurement.** The role-bound implementation
+  `bce13f0` passed fresh Python 3.11/3.12 Gates and a new independent review with
+  P0=0/P1=0; see the
+  [`2026-08-31 acceptance`](acceptance/2026-08-31-m03-role-revalidation.md). The
+  earlier `81bf625` PASS remains explicitly INVALIDATED historical evidence.
 
 ### Entry
 
@@ -547,6 +547,16 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-08-31 — M-03 role accounting revalidated:** implementation `bce13f0`
+  binds immutable `product`/`benchmark_oracle` roles through canonical call requests,
+  checkpoints, artifacts, spend rows, stability/live/comparison reconciliation, and
+  report digests; the Ruff local-tool arm cannot acquire fabricated paid evidence. Fresh
+  clean CPython 3.11.5 and 3.12.8 environments each passed 213 focused, 479 benchmark,
+  and 860 full tests, Ruff, Mypy, 92.36% coverage, `pip check`, diff, and clean-tree
+  checks. A new independent reviewer reported P0=0, P1=0, P2=1 and accepted M-03,
+  `G-CODE-001`, and `G-MEASURE-003`. See
+  [`acceptance/2026-08-31-m03-role-revalidation.md`](acceptance/2026-08-31-m03-role-revalidation.md).
 
 - **2026-08-30 — M-03 reopened after role-accounting review:** the `81bf625` PASS
   record is INVALIDATED but preserved. Independent review reproduced three P1s with
