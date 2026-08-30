@@ -164,9 +164,10 @@ changes.
 - [ ] **M-02 — receipt authority and raw validation evidence.** Reject incomplete/manual
   validation rows, retain bounded fixed/buggy run evidence, and distinguish integrity,
   provenance, and semantic authority.
-- [ ] **M-03 — deterministic and crash-safe measurement.** Inject clocks; lock supported
-  tool versions; bind resolved SHAs/model/prompt/interpreter to predeclarations; checkpoint
-  each paid subcall and represent ambiguous cost.
+- [x] **M-03 — deterministic and crash-safe measurement.** Injected clocks, complete locked
+  tool/runtime environments, drift-bound predeclarations, and exactly-once paid-subcall
+  reconciliation passed `G-CODE-001` and `G-MEASURE-003`; evidence is recorded in
+  [`acceptance/2026-08-30-m03-deterministic-crash-safe-measurement.md`](acceptance/2026-08-30-m03-deterministic-crash-safe-measurement.md).
 
 ### Entry
 
@@ -545,6 +546,14 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-08-30 — M-03 complete:** deterministic clocks, full predeclaration bindings,
+  universal paid-subcall checkpoints, fail-closed trial/spend/artifact reconciliation,
+  workflow conclusion checks, and the complete locked 3.11/3.12 toolchain were accepted
+  in implementation commit `cf8778d`. Both fresh environments passed 814 tests, Ruff,
+  Mypy, 92.52% coverage, `pip check`, and diff checks; final independent review reported
+  no P0/P1. See
+  [`acceptance/2026-08-30-m03-deterministic-crash-safe-measurement.md`](acceptance/2026-08-30-m03-deterministic-crash-safe-measurement.md).
 
 - **2026-08-30 — F-00 complete:** normative document split, target architecture, exact
   dependency roadmap, 30 construction-ready work orders, and 29 acceptance Gates were

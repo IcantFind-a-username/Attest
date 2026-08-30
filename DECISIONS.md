@@ -200,3 +200,25 @@ contract is active only when the owning architecture/acceptance document changes
 - **Reversal:** document layout may split as it grows, but domain ownership, stable IDs, and
   no-silent-conflict rule remain unless an equally checkable replacement is approved.
 - **Trace:** `G-DOC-001`; F-00 and every later work-order handoff.
+
+### D-045 — Paid-call evidence is process-crash durable and reconciled bidirectionally
+
+- **Date/status/scope:** 2026-08-30 · accepted measurement contract · M-03 paid studies.
+- **Decision:** bind every paid subcall to one trial/call ID, one authoritative spend row,
+  and one content-addressed artifact. Persist call transitions with same-directory atomic
+  replacement; treat dispatched-without-response as `ambiguous_cost`; validate both from
+  checkpoint to evidence and from evidence back to checkpoint. Enclosing observations and
+  reports bind the verified joins rather than accepting a self-consistent empty directory.
+- **Why:** case-level cost alone cannot prove which paid dispatch produced which artifact,
+  and process interruption between dispatch, response, settlement, and report publication
+  otherwise permits duplicate calls or erased cost.
+- **Consequences:** missing, duplicate, mismatched, orphaned, or wholly absent call evidence
+  withholds claims. The complete build/runtime/Gate closure is exactly pinned and accepted
+  under both Python 3.11 and 3.12 before a measurement implementation is marked complete.
+- **Boundary:** durability covers controller/process crashes on one local filesystem. It
+  does not claim distributed transactions or power-loss persistence, and it never permits
+  automatic replay of an uncertain dispatch.
+- **Reversal:** retain all paid-call artifacts and use the last compatible reader; mark
+  unresolved calls ambiguous and withhold metrics. A lock change must pass both declared
+  interpreter Gates before replacing the accepted lock.
+- **Trace:** `INV-COST-001`, `G-CODE-001`, `G-MEASURE-003`; work order M-03.
