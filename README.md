@@ -5,7 +5,7 @@ evidence-first AI code review that publishes a finding only when the same genera
 reproduction test deterministically fails on the reviewed head and passes on its base,
 across repeated runs (N=3 per side) — otherwise it stays silent or explicitly defers.
 At most 3 things per PR, in under 60 seconds, each backed by a test you can click and
-re-run yourself. 宁可不说,不说错: better silent than wrong.
+re-run yourself. Better silent than wrong.
 
 Underneath, a sequential betting process prices every piece of evidence —
 correlation-discounted votes, capped static corroboration, differential reproduction —
