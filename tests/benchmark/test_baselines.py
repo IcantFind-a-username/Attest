@@ -707,6 +707,84 @@ def test_comparison_report_rejects_model_drift_from_frozen_predeclaration(
         )
 
 
+def test_comparison_report_rejects_omitted_authoritative_paid_trial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    plan = plans[0]
+
+    def fail_after_response(
+        request: ProjectEvaluationRequest, *, provider: object, clock: object
+    ) -> object:
+        provider.sample("system", "prompt", {"type": "object"}, 20)
+        raise RuntimeError("failure after provider settlement")
+
+    monkeypatch.setattr(
+        "attest.benchmark.baselines.evaluate_project", fail_after_response
+    )
+    measurements = compare_arms(
+        [plan],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "calls",
+    )
+    omitted = replace(
+        measurements,
+        runs=tuple(run for run in measurements.runs if run.arm != ARM_BARE_PROMPT),
+    )
+
+    with pytest.raises(ValueError, match="paid|trial|reconciliation|arm"):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            omitted,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
+def test_comparison_report_rejects_unbound_evaluated_cases_and_arm_summary(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    measurements = compare_arms(
+        [plans[0]],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "calls",
+    )
+    manifest = load_manifest(manifest_path)
+    manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+
+    with pytest.raises(ValueError, match="evaluated|case|run"):
+        build_comparison_report(
+            manifest,
+            replace(measurements, evaluated_case_ids=()),
+            manifest_sha256=manifest_sha256,
+            validation_receipt=None,
+        )
+
+    product = next(summary for summary in measurements.arms if summary.arm == ARM_PRODUCT)
+    corrupted_product = replace(
+        product,
+        operational=replace(product.operational, spend_usd=0.0),
+    )
+    with pytest.raises(ValueError, match="summary|arm|run"):
+        build_comparison_report(
+            manifest,
+            replace(
+                measurements,
+                arms=tuple(
+                    corrupted_product if summary is product else summary
+                    for summary in measurements.arms
+                ),
+            ),
+            manifest_sha256=manifest_sha256,
+            validation_receipt=None,
+        )
+
+
 @pytest.mark.parametrize(
     "corruption",
     (
