@@ -164,9 +164,10 @@ changes.
 - [ ] **M-02 — receipt authority and raw validation evidence.** Reject incomplete/manual
   validation rows, retain bounded fixed/buggy run evidence, and distinguish integrity,
   provenance, and semantic authority.
-- [x] **M-03 — deterministic and crash-safe measurement.** Injected clocks, complete locked
-  tool/runtime environments, drift-bound predeclarations, and exactly-once paid-subcall
-  reconciliation passed `G-CODE-001` and `G-MEASURE-003`; evidence is recorded in
+- [ ] **M-03 — deterministic and crash-safe measurement (reopened).** The prior acceptance
+  is explicitly invalidated pending corrected live/comparison reconciliation, a lock-bound
+  Action runtime, final-SHA clean-environment Gates, and independent re-review. Historical
+  evidence is retained in
   [`acceptance/2026-08-30-m03-deterministic-crash-safe-measurement.md`](acceptance/2026-08-30-m03-deterministic-crash-safe-measurement.md).
 
 ### Entry
@@ -546,6 +547,11 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-08-30 — M-03 reopened:** final review found four P1 completion blockers after
+  `b897852`; its PASS status and linked acceptance report are INVALIDATED but retained as
+  historical evidence. M-03 remains open until the corrected implementation commit itself
+  passes fresh Python 3.11/3.12 Gates and an uninvolved reviewer clears all P0/P1.
 
 - **2026-08-30 — M-03 complete:** deterministic clocks, full predeclaration bindings,
   universal paid-subcall checkpoints, fail-closed trial/spend/artifact reconciliation,

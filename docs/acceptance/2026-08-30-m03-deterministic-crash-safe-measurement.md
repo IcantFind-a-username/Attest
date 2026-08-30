@@ -1,6 +1,18 @@
 # M-03 deterministic, version-locked, crash-safe measurement — 2026-08-30
 
-Status: **PASS for M-03, `G-CODE-001`, and `G-MEASURE-003`**
+> **ERRATUM — INVALIDATED 2026-08-30.** The original PASS below was recorded
+> before final review identified four P1 completion blockers: a completed live
+> case could lose its call checkpoint while retaining spend/artifact evidence;
+> a comparison DEFER could discard already-settled spend and did not publish a
+> validated reconciliation binding; the Action installed a floating runtime
+> outside the audited lock; and the clean-environment logs predated the accepted
+> SHA. This report remains as historical evidence and must not be used to claim
+> M-03 completion. A separate revalidation report will supersede it only after
+> the corrected implementation SHA passes both clean interpreter Gates and
+> independent review.
+
+Status: **INVALIDATED** (original recorded status: PASS for M-03,
+`G-CODE-001`, and `G-MEASURE-003`)
 
 This report accepts implementation commit
 `cf8778d13accb410750ec3558f83d7de85e747a0` from baseline
