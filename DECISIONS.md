@@ -241,3 +241,26 @@ contract is active only when the owning architecture/acceptance document changes
 - **Reversal:** changing the primary interpreter or lock requires a reviewed lock update
   and fresh minimum/primary full Gates bound to the replacement implementation SHA.
 - **Trace:** `G-CODE-001`; work order M-03; `action.yml`; `[tool.attest.toolchain]`.
+
+### D-047 — Paid-call roles are immutable accounting authority
+
+- **Date/status/scope:** 2026-08-30 · accepted measurement contract · M-03 paid studies.
+- **Decision:** every paid dispatch is explicitly scoped as `product` or
+  `benchmark_oracle` before the call. The role is bound through the request digest,
+  predeclaration, checkpoint, artifact, spend row, reconciliation record, and report
+  digest. Product, oracle, and total spend are derived only from these rows; the two role
+  totals never overlap, and call order or separately populated result/report fields have
+  no classification authority.
+- **Why:** call identity and cost integrity alone still allowed oracle calls to be counted
+  as product cost, settled cost to be erased after an evaluation exception, and a report
+  to accept totals inconsistent with its paid-call rows.
+- **Consequences:** paid-call checkpoint schema v4, artifact/cost schema v3, live schema
+  v4, stability observation/report schema v3, comparison checkpoint schema v5, and
+  comparison reconciliation schema v2 and comparison report schema v3 fail explicitly on
+  older state. Stability, live, and comparison use one role-aware reconciliation reducer;
+  legitimate zero-call trials carry an explicit empty row set, while missing evidence
+  fails closed.
+- **Reversal:** retain old artifacts with their compatible reader and start a new declared
+  study; never invent roles for old state or migrate it into current scoring authority.
+- **Trace:** `INV-COST-001`, `INV-VERSION-001`, `G-MEASURE-003`; work order M-03;
+  `src/attest/benchmark/checkpoints.py` and its stability/live/comparison consumers.

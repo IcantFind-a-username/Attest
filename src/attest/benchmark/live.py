@@ -54,7 +54,14 @@ from attest.benchmark.api import (
     evaluate_project,
     freeze_evaluation_request,
 )
-from attest.benchmark.checkpoints import CheckpointedProvider
+from attest.benchmark.checkpoints import (
+    CALL_ROLE_BENCHMARK_ORACLE,
+    CALL_ROLE_PRODUCT,
+    CALL_ROLES,
+    CheckpointedProvider,
+    PaidCallTotals,
+    paid_call_totals,
+)
 from attest.benchmark.corpus import ValidationReceipt
 from attest.benchmark.matcher import match_findings
 from attest.benchmark.metrics import wilson_interval
@@ -76,8 +83,8 @@ from attest.benchmark.schema import (
 )
 from attest.review.proposer import Provider, ProviderResult
 
-LIVE_SCHEMA_VERSION = "3"
-CALIBRATION_SCHEMA_VERSION = "2"
+LIVE_SCHEMA_VERSION = "4"
+CALIBRATION_SCHEMA_VERSION = "3"
 CALIBRATION_JSON_NAME = "calibration.json"
 CALIBRATION_MARKDOWN_NAME = "calibration.md"
 
@@ -289,6 +296,7 @@ def case_payload(result: ProjectEvaluationResult) -> dict[str, object]:
     """The persisted per-case evidence: the frozen result plus its run identity."""
     payload = result.to_json_dict()
     payload["run_id"] = result.run.run_id
+    payload["paid_calls"] = []
     return payload
 
 
@@ -418,9 +426,19 @@ def run_live_local(
     if len(set(case_ids)) != len(case_ids):
         raise ValueError("selected cases must be unique")
     environment: MutableMapping[str, str] = os.environ if env is None else env
-    evaluator = evaluate or (
-        lambda request, provider: evaluate_project(request, provider=provider, clock=clock)
-    )
+    def default_evaluator(
+        request: ProjectEvaluationRequest, provider: Provider
+    ) -> ProjectEvaluationResult:
+        if not isinstance(provider, CheckpointedProvider):
+            raise TypeError("live paid evaluator requires a role-scoped provider")
+        return evaluate_project(
+            request,
+            provider=provider,
+            oracle_provider=provider.for_role(CALL_ROLE_BENCHMARK_ORACLE),
+            clock=clock,
+        )
+
+    evaluator = evaluate or default_evaluator
     interpreter_by_source = dict(interpreters or {})
     runtime = current_runtime_identity()
     receipt_sha256 = (
@@ -607,6 +625,7 @@ def _advance_case(
             trial_id=f"{run_dir.name}:{case_id}",
             model_id=request.config.model,
             binding_sha256=call_binding_sha256,
+            role=CALL_ROLE_PRODUCT,
             on_transition=(
                 None
                 if on_call_transition is None
@@ -627,6 +646,7 @@ def _advance_case(
             payload_sha256=hashlib.sha256(_canonical_bytes(payload)).hexdigest(),
         )
         _commit(run_dir, checkpoint, on_transition)
+        _require_result_costs(case_id, result, paid_call_totals(paid_calls))
         ran = True
     artifact_path = run_dir / "artifacts" / f"{case_id}.json"
     payload = _required_payload(checkpoint)
@@ -635,37 +655,31 @@ def _advance_case(
         checkpoint = replace(checkpoint, state=STATE_ARTIFACTS_COMPLETE)
         _commit(run_dir, checkpoint, on_transition)
     _verify_artifact(artifact_path, checkpoint.payload_sha256)
+    reconciled_calls = _required_paid_calls(
+        run_dir,
+        case_id,
+        payload,
+        request.config.model,
+        call_binding_sha256,
+    )
+    totals = _known_cost(case_id, payload, reconciled_calls)
     if checkpoint.state == STATE_ARTIFACTS_COMPLETE:
-        spend, oracle_spend = _known_cost(case_id, payload)
         _settle_once(
             costs_path,
             case_id,
-            spend,
-            oracle_spend,
-            _required_paid_calls(
-                run_dir,
-                case_id,
-                payload,
-                request.config.model,
-                call_binding_sha256,
-            ),
+            totals.product_usd,
+            totals.oracle_usd,
+            reconciled_calls,
         )
         checkpoint = replace(checkpoint, state=STATE_SETTLED)
         _commit(run_dir, checkpoint, on_transition)
     if checkpoint.state in {STATE_SETTLED, STATE_REPORTED}:
-        spend, oracle_spend = _known_cost(case_id, payload)
         _verify_case_settlement(
             costs_path,
             case_id,
-            spend,
-            oracle_spend,
-            _required_paid_calls(
-                run_dir,
-                case_id,
-                payload,
-                request.config.model,
-                call_binding_sha256,
-            ),
+            totals.product_usd,
+            totals.oracle_usd,
+            reconciled_calls,
         )
     return checkpoint, ran
 
@@ -700,10 +714,19 @@ def _project_interpreter(
             environment[PROJECT_PYTHON_ENV] = previous
 
 
-def _known_cost(case_id: str, payload: Mapping[str, object]) -> tuple[float, float]:
-    """The case's settled cost, or a closed failure that retains the evidence."""
-    values: list[float] = []
-    for key in ("spend_usd", "oracle_spend_usd"):
+def _known_cost(
+    case_id: str,
+    payload: Mapping[str, object],
+    paid_calls: Sequence[Mapping[str, object]],
+) -> PaidCallTotals:
+    """Derive role totals and reject independently restated case costs."""
+    totals = paid_call_totals(paid_calls)
+    expected = {
+        "spend_usd": totals.product_usd,
+        "oracle_spend_usd": totals.oracle_usd,
+        "total_spend_usd": totals.total_usd,
+    }
+    for key, authoritative in expected.items():
         value = payload.get(key)
         if (
             isinstance(value, bool)
@@ -715,8 +738,26 @@ def _known_cost(case_id: str, payload: Mapping[str, object]) -> tuple[float, flo
                 f"case {case_id} has an unknown {key} cost; refusing to settle. "
                 "The paid evidence is retained in its checkpoint."
             )
-        values.append(float(value))
-    return values[0], values[1]
+        if not math.isclose(float(value), authoritative, rel_tol=0.0, abs_tol=1e-12):
+            raise ValueError(
+                f"case {case_id} {key} does not match authoritative role reconciliation"
+            )
+    return totals
+
+
+def _require_result_costs(
+    case_id: str, result: ProjectEvaluationResult, totals: PaidCallTotals
+) -> None:
+    if not math.isclose(
+        result.spend_usd, totals.product_usd, rel_tol=0.0, abs_tol=1e-12
+    ) or not math.isclose(
+        result.oracle_spend_usd, totals.oracle_usd, rel_tol=0.0, abs_tol=1e-12
+    ) or not math.isclose(
+        result.total_spend_usd, totals.total_usd, rel_tol=0.0, abs_tol=1e-12
+    ):
+        raise ValueError(
+            f"case {case_id} result cost/spend does not match authoritative paid-call roles"
+        )
 
 
 def _live_paid_call_records(
@@ -759,6 +800,7 @@ def _required_paid_calls(
         trial_id = record.get("trial_id")
         artifact_path = record.get("artifact_path")
         spend_path = record.get("spend_path")
+        role = record.get("role")
         if (
             not isinstance(call_id, str)
             or not isinstance(trial_id, str)
@@ -767,6 +809,7 @@ def _required_paid_calls(
             or not artifact_path.startswith(f"calls/{case_id}/artifacts/")
             or not isinstance(spend_path, str)
             or spend_path != f"calls/{case_id}/costs.jsonl"
+            or role not in CALL_ROLES
         ):
             raise ValueError(f"case {case_id} paid-call trial/artifact binding is invalid")
         if call_id in seen:
@@ -815,6 +858,7 @@ def _required_paid_calls(
         trial_id=f"{run_dir.name}:{case_id}",
         model_id=model_id,
         binding_sha256=binding_sha256,
+        role=CALL_ROLE_PRODUCT,
     )
     authoritative_calls = tuple(
         _live_paid_call_records(case_id, checkpointed.reconciliation_records())
@@ -852,6 +896,7 @@ def _case_cost_row(
         "case_id": case_id,
         "spend_usd": _rounded(spend),
         "oracle_spend_usd": _rounded(oracle),
+        "total_spend_usd": _rounded(spend + oracle),
         "paid_calls": [dict(record) for record in paid_calls],
     }
 
@@ -935,12 +980,40 @@ def _json_rows(path: Path, label: str) -> list[dict[str, object]]:
 def _settled_totals(costs_path: Path) -> tuple[float, float]:
     spend = oracle = 0.0
     for row in _cost_rows(costs_path):
-        value = row.get("spend_usd")
-        oracle_value = row.get("oracle_spend_usd")
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            spend += float(value)
-        if isinstance(oracle_value, (int, float)) and not isinstance(oracle_value, bool):
-            oracle += float(oracle_value)
+        raw = row.get("paid_calls")
+        if not isinstance(raw, list) or not all(isinstance(call, dict) for call in raw):
+            raise ValueError("case cost ledger has invalid paid-call reconciliation")
+        totals = paid_call_totals(raw)
+        stated_product = row.get("spend_usd")
+        stated_oracle = row.get("oracle_spend_usd")
+        stated_total = row.get("total_spend_usd")
+        if (
+            isinstance(stated_product, bool)
+            or not isinstance(stated_product, (int, float))
+            or isinstance(stated_oracle, bool)
+            or not isinstance(stated_oracle, (int, float))
+            or isinstance(stated_total, bool)
+            or not isinstance(stated_total, (int, float))
+        ):
+            raise ValueError("case cost ledger has invalid role totals")
+        if not math.isclose(
+            float(stated_product),
+            totals.product_usd,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        ) or not math.isclose(
+            float(stated_oracle),
+            totals.oracle_usd,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        ):
+            raise ValueError("case cost ledger totals disagree with paid-call roles")
+        if not math.isclose(
+            float(stated_total), totals.total_usd, rel_tol=0.0, abs_tol=1e-12
+        ):
+            raise ValueError("case cost ledger total disagrees with paid-call roles")
+        spend += totals.product_usd
+        oracle += totals.oracle_usd
     return spend, oracle
 
 
@@ -1005,6 +1078,7 @@ def _predeclaration(
     return {
         "schema_version": LIVE_SCHEMA_VERSION,
         "mode": "live_local",
+        "paid_call_roles": sorted(CALL_ROLES),
         "run_id": run_id,
         "manifest_sha256": manifest_sha256,
         "preregistration_sha256": preregistration_sha256,
@@ -1202,8 +1276,8 @@ def build_calibration_report(
         differential_v=_differential_v(scored),
         strata=_strata(manifest, scored, abstentions),
         latency=_latency(scored),
-        cost=_cost(payloads, reserved_total_usd),
-        paid_calls=_report_paid_calls(payloads),
+        cost=_cost(payloads, reserved_total_usd, mode=mode),
+        paid_calls=_report_paid_calls(payloads, mode=mode),
         sample_sufficiency=sufficiency,
         limitations=_calibration_limitations(
             mode, labels, accuracy_withheld, len(abstentions)
@@ -1344,25 +1418,59 @@ def _latency(scored: Sequence[Mapping[str, object]]) -> dict[str, object]:
 
 
 def _cost(
-    payloads: Sequence[Mapping[str, object]], reserved_total_usd: float | None
+    payloads: Sequence[Mapping[str, object]],
+    reserved_total_usd: float | None,
+    *,
+    mode: str,
 ) -> dict[str, object]:
     per_case: dict[str, float] = {}
     spend_total = oracle_total = 0.0
     for payload in payloads:
         case_id = str(payload.get("case_id"))
-        spend = payload.get("spend_usd")
-        oracle = payload.get("oracle_spend_usd")
-        if isinstance(spend, (int, float)) and not isinstance(spend, bool):
-            per_case[case_id] = float(spend)
-            spend_total += float(spend)
-        if isinstance(oracle, (int, float)) and not isinstance(oracle, bool):
-            oracle_total += float(oracle)
+        spend_value: object
+        oracle_value: object
+        if mode == LIVE_MODE:
+            raw = payload.get("paid_calls")
+            if not isinstance(raw, list):
+                raise ValueError(
+                    f"case {case_id} live cost has no paid-call reconciliation evidence"
+                )
+            if not all(isinstance(row, dict) for row in raw):
+                raise ValueError(f"case {case_id} live paid-call rows are invalid")
+            totals = paid_call_totals(raw)
+            spend_value = totals.product_usd
+            oracle_value = totals.oracle_usd
+            for key, authoritative in (
+                ("spend_usd", totals.product_usd),
+                ("oracle_spend_usd", totals.oracle_usd),
+                ("total_spend_usd", totals.total_usd),
+            ):
+                stated = payload.get(key)
+                if (
+                    isinstance(stated, bool)
+                    or not isinstance(stated, (int, float))
+                    or not math.isclose(
+                        float(stated), authoritative, rel_tol=0.0, abs_tol=1e-12
+                    )
+                ):
+                    raise ValueError(
+                        f"case {case_id} report {key} disagrees with paid-call rows"
+                    )
+        else:
+            spend_value = payload.get("spend_usd")
+            oracle_value = payload.get("oracle_spend_usd")
+        if isinstance(spend_value, (int, float)) and not isinstance(spend_value, bool):
+            per_case[case_id] = float(spend_value)
+            spend_total += float(spend_value)
+        if isinstance(oracle_value, (int, float)) and not isinstance(oracle_value, bool):
+            oracle_total += float(oracle_value)
     return {
         "reserved_total_usd": (
             None if reserved_total_usd is None else _rounded(reserved_total_usd)
         ),
         "spend_total_usd": _rounded(spend_total),
         "oracle_spend_total_usd": _rounded(oracle_total),
+        "total_spend_usd": _rounded(spend_total + oracle_total),
         "per_case_spend_usd": {
             case_id: _rounded(value) for case_id, value in sorted(per_case.items())
         },
@@ -1371,12 +1479,14 @@ def _cost(
 
 def _report_paid_calls(
     payloads: Sequence[Mapping[str, object]],
+    *,
+    mode: str,
 ) -> tuple[dict[str, object], ...]:
     rows: list[dict[str, object]] = []
     seen: set[str] = set()
     for payload in payloads:
         case_id = str(payload.get("case_id"))
-        raw = payload.get("paid_calls", [])
+        raw = payload.get("paid_calls", [] if mode != LIVE_MODE else None)
         if not isinstance(raw, list):
             raise ValueError(f"case {case_id} paid-call report binding is invalid")
         for value in raw:

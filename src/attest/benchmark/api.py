@@ -247,6 +247,10 @@ class ProjectEvaluationResult:
     run: RunRecord
     score: ProjectEvaluationScore | None
 
+    @property
+    def total_spend_usd(self) -> float:
+        return self.spend_usd + self.oracle_spend_usd
+
     def to_json_dict(self) -> dict[str, object]:
         """Deterministic mapping suitable for direct JSON serialization."""
         return {
@@ -272,6 +276,7 @@ class ProjectEvaluationResult:
             "latency_s": round(self.latency_s, 6),
             "spend_usd": round(self.spend_usd, 6),
             "oracle_spend_usd": round(self.oracle_spend_usd, 6),
+            "total_spend_usd": round(self.total_spend_usd, 6),
             "artifacts": [record.to_json_dict() for record in self.artifacts],
             "evidence_class_counts": dict(sorted(self.evidence_class_counts.items())),
             "oracle_receipts": [receipt.to_json_dict() for receipt in self.oracle_receipts],
@@ -286,6 +291,7 @@ def evaluate_project(
     request: ProjectEvaluationRequest,
     *,
     provider: Provider,
+    oracle_provider: Provider | None = None,
     artifact_store: ArtifactStore | None = None,
     clock: Callable[[], float] = time.monotonic,
 ) -> ProjectEvaluationResult:
@@ -308,6 +314,7 @@ def evaluate_project(
                 head_sha=resolved.head_sha,
                 config=request.config,
                 provider=provider,
+                oracle_provider=oracle_provider,
                 client=github.client(),
                 fixed_sha=resolved.fixed_sha,
                 repository=request.repository,

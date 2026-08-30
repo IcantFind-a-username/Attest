@@ -12,7 +12,8 @@ import json
 import math
 import os
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -21,9 +22,12 @@ from attest.review.budget import CHARS_PER_TOKEN
 from attest.review.config import load_pricing
 from attest.review.proposer import Provider, ProviderResult
 
-CALL_CHECKPOINT_SCHEMA_VERSION = "3"
-CALL_ARTIFACT_SCHEMA_VERSION = "2"
-CALL_COST_SCHEMA_VERSION = "2"
+CALL_CHECKPOINT_SCHEMA_VERSION = "4"
+CALL_ARTIFACT_SCHEMA_VERSION = "3"
+CALL_COST_SCHEMA_VERSION = "3"
+CALL_ROLE_PRODUCT = "product"
+CALL_ROLE_BENCHMARK_ORACLE = "benchmark_oracle"
+CALL_ROLES = frozenset({CALL_ROLE_PRODUCT, CALL_ROLE_BENCHMARK_ORACLE})
 STATE_RESERVED = "reserved"
 STATE_DISPATCHED = "dispatched"
 STATE_RESPONSE_PERSISTED = "response_persisted"
@@ -45,6 +49,40 @@ class AmbiguousCostError(RuntimeError):
     """A call may have reached the provider but has no durable response."""
 
 
+@dataclass(frozen=True)
+class PaidCallTotals:
+    """Non-overlapping settled spend derived from authoritative call rows."""
+
+    product_usd: float
+    oracle_usd: float
+
+    @property
+    def total_usd(self) -> float:
+        return self.product_usd + self.oracle_usd
+
+
+def paid_call_totals(records: Sequence[Mapping[str, object]]) -> PaidCallTotals:
+    """Classify settled spend by immutable call role, failing closed on ambiguity."""
+    product = oracle = 0.0
+    for record in records:
+        role = record.get("role")
+        if role not in CALL_ROLES:
+            raise ValueError(f"paid-call reconciliation has invalid role {role!r}")
+        cost = record.get("cost_usd")
+        if (
+            isinstance(cost, bool)
+            or not isinstance(cost, (int, float))
+            or not math.isfinite(float(cost))
+            or float(cost) < 0
+        ):
+            raise ValueError("paid-call reconciliation has unknown settled spend")
+        if role == CALL_ROLE_PRODUCT:
+            product += float(cost)
+        else:
+            oracle += float(cost)
+    return PaidCallTotals(product_usd=product, oracle_usd=oracle)
+
+
 class CheckpointedProvider:
     """Persist every provider call transition and replay only durable responses."""
 
@@ -56,12 +94,14 @@ class CheckpointedProvider:
         trial_id: str,
         model_id: str,
         binding_sha256: str,
+        role: str,
         on_transition: Callable[[str, str], None] | None = None,
     ) -> None:
         if not trial_id:
             raise ValueError("trial_id must be non-empty")
         if _DIGEST_PATTERN.fullmatch(binding_sha256) is None:
             raise ValueError("binding_sha256 must be a lowercase SHA-256 digest")
+        _require_role(role)
         pricing = load_pricing()
         try:
             model = pricing["models"][model_id]
@@ -74,13 +114,14 @@ class CheckpointedProvider:
         self._trial_id = trial_id
         self._model_id = model_id
         self._binding_sha256 = binding_sha256
+        self._role = role
         self._on_transition = on_transition
         self._calls_dir = root / "calls"
         self._artifacts_dir = root / "artifacts"
         self._costs_path = root / "costs.jsonl"
         self._calls_dir.mkdir(parents=True, exist_ok=True)
         self._artifacts_dir.mkdir(parents=True, exist_ok=True)
-        self._index = 0
+        self._index_ref = [0]
         self._index_lock = Lock()
         self._ledger_lock = Lock()
         self._ambiguous_call_ids: set[str] = set()
@@ -93,6 +134,14 @@ class CheckpointedProvider:
                 self._assert_terminal_reconciliation(checkpoint, path)
         self._assert_no_orphan_evidence(checkpoints)
 
+    def for_role(self, role: str) -> CheckpointedProvider:
+        """Return a role-scoped view sharing the same trial and ordinal authority."""
+        _require_role(role)
+        scoped = object.__new__(CheckpointedProvider)
+        scoped.__dict__ = self.__dict__.copy()
+        scoped._role = role
+        return scoped
+
     def sample(
         self,
         system: str,
@@ -103,6 +152,7 @@ class CheckpointedProvider:
         timeout_s: float | None = None,
     ) -> ProviderResult:
         request = {
+            "role": self._role,
             "system_sha256": hashlib.sha256(system.encode("utf-8")).hexdigest(),
             "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
             "schema_sha256": _digest(schema),
@@ -111,13 +161,13 @@ class CheckpointedProvider:
         }
         request_sha256 = _digest(request)
         with self._index_lock:
-            ordinal = self._index
-            self._index += 1
+            ordinal = self._index_ref[0]
+            self._index_ref[0] += 1
         call_id = f"{self._trial_id}:{ordinal}"
         path = self._calls_dir / f"{ordinal:06d}.json"
 
         if path.exists():
-            checkpoint = self._load(path)
+            checkpoint = self._load(path, expected_role=self._role)
             if checkpoint["trial_id"] != self._trial_id:
                 raise ValueError(
                     f"call checkpoint {path.name} belongs to a different trial"
@@ -151,6 +201,7 @@ class CheckpointedProvider:
                 "trial_id": self._trial_id,
                 "call_id": call_id,
                 "ordinal": ordinal,
+                "role": self._role,
                 "model_id": self._model_id,
                 "binding_sha256": self._binding_sha256,
                 "request_sha256": request_sha256,
@@ -340,6 +391,7 @@ class CheckpointedProvider:
             "trial_id": checkpoint["trial_id"],
             "call_id": checkpoint["call_id"],
             "ordinal": checkpoint["ordinal"],
+            "role": checkpoint["role"],
             "model_id": checkpoint["model_id"],
             "binding_sha256": checkpoint["binding_sha256"],
             "request_sha256": checkpoint["request_sha256"],
@@ -373,16 +425,26 @@ class CheckpointedProvider:
             raise ValueError(
                 f"call artifact {path.name} is missing, unreadable, or corrupt"
             ) from exc
+        if not isinstance(artifact, dict):
+            raise ValueError(f"call artifact {path.name} must contain an object")
+        version = artifact.get("schema_version")
+        if version != CALL_ARTIFACT_SCHEMA_VERSION:
+            raise ValueError(
+                f"unsupported call artifact schema version {version!r}; supported version "
+                f"is {CALL_ARTIFACT_SCHEMA_VERSION}. Use the compatible reader or start "
+                "a new trial; never coerce old paid-call evidence."
+            )
         expected_identity = {
             "schema_version": CALL_ARTIFACT_SCHEMA_VERSION,
             "trial_id": checkpoint["trial_id"],
             "call_id": checkpoint["call_id"],
             "ordinal": checkpoint["ordinal"],
+            "role": checkpoint["role"],
             "model_id": checkpoint["model_id"],
             "binding_sha256": checkpoint["binding_sha256"],
             "request_sha256": checkpoint["request_sha256"],
         }
-        if not isinstance(artifact, dict) or any(
+        if any(
             artifact.get(key) != value for key, value in expected_identity.items()
         ):
             raise ValueError(
@@ -426,6 +488,7 @@ class CheckpointedProvider:
             "trial_id": checkpoint["trial_id"],
             "call_id": checkpoint["call_id"],
             "ordinal": checkpoint["ordinal"],
+            "role": checkpoint["role"],
             "model_id": checkpoint["model_id"],
             "binding_sha256": checkpoint["binding_sha256"],
             "outcome": (
@@ -502,6 +565,7 @@ class CheckpointedProvider:
                 row.get("schema_version") != CALL_COST_SCHEMA_VERSION
                 or row.get("trial_id") != checkpoint["trial_id"]
                 or row.get("ordinal") != checkpoint["ordinal"]
+                or row.get("role") != checkpoint["role"]
                 or row.get("model_id") != checkpoint["model_id"]
                 or row.get("binding_sha256") != checkpoint["binding_sha256"]
                 or row.get("artifact_path")
@@ -530,7 +594,9 @@ class CheckpointedProvider:
                 )
             self._load_artifact(artifact_path, artifact_checkpoint)
 
-    def _load(self, path: Path) -> dict[str, object]:
+    def _load(
+        self, path: Path, *, expected_role: str | None = None
+    ) -> dict[str, object]:
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
@@ -546,6 +612,13 @@ class CheckpointedProvider:
             )
         if raw.get("state") not in CALL_STATES:
             raise ValueError(f"call checkpoint {path.name} has an unknown state")
+        role = raw.get("role")
+        if role not in CALL_ROLES or (
+            expected_role is not None and role != expected_role
+        ):
+            raise ValueError(
+                f"call checkpoint {path.name} paid-call role is missing, unknown, or drifted"
+            )
         trial_id = raw.get("trial_id")
         call_id = raw.get("call_id")
         ordinal = raw.get("ordinal")
@@ -654,6 +727,13 @@ def _canonical_bytes(value: Mapping[str, object]) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
+def _require_role(role: str) -> None:
+    if role not in CALL_ROLES:
+        raise ValueError(
+            f"paid-call role must be one of {sorted(CALL_ROLES)!r}, got {role!r}"
+        )
+
+
 def _digest(value: Mapping[str, object] | dict[str, Any]) -> str:
     return hashlib.sha256(_canonical_bytes(value)).hexdigest()
 
@@ -682,6 +762,13 @@ def _cost_rows(path: Path) -> list[dict[str, object]]:
             raise ValueError("paid-call spend rows are corrupt") from exc
         if not isinstance(row, dict):
             raise ValueError("paid-call spend row must be an object")
+        version = row.get("schema_version")
+        if version != CALL_COST_SCHEMA_VERSION:
+            raise ValueError(
+                f"unsupported call spend schema version {version!r}; supported version "
+                f"is {CALL_COST_SCHEMA_VERSION}. Use the compatible reader or start a "
+                "new trial; never coerce old paid-call evidence."
+            )
         rows.append(row)
     return rows
 

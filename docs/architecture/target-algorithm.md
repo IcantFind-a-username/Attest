@@ -434,7 +434,10 @@ is profile-based, not a blanket relaxation:
 Each accepted repeat starts from a fresh source snapshot and fresh writable state. Runs
 may share immutable blobs but not caches, environment mutations, generated files, or
 processes. The controller records each run before scheduling the next so a crash cannot
-silently duplicate a paid call or count an ambiguous execution.
+silently duplicate a paid call or count an ambiguous execution. Every paid-call record
+also binds an immutable execution role; product and benchmark-oracle spend are disjoint
+authority classes and are never reconstructed from call order or independently stated
+report fields.
 
 ## 8. Certification Kernel
 
@@ -578,7 +581,7 @@ These stable IDs must become executable property tests:
 | `INV-ORDER-001` | Permuting otherwise identical candidate/model completion order does not change clusters, certification, or publication selection. |
 | `INV-SCHED-001` | Scheduler outage falls back or abstains; scheduler output cannot bypass certification. |
 | `INV-SCHED-002` | Every online scheduler state, action, reservation, budget, candidate, and observation is task/PR-local; discovery has no fake candidate and evidence actions bind a candidate owned by that task. |
-| `INV-COST-001` | A controller crash cannot count an unpersisted paid call as free or replay it silently. |
+| `INV-COST-001` | A controller crash cannot count an unpersisted paid call as free, replay it silently, erase its settled cost, or reclassify product and benchmark-oracle spend. |
 | `INV-SEC-001` | Untrusted execution receives no privileged secret and has no undeclared host-network/filesystem route. |
 
 ## 13. Migration seams

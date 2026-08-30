@@ -50,7 +50,7 @@ LIVE_MODE = "live"
 REPORT_SCHEMA_VERSION = "2"
 JSON_NAME = "report.json"
 MARKDOWN_NAME = "report.md"
-COMPARISON_SCHEMA_VERSION = "2"
+COMPARISON_SCHEMA_VERSION = "3"
 COMPARISON_JSON_NAME = "comparison.json"
 COMPARISON_MARKDOWN_NAME = "comparison.md"
 STABILITY_JSON_NAME = "stability.json"
@@ -623,6 +623,7 @@ def _arm_run_payload(run: ArmRun, authorized: bool) -> dict[str, object]:
         "output_tokens": run.output_tokens,
         "spend_usd": _number(run.spend_usd),
         "oracle_spend_usd": _number(run.oracle_spend_usd),
+        "total_spend_usd": _number(run.spend_usd + run.oracle_spend_usd),
         "wall_time_s": _number(run.wall_time_s),
         "tool_cost_s": _number(run.tool_cost_s),
         "paid_calls": [dict(record) for record in run.paid_calls],
@@ -830,14 +831,18 @@ def render_stability_markdown(report: StabilityReport) -> str:
             "",
             "## Run outcomes",
             "",
-            "| repeat | run id | outcome | candidates | spend (USD) |",
-            "| --- | --- | --- | --- | --- |",
+            "| repeat | run id | outcome | candidates | product spend (USD) | "
+            "oracle spend (USD) | total spend (USD) |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for repeat in range(report.repeats):
         lines.append(
             f"| {repeat} | `{report.run_ids[repeat]}` | {report.outcomes[repeat]} | "
-            f"{report.candidate_counts[repeat]} | {report.spend_per_run_usd[repeat]:.6f} |"
+            f"{report.candidate_counts[repeat]} | "
+            f"{report.product_spend_per_run_usd[repeat]:.6f} | "
+            f"{report.oracle_spend_per_run_usd[repeat]:.6f} | "
+            f"{report.total_spend_per_run_usd[repeat]:.6f} |"
         )
     lines.extend(
         [
@@ -872,8 +877,10 @@ def render_stability_markdown(report: StabilityReport) -> str:
             "latency_mean_s",
             "latency_min_s",
             "latency_max_s",
-            "spend_total_usd",
-            "spend_mean_usd",
+            "product_spend_total_usd",
+            "oracle_spend_total_usd",
+            "total_spend_total_usd",
+            "total_spend_mean_usd",
             "wealth_mean",
             "wealth_variance",
             "wealth_range",

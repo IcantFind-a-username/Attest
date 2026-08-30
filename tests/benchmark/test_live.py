@@ -27,13 +27,15 @@ from attest.benchmark.api import (
     ProjectTruth,
 )
 from attest.benchmark.checkpoints import (
+    CALL_ROLE_BENCHMARK_ORACLE,
+    CALL_ROLE_PRODUCT,
+    AmbiguousCostError,
+)
+from attest.benchmark.checkpoints import (
     STATE_DISPATCHED as CALL_DISPATCHED,
 )
 from attest.benchmark.checkpoints import (
     STATE_RESPONSE_PERSISTED as CALL_RESPONSE_PERSISTED,
-)
-from attest.benchmark.checkpoints import (
-    AmbiguousCostError,
 )
 from attest.benchmark.corpus import load_validation_receipt
 from attest.benchmark.live import (
@@ -230,7 +232,7 @@ class TestPreflight:
 def _completed_result(
     case_id: str,
     *,
-    spend: float = 0.01,
+    spend: float = 0.0,
     oracle: float = 0.0,
     latency: float = 1.5,
     predictions: tuple[Prediction, ...] = (),
@@ -570,6 +572,31 @@ class TestCheckpoints:
             {"case_id": case_id, **paid_call}
         ]
 
+    def test_live_rejects_result_spend_that_disagrees_with_role_rows(
+        self, tmp_path: Path
+    ) -> None:
+        case_id = "case-333333333333"
+        case = _fake_case(tmp_path, case_id)
+
+        def evaluate(
+            request: ProjectEvaluationRequest, paid: object
+        ) -> ProjectEvaluationResult:
+            paid.sample("product", "prompt", {"type": "object"}, 20)
+            paid.for_role(CALL_ROLE_BENCHMARK_ORACLE).sample(
+                "oracle", "prompt", {"type": "object"}, 20
+            )
+            return _completed_result(request.case_id, spend=0.01, oracle=0.01)
+
+        with pytest.raises(ValueError, match="spend|role|reconciliation"):
+            _run_fake(
+                tmp_path,
+                [case],
+                evaluate,
+                provider_factory=lambda _request: ReplayProvider(
+                    Cassette("{}", "{}", input_tokens=10, output_tokens=10)
+                ),
+            )
+
     def test_completed_live_case_rejects_missing_paid_call_checkpoint(
         self, tmp_path: Path
     ) -> None:
@@ -655,7 +682,7 @@ class TestCheckpoints:
             _run_fake(
                 tmp_path,
                 cases,
-                lambda request, provider: _completed_result(request.case_id, spend=0.02),
+                lambda request, provider: _completed_result(request.case_id),
                 on_transition=interrupt,
             )
         assert not costs.exists() or costs.read_text(encoding="utf-8") == ""
@@ -672,7 +699,7 @@ class TestCheckpoints:
             if line
         ]
         assert [row["case_id"] for row in rows] == [case_id]
-        assert rows[0]["spend_usd"] == pytest.approx(0.02)
+        assert rows[0]["spend_usd"] == pytest.approx(0.0)
 
         second = _run_fake(tmp_path, cases, must_not_run, resume=True)
         rows_again = [
@@ -1021,12 +1048,43 @@ def test_two_case_live_run_interrupted_after_provider_completion_resumes_cleanly
     assert result.settled_spend_usd == pytest.approx(
         sum(row["spend_usd"] for row in cost_rows)
     )
+    assert result.settled_oracle_spend_usd == pytest.approx(
+        sum(row["oracle_spend_usd"] for row in cost_rows)
+    )
+    replay_cost = next(row for row in cost_rows if row["case_id"] == replay.case_id)
+    assert {call["role"] for call in replay_cost["paid_calls"]} == {
+        CALL_ROLE_PRODUCT,
+        CALL_ROLE_BENCHMARK_ORACLE,
+    }
+    assert replay_cost["spend_usd"] == pytest.approx(
+        sum(
+            call["cost_usd"]
+            for call in replay_cost["paid_calls"]
+            if call["role"] == CALL_ROLE_PRODUCT
+        )
+    )
+    assert replay_cost["oracle_spend_usd"] == pytest.approx(
+        sum(
+            call["cost_usd"]
+            for call in replay_cost["paid_calls"]
+            if call["role"] == CALL_ROLE_BENCHMARK_ORACLE
+        )
+    )
 
     report = json.loads(
         (tmp_path / "out" / "calibration.json").read_text(encoding="utf-8")
     )
     assert report["mode"] == LIVE_MODE
     assert report["run_id"] == "pilot-live-1"
+    assert report["cost"]["spend_total_usd"] == pytest.approx(
+        result.settled_spend_usd
+    )
+    assert report["cost"]["oracle_spend_total_usd"] == pytest.approx(
+        result.settled_oracle_spend_usd
+    )
+    assert report["cost"]["total_spend_usd"] == pytest.approx(
+        result.settled_spend_usd + result.settled_oracle_spend_usd
+    )
     assert report["accuracy_withheld_reason"] is None
     assert report["accuracy"]["true_positives"] == 1
     assert report["accuracy"]["true_negatives"] == 1
@@ -1077,6 +1135,19 @@ def _confirmed_receipt(finding_id: str = "finding-1") -> ReproReceipt:
     )
 
 
+def _report_call(
+    case_id: str, role: str, cost_usd: float, ordinal: int
+) -> dict[str, object]:
+    trial_id = f"report:{case_id}"
+    return {
+        "trial_id": trial_id,
+        "call_id": f"{trial_id}:{ordinal}",
+        "ordinal": ordinal,
+        "role": role,
+        "cost_usd": cost_usd,
+    }
+
+
 class TestCalibrationReport:
     def _payloads(self, tmp_path: Path) -> tuple[Path, list[dict[str, object]]]:
         manifest_path, _, _ = _oracle_fixture(tmp_path)
@@ -1101,6 +1172,13 @@ class TestCalibrationReport:
             case_payload(
                 _completed_result(control.case_id, spend=0.02, latency=2.0)
             ),
+        ]
+        payloads[0]["paid_calls"] = [
+            _report_call(replay.case_id, CALL_ROLE_PRODUCT, 0.03, 0),
+            _report_call(replay.case_id, CALL_ROLE_BENCHMARK_ORACLE, 0.01, 1),
+        ]
+        payloads[1]["paid_calls"] = [
+            _report_call(control.case_id, CALL_ROLE_PRODUCT, 0.02, 0)
         ]
         return manifest_path, payloads
 
@@ -1167,6 +1245,38 @@ class TestCalibrationReport:
         assert "recommendation_only" in notes
         assert "constant" in notes
         assert report.digest
+
+    def test_calibration_report_rejects_totals_that_disagree_with_paid_rows(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, payloads = self._payloads(tmp_path)
+        payloads[0]["paid_calls"] = [
+            {
+                "trial_id": "trial-product",
+                "call_id": "trial-product:0",
+                "ordinal": 0,
+                "role": CALL_ROLE_PRODUCT,
+                "cost_usd": 0.0003,
+            },
+            {
+                "trial_id": "trial-oracle",
+                "call_id": "trial-oracle:0",
+                "ordinal": 0,
+                "role": CALL_ROLE_BENCHMARK_ORACLE,
+                "cost_usd": 0.0001,
+            },
+        ]
+
+        with pytest.raises(ValueError, match="spend|total|paid.call|reconciliation"):
+            build_calibration_report(
+                load_manifest(manifest_path),
+                payloads,
+                run_id="tampered-costs",
+                mode=LIVE_MODE,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                validation_receipt=None,
+            )
 
     def test_replay_provenance_never_claims_accuracy_even_under_a_receipt(
         self, tmp_path: Path

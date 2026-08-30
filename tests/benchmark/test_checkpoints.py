@@ -9,6 +9,8 @@ from typing import Any
 import pytest
 
 from attest.benchmark.checkpoints import (
+    CALL_ROLE_BENCHMARK_ORACLE,
+    CALL_ROLE_PRODUCT,
     STATE_AMBIGUOUS_COST,
     STATE_CONSUMED,
     STATE_DISPATCHED,
@@ -16,6 +18,7 @@ from attest.benchmark.checkpoints import (
     STATE_RESPONSE_PERSISTED,
     AmbiguousCostError,
     CheckpointedProvider,
+    paid_call_totals,
 )
 from attest.review.proposer import ProviderResult
 
@@ -62,6 +65,7 @@ def _wrapper(
         trial_id="trial-1",
         model_id=model_id,
         binding_sha256=binding_sha256,
+        role=CALL_ROLE_PRODUCT,
         on_transition=on_transition,
     )
 
@@ -99,10 +103,81 @@ def test_completed_call_reconciles_trial_spend_and_artifact_one_to_one(
     assert records[0]["call_id"] == "trial-1:0"
     assert records[0]["model_id"] == "claude-sonnet-5"
     assert records[0]["binding_sha256"] == "a" * 64
+    assert records[0]["role"] == CALL_ROLE_PRODUCT
     assert records[0]["outcome"] == "settled"
     assert records[0]["cost_usd"] > 0
     assert records[0]["artifact_path"] == "artifacts/000000.json"
     assert len(str(records[0]["artifact_sha256"])) == 64
+
+
+def test_paid_call_roles_are_immutable_and_costs_are_disjoint(tmp_path: Path) -> None:
+    provider = _wrapper(_Provider(), tmp_path)
+    _sample(provider)
+    _sample(provider.for_role(CALL_ROLE_BENCHMARK_ORACLE))
+
+    records = provider.reconciliation_records()
+    totals = paid_call_totals(records)
+
+    assert [row["role"] for row in records] == [
+        CALL_ROLE_PRODUCT,
+        CALL_ROLE_BENCHMARK_ORACLE,
+    ]
+    assert totals.product_usd == pytest.approx(float(records[0]["cost_usd"]))
+    assert totals.oracle_usd == pytest.approx(float(records[1]["cost_usd"]))
+    assert totals.total_usd == pytest.approx(
+        totals.product_usd + totals.oracle_usd
+    )
+    for ordinal, role in enumerate(
+        (CALL_ROLE_PRODUCT, CALL_ROLE_BENCHMARK_ORACLE)
+    ):
+        checkpoint = json.loads(
+            (tmp_path / "calls" / f"{ordinal:06d}.json").read_text(encoding="utf-8")
+        )
+        artifact = json.loads(
+            (tmp_path / "artifacts" / f"{ordinal:06d}.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert checkpoint["role"] == role
+        assert artifact["role"] == role
+
+
+def test_paid_call_role_is_not_inferred_from_call_order(tmp_path: Path) -> None:
+    provider = _wrapper(_Provider(), tmp_path)
+    _sample(provider.for_role(CALL_ROLE_BENCHMARK_ORACLE))
+    _sample(provider)
+
+    records = provider.reconciliation_records()
+
+    assert [row["ordinal"] for row in records] == [0, 1]
+    assert [row["role"] for row in records] == [
+        CALL_ROLE_BENCHMARK_ORACLE,
+        CALL_ROLE_PRODUCT,
+    ]
+
+
+@pytest.mark.parametrize("target", ("checkpoint", "artifact", "spend"))
+@pytest.mark.parametrize("role", (None, "unknown", CALL_ROLE_BENCHMARK_ORACLE))
+def test_missing_unknown_or_modified_paid_call_role_fails_closed(
+    tmp_path: Path, target: str, role: str | None
+) -> None:
+    provider = _wrapper(_Provider(), tmp_path)
+    _sample(provider)
+    paths = {
+        "checkpoint": tmp_path / "calls" / "000000.json",
+        "artifact": tmp_path / "artifacts" / "000000.json",
+        "spend": tmp_path / "costs.jsonl",
+    }
+    path = paths[target]
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if role is None:
+        payload.pop("role")
+    else:
+        payload["role"] = role
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="role|binding|hash"):
+        _wrapper(_Provider(), tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -246,7 +321,26 @@ def test_old_checkpoint_schema_fails_with_actionable_version_message(tmp_path: P
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="unsupported.*schema version.*0.*supported.*3"):
+    with pytest.raises(ValueError, match="unsupported.*schema version.*0.*supported.*4"):
+        _wrapper(_Provider(), tmp_path)
+
+
+@pytest.mark.parametrize("target", ("artifact", "spend"))
+def test_old_paid_evidence_schema_fails_with_actionable_version_message(
+    tmp_path: Path, target: str
+) -> None:
+    provider = _wrapper(_Provider(), tmp_path)
+    _sample(provider)
+    path = (
+        tmp_path / "artifacts" / "000000.json"
+        if target == "artifact"
+        else tmp_path / "costs.jsonl"
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["schema_version"] = "2"
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unsupported.*schema version.*2.*supported.*3"):
         _wrapper(_Provider(), tmp_path)
 
 

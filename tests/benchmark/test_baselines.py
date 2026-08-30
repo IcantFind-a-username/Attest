@@ -25,6 +25,10 @@ from attest.benchmark.baselines import (
     RuffBaseline,
     compare_arms,
 )
+from attest.benchmark.checkpoints import (
+    CALL_ROLE_BENCHMARK_ORACLE,
+    CALL_ROLE_PRODUCT,
+)
 from attest.benchmark.corpus import load_validation_receipt
 from attest.benchmark.report import (
     RECEIPT_MISSING,
@@ -451,6 +455,32 @@ def test_compare_arms_measures_all_three_arms_with_honest_evidence(tmp_path: Pat
     assert bare.input_tokens == 1600
     assert product.model_calls >= 4  # K samples per case, plus generation
     assert product.spend_usd > bare.spend_usd
+    positive_product_run = next(
+        run
+        for run in measurements.runs
+        if run.arm == ARM_PRODUCT and run.oracle_spend_usd > 0
+    )
+    assert positive_product_run.spend_usd == pytest.approx(0.0108)
+    assert positive_product_run.oracle_spend_usd == pytest.approx(0.0036)
+    product_rows = [
+        row
+        for run in measurements.runs
+        if run.arm == ARM_PRODUCT
+        for row in run.paid_calls
+    ]
+    assert sum(
+        float(row["cost_usd"])
+        for row in product_rows
+        if row["role"] == CALL_ROLE_PRODUCT
+    ) == pytest.approx(product.spend_usd)
+    assert sum(
+        float(row["cost_usd"])
+        for row in product_rows
+        if row["role"] == CALL_ROLE_BENCHMARK_ORACLE
+    ) == pytest.approx(product.oracle_spend_usd)
+    assert sum(float(row["cost_usd"]) for row in product_rows) == pytest.approx(
+        product.spend_usd + product.oracle_spend_usd
+    )
     assert ruff_op.model_calls == 0
     assert ruff_op.spend_usd == 0.0
     assert ruff_op.tool_cost_s > 0
@@ -519,7 +549,11 @@ def test_comparison_defer_after_settled_response_preserves_paid_call_evidence(
     plan = plans[0]
 
     def fail_after_response(
-        request: ProjectEvaluationRequest, *, provider: object, clock: object
+        request: ProjectEvaluationRequest,
+        *,
+        provider: object,
+        oracle_provider: object,
+        clock: object,
     ) -> object:
         provider.sample("system", "prompt", {"type": "object"}, 20)
         raise RuntimeError("failure after provider settlement")
@@ -554,12 +588,15 @@ def test_comparison_defer_after_settled_response_preserves_paid_call_evidence(
         manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         validation_receipt=None,
     ).to_json_dict()
-    assert report["schema_version"] == "2"
+    assert report["schema_version"] == "3"
     product_payload = next(
         run for run in report["runs"] if run["arm"] == ARM_PRODUCT
     )
     assert product_payload["paid_calls"] == list(product.paid_calls)
     assert product_payload["paid_calls_sha256"] == product.paid_calls_sha256
+    assert product_payload["total_spend_usd"] == pytest.approx(
+        product.spend_usd + product.oracle_spend_usd
+    )
 
     corrupted = replace(
         measurements,
@@ -585,7 +622,11 @@ def test_settled_comparison_replay_rejects_new_ordinal_before_provider_dispatch(
     checkpoint_root = tmp_path / "calls"
 
     def one_response_then_fail(
-        request: ProjectEvaluationRequest, *, provider: object, clock: object
+        request: ProjectEvaluationRequest,
+        *,
+        provider: object,
+        oracle_provider: object,
+        clock: object,
     ) -> object:
         provider.sample("system", "prompt", {"type": "object"}, 20)
         raise RuntimeError("settle one call")
@@ -604,7 +645,11 @@ def test_settled_comparison_replay_rejects_new_ordinal_before_provider_dispatch(
     settled_costs = costs.read_bytes()
 
     def replay_then_request_new_ordinal(
-        request: ProjectEvaluationRequest, *, provider: object, clock: object
+        request: ProjectEvaluationRequest,
+        *,
+        provider: object,
+        oracle_provider: object,
+        clock: object,
     ) -> object:
         provider.sample("system", "prompt", {"type": "object"}, 20)
         provider.sample("second", "new ordinal", {"type": "object"}, 20)
@@ -626,6 +671,123 @@ def test_settled_comparison_replay_rejects_new_ordinal_before_provider_dispatch(
     assert costs.read_bytes() == settled_costs
 
 
+def test_comparison_defer_after_settled_oracle_response_preserves_oracle_spend(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+
+    def fail_after_oracle_response(
+        request: ProjectEvaluationRequest,
+        *,
+        provider: object,
+        oracle_provider: object,
+        clock: object,
+    ) -> object:
+        oracle_provider.sample("oracle", "prompt", {"type": "object"}, 20)
+        raise RuntimeError("failure after oracle settlement")
+
+    monkeypatch.setattr(
+        "attest.benchmark.baselines.evaluate_project", fail_after_oracle_response
+    )
+    measurements = compare_arms(
+        [plan],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "oracle-calls",
+    )
+
+    product = next(run for run in measurements.runs if run.arm == ARM_PRODUCT)
+    assert product.status == "deferred"
+    assert product.spend_usd == 0.0
+    assert product.oracle_spend_usd > 0
+    assert {row["role"] for row in product.paid_calls} == {
+        CALL_ROLE_BENCHMARK_ORACLE
+    }
+
+
+def test_comparison_report_rejects_oracle_spend_field_tampering(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    measurements = compare_arms(
+        [plans[0]],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "tamper-calls",
+    )
+    tampered = replace(
+        measurements,
+        runs=tuple(
+            replace(run, oracle_spend_usd=run.oracle_spend_usd + 1.0)
+            if run.arm == ARM_PRODUCT
+            else run
+            for run in measurements.runs
+        ),
+    )
+
+    with pytest.raises(ValueError, match="oracle|spend|reconciliation|authoritative"):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            tampered,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
+def test_comparison_report_rejects_coordinated_role_reclassification(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    measurements = compare_arms(
+        [plans[0]],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "role-tamper-calls",
+    )
+    product = next(run for run in measurements.runs if run.arm == ARM_PRODUCT)
+    rewritten = [dict(row) for row in product.paid_calls]
+    rewritten[0]["role"] = CALL_ROLE_BENCHMARK_ORACLE
+    product_spend = sum(
+        float(row["cost_usd"])
+        for row in rewritten
+        if row["role"] == CALL_ROLE_PRODUCT
+    )
+    oracle_spend = sum(
+        float(row["cost_usd"])
+        for row in rewritten
+        if row["role"] == CALL_ROLE_BENCHMARK_ORACLE
+    )
+    digest = hashlib.sha256(
+        json.dumps(rewritten, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    tampered_product = replace(
+        product,
+        paid_calls=tuple(rewritten),
+        paid_calls_sha256=digest,
+        spend_usd=product_spend,
+        oracle_spend_usd=oracle_spend,
+    )
+    tampered = replace(
+        measurements,
+        runs=tuple(
+            tampered_product if run is product else run
+            for run in measurements.runs
+        ),
+    )
+
+    with pytest.raises(ValueError, match="role|summary|authoritative|reconciliation"):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            tampered,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
 def test_comparison_report_rechecks_authoritative_artifacts_at_publication(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -634,7 +796,11 @@ def test_comparison_report_rechecks_authoritative_artifacts_at_publication(
     checkpoint_root = tmp_path / "calls"
 
     def fail_after_response(
-        request: ProjectEvaluationRequest, *, provider: object, clock: object
+        request: ProjectEvaluationRequest,
+        *,
+        provider: object,
+        oracle_provider: object,
+        clock: object,
     ) -> object:
         provider.sample("system", "prompt", {"type": "object"}, 20)
         raise RuntimeError("failure after provider settlement")
@@ -673,7 +839,11 @@ def test_comparison_report_rejects_model_drift_from_frozen_predeclaration(
     plan = plans[0]
 
     def fail_after_response(
-        request: ProjectEvaluationRequest, *, provider: object, clock: object
+        request: ProjectEvaluationRequest,
+        *,
+        provider: object,
+        oracle_provider: object,
+        clock: object,
     ) -> object:
         provider.sample("system", "prompt", {"type": "object"}, 20)
         raise RuntimeError("failure after provider settlement")
@@ -714,7 +884,11 @@ def test_comparison_report_rejects_omitted_authoritative_paid_trial(
     plan = plans[0]
 
     def fail_after_response(
-        request: ProjectEvaluationRequest, *, provider: object, clock: object
+        request: ProjectEvaluationRequest,
+        *,
+        provider: object,
+        oracle_provider: object,
+        clock: object,
     ) -> object:
         provider.sample("system", "prompt", {"type": "object"}, 20)
         raise RuntimeError("failure after provider settlement")
@@ -1000,7 +1174,11 @@ def test_comparison_resume_rejects_incomplete_or_mismatched_paid_evidence(
     checkpoint_root = tmp_path / "calls"
 
     def fail_after_response(
-        request: ProjectEvaluationRequest, *, provider: object, clock: object
+        request: ProjectEvaluationRequest,
+        *,
+        provider: object,
+        oracle_provider: object,
+        clock: object,
     ) -> object:
         provider.sample("system", "prompt", {"type": "object"}, 20)
         raise RuntimeError("failure after provider settlement")

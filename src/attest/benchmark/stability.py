@@ -42,15 +42,23 @@ from attest.benchmark.api import (
     evaluate_project,
     freeze_evaluation_request,
 )
-from attest.benchmark.checkpoints import AmbiguousCostError, CheckpointedProvider
+from attest.benchmark.checkpoints import (
+    CALL_ROLE_BENCHMARK_ORACLE,
+    CALL_ROLE_PRODUCT,
+    CALL_ROLES,
+    AmbiguousCostError,
+    CheckpointedProvider,
+    PaidCallTotals,
+    paid_call_totals,
+)
 from attest.benchmark.metrics import dispersion, mean_pairwise_jaccard
 from attest.benchmark.schema import ChangedLocation, is_scored_placement
 from attest.review.proposer import Provider, ProviderResult
 
 #: The preregistered repeat count. Ten is part of the study design, not a knob.
 STABILITY_REPEATS = 10
-STABILITY_SCHEMA_VERSION = "2"
-_OBSERVATION_SCHEMA_VERSION = "2"
+STABILITY_SCHEMA_VERSION = "3"
+_OBSERVATION_SCHEMA_VERSION = "3"
 
 _OUTCOME_SURFACED = "surfaced"
 _OUTCOME_SILENT = "silent"
@@ -92,7 +100,9 @@ class StabilityObservation:
     surfaced: tuple[SurfacedAnchor, ...]
     candidate_count: int
     latency_s: float
-    spend_usd: float
+    product_spend_usd: float
+    oracle_spend_usd: float
+    total_spend_usd: float
     delivery_at_s: float | None
     call_count: int = 0
     call_evidence_sha256: str = hashlib.sha256(b"[]").hexdigest()
@@ -113,7 +123,9 @@ class StabilityObservation:
             "surfaced": [anchor.to_json_dict() for anchor in self.surfaced],
             "candidate_count": self.candidate_count,
             "latency_s": self.latency_s,
-            "spend_usd": self.spend_usd,
+            "product_spend_usd": self.product_spend_usd,
+            "oracle_spend_usd": self.oracle_spend_usd,
+            "total_spend_usd": self.total_spend_usd,
             "delivery_at_s": self.delivery_at_s,
             "call_count": self.call_count,
             "call_evidence_sha256": self.call_evidence_sha256,
@@ -174,7 +186,15 @@ class StabilityObservation:
             surfaced=surfaced,
             candidate_count=candidate_count,
             latency_s=_finite_number(raw.get("latency_s"), "latency_s"),
-            spend_usd=_finite_number(raw.get("spend_usd"), "spend_usd"),
+            product_spend_usd=_finite_number(
+                raw.get("product_spend_usd"), "product_spend_usd"
+            ),
+            oracle_spend_usd=_finite_number(
+                raw.get("oracle_spend_usd"), "oracle_spend_usd"
+            ),
+            total_spend_usd=_finite_number(
+                raw.get("total_spend_usd"), "total_spend_usd"
+            ),
             delivery_at_s=(
                 None
                 if raw.get("delivery_at_s") is None
@@ -288,14 +308,23 @@ class StabilityReport:
     latency_mean_s: float | None
     latency_min_s: float | None
     latency_max_s: float | None
-    spend_per_run_usd: tuple[float, ...]
-    spend_total_usd: float
-    spend_mean_usd: float
+    product_spend_per_run_usd: tuple[float, ...]
+    oracle_spend_per_run_usd: tuple[float, ...]
+    total_spend_per_run_usd: tuple[float, ...]
+    product_spend_total_usd: float
+    oracle_spend_total_usd: float
+    total_spend_total_usd: float
+    total_spend_mean_usd: float
     wealth_mean: float | None
     wealth_variance: float | None
     wealth_range: float | None
     limitations: tuple[str, ...]
     digest: str = ""
+
+    @property
+    def spend_total_usd(self) -> float:
+        """Compatibility alias for callers that need the all-role total."""
+        return self.total_spend_total_usd
 
     def to_json_dict(self) -> dict[str, object]:
         payload = self._payload()
@@ -323,9 +352,19 @@ class StabilityReport:
             "latency_mean_s": _rounded(self.latency_mean_s),
             "latency_min_s": _rounded(self.latency_min_s),
             "latency_max_s": _rounded(self.latency_max_s),
-            "spend_per_run_usd": [_rounded(value) for value in self.spend_per_run_usd],
-            "spend_total_usd": _rounded(self.spend_total_usd),
-            "spend_mean_usd": _rounded(self.spend_mean_usd),
+            "product_spend_per_run_usd": [
+                _rounded(value) for value in self.product_spend_per_run_usd
+            ],
+            "oracle_spend_per_run_usd": [
+                _rounded(value) for value in self.oracle_spend_per_run_usd
+            ],
+            "total_spend_per_run_usd": [
+                _rounded(value) for value in self.total_spend_per_run_usd
+            ],
+            "product_spend_total_usd": _rounded(self.product_spend_total_usd),
+            "oracle_spend_total_usd": _rounded(self.oracle_spend_total_usd),
+            "total_spend_total_usd": _rounded(self.total_spend_total_usd),
+            "total_spend_mean_usd": _rounded(self.total_spend_mean_usd),
             "wealth_mean": _rounded(self.wealth_mean),
             "wealth_variance": _rounded(self.wealth_variance),
             "wealth_range": _rounded(self.wealth_range),
@@ -366,6 +405,14 @@ def summarize_stability(
     ordered = tuple(sorted(observations, key=lambda observation: observation.repeat))
     if [observation.repeat for observation in ordered] != list(range(STABILITY_REPEATS)):
         raise ValueError("observations must cover repeat 0 through 9 exactly once")
+    if any(
+        not _same_cost(
+            observation.total_spend_usd,
+            observation.product_spend_usd + observation.oracle_spend_usd,
+        )
+        for observation in ordered
+    ):
+        raise ValueError("observation total spend must equal product plus oracle spend")
 
     outcomes = tuple(observation.outcome for observation in ordered)
     modal_outcome, modal_count = _modal(outcomes)
@@ -406,7 +453,15 @@ def summarize_stability(
     )
     latency_spread = dispersion([observation.latency_s for observation in completed])
     latencies = [observation.latency_s for observation in completed]
-    spend_per_run = tuple(observation.spend_usd for observation in ordered)
+    product_spend_per_run = tuple(
+        observation.product_spend_usd for observation in ordered
+    )
+    oracle_spend_per_run = tuple(
+        observation.oracle_spend_usd for observation in ordered
+    )
+    total_spend_per_run = tuple(
+        observation.total_spend_usd for observation in ordered
+    )
     wealth_values = [
         anchor.wealth_final
         for observation in ordered
@@ -437,9 +492,13 @@ def summarize_stability(
         latency_mean_s=None if latency_spread is None else latency_spread.mean,
         latency_min_s=min(latencies) if latencies else None,
         latency_max_s=max(latencies) if latencies else None,
-        spend_per_run_usd=spend_per_run,
-        spend_total_usd=sum(spend_per_run),
-        spend_mean_usd=sum(spend_per_run) / STABILITY_REPEATS,
+        product_spend_per_run_usd=product_spend_per_run,
+        oracle_spend_per_run_usd=oracle_spend_per_run,
+        total_spend_per_run_usd=total_spend_per_run,
+        product_spend_total_usd=sum(product_spend_per_run),
+        oracle_spend_total_usd=sum(oracle_spend_per_run),
+        total_spend_total_usd=sum(total_spend_per_run),
+        total_spend_mean_usd=sum(total_spend_per_run) / STABILITY_REPEATS,
         wealth_mean=None if wealth_spread is None else wealth_spread.mean,
         wealth_variance=None if wealth_spread is None else wealth_spread.variance,
         wealth_range=None if wealth_spread is None else wealth_spread.value_range,
@@ -524,8 +583,10 @@ def run_stability_study(
                 trial_id=f"{request.case_id}:repeat-{repeat}",
                 model_id=request.config.model,
                 binding_sha256=call_binding_sha256,
+                role=CALL_ROLE_PRODUCT,
             )
             records = checkpointed.reconciliation_records()
+            totals = paid_call_totals(records)
             call_count, call_evidence_sha256 = _call_evidence_binding(records)
             if (
                 observation.call_count != call_count
@@ -535,6 +596,7 @@ def run_stability_study(
                     f"stability repeat {repeat} paid-call evidence binding does not match "
                     "its persisted observation"
                 )
+            _require_observation_costs(repeat, observation, totals)
             resumed += 1
         else:
             provider = provider_factory(repeat)
@@ -554,13 +616,18 @@ def run_stability_study(
                 trial_id=f"{request.case_id}:repeat-{repeat}",
                 model_id=request.config.model,
                 binding_sha256=call_binding_sha256,
+                role=CALL_ROLE_PRODUCT,
                 on_transition=transition,
             )
             observation = _observe(request, repeat, checkpointed, clock)
             records = checkpointed.reconciliation_records()
+            totals = paid_call_totals(records)
             call_count, call_evidence_sha256 = _call_evidence_binding(records)
             observation = replace(
                 observation,
+                product_spend_usd=totals.product_usd,
+                oracle_spend_usd=totals.oracle_usd,
+                total_spend_usd=totals.total_usd,
                 call_count=call_count,
                 call_evidence_sha256=call_evidence_sha256,
             )
@@ -603,6 +670,23 @@ def _call_evidence_binding(
     return len(records), hashlib.sha256(payload).hexdigest()
 
 
+def _require_observation_costs(
+    repeat: int, observation: StabilityObservation, totals: PaidCallTotals
+) -> None:
+    if (
+        not _same_cost(observation.product_spend_usd, totals.product_usd)
+        or not _same_cost(observation.oracle_spend_usd, totals.oracle_usd)
+        or not _same_cost(observation.total_spend_usd, totals.total_usd)
+    ):
+        raise ValueError(
+            f"stability repeat {repeat} spend does not match authoritative role evidence"
+        )
+
+
+def _same_cost(left: float, right: float) -> bool:
+    return abs(left - right) <= 1e-12
+
+
 def _observe(
     request: ProjectEvaluationRequest,
     repeat: int,
@@ -615,7 +699,13 @@ def _observe(
         workspace_root=request.workspace_root / f"repeat-{repeat}",
     )
     try:
-        result = evaluate_project(prepared, provider=provider, clock=clock)
+        assert isinstance(provider, CheckpointedProvider)
+        result = evaluate_project(
+            prepared,
+            provider=provider,
+            oracle_provider=provider.for_role(CALL_ROLE_BENCHMARK_ORACLE),
+            clock=clock,
+        )
     except AmbiguousCostError:
         raise
     except Exception as exc:  # noqa: BLE001 - a failed run is a DEFER, never dropped
@@ -627,7 +717,9 @@ def _observe(
             surfaced=(),
             candidate_count=0,
             latency_s=0.0,
-            spend_usd=0.0,
+            product_spend_usd=0.0,
+            oracle_spend_usd=0.0,
+            total_spend_usd=0.0,
             delivery_at_s=None,
         )
     wealth_by_finding: dict[str, float] = {}
@@ -661,7 +753,9 @@ def _observe(
         surfaced=surfaced,
         candidate_count=len(result.final_decisions),
         latency_s=result.latency_s,
-        spend_usd=result.spend_usd,
+        product_spend_usd=0.0,
+        oracle_spend_usd=0.0,
+        total_spend_usd=0.0,
         delivery_at_s=result.run.delivery_at_s,
     )
 
@@ -697,6 +791,7 @@ def _predeclaration(
     config = request.config
     return {
         "schema_version": STABILITY_SCHEMA_VERSION,
+        "paid_call_roles": sorted(CALL_ROLES),
         "case_id": request.case_id,
         "manifest_sha256": manifest_sha256,
         "repeats": STABILITY_REPEATS,

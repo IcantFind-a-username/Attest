@@ -434,7 +434,9 @@ crash boundaries.
 1. inject clocks and compare relative/event dates, never wall-clock literals;
 2. bind predeclaration to repository identity, resolved SHAs, diff/truth/receipt digests,
    provider/model/prompt/schema versions, interpreter/environment, and code version;
-3. checkpoint each paid subcall using the universal transition machine;
+3. checkpoint each paid subcall using the universal transition machine, binding an
+   immutable product or benchmark-oracle role through request, checkpoint, artifact,
+   spend, reconciliation, and report digest;
 4. represent uncertain dispatch as `ambiguous_cost`, block automatic replay, and withhold
    claims until resolved;
 5. require workflow process exit/conclusion success in acceptance;

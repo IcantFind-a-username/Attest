@@ -220,7 +220,11 @@ without authorized execution evidence.
   model/provider/prompt/schema, interpreter/environment, and budget;
 - drift fails before a new paid call;
 - workflow/process failure invalidates acceptance even when comments exist;
-- trial IDs join one-to-one with spend rows and artifacts.
+- trial IDs join one-to-one with spend rows and artifacts;
+- every call request, checkpoint, artifact, spend row, reconciliation record, and report
+  digest binds an immutable paid-call role; product and benchmark-oracle totals are
+  disjoint sums of those authoritative rows, and missing/unknown/modified roles fail
+  closed rather than being inferred from call order or copied report fields.
 
 ### G-MEASURE-004 — Blind semantic adjudication
 

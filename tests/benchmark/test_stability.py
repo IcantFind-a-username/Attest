@@ -13,6 +13,8 @@ import pytest
 
 from attest.benchmark.api import ProjectEvaluationRequest
 from attest.benchmark.checkpoints import (
+    CALL_ROLE_BENCHMARK_ORACLE,
+    CALL_ROLE_PRODUCT,
     STATE_AMBIGUOUS_COST,
     STATE_DISPATCHED,
     STATE_RESPONSE_PERSISTED,
@@ -87,7 +89,9 @@ def _observation(
         surfaced=() if deferred is not None else surfaced,
         candidate_count=candidate_count,
         latency_s=latency_s,
-        spend_usd=spend_usd,
+        product_spend_usd=spend_usd,
+        oracle_spend_usd=0.0,
+        total_spend_usd=spend_usd,
         delivery_at_s=None if deferred is not None else latency_s,
     )
 
@@ -398,6 +402,117 @@ def test_stability_resume_replays_durable_subcall_response_without_redispatch(
 
     assert result.report.repeats == STABILITY_REPEATS
     assert resumed.proposal_calls == STABILITY_REPEATS - 1
+
+
+@pytest.mark.parametrize(
+    ("settled_role", "expected_product", "expected_oracle"),
+    (
+        (CALL_ROLE_PRODUCT, True, False),
+        (CALL_ROLE_BENCHMARK_ORACLE, False, True),
+    ),
+)
+def test_post_settlement_exception_preserves_authoritative_role_spend(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    settled_role: str,
+    expected_product: bool,
+    expected_oracle: bool,
+) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+
+    def settle_then_fail(
+        prepared: ProjectEvaluationRequest,
+        *,
+        provider: Provider,
+        oracle_provider: Provider,
+        clock: object,
+    ) -> object:
+        selected = provider if settled_role == CALL_ROLE_PRODUCT else oracle_provider
+        selected.sample("system", "prompt", {"type": "object"}, 20)
+        raise RuntimeError("evaluation failed after settlement")
+
+    monkeypatch.setattr(
+        "attest.benchmark.stability.evaluate_project", settle_then_fail
+    )
+    result = run_stability_study(
+        request,
+        provider_factory=lambda _repeat: ReplayProvider(
+            Cassette(proposal="{}", repro="{}", input_tokens=100, output_tokens=20)
+        ),
+        state_dir=state_dir,
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+
+    observation = json.loads(
+        (state_dir / "repeat-0.json").read_text(encoding="utf-8")
+    )
+    assert "spend_usd" not in observation
+    assert (observation["product_spend_usd"] > 0) is expected_product
+    assert (observation["oracle_spend_usd"] > 0) is expected_oracle
+    assert observation["total_spend_usd"] == pytest.approx(
+        observation["product_spend_usd"] + observation["oracle_spend_usd"]
+    )
+    assert result.report.product_spend_total_usd == pytest.approx(
+        sum(
+            json.loads((state_dir / f"repeat-{repeat}.json").read_text())["product_spend_usd"]
+            for repeat in range(STABILITY_REPEATS)
+        )
+    )
+    assert result.report.oracle_spend_total_usd == pytest.approx(
+        sum(
+            json.loads((state_dir / f"repeat-{repeat}.json").read_text())["oracle_spend_usd"]
+            for repeat in range(STABILITY_REPEATS)
+        )
+    )
+    assert result.report.total_spend_total_usd == pytest.approx(
+        result.report.product_spend_total_usd
+        + result.report.oracle_spend_total_usd
+    )
+
+    resumed = run_stability_study(
+        request,
+        provider_factory=lambda _repeat: pytest.fail("resume dispatched a provider"),
+        state_dir=state_dir,
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+    assert resumed.report.digest == result.report.digest
+
+
+def test_stability_resume_rejects_observation_spend_tampering(
+    tmp_path: Path,
+) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+    run_stability_study(
+        request,
+        provider_factory=lambda _repeat: ReplayProvider(
+            Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+        ),
+        state_dir=state_dir,
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+    path = state_dir / "repeat-0.json"
+    observation = json.loads(path.read_text(encoding="utf-8"))
+    observation["product_spend_usd"] += 1.0
+    observation["total_spend_usd"] += 1.0
+    path.write_text(json.dumps(observation) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="spend|evidence binding|authoritative"):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: pytest.fail("tamper path dispatched"),
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
 
 
 def test_stability_dispatched_without_response_withholds_report_and_blocks_retry(

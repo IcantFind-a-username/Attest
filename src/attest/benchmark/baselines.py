@@ -52,7 +52,15 @@ from attest.benchmark.api import (
     evaluate_project,
     freeze_evaluation_request,
 )
-from attest.benchmark.checkpoints import AmbiguousCostError, CheckpointedProvider
+from attest.benchmark.checkpoints import (
+    CALL_ROLE_BENCHMARK_ORACLE,
+    CALL_ROLE_PRODUCT,
+    CALL_ROLES,
+    AmbiguousCostError,
+    CheckpointedProvider,
+    PaidCallTotals,
+    paid_call_totals,
+)
 from attest.benchmark.metrics import silence_precision, wilson_interval
 from attest.benchmark.schema import BenchmarkCase, TruthDefect, is_scored_placement
 from attest.review.budget import Budget, BudgetExceeded
@@ -70,8 +78,8 @@ from attest.review.schema import PROPOSAL_SCHEMA, validate_finding
 ARM_PRODUCT = "attest_product"
 ARM_BARE_PROMPT = "bare_prompt"
 ARM_RUFF = "ruff_static"
-COMPARISON_CHECKPOINT_SCHEMA_VERSION = "4"
-COMPARISON_RECONCILIATION_SCHEMA_VERSION = "1"
+COMPARISON_CHECKPOINT_SCHEMA_VERSION = "5"
+COMPARISON_RECONCILIATION_SCHEMA_VERSION = "2"
 _EMPTY_PAID_CALLS_SHA256 = hashlib.sha256(b"[]").hexdigest()
 _EVALUATION_BINDING_FIELDS = frozenset(
     {
@@ -249,6 +257,7 @@ class ArmOperational:
             "output_tokens": self.output_tokens,
             "spend_usd": _number(self.spend_usd),
             "oracle_spend_usd": _number(self.oracle_spend_usd),
+            "total_spend_usd": _number(self.spend_usd + self.oracle_spend_usd),
             "wall_time_s": _number(self.wall_time_s),
             "tool_cost_s": _number(self.tool_cost_s),
         }
@@ -289,12 +298,36 @@ class ComparisonMeasurements:
 class _MeteredProvider:
     """Counts calls and tokens through any provider without altering them."""
 
-    def __init__(self, inner: Provider) -> None:
+    def __init__(
+        self, inner: Provider, *, shared: _MeteredProvider | None = None
+    ) -> None:
         self._inner = inner
-        self._lock = Lock()
-        self.calls = 0
-        self.input_tokens = 0
-        self.output_tokens = 0
+        self._lock: Lock
+        self._counts: list[int]
+        if shared is None:
+            self._lock = Lock()
+            self._counts = [0, 0, 0]
+        else:
+            self._lock = shared._lock
+            self._counts = shared._counts
+
+    @property
+    def calls(self) -> int:
+        return self._counts[0]
+
+    @property
+    def input_tokens(self) -> int:
+        return self._counts[1]
+
+    @property
+    def output_tokens(self) -> int:
+        return self._counts[2]
+
+    def for_role(self, role: str) -> _MeteredProvider:
+        scoped = getattr(self._inner, "for_role", None)
+        if not callable(scoped):
+            raise ComparisonEvidenceError("paid provider cannot create a role scope")
+        return _MeteredProvider(scoped(role), shared=self)
 
     def sample(
         self,
@@ -309,9 +342,9 @@ class _MeteredProvider:
             system, prompt, schema, max_tokens, timeout_s=timeout_s
         )
         with self._lock:
-            self.calls += 1
-            self.input_tokens += result.input_tokens
-            self.output_tokens += result.output_tokens
+            self._counts[0] += 1
+            self._counts[1] += result.input_tokens
+            self._counts[2] += result.output_tokens
         return result
 
 
@@ -319,12 +352,29 @@ class _FailClosedCheckpointProvider:
     """Do not let an arm translate checkpoint-integrity failure into DEFER."""
 
     def __init__(
-        self, inner: CheckpointedProvider, *, maximum_calls: int | None = None
+        self,
+        inner: CheckpointedProvider,
+        *,
+        maximum_calls: int | None = None,
+        shared: _FailClosedCheckpointProvider | None = None,
     ) -> None:
         self._inner = inner
         self._maximum_calls = maximum_calls
-        self._calls = 0
-        self._lock = Lock()
+        self._calls: list[int]
+        self._lock: Lock
+        if shared is None:
+            self._calls = [0]
+            self._lock = Lock()
+        else:
+            self._calls = shared._calls
+            self._lock = shared._lock
+
+    def for_role(self, role: str) -> _FailClosedCheckpointProvider:
+        return _FailClosedCheckpointProvider(
+            self._inner.for_role(role),
+            maximum_calls=self._maximum_calls,
+            shared=self,
+        )
 
     def sample(
         self,
@@ -336,12 +386,12 @@ class _FailClosedCheckpointProvider:
         timeout_s: float | None = None,
     ) -> ProviderResult:
         with self._lock:
-            ordinal = self._calls
+            ordinal = self._calls[0]
             if self._maximum_calls is not None and ordinal >= self._maximum_calls:
                 raise ComparisonEvidenceError(
                     "settled comparison replay requested a new paid-call ordinal"
                 )
-            self._calls += 1
+            self._calls[0] += 1
         try:
             return self._inner.sample(
                 system, prompt, schema, max_tokens, timeout_s=timeout_s
@@ -632,6 +682,7 @@ def compare_arms(
             "schema_version": COMPARISON_CHECKPOINT_SCHEMA_VERSION,
             "line_slack": line_slack,
             "provider_id": provider_id,
+            "paid_call_roles": sorted(CALL_ROLES),
             "ruff_sha256": _executable_digest(ruff_executable),
             "bindings": [
                 {
@@ -646,6 +697,11 @@ def compare_arms(
                     "arm": arm,
                     "trial_id": f"comparison:{arm}:{plan.case.case_id}",
                     "model_id": binding.model_id,
+                    "allowed_roles": (
+                        sorted(CALL_ROLES)
+                        if arm == ARM_PRODUCT
+                        else [CALL_ROLE_PRODUCT]
+                    ),
                 }
                 for plan, binding in zip(plans, bindings, strict=True)
                 for arm in (ARM_PRODUCT, ARM_BARE_PROMPT)
@@ -797,25 +853,18 @@ def _read_comparison_reconciliation(
 
 def _paid_call_binding(
     records: Sequence[Mapping[str, object]],
-) -> tuple[tuple[dict[str, object], ...], str, float]:
+) -> tuple[tuple[dict[str, object], ...], str, PaidCallTotals]:
     normalized = tuple(dict(record) for record in records)
     encoded = json.dumps(normalized, sort_keys=True, separators=(",", ":")).encode(
         "utf-8"
     )
-    spend = 0.0
-    for record in normalized:
-        cost = record.get("cost_usd")
-        if (
-            isinstance(cost, bool)
-            or not isinstance(cost, (int, float))
-            or not math.isfinite(float(cost))
-            or float(cost) < 0
-        ):
-            raise ComparisonEvidenceError(
-                "comparison paid-call reconciliation has unknown settled spend"
-            )
-        spend += float(cost)
-    return normalized, hashlib.sha256(encoded).hexdigest(), spend
+    try:
+        totals = paid_call_totals(normalized)
+    except ValueError as exc:
+        raise ComparisonEvidenceError(
+            "comparison paid-call reconciliation has invalid role or settled spend"
+        ) from exc
+    return normalized, hashlib.sha256(encoded).hexdigest(), totals
 
 
 def _settled_reconciliation_payload(
@@ -824,6 +873,7 @@ def _settled_reconciliation_payload(
     records: Sequence[Mapping[str, object]],
     digest: str,
 ) -> dict[str, object]:
+    totals = paid_call_totals(records)
     return {
         "schema_version": COMPARISON_RECONCILIATION_SCHEMA_VERSION,
         "arm": arm,
@@ -833,12 +883,15 @@ def _settled_reconciliation_payload(
         "call_count": len(records),
         "paid_calls": [dict(record) for record in records],
         "paid_calls_sha256": digest,
+        "product_spend_usd": totals.product_usd,
+        "oracle_spend_usd": totals.oracle_usd,
+        "total_spend_usd": totals.total_usd,
     }
 
 
 def _verified_checkpoint_records(
     checkpointed: CheckpointedProvider,
-) -> tuple[tuple[dict[str, object], ...], str, float]:
+) -> tuple[tuple[dict[str, object], ...], str, PaidCallTotals]:
     try:
         return _paid_call_binding(checkpointed.reconciliation_records())
     except AmbiguousCostError:
@@ -893,6 +946,7 @@ def _checkpointed_comparison_provider(
             trial_id=f"comparison:{arm}:{case_id}",
             model_id=model_id,
             binding_sha256=binding_sha256,
+            role=CALL_ROLE_PRODUCT,
         )
     except ValueError as exc:
         raise ComparisonEvidenceError(
@@ -910,7 +964,7 @@ def _attach_comparison_reconciliation(
     path: Path,
     stored: Mapping[str, object],
 ) -> ArmRun:
-    records, digest, spend = _verified_checkpoint_records(checkpointed)
+    records, digest, totals = _verified_checkpoint_records(checkpointed)
     settled = _settled_reconciliation_payload(run.arm, run.case_id, records, digest)
     if stored.get("status") == "settled":
         if dict(stored) != settled:
@@ -921,7 +975,8 @@ def _attach_comparison_reconciliation(
         _atomic_write_json(path, settled)
     return replace(
         run,
-        spend_usd=spend,
+        spend_usd=totals.product_usd,
+        oracle_spend_usd=totals.oracle_usd,
         paid_calls=records,
         paid_calls_sha256=digest,
     )
@@ -940,7 +995,7 @@ def _settled_replay_limit(stored: Mapping[str, object]) -> int | None:
 
 def validate_arm_run_reconciliation(run: ArmRun) -> None:
     """Fail report publication closed on missing, duplicate, or mismatched joins."""
-    records, digest, spend = _paid_call_binding(run.paid_calls)
+    records, digest, totals = _paid_call_binding(run.paid_calls)
     if digest != run.paid_calls_sha256:
         raise ComparisonEvidenceError(
             f"comparison {run.arm}/{run.case_id} paid-call reconciliation digest mismatch"
@@ -964,9 +1019,18 @@ def validate_arm_run_reconciliation(run: ArmRun) -> None:
                 f"comparison {run.arm}/{run.case_id} paid-call trial binding mismatch"
             )
         call_ids.add(call_id)
-    if records and not math.isclose(run.spend_usd, spend, rel_tol=0.0, abs_tol=1e-12):
+        if run.arm == ARM_BARE_PROMPT and record.get("role") != CALL_ROLE_PRODUCT:
+            raise ComparisonEvidenceError(
+                f"comparison {run.arm}/{run.case_id} contains an oracle-role call"
+            )
+    if not math.isclose(
+        run.spend_usd, totals.product_usd, rel_tol=0.0, abs_tol=1e-12
+    ) or not math.isclose(
+        run.oracle_spend_usd, totals.oracle_usd, rel_tol=0.0, abs_tol=1e-12
+    ):
         raise ComparisonEvidenceError(
-            f"comparison {run.arm}/{run.case_id} spend does not match reconciliation rows"
+            f"comparison {run.arm}/{run.case_id} product/oracle spend does not match "
+            "reconciliation rows"
         )
 
 
@@ -1074,12 +1138,13 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
                 trial_id=expected_trial,
                 model_id=expected_model,
                 binding_sha256=binding_sha256,
+                role=CALL_ROLE_PRODUCT,
             )
         except ValueError as exc:
             raise ComparisonEvidenceError(
                 "comparison report authority reconciliation failed"
             ) from exc
-        records, digest, spend = _verified_checkpoint_records(checkpointed)
+        records, digest, totals = _verified_checkpoint_records(checkpointed)
         expected = _settled_reconciliation_payload(
             run.arm, run.case_id, records, digest
         )
@@ -1087,7 +1152,15 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
             dict(stored) != expected
             or records != tuple(dict(record) for record in run.paid_calls)
             or digest != run.paid_calls_sha256
-            or not math.isclose(run.spend_usd, spend, rel_tol=0.0, abs_tol=1e-12)
+            or not math.isclose(
+                run.spend_usd, totals.product_usd, rel_tol=0.0, abs_tol=1e-12
+            )
+            or not math.isclose(
+                run.oracle_spend_usd,
+                totals.oracle_usd,
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
         ):
             raise ComparisonEvidenceError(
                 f"comparison {run.arm}/{run.case_id} report evidence is not authoritative"
@@ -1109,6 +1182,7 @@ def _comparison_predeclared_paid_trials(
     bindings = raw.get("bindings") if isinstance(raw, dict) else None
     line_slack = raw.get("line_slack") if isinstance(raw, dict) else None
     provider_id = raw.get("provider_id") if isinstance(raw, dict) else None
+    paid_call_roles = raw.get("paid_call_roles") if isinstance(raw, dict) else None
     if (
         version != COMPARISON_CHECKPOINT_SCHEMA_VERSION
         or not isinstance(trials, list)
@@ -1118,6 +1192,7 @@ def _comparison_predeclared_paid_trials(
         or line_slack < 0
         or not isinstance(provider_id, str)
         or not provider_id
+        or paid_call_roles != sorted(CALL_ROLES)
     ):
         raise ComparisonEvidenceError(
             f"comparison predeclaration schema/paid-trial binding is invalid; supported "
@@ -1155,6 +1230,12 @@ def _comparison_predeclared_paid_trials(
         arm = row.get("arm") if isinstance(row, dict) else None
         trial_id = row.get("trial_id") if isinstance(row, dict) else None
         trial_model_id = row.get("model_id") if isinstance(row, dict) else None
+        allowed_roles = row.get("allowed_roles") if isinstance(row, dict) else None
+        expected_roles = (
+            sorted(CALL_ROLES)
+            if arm == ARM_PRODUCT
+            else [CALL_ROLE_PRODUCT]
+        )
         if (
             not isinstance(case_id, str)
             or not case_id
@@ -1163,6 +1244,7 @@ def _comparison_predeclared_paid_trials(
             or not isinstance(trial_model_id, str)
             or not trial_model_id
             or binding_models.get(case_id) != trial_model_id
+            or allowed_roles != expected_roles
         ):
             raise ComparisonEvidenceError(
                 "comparison predeclaration contains an invalid paid-trial binding"
@@ -1345,7 +1427,17 @@ def _product_arm(
     )
     started = clock()
     try:
-        result = evaluate_project(request, provider=meter, clock=clock)
+        oracle_meter = (
+            meter.for_role(CALL_ROLE_BENCHMARK_ORACLE)
+            if reconciliation is not None
+            else meter
+        )
+        result = evaluate_project(
+            request,
+            provider=meter,
+            oracle_provider=oracle_meter,
+            clock=clock,
+        )
     except (AmbiguousCostError, ComparisonEvidenceError):
         raise
     except Exception as exc:  # noqa: BLE001 - a failed product run is a DEFER
