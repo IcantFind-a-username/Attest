@@ -45,6 +45,7 @@ from threading import Lock
 from typing import Any
 
 from attest.benchmark.api import (
+    EVALUATION_BINDING_SCHEMA_VERSION,
     ProjectEvaluationRequest,
     build_evaluation_binding,
     current_runtime_identity,
@@ -72,6 +73,37 @@ ARM_RUFF = "ruff_static"
 COMPARISON_CHECKPOINT_SCHEMA_VERSION = "4"
 COMPARISON_RECONCILIATION_SCHEMA_VERSION = "1"
 _EMPTY_PAID_CALLS_SHA256 = hashlib.sha256(b"[]").hexdigest()
+_EVALUATION_BINDING_FIELDS = frozenset(
+    {
+        "schema_version",
+        "repository",
+        "base_sha",
+        "head_sha",
+        "fixed_sha",
+        "diff_sha256",
+        "truth_sha256",
+        "receipt_sha256",
+        "policy_sha256",
+        "provider_id",
+        "model_id",
+        "prompt_sha256",
+        "schema_sha256",
+        "interpreter_id",
+        "environment_sha256",
+        "code_sha256",
+        "budget_usd",
+    }
+)
+_EVALUATION_DIGEST_FIELDS = (
+    "diff_sha256",
+    "truth_sha256",
+    "receipt_sha256",
+    "policy_sha256",
+    "prompt_sha256",
+    "schema_sha256",
+    "environment_sha256",
+    "code_sha256",
+)
 
 ARM_DESCRIPTIONS: Mapping[str, str] = {
     ARM_PRODUCT: (
@@ -1080,28 +1112,23 @@ def _comparison_predeclared_paid_trials(
     for row in bindings:
         case_id = row.get("case_id") if isinstance(row, dict) else None
         binding = row.get("binding") if isinstance(row, dict) else None
-        model_id = binding.get("model_id") if isinstance(binding, dict) else None
-        binding_provider = (
-            binding.get("provider_id") if isinstance(binding, dict) else None
+        validated = (
+            _validated_frozen_evaluation_binding(binding, provider_id)
+            if isinstance(binding, dict)
+            else None
         )
-        budget = binding.get("budget_usd") if isinstance(binding, dict) else None
         if (
             not isinstance(case_id, str)
             or not case_id
             or case_id in binding_models
-            or not isinstance(model_id, str)
-            or not model_id
-            or binding_provider != provider_id
-            or isinstance(budget, bool)
-            or not isinstance(budget, (int, float))
-            or not math.isfinite(float(budget))
-            or float(budget) < 0
+            or validated is None
         ):
             raise ComparisonEvidenceError(
                 "comparison predeclaration contains an invalid frozen binding"
             )
-        binding_models[case_id] = model_id
-        budgets.add(float(budget))
+        binding_model_id, budget = validated
+        binding_models[case_id] = binding_model_id
+        budgets.add(budget)
     if len(budgets) > 1:
         raise ComparisonEvidenceError(
             "comparison predeclaration contains inconsistent budget bindings"
@@ -1111,15 +1138,15 @@ def _comparison_predeclared_paid_trials(
         case_id = row.get("case_id") if isinstance(row, dict) else None
         arm = row.get("arm") if isinstance(row, dict) else None
         trial_id = row.get("trial_id") if isinstance(row, dict) else None
-        model_id = row.get("model_id") if isinstance(row, dict) else None
+        trial_model_id = row.get("model_id") if isinstance(row, dict) else None
         if (
             not isinstance(case_id, str)
             or not case_id
             or arm not in (ARM_PRODUCT, ARM_BARE_PROMPT)
             or trial_id != f"comparison:{arm}:{case_id}"
-            or not isinstance(model_id, str)
-            or not model_id
-            or binding_models.get(case_id) != model_id
+            or not isinstance(trial_model_id, str)
+            or not trial_model_id
+            or binding_models.get(case_id) != trial_model_id
         ):
             raise ComparisonEvidenceError(
                 "comparison predeclaration contains an invalid paid-trial binding"
@@ -1130,7 +1157,7 @@ def _comparison_predeclared_paid_trials(
                 "comparison predeclaration contains a duplicate paid-trial binding"
             )
         assert isinstance(arm, str) and isinstance(trial_id, str)
-        normalized[key] = (trial_id, model_id)
+        normalized[key] = (trial_id, trial_model_id)
     expected = {
         (case_id, arm)
         for case_id in binding_models
@@ -1141,6 +1168,59 @@ def _comparison_predeclared_paid_trials(
             "comparison paid trials do not exactly cover frozen bindings"
         )
     return normalized, line_slack, next(iter(budgets), 0.0)
+
+
+def _validated_frozen_evaluation_binding(
+    binding: Mapping[str, object], provider_id: str
+) -> tuple[str, float] | None:
+    if (
+        set(binding) != _EVALUATION_BINDING_FIELDS
+        or binding.get("schema_version") != EVALUATION_BINDING_SCHEMA_VERSION
+        or binding.get("provider_id") != provider_id
+    ):
+        return None
+    repository = binding.get("repository")
+    model_id = binding.get("model_id")
+    interpreter_id = binding.get("interpreter_id")
+    if any(
+        not isinstance(value, str) or not value.strip()
+        for value in (repository, model_id, interpreter_id)
+    ):
+        return None
+    for field in ("base_sha", "head_sha"):
+        if not _is_git_object_id(binding.get(field)):
+            return None
+    fixed_sha = binding.get("fixed_sha")
+    if fixed_sha is not None and not _is_git_object_id(fixed_sha):
+        return None
+    if any(not _is_sha256(binding.get(field)) for field in _EVALUATION_DIGEST_FIELDS):
+        return None
+    budget = binding.get("budget_usd")
+    if (
+        isinstance(budget, bool)
+        or not isinstance(budget, (int, float))
+        or not math.isfinite(float(budget))
+        or float(budget) < 0
+    ):
+        return None
+    assert isinstance(model_id, str)
+    return model_id, float(budget)
+
+
+def _is_git_object_id(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) in (40, 64)
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _is_sha256(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
 
 
 def _comparison_reconciliation_keys(root: Path) -> set[tuple[str, str]]:

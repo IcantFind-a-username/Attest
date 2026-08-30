@@ -851,6 +851,36 @@ def test_comparison_report_rejects_paid_trial_model_divergence_from_binding(
         )
 
 
+def test_comparison_report_rejects_invalid_frozen_evaluation_binding(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    checkpoint_root = tmp_path / "calls"
+    measurements = compare_arms(
+        [plans[0]],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=checkpoint_root,
+    )
+    declaration_path = checkpoint_root / "comparison.json"
+    declaration = json.loads(declaration_path.read_text(encoding="utf-8"))
+    binding = declaration["bindings"][0]["binding"]
+    binding["schema_version"] = "unsupported"
+    binding["policy_sha256"] = "not-a-digest"
+    binding["prompt_sha256"] = None
+    binding["code_sha256"] = ""
+    declaration_path.write_text(json.dumps(declaration) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="binding|schema|digest|predeclaration"):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            measurements,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
 def test_comparison_report_rejects_orphan_paid_call_roots(
     tmp_path: Path,
 ) -> None:
