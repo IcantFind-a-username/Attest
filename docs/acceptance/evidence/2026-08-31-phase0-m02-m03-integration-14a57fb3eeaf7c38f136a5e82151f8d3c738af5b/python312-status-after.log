@@ -1,0 +1,7 @@
+label=python312
+step=status-after
+checkout=/private/tmp/attest-phase0-14a57fb.xmEskE/python312-checkout
+callable=status_after_step
+$ git rev-parse HEAD
+14a57fb3eeaf7c38f136a5e82151f8d3c738af5b
+$ git status --porcelain=v1

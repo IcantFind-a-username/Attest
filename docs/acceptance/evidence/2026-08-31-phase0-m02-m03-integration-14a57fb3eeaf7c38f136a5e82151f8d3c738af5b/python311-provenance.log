@@ -1,0 +1,21 @@
+label=python311
+step=provenance
+checkout=/private/tmp/attest-phase0-14a57fb.xmEskE/python311-checkout
+callable=provenance_step
+$ git rev-parse HEAD HEAD^ HEAD^{tree}
+14a57fb3eeaf7c38f136a5e82151f8d3c738af5b
+856aba3f55ae26db15a9ded9da5f52b3bf1d3bf0
+1253ba9ae9918a875c6d0ea5653191396ff244d4
+$ git symbolic-ref -q HEAD (detached is expected)
+$ base interpreter and platform
+Python 3.11.5
+/Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11
+macOS-26.5.2-arm64-arm-64bit
+arm64
+ProductName:		macOS
+ProductVersion:		26.5.2
+BuildVersion:		25F84
+Darwin YiqundeMacBook-Pro.local 25.5.0 Darwin Kernel Version 25.5.0: Tue Jun  9 22:28:29 PDT 2026; root:xnu-12377.121.10~1/RELEASE_ARM64_T6030 arm64
+$ lock and wheelhouse digests
+76908dd8dc527b59e95ab856cf67656946a4c1bf8eecbb0d95430a2161341c11  requirements-toolchain.lock
+65e07106d4b90c72b204012a1bbec7cf78f6866c815312cbb9db620a3131c325  -

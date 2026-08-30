@@ -1,0 +1,25 @@
+$ python3 -m json.tool environment.json
+$ bash -n gate-runner.sh
+$ all exit markers equal exit_code=0
+$ both step tables contain no nonzero row
+$ coverage thresholds and exact core arithmetic
+Required test coverage of 90.0% reached. Total coverage: 91.28%
+TOTAL                              429      1    99%
+Required test coverage of 90.0% reached. Total coverage: 91.28%
+TOTAL                              429      1    99%
+$ v1 integrity values
+receipt expected=e8cabb89471bb369a93ce82399a342eaddbf7ed8994d5420aef66256d013ce40 actual=e8cabb89471bb369a93ce82399a342eaddbf7ed8994d5420aef66256d013ce40
+results expected=e90b2acfb9753db196cd7d2cf999dc2fa24bbd91bb84d908b476682c1b441288 actual=e90b2acfb9753db196cd7d2cf999dc2fa24bbd91bb84d908b476682c1b441288
+protocol expected=2a6019533a1c01abbf905e57b0b15017b806aeeee6028e496b0149a4a1f2246c actual=2a6019533a1c01abbf905e57b0b15017b806aeeee6028e496b0149a4a1f2246c
+receipt expected=e8cabb89471bb369a93ce82399a342eaddbf7ed8994d5420aef66256d013ce40 actual=e8cabb89471bb369a93ce82399a342eaddbf7ed8994d5420aef66256d013ce40
+results expected=e90b2acfb9753db196cd7d2cf999dc2fa24bbd91bb84d908b476682c1b441288 actual=e90b2acfb9753db196cd7d2cf999dc2fa24bbd91bb84d908b476682c1b441288
+protocol expected=2a6019533a1c01abbf905e57b0b15017b806aeeee6028e496b0149a4a1f2246c actual=2a6019533a1c01abbf905e57b0b15017b806aeeee6028e496b0149a4a1f2246c
+$ self-contained Python 3.11 G-CODE-002 supplemental rerun-3
+$ PYTHONDONTWRITEBYTECODE=1 /private/tmp/attest-phase0-14a57fb.xmEskE/python311-venv/bin/python -m pytest -p no:cacheprovider -q --basetemp=/private/tmp/attest-phase0-14a57fb.xmEskE/python311-gcode002-clean-rerun-3-basetemp tests/benchmark/test_artifacts.py::test_verify_rejects_unknown_or_mistyped_manifest_fields tests/benchmark/test_corpus.py::test_validation_v2_exclusion_attempt_fields_have_semantic_teeth tests/benchmark/test_corpus.py::test_validation_v2_binding_artifact_fields_have_semantic_teeth tests/benchmark/test_corpus.py::test_validation_v2_artifact_record_fields_fail_closed_at_exact_path tests/benchmark/test_corpus.py::test_validation_v2_attempt_and_run_field_mutations_remove_authority
+.............................                                            [100%]
+status_output=<empty>
+head=14a57fb3eeaf7c38f136a5e82151f8d3c738af5b
+detached=true
+$ requested and resolved interpreter identities are explicit
+/opt/homebrew/opt/python@3.12/bin/python3.12
+$ final manifest will exclude itself and is regenerated after this audit

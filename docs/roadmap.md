@@ -93,13 +93,13 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | finish F-00 review; then M-01, M-02, and M-03 may proceed on non-overlapping file sets | current measurement/docs can hide harm or misdirect agents; later evidence would inherit the defect |
-| **NEXT** | C-01 through C-05, V-01/V-02, X-01, then V-03 | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
+| **NOW** | M-01 | it is the remaining Phase 0 blocker: authoritative outcome accounting must precede any comparison-quality claim |
+| **NEXT** | after M-01 acceptance, C-01; then the remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
 
-The first unblocked code work is M-01/M-02/M-03 after F-00 satisfies `G-DOC-001`. Core is
-not the next direct production switch.
+The first unblocked code work is M-01. C-01 starts only after M-01 acceptance; Core is not
+the next direct production switch.
 
 ## 4. Dependency graph
 
@@ -161,18 +161,21 @@ changes.
 - [ ] **M-01 — author-visible outcome accounting.** Score every public finding even when
   another candidate or the task DEFERs. Separate task status, finding accuracy, PR harm,
   and delivery.
-- [ ] **M-02 — receipt authority and raw validation evidence.** Reject incomplete/manual
+- [x] **M-02 — receipt authority and raw validation evidence.** Reject incomplete/manual
   validation rows, retain bounded fixed/buggy run evidence, and distinguish integrity,
-  provenance, and semantic authority. The M-02 implementation passed `G-MEASURE-002`
-  and `G-CODE-002`, but its original report remains **BLOCKED BY EVIDENCE** because its
-  branch run preceded M-03's repair of the date-literal failure required by `G-CODE-001`;
-  see the retained historical
-  [`2026-08-30 report`](acceptance/2026-08-30-m02-validation-receipts.md).
+  provenance, and semantic authority. Integrated implementation `14a57fb` passed fresh
+  Python 3.11/3.12 `G-MEASURE-002`, `G-CODE-001`, and `G-CODE-002` Gates with final
+  contract/security/manifest review P0=0/P1=0; see the
+  [`2026-08-31 integration acceptance`](acceptance/2026-08-31-m02-m03-integration-revalidation.md).
+  The original [`2026-08-30 report`](acceptance/2026-08-30-m02-validation-receipts.md)
+  remains **BLOCKED BY EVIDENCE** historical proof of its then-failing branch Gate.
 - [x] **M-03 — deterministic and crash-safe measurement.** The role-bound implementation
   `bce13f0` passed fresh Python 3.11/3.12 Gates and a new independent review with
   P0=0/P1=0; see the
   [`2026-08-31 acceptance`](acceptance/2026-08-31-m03-role-revalidation.md). The
-  earlier `81bf625` PASS remains explicitly INVALIDATED historical evidence.
+  earlier `81bf625` PASS remains explicitly INVALIDATED historical evidence. Integration
+  SHA `14a57fb` revalidated M-03 while versioning comparison/live/stability state; see the
+  [`integration acceptance`](acceptance/2026-08-31-m02-m03-integration-revalidation.md).
 
 ### Entry
 
@@ -551,6 +554,20 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-08-31 — M-02/M-03 integration accepted; Phase 0 remains open:** implementation
+  `14a57fb` integrates M-02 receipt/raw-evidence authority with M-03 immutable paid-call
+  role, reconciliation, checkpoint, and report authority. Clean detached CPython 3.11.5
+  and 3.12.8 environments passed focused M-02, `G-CODE-002`, M-03 regressions, all
+  benchmark tests, full pytest/coverage, Ruff, Mypy, `pip check`, diff, v1 integrity, and
+  clean-state Gates. Final contract, security, and manifest/receipt reviews reported no
+  P0/P1 blockers, and final sealed-bundle audit reported P0=0/P1=0/P2=0. The evidence is
+  [`acceptance/evidence/2026-08-31-phase0-m02-m03-integration-14a57fb3eeaf7c38f136a5e82151f8d3c738af5b/`](acceptance/evidence/2026-08-31-phase0-m02-m03-integration-14a57fb3eeaf7c38f136a5e82151f8d3c738af5b/),
+  with `ARTIFACTS.sha256` digest
+  `a3d52f8752f893a8ff959cde1c73f28e5dedf5d1eefc3746ab1f426f7e4345c9`.
+  M-01/G-MEASURE-001 remains open, comparison accuracy quality is not accepted, and
+  Phase 0 has not exited. See
+  [`acceptance/2026-08-31-m02-m03-integration-revalidation.md`](acceptance/2026-08-31-m02-m03-integration-revalidation.md).
 
 - **2026-08-31 — M-03 role accounting revalidated:** implementation `bce13f0`
   binds immutable `product`/`benchmark_oracle` roles through canonical call requests,

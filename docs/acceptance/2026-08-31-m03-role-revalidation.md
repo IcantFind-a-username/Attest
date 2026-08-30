@@ -169,3 +169,25 @@ signed off `bce13f0` plus its final-SHA logs with P0=0, P1=0, P2=1. It judged M-
   uncertain call.
 
 Paid actions = none. Remote mutations = none.
+
+## 2026-08-31 append-only integration erratum
+
+The observations above remain immutable evidence for `bce13f0`; their v5 comparison
+checkpoint, v3 comparison/calibration reports, live v4 state, stability v4 predeclaration,
+and evaluation-binding v1 statements are historical facts about that SHA. They are not the
+current writer versions after M-02/M-03 integration, and this erratum does not rewrite them.
+
+The accepted integration implementation
+`14a57fb3eeaf7c38f136a5e82151f8d3c738af5b` uses comparison checkpoint v6,
+comparison report v4, calibration report v4, live predeclaration/per-case checkpoint v5,
+stability predeclaration v5 with stability report v4, and evaluation binding v2. Older
+checkpoint/predeclaration forms are retained as historical bytes and rejected for current
+resume/replay; report artifacts remain historical-only. Benchmark report v3, live
+calibration report v4, and validation receipt V1/V2 are not silently reinterpreted.
+
+The integration also supersedes the prior P2 observation under the now-explicit Phase 0
+execution boundary: current V2 HMAC authority is production-reachable only through pure
+non-executing `verify-validation`; no supported current-V2 production execution workflow
+exists before X-01/V-03 or a public-key protocol. Final integration review is
+P0=0/P1=0/P2=0 and the dual-Python evidence is recorded in
+[`2026-08-31-m02-m03-integration-revalidation.md`](2026-08-31-m02-m03-integration-revalidation.md).

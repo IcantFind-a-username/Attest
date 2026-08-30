@@ -1,0 +1,6 @@
+label=python312
+step=gcode002
+checkout=/private/tmp/attest-phase0-14a57fb.xmEskE/python312-checkout
+callable=gcode002_step
+$ pytest G-CODE-002 mutation/guard-removal corpus
+.............................                                            [100%]

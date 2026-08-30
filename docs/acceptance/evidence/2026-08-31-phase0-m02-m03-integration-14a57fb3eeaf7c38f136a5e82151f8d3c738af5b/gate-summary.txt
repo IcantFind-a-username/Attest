@@ -1,0 +1,60 @@
+PHASE 0 M-02/M-03 INTEGRATION FINAL-SHA CLEAN GATE SUMMARY
+
+date: 2026-08-31
+implementation_sha: 14a57fb3eeaf7c38f136a5e82151f8d3c738af5b
+parent_sha: 856aba3f55ae26db15a9ded9da5f52b3bf1d3bf0
+tree_sha: 1253ba9ae9918a875c6d0ea5653191396ff244d4
+implementation_binary_diff_sha256: ac27c811c1e49ed9669032b75b1d2299a7215ef6448d012dfa5f840e50dd39de
+implementation_changed_files: 21
+lock_sha256: 76908dd8dc527b59e95ab856cf67656946a4c1bf8eecbb0d95430a2161341c11
+wheelhouse_inventory_sha256: 65e07106d4b90c72b204012a1bbec7cf78f6866c815312cbb9db620a3131c325
+
+Both environments used a fresh detached checkout and fresh venv. Dependency install was
+offline from the same local wheelhouse and exact requirements-toolchain.lock. Every step
+has a raw log and exit marker; every recorded step exited 0.
+
+Python 3.11.5 / cpython-3.11.5-darwin-arm64:
+  provenance/status-before/v1-integrity: PASS
+  install/freeze/runtime: PASS
+  M-02 focused corpus/artifact/report: PASS
+  G-CODE-002 mutation/guard-removal: PASS
+  M-03 role/checkpoint/live/stability/comparison: PASS
+  all benchmark tests: PASS
+  full pytest: PASS
+  total coverage: 91.28% PASS (required >=90%)
+  attest.core coverage: 429 statements, 1 missed, 99% PASS (required >=99%)
+  ruff/mypy/pip-check/diff-check: PASS
+  final detached checkout clean at implementation SHA: PASS
+
+Python 3.12.8 / cpython-3.12.8-darwin-arm64:
+  provenance/status-before/v1-integrity: PASS
+  install/freeze/runtime: PASS
+  M-02 focused corpus/artifact/report: PASS
+  G-CODE-002 mutation/guard-removal: PASS
+  M-03 role/checkpoint/live/stability/comparison: PASS
+  all benchmark tests: PASS
+  full pytest: PASS
+  total coverage: 91.28% PASS (required >=90%)
+  attest.core coverage: 429 statements, 1 missed, 99% PASS (required >=99%)
+  ruff/mypy/pip-check/diff-check: PASS
+  final detached checkout clean at implementation SHA: PASS
+
+v1 immutable artifacts (verified independently in both detached checkouts):
+  receipt.json: e8cabb89471bb369a93ce82399a342eaddbf7ed8994d5420aef66256d013ce40 PASS
+  validation-results.json: e90b2acfb9753db196cd7d2cf999dc2fa24bbd91bb84d908b476682c1b441288 PASS
+  protocol.md: 2a6019533a1c01abbf905e57b0b15017b806aeeee6028e496b0149a4a1f2246c PASS
+
+independent final-SHA review:
+  contract P0=0/P1=0/P2=0
+  security P0=0/P1=0
+  manifest/receipt P0=0/P1=0
+
+scope:
+  M-02/M-03 integration only; no M-01 implementation, C-01, Core, or C-02
+  no paid actions, no provider network calls, no remote mutations
+  no statistical/factory constant or pricing changes
+
+known handoff:
+  Authoritative versioned arm-outcome artifacts remain M-01/G-MEASURE-001 work. This
+  integration does not claim accepted comparison accuracy quality from caller-supplied
+  ArmRun outcomes.

@@ -1,0 +1,5 @@
+label=python311
+step=diff-check
+checkout=/private/tmp/attest-phase0-14a57fb.xmEskE/python311-checkout
+callable=diff_check_step
+$ git diff --check

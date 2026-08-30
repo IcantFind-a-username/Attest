@@ -1,0 +1,44 @@
+Phase 0 M-02/M-03 integration clean Gate commands
+
+Implementation SHA:
+  14a57fb3eeaf7c38f136a5e82151f8d3c738af5b
+
+Detached checkouts:
+  git worktree add --detach <run-root>/python311-checkout 14a57fb3eeaf7c38f136a5e82151f8d3c738af5b
+  git worktree add --detach <run-root>/python312-checkout 14a57fb3eeaf7c38f136a5e82151f8d3c738af5b
+
+Gate invocations (the interpreter argument is the requested interpreter):
+  /bin/bash gate-runner.sh python311 /Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11 <run-root>/python311-checkout <run-root>/python311-venv <evidence-dir> /private/tmp/attest-wheelhouse.WAGZer
+  /bin/bash gate-runner.sh python312 /opt/homebrew/Cellar/python@3.12/3.12.8/Frameworks/Python.framework/Versions/3.12/bin/python3.12 <run-root>/python312-checkout <run-root>/python312-venv <evidence-dir> /private/tmp/attest-wheelhouse.WAGZer
+
+Resolved sys.executable captured by the provenance steps:
+  python311: /Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11
+  python312: /opt/homebrew/opt/python@3.12/bin/python3.12
+
+Each invocation ran these steps serially, with an independent raw log and .exit marker:
+  provenance
+  status-before
+  v1-integrity
+  install
+  freeze
+  runtime
+  focused
+  gcode002
+  m03-regressions
+  benchmark
+  full
+  coverage (including attest.core --fail-under=99)
+  ruff
+  mypy
+  pip-check
+  diff-check
+  status-after
+
+The exact executable commands are retained in gate-runner.sh and echoed into each raw log.
+The two environments ran in parallel; steps within each environment ran serially.
+
+Python 3.11 G-CODE-002 emitted one concurrent pytest temporary-directory cleanup warning
+after passing. Its original log and the first clean supplemental observation are retained.
+For self-contained reconstruction, python311-gcode002-clean-rerun-3.log records the full
+five-node command and isolated --basetemp path in the same shell execution that appended
+pytest stdout/stderr; its independent exit and detached clean-state records are adjacent.

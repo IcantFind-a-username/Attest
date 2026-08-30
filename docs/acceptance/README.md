@@ -16,6 +16,10 @@ gate.
 - [`2026-08-31-m03-role-revalidation.md`](2026-08-31-m03-role-revalidation.md) — M-03 /
   `G-CODE-001` / `G-MEASURE-003` immutable paid-call role revalidation; supersedes,
   but does not erase, the explicitly INVALIDATED historical M-03 reports.
+- [`2026-08-31-m02-m03-integration-revalidation.md`](2026-08-31-m02-m03-integration-revalidation.md)
+  — accepted M-02/M-03 integration at `14a57fb`, including fresh Python 3.11/3.12
+  `G-CODE-001`, `G-CODE-002`, `G-MEASURE-002`, and M-03 regression evidence; it preserves
+  the original M-02 BLOCKED report and records M-01 as the remaining Phase 0 handoff.
 - [`phase-3.md`](phase-3.md) — historical planted-fixture GitHub Action integration smoke.
   It predates the complete evidence-bundle and workflow-exit requirements.
 
