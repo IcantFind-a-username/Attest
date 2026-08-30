@@ -1,5 +1,12 @@
 # Phase 3 GitHub Action and Auto-Verification Implementation Plan
 
+> **ARCHIVED / COMPLETED HISTORICAL PLAN. DO NOT EXECUTE.** Some requirements and paths in
+> this document describe the pre-differential implementation and are intentionally replaced
+> by [`../../roadmap.md`](../../roadmap.md),
+> [`../../architecture/target-algorithm.md`](../../architecture/target-algorithm.md), and
+> [`../../implementation/agent-work-orders.md`](../../implementation/agent-work-orders.md).
+> Checkboxes are preserved as written rather than retroactively rewritten.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship a locally verified composite GitHub Action that posts a status-only sticky comment, automatically runs focused Python reproduction tests, and publishes at most three findings only after the existing wealth gate clears.

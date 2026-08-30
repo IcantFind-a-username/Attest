@@ -1,6 +1,9 @@
 # Decision log
 
-One line per non-trivial tradeoff: what, why, when it can be reversed.
+Historical D-001 through D-037 use the original compact format. New decisions use dated,
+structured entries with scope, consequences, reversal conditions, and affected invariant/
+Gate IDs. Historical entries remain evidence; a new decision that changes a normative
+contract is active only when the owning architecture/acceptance document changes with it.
 
 - **D-001 toolchain**: hatchling + src layout, dist/import name `attest`, Python >=3.11 (dev machine 3.14), numpy as the only runtime dep for core. Why: handoff spec; smallest surface. Reverse: anytime before publishing.
 - **D-002 forbidden-token policy**: commit-msg hook rejects any case-insensitive AI-assistant name in commit messages; branch names and comments keep the same rule. Model identifiers (e.g. the default proposer model id) are product data mandated by the spec and live in config/data files, not in commit messages or branch names. Why: owner's git discipline + the spec itself fixes the default model id. Reverse: owner call.
@@ -38,4 +41,162 @@ One line per non-trivial tradeoff: what, why, when it can be reversed.
 - **D-035 ten live repeats of one diff: the betting layer absorbs the sampling variance**: ten independent K=5 reviews of the same preregistered regression diff, fresh working copy and empty ledger each time, real provider. Every run proposed at least one candidate and every candidate anchored the deleted guard (calc.py:3-4, one location cluster, pairwise cluster Jaccard 1.0); every run made the identical decision - drawer, because no verification evidence had been purchased - so run-level outcome stability is 10/10 with zero decisions flipping across repeats. What varied underneath: candidate count (1 vs 2, the model sometimes splitting the two lines into separate findings), vote counts (wealth 2.64/2.95/3.0), and claim prose. Mean latency 6.9s, total cost $0.2841. This is the first direct measurement of the product's core mechanism - K-sample divergence entering, a stable decision leaving - and it is one diff, one model, one night: a distribution, not a proof. The Task 6 stability CLI measures the same thing reproducibly from cassettes; this run is the live sanity check that the number it will compute is not fiction. Reverse: superseded by preregistered Task 6 runs over more cases.
 - **D-036 the corpus has its first validation receipt: 9 of 20 pairs scorable, with a structural caveat that must gate any accuracy claim**: the frozen BugsInPy pilot was materialized in full - all 20 pairs, all four projects, three exact interpreter pins (3.8.3/3.8.1/3.6.9) built as x86_64 under Rosetta, per-pair virtualenvs, and an interpreter-level network-deny wrapper that passed the validator's live socket probe in every run. The oracle validated 9 pairs (all black: 3x fixed-PASS + 3x buggy-FAIL, stable signatures), excluded 9 for dependency_or_setup_failure and 2 as flaky, and issued a manifest-bound receipt (manifest 8f9f90f1..., receipt e8cabb89...) that round-trips the fail-closed loader. **The caveat**: all nine validated buggy-FAIL signatures are unittest "has no attribute" errors, because BugsInPy introduces the regression test with the fix and its own harness transplants fixed-commit test files into the buggy tree - which our clean-checkout integrity rule forbids. So the oracle certifies "the fixed tree passes its tests and the buggy tree cannot run them", not "the bug demonstrably manifests"; the bug's existence rests on BugsInPy metadata, not on an independent reproduction. Product evaluation over these pairs is still meaningful - the product generates its own reproductions and never sees the corpus test - but any published accuracy number must carry this caveat, and the owner should decide whether to tighten the validator (treating unittest's no-attribute as a missing-test marker would exclude all nine, leaving zero validated pairs - honest but empty) or to permit declared test-file materialization as BugsInPy's own harness does. Reverse: rerun validation under whichever rule the owner picks; the receipt mechanism itself is agnostic.
 - **D-037 first live evaluation on the validated corpus: precision held, recall was zero, and the failure list is the roadmap**: ten case-runs over two receipt-validated black pairs (both roles, three rounds as the harness was corrected). The developer-fix controls were silent in all four runs - zero candidates, zero false positives on real history. The bug-reintroduction replays surfaced nothing in five attempts, every one a safe DEFER, in three distinct modes: (a) on the large real diff the generator repeatedly returned output that failed the reproduction schema, so no test was ever executed - a model-side robustness gap that bigger anchors and real-world context expose and constructed repos never did; (b) the first round ran without the corpus project environment (ATTEST_PROJECT_PYTHON unset), which the orchestration now passes - an evaluation-harness lesson, not a product defect; (c) with the environment fixed, a generated reproduction attempted to spawn a child process - black's own test idiom - and the D-017 containment correctly refused it, exposing a real tension between containment and how mature projects write tests. Reading: on real historical bugs the product currently keeps its precision promise by staying entirely silent; the recall path is blocked by reproduction-generation robustness, not by the gate. That ranks the next engineering work: schema-tolerant repro parsing/retry, and a containment-compatible reproduction idiom for projects whose tests shell out. Cost $1.06, all safe-direction outcomes. Reverse: superseded by full Task 7 runs once the generation gaps close.
+- **D-037 ERRATUM (D-041, 2026-08-30)**: the phrases “precision held” and “recall was zero”
+  above are withdrawn. With no surfaced finding and all replay attempts DEFERred, finding
+  precision and repository-scored recall were not estimated. The defensible result is
+  surfaced delivery 0/5 with the recorded abstention modes. The observed upstream blockers
+  do not prove that the gate would cease to block after they are fixed.
 - **D-005 Corum ports deferred**: recon of Corum calibration.py/dependence.py found the hierarchical-shrinkage prior, pair-calibration tables with min-count gates, and correlation shrinkage + PSD projection all worth porting — but only at the >=500-label global recalibration milestone, which MVP explicitly excludes. Nothing ported now (no unverified code). Reverse: port when recalibration work starts.
+
+## Evolution decisions
+
+| ID | Status | Scope | Primary normative owner |
+|---|---|---|---|
+| D-038 | accepted | scheduler/certifier authority split | target architecture §3/§6/§8 |
+| D-039 | accepted | receipt-only task/policy/publication contract | target architecture §4/§8 |
+| D-040 | accepted, shadow first | Core and multi-model scheduling | target architecture §6; scheduler gates |
+| D-041 | accepted | measurement units, DEFER, semantic truth | acceptance gates §2–§4 |
+| D-042 | accepted target | secretless OS execution boundary | target architecture §7; security gates |
+| D-043 | accepted abstention | new-code evidence class | target architecture §8.3 |
+| D-044 | accepted | documentation and agent authority | `AGENTS.md`, `docs/README.md` |
+
+### D-038 — Separate scheduling from certification
+
+- **Date/status/scope:** 2026-08-30 · accepted target architecture · product-wide.
+- **Decision:** candidate search and evidence scheduling may use adaptive, correlated,
+  heuristic signals, but only an independent deterministic Certification Kernel may create
+  a `CertifiedFinding`. Scheduler/S/T/Core/wealth are absent from certification authority.
+- **Why:** D-026 established that current S/T wealth is not an e-process; current safety is
+  carried by factory reachability and differential execution. Mixing ranking and truth
+  authority makes configuration and calibration errors publication errors.
+- **Consequences:** add `attest.certification`; presentation consumes certified types;
+  scheduler failure can only fall back or abstain. Existing gate experiments remain
+  historical/mechanism tests.
+- **Supersedes/amends:** supersedes old agent/README language calling product wealth the
+  final statistical authority; preserves D-008/D-026 as history of current factory math.
+- **Reversal:** only an owner-approved replacement with a formal conditional-validity
+  argument, adversarial implementation tests, and the full empirical gates; never by tuning
+  a constant.
+- **Trace:** `INV-CERT-001`, `INV-CERT-002`, `INV-SCHED-001`; `G-CERT-001`,
+  `G-SCHED-001`, `G-SCHED-002`; work orders C-01/C-02/S-01 through S-04.
+
+### D-039 — Receipt-only, task-bound publication is the target safety contract
+
+- **Date/status/scope:** 2026-08-30 · accepted target contract · CI, CLI, GitHub,
+  certification and publication policy.
+- **Decision:** every author-visible finding requires an accepted receipt bound to the
+  current repository, merge-base, head, diff, candidate/claim/hunk, exact test/execution,
+  environment/executor, authenticated provenance, and base-owned policy. Receipt acceptance
+  makes a finding eligible; PR-level family/dedup/hard-cap policy may still suppress it.
+  Manual reproduction is `self_reported`, not automated V. Head configuration cannot relax
+  safety.
+- **Why:** current alpha can allow S/T direct surface; CI skips already-terminal candidates;
+  manual `--reproduced` can buy legacy V; current top-three is layout-only; per-candidate
+  alpha does not control PR-any-error exposure.
+- **Consequences:** the alpha=.15 direct-surface test must be reversed as a security
+  regression; merge-base/base policy, manual migration, receipt v2, and family policy are
+  P0/P1 work. Compatibility never restores bypass.
+- **Reversal:** only by replacing the receipt/family contract with an owner-approved policy
+  that passes the same or stronger safety gates.
+- **Trace:** `INV-TASK-001`, `INV-POLICY-001`, `INV-EVIDENCE-001`, `INV-RECEIPT-001`,
+  `INV-FAMILY-001`, `INV-PRESENT-001`; `G-CERT-001` through `G-CERT-004`,
+  `G-SEM-001` through `G-SEM-003`; work orders C-01 through C-05 and V-01 through V-03.
+
+### D-040 — Core and multiple models are evidence schedulers, not voters
+
+- **Date/status/scope:** 2026-08-30 · accepted direction, shadow first · scheduler/Core.
+- **Decision:** evolve Core through a new arbitrary-action scheduler interface. Models/tools
+  take heterogeneous roles and are treated as correlated actions. The objective is marginal
+  probability of a decisive trusted receipt per cost/time under a PR-local budget. Core
+  starts in shadow, cannot affect certification, and advances only through a real within-PR
+  comparison with propensity/version logging and repo-clustered inference.
+- **Why:** `attest.core.Engine` currently assumes two/three binary judges, immediate truth,
+  fixed prior, and stationary plug-in cells; it is not in the review path. Agreement does
+  not establish independent evidence. D-034 pooled synthetic candidates across tasks and
+  assumed V outcomes/costs, while real CI can only reorder candidates inside one PR.
+- **Consequences:** historical 11.5–33% savings remains simulation-only. First ship typed
+  events and deterministic FCFS/S/T/feasibility shadow baselines, then a learned policy with
+  cross-fitting, propensities, delayed labels, and version/drift handling.
+- **Reversal:** Core may remain research-only or deterministic priority may win. Core may
+  control order only after `G-SCHED-002`; it may never certify under this decision.
+- **Trace:** `INV-SCHED-001`, `INV-SCHED-002`, `INV-ORDER-001`; `G-SCHED-001`, `G-SCHED-002`,
+  `G-SCHED-003`, `G-MODEL-001`; work orders S-01 through S-04 and E-05.
+
+### D-041 — Author harm and semantic opportunity define evaluation
+
+- **Date/status/scope:** 2026-08-30 · accepted measurement contract · benchmark and claims.
+- **Decision:** every author-visible finding is scored even in mixed surface+DEFER tasks;
+  DEFER is abstention; no surfaces means precision undefined; eligible positives that
+  abstain are deployment misses; repeats are operational and do not enlarge semantic n;
+  location overlap is not semantic truth; primary inference clusters by PR/repository and
+  follows a frozen sample/stop rule. Receipts must carry trial-level evidence and authority.
+- **Why:** current live calibration can drop a whole case when any abstain reason exists,
+  hiding published findings. Historical 0/5 all-DEFER, 10 repeats of one diff, 9 pairs from
+  one project, and location-only matching cannot support broad precision/recall/stability.
+- **Consequences:** M-01 through M-03 precede new quality claims. D-037 is interpreted as
+  surfaced delivery 0 in the reported attempts with explicit blockers, not “precision held
+  at zero recall.” D-035 is one-case operational consistency, not independent general
+  stability.
+- **Reversal:** only through a preregistered measurement amendment applied prospectively;
+  never after observing outcomes.
+- **Trace:** `INV-MEASURE-001`, `INV-TRUTH-001`, `INV-COST-001`; `G-MEASURE-001` through
+  `G-MEASURE-004`,
+  `G-NULL-001`, `G-CORPUS-001`, `G-STAB-001`, `G-SHADOW-001`; work orders M-01 through
+  M-03 and E-01 through E-04.
+
+### D-042 — Untrusted execution requires a secretless OS boundary
+
+- **Date/status/scope:** 2026-08-30 · accepted security target · Action/executor.
+- **Decision:** split the privileged controller from a credential-free content-addressed
+  executor. Production execution requires default-deny kernel/OS network and filesystem
+  isolation, bounded resources/processes, read-only source, authenticated results, and
+  versioned profiles. Same-repository head is untrusted. Legitimate subprocess support is a
+  digest/argv/profile allowlist inside the same boundary.
+- **Why:** environment filtering, Python audit/socket hooks, and same-user worktrees cannot
+  prevent native access to host files, parent secrets, checkout credentials, or network.
+  D-017 is useful best-effort containment, not a production trust boundary.
+- **Consequences:** current runner is labeled development/best-effort; missing platform
+  capabilities DEFER. Backend selection remains an owner decision; security tests use
+  canary secrets only.
+- **Reversal:** another backend may replace the implementation if it passes equal/stronger
+  `G-SEC-001` through `G-SEC-003`; production may not fall back to language-level guards.
+- **Trace:** `INV-SEC-001`, `INV-RECEIPT-001`; `G-SEC-001`, `G-SEC-002`,
+  `G-SEC-003`; work orders X-01 through X-03.
+
+### D-043 — New-code findings remain a separate unpriced class
+
+- **Date/status/scope:** 2026-08-30 · accepted abstention · evidence classes.
+- **Decision:** do not “turn on” `new_code_candidate` by choosing one LR constant. Define a
+  class-specific counterfactual/certificate (for example specification oracle, mutation or
+  patch ablation) and calibrate it on hidden semantic data before publication.
+- **Why:** base symbol absence makes the regression head-fail/base-pass contract
+  inapplicable; one planted live example and a discriminator guard do not estimate semantic
+  false-confirmation or PR harm.
+- **Consequences:** ledger/ranking may retain new-code candidates; they remain abstentions
+  in public paths. The roadmap may improve their discovery and collect shadow labels without
+  pricing them.
+- **Supersedes/amends:** amends D-020/D-022 language suggesting the remaining owner choice
+  was merely a new LR after 500 labels.
+- **Reversal:** owner approves a concrete evidence contract after its own semantic/null/
+  prospective gates.
+- **Trace:** `INV-CERT-001`, `INV-EVIDENCE-001`; `G-CERT-001`, `G-CORPUS-001`,
+  `G-SHADOW-001`, `G-NEWCODE-001`; N-01 prepares the owner decision without pricing, and a
+  separately scoped post-selection N-series work order (ID assigned only after the owner
+  selects a contract) is required.
+
+### D-044 — Normative construction scaffold replaces completed plans as agent authority
+
+- **Date/status/scope:** 2026-08-30 · accepted repository process · documentation/agents.
+- **Decision:** `AGENTS.md` owns durable work rules; target architecture owns invariants;
+  acceptance gates own thresholds; roadmap owns status/dependencies; work orders own method;
+  decisions own narrow trade-offs; dated reports and 2026-08-29 plans are historical
+  evidence. One fact has one owner and other documents link to it.
+- **Why:** the previous AGENTS file still named an old branch, D-014, 390 tests, missing
+  receipt and unfinished Tasks 4–8 after all had changed, making it unsafe as a continuation
+  guide.
+- **Consequences:** old plans receive archive banners rather than rewritten checkboxes;
+  dynamic head/test/spend facts do not live in AGENTS; a decision that changes a normative
+  contract updates that document atomically.
+- **Reversal:** document layout may split as it grows, but domain ownership, stable IDs, and
+  no-silent-conflict rule remain unless an equally checkable replacement is approved.
+- **Trace:** `G-DOC-001`; F-00 and every later work-order handoff.

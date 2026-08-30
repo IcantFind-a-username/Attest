@@ -1,5 +1,38 @@
 # Real-data evaluation status
 
+> **Historical evidence, not the current roadmap.** This is the overnight operator report
+> as written on 2026-08-30. Current architecture, work order, status, and claim rules live in
+> [`architecture/target-algorithm.md`](architecture/target-algorithm.md),
+> [`roadmap.md`](roadmap.md), and
+> [`acceptance/evolution-gates.md`](acceptance/evolution-gates.md). The original observations
+> below are preserved; the audit errata are authoritative for their interpretation.
+
+## Audit errata — 2026-08-30
+
+- The feature branch was later merged to `main`; the branch/head and pending-merge lines
+  below are historical.
+- “761 tests passing” was a timestamped run, not a durable gate. A fresh audit reproduced
+  one date-sensitive acceptance failure because the test hard-coded 2026-08-29 while the
+  implementation used the current clock. M-03 owns the deterministic fix.
+- The 0/296 constructed-null observation was produced mainly on pre-D-029/D-030 code,
+  included infrastructure abstentions, and expanded after earlier looks. The comparable
+  current-code post-fix observation was much smaller. It is not a natural-PR guarantee or an
+  e-process proof.
+- The ten repeats were one diff and all stayed in a structurally forced no-V drawer. They
+  show one-case operational consistency, not independent/general decision stability or a
+  learned Core effect.
+- The receipt contains 9 accepted pairs from one project and a missing-test-shaped oracle.
+  The committed excluded rows do not retain the run evidence claimed below; the receipt is
+  hash-consistent but not independent execution authenticity or semantic truth.
+- The reported control/replay counts explicitly described below sum to nine, not ten. The
+  five replay attempts all DEFERred with no finding, so finding precision and recall were
+  not estimated; the defensible operational statement is surfaced delivery 0/5 with the
+  recorded abstention reasons.
+- The 11.5–33% scheduling saving is a synthetic mechanism result with assumed outcomes and
+  cross-task pooled ordering. It is not a production or within-PR Core result.
+- The two Phase-3 runs are integration smoke repetitions on planted fixtures, not independent
+  statistical replications.
+
 Date: 2026-08-30 (overnight autonomous run)
 Branch: `feature/real-data-evaluation`
 Head: `c9aa966` — all eight plan tasks complete
@@ -49,6 +82,9 @@ D-020 through D-037 in DECISIONS.md; the spend trail is DEVSPEND.md
   rate, not correlation; no clone rate makes the schedule the true LR.
 
 ## Owner decisions pending (ground rule 8)
+
+The list below is the historical pending list at report time. Merge-to-main has since
+occurred; current decision points are in `docs/roadmap.md`.
 
 1. Price (or keep unpriced) the `new_code_candidate` class — the adoption
    ceiling; discriminator and fabrication guard are in place and tested.

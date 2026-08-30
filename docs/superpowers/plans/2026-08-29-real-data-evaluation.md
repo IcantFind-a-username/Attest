@@ -1,5 +1,13 @@
 # Real-Data Evaluation Implementation Plan
 
+> **ARCHIVED / COMPLETED HISTORICAL PLAN. DO NOT EXECUTE.** All eight historical tasks were
+> implemented on the former feature branch, but later audit found measurement and authority
+> gaps that this plan did not address. Current construction authority is
+> [`../../roadmap.md`](../../roadmap.md),
+> [`../../architecture/target-algorithm.md`](../../architecture/target-algorithm.md), and
+> [`../../implementation/agent-work-orders.md`](../../implementation/agent-work-orders.md).
+> Checkboxes and old requirements are preserved as historical input, not live status.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a reproducible benchmark that evaluates Attest on traceable real Python bug/fix pairs, reports accuracy/abstention/latency/cost with confidence intervals, and produces calibration evidence without silently changing factory statistical constants.

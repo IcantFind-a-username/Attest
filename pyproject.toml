@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "attest"
 version = "0.0.1"
-description = "Fast, precise, evidence-first AI code review: an e-process betting gate that only speaks when the evidence clears the bar"
+description = "Experimental evidence-first LLM code evaluation with differential reproduction"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
