@@ -1,0 +1,47 @@
+M-03 FINAL-SHA CLEAN GATE SUMMARY
+date: 2026-08-30
+implementation_sha: 5e4234dc71959ac67093d3f56c301324ba1eaa73
+dirty_state: clean in both detached checkouts before and after Gate
+lock_sha256: 76908dd8dc527b59e95ab856cf67656946a4c1bf8eecbb0d95430a2161341c11
+wheelhouse_inventory_sha256: 00a6be8145596bc464735d89805dfe699a13791feac09e87dc766420b9c7f755
+
+Commands in each environment:
+pytest tests/test_phase3_acceptance.py tests/benchmark/test_checkpoints.py tests/benchmark/test_live.py tests/benchmark/test_stability.py tests/benchmark/test_api.py tests/benchmark/test_baselines.py -q
+pytest tests/benchmark -q
+pytest -q
+ruff check .
+mypy src/attest
+pytest --cov=src/attest --cov-report=term-missing -q
+pip check
+git diff --check
+test -z "$(git status --porcelain=v1)"
+
+Python 3.11.5 / cpython-3.11.5-darwin-arm64:
+focused=189 PASS
+benchmark=455 PASS
+full=836 PASS
+ruff=PASS
+mypy=PASS (47 source files)
+coverage=92.41% PASS
+attest.core=>=99% PASS
+pip_check=PASS
+diff_check=PASS
+clean_tree=PASS
+full_gate_log_sha256=c627ee8e135de7306c356eb7e7c56bb2ec330ed353adc53ea4d633d59ab9062d
+
+Python 3.12.8 / cpython-3.12.8-darwin-arm64:
+focused=189 PASS
+benchmark=455 PASS
+full=836 PASS
+ruff=PASS
+mypy=PASS (47 source files)
+coverage=92.41% PASS
+attest.core=>=99% PASS
+pip_check=PASS
+diff_check=PASS
+clean_tree=PASS
+full_gate_log_sha256=474471adac5f3621991b61741add93bfba12252c8ee22f41cd84045c227d509f
+
+paid_actions=none
+remote_mutations=none
+network_provider_calls=none

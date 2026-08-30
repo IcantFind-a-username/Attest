@@ -164,11 +164,11 @@ changes.
 - [ ] **M-02 — receipt authority and raw validation evidence.** Reject incomplete/manual
   validation rows, retain bounded fixed/buggy run evidence, and distinguish integrity,
   provenance, and semantic authority.
-- [ ] **M-03 — deterministic and crash-safe measurement (reopened).** The prior acceptance
-  is explicitly invalidated pending corrected live/comparison reconciliation, a lock-bound
-  Action runtime, final-SHA clean-environment Gates, and independent re-review. Historical
-  evidence is retained in
-  [`acceptance/2026-08-30-m03-deterministic-crash-safe-measurement.md`](acceptance/2026-08-30-m03-deterministic-crash-safe-measurement.md).
+- [x] **M-03 — deterministic and crash-safe measurement.** Final implementation
+  `5e4234d` passed fresh Python 3.11/3.12 Gates and independent re-review; see the
+  [`revalidation report`](acceptance/2026-08-30-m03-revalidation.md). The prior PASS
+  remains explicitly INVALIDATED as
+  [historical evidence](acceptance/2026-08-30-m03-deterministic-crash-safe-measurement.md).
 
 ### Entry
 
@@ -547,6 +547,14 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-08-30 — M-03 revalidated:** implementation `5e4234d` binds every paid
+  checkpoint/artifact/spend row to its model and complete predeclaration, closes live and
+  comparison whole-evidence erasure, and makes the shipped Action consume CPython 3.12.8
+  plus the exact full lock. Fresh Python 3.11.5 and 3.12.8 checkouts each passed 189
+  focused, 455 benchmark, and 836 full tests, Ruff, Mypy, 92.41% coverage, `pip check`,
+  diff, and clean-tree checks. Final independent review reported P0=0, P1=0, P2=0. See
+  [`acceptance/2026-08-30-m03-revalidation.md`](acceptance/2026-08-30-m03-revalidation.md).
 
 - **2026-08-30 — M-03 reopened:** final review found four P1 completion blockers after
   `b897852`; its PASS status and linked acceptance report are INVALIDATED but retained as

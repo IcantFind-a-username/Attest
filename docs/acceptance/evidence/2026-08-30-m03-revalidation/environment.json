@@ -1,0 +1,24 @@
+{
+  "implementation_sha": "5e4234dc71959ac67093d3f56c301324ba1eaa73",
+  "lock_sha256": "76908dd8dc527b59e95ab856cf67656946a4c1bf8eecbb0d95430a2161341c11",
+  "platform": "macOS-26.5.2-arm64-arm-64bit / Darwin 25.5.0",
+  "wheelhouse_inventory_sha256": "00a6be8145596bc464735d89805dfe699a13791feac09e87dc766420b9c7f755",
+  "environments": [
+    {
+      "interpreter_id": "cpython-3.11.5-darwin-arm64",
+      "environment_sha256": "a2db048e977ee7846607d282992c9e67a2e549a444f29d94c276ab96bc84c565",
+      "code_sha256": "6f39f562de64bc7dd428665beeb98fc3cd2198f47b998904f3acac6434c45852",
+      "freeze_sha256": "bd906ca867bb62f2ea0be0ced514891175408ba44efe0724498b7e50c6156814",
+      "full_gate_log_sha256": "c627ee8e135de7306c356eb7e7c56bb2ec330ed353adc53ea4d633d59ab9062d",
+      "include_system_site_packages": false
+    },
+    {
+      "interpreter_id": "cpython-3.12.8-darwin-arm64",
+      "environment_sha256": "b505be2eaf33a0b45c6986bd6fecd167ffc806a62bcb566567a9b97a1bb42bf9",
+      "code_sha256": "6f39f562de64bc7dd428665beeb98fc3cd2198f47b998904f3acac6434c45852",
+      "freeze_sha256": "9ebd47cb80fe2a686abd97ae6c72908b025b617aadd93fd17e48540cecbc9753",
+      "full_gate_log_sha256": "474471adac5f3621991b61741add93bfba12252c8ee22f41cd84045c227d509f",
+      "include_system_site_packages": false
+    }
+  ]
+}

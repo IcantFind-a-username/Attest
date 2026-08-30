@@ -7,9 +7,10 @@
 > validated reconciliation binding; the Action installed a floating runtime
 > outside the audited lock; and the clean-environment logs predated the accepted
 > SHA. This report remains as historical evidence and must not be used to claim
-> M-03 completion. A separate revalidation report will supersede it only after
-> the corrected implementation SHA passes both clean interpreter Gates and
-> independent review.
+> M-03 completion. The later
+> [revalidation report](2026-08-30-m03-revalidation.md) supersedes this record
+> after the corrected implementation SHA passed both clean interpreter Gates
+> and independent review. The original claims below remain historical only.
 
 Status: **INVALIDATED** (original recorded status: PASS for M-03,
 `G-CODE-001`, and `G-MEASURE-003`)

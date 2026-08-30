@@ -9,6 +9,9 @@ gate.
 
 - [`2026-08-30-evolution-scaffold.md`](2026-08-30-evolution-scaffold.md) — F-00 /
   `G-DOC-001` construction-scaffold acceptance.
+- [`2026-08-30-m03-revalidation.md`](2026-08-30-m03-revalidation.md) — M-03 /
+  `G-CODE-001` / `G-MEASURE-003` final-SHA revalidation; supersedes the retained
+  INVALIDATED historical M-03 report.
 - [`phase-3.md`](phase-3.md) — historical planted-fixture GitHub Action integration smoke.
   It predates the complete evidence-bundle and workflow-exit requirements.
 
