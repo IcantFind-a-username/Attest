@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -11,6 +12,12 @@ from pathlib import Path
 import pytest
 
 from attest.benchmark.api import ProjectEvaluationRequest
+from attest.benchmark.checkpoints import (
+    STATE_AMBIGUOUS_COST,
+    STATE_DISPATCHED,
+    STATE_RESPONSE_PERSISTED,
+    AmbiguousCostError,
+)
 from attest.benchmark.runner import Cassette, ReplayProvider
 from attest.benchmark.schema import ChangedLocation, load_manifest
 from attest.benchmark.stability import (
@@ -348,6 +355,126 @@ def test_run_stability_study_resumes_without_repeating_a_paid_run(tmp_path: Path
     assert list(result.report.run_ids[:5]) == first_run_ids
 
 
+def test_stability_resume_replays_durable_subcall_response_without_redispatch(
+    tmp_path: Path,
+) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+    first = ReplayProvider(
+        Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+    )
+    crashed = False
+
+    def interrupt(repeat: int, _call_id: str, state: str) -> None:
+        nonlocal crashed
+        if repeat == 0 and state == STATE_RESPONSE_PERSISTED and not crashed:
+            crashed = True
+            raise KeyboardInterrupt(state)
+
+    with pytest.raises(KeyboardInterrupt, match=STATE_RESPONSE_PERSISTED):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: first,
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+            on_call_transition=interrupt,
+        )
+    assert first.proposal_calls == 1
+    assert not (state_dir / "repeat-0.json").exists()
+
+    resumed = ReplayProvider(
+        Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+    )
+    result = run_stability_study(
+        request,
+        provider_factory=lambda _repeat: resumed,
+        state_dir=state_dir,
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+
+    assert result.report.repeats == STABILITY_REPEATS
+    assert resumed.proposal_calls == STABILITY_REPEATS - 1
+
+
+def test_stability_dispatched_without_response_withholds_report_and_blocks_retry(
+    tmp_path: Path,
+) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+    first = ReplayProvider(Cassette(proposal=_EMPTY_PROPOSAL, repro=""))
+
+    def interrupt(repeat: int, _call_id: str, state: str) -> None:
+        if repeat == 0 and state == STATE_DISPATCHED:
+            raise KeyboardInterrupt(state)
+
+    with pytest.raises(KeyboardInterrupt, match=STATE_DISPATCHED):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: first,
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+            on_call_transition=interrupt,
+        )
+    assert first.proposal_calls == 0
+
+    resumed = ReplayProvider(Cassette(proposal=_EMPTY_PROPOSAL, repro=""))
+    with pytest.raises(AmbiguousCostError, match=STATE_AMBIGUOUS_COST):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: resumed,
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+    assert resumed.proposal_calls == 0
+    assert not (state_dir / "repeat-0.json").exists()
+
+
+@pytest.mark.parametrize("missing", ["spend", "artifact", "directory"])
+def test_stability_resume_reconciles_completed_repeat_paid_call_evidence(
+    tmp_path: Path, missing: str
+) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+    run_stability_study(
+        request,
+        provider_factory=lambda _repeat: ReplayProvider(
+            Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+        ),
+        state_dir=state_dir,
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+    call_root = state_dir / "repeat-0-calls"
+    if missing == "spend":
+        (call_root / "costs.jsonl").write_text("", encoding="utf-8")
+    elif missing == "artifact":
+        next((call_root / "artifacts").glob("*.json")).unlink()
+    else:
+        shutil.rmtree(call_root)
+    resumed = ReplayProvider(Cassette(proposal=_EMPTY_PROPOSAL, repro=""))
+
+    with pytest.raises(ValueError, match="spend row|artifact.*missing|evidence binding"):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: resumed,
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+
+    assert resumed.proposal_calls == 0
+
+
 def test_run_stability_study_fails_closed_on_drift_truth_or_corrupt_state(
     tmp_path: Path,
 ) -> None:
@@ -427,6 +554,27 @@ def test_run_stability_study_fails_closed_on_drift_truth_or_corrupt_state(
         run_stability_study(
             request,
             provider_factory=factory,
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+
+
+def test_old_study_predeclaration_reports_supported_version(tmp_path: Path) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    (state_dir / "study.json").write_text(
+        json.dumps({"schema_version": "0"}), encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="unsupported.*schema version.*0.*supported"):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: ReplayProvider(
+                Cassette(proposal=_EMPTY_PROPOSAL, repro="")
+            ),
             state_dir=state_dir,
             locations=_LOCATIONS,
             manifest_sha256="cd" * 32,

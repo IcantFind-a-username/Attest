@@ -33,16 +33,24 @@ from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Any
 
-from attest.benchmark.api import ProjectEvaluationRequest, evaluate_project
+from attest.benchmark.api import (
+    ProjectEvaluationRequest,
+    build_evaluation_binding,
+    current_runtime_identity,
+    evaluate_project,
+    freeze_evaluation_request,
+)
+from attest.benchmark.checkpoints import AmbiguousCostError, CheckpointedProvider
 from attest.benchmark.metrics import dispersion, mean_pairwise_jaccard
 from attest.benchmark.schema import ChangedLocation, is_scored_placement
-from attest.review.proposer import Provider
+from attest.review.proposer import Provider, ProviderResult
 
 #: The preregistered repeat count. Ten is part of the study design, not a knob.
 STABILITY_REPEATS = 10
-STABILITY_SCHEMA_VERSION = "1"
-_OBSERVATION_SCHEMA_VERSION = "1"
+STABILITY_SCHEMA_VERSION = "2"
+_OBSERVATION_SCHEMA_VERSION = "2"
 
 _OUTCOME_SURFACED = "surfaced"
 _OUTCOME_SILENT = "silent"
@@ -86,6 +94,8 @@ class StabilityObservation:
     latency_s: float
     spend_usd: float
     delivery_at_s: float | None
+    call_count: int = 0
+    call_evidence_sha256: str = hashlib.sha256(b"[]").hexdigest()
 
     @property
     def outcome(self) -> str:
@@ -105,14 +115,20 @@ class StabilityObservation:
             "latency_s": self.latency_s,
             "spend_usd": self.spend_usd,
             "delivery_at_s": self.delivery_at_s,
+            "call_count": self.call_count,
+            "call_evidence_sha256": self.call_evidence_sha256,
         }
 
     @classmethod
     def from_json_dict(cls, raw: object) -> StabilityObservation:
         if not isinstance(raw, dict):
             raise ValueError("observation must be an object")
-        if raw.get("schema_version") != _OBSERVATION_SCHEMA_VERSION:
-            raise ValueError("unsupported observation schema version")
+        version = raw.get("schema_version")
+        if version != _OBSERVATION_SCHEMA_VERSION:
+            raise ValueError(
+                f"unsupported observation schema version {version!r}; supported version "
+                f"is {_OBSERVATION_SCHEMA_VERSION}"
+            )
         repeat = raw.get("repeat")
         if not isinstance(repeat, int) or isinstance(repeat, bool) or repeat < 0:
             raise ValueError("observation repeat must be a non-negative integer")
@@ -136,6 +152,20 @@ class StabilityObservation:
             or candidate_count < 0
         ):
             raise ValueError("observation candidate_count must be a non-negative integer")
+        call_count = raw.get("call_count")
+        call_evidence_sha256 = raw.get("call_evidence_sha256")
+        if (
+            not isinstance(call_count, int)
+            or isinstance(call_count, bool)
+            or call_count < 0
+        ):
+            raise ValueError("observation call_count must be a non-negative integer")
+        if (
+            not isinstance(call_evidence_sha256, str)
+            or len(call_evidence_sha256) != 64
+            or any(character not in "0123456789abcdef" for character in call_evidence_sha256)
+        ):
+            raise ValueError("observation call_evidence_sha256 must be a SHA-256 digest")
         return cls(
             repeat=repeat,
             run_id=run_id,
@@ -150,6 +180,8 @@ class StabilityObservation:
                 if raw.get("delivery_at_s") is None
                 else _finite_number(raw.get("delivery_at_s"), "delivery_at_s")
             ),
+            call_count=call_count,
+            call_evidence_sha256=call_evidence_sha256,
         )
 
 
@@ -427,6 +459,7 @@ def run_stability_study(
     line_slack: int = 0,
     provider_label: str = "injected",
     clock: Callable[[], float] = time.monotonic,
+    on_call_transition: Callable[[int, str, str], None] | None = None,
 ) -> StabilityStudyResult:
     """Execute or resume the ten-repeat study, one atomic state file per repeat.
 
@@ -440,8 +473,17 @@ def run_stability_study(
             "stability is an operational study: it consumes no hidden truth and "
             "must not be given any"
         )
+    runtime = current_runtime_identity()
+    binding = build_evaluation_binding(
+        request,
+        provider_id=provider_label,
+        interpreter_id=runtime.interpreter_id,
+        environment_sha256=runtime.environment_sha256,
+        code_sha256=runtime.code_sha256,
+    )
+    request = freeze_evaluation_request(request, binding)
     predeclaration = _predeclaration(
-        request, manifest_sha256, line_slack, provider_label
+        request, manifest_sha256, line_slack, provider_label, binding.to_json_dict()
     )
     state_dir.mkdir(parents=True, exist_ok=True)
     study_path = state_dir / "study.json"
@@ -450,6 +492,13 @@ def run_stability_study(
             stored = json.loads(study_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ValueError("stability study predeclaration is unreadable") from exc
+        if not isinstance(stored, dict) or stored.get("schema_version") != STABILITY_SCHEMA_VERSION:
+            version = stored.get("schema_version") if isinstance(stored, dict) else None
+            raise ValueError(
+                f"unsupported stability predeclaration schema version {version!r}; "
+                f"supported version is {STABILITY_SCHEMA_VERSION}. Use the compatible "
+                "reader and retain all paid-call state; never coerce old rows."
+            )
         if stored != predeclaration:
             raise ValueError(
                 "stability study predeclaration does not match this configuration; "
@@ -464,10 +513,50 @@ def run_stability_study(
         path = state_dir / f"repeat-{repeat}.json"
         if path.exists():
             observation = _load_observation(path, repeat)
+            checkpointed = CheckpointedProvider(
+                _NoDispatchProvider(),
+                root=state_dir / f"repeat-{repeat}-calls",
+                trial_id=f"{request.case_id}:repeat-{repeat}",
+                model_id=request.config.model,
+            )
+            records = checkpointed.reconciliation_records()
+            call_count, call_evidence_sha256 = _call_evidence_binding(records)
+            if (
+                observation.call_count != call_count
+                or observation.call_evidence_sha256 != call_evidence_sha256
+            ):
+                raise ValueError(
+                    f"stability repeat {repeat} paid-call evidence binding does not match "
+                    "its persisted observation"
+                )
             resumed += 1
         else:
             provider = provider_factory(repeat)
-            observation = _observe(request, repeat, provider, clock)
+            transition: Callable[[str, str], None] | None = None
+            if on_call_transition is not None:
+
+                def notify_transition(
+                    call_id: str, state: str, current: int = repeat
+                ) -> None:
+                    on_call_transition(current, call_id, state)
+
+                transition = notify_transition
+
+            checkpointed = CheckpointedProvider(
+                provider,
+                root=state_dir / f"repeat-{repeat}-calls",
+                trial_id=f"{request.case_id}:repeat-{repeat}",
+                model_id=request.config.model,
+                on_transition=transition,
+            )
+            observation = _observe(request, repeat, checkpointed, clock)
+            records = checkpointed.reconciliation_records()
+            call_count, call_evidence_sha256 = _call_evidence_binding(records)
+            observation = replace(
+                observation,
+                call_count=call_count,
+                call_evidence_sha256=call_evidence_sha256,
+            )
             _atomic_write_json(path, observation.to_json_dict())
             executed += 1
         observations.append(observation)
@@ -485,6 +574,28 @@ def run_stability_study(
     )
 
 
+class _NoDispatchProvider:
+    """Verify resumed call evidence without constructing a remote provider."""
+
+    def sample(
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
+    ) -> ProviderResult:
+        raise AssertionError("completed stability evidence must never dispatch")
+
+
+def _call_evidence_binding(
+    records: tuple[dict[str, object], ...],
+) -> tuple[int, str]:
+    payload = json.dumps(records, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return len(records), hashlib.sha256(payload).hexdigest()
+
+
 def _observe(
     request: ProjectEvaluationRequest,
     repeat: int,
@@ -498,6 +609,8 @@ def _observe(
     )
     try:
         result = evaluate_project(prepared, provider=provider, clock=clock)
+    except AmbiguousCostError:
+        raise
     except Exception as exc:  # noqa: BLE001 - a failed run is a DEFER, never dropped
         return StabilityObservation(
             repeat=repeat,
@@ -567,6 +680,7 @@ def _predeclaration(
     manifest_sha256: str,
     line_slack: int,
     provider_label: str,
+    binding: Mapping[str, object],
 ) -> dict[str, object]:
     """Machine-independent binding of the study design before any run.
 
@@ -583,6 +697,7 @@ def _predeclaration(
         "head_ref": request.head_ref,
         "line_slack": line_slack,
         "provider_label": provider_label,
+        "evaluation_binding": dict(binding),
         "seeds": None,
         "configuration": {
             "alpha": config.alpha,

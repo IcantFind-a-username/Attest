@@ -41,15 +41,20 @@ from collections.abc import (
     Sequence,
 )
 from contextlib import contextmanager
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from attest.benchmark.api import (
+    ProjectEvaluationBinding,
     ProjectEvaluationRequest,
     ProjectEvaluationResult,
+    build_evaluation_binding,
+    current_runtime_identity,
     evaluate_project,
+    freeze_evaluation_request,
 )
+from attest.benchmark.checkpoints import CheckpointedProvider
 from attest.benchmark.corpus import ValidationReceipt
 from attest.benchmark.matcher import match_findings
 from attest.benchmark.metrics import wilson_interval
@@ -71,8 +76,8 @@ from attest.benchmark.schema import (
 )
 from attest.review.proposer import Provider
 
-LIVE_SCHEMA_VERSION = "1"
-CALIBRATION_SCHEMA_VERSION = "1"
+LIVE_SCHEMA_VERSION = "3"
+CALIBRATION_SCHEMA_VERSION = "2"
 CALIBRATION_JSON_NAME = "calibration.json"
 CALIBRATION_MARKDOWN_NAME = "calibration.md"
 
@@ -270,6 +275,7 @@ class LiveCase:
 
     request: ProjectEvaluationRequest
     source_id: str
+    binding: ProjectEvaluationBinding | None = None
 
 
 def reserved_case_budget_usd(request: ProjectEvaluationRequest) -> float:
@@ -322,12 +328,16 @@ def _load_checkpoint(path: Path, case_id: str) -> _Checkpoint:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise _corrupt(path, exc) from exc
-    if (
-        not isinstance(raw, dict)
-        or raw.get("schema_version") != LIVE_SCHEMA_VERSION
-        or raw.get("case_id") != case_id
-        or raw.get("state") not in CASE_STATES
-    ):
+    if not isinstance(raw, dict):
+        raise _corrupt(path)
+    version = raw.get("schema_version")
+    if version != LIVE_SCHEMA_VERSION:
+        raise ValueError(
+            f"unsupported live checkpoint schema version {version!r}; supported version "
+            f"is {LIVE_SCHEMA_VERSION}. Use the compatible reader and retain the paid "
+            "evidence; never coerce or replay it."
+        )
+    if raw.get("case_id") != case_id or raw.get("state") not in CASE_STATES:
         raise _corrupt(path)
     reserved = raw.get("reserved_usd")
     if isinstance(reserved, bool) or not isinstance(reserved, (int, float)):
@@ -385,6 +395,8 @@ def run_live_local(
     ) = None,
     env: MutableMapping[str, str] | None = None,
     on_transition: Callable[[str, str], None] | None = None,
+    on_call_transition: Callable[[str, str, str], None] | None = None,
+    provider_id: str = "anthropic-api-v1",
     clock: Callable[[], float] = time.monotonic,
 ) -> LiveRunResult:
     """Execute or resume one live run under the atomic checkpoint state machine.
@@ -410,8 +422,58 @@ def run_live_local(
         lambda request, provider: evaluate_project(request, provider=provider, clock=clock)
     )
     interpreter_by_source = dict(interpreters or {})
+    runtime = current_runtime_identity()
+    receipt_sha256 = (
+        None
+        if validation_receipt is None
+        else hashlib.sha256(_canonical_bytes(asdict(validation_receipt))).hexdigest()
+    )
+    bindings: dict[str, ProjectEvaluationBinding] = {}
+    for live_case in cases:
+        if live_case.binding is not None:
+            if evaluate is None:
+                raise ValueError(
+                    "prebuilt evaluation bindings are accepted only with an injected evaluator"
+                )
+            bindings[live_case.request.case_id] = live_case.binding
+            continue
+        interpreter = interpreter_by_source.get(live_case.source_id)
+        interpreter_id = runtime.interpreter_id
+        if interpreter is not None:
+            interpreter_id = _interpreter_identity(interpreter)
+        environment_sha256 = hashlib.sha256(
+            _canonical_bytes(
+                {
+                    "controller_environment_sha256": runtime.environment_sha256,
+                    "source_id": live_case.source_id,
+                    "project_interpreter": interpreter_id,
+                }
+            )
+        ).hexdigest()
+        bindings[live_case.request.case_id] = build_evaluation_binding(
+            live_case.request,
+            provider_id=provider_id,
+            interpreter_id=interpreter_id,
+            environment_sha256=environment_sha256,
+            code_sha256=runtime.code_sha256,
+            receipt_sha256=receipt_sha256,
+        )
+    cases = tuple(
+        replace(
+            live_case,
+            request=freeze_evaluation_request(
+                live_case.request, bindings[live_case.request.case_id]
+            ),
+        )
+        for live_case in cases
+    )
     predeclaration = _predeclaration(
-        cases, run_id, manifest_sha256, preregistration_sha256, line_slack
+        cases,
+        run_id,
+        manifest_sha256,
+        preregistration_sha256,
+        line_slack,
+        bindings,
     )
     run_dir = state_dir / run_id
     run_path = run_dir / "run.json"
@@ -425,6 +487,13 @@ def run_live_local(
             stored = json.loads(run_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ValueError(f"run {run_id} predeclaration is unreadable") from exc
+        if not isinstance(stored, dict) or stored.get("schema_version") != LIVE_SCHEMA_VERSION:
+            version = stored.get("schema_version") if isinstance(stored, dict) else None
+            raise ValueError(
+                f"unsupported live predeclaration schema version {version!r}; supported "
+                f"version is {LIVE_SCHEMA_VERSION}. Use the compatible reader; never "
+                "reinterpret an existing reservation."
+            )
         if stored != predeclaration:
             raise ValueError(
                 f"run {run_id} predeclaration does not match this configuration; "
@@ -454,6 +523,7 @@ def run_live_local(
             environment=environment,
             interpreter=interpreter_by_source.get(live_case.source_id),
             on_transition=on_transition,
+            on_call_transition=on_call_transition,
         )
         checkpoints[checkpoint.case_id] = checkpoint
         if ran:
@@ -511,6 +581,7 @@ def _advance_case(
     environment: MutableMapping[str, str],
     interpreter: str | None,
     on_transition: Callable[[str, str], None] | None,
+    on_call_transition: Callable[[str, str, str], None] | None,
 ) -> tuple[_Checkpoint, bool]:
     request = live_case.request
     case_id = request.case_id
@@ -523,10 +594,26 @@ def _advance_case(
             case_id, STATE_RESERVED, reserved_case_budget_usd(request), None, None
         )
         _commit(run_dir, checkpoint, on_transition)
+    if checkpoint.state == STATE_RESERVED:
         provider = provider_factory(request)
+        checkpointed = CheckpointedProvider(
+            provider,
+            root=run_dir / "calls" / case_id,
+            trial_id=f"{run_dir.name}:{case_id}",
+            model_id=request.config.model,
+            on_transition=(
+                None
+                if on_call_transition is None
+                else lambda call_id, state: on_call_transition(case_id, call_id, state)
+            ),
+        )
         with _project_interpreter(environment, interpreter):
-            result = evaluator(request, provider)
+            result = evaluator(request, checkpointed)
+        paid_calls = _live_paid_call_records(
+            case_id, checkpointed.reconciliation_records()
+        )
         payload = case_payload(result)
+        payload["paid_calls"] = paid_calls
         checkpoint = replace(
             checkpoint,
             state=STATE_PROVIDER_COMPLETE,
@@ -535,13 +622,6 @@ def _advance_case(
         )
         _commit(run_dir, checkpoint, on_transition)
         ran = True
-    if checkpoint.state == STATE_RESERVED:
-        raise ValueError(
-            f"case {case_id} is checkpointed as reserved: it was interrupted "
-            "between reservation and provider completion, so the paid call may "
-            "or may not have happened. Refusing to re-call; inspect and clear "
-            "its state deliberately (the evidence is retained)."
-        )
     artifact_path = run_dir / "artifacts" / f"{case_id}.json"
     payload = _required_payload(checkpoint)
     if checkpoint.state == STATE_PROVIDER_COMPLETE:
@@ -551,9 +631,24 @@ def _advance_case(
     _verify_artifact(artifact_path, checkpoint.payload_sha256)
     if checkpoint.state == STATE_ARTIFACTS_COMPLETE:
         spend, oracle_spend = _known_cost(case_id, payload)
-        _settle_once(costs_path, case_id, spend, oracle_spend)
+        _settle_once(
+            costs_path,
+            case_id,
+            spend,
+            oracle_spend,
+            _required_paid_calls(run_dir, case_id, payload),
+        )
         checkpoint = replace(checkpoint, state=STATE_SETTLED)
         _commit(run_dir, checkpoint, on_transition)
+    if checkpoint.state in {STATE_SETTLED, STATE_REPORTED}:
+        spend, oracle_spend = _known_cost(case_id, payload)
+        _verify_case_settlement(
+            costs_path,
+            case_id,
+            spend,
+            oracle_spend,
+            _required_paid_calls(run_dir, case_id, payload),
+        )
     return checkpoint, ran
 
 
@@ -606,7 +701,117 @@ def _known_cost(case_id: str, payload: Mapping[str, object]) -> tuple[float, flo
     return values[0], values[1]
 
 
-def _settle_once(costs_path: Path, case_id: str, spend: float, oracle: float) -> None:
+def _live_paid_call_records(
+    case_id: str, records: Sequence[Mapping[str, object]]
+) -> list[dict[str, object]]:
+    prefix = f"calls/{case_id}/"
+    joined: list[dict[str, object]] = []
+    for record in records:
+        artifact_path = record.get("artifact_path")
+        if not isinstance(artifact_path, str):
+            raise ValueError(f"case {case_id} paid-call artifact path is invalid")
+        joined.append(
+            {
+                **dict(record),
+                "artifact_path": prefix + artifact_path,
+                "spend_path": prefix + "costs.jsonl",
+            }
+        )
+    return joined
+
+
+def _required_paid_calls(
+    run_dir: Path, case_id: str, payload: Mapping[str, object]
+) -> tuple[dict[str, object], ...]:
+    raw = payload.get("paid_calls")
+    if not isinstance(raw, list):
+        raise ValueError(f"case {case_id} payload has no paid-call reconciliation list")
+    records: list[dict[str, object]] = []
+    seen: set[str] = set()
+    by_spend_path: dict[str, list[dict[str, object]]] = {}
+    for value in raw:
+        if not isinstance(value, dict):
+            raise ValueError(f"case {case_id} has an invalid paid-call reconciliation row")
+        record = dict(value)
+        call_id = record.get("call_id")
+        trial_id = record.get("trial_id")
+        artifact_path = record.get("artifact_path")
+        spend_path = record.get("spend_path")
+        if (
+            not isinstance(call_id, str)
+            or not isinstance(trial_id, str)
+            or not call_id.startswith(trial_id + ":")
+            or not isinstance(artifact_path, str)
+            or not artifact_path.startswith(f"calls/{case_id}/artifacts/")
+            or not isinstance(spend_path, str)
+            or spend_path != f"calls/{case_id}/costs.jsonl"
+        ):
+            raise ValueError(f"case {case_id} paid-call trial/artifact binding is invalid")
+        if call_id in seen:
+            raise ValueError(f"case {case_id} repeats paid call {call_id}")
+        seen.add(call_id)
+        artifact = run_dir / artifact_path
+        try:
+            artifact_payload = json.loads(artifact.read_text(encoding="utf-8"))
+            digest = hashlib.sha256(
+                json.dumps(
+                    artifact_payload, sort_keys=True, separators=(",", ":")
+                ).encode("utf-8")
+            ).hexdigest()
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(
+                f"case {case_id} paid-call artifact {artifact_path} is missing or corrupt"
+            ) from exc
+        if digest != record.get("artifact_sha256"):
+            raise ValueError(
+                f"case {case_id} paid-call artifact {artifact_path} hash binding is invalid"
+            )
+        records.append(record)
+        by_spend_path.setdefault(spend_path, []).append(record)
+    for spend_path, expected_records in by_spend_path.items():
+        authoritative = _json_rows(run_dir / spend_path, "paid-call spend rows")
+        normalized = []
+        prefix = f"calls/{case_id}/"
+        for record in expected_records:
+            normalized.append(
+                {
+                    key: value
+                    for key, value in record.items()
+                    if key != "spend_path"
+                }
+            )
+            normalized[-1]["artifact_path"] = str(record["artifact_path"])[len(prefix) :]
+        authoritative.sort(key=lambda row: str(row.get("call_id")))
+        normalized.sort(key=lambda row: str(row.get("call_id")))
+        if authoritative != normalized:
+            raise ValueError(
+                f"case {case_id} paid-call spend rows are missing, duplicated, or mismatched"
+            )
+    return tuple(records)
+
+
+def _case_cost_row(
+    case_id: str,
+    spend: float,
+    oracle: float,
+    paid_calls: Sequence[Mapping[str, object]],
+) -> dict[str, object]:
+    return {
+        "kind": "case_summary",
+        "case_id": case_id,
+        "spend_usd": _rounded(spend),
+        "oracle_spend_usd": _rounded(oracle),
+        "paid_calls": [dict(record) for record in paid_calls],
+    }
+
+
+def _settle_once(
+    costs_path: Path,
+    case_id: str,
+    spend: float,
+    oracle: float,
+    paid_calls: Sequence[Mapping[str, object]],
+) -> None:
     """Append this case's cost exactly once, whatever happened before."""
     rows = _cost_rows(costs_path)
     mine = [row for row in rows if row.get("case_id") == case_id]
@@ -616,34 +821,62 @@ def _settle_once(costs_path: Path, case_id: str, spend: float, oracle: float) ->
             "ledger is corrupt and settlement is refused"
         )
     if mine:
+        if mine[0] != _case_cost_row(case_id, spend, oracle, paid_calls):
+            raise ValueError(
+                f"case {case_id} cost settlement does not match its paid-call artifacts"
+            )
         return
-    rows.append(
-        {
-            "case_id": case_id,
-            "spend_usd": _rounded(spend),
-            "oracle_spend_usd": _rounded(oracle),
-        }
-    )
+    rows.append(_case_cost_row(case_id, spend, oracle, paid_calls))
     _atomic_write(costs_path, b"".join(_canonical_bytes(row) for row in rows))
 
 
+def _verify_case_settlement(
+    costs_path: Path,
+    case_id: str,
+    spend: float,
+    oracle: float,
+    paid_calls: Sequence[Mapping[str, object]],
+) -> None:
+    rows = _cost_rows(costs_path)
+    mine = [row for row in rows if row.get("case_id") == case_id]
+    if not mine:
+        raise ValueError(f"case {case_id} has no cost settlement row")
+    if len(mine) > 1:
+        raise ValueError(f"case {case_id} has duplicate cost settlement rows")
+    if mine[0] != _case_cost_row(case_id, spend, oracle, paid_calls):
+        raise ValueError(
+            f"case {case_id} cost settlement paid-call binding is invalid"
+        )
+
+
 def _cost_rows(costs_path: Path) -> list[dict[str, object]]:
-    if not costs_path.exists():
+    rows = _json_rows(costs_path, "the cost ledger")
+    for row in rows:
+        if (
+            row.get("kind") != "case_summary"
+            or not isinstance(row.get("case_id"), str)
+        ):
+            raise ValueError("the cost ledger is corrupt; settlement is refused")
+    return rows
+
+
+def _json_rows(path: Path, label: str) -> list[dict[str, object]]:
+    if not path.exists():
         return []
-    rows: list[dict[str, object]] = []
     try:
-        lines = costs_path.read_text(encoding="utf-8").splitlines()
+        lines = path.read_text(encoding="utf-8").splitlines()
     except OSError as exc:
-        raise ValueError("the cost ledger could not be read") from exc
+        raise ValueError(f"{label} could not be read") from exc
+    rows: list[dict[str, object]] = []
     for line in lines:
         if not line:
             continue
         try:
             row = json.loads(line)
         except json.JSONDecodeError as exc:
-            raise ValueError("the cost ledger is corrupt; settlement is refused") from exc
-        if not isinstance(row, dict) or not isinstance(row.get("case_id"), str):
-            raise ValueError("the cost ledger is corrupt; settlement is refused")
+            raise ValueError(f"{label} is corrupt") from exc
+        if not isinstance(row, dict):
+            raise ValueError(f"{label} must contain JSON objects")
         rows.append(row)
     return rows
 
@@ -692,6 +925,7 @@ def _predeclaration(
     manifest_sha256: str,
     preregistration_sha256: str,
     line_slack: int,
+    bindings: Mapping[str, ProjectEvaluationBinding],
 ) -> dict[str, object]:
     """Machine-independent binding of the run design, written before any call.
 
@@ -712,6 +946,7 @@ def _predeclaration(
                 "head_ref": request.head_ref,
                 "reserved_usd": _rounded(reserved),
                 "has_truth": request.truth is not None,
+                "evaluation_binding": bindings[request.case_id].to_json_dict(),
             }
         )
     config = cases[0].request.config
@@ -739,6 +974,17 @@ def _predeclaration(
             "wall_timeout_s": request.limits.wall_timeout_s,
         },
     }
+
+
+def _interpreter_identity(interpreter: str) -> str:
+    path = Path(interpreter)
+    try:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError as exc:
+        raise ValueError(
+            f"project interpreter {interpreter!r} is unreadable; drift cannot be bound"
+        ) from exc
+    return f"{path.resolve()}@sha256:{digest}"
 
 
 @dataclass
@@ -780,6 +1026,7 @@ class CalibrationReport:
     strata: tuple[Mapping[str, object], ...]
     latency: Mapping[str, object]
     cost: Mapping[str, object]
+    paid_calls: tuple[Mapping[str, object], ...]
     sample_sufficiency: Mapping[str, object]
     limitations: tuple[str, ...]
     digest: str = ""
@@ -816,6 +1063,7 @@ class CalibrationReport:
             "strata": [dict(row) for row in self.strata],
             "latency": dict(self.latency),
             "cost": dict(self.cost),
+            "paid_calls": [dict(row) for row in self.paid_calls],
             "sample_sufficiency": dict(self.sample_sufficiency),
             "limitations": list(self.limitations),
         }
@@ -904,6 +1152,7 @@ def build_calibration_report(
         strata=_strata(manifest, scored, abstentions),
         latency=_latency(scored),
         cost=_cost(payloads, reserved_total_usd),
+        paid_calls=_report_paid_calls(payloads),
         sample_sufficiency=sufficiency,
         limitations=_calibration_limitations(
             mode, labels, accuracy_withheld, len(abstentions)
@@ -1067,6 +1316,27 @@ def _cost(
             case_id: _rounded(value) for case_id, value in sorted(per_case.items())
         },
     }
+
+
+def _report_paid_calls(
+    payloads: Sequence[Mapping[str, object]],
+) -> tuple[dict[str, object], ...]:
+    rows: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for payload in payloads:
+        case_id = str(payload.get("case_id"))
+        raw = payload.get("paid_calls", [])
+        if not isinstance(raw, list):
+            raise ValueError(f"case {case_id} paid-call report binding is invalid")
+        for value in raw:
+            if not isinstance(value, dict) or not isinstance(value.get("call_id"), str):
+                raise ValueError(f"case {case_id} paid-call report row is invalid")
+            call_id = str(value["call_id"])
+            if call_id in seen:
+                raise ValueError(f"paid call {call_id} appears more than once in the report")
+            seen.add(call_id)
+            rows.append({"case_id": case_id, **value})
+    return tuple(sorted(rows, key=lambda row: str(row["call_id"])))
 
 
 def _calibration_limitations(

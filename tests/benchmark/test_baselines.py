@@ -461,6 +461,55 @@ def test_compare_arms_measures_all_three_arms_with_honest_evidence(tmp_path: Pat
     )
 
 
+def test_comparison_checkpoint_root_replays_every_model_subcall(tmp_path: Path) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    first_product: list[ReplayProvider] = []
+    first_bare: list[ReplayProvider] = []
+
+    def product_factory(request: ProjectEvaluationRequest) -> ReplayProvider:
+        provider = ReplayProvider(cassettes[request.case_id])
+        first_product.append(provider)
+        return provider
+
+    def bare_factory(case_id: str) -> ReplayProvider:
+        provider = ReplayProvider(cassettes[case_id])
+        first_bare.append(provider)
+        return provider
+
+    compare_arms(
+        plans,
+        provider_factory=product_factory,
+        bare_provider_factory=bare_factory,
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "calls",
+    )
+    assert sum(p.proposal_calls + p.generator_calls for p in first_product) > 0
+    assert sum(p.proposal_calls + p.generator_calls for p in first_bare) > 0
+
+    resumed_product: list[ReplayProvider] = []
+    resumed_bare: list[ReplayProvider] = []
+
+    def resumed_product_factory(request: ProjectEvaluationRequest) -> ReplayProvider:
+        provider = ReplayProvider(cassettes[request.case_id])
+        resumed_product.append(provider)
+        return provider
+
+    def resumed_bare_factory(case_id: str) -> ReplayProvider:
+        provider = ReplayProvider(cassettes[case_id])
+        resumed_bare.append(provider)
+        return provider
+
+    compare_arms(
+        plans,
+        provider_factory=resumed_product_factory,
+        bare_provider_factory=resumed_bare_factory,
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "calls",
+    )
+    assert sum(p.proposal_calls + p.generator_calls for p in resumed_product) == 0
+    assert sum(p.proposal_calls + p.generator_calls for p in resumed_bare) == 0
+
+
 def test_compare_arms_requires_repeat_zero_and_reports_deferred_arms(
     tmp_path: Path,
 ) -> None:

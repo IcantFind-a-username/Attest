@@ -14,14 +14,26 @@ import math
 import os
 import sys
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from attest.benchmark.api import (
+    ABSENT_BINDING_SHA256,
+    ProjectEvaluationBinding,
     ProjectEvaluationRequest,
     ProjectEvaluationResult,
     ProjectTruth,
+)
+from attest.benchmark.checkpoints import (
+    STATE_DISPATCHED as CALL_DISPATCHED,
+)
+from attest.benchmark.checkpoints import (
+    STATE_RESPONSE_PERSISTED as CALL_RESPONSE_PERSISTED,
+)
+from attest.benchmark.checkpoints import (
+    AmbiguousCostError,
 )
 from attest.benchmark.corpus import load_validation_receipt
 from attest.benchmark.live import (
@@ -55,6 +67,7 @@ from attest.benchmark.schema import (
     load_manifest,
 )
 from attest.review.config import ReviewConfig
+from attest.review.proposer import Provider
 
 from .test_cli import _receipt_artifacts, _run
 from .test_corpus import _oracle_fixture
@@ -262,7 +275,28 @@ def _fake_case(tmp_path: Path, case_id: str, *, budget: float = 0.25) -> LiveCas
         config=ReviewConfig(budget_usd=budget),
         repeats=1,
     )
-    return LiveCase(request=request, source_id="source-111111111111")
+    return LiveCase(
+        request=request,
+        source_id="source-111111111111",
+        binding=ProjectEvaluationBinding(
+            repository=request.repository,
+            base_sha="b" * 40,
+            head_sha="h" * 40,
+            fixed_sha=None,
+            diff_sha256="d" * 64,
+            truth_sha256=ABSENT_BINDING_SHA256,
+            receipt_sha256=ABSENT_BINDING_SHA256,
+            policy_sha256="2" * 64,
+            provider_id="injected-fake-v1",
+            model_id=request.config.model,
+            prompt_sha256="a" * 64,
+            schema_sha256="3" * 64,
+            interpreter_id="injected-python-v1",
+            environment_sha256="e" * 64,
+            code_sha256="c" * 64,
+            budget_usd=request.config.budget_usd,
+        ),
+    )
 
 
 def _run_fake(
@@ -275,6 +309,8 @@ def _run_fake(
     on_transition: Callable[[str, str], None] | None = None,
     interpreters: Mapping[str, str] | None = None,
     env: dict[str, str] | None = None,
+    provider_factory: Callable[[ProjectEvaluationRequest], Provider] | None = None,
+    on_call_transition: Callable[[str, str, str], None] | None = None,
 ) -> object:
     manifest = tmp_path / "manifest.json"
     if not manifest.exists():
@@ -287,12 +323,17 @@ def _run_fake(
         manifest=load_manifest(manifest),
         manifest_sha256=hashlib.sha256(manifest.read_bytes()).hexdigest(),
         preregistration_sha256="f" * 64,
-        provider_factory=lambda request: ReplayProvider(Cassette("{}", "{}")),
+        provider_factory=(
+            provider_factory
+            if provider_factory is not None
+            else lambda request: ReplayProvider(Cassette("{}", "{}"))
+        ),
         resume=resume,
         evaluate=evaluate,
         on_transition=on_transition,
         interpreters=dict(interpreters or {}),
         env=env,
+        on_call_transition=on_call_transition,
     )
 
 
@@ -363,10 +404,66 @@ class TestCheckpoints:
                 resume=True,
             )
 
-    def test_case_interrupted_between_reservation_and_completion_fails_closed(
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "repository",
+            "base_sha",
+            "head_sha",
+            "diff_sha256",
+            "truth_sha256",
+            "receipt_sha256",
+            "policy_sha256",
+            "provider_id",
+            "model_id",
+            "prompt_sha256",
+            "schema_sha256",
+            "interpreter_id",
+            "environment_sha256",
+            "code_sha256",
+            "budget_usd",
+        ],
+    )
+    def test_resume_rejects_every_binding_drift_before_provider_execution(
+        self, tmp_path: Path, field: str
+    ) -> None:
+        case = _fake_case(tmp_path, "case-333333333333")
+        _run_fake(
+            tmp_path,
+            [case],
+            lambda request, provider: _completed_result(request.case_id),
+        )
+        assert case.binding is not None
+        current = getattr(case.binding, field)
+        if isinstance(current, float):
+            changed: object = current + 0.01
+        elif field in {"base_sha", "head_sha"}:
+            changed = "1" * 40
+        elif field.endswith("sha256"):
+            changed = "1" * 64
+        else:
+            changed = str(current) + "-drift"
+        drifted = replace(case, binding=replace(case.binding, **{field: changed}))
+        provider_calls: list[str] = []
+
+        def provider_factory(request: ProjectEvaluationRequest) -> ReplayProvider:
+            provider_calls.append(request.case_id)
+            return ReplayProvider(Cassette("{}", "{}"))
+
+        with pytest.raises(ValueError, match="predeclaration|binding"):
+            _run_fake(
+                tmp_path,
+                [drifted],
+                lambda request, provider: _completed_result(request.case_id),
+                resume=True,
+                provider_factory=provider_factory,
+            )
+        assert provider_calls == []
+
+    def test_reserved_case_with_no_provider_dispatch_can_resume_safely(
         self, tmp_path: Path
     ) -> None:
-        """A case stuck in ``reserved`` has an unknown cost: never re-call silently."""
+        """Only a subcall ``dispatched`` state is ambiguous; reservation alone is free."""
 
         def crash(request: ProjectEvaluationRequest, provider: object) -> ProjectEvaluationResult:
             raise _Interrupt("crashed mid-call")
@@ -379,16 +476,137 @@ class TestCheckpoints:
 
         calls: list[str] = []
 
-        def must_not_run(
+        def complete_after_restart(
             request: ProjectEvaluationRequest, provider: object
         ) -> ProjectEvaluationResult:
             calls.append(request.case_id)
             return _completed_result(request.case_id)
 
-        with pytest.raises(ValueError, match="reserved"):
-            _run_fake(tmp_path, cases, must_not_run, resume=True)
-        assert calls == []
+        result = _run_fake(tmp_path, cases, complete_after_restart, resume=True)
+        assert calls == ["case-333333333333"]
+        assert result.case_states == {"case-333333333333": STATE_REPORTED}
         assert state.exists(), "evidence must be retained"
+
+    def test_durable_provider_subcall_replays_before_case_completion(
+        self, tmp_path: Path
+    ) -> None:
+        case_id = "case-333333333333"
+        cases = [_fake_case(tmp_path, case_id)]
+        first = ReplayProvider(Cassette(proposal="{}", repro=""))
+
+        def evaluate(
+            request: ProjectEvaluationRequest, provider: Provider
+        ) -> ProjectEvaluationResult:
+            provider.sample("system", "prompt", {"type": "object"}, 20)
+            return _completed_result(request.case_id)
+
+        def interrupt(_case_id: str, _call_id: str, state: str) -> None:
+            if state == CALL_RESPONSE_PERSISTED:
+                raise _Interrupt(state)
+
+        with pytest.raises(_Interrupt, match=CALL_RESPONSE_PERSISTED):
+            _run_fake(
+                tmp_path,
+                cases,
+                evaluate,
+                provider_factory=lambda _request: first,
+                on_call_transition=interrupt,
+            )
+        assert first.proposal_calls == 1
+
+        resumed = ReplayProvider(Cassette(proposal="{}", repro=""))
+        result = _run_fake(
+            tmp_path,
+            cases,
+            evaluate,
+            resume=True,
+            provider_factory=lambda _request: resumed,
+        )
+        assert resumed.proposal_calls == 0
+        assert result.case_states == {case_id: STATE_REPORTED}
+
+    def test_live_artifact_cost_ledger_and_report_carry_paid_call_join(
+        self, tmp_path: Path
+    ) -> None:
+        case_id = "case-333333333333"
+        case = _fake_case(tmp_path, case_id)
+        provider = ReplayProvider(Cassette(proposal="{}", repro=""))
+
+        def evaluate(
+            request: ProjectEvaluationRequest, paid: Provider
+        ) -> ProjectEvaluationResult:
+            paid.sample("system", "prompt", {"type": "object"}, 20)
+            return _completed_result(request.case_id)
+
+        result = _run_fake(
+            tmp_path,
+            [case],
+            evaluate,
+            provider_factory=lambda _request: provider,
+        )
+
+        case_artifact = json.loads(
+            (
+                tmp_path / "state" / "pilot-1" / "artifacts" / f"{case_id}.json"
+            ).read_text(encoding="utf-8")
+        )
+        rows = [
+            json.loads(line)
+            for line in (
+                tmp_path / "state" / "pilot-1" / "costs.jsonl"
+            ).read_text(encoding="utf-8").splitlines()
+            if line
+        ]
+        report = json.loads(result.report_path.read_text(encoding="utf-8"))
+
+        assert len(case_artifact["paid_calls"]) == 1
+        paid_call = case_artifact["paid_calls"][0]
+        assert paid_call["trial_id"] == f"pilot-1:{case_id}"
+        assert paid_call["call_id"] == f"pilot-1:{case_id}:0"
+        assert rows[0]["kind"] == "case_summary"
+        assert rows[0]["case_id"] == case_id
+        assert rows[0]["paid_calls"] == [paid_call]
+        assert report["paid_calls"] == [
+            {"case_id": case_id, **paid_call}
+        ]
+
+    def test_dispatched_without_response_is_ambiguous_and_never_retried(
+        self, tmp_path: Path
+    ) -> None:
+        case_id = "case-333333333333"
+        cases = [_fake_case(tmp_path, case_id)]
+        first = ReplayProvider(Cassette(proposal="{}", repro=""))
+
+        def evaluate(
+            request: ProjectEvaluationRequest, provider: Provider
+        ) -> ProjectEvaluationResult:
+            provider.sample("system", "prompt", {"type": "object"}, 20)
+            return _completed_result(request.case_id)
+
+        def interrupt(_case_id: str, _call_id: str, state: str) -> None:
+            if state == CALL_DISPATCHED:
+                raise _Interrupt(state)
+
+        with pytest.raises(_Interrupt, match=CALL_DISPATCHED):
+            _run_fake(
+                tmp_path,
+                cases,
+                evaluate,
+                provider_factory=lambda _request: first,
+                on_call_transition=interrupt,
+            )
+        assert first.proposal_calls == 0
+
+        resumed = ReplayProvider(Cassette(proposal="{}", repro=""))
+        with pytest.raises(AmbiguousCostError, match="ambiguous_cost"):
+            _run_fake(
+                tmp_path,
+                cases,
+                evaluate,
+                resume=True,
+                provider_factory=lambda _request: resumed,
+            )
+        assert resumed.proposal_calls == 0
 
     def test_interruption_after_artifact_persistence_settles_cost_exactly_once(
         self, tmp_path: Path
@@ -501,6 +719,27 @@ class TestCheckpoints:
                 resume=True,
             )
         assert state.exists()
+
+    def test_old_case_checkpoint_reports_supported_version_and_recovery(
+        self, tmp_path: Path
+    ) -> None:
+        case_id = "case-333333333333"
+        cases = [_fake_case(tmp_path, case_id)]
+        _run_fake(
+            tmp_path, cases, lambda request, provider: _completed_result(request.case_id)
+        )
+        state = tmp_path / "state" / "pilot-1" / "cases" / f"{case_id}.json"
+        payload = json.loads(state.read_text(encoding="utf-8"))
+        payload["schema_version"] = "0"
+        state.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(ValueError, match="unsupported.*schema version.*0.*supported"):
+            _run_fake(
+                tmp_path,
+                cases,
+                lambda request, provider: _completed_result(request.case_id),
+                resume=True,
+            )
 
     def test_unknown_cost_fails_closed_and_retains_the_paid_evidence(
         self, tmp_path: Path

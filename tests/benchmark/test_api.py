@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from attest.benchmark.api import (
+    ABSENT_BINDING_SHA256,
     ProjectEvaluationError,
     ProjectEvaluationRequest,
     ProjectTruth,
+    _code_sha256,
+    build_evaluation_binding,
     evaluate_project,
     evaluate_projects,
+    freeze_evaluation_request,
 )
 from attest.benchmark.artifacts import ArtifactStore, verify_artifacts
 from attest.benchmark.runner import Cassette, ReplayProvider
@@ -131,6 +136,118 @@ def test_evaluate_project_scores_surfaced_findings_against_supplied_truth(
     assert result.score.matches[0].defect_id == "defect-1"
     assert result.predictions[0].repro_status == "buggy_fail_fixed_pass"
     assert result.oracle_receipts[0].confirmed is True
+
+
+def test_predeclaration_binding_resolves_every_drift_sensitive_input(
+    tmp_path: Path,
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    request = _request(tmp_path, repo, base_sha, head_sha)
+
+    binding = build_evaluation_binding(
+        request,
+        provider_id="cassette-v1",
+        interpreter_id="cpython-3.11.5",
+        environment_sha256="e" * 64,
+        code_sha256="c" * 64,
+        receipt_sha256=None,
+    ).to_json_dict()
+
+    assert binding["repository"] == "local/project"
+    assert binding["base_sha"] == base_sha
+    assert binding["head_sha"] == head_sha
+    assert binding["fixed_sha"] is None
+    assert binding["diff_sha256"] != ABSENT_BINDING_SHA256
+    assert binding["truth_sha256"] == ABSENT_BINDING_SHA256
+    assert binding["receipt_sha256"] == ABSENT_BINDING_SHA256
+    assert binding["provider_id"] == "cassette-v1"
+    assert binding["model_id"] == request.config.model
+    assert binding["interpreter_id"] == "cpython-3.11.5"
+    assert binding["environment_sha256"] == "e" * 64
+    assert binding["code_sha256"] == "c" * 64
+    assert binding["policy_sha256"] != ABSENT_BINDING_SHA256
+    assert binding["prompt_sha256"] != ABSENT_BINDING_SHA256
+    assert binding["schema_sha256"] != ABSENT_BINDING_SHA256
+
+
+def test_runtime_code_digest_includes_paid_controller_and_package_data(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    package = repository / "src" / "attest"
+    controller = repository / "scripts" / "benchmark.py"
+    package.mkdir(parents=True)
+    controller.parent.mkdir(parents=True)
+    (package / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (package / "pricing.json").write_text('{"price": 1}\n', encoding="utf-8")
+    controller.write_text("VALUE = 1\n", encoding="utf-8")
+    initial = _code_sha256(package, repository)
+
+    controller.write_text("VALUE = 2\n", encoding="utf-8")
+    controller_changed = _code_sha256(package, repository)
+    (package / "pricing.json").write_text('{"price": 2}\n', encoding="utf-8")
+    data_changed = _code_sha256(package, repository)
+
+    assert controller_changed != initial
+    assert data_changed != controller_changed
+
+
+def test_frozen_request_uses_predeclared_shas_even_if_symbolic_refs_move(
+    tmp_path: Path,
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    git(repo, "branch", "base-symbolic", base_sha)
+    git(repo, "branch", "head-symbolic", head_sha)
+    request = _request(
+        tmp_path, repo, base_sha, head_sha, base_ref="base-symbolic", head_ref="head-symbolic"
+    )
+    binding = build_evaluation_binding(
+        request,
+        provider_id="cassette-v1",
+        interpreter_id="cpython-3.11.5",
+        environment_sha256="e" * 64,
+        code_sha256="c" * 64,
+    )
+
+    git(repo, "branch", "-f", "head-symbolic", base_sha)
+    frozen = freeze_evaluation_request(request, binding)
+
+    assert frozen.base_ref == base_sha
+    assert frozen.head_ref == head_sha
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["provider_id", "interpreter_id", "environment_sha256", "code_sha256"],
+)
+def test_predeclaration_binding_rejects_missing_or_unversioned_runtime_fields(
+    tmp_path: Path, field: str
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    kwargs = {
+        "provider_id": "cassette-v1",
+        "interpreter_id": "cpython-3.11.5",
+        "environment_sha256": "e" * 64,
+        "code_sha256": "c" * 64,
+    }
+    kwargs[field] = ""
+
+    with pytest.raises(ProjectEvaluationError, match=field):
+        build_evaluation_binding(_request(tmp_path, repo, base_sha, head_sha), **kwargs)
+
+
+def test_predeclaration_binding_rejects_empty_repository_identity(tmp_path: Path) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    request = _request(tmp_path, repo, base_sha, head_sha)
+
+    with pytest.raises(ProjectEvaluationError, match="repository"):
+        build_evaluation_binding(
+            replace(request, repository=""),
+            provider_id="cassette-v1",
+            interpreter_id="cpython-3.11.5",
+            environment_sha256="e" * 64,
+            code_sha256="c" * 64,
+        )
 
 
 def test_rejections_happen_before_any_provider_call(tmp_path: Path) -> None:

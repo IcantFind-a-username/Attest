@@ -16,7 +16,18 @@ dependencies = ["numpy>=1.26", "anthropic>=1.0", "pytest>=8"]
 attest = "attest.cli.main:main"
 
 [project.optional-dependencies]
-dev = ["pytest-cov>=5", "ruff>=0.6", "mypy>=1.11"]
+dev = [
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.5",
+    "mypy==2.3.1",
+]
+
+[tool.attest.toolchain]
+lock = "requirements-toolchain.lock"
+minimum-python = "3.11"
+primary-python = "3.12"
+targets = ["linux-x86_64", "macos-arm64"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/attest"]

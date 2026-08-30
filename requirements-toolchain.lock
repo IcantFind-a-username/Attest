@@ -1,0 +1,52 @@
+# M-03 complete reproducible build/runtime/quality-gate environment.
+#
+# This file is intentionally maintained as a fully pinned dependency closure,
+# including the project's build backend, runtime dependencies, gate tools, and
+# every transitively required distribution. Environment markers are used only
+# where the same NumPy release has no wheel spanning both required CPython
+# runtimes. Install without dependency re-resolution:
+#
+#   python -m pip install -r requirements-toolchain.lock
+#   python -m pip install --no-deps --no-build-isolation -e .
+#   python -m pip check
+#
+# M-03 verification records the SHA-256 digest of this file and `pip freeze`
+# for each clean environment. Regeneration is an explicit reviewed change;
+# ranged project metadata is not used as the acceptance environment.
+
+annotated-types==0.8.0
+anthropic==1.2.0
+anyio==4.14.2
+ast-serialize==0.8.0
+coverage==7.16.0
+docstring-parser==0.18.0
+editables==0.6
+h11==0.16.0
+hatchling==1.32.0
+httpcore2==2.12.0
+httpx2==2.12.0
+idna==3.19
+iniconfig==2.3.0
+jiter==0.16.0
+librt==0.15.0
+mypy==2.3.1
+mypy-extensions==1.1.0
+numpy==2.4.6 ; python_version < "3.12"
+numpy==2.5.2 ; python_version >= "3.12"
+packaging==26.3
+pathspec==1.1.1
+pip==26.2.1
+pluggy==1.6.0
+pydantic==2.13.4
+pydantic-core==2.46.4
+pygments==2.21.0
+pytest==9.1.1
+pytest-cov==7.1.0
+ruff==0.16.5
+setuptools==83.0.0
+sniffio==1.3.1
+tomlkit==0.15.1
+trove-classifiers==2026.6.1.19
+truststore==0.10.4
+typing-extensions==4.16.0
+typing-inspection==0.4.4

@@ -17,12 +17,18 @@ Two rules shape the whole module:
 
 from __future__ import annotations
 
+import hashlib
+import importlib.metadata
+import json
+import platform
+import re
 import shutil
 import subprocess
+import sys
 import time
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -42,9 +48,14 @@ from attest.benchmark.schema import (
     is_scored_placement,
 )
 from attest.review.config import ReviewConfig
-from attest.review.executor import ExecutorLimits
+from attest.review.executor import (
+    GENERATOR_SYSTEM,
+    REPRO_SCHEMA,
+    ExecutorLimits,
+)
 from attest.review.ledger import Ledger
-from attest.review.proposer import Provider
+from attest.review.proposer import SYSTEM_PROMPT, Provider
+from attest.review.schema import PROPOSAL_SCHEMA
 
 GIT_TIMEOUT_S = 60.0
 OPAQUE_CASE_PREFIX = "case-"
@@ -52,10 +63,113 @@ _OPAQUE_BODY_LENGTH = 12
 _HEX_DIGITS = frozenset("0123456789abcdef")
 #: Words that would leak the hidden role of a case to the reviewed product.
 _LEAKING_TERMS = ("bug", "clean", "fix", "defect", "broken", "buggy", "control", "truth")
+_DIGEST_PATTERN = re.compile(r"[0-9a-f]{64}")
+ABSENT_BINDING_SHA256 = hashlib.sha256(b"absent").hexdigest()
+EVALUATION_BINDING_SCHEMA_VERSION = "1"
 
 
 class ProjectEvaluationError(ValueError):
     """A request was refused before any model, GitHub, or head-code execution."""
+
+
+@dataclass(frozen=True)
+class ProjectEvaluationBinding:
+    """Immutable inputs that make a paid evaluation one reproducible stratum."""
+
+    repository: str
+    base_sha: str
+    head_sha: str
+    fixed_sha: str | None
+    diff_sha256: str
+    truth_sha256: str
+    receipt_sha256: str
+    policy_sha256: str
+    provider_id: str
+    model_id: str
+    prompt_sha256: str
+    schema_sha256: str
+    interpreter_id: str
+    environment_sha256: str
+    code_sha256: str
+    budget_usd: float
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": EVALUATION_BINDING_SCHEMA_VERSION,
+            "repository": self.repository,
+            "base_sha": self.base_sha,
+            "head_sha": self.head_sha,
+            "fixed_sha": self.fixed_sha,
+            "diff_sha256": self.diff_sha256,
+            "truth_sha256": self.truth_sha256,
+            "receipt_sha256": self.receipt_sha256,
+            "policy_sha256": self.policy_sha256,
+            "provider_id": self.provider_id,
+            "model_id": self.model_id,
+            "prompt_sha256": self.prompt_sha256,
+            "schema_sha256": self.schema_sha256,
+            "interpreter_id": self.interpreter_id,
+            "environment_sha256": self.environment_sha256,
+            "code_sha256": self.code_sha256,
+            "budget_usd": self.budget_usd,
+        }
+
+
+@dataclass(frozen=True)
+class RuntimeIdentity:
+    """Version identity for the controller interpreter, environment, and code."""
+
+    interpreter_id: str
+    environment_sha256: str
+    code_sha256: str
+
+
+def current_runtime_identity() -> RuntimeIdentity:
+    """Return stable digests that change when the supported runtime strata change."""
+    interpreter_id = (
+        f"{sys.implementation.name}-{sys.version_info.major}.{sys.version_info.minor}."
+        f"{sys.version_info.micro}-{platform.system().lower()}-{platform.machine().lower()}"
+    )
+    distributions = sorted(
+        (
+            str(distribution.metadata["Name"]).lower(),
+            distribution.version,
+        )
+        for distribution in importlib.metadata.distributions()
+    )
+    package_root = Path(__file__).resolve().parents[1]
+    repository_root = Path(__file__).resolve().parents[3]
+    return RuntimeIdentity(
+        interpreter_id=interpreter_id,
+        environment_sha256=_json_digest(distributions),
+        code_sha256=_code_sha256(package_root, repository_root),
+    )
+
+
+def _code_sha256(package_root: Path, repository_root: Path) -> str:
+    """Digest package behavior, data, and the paid-study controller entrypoints."""
+    code_rows = []
+    package_paths = (
+        candidate
+        for candidate in package_root.rglob("*")
+        if candidate.is_file() and candidate.suffix in {".json", ".py", ".toml"}
+    )
+    controller_paths = (
+        repository_root / "scripts" / "benchmark.py",
+        repository_root / "scripts" / "acceptance" / "phase3.py",
+    )
+    for path in sorted((*package_paths, *(path for path in controller_paths if path.is_file()))):
+        code_rows.append(
+            {
+                "path": (
+                    path.relative_to(repository_root).as_posix()
+                    if path.is_relative_to(repository_root)
+                    else path.relative_to(package_root).as_posix()
+                ),
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+        )
+    return _json_digest(code_rows)
 
 
 @dataclass(frozen=True)
@@ -253,6 +367,117 @@ class _Resolved:
     fixed_sha: str | None
 
 
+def build_evaluation_binding(
+    request: ProjectEvaluationRequest,
+    *,
+    provider_id: str,
+    interpreter_id: str,
+    environment_sha256: str,
+    code_sha256: str,
+    receipt_sha256: str | None = None,
+) -> ProjectEvaluationBinding:
+    """Resolve and bind every input that may change a paid-study outcome.
+
+    This runs before a provider is constructed. A caller that cannot name its
+    provider, interpreter, environment, or exact code is not allowed to create
+    a resumable paid-study predeclaration.
+    """
+    if not request.repository.strip():
+        raise ProjectEvaluationError("repository must be a non-empty identity")
+    for label, value in (
+        ("provider_id", provider_id),
+        ("interpreter_id", interpreter_id),
+    ):
+        if not value:
+            raise ProjectEvaluationError(f"{label} must be a non-empty versioned identifier")
+    for label, value in (
+        ("environment_sha256", environment_sha256),
+        ("code_sha256", code_sha256),
+    ):
+        _require_digest(value, label)
+    if receipt_sha256 is not None:
+        _require_digest(receipt_sha256, "receipt_sha256")
+
+    resolved = _resolve(request)
+    diff = _git_bytes(
+        request.repo,
+        "diff",
+        "--binary",
+        "--no-ext-diff",
+        resolved.base_sha,
+        resolved.head_sha,
+        "--",
+    )
+    if diff is None:
+        raise ProjectEvaluationError("could not digest the resolved base/head diff")
+    truth_payload: object = None
+    if request.truth is not None:
+        truth_payload = {
+            "fixed_sha": resolved.fixed_sha,
+            "defects": [
+                asdict(defect)
+                for defect in sorted(request.truth.defects, key=lambda item: item.defect_id)
+            ],
+        }
+    config = request.config
+    policy = {
+        "alpha": config.alpha,
+        "budget_usd": config.budget_usd,
+        "k_samples": config.k_samples,
+        "max_findings": config.max_findings,
+        "auto_tighten_alpha": config.auto_tighten_alpha,
+        "tier0_commands": list(config.tier0_commands),
+        "limits": asdict(request.limits),
+        "verification_timeout_s": request.verification_timeout_s,
+        "repeats": request.repeats,
+        "deadline_s": request.deadline_s,
+    }
+    prompt_bundle = {"proposal": SYSTEM_PROMPT, "generator": GENERATOR_SYSTEM}
+    schema_bundle = {"proposal": PROPOSAL_SCHEMA, "generator": REPRO_SCHEMA}
+    return ProjectEvaluationBinding(
+        repository=request.repository,
+        base_sha=resolved.base_sha,
+        head_sha=resolved.head_sha,
+        fixed_sha=resolved.fixed_sha,
+        diff_sha256=hashlib.sha256(diff).hexdigest(),
+        truth_sha256=(
+            ABSENT_BINDING_SHA256 if truth_payload is None else _json_digest(truth_payload)
+        ),
+        receipt_sha256=receipt_sha256 or ABSENT_BINDING_SHA256,
+        policy_sha256=_json_digest(policy),
+        provider_id=provider_id,
+        model_id=config.model,
+        prompt_sha256=_json_digest(prompt_bundle),
+        schema_sha256=_json_digest(schema_bundle),
+        interpreter_id=interpreter_id,
+        environment_sha256=environment_sha256,
+        code_sha256=code_sha256,
+        budget_usd=config.budget_usd,
+    )
+
+
+def freeze_evaluation_request(
+    request: ProjectEvaluationRequest, binding: ProjectEvaluationBinding
+) -> ProjectEvaluationRequest:
+    """Replace movable refs with the SHAs already sealed by a predeclaration."""
+    if binding.repository != request.repository:
+        raise ProjectEvaluationError("binding repository does not match the request")
+    if binding.model_id != request.config.model or binding.budget_usd != request.config.budget_usd:
+        raise ProjectEvaluationError("binding model or budget does not match the request")
+    truth = request.truth
+    frozen_truth = (
+        None
+        if truth is None
+        else replace(truth, fixed_ref=binding.fixed_sha)
+    )
+    return replace(
+        request,
+        base_ref=binding.base_sha,
+        head_ref=binding.head_sha,
+        truth=frozen_truth,
+    )
+
+
 def _resolve(request: ProjectEvaluationRequest) -> _Resolved:
     """Validate identity, repository, and references before any provider use."""
     _require_opaque_case_id(request.case_id)
@@ -323,6 +548,29 @@ def _git(repo: Path, *args: str) -> str | None:
     except (OSError, subprocess.SubprocessError):
         return None
     return completed.stdout if completed.returncode == 0 else None
+
+
+def _git_bytes(repo: Path, *args: str) -> bytes | None:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(repo), *args],
+            capture_output=True,
+            check=False,
+            timeout=GIT_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return completed.stdout if completed.returncode == 0 else None
+
+
+def _require_digest(value: str, label: str) -> None:
+    if _DIGEST_PATTERN.fullmatch(value) is None:
+        raise ProjectEvaluationError(f"{label} must be a lowercase SHA-256 digest")
+
+
+def _json_digest(value: object) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _own_worktree(request: ProjectEvaluationRequest, head_sha: str) -> Path:

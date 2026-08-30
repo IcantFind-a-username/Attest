@@ -31,7 +31,9 @@ deterministic-tool cost -- claims no correctness and is always reported.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import subprocess
 import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -41,7 +43,14 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
-from attest.benchmark.api import ProjectEvaluationRequest, evaluate_project
+from attest.benchmark.api import (
+    ProjectEvaluationRequest,
+    build_evaluation_binding,
+    current_runtime_identity,
+    evaluate_project,
+    freeze_evaluation_request,
+)
+from attest.benchmark.checkpoints import AmbiguousCostError, CheckpointedProvider
 from attest.benchmark.metrics import silence_precision, wilson_interval
 from attest.benchmark.schema import BenchmarkCase, TruthDefect, is_scored_placement
 from attest.review.budget import Budget, BudgetExceeded
@@ -59,6 +68,7 @@ from attest.review.schema import PROPOSAL_SCHEMA, validate_finding
 ARM_PRODUCT = "attest_product"
 ARM_BARE_PROMPT = "bare_prompt"
 ARM_RUFF = "ruff_static"
+COMPARISON_CHECKPOINT_SCHEMA_VERSION = "1"
 
 ARM_DESCRIPTIONS: Mapping[str, str] = {
     ARM_PRODUCT: (
@@ -500,6 +510,9 @@ def compare_arms(
     ruff_executable: str | None,
     line_slack: int = 0,
     clock: Callable[[], float] = time.monotonic,
+    checkpoint_root: Path | None = None,
+    provider_id: str = "comparison-provider-v1",
+    receipt_sha256: str | None = None,
 ) -> ComparisonMeasurements:
     """Run all three arms over every planned case and aggregate per arm.
 
@@ -521,13 +534,41 @@ def compare_arms(
         raise ValueError(
             "the primary comparison requires one identical per-case USD ceiling"
         )
+    if checkpoint_root is not None:
+        runtime = current_runtime_identity()
+        bindings = [
+            build_evaluation_binding(
+                plan.request,
+                provider_id=provider_id,
+                interpreter_id=runtime.interpreter_id,
+                environment_sha256=runtime.environment_sha256,
+                code_sha256=runtime.code_sha256,
+                receipt_sha256=receipt_sha256,
+            )
+            for plan in plans
+        ]
+        predeclaration = {
+            "schema_version": COMPARISON_CHECKPOINT_SCHEMA_VERSION,
+            "line_slack": line_slack,
+            "provider_id": provider_id,
+            "ruff_sha256": _executable_digest(ruff_executable),
+            "bindings": [binding.to_json_dict() for binding in bindings],
+        }
+        _require_comparison_predeclaration(checkpoint_root, predeclaration)
+        plans = tuple(
+            replace(
+                plan,
+                request=freeze_evaluation_request(plan.request, binding),
+            )
+            for plan, binding in zip(plans, bindings, strict=True)
+        )
     runs: list[ArmRun] = []
     for plan in plans:
         defects = () if plan.request.truth is None else plan.request.truth.defects
-        product_run = _product_arm(plan, provider_factory, clock)
+        product_run = _product_arm(plan, provider_factory, clock, checkpoint_root)
         runs.append(_with_matches(product_run, defects, line_slack))
         bare_run, ruff_run = _baseline_arms(
-            plan, bare_provider_factory, ruff_executable, clock
+            plan, bare_provider_factory, ruff_executable, clock, checkpoint_root
         )
         runs.append(_with_matches(bare_run, defects, line_slack))
         runs.append(_with_matches(ruff_run, defects, line_slack))
@@ -548,17 +589,73 @@ def compare_arms(
     )
 
 
+def _require_comparison_predeclaration(
+    root: Path, expected: Mapping[str, object]
+) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "comparison.json"
+    if path.exists():
+        try:
+            stored = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError("comparison predeclaration is unreadable") from exc
+        version = stored.get("schema_version") if isinstance(stored, dict) else None
+        if version != COMPARISON_CHECKPOINT_SCHEMA_VERSION:
+            raise ValueError(
+                f"unsupported comparison checkpoint schema version {version!r}; supported "
+                f"version is {COMPARISON_CHECKPOINT_SCHEMA_VERSION}. Use the compatible "
+                "reader and retain call state; never coerce old rows."
+            )
+        if stored != expected:
+            raise ValueError(
+                "comparison predeclaration does not match this configuration; drift is "
+                "refused before provider execution"
+            )
+        return
+    encoded = json.dumps(expected, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_bytes(encoded + b"\n")
+    os.replace(temporary, path)
+
+
+def _executable_digest(executable: str | None) -> str | None:
+    if executable is None:
+        return None
+    try:
+        return hashlib.sha256(Path(executable).read_bytes()).hexdigest()
+    except OSError as exc:
+        raise ValueError(f"static-tool executable {executable!r} is unreadable") from exc
+
+
 def _product_arm(
     plan: ComparisonPlan,
     provider_factory: Callable[[ProjectEvaluationRequest], Provider],
     clock: Callable[[], float],
+    checkpoint_root: Path | None,
 ) -> ArmRun:
     request = plan.request
-    meter = _MeteredProvider(provider_factory(request))
+    inner = provider_factory(request)
+    checkpointed = (
+        None
+        if checkpoint_root is None
+        else CheckpointedProvider(
+            inner,
+            root=checkpoint_root / ARM_PRODUCT / request.case_id,
+            trial_id=f"comparison:{ARM_PRODUCT}:{request.case_id}",
+            model_id=request.config.model,
+        )
+    )
+    meter = _MeteredProvider(inner if checkpointed is None else checkpointed)
     started = clock()
     try:
         result = evaluate_project(request, provider=meter, clock=clock)
+        if checkpointed is not None:
+            checkpointed.raise_if_ambiguous()
+    except AmbiguousCostError:
+        raise
     except Exception as exc:  # noqa: BLE001 - a failed product run is a DEFER
+        if checkpointed is not None:
+            checkpointed.raise_if_ambiguous()
         return ArmRun(
             arm=ARM_PRODUCT,
             case_id=request.case_id,
@@ -612,19 +709,33 @@ def _baseline_arms(
     bare_provider_factory: Callable[[str], Provider],
     ruff_executable: str | None,
     clock: Callable[[], float],
+    checkpoint_root: Path | None,
 ) -> tuple[ArmRun, ArmRun]:
     request = plan.request
     role = plan.case.role
     try:
         with _materialized_diff(request) as (worktree, diff):
+            inner = bare_provider_factory(request.case_id)
+            checkpointed = (
+                None
+                if checkpoint_root is None
+                else CheckpointedProvider(
+                    inner,
+                    root=checkpoint_root / ARM_BARE_PROMPT / request.case_id,
+                    trial_id=f"comparison:{ARM_BARE_PROMPT}:{request.case_id}",
+                    model_id=request.config.model,
+                )
+            )
             bare = BarePromptBaseline(
-                bare_provider_factory(request.case_id), clock=clock
+                inner if checkpointed is None else checkpointed, clock=clock
             ).evaluate(
                 case_id=request.case_id,
                 role=role,
                 diff=diff,
                 config=request.config,
             )
+            if checkpointed is not None:
+                checkpointed.raise_if_ambiguous()
             ruff = RuffBaseline(ruff_executable, clock=clock).evaluate(
                 case_id=request.case_id,
                 role=role,
@@ -632,6 +743,8 @@ def _baseline_arms(
                 worktree=worktree,
             )
         return bare, ruff
+    except AmbiguousCostError:
+        raise
     except Exception as exc:  # noqa: BLE001 - an unpreparable case is a DEFER
         reason = f"diff_unavailable: {type(exc).__name__}"
         return (

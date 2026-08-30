@@ -626,11 +626,34 @@ class AcceptanceService:
         if not isinstance(run_id, int):
             raise AcceptanceError("workflow run metadata is missing databaseId")
         try:
-            self.runner.run(
+            watched = self.runner.run(
                 ("gh", "run", "watch", str(run_id), "--repo", repository, "--exit-status")
             )
         except FileNotFoundError:
             raise AcceptanceError("required executable is unavailable: gh") from None
+        if watched.returncode != 0:
+            raise AcceptanceError(
+                f"workflow run {run_id} failed with process exit {watched.returncode}"
+            )
+        completion = self._json_command(
+            (
+                "gh",
+                "run",
+                "view",
+                str(run_id),
+                "--repo",
+                repository,
+                "--json",
+                "status,conclusion",
+            ),
+            "workflow conclusion",
+        )
+        status = completion.get("status")
+        conclusion = completion.get("conclusion")
+        if status != "completed" or conclusion != "success":
+            raise AcceptanceError(
+                f"workflow run {run_id} has status {status!r} and conclusion {conclusion}"
+            )
 
         destination = artifact_root / str(run_id)
         self.filesystem.mkdir(destination)

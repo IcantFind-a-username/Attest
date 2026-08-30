@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -809,6 +810,7 @@ def _replay_plan(
     limits = ExecutorLimits(wall_timeout_s=args.wall_timeout)
     workspace_root = args.workspace or (args.output / "workspace")
     runtimes = {row.case_id: row for row in manifest.runtime}
+    sources = {row.source_id: row for row in manifest.sources}
     truths: dict[str, tuple[Any, ...]] = {}
     for truth in manifest.truth_defects:
         truths[truth.case_id] = (*truths.get(truth.case_id, ()), truth)
@@ -853,6 +855,7 @@ def _replay_plan(
                     if case.case_id in truths
                     else None
                 ),
+                repository=_repository_identity(sources, case.source_id, repo),
             )
         )
     return requests, cassettes, exclusions
@@ -865,6 +868,16 @@ def _base_ref(case: BenchmarkCase) -> str:
 
 def _head_ref(case: BenchmarkCase) -> str:
     return case.buggy_commit if case.role == "historical_bug_replay" else case.fixed_commit
+
+
+def _repository_identity(
+    sources: dict[str, Any], source_id: str, repo: Path
+) -> str:
+    """Use manifest provenance when present, otherwise bind the prepared checkout."""
+    source = sources.get(source_id)
+    if source is not None:
+        return str(source.project_url)
+    return f"local:{repo.resolve()}"
 
 
 def _exclusion_reason(result: ProjectEvaluationResult) -> str:
@@ -917,6 +930,11 @@ def _stability(args: argparse.Namespace) -> dict[str, object]:
         deadline_s=args.deadline,
         line_slack=args.line_slack,
         truth=None,
+        repository=_repository_identity(
+            {source.source_id: source for source in manifest.sources},
+            case.source_id,
+            repo,
+        ),
     )
     state_dir = args.state_dir or (args.output / "state")
     result = run_stability_study(
@@ -979,6 +997,17 @@ def _compare(args: argparse.Namespace) -> dict[str, object]:
         bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
         ruff_executable=ruff_executable,
         line_slack=args.line_slack,
+        checkpoint_root=args.output / "state" / "comparison-calls",
+        provider_id="replay-cassette-v1",
+        receipt_sha256=(
+            None
+            if receipt is None
+            else hashlib.sha256(
+                json.dumps(asdict(receipt), sort_keys=True, separators=(",", ":")).encode(
+                    "utf-8"
+                )
+            ).hexdigest()
+        ),
     )
     report = build_comparison_report(
         manifest,
@@ -1137,6 +1166,7 @@ def _live_plan(
     limits = ExecutorLimits(wall_timeout_s=args.wall_timeout)
     workspace_root = args.workspace or (args.output / "workspace")
     runtimes = {row.case_id: row for row in manifest.runtime}
+    sources = {row.source_id: row for row in manifest.sources}
     truths: dict[str, tuple[Any, ...]] = {}
     for truth in manifest.truth_defects:
         truths[truth.case_id] = (*truths.get(truth.case_id, ()), truth)
@@ -1188,6 +1218,7 @@ def _live_plan(
                         if case.case_id in truths
                         else None
                     ),
+                    repository=_repository_identity(sources, case.source_id, repo),
                 ),
                 source_id=case.source_id,
             )
