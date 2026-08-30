@@ -881,6 +881,45 @@ def test_comparison_report_rejects_invalid_frozen_evaluation_binding(
         )
 
 
+def test_comparison_report_rejects_coordinated_model_identity_rewrite(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    checkpoint_root = tmp_path / "calls"
+    measurements = compare_arms(
+        [plans[0]],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=checkpoint_root,
+    )
+    declaration_path = checkpoint_root / "comparison.json"
+    declaration = json.loads(declaration_path.read_text(encoding="utf-8"))
+    declaration["bindings"][0]["binding"]["model_id"] = "claude-opus-5"
+    for row in declaration["paid_trials"]:
+        row["model_id"] = "claude-opus-5"
+    declaration_path.write_text(json.dumps(declaration) + "\n", encoding="utf-8")
+    tampered = replace(
+        measurements,
+        runs=tuple(
+            replace(run, model_id="claude-opus-5")
+            if run.arm != ARM_RUFF
+            else run
+            for run in measurements.runs
+        ),
+    )
+
+    with pytest.raises(
+        ValueError, match="binding|model|checkpoint|evidence|authority|reconciliation"
+    ):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            tampered,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
 def test_comparison_report_rejects_orphan_paid_call_roots(
     tmp_path: Path,
 ) -> None:

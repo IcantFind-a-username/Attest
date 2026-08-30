@@ -475,6 +475,9 @@ def run_live_local(
         line_slack,
         bindings,
     )
+    call_binding_sha256 = hashlib.sha256(
+        _canonical_bytes(predeclaration)
+    ).hexdigest()
     run_dir = state_dir / run_id
     run_path = run_dir / "run.json"
     if resume:
@@ -522,6 +525,7 @@ def run_live_local(
             evaluator=evaluator,
             environment=environment,
             interpreter=interpreter_by_source.get(live_case.source_id),
+            call_binding_sha256=call_binding_sha256,
             on_transition=on_transition,
             on_call_transition=on_call_transition,
         )
@@ -580,6 +584,7 @@ def _advance_case(
     evaluator: Callable[[ProjectEvaluationRequest, Provider], ProjectEvaluationResult],
     environment: MutableMapping[str, str],
     interpreter: str | None,
+    call_binding_sha256: str,
     on_transition: Callable[[str, str], None] | None,
     on_call_transition: Callable[[str, str, str], None] | None,
 ) -> tuple[_Checkpoint, bool]:
@@ -601,6 +606,7 @@ def _advance_case(
             root=run_dir / "calls" / case_id,
             trial_id=f"{run_dir.name}:{case_id}",
             model_id=request.config.model,
+            binding_sha256=call_binding_sha256,
             on_transition=(
                 None
                 if on_call_transition is None
@@ -636,7 +642,13 @@ def _advance_case(
             case_id,
             spend,
             oracle_spend,
-            _required_paid_calls(run_dir, case_id, payload, request.config.model),
+            _required_paid_calls(
+                run_dir,
+                case_id,
+                payload,
+                request.config.model,
+                call_binding_sha256,
+            ),
         )
         checkpoint = replace(checkpoint, state=STATE_SETTLED)
         _commit(run_dir, checkpoint, on_transition)
@@ -647,7 +659,13 @@ def _advance_case(
             case_id,
             spend,
             oracle_spend,
-            _required_paid_calls(run_dir, case_id, payload, request.config.model),
+            _required_paid_calls(
+                run_dir,
+                case_id,
+                payload,
+                request.config.model,
+                call_binding_sha256,
+            ),
         )
     return checkpoint, ran
 
@@ -725,6 +743,7 @@ def _required_paid_calls(
     case_id: str,
     payload: Mapping[str, object],
     model_id: str,
+    binding_sha256: str,
 ) -> tuple[dict[str, object], ...]:
     raw = payload.get("paid_calls")
     if not isinstance(raw, list):
@@ -795,6 +814,7 @@ def _required_paid_calls(
         root=run_dir / "calls" / case_id,
         trial_id=f"{run_dir.name}:{case_id}",
         model_id=model_id,
+        binding_sha256=binding_sha256,
     )
     authoritative_calls = tuple(
         _live_paid_call_records(case_id, checkpointed.reconciliation_records())

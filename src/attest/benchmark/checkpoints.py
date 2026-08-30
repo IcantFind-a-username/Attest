@@ -21,9 +21,9 @@ from attest.review.budget import CHARS_PER_TOKEN
 from attest.review.config import load_pricing
 from attest.review.proposer import Provider, ProviderResult
 
-CALL_CHECKPOINT_SCHEMA_VERSION = "2"
-CALL_ARTIFACT_SCHEMA_VERSION = "1"
-CALL_COST_SCHEMA_VERSION = "1"
+CALL_CHECKPOINT_SCHEMA_VERSION = "3"
+CALL_ARTIFACT_SCHEMA_VERSION = "2"
+CALL_COST_SCHEMA_VERSION = "2"
 STATE_RESERVED = "reserved"
 STATE_DISPATCHED = "dispatched"
 STATE_RESPONSE_PERSISTED = "response_persisted"
@@ -55,10 +55,13 @@ class CheckpointedProvider:
         root: Path,
         trial_id: str,
         model_id: str,
+        binding_sha256: str,
         on_transition: Callable[[str, str], None] | None = None,
     ) -> None:
         if not trial_id:
             raise ValueError("trial_id must be non-empty")
+        if _DIGEST_PATTERN.fullmatch(binding_sha256) is None:
+            raise ValueError("binding_sha256 must be a lowercase SHA-256 digest")
         pricing = load_pricing()
         try:
             model = pricing["models"][model_id]
@@ -69,6 +72,8 @@ class CheckpointedProvider:
         self._inner = inner
         self._root = root
         self._trial_id = trial_id
+        self._model_id = model_id
+        self._binding_sha256 = binding_sha256
         self._on_transition = on_transition
         self._calls_dir = root / "calls"
         self._artifacts_dir = root / "artifacts"
@@ -146,6 +151,8 @@ class CheckpointedProvider:
                 "trial_id": self._trial_id,
                 "call_id": call_id,
                 "ordinal": ordinal,
+                "model_id": self._model_id,
+                "binding_sha256": self._binding_sha256,
                 "request_sha256": request_sha256,
                 "state": STATE_RESERVED,
                 "reserved_usd": (
@@ -333,6 +340,8 @@ class CheckpointedProvider:
             "trial_id": checkpoint["trial_id"],
             "call_id": checkpoint["call_id"],
             "ordinal": checkpoint["ordinal"],
+            "model_id": checkpoint["model_id"],
+            "binding_sha256": checkpoint["binding_sha256"],
             "request_sha256": checkpoint["request_sha256"],
             "outcome": outcome,
             "reserved_usd": checkpoint["reserved_usd"],
@@ -369,6 +378,8 @@ class CheckpointedProvider:
             "trial_id": checkpoint["trial_id"],
             "call_id": checkpoint["call_id"],
             "ordinal": checkpoint["ordinal"],
+            "model_id": checkpoint["model_id"],
+            "binding_sha256": checkpoint["binding_sha256"],
             "request_sha256": checkpoint["request_sha256"],
         }
         if not isinstance(artifact, dict) or any(
@@ -415,6 +426,8 @@ class CheckpointedProvider:
             "trial_id": checkpoint["trial_id"],
             "call_id": checkpoint["call_id"],
             "ordinal": checkpoint["ordinal"],
+            "model_id": checkpoint["model_id"],
+            "binding_sha256": checkpoint["binding_sha256"],
             "outcome": (
                 outcome
                 if outcome is not None
@@ -489,6 +502,8 @@ class CheckpointedProvider:
                 row.get("schema_version") != CALL_COST_SCHEMA_VERSION
                 or row.get("trial_id") != checkpoint["trial_id"]
                 or row.get("ordinal") != checkpoint["ordinal"]
+                or row.get("model_id") != checkpoint["model_id"]
+                or row.get("binding_sha256") != checkpoint["binding_sha256"]
                 or row.get("artifact_path")
                 != artifact_path.relative_to(self._root).as_posix()
                 or row.get("artifact_sha256") != artifact_sha256
@@ -550,6 +565,13 @@ class CheckpointedProvider:
             raise ValueError(
                 f"call checkpoint {path.name} identity does not match its trial, ordinal, "
                 "and artifact path"
+            )
+        if (
+            raw.get("model_id") != self._model_id
+            or raw.get("binding_sha256") != self._binding_sha256
+        ):
+            raise ValueError(
+                f"call checkpoint {path.name} model or predeclaration binding drifted"
             )
         request_sha256 = raw.get("request_sha256")
         if not isinstance(request_sha256, str) or _DIGEST_PATTERN.fullmatch(

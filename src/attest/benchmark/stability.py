@@ -485,6 +485,11 @@ def run_stability_study(
     predeclaration = _predeclaration(
         request, manifest_sha256, line_slack, provider_label, binding.to_json_dict()
     )
+    call_binding_sha256 = hashlib.sha256(
+        json.dumps(predeclaration, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
+    ).hexdigest()
     state_dir.mkdir(parents=True, exist_ok=True)
     study_path = state_dir / "study.json"
     if study_path.exists():
@@ -518,6 +523,7 @@ def run_stability_study(
                 root=state_dir / f"repeat-{repeat}-calls",
                 trial_id=f"{request.case_id}:repeat-{repeat}",
                 model_id=request.config.model,
+                binding_sha256=call_binding_sha256,
             )
             records = checkpointed.reconciliation_records()
             call_count, call_evidence_sha256 = _call_evidence_binding(records)
@@ -547,6 +553,7 @@ def run_stability_study(
                 root=state_dir / f"repeat-{repeat}-calls",
                 trial_id=f"{request.case_id}:repeat-{repeat}",
                 model_id=request.config.model,
+                binding_sha256=call_binding_sha256,
                 on_transition=transition,
             )
             observation = _observe(request, repeat, checkpointed, clock)

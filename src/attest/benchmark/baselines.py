@@ -614,6 +614,7 @@ def compare_arms(
         raise ValueError(
             "the primary comparison requires one identical per-case USD ceiling"
         )
+    comparison_binding_sha256: str | None = None
     if checkpoint_root is not None:
         runtime = current_runtime_identity()
         bindings = [
@@ -651,6 +652,7 @@ def compare_arms(
             ],
         }
         _require_comparison_predeclaration(checkpoint_root, predeclaration)
+        comparison_binding_sha256 = _json_mapping_sha256(predeclaration)
         plans = tuple(
             replace(
                 plan,
@@ -661,10 +663,21 @@ def compare_arms(
     runs: list[ArmRun] = []
     for plan in plans:
         defects = () if plan.request.truth is None else plan.request.truth.defects
-        product_run = _product_arm(plan, provider_factory, clock, checkpoint_root)
+        product_run = _product_arm(
+            plan,
+            provider_factory,
+            clock,
+            checkpoint_root,
+            comparison_binding_sha256,
+        )
         runs.append(_with_matches(product_run, defects, line_slack))
         bare_run, ruff_run = _baseline_arms(
-            plan, bare_provider_factory, ruff_executable, clock, checkpoint_root
+            plan,
+            bare_provider_factory,
+            ruff_executable,
+            clock,
+            checkpoint_root,
+            comparison_binding_sha256,
         )
         runs.append(_with_matches(bare_run, defects, line_slack))
         runs.append(_with_matches(ruff_run, defects, line_slack))
@@ -868,6 +881,7 @@ def _checkpointed_comparison_provider(
     arm: str,
     case_id: str,
     model_id: str,
+    binding_sha256: str,
 ) -> tuple[CheckpointedProvider, Path, dict[str, object]]:
     path, stored, fresh = _prepare_comparison_reconciliation(
         checkpoint_root, arm, case_id
@@ -878,6 +892,7 @@ def _checkpointed_comparison_provider(
             root=checkpoint_root / arm / case_id,
             trial_id=f"comparison:{arm}:{case_id}",
             model_id=model_id,
+            binding_sha256=binding_sha256,
         )
     except ValueError as exc:
         raise ComparisonEvidenceError(
@@ -975,7 +990,7 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
         raise ComparisonEvidenceError(
             "comparison report has no authoritative checkpoint root"
         )
-    paid_trials, declared_line_slack, declared_budget = (
+    paid_trials, declared_line_slack, declared_budget, binding_sha256 = (
         _comparison_predeclared_paid_trials(
             measurements.checkpoint_root
         )
@@ -1058,6 +1073,7 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
                 root=measurements.checkpoint_root / run.arm / run.case_id,
                 trial_id=expected_trial,
                 model_id=expected_model,
+                binding_sha256=binding_sha256,
             )
         except ValueError as exc:
             raise ComparisonEvidenceError(
@@ -1080,7 +1096,7 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
 
 def _comparison_predeclared_paid_trials(
     root: Path,
-) -> tuple[dict[tuple[str, str], tuple[str, str]], int, float]:
+) -> tuple[dict[tuple[str, str], tuple[str, str]], int, float, str]:
     path = root / "comparison.json"
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -1167,7 +1183,12 @@ def _comparison_predeclared_paid_trials(
         raise ComparisonEvidenceError(
             "comparison paid trials do not exactly cover frozen bindings"
         )
-    return normalized, line_slack, next(iter(budgets), 0.0)
+    return (
+        normalized,
+        line_slack,
+        next(iter(budgets), 0.0),
+        _json_mapping_sha256(raw),
+    )
 
 
 def _validated_frozen_evaluation_binding(
@@ -1221,6 +1242,11 @@ def _is_sha256(value: object) -> bool:
         and len(value) == 64
         and all(character in "0123456789abcdef" for character in value)
     )
+
+
+def _json_mapping_sha256(value: Mapping[str, object]) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _comparison_reconciliation_keys(root: Path) -> set[tuple[str, str]]:
@@ -1294,17 +1320,20 @@ def _product_arm(
     provider_factory: Callable[[ProjectEvaluationRequest], Provider],
     clock: Callable[[], float],
     checkpoint_root: Path | None,
+    binding_sha256: str | None,
 ) -> ArmRun:
     request = plan.request
     inner = provider_factory(request)
     reconciliation: tuple[CheckpointedProvider, Path, dict[str, object]] | None = None
     if checkpoint_root is not None:
+        assert binding_sha256 is not None
         reconciliation = _checkpointed_comparison_provider(
             inner,
             checkpoint_root=checkpoint_root,
             arm=ARM_PRODUCT,
             case_id=request.case_id,
             model_id=request.config.model,
+            binding_sha256=binding_sha256,
         )
     meter = _MeteredProvider(
         inner
@@ -1382,6 +1411,7 @@ def _baseline_arms(
     ruff_executable: str | None,
     clock: Callable[[], float],
     checkpoint_root: Path | None,
+    binding_sha256: str | None,
 ) -> tuple[ArmRun, ArmRun]:
     request = plan.request
     role = plan.case.role
@@ -1393,12 +1423,14 @@ def _baseline_arms(
                 CheckpointedProvider, Path, dict[str, object]
             ] | None = None
             if checkpoint_root is not None:
+                assert binding_sha256 is not None
                 reconciliation = _checkpointed_comparison_provider(
                     inner,
                     checkpoint_root=checkpoint_root,
                     arm=ARM_BARE_PROMPT,
                     case_id=request.case_id,
                     model_id=request.config.model,
+                    binding_sha256=binding_sha256,
                 )
             bare = BarePromptBaseline(
                 inner

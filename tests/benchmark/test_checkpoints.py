@@ -52,13 +52,16 @@ def _wrapper(
     inner: _Provider,
     root: Path,
     *,
+    model_id: str = "claude-sonnet-5",
+    binding_sha256: str = "a" * 64,
     on_transition: Any = None,
 ) -> CheckpointedProvider:
     return CheckpointedProvider(
         inner,
         root=root,
         trial_id="trial-1",
-        model_id="claude-sonnet-5",
+        model_id=model_id,
+        binding_sha256=binding_sha256,
         on_transition=on_transition,
     )
 
@@ -94,6 +97,8 @@ def test_completed_call_reconciles_trial_spend_and_artifact_one_to_one(
     assert len(records) == 1
     assert records[0]["trial_id"] == "trial-1"
     assert records[0]["call_id"] == "trial-1:0"
+    assert records[0]["model_id"] == "claude-sonnet-5"
+    assert records[0]["binding_sha256"] == "a" * 64
     assert records[0]["outcome"] == "settled"
     assert records[0]["cost_usd"] > 0
     assert records[0]["artifact_path"] == "artifacts/000000.json"
@@ -241,8 +246,29 @@ def test_old_checkpoint_schema_fails_with_actionable_version_message(tmp_path: P
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="unsupported.*schema version.*0.*supported.*2"):
+    with pytest.raises(ValueError, match="unsupported.*schema version.*0.*supported.*3"):
         _wrapper(_Provider(), tmp_path)
+
+
+@pytest.mark.parametrize(
+    "changed",
+    ("model", "binding"),
+)
+def test_terminal_call_rejects_model_or_predeclaration_drift(
+    tmp_path: Path, changed: str
+) -> None:
+    _sample(_wrapper(_Provider(), tmp_path))
+    resumed = _Provider()
+
+    with pytest.raises(ValueError, match="model|predeclaration|binding"):
+        _wrapper(
+            resumed,
+            tmp_path,
+            model_id=("claude-opus-5" if changed == "model" else "claude-sonnet-5"),
+            binding_sha256=("b" * 64 if changed == "binding" else "a" * 64),
+        )
+
+    assert resumed.calls == 0
 
 
 def test_call_identity_must_match_trial_ordinal_and_artifact_path(tmp_path: Path) -> None:
