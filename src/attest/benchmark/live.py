@@ -50,7 +50,11 @@ from attest.benchmark.api import (
     ProjectEvaluationResult,
     evaluate_project,
 )
-from attest.benchmark.corpus import ValidationReceipt
+from attest.benchmark.corpus import (
+    ValidationReceipt,
+    ValidationReceiptV2,
+    ValidationVerification,
+)
 from attest.benchmark.matcher import match_findings
 from attest.benchmark.metrics import wilson_interval
 from attest.benchmark.report import (
@@ -72,7 +76,7 @@ from attest.benchmark.schema import (
 from attest.review.proposer import Provider
 
 LIVE_SCHEMA_VERSION = "1"
-CALIBRATION_SCHEMA_VERSION = "1"
+CALIBRATION_SCHEMA_VERSION = "2"
 CALIBRATION_JSON_NAME = "calibration.json"
 CALIBRATION_MARKDOWN_NAME = "calibration.md"
 
@@ -377,7 +381,9 @@ def run_live_local(
     resume: bool = False,
     interpreters: Mapping[str, str] | None = None,
     exclusions: Iterable[ReportExclusion] = (),
-    validation_receipt: ValidationReceipt | None = None,
+    validation_receipt: (
+        ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None
+    ) = None,
     line_slack: int = 0,
     globally_labeled_findings: int | None = None,
     evaluate: (
@@ -804,6 +810,7 @@ class CalibrationReport:
             "abstained_cases": underlying["abstained_cases"],
             "excluded_cases": underlying["excluded_cases"],
             "evidence_class_counts": underlying["evidence_class_counts"],
+            "validation_authority": underlying["validation_authority"],
             "accuracy": (
                 None if self.accuracy_withheld_reason is not None else underlying["metrics"]
             ),
@@ -830,7 +837,9 @@ def build_calibration_report(
     manifest_sha256: str,
     preregistration_sha256: str,
     exclusions: Iterable[ReportExclusion] = (),
-    validation_receipt: ValidationReceipt | None = None,
+    validation_receipt: (
+        ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None
+    ) = None,
     differential_repeats: int = 0,
     line_slack: int = 0,
     globally_labeled_findings: int | None = None,

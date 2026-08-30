@@ -9,6 +9,9 @@ gate.
 
 - [`2026-08-30-evolution-scaffold.md`](2026-08-30-evolution-scaffold.md) — F-00 /
   `G-DOC-001` construction-scaffold acceptance.
+- [`2026-08-30-m02-validation-receipts.md`](2026-08-30-m02-validation-receipts.md) —
+  M-02 receipt evidence/authority implementation; `G-MEASURE-002` and `G-CODE-002`
+  pass, while the work order remains `BLOCKED BY EVIDENCE` on `G-CODE-001`.
 - [`phase-3.md`](phase-3.md) — historical planted-fixture GitHub Action integration smoke.
   It predates the complete evidence-bundle and workflow-exit requirements.
 

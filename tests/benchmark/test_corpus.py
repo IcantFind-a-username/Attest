@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from attest.benchmark.artifacts import MAX_BOUNDED_ARTIFACT_BYTES, ArtifactStore
 from attest.benchmark.corpus import (
     IsolationAdapter,
     IsolationError,
@@ -31,6 +32,8 @@ from attest.benchmark.schema import (
     normalize_unified_diff_bytes,
     verify_descriptor_bytes,
 )
+
+from ._validation_v2 import KEY_ID, ValidationV2Bundle, build_validation_v2_bundle
 
 _MIT = """MIT License
 
@@ -637,16 +640,27 @@ def test_import_does_not_copy_third_party_artifacts(tmp_path: Path) -> None:
     ]
 
 
-def _oracle_fixture(tmp_path: Path) -> tuple[Path, Path, str]:
+def _oracle_fixture(
+    tmp_path: Path, *, failure_message_size: int = 0, missing_dependency: bool = False
+) -> tuple[Path, Path, str]:
     upstream = tmp_path / "upstream"
     upstream.mkdir()
     _git(upstream, "init", "-q")
     _git(upstream, "config", "user.email", "fixture@example.invalid")
     _git(upstream, "config", "user.name", "Fixture")
     (upstream / "calc.py").write_text("def value():\n    return 0\n")
-    (upstream / "test_calc.py").write_text(
-        "from calc import value\n\ndef test_value():\n    assert value() == 1\n"
+    failure_message = (
+        f", {'x' * failure_message_size!r}" if failure_message_size else ""
     )
+    test_source = (
+        "import attest_missing_dependency\n"
+        if missing_dependency
+        else (
+            "from calc import value\n\ndef test_value():\n"
+            f"    assert value() == 1{failure_message}\n"
+        )
+    )
+    (upstream / "test_calc.py").write_text(test_source)
     _git(upstream, "add", ".")
     _git(upstream, "commit", "-qm", "buggy")
     buggy_commit = _git(upstream, "rev-parse", "HEAD")
@@ -741,9 +755,10 @@ def _oracle_fixture(tmp_path: Path) -> tuple[Path, Path, str]:
 
 
 def test_validate_corpus_requires_three_real_fixed_passes_and_stable_buggy_failures(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A one-off or non-differential test result must not become benchmark truth."""
+    monkeypatch.setenv("LANG", "M02_ENVIRONMENT_SENTINEL")
     manifest, root, source_id = _oracle_fixture(tmp_path)
     runner = SubprocessCorpusRunner(
         interpreters={source_id: (sys.executable,)},
@@ -752,7 +767,15 @@ def test_validate_corpus_requires_three_real_fixed_passes_and_stable_buggy_failu
         isolation=_sandbox_isolation(),
     )
 
-    report = validate_corpus(manifest, root, runner)
+    artifact_root = tmp_path / "issued-validation-artifacts"
+    report = validate_corpus(
+        manifest,
+        root,
+        runner,
+        artifact_store=ArtifactStore(artifact_root),
+        provenance_key_id=KEY_ID,
+        provenance_key=b"test-only-local-validation-authority-key",
+    )
 
     assert report["validated_pairs"] == 1
     assert report["excluded_pairs"] == 0
@@ -766,16 +789,429 @@ def test_validate_corpus_requires_three_real_fixed_passes_and_stable_buggy_failu
     assert report["corpus_valid"] is True
     assert report["validation_status"] == "valid"
     assert report["scorable"] is True
+    assert report["receipt"]["schema_version"] == "2"
     assert report["receipt"]["validated_pair_ids"] == ["pair-222222222222"]
     assert report["receipt"]["manifest_sha256"] == __import__("hashlib").sha256(
         manifest.read_bytes()
     ).hexdigest()
+    results_path = tmp_path / "issued-validation-results.json"
+    receipt_path = tmp_path / "issued-validation-receipt.json"
+    _write_canonical_json(results_path, report["validation_results"])
+    _write_canonical_json(receipt_path, report["receipt"])
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    verification = verify_validation_receipt(
+        receipt_path,
+        manifest,
+        results_path,
+        artifact_root,
+        authorized_provenance_keys={
+            KEY_ID: b"test-only-local-validation-authority-key"
+        },
+    )
+    assert verification.authority == "current_scoring_authority", verification.to_json_dict()
+    assert len(verification.results[0].attempts[0].runs) == 6
+    environment_record = dict(verification.results[0].attempts[0].runs[0].artifacts)[
+        "environment"
+    ]
+    environment = json.loads((artifact_root / environment_record.name).read_text())
+    assert environment["variables"]["LANG"] == "M02_ENVIRONMENT_SENTINEL"
 
 
-def test_validation_receipt_is_manifest_bound_and_only_allows_validated_pairs(
+def test_validate_corpus_preserves_signature_through_stdout_bound(tmp_path: Path) -> None:
+    """Bounded stdout retains a digest marker for the failure-defining lines."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    outcomes = [RunOutcome(0, b"1 passed\n", False)] * 3 + [
+        RunOutcome(1, b"FAILED test_calc.py::test_value\n" + b"x" * 512, False)
+    ] * 3
+
+    report = validate_corpus(
+        manifest,
+        root,
+        _SequenceRunner(outcomes),
+        artifact_store=ArtifactStore(tmp_path / "bounded-artifacts", max_bounded_bytes=64),
+    )
+
+    result = report["validation_results"]["results"][0]
+    assert result["status"] == "validated"
+    buggy_runs = result["attempts"][0]["runs"][3:]
+    signatures = {run["failure_signature"] for run in buggy_runs}
+    assert len(signatures) == 1
+    stdout_name = buggy_runs[0]["artifacts"]["stdout"]["name"]
+    assert (tmp_path / "bounded-artifacts" / stdout_name).read_bytes().startswith(
+        b"FAILED attest:"
+    )
+
+
+def test_validate_corpus_preserves_dependency_classification_through_stdout_bound(
     tmp_path: Path,
 ) -> None:
-    """Downstream evaluators must not score excluded pairs or a changed manifest."""
+    """A truncated dependency failure remains an exclusion after offline verification."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    dependency_output = (
+        b"ModuleNotFoundError: missing_dependency\n"
+        + b"x" * 512
+        + b"\nFAILED test_calc.py::test_value\n"
+    )
+    artifact_root = tmp_path / "bounded-dependency-artifacts"
+    report = validate_corpus(
+        manifest,
+        root,
+        _SequenceRunner(
+            [RunOutcome(0, b"1 passed\n", False)] * 3
+            + [RunOutcome(1, dependency_output, False)] * 3
+        ),
+        artifact_store=ArtifactStore(artifact_root, max_bounded_bytes=64),
+    )
+
+    result = report["validation_results"]["results"][0]
+    assert result["status"] == "excluded"
+    assert result["exclusion_reason"] == "dependency_or_setup_failure"
+    buggy_runs = result["attempts"][0]["runs"][3:]
+    stdout_name = buggy_runs[0]["artifacts"]["stdout"]["name"]
+    assert (artifact_root / stdout_name).read_bytes().startswith(b"DEPENDENCY attest\n")
+
+    from attest.benchmark.corpus import (
+        _validation_receipt_v2,
+        verify_validation_receipt,
+    )
+
+    results_path = tmp_path / "bounded-dependency-validation-results.json"
+    receipt_path = tmp_path / "bounded-dependency-validation-receipt.json"
+    _write_canonical_json(results_path, report["validation_results"])
+    receipt = _validation_receipt_v2(
+        hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        results_path.read_bytes(),
+        hashlib.sha256((artifact_root / "artifacts.json").read_bytes()).hexdigest(),
+        [],
+        KEY_ID,
+        b"test-only-local-validation-authority-key",
+    )
+    _write_canonical_json(receipt_path, receipt)
+
+    verification = verify_validation_receipt(
+        receipt_path,
+        manifest,
+        results_path,
+        artifact_root,
+        authorized_provenance_keys={
+            KEY_ID: b"test-only-local-validation-authority-key"
+        },
+    )
+
+    assert verification.integrity.accepted is True
+    assert verification.provenance.accepted is True
+    assert "validation_results.results[0].exclusion_reason" not in (
+        verification.semantic_policy.failure_paths
+    )
+
+
+def test_validate_corpus_issues_provenance_bound_all_excluded_receipt(
+    tmp_path: Path,
+) -> None:
+    """Real exclusion attempts are signed even when no pair earns scoring authority."""
+    manifest, root, source_id = _oracle_fixture(tmp_path, missing_dependency=True)
+    artifact_root = tmp_path / "excluded-artifacts"
+    runner = SubprocessCorpusRunner(
+        interpreters={source_id: (sys.executable,)},
+        timeout_s=10,
+        max_output_bytes=16_384,
+        isolation=_sandbox_isolation(),
+    )
+    report = validate_corpus(
+        manifest,
+        root,
+        runner,
+        artifact_store=ArtifactStore(artifact_root),
+        provenance_key_id=KEY_ID,
+        provenance_key=b"test-only-local-validation-authority-key",
+    )
+
+    assert report["validated_pairs"] == 0
+    assert report["excluded_pairs"] == 1
+    assert report["scorable"] is False
+    assert report["receipt"]["validated_pair_ids"] == []
+    result = report["validation_results"]["results"][0]
+    assert result["exclusion_reason"] == "dependency_or_setup_failure"
+    assert len(result["attempts"][0]["runs"]) == 1
+
+    results_path = tmp_path / "excluded-validation-results.json"
+    receipt_path = tmp_path / "excluded-validation-receipt.json"
+    _write_canonical_json(results_path, report["validation_results"])
+    _write_canonical_json(receipt_path, report["receipt"])
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    verification = verify_validation_receipt(
+        receipt_path,
+        manifest,
+        results_path,
+        artifact_root,
+        authorized_provenance_keys={
+            KEY_ID: b"test-only-local-validation-authority-key"
+        },
+    )
+
+    assert verification.integrity.accepted is True
+    assert verification.provenance.accepted is True
+    assert verification.semantic_policy.accepted is True
+    assert verification.authority == "current_scoring_authority"
+    with pytest.raises(ValueError, match="not in validation receipt"):
+        require_validated_pair(verification, "pair-222222222222")
+
+
+def test_validate_corpus_signs_all_preflight_exclusions_without_scoring(
+    tmp_path: Path,
+) -> None:
+    """A controller envelope preserves a real preflight attempt with no run evidence."""
+    manifest, root, source_id = _oracle_fixture(tmp_path)
+    control = root / source_id / "pair-222222222222" / "control" / "calc.py"
+    control.write_text("def value():\n    return 2\n", encoding="utf-8")
+    artifact_root = tmp_path / "preflight-excluded-artifacts"
+    runner = SubprocessCorpusRunner(
+        interpreters={source_id: (sys.executable,)},
+        timeout_s=10,
+        max_output_bytes=16_384,
+        isolation=_sandbox_isolation(),
+    )
+
+    report = validate_corpus(
+        manifest,
+        root,
+        runner,
+        artifact_store=ArtifactStore(artifact_root),
+        provenance_key_id=KEY_ID,
+        provenance_key=b"test-only-local-validation-authority-key",
+    )
+
+    assert report["validated_pairs"] == 0
+    assert report["scorable"] is False
+    assert report["receipt"]["validated_pair_ids"] == []
+    result = report["validation_results"]["results"][0]
+    assert result["exclusion_reason"] == "dirty_checkout"
+    assert result["attempts"][0]["phase"] == "preflight"
+    assert result["attempts"][0]["runs"] == []
+
+    results_path = tmp_path / "preflight-validation-results.json"
+    receipt_path = tmp_path / "preflight-validation-receipt.json"
+    _write_canonical_json(results_path, report["validation_results"])
+    _write_canonical_json(receipt_path, report["receipt"])
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    verification = verify_validation_receipt(
+        receipt_path,
+        manifest,
+        results_path,
+        artifact_root,
+        authorized_provenance_keys={
+            KEY_ID: b"test-only-local-validation-authority-key"
+        },
+    )
+
+    assert verification.integrity.accepted is True
+    assert verification.provenance.accepted is True
+    assert verification.semantic_policy.accepted is True
+    assert verification.receipt is not None
+    assert verification.receipt.validated_pair_ids == ()
+
+
+def test_validate_corpus_preserves_large_junit_semantics_through_bound(
+    tmp_path: Path,
+) -> None:
+    """Large JUnit evidence remains content-addressed and offline-verifiable."""
+    manifest, root, source_id = _oracle_fixture(
+        tmp_path, failure_message_size=20_000
+    )
+    artifact_root = tmp_path / "bounded-junit-artifacts"
+    runner = SubprocessCorpusRunner(
+        interpreters={source_id: (sys.executable,)},
+        timeout_s=10,
+        max_output_bytes=32_768,
+        isolation=_sandbox_isolation(),
+    )
+    report = validate_corpus(
+        manifest,
+        root,
+        runner,
+        artifact_store=ArtifactStore(artifact_root),
+        provenance_key_id=KEY_ID,
+        provenance_key=b"test-only-local-validation-authority-key",
+    )
+
+    result = report["validation_results"]["results"][0]
+    assert result["status"] == "validated"
+    junit_name = result["attempts"][0]["runs"][3]["artifacts"]["junit"]["name"]
+    bounded_junit = (artifact_root / junit_name).read_bytes()
+    assert bounded_junit.startswith(b"J attest:")
+    assert bounded_junit.endswith(b"</testsuites>")
+
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    results_path = tmp_path / "bounded-junit-validation-results.json"
+    receipt_path = tmp_path / "bounded-junit-validation-receipt.json"
+    _write_canonical_json(results_path, report["validation_results"])
+    _write_canonical_json(receipt_path, report["receipt"])
+
+    verification = verify_validation_receipt(
+        receipt_path,
+        manifest,
+        results_path,
+        artifact_root,
+        authorized_provenance_keys={
+            KEY_ID: b"test-only-local-validation-authority-key"
+        },
+    )
+
+    assert verification.authority == "current_scoring_authority", (
+        verification.to_json_dict()
+    )
+
+
+def test_validate_corpus_signs_redacted_persisted_stdout_bytes(tmp_path: Path) -> None:
+    """Redaction cannot make issuer and verifier compute different failure signatures."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    secret = "M02_PRIVATE_SENTINEL"
+    failure = f"FAILED test_calc.py::test_{secret}\n".encode()
+    outcomes = [RunOutcome(0, b"1 passed\n", False)] * 3 + [
+        RunOutcome(1, failure, False)
+    ] * 3
+    artifact_root = tmp_path / "redacted-artifacts"
+
+    report = validate_corpus(
+        manifest,
+        root,
+        _SequenceRunner(outcomes),
+        artifact_store=ArtifactStore(artifact_root, secrets=(secret,)),
+    )
+
+    result = report["validation_results"]["results"][0]
+    assert result["status"] == "validated"
+    buggy_run = result["attempts"][0]["runs"][3]
+    stdout_name = buggy_run["artifacts"]["stdout"]["name"]
+    stored = (artifact_root / stdout_name).read_bytes()
+    assert secret.encode() not in stored
+    assert buggy_run["failure_signature"] == hashlib.sha256(stored.strip()).hexdigest()
+
+
+def test_validate_corpus_hashes_redacted_environment_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Secret redaction cannot invalidate an issuer-created environment binding."""
+    secret = "M02_PRIVATE_ENV_SENTINEL"
+    runtime_tmp = tmp_path / f"runtime-{secret}"
+    runtime_tmp.mkdir()
+    monkeypatch.setenv("TMPDIR", str(runtime_tmp))
+    manifest, root, source_id = _oracle_fixture(tmp_path)
+    artifact_root = tmp_path / "redacted-environment-artifacts"
+    report = validate_corpus(
+        manifest,
+        root,
+        SubprocessCorpusRunner(
+            interpreters={source_id: (sys.executable,)},
+            timeout_s=10,
+            max_output_bytes=16_384,
+            isolation=_sandbox_isolation(),
+        ),
+        artifact_store=ArtifactStore(artifact_root, secrets=(secret,)),
+        provenance_key_id=KEY_ID,
+        provenance_key=b"test-only-local-validation-authority-key",
+    )
+
+    run = report["validation_results"]["results"][0]["attempts"][0]["runs"][0]
+    environment_name = run["artifacts"]["environment"]["name"]
+    environment_bytes = (artifact_root / environment_name).read_bytes()
+    assert secret.encode() not in environment_bytes
+    assert b"[REDACTED]" in environment_bytes
+
+    results_path = tmp_path / "redacted-environment-results.json"
+    receipt_path = tmp_path / "redacted-environment-receipt.json"
+    _write_canonical_json(results_path, report["validation_results"])
+    _write_canonical_json(receipt_path, report["receipt"])
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    verification = verify_validation_receipt(
+        receipt_path,
+        manifest,
+        results_path,
+        artifact_root,
+        authorized_provenance_keys={
+            KEY_ID: b"test-only-local-validation-authority-key"
+        },
+    )
+
+    assert verification.authority == "current_scoring_authority", (
+        verification.to_json_dict()
+    )
+
+
+def test_validate_corpus_rejects_raw_failures_collapsed_by_stdout_bound(
+    tmp_path: Path,
+) -> None:
+    """A common retained tail cannot hide three different raw failure signatures."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    buggy = [
+        RunOutcome(
+            1,
+            f"FAILED test_calc.py::test_raw_{index}\n".encode()
+            + b"x" * 512
+            + b"\nFAILED test_calc.py::test_common\n",
+            False,
+        )
+        for index in range(3)
+    ]
+
+    report = validate_corpus(
+        manifest,
+        root,
+        _SequenceRunner([RunOutcome(0, b"1 passed\n", False)] * 3 + buggy),
+        artifact_store=ArtifactStore(tmp_path / "collapsed-artifacts", max_bounded_bytes=64),
+    )
+
+    result = report["validation_results"]["results"][0]
+    assert result["status"] == "excluded"
+    assert result["exclusion_reason"] == "inconsistent_failure_signature"
+    buggy_runs = result["attempts"][0]["runs"][3:]
+    assert len({run["failure_signature"] for run in buggy_runs}) == 3
+
+    from attest.benchmark.corpus import (
+        _validation_receipt_v2,
+        verify_validation_receipt,
+    )
+
+    results_path = tmp_path / "collapsed-validation-results.json"
+    receipt_path = tmp_path / "collapsed-validation-receipt.json"
+    _write_canonical_json(results_path, report["validation_results"])
+    receipt = _validation_receipt_v2(
+        hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        results_path.read_bytes(),
+        hashlib.sha256(
+            (tmp_path / "collapsed-artifacts/artifacts.json").read_bytes()
+        ).hexdigest(),
+        [],
+        KEY_ID,
+        b"test-only-local-validation-authority-key",
+    )
+    _write_canonical_json(receipt_path, receipt)
+    verification = verify_validation_receipt(
+        receipt_path,
+        manifest,
+        results_path,
+        tmp_path / "collapsed-artifacts",
+        authorized_provenance_keys={
+            KEY_ID: b"test-only-local-validation-authority-key"
+        },
+    )
+
+    assert verification.integrity.accepted is True
+    assert verification.provenance.accepted is True
+    assert "validation_results.results[0].exclusion_reason" not in (
+        verification.semantic_policy.failure_paths
+    )
+
+
+def test_v1_validation_receipt_is_manifest_bound_but_historical_only(
+    tmp_path: Path,
+) -> None:
+    """The v1 reader preserves integrity inspection without granting scoring authority."""
     manifest, _, _ = _oracle_fixture(tmp_path)
     receipt_value, results_value = _two_pair_validation_artifacts(manifest)
     receipt_path = tmp_path / "receipt.json"
@@ -784,8 +1220,10 @@ def test_validation_receipt_is_manifest_bound_and_only_allows_validated_pairs(
     _write_canonical_json(results_path, results_value)
 
     receipt = load_validation_receipt(receipt_path, manifest, results_path)
-    require_validated_pair(receipt, "pair-222222222222")
-    with pytest.raises(ValueError, match="not in validation receipt"):
+    assert receipt.authority == "historical_integrity_only"
+    with pytest.raises(ValueError, match="historical_integrity_only"):
+        require_validated_pair(receipt, "pair-222222222222")
+    with pytest.raises(ValueError, match="historical_integrity_only"):
         require_validated_pair(receipt, "pair-555555555555")
 
     manifest.write_text(manifest.read_text() + "\n", encoding="utf-8")
@@ -812,6 +1250,1346 @@ def _write_canonical_json(path: Path, value: object) -> None:
         json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )
+
+
+def test_validation_v2_rejects_validated_row_without_six_runs(tmp_path: Path) -> None:
+    """Removing the attempt/run evidence must revoke semantic authority."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    manifest_sha256 = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    results = {
+        "schema_version": "2",
+        "protocol_version": "attest-validation-v2",
+        "manifest_sha256": manifest_sha256,
+        "results": [
+            {
+                "pair_id": "pair-222222222222",
+                "status": "validated",
+            }
+        ],
+    }
+    results_path = tmp_path / "validation-results.json"
+    _write_canonical_json(results_path, results)
+    receipt = {
+        "schema_version": "2",
+        "protocol_version": "attest-validation-v2",
+        "manifest_sha256": manifest_sha256,
+        "validation_results_sha256": hashlib.sha256(results_path.read_bytes()).hexdigest(),
+        "artifact_manifest_sha256": "0" * 64,
+        "validated_pair_ids": ["pair-222222222222"],
+        "provenance_envelope": {},
+    }
+    receipt_path = tmp_path / "receipt.json"
+    _write_canonical_json(receipt_path, receipt)
+
+    verification = verify_validation_receipt(
+        receipt_path,
+        manifest,
+        results_path,
+        tmp_path / "artifacts",
+        authorized_provenance_keys={},
+    )
+
+    assert verification.semantic_policy.accepted is False
+    assert verification.semantic_policy.failure_paths == (
+        "validation_results.results[0].attempts",
+    )
+
+
+def test_validation_v2_accepts_only_complete_authorized_run_evidence(
+    tmp_path: Path,
+) -> None:
+    """Six artifact-backed runs under an authorized envelope earn current authority."""
+    from attest.benchmark.corpus import (
+        ValidationAttempt,
+        ValidationReceiptV2,
+        ValidationResultV2,
+        ValidationRun,
+        verify_validation_receipt,
+    )
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.integrity.accepted is True
+    assert verification.provenance.accepted is True
+    assert verification.semantic_policy.accepted is True
+    assert verification.authority == "current_scoring_authority"
+    assert isinstance(verification.receipt, ValidationReceiptV2)
+    assert verification.receipt.authority == "unverified"
+    with pytest.raises(ValueError, match="requires offline authority verification"):
+        require_validated_pair(verification.receipt, "pair-222222222222")
+    assert isinstance(verification.results[0], ValidationResultV2)
+    assert isinstance(verification.results[0].attempts[0], ValidationAttempt)
+    assert all(
+        isinstance(run, ValidationRun)
+        for run in verification.results[0].attempts[0].runs
+    )
+
+
+def test_validation_v2_binds_result_revisions_to_the_manifest_pair(tmp_path: Path) -> None:
+    """A self-consistent result/source pair for unrelated commits has no authority."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    bundle.results["results"][0]["buggy_sha"] = "a" * 40
+    bundle.results["results"][0]["fixed_sha"] = "b" * 40
+    runs = bundle.results["results"][0]["attempts"][0]["runs"]
+    for revision, repository_sha, run_index in (
+        ("fixed", "b" * 40, 0),
+        ("buggy", "a" * 40, 3),
+    ):
+        source_name = runs[run_index]["artifacts"]["source"]["name"]
+        bundle.replace_artifact(
+            source_name,
+            {"revision": revision, "repository_sha": repository_sha},
+        )
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert verification.semantic_policy.failure_paths == (
+        "validation_results.results[0].buggy_sha",
+        "validation_results.results[0].fixed_sha",
+    )
+
+
+def test_validation_v2_recomputes_buggy_signature_from_stdout(tmp_path: Path) -> None:
+    """A stable declared hash cannot hide failure text that proves another outcome."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    for run in bundle.results["results"][0]["attempts"][0]["runs"][3:]:
+        run["failure_signature"] = "0" * 64
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert verification.semantic_policy.failure_paths == (
+        "validation_results.results[0].attempts[0].runs[3].failure_signature",
+        "validation_results.results[0].attempts[0].runs[4].failure_signature",
+        "validation_results.results[0].attempts[0].runs[5].failure_signature",
+    )
+
+
+@pytest.mark.parametrize("artifact_name", ["stdout", "junit"])
+def test_validation_v2_reports_exact_tampered_output_artifact(
+    tmp_path: Path, artifact_name: str
+) -> None:
+    """Changing stdout or JUnit bytes under the same summary revokes integrity."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    run = bundle.results["results"][0]["attempts"][0]["runs"][0]
+    relative = run["artifacts"][artifact_name]["name"]
+    (bundle.artifact_root / relative).write_bytes(b"tampered evidence\n")
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.integrity.accepted is False
+    assert verification.authority == "none"
+    assert f"artifacts.{relative}.sha256" in verification.integrity.failure_paths
+
+
+@pytest.mark.parametrize("field", ["runner_id", "profile_id"])
+def test_validation_v2_rejects_inconsistent_runner_or_profile(
+    tmp_path: Path, field: str
+) -> None:
+    """One run cannot silently switch runner or isolation profile."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    run = bundle.results["results"][0]["attempts"][0]["runs"][1]
+    run[field] = f"different-{field}"
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.integrity.accepted is True
+    assert verification.provenance.accepted is True
+    assert verification.semantic_policy.accepted is False
+    expected = f"validation_results.results[0].attempts[0].runs[1].{field}"
+    assert verification.semantic_policy.failure_paths[0] == expected
+
+
+def test_validation_v2_rejects_inconsistent_interpreter_reference(tmp_path: Path) -> None:
+    """A per-run interpreter change must be visible and fail closed."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    run = bundle.results["results"][0]["attempts"][0]["runs"][1]
+    run["artifacts"]["interpreter"]["sha256"] = "9" * 64
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    expected = "validation_results.results[0].attempts[0].runs[1].artifacts.interpreter"
+    assert verification.integrity.accepted is False
+    assert expected in verification.integrity.failure_paths
+    assert expected in verification.semantic_policy.failure_paths
+
+
+@pytest.mark.parametrize(
+    "envelope_case",
+    [
+        "missing",
+        "unknown_key",
+        "forged_tag",
+        "unknown_envelope_version",
+        "unknown_algorithm",
+        "forged_payload_digest",
+    ],
+)
+def test_validation_v2_rejects_missing_or_unauthorized_provenance(
+    tmp_path: Path, envelope_case: str
+) -> None:
+    """Hash-consistent files still need an authenticated, authorized local envelope."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    if envelope_case == "missing":
+        bundle.receipt.pop("provenance_envelope")
+    elif envelope_case == "unknown_key":
+        bundle.receipt["provenance_envelope"]["key_id"] = "unknown-key"
+    elif envelope_case == "forged_tag":
+        bundle.receipt["provenance_envelope"]["authentication_tag"] = "0" * 64
+    elif envelope_case == "unknown_envelope_version":
+        bundle.receipt["provenance_envelope"]["envelope_version"] = "999"
+    elif envelope_case == "unknown_algorithm":
+        bundle.receipt["provenance_envelope"]["algorithm"] = "unknown"
+    else:
+        bundle.receipt["provenance_envelope"]["payload_sha256"] = "0" * 64
+    bundle.receipt_path.write_bytes(
+        (json.dumps(bundle.receipt, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    )
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys={KEY_ID: bundle.authorized_keys[KEY_ID]},
+    )
+
+    assert verification.integrity.accepted is True
+    assert verification.provenance.accepted is False
+    assert verification.semantic_policy.accepted is True
+    assert verification.authority == "none"
+    assert verification.provenance.failure_paths
+    assert all(
+        path.startswith("receipt.provenance_envelope")
+        for path in verification.provenance.failure_paths
+    )
+
+
+def test_validation_v2_reports_provenance_independently_of_results_canonicality(
+    tmp_path: Path,
+) -> None:
+    """Authenticated receipt provenance remains visible when result integrity fails."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    bundle.results_path.write_text(json.dumps(bundle.results, indent=2), encoding="utf-8")
+    bundle.reseal_receipt()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.integrity.accepted is False
+    assert verification.integrity.failure_paths == (
+        "validation_results.canonical_json",
+    )
+    assert verification.provenance.accepted is True
+    assert verification.semantic_policy.accepted is True
+
+
+def test_validation_v2_authenticates_raw_body_when_a_digest_field_is_malformed(
+    tmp_path: Path,
+) -> None:
+    """Typed integrity failure must not invent a provenance-envelope failure."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    bundle.receipt["manifest_sha256"] = "not-a-digest"
+    bundle.reseal_receipt()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.integrity.accepted is False
+    assert "receipt.manifest_sha256" in verification.integrity.failure_paths
+    assert verification.provenance.accepted is True
+
+
+def test_validation_v2_rejects_exclusion_without_a_real_attempt(tmp_path: Path) -> None:
+    """An exclusion is not an escape hatch from retaining attempt evidence."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    result = bundle.results["results"][0]
+    result.update(
+        {
+            "status": "excluded",
+            "accepted_attempt_id": None,
+            "exclusion_reason": "dependency_or_setup_failure",
+            "attempts": [],
+        }
+    )
+    bundle.receipt["validated_pair_ids"] = []
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.semantic_policy.accepted is False
+    assert verification.semantic_policy.failure_paths == (
+        "validation_results.results[0].attempts",
+    )
+
+
+def test_validation_v2_rejects_execution_exclusion_without_a_run(tmp_path: Path) -> None:
+    """An execution-phase exclusion cannot claim an attempt without raw run evidence."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    result = bundle.results["results"][0]
+    attempt = result["attempts"][0]
+    result.update(
+        {
+            "status": "excluded",
+            "accepted_attempt_id": None,
+            "exclusion_reason": "dependency_or_setup_failure",
+        }
+    )
+    attempt.update(
+        {
+            "status": "excluded",
+            "reason": "dependency_or_setup_failure",
+            "runs": [],
+        }
+    )
+    bundle.receipt["validated_pair_ids"] = []
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert verification.semantic_policy.failure_paths == (
+        "validation_results.results[0].attempts[0].runs",
+        "validation_results.results[0].exclusion_reason",
+    )
+
+
+def test_validation_v2_accepts_bounded_execution_exclusion_evidence(tmp_path: Path) -> None:
+    """A genuine bounded attempt remains auditable even when the pair is excluded."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    _make_inconsistent_failure_exclusion(bundle)
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.integrity.accepted is True
+    assert verification.provenance.accepted is True
+    assert verification.semantic_policy.accepted is True
+    assert len(verification.results[0].attempts[0].runs) == 6
+
+
+def _make_inconsistent_failure_exclusion(bundle: ValidationV2Bundle) -> None:
+    result = bundle.results["results"][0]
+    attempt = result["attempts"][0]
+    changed_output = b"FAILED test_calc.py::test_other\n"
+    changed_run = attempt["runs"][4]
+    stdout_name = changed_run["artifacts"]["stdout"]["name"]
+    bundle.replace_artifact(stdout_name, changed_output)
+    changed_run["failure_signature"] = hashlib.sha256(changed_output.strip()).hexdigest()
+    result.update(
+        {
+            "status": "excluded",
+            "accepted_attempt_id": None,
+            "exclusion_reason": "inconsistent_failure_signature",
+        }
+    )
+    attempt.update(
+        {
+            "status": "excluded",
+            "reason": "inconsistent_failure_signature",
+        }
+    )
+    bundle.receipt["validated_pair_ids"] = []
+    bundle.reseal()
+
+
+@pytest.mark.parametrize(
+    ("reason", "run_indexes"),
+    [
+        ("timeout", [0]),
+        ("inconsistent_failure_signature", list(range(6))),
+        ("invented_exclusion_reason", [0]),
+    ],
+)
+def test_validation_v2_recomputes_exclusion_reason_from_runs(
+    tmp_path: Path, reason: str, run_indexes: list[int]
+) -> None:
+    """An authorized envelope cannot relabel retained outcomes as an exclusion."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    result = bundle.results["results"][0]
+    attempt = result["attempts"][0]
+    result.update(
+        {
+            "status": "excluded",
+            "accepted_attempt_id": None,
+            "exclusion_reason": reason,
+        }
+    )
+    attempt.update(
+        {
+            "status": "excluded",
+            "reason": reason,
+            "runs": [attempt["runs"][index] for index in run_indexes],
+        }
+    )
+    bundle.receipt["validated_pair_ids"] = []
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none", reason
+    assert (
+        "validation_results.results[0].exclusion_reason"
+        in verification.semantic_policy.failure_paths
+    )
+
+
+@pytest.mark.parametrize("artifact_name", ["stdout", "junit"])
+def test_validation_v2_checks_excluded_run_output_semantics(
+    tmp_path: Path, artifact_name: str
+) -> None:
+    """Coherently resealed excluded output must still agree with the run summary."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    _make_inconsistent_failure_exclusion(bundle)
+    run = bundle.results["results"][0]["attempts"][0]["runs"][3]
+    name = run["artifacts"][artifact_name]["name"]
+    replacement = (
+        b"1 passed\n"
+        if artifact_name == "stdout"
+        else b'<testsuite tests="1" failures="0" errors="0" skipped="0" />\n'
+    )
+    bundle.replace_artifact(name, replacement)
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none", artifact_name
+    path = "validation_results.results[0].attempts[0].runs[3]"
+    assert any(failure.startswith(path) for failure in verification.semantic_policy.failure_paths)
+
+
+def test_validation_v2_rejects_retrospectively_selected_retry(tmp_path: Path) -> None:
+    """V2 permits one bounded attempt; it cannot prove outcome-aware retry precommitment."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    result = bundle.results["results"][0]
+    result["attempts"].append(
+        {
+            "attempt_id": "attempt-retrospective",
+            "pair_id": result["pair_id"],
+            "attempt_index": 2,
+            "phase": "preflight",
+            "status": "excluded",
+            "reason": "integrity_failure",
+            "runs": [],
+        }
+    )
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert verification.semantic_policy.failure_paths == (
+        "validation_results.results[0].attempts",
+    )
+
+
+@pytest.mark.parametrize("mutation", ["status", "reason", "too_many_runs"])
+def test_validation_v2_exclusion_attempt_fields_have_semantic_teeth(
+    tmp_path: Path, mutation: str
+) -> None:
+    """G-CODE-002: an exclusion must bind one bounded, truthful attempt record."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    _make_inconsistent_failure_exclusion(bundle)
+    result = bundle.results["results"][0]
+    attempt = result["attempts"][0]
+    if mutation == "status":
+        attempt["status"] = "validated"
+    elif mutation == "reason":
+        attempt["reason"] = "flaky"
+    else:
+        attempt["runs"] = attempt["runs"] * 7
+    bundle.receipt["validated_pair_ids"] = []
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none", mutation
+    assert verification.semantic_policy.accepted is False, mutation
+
+
+def test_validation_v2_missing_artifact_reference_fails_closed(tmp_path: Path) -> None:
+    """A missing evidence field reports its run path instead of escaping with KeyError."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    run = bundle.results["results"][0]["attempts"][0]["runs"][0]
+    run["artifacts"].pop("junit")
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert verification.semantic_policy.failure_paths == (
+        "validation_results.results[0].attempts[0].runs[0].artifacts",
+    )
+
+
+def test_validation_v2_unknown_version_fails_every_authority_component(
+    tmp_path: Path,
+) -> None:
+    """A future schema cannot inherit current authority through permissive parsing."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    bundle.receipt["schema_version"] = "999"
+    bundle.receipt_path.write_bytes(
+        (json.dumps(bundle.receipt, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    )
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert verification.integrity.failure_paths == ("receipt.schema_version",)
+    assert verification.provenance.failure_paths == ("receipt.schema_version",)
+    assert verification.semantic_policy.failure_paths == ("receipt.schema_version",)
+
+
+def test_validation_v2_unknown_protocol_fails_closed(tmp_path: Path) -> None:
+    """Matching receipt/result strings do not make an unknown policy protocol supported."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    bundle.receipt["protocol_version"] = "attest-validation-v999"
+    bundle.results["protocol_version"] = "attest-validation-v999"
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert verification.semantic_policy.failure_paths == ("receipt.protocol_version",)
+
+
+@pytest.mark.parametrize(
+    ("container", "field"),
+    [
+        ("result", "manual_status"),
+        ("attempt", "caller_authorized"),
+        ("run", "summary_only"),
+    ],
+)
+def test_validation_v2_unknown_evidence_fields_fail_closed(
+    tmp_path: Path, container: str, field: str
+) -> None:
+    """Unknown result, attempt, or run fields cannot smuggle a new authority class."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    result = bundle.results["results"][0]
+    target = result
+    expected = "validation_results.results[0].fields"
+    if container == "attempt":
+        target = result["attempts"][0]
+        expected = "validation_results.results[0].attempts[0].fields"
+    elif container == "run":
+        target = result["attempts"][0]["runs"][0]
+        expected = "validation_results.results[0].attempts[0].runs[0].fields"
+    target[field] = True
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert expected in verification.integrity.failure_paths
+
+
+@pytest.mark.parametrize("revision", ["fixed", "buggy"])
+def test_validation_v2_binds_source_artifact_to_declared_repository_sha(
+    tmp_path: Path, revision: str
+) -> None:
+    """A result SHA cannot drift away from the source artifact used by its runs."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    bundle.results["results"][0][f"{revision}_sha"] = "8" * 40
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert verification.semantic_policy.failure_paths == (
+        f"validation_results.results[0].{revision}_sha",
+    )
+
+
+@pytest.mark.parametrize("field", ["runner_id", "profile_id"])
+def test_validation_v2_binds_runner_fields_to_executor_artifact(
+    tmp_path: Path, field: str
+) -> None:
+    """Consistent rewritten summaries cannot contradict the executor artifact."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    for run in bundle.results["results"][0]["attempts"][0]["runs"]:
+        run[field] = f"forged-{field}"
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert verification.semantic_policy.failure_paths[0] == (
+        f"validation_results.results[0].attempts[0].runs[0].{field}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("artifact_name", "field", "value"),
+    [
+        ("command", "declared_cwd", "unrelated/cwd"),
+        ("interpreter", "executable_sha256", "not-a-digest"),
+        ("environment", "sha256", "0" * 64),
+        ("executor", "isolation_capability", "unknown-profile"),
+    ],
+)
+def test_validation_v2_binding_artifact_fields_have_semantic_teeth(
+    tmp_path: Path, artifact_name: str, field: str, value: str
+) -> None:
+    """G-CODE-002: coherent artifact rewrites still face field-level policy guards."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    run = bundle.results["results"][0]["attempts"][0]["runs"][0]
+    name = run["artifacts"][artifact_name]["name"]
+    payload = json.loads((bundle.artifact_root / name).read_bytes())
+    payload[field] = value
+    bundle.replace_artifact(name, payload)
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    expected = (
+        f"validation_results.results[0].attempts[0].runs[0].artifacts.{artifact_name}"
+    )
+    assert verification.authority == "none"
+    assert expected in verification.semantic_policy.failure_paths
+
+
+def test_validation_v2_rejects_trailing_executed_argv(tmp_path: Path) -> None:
+    """The exact issued command cannot gain an extra selector under a valid envelope."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    run = bundle.results["results"][0]["attempts"][0]["runs"][0]
+    name = run["artifacts"]["command"]["name"]
+    payload = json.loads((bundle.artifact_root / name).read_bytes())
+    payload["executed_argv"].append("--ignore=test_calc.py")
+    bundle.replace_artifact(name, payload)
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert (
+        "validation_results.results[0].attempts[0].runs[0].artifacts.command.executed_argv"
+        in verification.semantic_policy.failure_paths
+    )
+
+
+def test_validation_v2_binds_non_python_allowed_tool_prefix(tmp_path: Path) -> None:
+    """A typed non-Python tool binds its selected executable, not the probe interpreter."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    document = json.loads(manifest.read_bytes())
+    test_bytes = b"tox test_calc.py\n"
+    (root / "artifacts/test.argv").write_bytes(test_bytes)
+    for case in document["cases"]:
+        case["tests"]["sha256"] = hashlib.sha256(test_bytes).hexdigest()
+    for runtime in document["runtime"]:
+        runtime["command"] = {"tool": "tox", "args": ["test_calc.py"]}
+    manifest.write_text(json.dumps(document), encoding="utf-8")
+    bundle = build_validation_v2_bundle(tmp_path / "tox-bundle", manifest, root)
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "current_scoring_authority", (
+        verification.to_json_dict()
+    )
+    interpreter = dict(verification.results[0].attempts[0].runs[0].artifacts)[
+        "interpreter"
+    ]
+    assert json.loads((bundle.artifact_root / interpreter.name).read_bytes())["argv"] == [
+        "/fixture/tox"
+    ]
+
+
+def test_validation_v2_test_artifact_is_bound_to_manifest_descriptor(tmp_path: Path) -> None:
+    """A signed but unrelated test file cannot serve as the pair's run evidence."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    run = bundle.results["results"][0]["attempts"][0]["runs"][0]
+    name = run["artifacts"]["test"]["name"]
+    bundle.replace_artifact(name, b"{python} -m pytest -q unrelated.py\n")
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    expected = (
+        "validation_results.results[0].attempts[0].runs[0].artifacts.test"
+    )
+    assert verification.authority == "none"
+    assert expected in verification.semantic_policy.failure_paths
+
+
+def test_validation_v2_source_artifact_rejects_unknown_fields(tmp_path: Path) -> None:
+    """A signed source descriptor cannot extend its meaning with an unknown field."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    run = bundle.results["results"][0]["attempts"][0]["runs"][0]
+    name = run["artifacts"]["source"]["name"]
+    source = json.loads((bundle.artifact_root / name).read_bytes())
+    source["unreviewed_ref"] = "refs/heads/main"
+    bundle.replace_artifact(name, source)
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert (
+        "validation_results.results[0].attempts[0].runs[0].artifacts.source"
+        in verification.semantic_policy.failure_paths
+    )
+
+
+@pytest.mark.parametrize("mutation", ["size", "missing", "unknown"])
+def test_validation_v2_reports_exact_artifact_integrity_error_kind(
+    tmp_path: Path, mutation: str
+) -> None:
+    """Offline integrity paths distinguish size, missing, and unknown artifacts."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    artifact_manifest_path = bundle.artifact_root / "artifacts.json"
+    artifact_manifest = json.loads(artifact_manifest_path.read_bytes())
+    name = artifact_manifest["artifacts"][0]["name"]
+    if mutation == "size":
+        artifact_manifest["artifacts"][0]["size_bytes"] += 1
+        artifact_manifest_path.write_bytes(
+            json.dumps(
+                artifact_manifest, sort_keys=True, separators=(",", ":")
+            ).encode()
+            + b"\n"
+        )
+        expected = f"artifacts.{name}.size_bytes"
+    elif mutation == "missing":
+        (bundle.artifact_root / name).unlink()
+        expected = f"artifacts.{name}"
+    else:
+        (bundle.artifact_root / "stowaway.txt").write_text("unknown", encoding="utf-8")
+        expected = "artifacts.stowaway.txt"
+    bundle.receipt["artifact_manifest_sha256"] = hashlib.sha256(
+        artifact_manifest_path.read_bytes()
+    ).hexdigest()
+    bundle.reseal_receipt()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.integrity.accepted is False
+    assert expected in verification.integrity.failure_paths
+
+
+def test_validation_v2_rejects_signed_oversized_bounded_artifact(
+    tmp_path: Path,
+) -> None:
+    """An authorized envelope cannot raise or bypass protocol evidence ceilings."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path / "bundle", manifest)
+    buggy_run = bundle.results["results"][0]["attempts"][0]["runs"][3]
+    stdout_name = buggy_run["artifacts"]["stdout"]["name"]
+    bundle.replace_artifact(
+        stdout_name,
+        b"FAILED test_calc.py::test_value\n" + b"x" * MAX_BOUNDED_ARTIFACT_BYTES,
+    )
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert verification.integrity.failure_paths == (
+        f"artifacts.{stdout_name}.size_bytes",
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_suffix"),
+    [
+        ("truncated", "truncated"),
+        ("size", "size_bytes"),
+        ("unknown_field", "fields"),
+    ],
+)
+def test_validation_v2_reports_exact_artifact_manifest_entry_field(
+    tmp_path: Path, mutation: str, expected_suffix: str
+) -> None:
+    """Malformed manifest entries identify the artifact and exact field class."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    artifact_manifest_path = bundle.artifact_root / "artifacts.json"
+    artifact_manifest = json.loads(artifact_manifest_path.read_bytes())
+    entry = artifact_manifest["artifacts"][0]
+    name = entry["name"]
+    if mutation == "truncated":
+        entry["truncated"] = "false"
+    elif mutation == "size":
+        entry["size_bytes"] = True
+    else:
+        entry["unexpected"] = True
+    artifact_manifest_path.write_bytes(
+        json.dumps(artifact_manifest, sort_keys=True, separators=(",", ":")).encode()
+        + b"\n"
+    )
+    bundle.receipt["artifact_manifest_sha256"] = hashlib.sha256(
+        artifact_manifest_path.read_bytes()
+    ).hexdigest()
+    bundle.reseal_receipt()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.integrity.accepted is False
+    assert (
+        f"artifacts.{name}.{expected_suffix}"
+        in verification.integrity.failure_paths
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("name", 7),
+        ("kind", "unknown-kind"),
+        ("sha256", "not-a-digest"),
+        ("size_bytes", True),
+        ("truncated", "false"),
+    ],
+)
+def test_validation_v2_artifact_record_fields_fail_closed_at_exact_path(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    """G-CODE-002: every content-address reference field has a precise guard."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    reference = bundle.results["results"][0]["attempts"][0]["runs"][0][
+        "artifacts"
+    ]["stdout"]
+    reference[field] = value
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    expected = (
+        "validation_results.results[0].attempts[0].runs[0]"
+        f".artifacts.stdout.{field}"
+    )
+    assert verification.authority == "none"
+    assert expected in verification.semantic_policy.failure_paths
+
+
+@pytest.mark.parametrize(
+    "unsafe_name",
+    ["../outside.json", "/etc/passwd", "embedded\0null.json", "unpaired-\ud800.json"],
+)
+def test_validation_v2_rejects_escaping_artifact_reference_names(
+    tmp_path: Path, unsafe_name: str
+) -> None:
+    """Semantic verification never reads an absolute or parent-traversing reference."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    run = bundle.results["results"][0]["attempts"][0]["runs"][0]
+    run["artifacts"]["source"]["name"] = unsafe_name
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    expected = (
+        "validation_results.results[0].attempts[0].runs[0].artifacts.source.name"
+    )
+    assert verification.authority == "none"
+    assert expected in verification.semantic_policy.failure_paths
+
+
+def test_validation_v2_rejects_listed_artifact_symlink_escape(tmp_path: Path) -> None:
+    """A listed digest cannot authorize bytes reached through an outside-root symlink."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    run = bundle.results["results"][0]["attempts"][0]["runs"][0]
+    name = run["artifacts"]["source"]["name"]
+    artifact_path = bundle.artifact_root / name
+    outside = tmp_path / "outside-source.json"
+    outside.write_bytes(artifact_path.read_bytes())
+    artifact_path.unlink()
+    artifact_path.symlink_to(outside)
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert f"artifacts.{name}" in verification.integrity.failure_paths
+
+
+@pytest.mark.parametrize(
+    ("run_index", "ordinal"),
+    [(0, 3), (1, 1)],
+)
+def test_validation_v2_exclusion_requires_exact_run_sequence_prefix(
+    tmp_path: Path, run_index: int, ordinal: int
+) -> None:
+    """An exclusion cannot reorder or skip issuer ordinals within its bounded prefix."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    result = bundle.results["results"][0]
+    attempt = result["attempts"][0]
+    selected = attempt["runs"][: run_index + 1]
+    selected[run_index]["ordinal"] = ordinal
+    result.update(
+        {
+            "status": "excluded",
+            "accepted_attempt_id": None,
+            "exclusion_reason": "incomplete_execution",
+        }
+    )
+    attempt.update(
+        {
+            "status": "excluded",
+            "reason": "incomplete_execution",
+            "runs": selected,
+        }
+    )
+    bundle.receipt["validated_pair_ids"] = []
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert (
+        "validation_results.results[0].attempts[0].runs"
+        in verification.semantic_policy.failure_paths
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "attempt_id",
+        "attempt_pair_id",
+        "attempt_index",
+        "attempt_phase",
+        "attempt_status",
+        "attempt_reason",
+        "duplicate_run_id",
+        "run_revision",
+        "run_ordinal",
+        "run_outcome",
+        "run_returncode",
+        "run_timed_out",
+        "run_failure_signature",
+    ],
+)
+def test_validation_v2_attempt_and_run_field_mutations_remove_authority(
+    tmp_path: Path, mutation: str
+) -> None:
+    """G-CODE-002: every attempt/run policy field has a guard with observable teeth."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    result = bundle.results["results"][0]
+    attempt = result["attempts"][0]
+    run = attempt["runs"][0]
+    if mutation == "attempt_id":
+        attempt["attempt_id"] = "attempt-unaccepted"
+    elif mutation == "attempt_pair_id":
+        attempt["pair_id"] = "pair-999999999999"
+    elif mutation == "attempt_index":
+        attempt["attempt_index"] = 2
+    elif mutation == "attempt_phase":
+        attempt["phase"] = "preflight"
+    elif mutation == "attempt_status":
+        attempt["status"] = "excluded"
+    elif mutation == "attempt_reason":
+        attempt["reason"] = "manual_override"
+    elif mutation == "duplicate_run_id":
+        attempt["runs"][1]["run_id"] = run["run_id"]
+    elif mutation == "run_revision":
+        run["revision"] = "buggy"
+    elif mutation == "run_ordinal":
+        run["ordinal"] = 9
+    elif mutation == "run_outcome":
+        run["outcome"] = "fail"
+    elif mutation == "run_returncode":
+        run["returncode"] = 9
+    elif mutation == "run_timed_out":
+        run["timed_out"] = True
+    else:
+        run["failure_signature"] = "e" * 64
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none", mutation
+    assert verification.semantic_policy.accepted is False, mutation
+
+
+def test_validation_v2_rejects_interleaved_fixed_and_buggy_runs(tmp_path: Path) -> None:
+    """Validated evidence is exactly three fixed runs followed by three buggy runs."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    runs = bundle.results["results"][0]["attempts"][0]["runs"]
+    runs[2], runs[3] = runs[3], runs[2]
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert (
+        "validation_results.results[0].attempts[0].runs"
+        in verification.semantic_policy.failure_paths
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "path"),
+    [
+        ("attempt_index", "validation_results.results[0].attempts[0].attempt_index"),
+        ("ordinal", "validation_results.results[0].attempts[0].runs[0].ordinal"),
+        ("returncode", "validation_results.results[0].attempts[0].runs[0].returncode"),
+    ],
+)
+def test_validation_v2_rejects_boolean_integer_fields_with_exact_paths(
+    tmp_path: Path, field: str, path: str
+) -> None:
+    """JSON booleans cannot satisfy integer fields and must name the exact bad field."""
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+    attempt = bundle.results["results"][0]["attempts"][0]
+    target = attempt if field == "attempt_index" else attempt["runs"][0]
+    target[field] = True
+    bundle.reseal()
+
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert path in verification.semantic_policy.failure_paths
+
+
+def test_load_validation_v2_fails_closed_with_exact_artifact_path(tmp_path: Path) -> None:
+    """Strict callers get a precise exception instead of a partially trusted object."""
+    from attest.benchmark.corpus import load_validation_receipt_v2
+
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path, manifest)
+
+    loaded = load_validation_receipt_v2(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+    assert loaded.authority == "current_scoring_authority"
+
+    relative = bundle.results["results"][0]["attempts"][0]["runs"][0][
+        "artifacts"
+    ]["stdout"]["name"]
+    (bundle.artifact_root / relative).write_text("tampered\n", encoding="utf-8")
+
+    with pytest.raises(
+        ValueError, match=rf"integrity:artifacts\.{re.escape(relative)}\.sha256"
+    ):
+        load_validation_receipt_v2(
+            bundle.receipt_path,
+            manifest,
+            bundle.results_path,
+            bundle.artifact_root,
+            authorized_provenance_keys=bundle.authorized_keys,
+        )
 
 
 def _two_pair_validation_artifacts(manifest: Path) -> tuple[dict[str, object], dict[str, object]]:
@@ -998,6 +2776,7 @@ def test_subprocess_runner_requires_network_isolation_and_explicit_tool_paths(
     )
     outcome = allowed.run(source_id, "tox", (), tmp_path)
     assert outcome.returncode == 0
+    assert outcome.execution_prefix == allowed._allowed_tools[(source_id, "tox")]
     assert explicit_marker.is_file()
     assert not marker.exists()
 
@@ -1140,6 +2919,44 @@ class _SequenceRunner:
         self, source_id: str, tool: str, args: tuple[str, ...], cwd: Path
     ) -> RunOutcome:
         return next(self.outcomes)
+
+
+class _RaiseAfterOneRunner:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def run(
+        self, source_id: str, tool: str, args: tuple[str, ...], cwd: Path
+    ) -> RunOutcome:
+        self.calls += 1
+        if self.calls == 1:
+            return RunOutcome(
+                0,
+                b"1 passed\n",
+                False,
+                b'<testsuite tests="1" failures="0" errors="0" skipped="0" />\n',
+                ("python", "-m", "pytest", "-q", "test_calc.py"),
+            )
+        raise OSError("runner transport failed")
+
+
+def test_validate_corpus_retains_completed_run_when_later_repeat_raises(
+    tmp_path: Path,
+) -> None:
+    """A handled runner failure cannot erase a completed exclusion attempt run."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+
+    report = validate_corpus(
+        manifest,
+        root,
+        _RaiseAfterOneRunner(),
+        artifact_store=ArtifactStore(tmp_path / "partial-artifacts"),
+    )
+
+    attempt = report["validation_results"]["results"][0]["attempts"][0]
+    assert report["results"][0]["status"] == "excluded"
+    assert attempt["phase"] == "execution"
+    assert len(attempt["runs"]) == 1
 
 
 @pytest.mark.parametrize(

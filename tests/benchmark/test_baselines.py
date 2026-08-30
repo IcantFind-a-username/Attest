@@ -26,6 +26,7 @@ from attest.benchmark.baselines import (
 )
 from attest.benchmark.corpus import load_validation_receipt
 from attest.benchmark.report import (
+    RECEIPT_HISTORICAL,
     RECEIPT_MISSING,
     build_comparison_report,
     render_comparison_markdown,
@@ -37,6 +38,7 @@ from attest.review.diffs import parse_diff
 from attest.review.executor import ExecutorLimits
 from attest.review.proposer import PROPOSER_MAX_OUTPUT_TOKENS, ProviderResult
 
+from ._validation_v2 import verified_validation_authority
 from .test_corpus import _git
 
 _SCRIPT = Path(__file__).parents[2] / "scripts" / "benchmark.py"
@@ -551,11 +553,21 @@ def test_comparison_report_withholds_accuracy_without_a_receipt(tmp_path: Path) 
 
     receipt_path, results_path = _receipt_artifacts(tmp_path, manifest_path)
     receipt = load_validation_receipt(receipt_path, manifest_path, results_path)
-    authorized = build_comparison_report(
+    historical = build_comparison_report(
         manifest,
         measurements,
         manifest_sha256=manifest_sha256,
         validation_receipt=receipt,
+    )
+    assert historical.metrics_withheld_reason == RECEIPT_HISTORICAL
+    authority = verified_validation_authority(
+        tmp_path / "comparison-validation-authority", manifest_path
+    )
+    authorized = build_comparison_report(
+        manifest,
+        measurements,
+        manifest_sha256=manifest_sha256,
+        validation_receipt=authority,
     )
     granted = authorized.to_json_dict()
     assert granted["metrics_withheld_reason"] is None
@@ -568,6 +580,8 @@ def test_comparison_report_withholds_accuracy_without_a_receipt(tmp_path: Path) 
     assert ARM_PRODUCT in markdown
     assert ARM_BARE_PROMPT in markdown
     assert ARM_RUFF in markdown
+    assert "authorized provenance: PASS" in markdown
+    assert "semantic policy: PASS" in markdown
     assert "not an AI reviewer" in markdown
     notes = " ".join(granted["limitations"])
     assert "losing" in notes or "every arm" in notes
@@ -576,7 +590,7 @@ def test_comparison_report_withholds_accuracy_without_a_receipt(tmp_path: Path) 
 
 def test_compare_cli_runs_three_arms_offline_end_to_end(tmp_path: Path) -> None:
     """The CLI mode uses recorded cassettes and a local ruff executable only,
-    and publishes accuracy solely under a manifest-bound receipt."""
+    and refuses accuracy when given only a historical v1 receipt."""
     manifest_path, root, replay_id, control_id = _comparison_fixture(tmp_path)
     cassettes_dir = tmp_path / "cassettes"
     cassettes_dir.mkdir()
@@ -632,17 +646,17 @@ def test_compare_cli_runs_three_arms_offline_end_to_end(tmp_path: Path) -> None:
         env=environment,
     )
 
-    assert completed.returncode == 0, completed.stderr
+    assert completed.returncode == 3, completed.stderr
     summary = json.loads(completed.stdout)
-    assert summary["status"] == "ok"
+    assert summary["status"] == "not_executed"
     assert summary["offline"] is True
     assert summary["arms"] == 3
-    assert summary["evaluated_cases"] == 2
-    assert summary["metrics_status"] == "reported"
+    assert summary["evaluated_cases"] == 0
+    assert summary["metrics_status"] == "withheld"
     report = json.loads((output / "comparison.json").read_text(encoding="utf-8"))
     assert [arm["arm"] for arm in report["arms"]] == [ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF]
     for arm in report["arms"]:
-        assert arm["accuracy"]["detection_rate"] == 1.0
-        assert arm["accuracy"]["clean_false_positive_rate"] == 0.0
+        assert arm["accuracy"]["detection_rate"] is None
+    assert report["validation_authority"]["authority"] == "historical_integrity_only"
     assert (output / "comparison.md").is_file()
     assert report["digest"]

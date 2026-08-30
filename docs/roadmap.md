@@ -163,7 +163,10 @@ changes.
   and delivery.
 - [ ] **M-02 — receipt authority and raw validation evidence.** Reject incomplete/manual
   validation rows, retain bounded fixed/buggy run evidence, and distinguish integrity,
-  provenance, and semantic authority.
+  provenance, and semantic authority. Implementation passes `G-MEASURE-002` and
+  `G-CODE-002`, but remains **BLOCKED BY EVIDENCE** because the full suite fails the
+  M-03-owned date-literal test required by `G-CODE-001`; see
+  [`acceptance/2026-08-30-m02-validation-receipts.md`](acceptance/2026-08-30-m02-validation-receipts.md).
 - [ ] **M-03 — deterministic and crash-safe measurement.** Inject clocks; lock supported
   tool versions; bind resolved SHAs/model/prompt/interpreter to predeclarations; checkpoint
   each paid subcall and represent ambiguous cost.

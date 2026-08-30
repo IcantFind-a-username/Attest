@@ -32,7 +32,13 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from attest.benchmark.baselines import ArmRun, ComparisonMeasurements
-from attest.benchmark.corpus import ValidationReceipt, require_validated_pair
+from attest.benchmark.corpus import (
+    ValidationAuthorityCheck,
+    ValidationReceipt,
+    ValidationReceiptV2,
+    ValidationVerification,
+    require_validated_pair,
+)
 from attest.benchmark.metrics import (
     ORACLE_INCONCLUSIVE_REASON,
     BenchmarkReport,
@@ -43,10 +49,10 @@ from attest.benchmark.stability import StabilityReport
 
 REPLAY_MODE = "replay"
 LIVE_MODE = "live"
-REPORT_SCHEMA_VERSION = "2"
+REPORT_SCHEMA_VERSION = "3"
 JSON_NAME = "report.json"
 MARKDOWN_NAME = "report.md"
-COMPARISON_SCHEMA_VERSION = "1"
+COMPARISON_SCHEMA_VERSION = "2"
 COMPARISON_JSON_NAME = "comparison.json"
 COMPARISON_MARKDOWN_NAME = "comparison.md"
 STABILITY_JSON_NAME = "stability.json"
@@ -56,6 +62,10 @@ STABILITY_MARKDOWN_NAME = "stability.md"
 RECEIPT_MISSING = "validation_receipt_missing"
 RECEIPT_MANIFEST_MISMATCH = "validation_receipt_manifest_mismatch"
 RECEIPT_EXCLUDES_PAIR = "validation_receipt_excludes_a_scored_pair"
+RECEIPT_HISTORICAL = "validation_receipt_historical_integrity_only"
+RECEIPT_INTEGRITY_INVALID = "validation_receipt_integrity_invalid"
+RECEIPT_PROVENANCE_UNAUTHORIZED = "validation_receipt_provenance_unauthorized"
+RECEIPT_SEMANTIC_REJECTED = "validation_receipt_semantic_policy_rejected"
 
 
 @dataclass(frozen=True)
@@ -104,6 +114,7 @@ class BenchmarkRunReport:
     abstained_cases: tuple[ReportAbstention, ...]
     measurements: BenchmarkReport | None
     metrics_withheld_reason: str | None
+    validation_authority: ValidationVerification
     evidence_class_counts: Mapping[str, int]
     limitations: tuple[str, ...]
     digest: str = ""
@@ -138,6 +149,7 @@ class BenchmarkRunReport:
             "evidence_class_counts": dict(sorted(self.evidence_class_counts.items())),
             "metrics": _metrics_payload(self.metrics),
             "metrics_withheld_reason": self.metrics_withheld_reason,
+            "validation_authority": self.validation_authority.to_json_dict(),
             "operational": _operational_payload(
                 self.measurements, self.abstained_cases, self.excluded_cases
             ),
@@ -155,7 +167,9 @@ def build_report(
     abstentions: Iterable[ReportAbstention] = (),
     differential_repeats: int = 0,
     line_slack: int = 0,
-    validation_receipt: ValidationReceipt | None = None,
+    validation_receipt: (
+        ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None
+    ) = None,
 ) -> BenchmarkRunReport:
     """Aggregate the evaluated subset and attach its provenance limitations.
 
@@ -198,10 +212,11 @@ def build_report(
             key=lambda exclusion: (exclusion.case_id, exclusion.reason),
         )
     )
+    authority = _validation_authority(validation_receipt)
     withheld = (
         None
         if measurements is None
-        else _scoring_refusal(validation_receipt, manifest_sha256, cases)
+        else _scoring_refusal(authority, manifest_sha256, cases)
     )
     counts: dict[str, int] = {}
     for run in records:
@@ -224,6 +239,7 @@ def build_report(
         abstained_cases=abstained,
         measurements=measurements,
         metrics_withheld_reason=withheld,
+        validation_authority=authority,
         evidence_class_counts=counts,
         limitations=_limitations(
             manifest,
@@ -240,7 +256,7 @@ def build_report(
 
 
 def _scoring_refusal(
-    receipt: ValidationReceipt | None,
+    verification: ValidationVerification,
     manifest_sha256: str,
     cases: tuple[BenchmarkCase, ...],
 ) -> str | None:
@@ -250,16 +266,69 @@ def _scoring_refusal(
     real isolation probe, it is bound to one manifest digest, and it names the
     pairs that probe validated. Nothing here re-derives that judgement.
     """
-    if receipt is None:
+    if type(verification) is not ValidationVerification:
+        return RECEIPT_PROVENANCE_UNAUTHORIZED
+    if verification.authority == "missing":
         return RECEIPT_MISSING
+    if verification.authority == "historical_integrity_only":
+        return RECEIPT_HISTORICAL
+    if verification.authority != "current_scoring_authority":
+        return RECEIPT_PROVENANCE_UNAUTHORIZED
+    if not verification.integrity.accepted:
+        return RECEIPT_INTEGRITY_INVALID
+    if not verification.provenance.accepted:
+        return RECEIPT_PROVENANCE_UNAUTHORIZED
+    if not verification.semantic_policy.accepted:
+        return RECEIPT_SEMANTIC_REJECTED
+    receipt = verification.receipt
+    if not isinstance(receipt, ValidationReceiptV2):
+        return RECEIPT_PROVENANCE_UNAUTHORIZED
     if receipt.manifest_sha256 != manifest_sha256:
         return RECEIPT_MANIFEST_MISMATCH
     for case in cases:
         try:
-            require_validated_pair(receipt, case.pair_id)
+            require_validated_pair(verification, case.pair_id)
         except ValueError:
             return RECEIPT_EXCLUDES_PAIR
     return None
+
+
+def _validation_authority(
+    receipt: ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None,
+) -> ValidationVerification:
+    if type(receipt) is ValidationVerification:
+        return receipt
+    if isinstance(receipt, ValidationVerification):
+        return ValidationVerification(
+            integrity=ValidationAuthorityCheck(False, ("receipt.offline_verification",)),
+            provenance=ValidationAuthorityCheck(False, ("receipt.offline_verification",)),
+            semantic_policy=ValidationAuthorityCheck(
+                False, ("receipt.offline_verification",)
+            ),
+            _authority="none",
+            receipt=receipt.receipt,
+        )
+    if isinstance(receipt, ValidationReceipt):
+        return ValidationVerification(
+            integrity=ValidationAuthorityCheck(True),
+            provenance=ValidationAuthorityCheck(
+                False, ("receipt.provenance_envelope",)
+            ),
+            semantic_policy=ValidationAuthorityCheck(
+                False, ("validation_results.results[*].attempts",)
+            ),
+            _authority="historical_integrity_only",
+            receipt=receipt,
+        )
+    missing = receipt is None
+    path = "receipt" if missing else "receipt.offline_verification"
+    return ValidationVerification(
+        integrity=ValidationAuthorityCheck(False, (path,)),
+        provenance=ValidationAuthorityCheck(False, (path,)),
+        semantic_policy=ValidationAuthorityCheck(False, (path,)),
+        _authority="missing" if missing else "none",
+        receipt=receipt,
+    )
 
 
 def _with_digest(report: BenchmarkRunReport) -> BenchmarkRunReport:
@@ -431,6 +500,10 @@ def render_markdown(report: BenchmarkRunReport) -> str:
         f"- line slack: {report.line_slack}",
         f"- report digest: `{report.digest}`",
         "",
+        "## Validation authority",
+        "",
+        *_validation_authority_markdown(report.validation_authority),
+        "",
         "## Limitations",
         "",
     ]
@@ -495,6 +568,22 @@ def render_markdown(report: BenchmarkRunReport) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _validation_authority_markdown(
+    verification: ValidationVerification,
+) -> list[str]:
+    def row(label: str, check: ValidationAuthorityCheck) -> str:
+        paths = "none" if not check.failure_paths else ", ".join(check.failure_paths)
+        state = "PASS" if check.accepted else "FAIL"
+        return f"- {label}: {state}; failure paths: {paths}"
+
+    return [
+        f"- authority: `{verification.authority}`",
+        row("integrity", verification.integrity),
+        row("authorized provenance", verification.provenance),
+        row("semantic policy", verification.semantic_policy),
+    ]
+
+
 def _value_table(label: str, payload: Mapping[str, object] | None) -> list[str]:
     assert payload is not None
     rows = [f"| {label} | value |", "| --- | --- |"]
@@ -552,6 +641,7 @@ class ComparisonRunReport:
     measurements: ComparisonMeasurements
     excluded_cases: tuple[ReportExclusion, ...]
     metrics_withheld_reason: str | None
+    validation_authority: ValidationVerification
     limitations: tuple[str, ...]
     digest: str = ""
 
@@ -587,6 +677,7 @@ class ComparisonRunReport:
             "runs": [_arm_run_payload(run, authorized) for run in self.measurements.runs],
             "excluded_cases": [row.to_json_dict() for row in self.excluded_cases],
             "metrics_withheld_reason": self.metrics_withheld_reason,
+            "validation_authority": self.validation_authority.to_json_dict(),
             "limitations": list(self.limitations),
         }
 
@@ -631,7 +722,9 @@ def build_comparison_report(
     manifest_sha256: str,
     mode: str = REPLAY_MODE,
     exclusions: Iterable[ReportExclusion] = (),
-    validation_receipt: ValidationReceipt | None = None,
+    validation_receipt: (
+        ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None
+    ) = None,
 ) -> ComparisonRunReport:
     """Attach provenance limitations and apply the receipt gate to a comparison.
 
@@ -643,9 +736,8 @@ def build_comparison_report(
         raise ValueError("mode must be replay or live")
     evaluated_ids = set(measurements.evaluated_case_ids)
     cases = tuple(case for case in manifest.cases if case.case_id in evaluated_ids)
-    withheld = (
-        None if not cases else _scoring_refusal(validation_receipt, manifest_sha256, cases)
-    )
+    authority = _validation_authority(validation_receipt)
+    withheld = None if not cases else _scoring_refusal(authority, manifest_sha256, cases)
     excluded = tuple(
         sorted(exclusions, key=lambda exclusion: (exclusion.case_id, exclusion.reason))
     )
@@ -660,6 +752,7 @@ def build_comparison_report(
         measurements=measurements,
         excluded_cases=excluded,
         metrics_withheld_reason=withheld,
+        validation_authority=authority,
         limitations=_comparison_limitations(mode, measurements, excluded, withheld),
     )
     encoded = json.dumps(report._payload(), sort_keys=True, separators=(",", ":"))
@@ -731,6 +824,10 @@ def render_comparison_markdown(report: ComparisonRunReport) -> str:
         f"- line slack: {report.line_slack}",
         f"- evaluated cases: {len(report.measurements.evaluated_case_ids)}",
         f"- report digest: `{report.digest}`",
+        "",
+        "## Validation authority",
+        "",
+        *_validation_authority_markdown(report.validation_authority),
         "",
         "## Limitations",
         "",
