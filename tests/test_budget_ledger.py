@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from attest.review.budget import Budget, BudgetExceeded
@@ -59,13 +61,50 @@ def test_ledger_bad_feedback_rejected(tmp_path) -> None:
         led.record_feedback("f1", "meh")
 
 
+def test_feedback_label_polarity_recorded(tmp_path) -> None:
+    """Every accepted label carries a derived polarity so downstream
+    consumers never have to re-derive the fix/good/wrong/wontfix/dismiss
+    mapping themselves."""
+    led = Ledger(tmp_path)
+    expected_polarity = {
+        "fix": "true",
+        "good": "true",
+        "wontfix": "true",
+        "wrong": "false",
+        "dismiss": "ambiguous",  # legacy, ambiguous polarity
+    }
+    for label in expected_polarity:
+        led.record_feedback(f"f-{label}", label)
+    by_finding = {e["finding_id"]: e for e in led.entries()}
+    for label, polarity in expected_polarity.items():
+        entry = by_finding[f"f-{label}"]
+        assert entry["feedback"] == label
+        assert entry["label_polarity"] == polarity
+
+
+def test_precision_excludes_legacy_dismiss_from_denominator(tmp_path) -> None:
+    """Legacy `dismiss` rows are polarity-ambiguous and must be excluded from
+    BOTH the numerator and the denominator of surfaced precision -- never
+    silently counted as either a true or a false label."""
+    led = Ledger(tmp_path)
+    labels = ["fix", "good", "wontfix", "wrong", "dismiss"]
+    for i, label in enumerate(labels):
+        fid = f"f{i}"
+        led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(fid, label)
+    precision, n = led.surfaced_precision()
+    # dismiss (ambiguous) excluded entirely: denominator is 4, not 5
+    assert n == 4
+    assert precision == pytest.approx(3 / 4)  # fix, good, wontfix true; wrong false
+
+
 def test_surfaced_precision_and_tighten(tmp_path) -> None:
     led = Ledger(tmp_path)
-    # 12 surfaced findings: 8 good, 4 dismissed -> precision 0.667 < 0.9
+    # 12 surfaced findings: 8 good, 4 genuinely wrong -> precision 0.667 < 0.9
     for i in range(12):
         fid = f"f{i}"
         led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
-        led.record_feedback(fid, "good" if i < 8 else "dismiss")
+        led.record_feedback(fid, "good" if i < 8 else "wrong")
     precision, n = led.surfaced_precision()
     assert n == 12
     assert precision == pytest.approx(8 / 12)
@@ -74,6 +113,23 @@ def test_surfaced_precision_and_tighten(tmp_path) -> None:
     assert note is not None
     # the tightening is recorded and current_alpha follows the chain
     assert led.current_alpha(0.1) == 0.05
+
+
+def test_wontfix_labels_do_not_tighten_alpha(tmp_path) -> None:
+    """wontfix means the finding was CORRECT but not acted on: it must count
+    as a true label for precision, not as a false positive."""
+    led = Ledger(tmp_path)
+    # same shape as test_surfaced_precision_and_tighten, but the 4 "bad"
+    # labels are wontfix rather than wrong -> precision stays 1.0
+    for i in range(12):
+        fid = f"f{i}"
+        led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(fid, "good" if i < 8 else "wontfix")
+    precision, n = led.surfaced_precision()
+    assert n == 12
+    assert precision == pytest.approx(1.0)
+    alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
+    assert alpha == 0.1 and note is None
 
 
 def test_tighten_disabled_or_insufficient(tmp_path) -> None:
@@ -95,14 +151,14 @@ def test_tighten_floor_with_fresh_labels_each_round(tmp_path) -> None:
     for i in range(20):
         fid = f"f{i}"
         led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
-        led.record_feedback(fid, "dismiss")
+        led.record_feedback(fid, "wrong")
     alpha = 0.1
     for round_ in range(6):
         alpha, _ = led.maybe_tighten_alpha(alpha, enabled=True)
         # fresh bad label between rounds keeps the watermark moving
         fid = f"extra{round_}"
         led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
-        led.record_feedback(fid, "dismiss")
+        led.record_feedback(fid, "wrong")
     assert alpha == 0.01  # floored
 
 
@@ -113,13 +169,45 @@ def test_tighten_watermark_blocks_stale_rehalving(tmp_path) -> None:
     for i in range(12):
         fid = f"f{i}"
         led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
-        led.record_feedback(fid, "dismiss")
+        led.record_feedback(fid, "wrong")
     alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
     assert alpha == 0.05 and note is not None
     # same stale window: no further tightening, run after run
     for _ in range(4):
         alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
         assert alpha == 0.05 and note is None
+
+
+def test_ambiguous_labels_do_not_advance_the_tighten_watermark(tmp_path) -> None:
+    """Regression: legacy `dismiss` labels are excluded from surfaced precision,
+    so they cannot move the figure that justifies a tightening. Counting them in
+    the watermark let each one re-open the gate on an UNCHANGED precision
+    figure, halving alpha again and again down to the floor on one stale window.
+    """
+    led = Ledger(tmp_path)
+    # 12 labels, 8 good / 4 wrong -> precision 0.667 < 0.9
+    for i in range(12):
+        fid = f"f{i}"
+        led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(fid, "good" if i < 8 else "wrong")
+    alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
+    assert alpha == 0.05 and note is not None
+    stale = led.surfaced_precision()
+
+    # ambiguous labels only: precision cannot move, so neither may alpha
+    for i in range(3):
+        fid = f"d{i}"
+        led.record_review("t", fid, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(fid, "dismiss")
+        alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
+        assert led.surfaced_precision() == stale
+        assert alpha == 0.05 and note is None
+
+    # a label that CAN move precision still re-tightens, exactly as before
+    led.record_review("t", "fresh", ["S"], 0.0, 12.0, "surface")
+    led.record_feedback("fresh", "wrong")
+    alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
+    assert alpha == 0.025 and note is not None
 
 
 def test_reverify_not_double_counted_in_precision(tmp_path) -> None:
@@ -129,7 +217,7 @@ def test_reverify_not_double_counted_in_precision(tmp_path) -> None:
     led.record_review("t", "f1", ["V"], 0.0, 60.0, "verified_surface")
     led.record_review("t", "f1", ["V"], 0.0, 60.0, "verified_surface")
     led.record_review("t", "f2", ["S"], 0.0, 12.0, "surface")
-    led.record_feedback("f1", "dismiss")
+    led.record_feedback("f1", "wrong")
     led.record_feedback("f2", "good")
     precision, n = led.surfaced_precision()
     assert n == 2
@@ -154,3 +242,73 @@ def test_good_precision_no_tighten(tmp_path) -> None:
         led.record_feedback(fid, "good" if i < 19 else "dismiss")
     alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
     assert alpha == 0.1 and note is None
+
+
+@pytest.mark.parametrize(
+    ("outcome", "reason", "network_blocked", "evidence"),
+    [
+        (
+            "reproduced",
+            "pytest reported 1 failure(s) and 0 error(s)",
+            True,
+            "AssertionError: expected 4, got 5",
+        ),
+        ("not_reproduced", "pytest passed", True, "1 passed in 0.02s"),
+        ("deferred", "reproduction timed out after 60s", True, "last output bytes"),
+    ],
+)
+def test_record_verification_preserves_identity_and_evidence_without_changing_review(
+    tmp_path,
+    outcome: str,
+    reason: str,
+    network_blocked: bool,
+    evidence: str,
+) -> None:
+    led = Ledger(tmp_path)
+    led.record_review("task-9", "finding-a", ["S", "T"], 0.0123456, 8.12345, "drawer")
+
+    led.record_verification(
+        task_id="task-9",
+        finding_id="finding-a",
+        outcome=outcome,
+        reason=reason,
+        elapsed_s=1.23456789,
+        network_blocked=network_blocked,
+        evidence=evidence,
+    )
+
+    review, verification = led.entries()
+    assert review == {
+        "ts": review["ts"],
+        "kind": "review",
+        "task_id": "task-9",
+        "finding_id": "finding-a",
+        "channels_bought": ["S", "T"],
+        "spend": 0.012346,
+        "wealth_final": 8.1235,
+        "action": "drawer",
+    }
+    assert verification == {
+        "ts": verification["ts"],
+        "kind": "verification",
+        "task_id": "task-9",
+        "finding_id": "finding-a",
+        "outcome": outcome,
+        "reason": reason,
+        "elapsed_s": 1.234568,
+        "network_blocked": network_blocked,
+        "evidence": evidence,
+    }
+
+
+def test_final_ci_decisions_drive_surfaced_precision(tmp_path: Path) -> None:
+    led = Ledger(tmp_path)
+    led.record_review("task", "finding", [], 0.01, 4.0, "drawer")
+    led.record_ci_final(
+        task_id="task",
+        decisions=[{"finding_id": "finding", "action": "surface", "wealth_final": 40.0}],
+        spend_usd=0.02,
+    )
+    led.record_feedback("finding", "good")
+
+    assert led.surfaced_precision() == (1.0, 1)

@@ -26,12 +26,26 @@ class DiffInfo:
     # file path -> list of (start, end) inclusive new-file line ranges per hunk
     hunks: dict[str, list[tuple[int, int]]] = field(default_factory=dict)
 
-    def anchor_in_hunk(self, path: str, line: int) -> bool:
+    def canonical_anchor(self, path: str, line: int) -> str | None:
+        """Repository path the anchor names, or None. Proposer models often
+        emit git-notation anchors (a/pkg/mod.py for pkg/mod.py). The exact
+        path is tried FIRST — repos that genuinely contain a top-level a/ or
+        b/ directory keep their literal keys — and only then is a single a/
+        or b/ prefix stripped (once, never in a loop). Any `..` segment is
+        rejected outright, never stripped-and-retried."""
         norm = norm_path(path)
-        for fpath, ranges in self.hunks.items():
-            if fpath == norm and any(a <= line <= b for a, b in ranges):
-                return True
-        return False
+        if ".." in norm.split("/"):
+            return None
+        candidates = [norm]
+        if norm.startswith(("a/", "b/")):
+            candidates.append(norm[2:])
+        for candidate in candidates:
+            if any(a <= line <= b for a, b in self.hunks.get(candidate, [])):
+                return candidate
+        return None
+
+    def anchor_in_hunk(self, path: str, line: int) -> bool:
+        return self.canonical_anchor(path, line) is not None
 
     @property
     def files(self) -> list[str]:

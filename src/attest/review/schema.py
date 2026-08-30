@@ -100,8 +100,12 @@ def validate_finding(raw: dict[str, Any], diff: DiffInfo) -> tuple[Finding | Non
         line = int(anchor["line"])
     except (TypeError, ValueError):
         return None, "non-integer anchor line"
-    if not diff.anchor_in_hunk(file, line):
+    canonical = diff.canonical_anchor(file, line)
+    if canonical is None:
         return None, f"anchor {file}:{line} not inside any diff hunk"
+    # store the canonical repository path: finding_id, dedup, tier-0 matching,
+    # and inline comment paths must all use the real path, not git notation
+    file = canonical
     return (
         Finding(
             claim=claim,

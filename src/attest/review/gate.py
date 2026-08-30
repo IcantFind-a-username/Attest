@@ -61,6 +61,19 @@ def evaluate_finding(
     )
 
 
+def apply_verification(result: GateResult, alpha: float, reproduced: bool) -> GateResult:
+    """Return a new result after purchasing one reproduction-evidence channel."""
+    lr_v = verification_lr(reproduced)
+    purchase = ChannelPurchase("V", lr_v, "reproduced" if reproduced else "reproduction failed")
+    wealth = result.wealth * lr_v
+    return GateResult(
+        finding=result.finding,
+        wealth=wealth,
+        purchases=[*result.purchases, purchase],
+        decision=decide(wealth, alpha),
+    )
+
+
 @dataclass
 class GateOutcome:
     formal: list[GateResult]  # top-N surfaced findings, wealth-sorted

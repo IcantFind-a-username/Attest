@@ -4,9 +4,14 @@ import json
 import subprocess
 from pathlib import Path
 
+import anthropic
 import pytest
 
 from attest.cli.main import main
+from attest.review.candidates import CandidateStore
+from attest.review.config import load_pricing
+from attest.review.gate import GateResult
+from attest.review.schema import Finding
 
 CLEAN = """def total(items):
     return sum(items)
@@ -39,6 +44,26 @@ def repo(tmp_path: Path) -> Path:
 
 def _payload(*findings: dict) -> str:
     return json.dumps({"findings": list(findings)})
+
+
+def _event_path(repo: Path, tmp_path: Path) -> Path:
+    base_sha = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    event = {
+        "number": 9,
+        "repository": {"full_name": "octo/widgets"},
+        "pull_request": {
+            "base": {"sha": base_sha},
+            "head": {"sha": base_sha, "repo": {"full_name": "octo/widgets"}},
+        },
+    }
+    path = tmp_path / "event.json"
+    path.write_text(json.dumps(event), encoding="utf-8")
+    return path
 
 
 FINDING_A = {
@@ -84,6 +109,13 @@ def test_review_verify_feedback_stats(repo: Path, mocks: list[str], capsys) -> N
     assert reviews[0]["action"] == "drawer"
     assert reviews[0]["channels_bought"] == ["S"]
     finding_id = reviews[0]["finding_id"]
+    # CandidateStore must skip malformed legacy/corrupt rows so a valid stored
+    # candidate remains verifiable.
+    candidates_path = repo / ".attest" / "candidates.jsonl"
+    candidates_path.write_text(
+        '{"task_id": "incomplete"}\n' + candidates_path.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
 
     # --- verify: reproduction pushes wealth past the gate
     rc = main(
@@ -112,6 +144,37 @@ def test_review_verify_feedback_stats(repo: Path, mocks: list[str], capsys) -> N
     assert "surfaced: 1" in out  # the verified surface
 
 
+def test_feedback_flags_record_distinct_labels(repo: Path, capsys) -> None:
+    """--wrong and --wontfix must be distinguishable in the ledger, and the
+    legacy --dismiss flag must still work (marked ambiguous)."""
+    ledger_path = repo / ".attest" / "ledger.jsonl"
+    flag_to_label = {
+        "--fix": "fix",
+        "--good": "good",
+        "--wrong": "wrong",
+        "--wontfix": "wontfix",
+        "--dismiss": "dismiss",
+    }
+    for flag, label in flag_to_label.items():
+        rc = main(["--repo", str(repo), "feedback", f"finding-{label}", flag])
+        capsys.readouterr()
+        assert rc == 0
+
+    entries = [json.loads(x) for x in ledger_path.read_text().splitlines() if x.strip()]
+    by_finding = {e["finding_id"]: e for e in entries if e["kind"] == "feedback"}
+    expected_polarity = {
+        "fix": "true",
+        "good": "true",
+        "wrong": "false",
+        "wontfix": "true",
+        "dismiss": "ambiguous",
+    }
+    for label, polarity in expected_polarity.items():
+        entry = by_finding[f"finding-{label}"]
+        assert entry["feedback"] == label
+        assert entry["label_polarity"] == polarity
+
+
 def test_review_budget_defer(repo: Path, mocks: list[str], capsys) -> None:
     rc = main(["--repo", str(repo), "review", "--k", "3", "--budget", "0.000001", "--mock", *mocks])
     out = capsys.readouterr().out
@@ -125,12 +188,34 @@ def test_review_budget_defer(repo: Path, mocks: list[str], capsys) -> None:
     assert any(e["kind"] == "defer" for e in entries)
 
 
+@pytest.mark.parametrize("timeout", ["nan", "inf", "0", "-1"])
+def test_ci_rejects_nonfinite_or_nonpositive_verification_timeout(timeout: str) -> None:
+    with pytest.raises(SystemExit) as caught:
+        main(["ci", "--event-path", "event.json", "--verification-timeout", timeout])
+
+    assert caught.value.code == 2
+
+
 def test_review_no_diff(repo: Path, mocks: list[str], capsys) -> None:
     subprocess.run(["git", "-C", str(repo), "checkout", "--", "app.py"], check=True)
     rc = main(["--repo", str(repo), "review", "--mock", mocks[0]])
     out = capsys.readouterr().out
     assert rc == 0
     assert "no diff" in out
+
+
+def test_review_no_diff_does_not_construct_a_real_client(repo: Path, capsys, monkeypatch) -> None:
+    subprocess.run(["git", "-C", str(repo), "checkout", "--", "app.py"], check=True)
+
+    def unexpected_client(*args, **kwargs):  # noqa: ANN002, ANN003
+        raise AssertionError("real client should not be constructed")
+
+    monkeypatch.setattr(anthropic, "Anthropic", unexpected_client)
+
+    rc = main(["--repo", str(repo), "review"])
+
+    assert rc == 0
+    assert "no diff" in capsys.readouterr().out
 
 
 def test_mock_without_files_rejected(repo: Path) -> None:
@@ -152,8 +237,198 @@ def test_verify_unknown_id(repo: Path, capsys) -> None:
     assert rc == 2
 
 
+def test_verify_uses_the_selected_task_for_duplicate_finding_ids(repo: Path, capsys) -> None:
+    finding = Finding(
+        claim="average() divides by zero when items is empty.",
+        file="app.py",
+        line=6,
+        failure_scenario="average([]) raises ZeroDivisionError",
+        falsification_plan="call average([]) and observe the exception",
+    )
+    store = CandidateStore(repo)
+    store.append("first-task", 0.1, [GateResult(finding=finding, wealth=2.0)])
+    store.append("second-task", 0.1, [GateResult(finding=finding, wealth=0.2)])
+
+    rc = main(
+        [
+            "--repo",
+            str(repo),
+            "verify",
+            finding.finding_id,
+            "--task-id",
+            "first-task",
+            "--reproduced",
+        ]
+    )
+
+    assert rc == 0
+    assert "wealth 2.0 -> 40.0 => surface" in capsys.readouterr().out
+    entries = [
+        json.loads(line) for line in (repo / ".attest" / "ledger.jsonl").read_text().splitlines()
+    ]
+    assert entries[-1]["task_id"] == "first-task"
+
+
 def test_unreachable_gate_refused(repo: Path, mocks: list[str], capsys) -> None:
     rc = main(["--repo", str(repo), "review", "--alpha", "0.001", "--k", "3", "--mock", *mocks])
     assert rc == 2
     err = capsys.readouterr().err
     assert "unreachable" in err
+
+
+def test_unreachable_gate_does_not_construct_a_real_client(repo: Path, capsys, monkeypatch) -> None:
+    def unexpected_client(*args, **kwargs):  # noqa: ANN002, ANN003
+        raise AssertionError("real client should not be constructed")
+
+    monkeypatch.setattr(anthropic, "Anthropic", unexpected_client)
+
+    rc = main(["--repo", str(repo), "review", "--alpha", "0.001"])
+
+    assert rc == 2
+    assert "unreachable" in capsys.readouterr().err
+
+
+def test_ci_rejects_missing_github_token(
+    repo: Path, tmp_path: Path, mocks: list[str], capsys, monkeypatch
+) -> None:
+    event_path = _event_path(repo, tmp_path)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+
+    rc = main(
+        [
+            "--repo",
+            str(repo),
+            "ci",
+            "--event-path",
+            str(event_path),
+            "--mock",
+            mocks[0],
+        ]
+    )
+
+    assert rc == 2
+    assert "GITHUB_TOKEN" in capsys.readouterr().err
+
+
+def test_ci_rejects_malformed_pull_request_event(
+    repo: Path, tmp_path: Path, mocks: list[str], capsys, monkeypatch
+) -> None:
+    event_path = tmp_path / "malformed-event.json"
+    event_path.write_text('{"repository": {}}', encoding="utf-8")
+    monkeypatch.setenv("GITHUB_TOKEN", "local-token")
+
+    rc = main(
+        [
+            "--repo",
+            str(repo),
+            "ci",
+            "--event-path",
+            str(event_path),
+            "--mock",
+            mocks[0],
+        ]
+    )
+
+    assert rc == 2
+    assert "event" in capsys.readouterr().err.lower()
+
+
+def test_ci_mock_provider_routes_offline_and_prints_one_json_result(
+    repo: Path, tmp_path: Path, capsys, monkeypatch
+) -> None:
+    from attest.github.client import GitHubClient
+
+    event_path = _event_path(repo, tmp_path)
+    empty_payload = tmp_path / "empty.json"
+    empty_payload.write_text(_payload(), encoding="utf-8")
+    monkeypatch.setenv("GITHUB_TOKEN", "local-token")
+    monkeypatch.setenv("GITHUB_API_URL", "http://127.0.0.1:9")
+
+    def unexpected_client(*args, **kwargs):  # noqa: ANN002, ANN003
+        raise AssertionError("offline --mock must not construct a paid API client")
+
+    def record_status(self, repository, number, marker, body):  # noqa: ANN001
+        return {"id": 1}
+
+    def unexpected_review(self, repository, number, commit_id, comments):  # noqa: ANN001
+        raise AssertionError("negative control must not post an inline review")
+
+    monkeypatch.setattr(anthropic, "Anthropic", unexpected_client)
+    monkeypatch.setattr(GitHubClient, "upsert_issue_comment", record_status)
+    monkeypatch.setattr(GitHubClient, "create_review", unexpected_review)
+
+    rc = main(
+        [
+            "--repo",
+            str(repo),
+            "ci",
+            "--event-path",
+            str(event_path),
+            "--verification-timeout",
+            "15",
+            "--budget",
+            "0.1",
+            "--model",
+            str(load_pricing()["default_model"]),
+            "--k",
+            "1",
+            "--mock",
+            str(empty_payload),
+        ]
+    )
+
+    assert rc == 0
+    output = capsys.readouterr().out
+    assert output.count("\n") == 1
+    result = json.loads(output)
+    assert set(result) == {
+        "task_id",
+        "candidate_count",
+        "surfaced_count",
+        "deferred_reason",
+        "spend_usd",
+        "elapsed_s",
+    }
+    assert result["candidate_count"] == 0
+    assert result["surfaced_count"] == 0
+    assert result["deferred_reason"] is None
+
+
+def test_ci_mock_without_files_is_rejected(repo: Path, tmp_path: Path) -> None:
+    event_path = _event_path(repo, tmp_path)
+
+    with pytest.raises(SystemExit):
+        main(["--repo", str(repo), "ci", "--event-path", str(event_path), "--mock"])
+
+
+def test_ci_invalid_model_override_remains_a_cli_error(
+    repo: Path, tmp_path: Path, mocks: list[str], capsys, monkeypatch
+) -> None:
+    from attest.github.client import GitHubClient
+
+    event_path = _event_path(repo, tmp_path)
+    monkeypatch.setenv("GITHUB_TOKEN", "local-token")
+    monkeypatch.setattr(
+        GitHubClient,
+        "upsert_issue_comment",
+        lambda self, repository, number, marker, body: {"id": 1},
+    )
+
+    rc = main(
+        [
+            "--repo",
+            str(repo),
+            "ci",
+            "--event-path",
+            str(event_path),
+            "--model",
+            "not-a-model",
+            "--k",
+            "1",
+            "--mock",
+            mocks[0],
+        ]
+    )
+
+    assert rc == 2
+    assert "pricing" in capsys.readouterr().err

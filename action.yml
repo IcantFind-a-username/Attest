@@ -1,0 +1,50 @@
+name: attest pull request review
+description: Run evidence-first pull-request review with bounded verification.
+inputs:
+  github-token:
+    description: Token allowed to update pull-request review comments.
+    required: true
+  model-api-key:
+    description: Model API key for trusted pull-request reviews.
+    required: true
+  budget-usd:
+    description: Maximum model spend for this review, in USD.
+    required: false
+    default: "0.25"
+  samples:
+    description: Number of model proposal samples.
+    required: false
+    default: "5"
+  verification-timeout:
+    description: Shared verification time limit, in seconds.
+    required: false
+    default: "600"
+runs:
+  using: composite
+  steps:
+    - id: trust
+      name: Classify pull request
+      shell: sh
+      run: sh "${{ github.action_path }}/scripts/action-gate.sh"
+    - name: Set up uv
+      if: ${{ steps.trust.outputs.trusted == 'true' }}
+      uses: astral-sh/setup-uv@v6
+    - name: Install attest from this action
+      if: ${{ steps.trust.outputs.trusted == 'true' }}
+      shell: sh
+      env:
+        ATTEST_VENV: ${{ runner.temp }}/attest-venv
+      run: |
+        uv venv "$ATTEST_VENV"
+        uv pip install --python "$ATTEST_VENV/bin/python" "${{ github.action_path }}"
+    - name: Run attest CI review
+      if: ${{ steps.trust.outputs.trusted == 'true' }}
+      shell: sh
+      env:
+        ATTEST_VENV: ${{ runner.temp }}/attest-venv
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_MODEL_API_KEY: ${{ inputs.model-api-key }}
+        INPUT_BUDGET_USD: ${{ inputs.budget-usd }}
+        INPUT_SAMPLES: ${{ inputs.samples }}
+        INPUT_VERIFICATION_TIMEOUT: ${{ inputs.verification-timeout }}
+      run: sh "${{ github.action_path }}/scripts/action-entrypoint.sh"

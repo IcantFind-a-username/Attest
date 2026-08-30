@@ -64,6 +64,10 @@ def test_render_formal_findings_and_drawer() -> None:
     assert "drawer (2 candidate(s)" in text  # overflow + deferred, both visible
     assert "note: hello" in text
     assert "spend $0.1200 of $0.25" in text
+    # honest counts: overflow findings count as surfaced (they passed the
+    # gate; the cap is layout, not speech), never "certified-false"
+    assert "5 candidate(s): 4 surfaced, 1 in drawer, 0 discarded" in text
+    assert "certified-false" not in text
 
 
 def test_render_defer() -> None:
@@ -71,3 +75,25 @@ def test_render_defer() -> None:
     text = render(outcome, 0.1, 0.0, 0.25, 1.0, deferred_reason="budget: too big")
     assert "DEFER: budget: too big" in text
     assert "no findings cleared" not in text
+
+
+def test_render_silence_reports_candidate_count_without_surfacing() -> None:
+    # there was one candidate, it just never cleared the bar -- silence
+    # should say how much was actually examined, not just go quiet.
+    drawer_only = [_result(1, "Weak hunch about a possible leak.", False)]
+    outcome = apply_gate(drawer_only, max_findings=3)
+    text = render(outcome, 0.1, 0.0, 0.25, 3.0)
+    assert "checked 1 candidate(s)" in text
+    assert "no findings cleared the evidence bar" in text
+    assert "certified-false" not in text
+    assert "1 candidate(s): 0 surfaced, 1 in drawer, 0 discarded" in text
+
+
+def test_render_silence_zero_candidates_is_distinct() -> None:
+    # zero candidates proposed is a different fact than "candidates proposed
+    # but none surfaced" -- the reader shouldn't have to guess which happened.
+    outcome = apply_gate([], max_findings=3)
+    text = render(outcome, 0.1, 0.0, 0.25, 0.5)
+    assert "no candidates proposed — saying nothing." in text
+    assert "checked" not in text
+    assert "0 candidate(s): 0 surfaced, 0 in drawer, 0 discarded" in text

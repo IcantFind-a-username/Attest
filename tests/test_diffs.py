@@ -73,6 +73,97 @@ diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
     assert not d.anchor_in_hunk("github/workflows/ci.yml", 2)
 
 
+def test_canonical_anchor_strips_git_prefix() -> None:
+    d = parse_diff(DIFF)
+    assert d.canonical_anchor("pkg/mod.py", 11) == "pkg/mod.py"
+    assert d.canonical_anchor("a/pkg/mod.py", 11) == "pkg/mod.py"
+    assert d.canonical_anchor("b/pkg/mod.py", 11) == "pkg/mod.py"
+    # anchor_in_hunk accepts the prefixed forms too
+    assert d.anchor_in_hunk("a/pkg/mod.py", 11)
+    assert d.anchor_in_hunk("b/pkg/mod.py", 11)
+
+
+def test_canonical_anchor_exact_match_wins_over_stripping() -> None:
+    # a repo that genuinely has a top-level a/ directory
+    text = """\
+diff --git a/a/real.py b/a/real.py
+--- a/a/real.py
++++ b/a/real.py
+@@ -1,1 +1,2 @@
+ context
++added
+"""
+    d = parse_diff(text)
+    assert d.canonical_anchor("a/real.py", 2) == "a/real.py"
+    assert d.canonical_anchor("b/a/real.py", 2) == "a/real.py"
+
+
+def test_canonical_anchor_prefers_exact_key_over_stripped() -> None:
+    # both x.py and b/x.py are real hunk keys: each anchor names itself
+    text = """\
+diff --git a/x.py b/x.py
+--- a/x.py
++++ b/x.py
+@@ -1,1 +1,2 @@
+ context
++added
+diff --git a/b/x.py b/b/x.py
+--- a/b/x.py
++++ b/b/x.py
+@@ -1,1 +1,2 @@
+ context
++added
+"""
+    d = parse_diff(text)
+    assert d.canonical_anchor("b/x.py", 2) == "b/x.py"
+    assert d.canonical_anchor("x.py", 2) == "x.py"
+
+
+def test_canonical_anchor_rejects_traversal() -> None:
+    text = """\
+diff --git a/secret.py b/secret.py
+--- a/secret.py
++++ b/secret.py
+@@ -1,1 +1,2 @@
+ context
++added
+"""
+    d = parse_diff(text)
+    assert d.canonical_anchor("a/../secret.py", 2) is None
+    assert d.canonical_anchor("../secret.py", 2) is None
+    assert d.canonical_anchor("../x.py", 2) is None
+
+
+def test_canonical_anchor_strips_at_most_once() -> None:
+    text = """\
+diff --git a/x.py b/x.py
+--- a/x.py
++++ b/x.py
+@@ -1,1 +1,2 @@
+ context
++added
+"""
+    d = parse_diff(text)
+    # stripping once yields b/x.py, not x.py — no second strip
+    assert d.canonical_anchor("a/b/x.py", 2) is None
+    text = """\
+diff --git a/b/x.py b/b/x.py
+--- a/b/x.py
++++ b/b/x.py
+@@ -1,1 +1,2 @@
+ context
++added
+"""
+    d = parse_diff(text)
+    assert d.canonical_anchor("a/b/x.py", 2) == "b/x.py"
+
+
+def test_canonical_anchor_line_out_of_range_rejects() -> None:
+    d = parse_diff(DIFF)
+    assert d.canonical_anchor("a/pkg/mod.py", 99) is None
+    assert d.canonical_anchor("pkg/mod.py", 99) is None
+
+
 def test_spoofed_file_header_in_hunk_content_ignored() -> None:
     # regression: an added line whose content is '++ b/evil.py' renders as
     # '+++ b/evil.py' and must not poison the hunk map

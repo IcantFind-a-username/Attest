@@ -1,48 +1,36 @@
-"""attest CLI: review (diff -> proposer -> gate -> report), verify, feedback, stats."""
+"""attest CLI: review, two-stage CI, verify, feedback, and stats commands."""
 
 from __future__ import annotations
 
 import argparse
 import dataclasses
-import hashlib
 import json
+import math
+import os
 import sys
-import time
 from pathlib import Path
 
-from attest.core.betting import decide
-from attest.review.budget import Budget, BudgetExceeded
-from attest.review.channels import gate_feasibility, verification_lr
+from attest.github.client import GitHubClient
+from attest.github.context import load_pull_request_context
+from attest.review.candidates import CandidateStore
+from attest.review.ci import run_ci
 from attest.review.config import load_config
-from attest.review.diffs import git_diff
-from attest.review.gate import GateOutcome, apply_gate, evaluate_finding
+from attest.review.gate import GateResult, apply_verification
 from attest.review.ledger import Ledger
-from attest.review.proposer import ApiProvider, MockProvider, Provider, propose
+from attest.review.proposer import ApiProvider, MockProvider, Provider
 from attest.review.report import render
-from attest.review.tier0 import collect_signals, signals_near
+from attest.review.run import run_review
 
 
-def _candidates_path(repo: Path) -> Path:
-    return repo / ".attest" / "candidates.jsonl"
-
-
-def _load_candidates(repo: Path) -> list[dict]:
-    path = _candidates_path(repo)
-    if not path.is_file():
-        return []
-    out = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            try:
-                out.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-    return out
+def _positive_finite(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a finite number greater than zero")
+    return parsed
 
 
 def cmd_review(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
-    t0 = time.monotonic()
     config = load_config(repo)
     overrides = {
         key: value
@@ -61,120 +49,90 @@ def cmd_review(args: argparse.Namespace) -> int:
             print(f"error: {exc}", file=sys.stderr)
             return 2
 
-    ledger = Ledger(repo)
-    alpha = ledger.current_alpha(config.alpha) if config.auto_tighten_alpha else config.alpha
-    alpha, tighten_note = ledger.maybe_tighten_alpha(alpha, config.auto_tighten_alpha)
-    notes = [tighten_note] if tighten_note else []
-
-    feas = gate_feasibility(alpha)
-    if not feas["reachable_with_verification"]:
-        print(
-            f"error: gate 1/alpha = {1 / alpha:.0f} exceeds the factory evidence "
-            "ceiling even with verification; refusing to run an unreachable gate.",
-            file=sys.stderr,
-        )
-        return 2
-    if not feas["reachable_without_verification"]:
-        notes.append(
-            f"at alpha={alpha} the gate (wealth >= {1 / alpha:.0f}) is reachable only "
-            "with reproduction evidence: drawer candidates surface via 'attest verify'."
-        )
-
-    diff = git_diff(repo, args.base)
-    if not diff.hunks:
-        print("no diff to review.")
-        return 0
-
-    budget = Budget(limit_usd=config.budget_usd, model=config.model)
     provider: Provider
     if args.mock is not None:
         provider = MockProvider([Path(p).read_text(encoding="utf-8") for p in args.mock])
     else:
         provider = ApiProvider(config.model)
-
-    task_id = (
-        time.strftime("%Y%m%d-%H%M%S") + "-" + hashlib.sha256(diff.text.encode()).hexdigest()[:8]
-    )
-
-    deferred_reason = None
-    outcome = GateOutcome(formal=[], drawer_overflow=[], drawer=[], discarded=[])
-    try:
-        run = propose(diff, config, budget, provider)
-        signals = collect_signals(repo, diff.files, config.tier0_commands)
-        results = [
-            evaluate_finding(f, alpha, signals_near(signals, f.file, f.line), verification=None)
-            for f in run.candidates
-        ]
-        outcome = apply_gate(results, config.max_findings)
-
-        n = max(1, len(results))
-        _candidates_path(repo).parent.mkdir(parents=True, exist_ok=True)
-        with _candidates_path(repo).open("a", encoding="utf-8") as fh:
-            for r in results:
-                f = r.finding
-                ledger.record_review(
-                    task_id=task_id,
-                    finding_id=f.finding_id,
-                    channels_bought=[p.channel for p in r.purchases],
-                    spend=budget.spent_usd / n,
-                    wealth_final=r.wealth,
-                    # overflow findings DID pass the gate and are spoken in the
-                    # drawer section; the action must keep counting as surfaced
-                    action=r.action if r not in outcome.drawer_overflow else "overflow_surface",
-                )
-                fh.write(
-                    json.dumps(
-                        {
-                            "task_id": task_id,
-                            "finding_id": f.finding_id,
-                            "file": f.file,
-                            "line": f.line,
-                            "claim": f.claim,
-                            "failure_scenario": f.failure_scenario,
-                            "falsification_plan": f.falsification_plan,
-                            "votes": f.votes,
-                            "wealth": r.wealth,
-                            "action": r.action,
-                            "alpha": alpha,
-                        },
-                        ensure_ascii=False,
-                    )
-                    + "\n"
-                )
-        for err in run.sample_errors:
-            notes.append(f"sample error: {err}")
-        if run.rejected:
-            notes.append(
-                f"{len(run.rejected)} finding(s) voided (schema/anchor): "
-                + "; ".join(run.rejected[:3])
-            )
-    except BudgetExceeded as exc:
-        deferred_reason = f"budget: {exc.reason}"
-        ledger.append({"kind": "defer", "task_id": task_id, "reason": deferred_reason})
-
-    elapsed = time.monotonic() - t0
-    ledger.append(
-        {
-            "kind": "review_run",
-            "task_id": task_id,
-            "elapsed_s": round(elapsed, 2),
-            "spend_usd": round(budget.spent_usd, 6),
-            "model": config.model,
-            "alpha": alpha,
-            "files": len(diff.files),
-        }
-    )
+    review = run_review(repo, args.base, config, provider)
+    if review.notes == ["no diff to review."]:
+        print(review.notes[0])
+        return 0
+    if review.deferred_reason == "unreachable gate":
+        print(f"error: {review.notes[0]}", file=sys.stderr)
+        return 2
     print(
         render(
-            outcome,
-            alpha,
-            budget.spent_usd,
+            review.outcome,
+            review.alpha,
+            review.budget.spent_usd,
             config.budget_usd,
-            elapsed,
-            deferred_reason=deferred_reason,
-            notes=notes,
+            review.elapsed_s,
+            deferred_reason=review.deferred_reason,
+            notes=review.notes,
         )
     )
+    return 0
+
+
+def cmd_ci(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if not token:
+        print("error: GITHUB_TOKEN is required for CI review", file=sys.stderr)
+        return 2
+    try:
+        context = load_pull_request_context(Path(args.event_path))
+    except (OSError, UnicodeError, ValueError) as exc:
+        print(f"error: malformed GitHub event: {exc}", file=sys.stderr)
+        return 2
+
+    config = load_config(repo)
+    overrides = {
+        key: value
+        for key, value in [
+            ("alpha", args.alpha),
+            ("budget_usd", args.budget),
+            ("model", args.model),
+            ("k_samples", args.k),
+        ]
+        if value is not None
+    }
+    if overrides:
+        try:
+            config = dataclasses.replace(config, **overrides)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+
+    provider: Provider
+    if args.mock is not None:
+        try:
+            payloads = [Path(path).read_text(encoding="utf-8") for path in args.mock]
+        except (OSError, UnicodeError) as exc:
+            print(f"error: cannot read mock payload: {exc}", file=sys.stderr)
+            return 2
+        provider = MockProvider(payloads)
+    else:
+        provider = ApiProvider(config.model)
+
+    client = GitHubClient(
+        token,
+        os.environ.get("GITHUB_API_URL", "https://api.github.com"),
+    )
+    try:
+        result = run_ci(
+            repo,
+            context,
+            client,
+            config,
+            provider,
+            verification_timeout_s=args.verification_timeout,
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(dataclasses.asdict(result), sort_keys=True))
     return 0
 
 
@@ -183,22 +141,29 @@ def cmd_verify(args: argparse.Namespace) -> int:
     config = load_config(repo)
     ledger = Ledger(repo)
     alpha = ledger.current_alpha(config.alpha)
-    matches = [c for c in _load_candidates(repo) if c["finding_id"] == args.finding_id]
-    if not matches:
+    store = CandidateStore(repo)
+    task_id = args.task_id
+    if task_id is None:
+        matches = []
+        for stored in store.load():
+            if stored.finding.finding_id == args.finding_id:
+                matches.append(stored)
+        task_id = matches[-1].task_id if matches else None
+    candidate = store.latest(args.finding_id, task_id) if task_id is not None else None
+    if candidate is None:
         print(f"error: unknown finding id {args.finding_id}", file=sys.stderr)
         return 2
-    cand = matches[-1]
     reproduced = args.reproduced
-    wealth = float(cand["wealth"]) * verification_lr(reproduced)
-    decision = decide(wealth, alpha)
-    action = {1: "surface", 0: "discard", None: "drawer"}[decision]
+    result = apply_verification(
+        GateResult(finding=candidate.finding, wealth=candidate.wealth), alpha, reproduced
+    )
     ledger.record_review(
-        task_id=cand["task_id"],
+        task_id=candidate.task_id,
         finding_id=args.finding_id,
-        channels_bought=["V"],
+        channels_bought=[purchase.channel for purchase in result.purchases],
         spend=0.0,
-        wealth_final=wealth,
-        action=f"verified_{action}",
+        wealth_final=result.wealth,
+        action=f"verified_{result.action}",
     )
     if args.evidence:
         ledger.append(
@@ -206,12 +171,12 @@ def cmd_verify(args: argparse.Namespace) -> int:
         )
     status = "reproduced" if reproduced else "not reproduced"
     print(
-        f"[{args.finding_id}] {cand['file']}:{cand['line']} {status}: "
-        f"wealth {cand['wealth']:.1f} -> {wealth:.1f} => {action}"
+        f"[{args.finding_id}] {candidate.finding.file}:{candidate.finding.line} {status}: "
+        f"wealth {candidate.wealth:.1f} -> {result.wealth:.1f} => {result.action}"
     )
-    if action == "surface":
-        print(f"  {cand['claim']}")
-        print(f"  breaks when: {cand['failure_scenario']}")
+    if result.action == "surface":
+        print(f"  {candidate.finding.claim}")
+        print(f"  breaks when: {candidate.finding.failure_scenario}")
     return 0
 
 
@@ -227,9 +192,26 @@ def cmd_stats(args: argparse.Namespace) -> int:
     config = load_config(repo)
     ledger = Ledger(repo)
     entries = ledger.entries()
-    runs = [e for e in entries if e.get("kind") == "review_run"]
+    final_runs = [e for e in entries if e.get("kind") == "ci_final"]
+    final_tasks = {str(e.get("task_id", "")) for e in final_runs}
+    runs = [
+        e
+        for e in entries
+        if e.get("kind") == "review_run" and str(e.get("task_id", "")) not in final_tasks
+    ] + final_runs
     reviews = [e for e in entries if e.get("kind") == "review"]
-    surfaced = [e for e in reviews if str(e.get("action", "")).endswith("surface")]
+    surfaced = [
+        e
+        for e in reviews
+        if str(e.get("action", "")).endswith("surface")
+        and str(e.get("task_id", "")) not in final_tasks
+    ]
+    surfaced.extend(
+        decision
+        for run in final_runs
+        for decision in run.get("decisions", [])
+        if isinstance(decision, dict) and decision.get("action") == "surface"
+    )
     precision, n = ledger.surfaced_precision()
     spend = sum(float(e.get("spend_usd", 0)) for e in runs)
     lat = sorted(float(e["elapsed_s"]) for e in runs if "elapsed_s" in e)
@@ -266,8 +248,30 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_review.set_defaults(func=cmd_review)
 
+    p_ci = sub.add_parser("ci", help="run a two-stage pull-request review")
+    p_ci.add_argument("--event-path", required=True, help="GitHub pull_request event JSON")
+    p_ci.add_argument(
+        "--verification-timeout",
+        type=_positive_finite,
+        default=600.0,
+        help="shared verification deadline in seconds (default: 600)",
+    )
+    p_ci.add_argument("--alpha", type=float, default=None)
+    p_ci.add_argument("--budget", type=float, default=None, help="USD cap for this review")
+    p_ci.add_argument("--model", default=None)
+    p_ci.add_argument("--k", type=int, default=None, help="proposer samples")
+    p_ci.add_argument(
+        "--mock",
+        nargs="+",
+        default=None,
+        help="offline mode: JSON payload files replayed instead of model calls "
+        "(at least one file — never silently falls through to real API calls)",
+    )
+    p_ci.set_defaults(func=cmd_ci)
+
     p_verify = sub.add_parser("verify", help="record a reproduction attempt for a finding")
     p_verify.add_argument("finding_id")
+    p_verify.add_argument("--task-id", default=None, help="review task containing the finding")
     group = p_verify.add_mutually_exclusive_group(required=True)
     group.add_argument("--reproduced", dest="reproduced", action="store_true")
     group.add_argument("--not-reproduced", dest="reproduced", action="store_false")
@@ -277,9 +281,29 @@ def main(argv: list[str] | None = None) -> int:
     p_fb = sub.add_parser("feedback", help="label a finding (feeds the precision loop)")
     p_fb.add_argument("finding_id")
     fb_group = p_fb.add_mutually_exclusive_group(required=True)
-    fb_group.add_argument("--fix", dest="label", action="store_const", const="fix")
-    fb_group.add_argument("--good", dest="label", action="store_const", const="good")
-    fb_group.add_argument("--dismiss", dest="label", action="store_const", const="dismiss")
+    fb_group.add_argument(
+        "--fix", dest="label", action="store_const", const="fix",
+        help="finding was correct; the fix was applied (true label)",
+    )
+    fb_group.add_argument(
+        "--good", dest="label", action="store_const", const="good",
+        help="finding was correct (true label)",
+    )
+    fb_group.add_argument(
+        "--wrong", dest="label", action="store_const", const="wrong",
+        help="finding was incorrect: a genuine false positive (false label, "
+        "counts against precision)",
+    )
+    fb_group.add_argument(
+        "--wontfix", dest="label", action="store_const", const="wontfix",
+        help="finding was correct but intentionally not acted on -- out of "
+        "scope, known, or deferred (true label; the tool was right)",
+    )
+    fb_group.add_argument(
+        "--dismiss", dest="label", action="store_const", const="dismiss",
+        help="legacy label, ambiguous: prefer --wrong (false positive) or "
+        "--wontfix (correct but not acted on). Excluded from precision.",
+    )
     p_fb.set_defaults(func=cmd_feedback)
 
     p_stats = sub.add_parser("stats", help="ledger summary")
