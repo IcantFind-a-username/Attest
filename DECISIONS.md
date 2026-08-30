@@ -258,7 +258,8 @@ contract is active only when the owning architecture/acceptance document changes
   v4, stability predeclaration/report schema v4 with observation schema v3, comparison
   checkpoint schema v5, and comparison reconciliation schema v2 and comparison report
   schema v3 fail explicitly on older state. Stability, live, and comparison use one
-  role-aware reconciliation reducer;
+  role-aware reconciliation reducer; the local Ruff arm must carry zero provider calls,
+  model tokens, and paid spend while retaining its separately measured tool time;
   legitimate zero-call trials carry an explicit empty row set, while missing evidence
   fails closed.
 - **Reversal:** retain old artifacts with their compatible reader and start a new declared

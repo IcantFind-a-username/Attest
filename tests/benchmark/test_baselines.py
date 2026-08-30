@@ -23,6 +23,7 @@ from attest.benchmark.baselines import (
     BarePromptBaseline,
     ComparisonPlan,
     RuffBaseline,
+    _summarize_arm,
     compare_arms,
 )
 from attest.benchmark.checkpoints import (
@@ -780,6 +781,61 @@ def test_comparison_report_rejects_coordinated_role_reclassification(
     )
 
     with pytest.raises(ValueError, match="role|summary|authoritative|reconciliation"):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            tampered,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
+def test_comparison_report_rejects_fabricated_ruff_paid_calls(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    measurements = compare_arms(
+        [plans[0]],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "ruff-paid-calls",
+    )
+    ruff = next(run for run in measurements.runs if run.arm == ARM_RUFF)
+    trial_id = f"comparison:{ARM_RUFF}:{ruff.case_id}"
+    fabricated = (
+        {
+            "trial_id": trial_id,
+            "call_id": f"{trial_id}:0",
+            "ordinal": 0,
+            "role": CALL_ROLE_PRODUCT,
+            "cost_usd": 0.0004,
+        },
+    )
+    digest = hashlib.sha256(
+        json.dumps(fabricated, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    tampered_ruff = replace(
+        ruff,
+        model_calls=1,
+        input_tokens=1,
+        output_tokens=1,
+        spend_usd=0.0004,
+        paid_calls=fabricated,
+        paid_calls_sha256=digest,
+    )
+    runs = tuple(
+        tampered_ruff if run is ruff else run for run in measurements.runs
+    )
+    tampered = replace(
+        measurements,
+        runs=runs,
+        arms=tuple(
+            _summarize_arm(arm, tuple(run for run in runs if run.arm == arm))
+            for arm in (ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF)
+        ),
+    )
+
+    with pytest.raises(ValueError, match="ruff|paid|provider|reconciliation"):
         build_comparison_report(
             load_manifest(manifest_path),
             tampered,

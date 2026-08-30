@@ -1000,6 +1000,19 @@ def validate_arm_run_reconciliation(run: ArmRun) -> None:
         raise ComparisonEvidenceError(
             f"comparison {run.arm}/{run.case_id} paid-call reconciliation digest mismatch"
         )
+    if run.arm == ARM_RUFF and (
+        records
+        or run.model_calls != 0
+        or run.input_tokens != 0
+        or run.output_tokens != 0
+        or run.model_id is not None
+        or not math.isclose(run.spend_usd, 0.0, rel_tol=0.0, abs_tol=1e-12)
+        or not math.isclose(run.oracle_spend_usd, 0.0, rel_tol=0.0, abs_tol=1e-12)
+    ):
+        raise ComparisonEvidenceError(
+            f"comparison {run.arm}/{run.case_id} is a local-tool arm and cannot contain "
+            "provider calls, model tokens, or paid-call spend"
+        )
     if run.model_calls != len(records):
         raise ComparisonEvidenceError(
             f"comparison {run.arm}/{run.case_id} has missing reconciliation rows"
