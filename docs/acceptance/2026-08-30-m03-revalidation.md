@@ -1,6 +1,18 @@
 # M-03 deterministic, version-locked, crash-safe measurement revalidation — 2026-08-30
 
-Status: **PASS** — M-03, `G-CODE-001`, and `G-MEASURE-003`
+Status: **INVALIDATED** — the PASS recorded at `81bf625` is retained below as
+historical evidence, but it is not a current M-03 completion claim.
+
+> **ERRATUM — INVALIDATED 2026-08-30.** Independent review reproduced three P1
+> failures with one root cause: paid-call evidence did not bind an immutable
+> `product` versus `benchmark_oracle` role, and reports trusted separately supplied
+> spend fields. This allowed role ambiguity, overlapping product/oracle accounting,
+> post-settlement cost erasure, and report totals that disagreed with authoritative
+> call rows. The clean-install results below remain valid observations for
+> `5e4234d`, but do not establish the corrected role-aware contract and cannot be
+> reused to accept a later implementation SHA. M-03 is reopened pending unified RED
+> → GREEN repair, fresh SHA-bound Python 3.11/3.12 Gates, and a new independent
+> review with P0/P1=0.
 
 This report supersedes, but does not erase, the explicitly
 [INVALIDATED historical acceptance](2026-08-30-m03-deterministic-crash-safe-measurement.md).

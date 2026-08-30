@@ -164,11 +164,11 @@ changes.
 - [ ] **M-02 — receipt authority and raw validation evidence.** Reject incomplete/manual
   validation rows, retain bounded fixed/buggy run evidence, and distinguish integrity,
   provenance, and semantic authority.
-- [x] **M-03 — deterministic and crash-safe measurement.** Final implementation
-  `5e4234d` passed fresh Python 3.11/3.12 Gates and independent re-review; see the
-  [`revalidation report`](acceptance/2026-08-30-m03-revalidation.md). The prior PASS
-  remains explicitly INVALIDATED as
-  [historical evidence](acceptance/2026-08-30-m03-deterministic-crash-safe-measurement.md).
+- [ ] **M-03 — deterministic and crash-safe measurement.** The `81bf625` PASS record
+  is explicitly INVALIDATED after role-accounting P1 findings; see its preserved
+  [`erratum and historical evidence`](acceptance/2026-08-30-m03-revalidation.md).
+  Completion now requires role-bound paid-call authority, fresh Python 3.11/3.12
+  Gates from the corrected implementation SHA, and a new independent review.
 
 ### Entry
 
@@ -547,6 +547,13 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-08-30 — M-03 reopened after role-accounting review:** the `81bf625` PASS
+  record is INVALIDATED but preserved. Independent review reproduced three P1s with
+  one root cause: paid-call reconciliation did not bind an immutable product/oracle
+  role, so stability, live, and comparison could erase, misclassify, overlap, or
+  independently restate authoritative spend. The earlier `5e4234d` clean-install
+  logs remain historical observations only and will not be reused for acceptance.
 
 - **2026-08-30 — M-03 revalidated:** implementation `5e4234d` binds every paid
   checkpoint/artifact/spend row to its model and complete predeclaration, closes live and
