@@ -7,6 +7,8 @@ gate.
 
 ## Existing reports
 
+- [`2026-08-30-evolution-scaffold.md`](2026-08-30-evolution-scaffold.md) — F-00 /
+  `G-DOC-001` construction-scaffold acceptance.
 - [`phase-3.md`](phase-3.md) — historical planted-fixture GitHub Action integration smoke.
   It predates the complete evidence-bundle and workflow-exit requirements.
 

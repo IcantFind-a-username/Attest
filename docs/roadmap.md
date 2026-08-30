@@ -155,9 +155,9 @@ changes.
 
 ### Work orders
 
-- [ ] **F-00 — evolution scaffold (in review).** Establish the target architecture, roadmap, work
-  orders, gates, current-truth banner, and new decisions. This checkbox means the document
-  set exists; final review evidence is recorded in the implementing change.
+- [x] **F-00 — evolution scaffold.** Target architecture, roadmap, work orders, Gates,
+  current-truth boundary, and decisions passed `G-DOC-001`; evidence is recorded in
+  [`acceptance/2026-08-30-evolution-scaffold.md`](acceptance/2026-08-30-evolution-scaffold.md).
 - [ ] **M-01 — author-visible outcome accounting.** Score every public finding even when
   another candidate or the task DEFERs. Separate task status, finding accuracy, PR harm,
   and delivery.
@@ -546,7 +546,9 @@ When a work order completes:
 
 ### Progress
 
-- **2026-08-30 — F-00 drafted:** normative document split, target architecture,
-  dependency roadmap, agent work orders, and acceptance gates prepared from the audited
-  `c945788` baseline. Completion requires repository validation and independent review of
-  the documentation change.
+- **2026-08-30 — F-00 complete:** normative document split, target architecture, exact
+  dependency roadmap, 30 construction-ready work orders, and 29 acceptance Gates were
+  accepted from the audited `c945788` baseline in implementation commit `e52a43b`. See
+  [`acceptance/2026-08-30-evolution-scaffold.md`](acceptance/2026-08-30-evolution-scaffold.md).
+  The full suite remains `760 passed, 1 failed` on the pre-existing date-sensitive case;
+  this does not pass `G-CODE-001` and is assigned to M-03.
