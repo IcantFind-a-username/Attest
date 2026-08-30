@@ -254,10 +254,11 @@ contract is active only when the owning architecture/acceptance document changes
 - **Why:** call identity and cost integrity alone still allowed oracle calls to be counted
   as product cost, settled cost to be erased after an evaluation exception, and a report
   to accept totals inconsistent with its paid-call rows.
-- **Consequences:** paid-call checkpoint schema v4, artifact/cost schema v3, live schema
-  v4, stability observation/report schema v3, comparison checkpoint schema v5, and
-  comparison reconciliation schema v2 and comparison report schema v3 fail explicitly on
-  older state. Stability, live, and comparison use one role-aware reconciliation reducer;
+- **Consequences:** paid-call checkpoint schema v5, artifact/cost schema v4, live schema
+  v4, stability predeclaration/report schema v4 with observation schema v3, comparison
+  checkpoint schema v5, and comparison reconciliation schema v2 and comparison report
+  schema v3 fail explicitly on older state. Stability, live, and comparison use one
+  role-aware reconciliation reducer;
   legitimate zero-call trials carry an explicit empty row set, while missing evidence
   fails closed.
 - **Reversal:** retain old artifacts with their compatible reader and start a new declared

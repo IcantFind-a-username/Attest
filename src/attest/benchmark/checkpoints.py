@@ -22,9 +22,9 @@ from attest.review.budget import CHARS_PER_TOKEN
 from attest.review.config import load_pricing
 from attest.review.proposer import Provider, ProviderResult
 
-CALL_CHECKPOINT_SCHEMA_VERSION = "4"
-CALL_ARTIFACT_SCHEMA_VERSION = "3"
-CALL_COST_SCHEMA_VERSION = "3"
+CALL_CHECKPOINT_SCHEMA_VERSION = "5"
+CALL_ARTIFACT_SCHEMA_VERSION = "4"
+CALL_COST_SCHEMA_VERSION = "4"
 CALL_ROLE_PRODUCT = "product"
 CALL_ROLE_BENCHMARK_ORACLE = "benchmark_oracle"
 CALL_ROLES = frozenset({CALL_ROLE_PRODUCT, CALL_ROLE_BENCHMARK_ORACLE})
@@ -204,6 +204,7 @@ class CheckpointedProvider:
                 "role": self._role,
                 "model_id": self._model_id,
                 "binding_sha256": self._binding_sha256,
+                "request": request,
                 "request_sha256": request_sha256,
                 "state": STATE_RESERVED,
                 "reserved_usd": (
@@ -394,6 +395,7 @@ class CheckpointedProvider:
             "role": checkpoint["role"],
             "model_id": checkpoint["model_id"],
             "binding_sha256": checkpoint["binding_sha256"],
+            "request": checkpoint["request"],
             "request_sha256": checkpoint["request_sha256"],
             "outcome": outcome,
             "reserved_usd": checkpoint["reserved_usd"],
@@ -442,6 +444,7 @@ class CheckpointedProvider:
             "role": checkpoint["role"],
             "model_id": checkpoint["model_id"],
             "binding_sha256": checkpoint["binding_sha256"],
+            "request": checkpoint["request"],
             "request_sha256": checkpoint["request_sha256"],
         }
         if any(
@@ -491,6 +494,7 @@ class CheckpointedProvider:
             "role": checkpoint["role"],
             "model_id": checkpoint["model_id"],
             "binding_sha256": checkpoint["binding_sha256"],
+            "request_sha256": checkpoint["request_sha256"],
             "outcome": (
                 outcome
                 if outcome is not None
@@ -568,6 +572,7 @@ class CheckpointedProvider:
                 or row.get("role") != checkpoint["role"]
                 or row.get("model_id") != checkpoint["model_id"]
                 or row.get("binding_sha256") != checkpoint["binding_sha256"]
+                or row.get("request_sha256") != checkpoint["request_sha256"]
                 or row.get("artifact_path")
                 != artifact_path.relative_to(self._root).as_posix()
                 or row.get("artifact_sha256") != artifact_sha256
@@ -646,11 +651,27 @@ class CheckpointedProvider:
             raise ValueError(
                 f"call checkpoint {path.name} model or predeclaration binding drifted"
             )
+        request = raw.get("request")
         request_sha256 = raw.get("request_sha256")
-        if not isinstance(request_sha256, str) or _DIGEST_PATTERN.fullmatch(
-            request_sha256
-        ) is None:
-            raise ValueError(f"call checkpoint {path.name} has invalid request digest")
+        if (
+            not isinstance(request, dict)
+            or set(request)
+            != {
+                "role",
+                "system_sha256",
+                "prompt_sha256",
+                "schema_sha256",
+                "max_tokens",
+                "timeout_s",
+            }
+            or request.get("role") != role
+            or not isinstance(request_sha256, str)
+            or _DIGEST_PATTERN.fullmatch(request_sha256) is None
+            or _digest(request) != request_sha256
+        ):
+            raise ValueError(
+                f"call checkpoint {path.name} request role or digest binding drifted"
+            )
         state = raw["state"]
         reserved = raw.get("reserved_usd")
         if (

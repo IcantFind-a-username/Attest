@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -139,7 +140,9 @@ def test_paid_call_roles_are_immutable_and_costs_are_disjoint(tmp_path: Path) ->
             )
         )
         assert checkpoint["role"] == role
+        assert checkpoint["request"]["role"] == role
         assert artifact["role"] == role
+        assert artifact["request"]["role"] == role
 
 
 def test_paid_call_role_is_not_inferred_from_call_order(tmp_path: Path) -> None:
@@ -178,6 +181,36 @@ def test_missing_unknown_or_modified_paid_call_role_fails_closed(
 
     with pytest.raises(ValueError, match="role|binding|hash"):
         _wrapper(_Provider(), tmp_path)
+
+
+def test_coordinated_role_rewrite_cannot_reclassify_the_original_request(
+    tmp_path: Path,
+) -> None:
+    provider = _wrapper(_Provider(), tmp_path)
+    _sample(provider)
+    checkpoint_path = tmp_path / "calls" / "000000.json"
+    artifact_path = tmp_path / "artifacts" / "000000.json"
+    costs_path = tmp_path / "costs.jsonl"
+    checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    request_sha256 = checkpoint["request_sha256"]
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    cost = json.loads(costs_path.read_text(encoding="utf-8"))
+
+    checkpoint["role"] = CALL_ROLE_BENCHMARK_ORACLE
+    artifact["role"] = CALL_ROLE_BENCHMARK_ORACLE
+    cost["role"] = CALL_ROLE_BENCHMARK_ORACLE
+    artifact_sha256 = hashlib.sha256(
+        json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    checkpoint["artifact_sha256"] = artifact_sha256
+    cost["artifact_sha256"] = artifact_sha256
+    checkpoint_path.write_text(json.dumps(checkpoint) + "\n", encoding="utf-8")
+    artifact_path.write_text(json.dumps(artifact) + "\n", encoding="utf-8")
+    costs_path.write_text(json.dumps(cost) + "\n", encoding="utf-8")
+
+    assert checkpoint["request_sha256"] == request_sha256
+    with pytest.raises(ValueError, match="request|role|binding"):
+        _wrapper(_Provider(), tmp_path).reconciliation_records()
 
 
 @pytest.mark.parametrize(
@@ -321,7 +354,7 @@ def test_old_checkpoint_schema_fails_with_actionable_version_message(tmp_path: P
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="unsupported.*schema version.*0.*supported.*4"):
+    with pytest.raises(ValueError, match="unsupported.*schema version.*0.*supported.*5"):
         _wrapper(_Provider(), tmp_path)
 
 
@@ -337,10 +370,10 @@ def test_old_paid_evidence_schema_fails_with_actionable_version_message(
         else tmp_path / "costs.jsonl"
     )
     payload = json.loads(path.read_text(encoding="utf-8"))
-    payload["schema_version"] = "2"
+    payload["schema_version"] = "3"
     path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="unsupported.*schema version.*2.*supported.*3"):
+    with pytest.raises(ValueError, match="unsupported.*schema version.*3.*supported.*4"):
         _wrapper(_Provider(), tmp_path)
 
 

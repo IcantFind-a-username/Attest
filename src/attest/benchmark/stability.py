@@ -57,7 +57,7 @@ from attest.review.proposer import Provider, ProviderResult
 
 #: The preregistered repeat count. Ten is part of the study design, not a knob.
 STABILITY_REPEATS = 10
-STABILITY_SCHEMA_VERSION = "3"
+STABILITY_SCHEMA_VERSION = "4"
 _OBSERVATION_SCHEMA_VERSION = "3"
 
 _OUTCOME_SURFACED = "surfaced"
@@ -311,6 +311,8 @@ class StabilityReport:
     product_spend_per_run_usd: tuple[float, ...]
     oracle_spend_per_run_usd: tuple[float, ...]
     total_spend_per_run_usd: tuple[float, ...]
+    paid_call_counts: tuple[int, ...]
+    paid_call_reconciliation_sha256: tuple[str, ...]
     product_spend_total_usd: float
     oracle_spend_total_usd: float
     total_spend_total_usd: float
@@ -361,6 +363,10 @@ class StabilityReport:
             "total_spend_per_run_usd": [
                 _rounded(value) for value in self.total_spend_per_run_usd
             ],
+            "paid_call_counts": list(self.paid_call_counts),
+            "paid_call_reconciliation_sha256": list(
+                self.paid_call_reconciliation_sha256
+            ),
             "product_spend_total_usd": _rounded(self.product_spend_total_usd),
             "oracle_spend_total_usd": _rounded(self.oracle_spend_total_usd),
             "total_spend_total_usd": _rounded(self.total_spend_total_usd),
@@ -413,6 +419,19 @@ def summarize_stability(
         for observation in ordered
     ):
         raise ValueError("observation total spend must equal product plus oracle spend")
+    if any(
+        isinstance(observation.call_count, bool)
+        or not isinstance(observation.call_count, int)
+        or observation.call_count < 0
+        or not isinstance(observation.call_evidence_sha256, str)
+        or len(observation.call_evidence_sha256) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in observation.call_evidence_sha256
+        )
+        for observation in ordered
+    ):
+        raise ValueError("observation paid-call reconciliation binding is invalid")
 
     outcomes = tuple(observation.outcome for observation in ordered)
     modal_outcome, modal_count = _modal(outcomes)
@@ -495,6 +514,10 @@ def summarize_stability(
         product_spend_per_run_usd=product_spend_per_run,
         oracle_spend_per_run_usd=oracle_spend_per_run,
         total_spend_per_run_usd=total_spend_per_run,
+        paid_call_counts=tuple(observation.call_count for observation in ordered),
+        paid_call_reconciliation_sha256=tuple(
+            observation.call_evidence_sha256 for observation in ordered
+        ),
         product_spend_total_usd=sum(product_spend_per_run),
         oracle_spend_total_usd=sum(oracle_spend_per_run),
         total_spend_total_usd=sum(total_spend_per_run),

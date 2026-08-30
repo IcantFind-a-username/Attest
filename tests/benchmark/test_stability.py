@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -158,6 +159,28 @@ def test_summarize_stability_reports_exact_agreement_and_dispersion() -> None:
     assert report.wealth_mean == pytest.approx(10.0)
     assert report.wealth_range == pytest.approx(4.0)
     assert report.digest
+
+
+def test_stability_report_digest_binds_each_repeat_reconciliation() -> None:
+    observations = _synthetic_observations()
+    original = summarize_stability(
+        case_id="case-333333333333",
+        manifest_sha256="ab" * 32,
+        observations=observations,
+        locations=_LOCATIONS,
+    )
+    changed = summarize_stability(
+        case_id="case-333333333333",
+        manifest_sha256="ab" * 32,
+        observations=(
+            replace(observations[0], call_evidence_sha256="b" * 64),
+            *observations[1:],
+        ),
+        locations=_LOCATIONS,
+    )
+
+    assert changed.digest != original.digest
+    assert changed.paid_call_reconciliation_sha256[0] == "b" * 64
 
 
 def test_summarize_stability_gives_off_location_anchors_singleton_clusters() -> None:
