@@ -577,6 +577,95 @@ def test_comparison_defer_after_settled_response_preserves_paid_call_evidence(
         )
 
 
+def test_settled_comparison_replay_rejects_new_ordinal_before_provider_dispatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    checkpoint_root = tmp_path / "calls"
+
+    def one_response_then_fail(
+        request: ProjectEvaluationRequest, *, provider: object, clock: object
+    ) -> object:
+        provider.sample("system", "prompt", {"type": "object"}, 20)
+        raise RuntimeError("settle one call")
+
+    monkeypatch.setattr(
+        "attest.benchmark.baselines.evaluate_project", one_response_then_fail
+    )
+    compare_arms(
+        [plan],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=checkpoint_root,
+    )
+    costs = checkpoint_root / ARM_PRODUCT / plan.case.case_id / "costs.jsonl"
+    settled_costs = costs.read_bytes()
+
+    def replay_then_request_new_ordinal(
+        request: ProjectEvaluationRequest, *, provider: object, clock: object
+    ) -> object:
+        provider.sample("system", "prompt", {"type": "object"}, 20)
+        provider.sample("second", "new ordinal", {"type": "object"}, 20)
+        raise AssertionError("the settled replay bound must reject first")
+
+    monkeypatch.setattr(
+        "attest.benchmark.baselines.evaluate_project", replay_then_request_new_ordinal
+    )
+    resumed = ReplayProvider(cassettes[plan.case.case_id])
+    with pytest.raises(ValueError, match="reconciliation|settled|ordinal"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: resumed,
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=checkpoint_root,
+        )
+    assert resumed.proposal_calls == 0
+    assert costs.read_bytes() == settled_costs
+
+
+def test_comparison_report_rechecks_authoritative_artifacts_at_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    plan = plans[0]
+    checkpoint_root = tmp_path / "calls"
+
+    def fail_after_response(
+        request: ProjectEvaluationRequest, *, provider: object, clock: object
+    ) -> object:
+        provider.sample("system", "prompt", {"type": "object"}, 20)
+        raise RuntimeError("failure after provider settlement")
+
+    monkeypatch.setattr(
+        "attest.benchmark.baselines.evaluate_project", fail_after_response
+    )
+    measurements = compare_arms(
+        [plan],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=checkpoint_root,
+    )
+    (
+        checkpoint_root
+        / ARM_PRODUCT
+        / plan.case.case_id
+        / "artifacts"
+        / "000000.json"
+    ).unlink()
+
+    with pytest.raises(ValueError, match="reconciliation|artifact"):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            measurements,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
 @pytest.mark.parametrize(
     "corruption",
     (

@@ -126,6 +126,7 @@ class ArmRun:
     tool_cost_s: float | None
     paid_calls: tuple[Mapping[str, object], ...] = ()
     paid_calls_sha256: str = _EMPTY_PAID_CALLS_SHA256
+    model_id: str | None = None
 
 
 class ComparisonEvidenceError(ValueError):
@@ -250,6 +251,7 @@ class ComparisonMeasurements:
     arms: tuple[ArmSummary, ...]
     runs: tuple[ArmRun, ...]
     evaluated_case_ids: tuple[str, ...]
+    checkpoint_root: Path | None = None
 
 
 class _MeteredProvider:
@@ -284,8 +286,13 @@ class _MeteredProvider:
 class _FailClosedCheckpointProvider:
     """Do not let an arm translate checkpoint-integrity failure into DEFER."""
 
-    def __init__(self, inner: CheckpointedProvider) -> None:
+    def __init__(
+        self, inner: CheckpointedProvider, *, maximum_calls: int | None = None
+    ) -> None:
         self._inner = inner
+        self._maximum_calls = maximum_calls
+        self._calls = 0
+        self._lock = Lock()
 
     def sample(
         self,
@@ -296,6 +303,13 @@ class _FailClosedCheckpointProvider:
         *,
         timeout_s: float | None = None,
     ) -> ProviderResult:
+        with self._lock:
+            ordinal = self._calls
+            if self._maximum_calls is not None and ordinal >= self._maximum_calls:
+                raise ComparisonEvidenceError(
+                    "settled comparison replay requested a new paid-call ordinal"
+                )
+            self._calls += 1
         try:
             return self._inner.sample(
                 system, prompt, schema, max_tokens, timeout_s=timeout_s
@@ -620,6 +634,7 @@ def compare_arms(
         arms=arms,
         runs=tuple(runs),
         evaluated_case_ids=evaluated,
+        checkpoint_root=checkpoint_root,
     )
 
 
@@ -678,26 +693,8 @@ def _prepare_comparison_reconciliation(
     checkpoint_root: Path, arm: str, case_id: str
 ) -> tuple[Path, dict[str, object], bool]:
     path = _comparison_reconciliation_path(checkpoint_root, arm, case_id)
-    trial_id = f"comparison:{arm}:{case_id}"
     if path.exists():
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ComparisonEvidenceError(
-                f"comparison {arm}/{case_id} reconciliation is unreadable"
-            ) from exc
-        if (
-            not isinstance(raw, dict)
-            or raw.get("schema_version") != COMPARISON_RECONCILIATION_SCHEMA_VERSION
-            or raw.get("arm") != arm
-            or raw.get("case_id") != case_id
-            or raw.get("trial_id") != trial_id
-            or raw.get("status") not in {"running", "settled"}
-        ):
-            raise ComparisonEvidenceError(
-                f"comparison {arm}/{case_id} reconciliation identity is invalid"
-            )
-        return path, dict(raw), False
+        return path, _read_comparison_reconciliation(path, arm, case_id), False
     call_root = checkpoint_root / arm / case_id
     if _call_evidence_exists(call_root):
         raise ComparisonEvidenceError(
@@ -707,11 +704,34 @@ def _prepare_comparison_reconciliation(
         "schema_version": COMPARISON_RECONCILIATION_SCHEMA_VERSION,
         "arm": arm,
         "case_id": case_id,
-        "trial_id": trial_id,
+        "trial_id": f"comparison:{arm}:{case_id}",
         "status": "running",
     }
     _atomic_write_json(path, running)
     return path, running, True
+
+
+def _read_comparison_reconciliation(
+    path: Path, arm: str, case_id: str
+) -> dict[str, object]:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} reconciliation is unreadable"
+        ) from exc
+    if (
+        not isinstance(raw, dict)
+        or raw.get("schema_version") != COMPARISON_RECONCILIATION_SCHEMA_VERSION
+        or raw.get("arm") != arm
+        or raw.get("case_id") != case_id
+        or raw.get("trial_id") != f"comparison:{arm}:{case_id}"
+        or raw.get("status") not in {"running", "settled"}
+    ):
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} reconciliation identity is invalid"
+        )
+    return dict(raw)
 
 
 def _paid_call_binding(
@@ -844,6 +864,17 @@ def _attach_comparison_reconciliation(
     )
 
 
+def _settled_replay_limit(stored: Mapping[str, object]) -> int | None:
+    if stored.get("status") != "settled":
+        return None
+    count = stored.get("call_count")
+    if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+        raise ComparisonEvidenceError(
+            "settled comparison reconciliation has an invalid call count"
+        )
+    return count
+
+
 def validate_arm_run_reconciliation(run: ArmRun) -> None:
     """Fail report publication closed on missing, duplicate, or mismatched joins."""
     records, digest, spend = _paid_call_binding(run.paid_calls)
@@ -876,6 +907,63 @@ def validate_arm_run_reconciliation(run: ArmRun) -> None:
         )
 
 
+class _VerificationOnlyComparisonProvider:
+    def sample(
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
+    ) -> ProviderResult:  # pragma: no cover - publication never dispatches
+        raise AssertionError("comparison report verification must never dispatch")
+
+
+def validate_comparison_measurements(measurements: ComparisonMeasurements) -> None:
+    """Re-read authoritative call/spend/artifact joins immediately before publication."""
+    for run in measurements.runs:
+        validate_arm_run_reconciliation(run)
+        if run.arm == ARM_RUFF:
+            continue
+        if measurements.checkpoint_root is None or run.model_id is None:
+            raise ComparisonEvidenceError(
+                f"comparison {run.arm}/{run.case_id} has no authoritative checkpoint root"
+            )
+        path = _comparison_reconciliation_path(
+            measurements.checkpoint_root, run.arm, run.case_id
+        )
+        stored = _read_comparison_reconciliation(path, run.arm, run.case_id)
+        if stored.get("status") != "settled":
+            raise ComparisonEvidenceError(
+                f"comparison {run.arm}/{run.case_id} reconciliation is not settled"
+            )
+        try:
+            checkpointed = CheckpointedProvider(
+                _VerificationOnlyComparisonProvider(),
+                root=measurements.checkpoint_root / run.arm / run.case_id,
+                trial_id=f"comparison:{run.arm}:{run.case_id}",
+                model_id=run.model_id,
+            )
+        except ValueError as exc:
+            raise ComparisonEvidenceError(
+                "comparison report authority reconciliation failed"
+            ) from exc
+        records, digest, spend = _verified_checkpoint_records(checkpointed)
+        expected = _settled_reconciliation_payload(
+            run.arm, run.case_id, records, digest
+        )
+        if (
+            dict(stored) != expected
+            or records != tuple(dict(record) for record in run.paid_calls)
+            or digest != run.paid_calls_sha256
+            or not math.isclose(run.spend_usd, spend, rel_tol=0.0, abs_tol=1e-12)
+        ):
+            raise ComparisonEvidenceError(
+                f"comparison {run.arm}/{run.case_id} report evidence is not authoritative"
+            )
+
+
 def _atomic_write_json(path: Path, payload: Mapping[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     encoded = (
@@ -906,7 +994,10 @@ def _product_arm(
     meter = _MeteredProvider(
         inner
         if reconciliation is None
-        else _FailClosedCheckpointProvider(reconciliation[0])
+        else _FailClosedCheckpointProvider(
+            reconciliation[0],
+            maximum_calls=_settled_replay_limit(reconciliation[2]),
+        )
     )
     started = clock()
     try:
@@ -930,6 +1021,7 @@ def _product_arm(
             wall_time_s=clock() - started,
             tool_cost_s=None,
         )
+        run = replace(run, model_id=request.config.model)
         if reconciliation is not None:
             run = _attach_comparison_reconciliation(run, *reconciliation)
         return run
@@ -963,6 +1055,7 @@ def _product_arm(
         wall_time_s=result.latency_s,
         tool_cost_s=None,
     )
+    run = replace(run, model_id=request.config.model)
     if reconciliation is not None:
         run = _attach_comparison_reconciliation(run, *reconciliation)
     return run
@@ -995,7 +1088,10 @@ def _baseline_arms(
             bare = BarePromptBaseline(
                 inner
                 if reconciliation is None
-                else _FailClosedCheckpointProvider(reconciliation[0]),
+                else _FailClosedCheckpointProvider(
+                    reconciliation[0],
+                    maximum_calls=_settled_replay_limit(reconciliation[2]),
+                ),
                 clock=clock,
             ).evaluate(
                 case_id=request.case_id,
@@ -1003,6 +1099,7 @@ def _baseline_arms(
                 diff=diff,
                 config=request.config,
             )
+            bare = replace(bare, model_id=request.config.model)
             if reconciliation is not None:
                 bare = _attach_comparison_reconciliation(bare, *reconciliation)
             ruff = RuffBaseline(ruff_executable, clock=clock).evaluate(

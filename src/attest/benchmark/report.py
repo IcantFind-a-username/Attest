@@ -34,7 +34,7 @@ from pathlib import Path
 from attest.benchmark.baselines import (
     ArmRun,
     ComparisonMeasurements,
-    validate_arm_run_reconciliation,
+    validate_comparison_measurements,
 )
 from attest.benchmark.corpus import ValidationReceipt, require_validated_pair
 from attest.benchmark.metrics import (
@@ -627,6 +627,7 @@ def _arm_run_payload(run: ArmRun, authorized: bool) -> dict[str, object]:
         "tool_cost_s": _number(run.tool_cost_s),
         "paid_calls": [dict(record) for record in run.paid_calls],
         "paid_calls_sha256": run.paid_calls_sha256,
+        "model_id": run.model_id,
     }
 
 
@@ -647,8 +648,7 @@ def build_comparison_report(
     """
     if mode not in (REPLAY_MODE, LIVE_MODE):
         raise ValueError("mode must be replay or live")
-    for run in measurements.runs:
-        validate_arm_run_reconciliation(run)
+    validate_comparison_measurements(measurements)
     evaluated_ids = set(measurements.evaluated_case_ids)
     cases = tuple(case for case in manifest.cases if case.case_id in evaluated_ids)
     withheld = (
