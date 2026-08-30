@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -79,11 +80,14 @@ def _service(
     key: str = "sk-ant-test-012345678901234567890123456789",
     files: dict[Path, str] | None = None,
 ) -> AcceptanceService:
+    # A fixed clock keeps date-bearing assertions (spend rows) stable: without
+    # it the suite is a snapshot that starts failing the day after it is written.
     return AcceptanceService(
         runner=runner,
         filesystem=MemoryFileSystem(files or {}),
         environ={"ANTHROPIC_API_KEY": key},
         workspace=Path("/workspace"),
+        clock=lambda: datetime(2026, 8, 29, 12, 0, 0, tzinfo=UTC),
     )
 
 
