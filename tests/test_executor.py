@@ -139,6 +139,46 @@ RENAMED_METHOD_HEAD_MODULE = (
 STALE_METHOD_RENAME_BODY = (
     'import mod\n\ndef test_repro():\n    assert mod.Calculator()._validate("") is False\n'
 )
+# A reproduction that SKIPS at runtime wherever `newmod` is absent and asserts
+# a defect wherever it is present. On a base commit that predates the module,
+# pytest exits 0 with zero failures while executing nothing. (The module-level
+# importorskip form is a collection skip, which exits 5 and already lands in
+# the exit-code catch-all; the runtime skip is the form that reads as a clean
+# pass.)
+SKIP_ON_BASE_BODY = (
+    "import pytest\n"
+    "\n"
+    "\n"
+    "def test_repro():\n"
+    '    newmod = pytest.importorskip("newmod")\n'
+    '    assert newmod.parse("a,b") == "a"\n'
+)
+# The same runtime skip against a module that exists on NEITHER tree: every
+# head run skips, executing nothing at all.
+SKIP_EVERYWHERE_BODY = (
+    "import pytest\n"
+    "\n"
+    "\n"
+    "def test_repro():\n"
+    '    extra = pytest.importorskip("extra_dependency_absent_everywhere")\n'
+    "    assert extra.parse() == 0\n"
+)
+# One skipped test alongside one genuine test of `mod.add`: the genuine test
+# passes on GOOD_MODULE and fails by assertion on BUGGY_MODULE, while the
+# skipped test never executes anywhere.
+SKIP_AND_PASS_BODY = (
+    "import mod\n"
+    "import pytest\n"
+    "\n"
+    "\n"
+    '@pytest.mark.skip(reason="not exercised in this environment")\n'
+    "def test_skipped():\n"
+    "    assert False\n"
+    "\n"
+    "\n"
+    "def test_repro():\n"
+    "    assert mod.add(2, 2) == 4\n"
+)
 
 # A root-level conftest.py is innocuous on its own, but pytest's prepend import
 # mode inserts the directory holding it at the front of sys.path, ahead of
@@ -2859,4 +2899,235 @@ def test_verify_candidate_renamed_method_never_buys_evidence(tmp_path: Path) -> 
     assert verification.gate_result.wealth == stored.wealth
     assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
     assert Ledger(repo).entries()[-1]["evidence_class"] == "unfaithful"
+    assert_worktrees_cleaned(repo, stored)
+
+
+@pytest.mark.parametrize(
+    ("xml", "expected"),
+    [
+        pytest.param(
+            '<testsuite tests="3" failures="1" errors="0" skipped="2"/>',
+            (3, 1, 0, 2),
+            id="single_suite_root",
+        ),
+        pytest.param(
+            "<testsuites>"
+            '<testsuite tests="2" failures="0" errors="1" skipped="1"/>'
+            '<testsuite tests="4" failures="2" errors="0" skipped="3"/>'
+            "</testsuites>",
+            (6, 2, 1, 4),
+            id="sums_across_multiple_suites",
+        ),
+        pytest.param(
+            '<testsuites><testsuite failures="1" errors="2"/></testsuites>',
+            (0, 1, 2, 0),
+            id="absent_tests_and_skipped_attributes_count_zero",
+        ),
+    ],
+)
+def test_junit_counts_reads_tests_and_skipped_counts(
+    tmp_path: Path, xml: str, expected: tuple[int, int, int, int]
+) -> None:
+    from attest.review.executor import _junit_counts
+
+    path = tmp_path / "junit.xml"
+    path.write_text(xml, encoding="utf-8")
+
+    assert _junit_counts(path) == expected
+
+
+def test_verify_candidate_base_run_that_only_skips_cannot_certify(tmp_path: Path) -> None:
+    """The reopened D-029 hole. Head adds `newmod` with a defect; the
+    reproduction importorskips it at runtime, so every base run exits 0 with
+    zero failures while executing NOTHING. Reading that as "base PASS 3/3"
+    certified REGRESSION_REPRODUCED and bought V=20 on evidence the base tree
+    never produced. A run in which no test executed is no evidence: the base
+    side must defer, and the overall differential with it."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path,
+        {"mod.py": GOOD_MODULE},
+        {"mod.py": GOOD_MODULE, "newmod.py": NEW_MODULE},
+    )
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": SKIP_ON_BASE_BODY}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    # head genuinely fails 3/3; the base skip is what must not read as a pass
+    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
+    assert verification.execution.base_runs[0].outcome is ExecutionOutcome.DEFERRED
+    assert "no test executed" in verification.execution.base_runs[0].reason
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert verification.execution.evidence_class is not EvidenceClass.REGRESSION_REPRODUCED
+    assert "no test executed" in verification.execution.reason
+    # buys nothing: the caller's gate result comes back by identity, so no V
+    assert verification.gate_result is gate
+    assert verification.gate_result.wealth == stored.wealth
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
+    row = Ledger(repo).entries()[-1]
+    assert row["outcome"] == "deferred"
+    assert row["evidence_class"] != "regression_reproduced"
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_head_run_that_only_skips_buys_no_evidence(tmp_path: Path) -> None:
+    """Evidence from nothing: the reproduction skips on BOTH trees, so every
+    head run exits 0 without executing a single test. Reading that as
+    NOT_REPRODUCED applied V_FAILED and moved wealth on the strength of a test
+    that never ran; it must defer instead, leaving the gate result untouched."""
+    from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": SKIP_EVERYWHERE_BODY}),
+            input_tokens=2,
+            output_tokens=3,
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert "no test executed" in verification.execution.reason
+    assert verification.execution.head_runs[0].outcome is ExecutionOutcome.DEFERRED
+    assert "no test executed" in verification.execution.head_runs[0].reason
+    assert verification.execution.base_runs == ()
+    # neither V nor V_FAILED: the caller's gate result comes back by identity
+    assert verification.gate_result is gate
+    assert verification.gate_result.wealth == stored.wealth
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
+    row = Ledger(repo).entries()[-1]
+    assert row["outcome"] == "deferred"
+    assert "no test executed" in row["reason"]
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_skip_alongside_genuine_pass_is_still_not_reproduced(
+    tmp_path: Path,
+) -> None:
+    """Overcorrection guard: one skipped test next to one genuinely executed,
+    passing test is still a real pass on both trees. The skip rule must demand
+    at least one executed test, not the absence of skips, or every project
+    with an environment-gated test would stop producing V_FAILED evidence."""
+    from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
+
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path,
+        {"mod.py": GOOD_MODULE},
+        {"mod.py": GOOD_MODULE + "# head touches nothing the test names\n"},
+    )
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": SKIP_AND_PASS_BODY}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert verification.execution.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert verification.execution.reason == (
+        "pytest passed on head in 3/3 runs; base not executed"
+    )
+    assert [run.outcome.value for run in verification.execution.head_runs] == [
+        "not_reproduced"
+    ] * 3
+    # the V_FAILED path is preserved: 8.0 * 0.5
+    assert verification.gate_result is not gate
+    assert verification.gate_result.wealth == 4.0
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S", "V"]
+    assert verification.gate_result.purchases[-1].detail == "reproduction failed"
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_skip_alongside_genuine_failure_still_certifies(
+    tmp_path: Path,
+) -> None:
+    """Overcorrection guard, failure side: a genuine head failure next to a
+    skipped test still failed, and a base where the genuine test executes and
+    passes next to the same skip still passed -- the regression certifies."""
+    from attest.review.executor import (
+        EvidenceClass,
+        ExecutionOutcome,
+        ExecutorLimits,
+        verify_candidate,
+    )
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        ProviderResult(
+            text=json.dumps({"test_body": SKIP_AND_PASS_BODY}), input_tokens=2, output_tokens=3
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        gate,
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert verification.execution.outcome is ExecutionOutcome.REPRODUCED
+    assert verification.execution.reason == "head FAIL 3/3, base PASS 3/3"
+    assert verification.execution.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
+    assert [run.outcome.value for run in verification.execution.base_runs] == [
+        "not_reproduced"
+    ] * 3
+    # V is purchased: 8.0 * 20
+    assert verification.gate_result is not gate
+    assert verification.gate_result.wealth == 160.0
+    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S", "V"]
+    row = Ledger(repo).entries()[-1]
+    assert row["outcome"] == "reproduced"
+    assert row["evidence_class"] == "regression_reproduced"
     assert_worktrees_cleaned(repo, stored)

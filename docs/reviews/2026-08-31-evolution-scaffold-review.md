@@ -67,9 +67,8 @@ needs its Linux infrastructure scoped as a prerequisite.
   all-skipped run (e.g. `pytest.importorskip`) exits 0 and reads as a genuine
   pass - head FAIL + base all-skip could certify as `regression_reproduced`
   (the D-029 class of hole, reopened through skips), and a head-side all-skip
-  buys V_FAILED from a test that never executed. Fix in progress on a
-  dedicated branch; a run counts as a pass only if at least one test executed
-  un-skipped.
+  buys V_FAILED from a test that never executed. Fixed (D-045): a run counts as a pass only if at least one test executed
+  un-skipped; an all-skip run defers with "no test executed".
 
 ## What the scaffold got right that we should keep regardless of adoption
 

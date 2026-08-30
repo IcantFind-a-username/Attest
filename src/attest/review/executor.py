@@ -472,14 +472,17 @@ def _resource_limiter(limits: ExecutorLimits) -> Callable[[], None] | None:
     return apply_limits
 
 
-def _junit_counts(path: Path) -> tuple[int, int]:
+def _junit_counts(path: Path) -> tuple[int, int, int, int]:
+    """(tests, failures, errors, skipped), summed over every testsuite."""
     root = ET.parse(path).getroot()
     suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
     if not suites:
         raise ValueError("JUnit has no test suites")
+    tests = sum(int(suite.attrib.get("tests", "0")) for suite in suites)
     failures = sum(int(suite.attrib.get("failures", "0")) for suite in suites)
     errors = sum(int(suite.attrib.get("errors", "0")) for suite in suites)
-    return failures, errors
+    skipped = sum(int(suite.attrib.get("skipped", "0")) for suite in suites)
+    return tests, failures, errors, skipped
 
 
 def _deferred(
@@ -876,7 +879,7 @@ def execute_repro(
             stderr=stderr,
         )
     try:
-        failures, errors = _junit_counts(junit_path)
+        tests, failures, errors, skipped = _junit_counts(junit_path)
     except (OSError, ET.ParseError, TypeError, ValueError) as exc:
         return _deferred(
             f"missing or malformed JUnit evidence: {type(exc).__name__}: {exc}",
@@ -887,14 +890,28 @@ def execute_repro(
             network_blocked=network_blocked,
         )
 
-    if process.returncode == 0:
-        return ExecutionResult(
-            outcome=ExecutionOutcome.NOT_REPRODUCED,
-            reason="pytest passed",
+    if process.returncode == 0 and failures == 0 and errors == 0:
+        # A genuine pass requires at least one test to have actually executed
+        # un-skipped. A run whose every test was skipped (or that collected
+        # nothing yet still exited 0) produced no evidence at all: reading it
+        # as a pass let a skip-guarded reproduction certify a "base PASS" the
+        # base tree never earned, and let an all-skip head run buy V_FAILED.
+        if tests - skipped >= 1:
+            return ExecutionResult(
+                outcome=ExecutionOutcome.NOT_REPRODUCED,
+                reason="pytest passed",
+                exit_code=0,
+                stdout=stdout,
+                stderr=stderr,
+                elapsed_s=time.monotonic() - started,
+                network_blocked=network_blocked,
+            )
+        return _deferred(
+            f"no test executed: {skipped} test(s) skipped",
+            started,
             exit_code=0,
             stdout=stdout,
             stderr=stderr,
-            elapsed_s=time.monotonic() - started,
             network_blocked=network_blocked,
         )
     if process.returncode == 1 and failures > 0 and errors == 0:
