@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import json
+import math
 import platform
 import re
 import shutil
@@ -42,12 +43,14 @@ from attest.benchmark.runner import (
     ci_final_decisions,
 )
 from attest.benchmark.schema import (
+    BenchmarkCase,
+    BenchmarkManifest,
     Prediction,
     RunRecord,
     TruthDefect,
     is_scored_placement,
 )
-from attest.review.config import ReviewConfig
+from attest.review.config import ReviewConfig, validate_review_config
 from attest.review.executor import (
     GENERATOR_SYSTEM,
     REPRO_SCHEMA,
@@ -65,7 +68,7 @@ _HEX_DIGITS = frozenset("0123456789abcdef")
 _LEAKING_TERMS = ("bug", "clean", "fix", "defect", "broken", "buggy", "control", "truth")
 _DIGEST_PATTERN = re.compile(r"[0-9a-f]{64}")
 ABSENT_BINDING_SHA256 = hashlib.sha256(b"absent").hexdigest()
-EVALUATION_BINDING_SCHEMA_VERSION = "1"
+EVALUATION_BINDING_SCHEMA_VERSION = "2"
 
 
 class ProjectEvaluationError(ValueError):
@@ -180,6 +183,86 @@ class ProjectTruth:
     fixed_ref: str | None = None
 
 
+def project_truth_sha256(truth: ProjectTruth | None) -> str:
+    """Canonical digest for the exact hidden truth frozen into an evaluation."""
+    if truth is None:
+        return ABSENT_BINDING_SHA256
+    return _json_digest(
+        {
+            "fixed_sha": truth.fixed_ref,
+            "defects": [
+                asdict(defect)
+                for defect in sorted(truth.defects, key=lambda item: item.defect_id)
+            ],
+        }
+    )
+
+
+def manifest_project_truth(
+    manifest: BenchmarkManifest, case_id: str
+) -> ProjectTruth | None:
+    """Derive the only scoring truth allowed for one manifest case."""
+    defects = tuple(
+        defect for defect in manifest.truth_defects if defect.case_id == case_id
+    )
+    if not defects:
+        return None
+    case = next(case for case in manifest.cases if case.case_id == case_id)
+    return ProjectTruth(defects=defects, fixed_ref=case.fixed_commit)
+
+
+def require_manifest_evaluation_request(
+    manifest: BenchmarkManifest,
+    request: ProjectEvaluationRequest,
+    *,
+    source_id: str,
+) -> BenchmarkCase:
+    """Join one execution request to its exact immutable manifest identity."""
+    validate_project_evaluation_request(request)
+    cases = {case.case_id: case for case in manifest.cases}
+    case = cases.get(request.case_id)
+    if case is None:
+        raise ProjectEvaluationError("evaluation case is absent from the bound manifest")
+    if source_id != case.source_id:
+        raise ProjectEvaluationError("evaluation source does not match the bound manifest")
+    expected_base = (
+        case.fixed_commit
+        if case.role == "historical_bug_replay"
+        else case.buggy_commit
+    )
+    expected_head = (
+        case.buggy_commit
+        if case.role == "historical_bug_replay"
+        else case.fixed_commit
+    )
+    if request.base_ref != expected_base or request.head_ref != expected_head:
+        raise ProjectEvaluationError(
+            "evaluation request commits do not match the bound manifest"
+        )
+    if request.truth != manifest_project_truth(manifest, case.case_id):
+        raise ProjectEvaluationError(
+            "evaluation request truth does not match the bound manifest"
+        )
+    sources = {source.source_id: source for source in manifest.sources}
+    source = sources.get(source_id)
+    if source is not None and request.repository != source.project_url:
+        raise ProjectEvaluationError(
+            "evaluation repository identity does not match manifest provenance"
+        )
+    if not request.repository.strip():
+        raise ProjectEvaluationError("repository must be a non-empty identity")
+    if _commit(request.repo, request.base_ref, "base_ref") != expected_base:
+        raise ProjectEvaluationError("evaluation repository base does not match manifest")
+    if _commit(request.repo, request.head_ref, "head_ref") != expected_head:
+        raise ProjectEvaluationError("evaluation repository head does not match manifest")
+    if request.truth is not None and (
+        _commit(request.repo, request.truth.fixed_ref or "", "fixed_ref")
+        != case.fixed_commit
+    ):
+        raise ProjectEvaluationError("evaluation repository truth does not match manifest")
+    return case
+
+
 @dataclass(frozen=True)
 class ProjectEvaluationRequest:
     """One evaluation of one immutable base/head pair in a caller-owned repository."""
@@ -199,6 +282,57 @@ class ProjectEvaluationRequest:
     repository: str = "local/project"
     pull_request_number: int = 1
     repeat: int = 0
+
+
+def validate_project_evaluation_request(request: ProjectEvaluationRequest) -> None:
+    """Validate every mutable/scalar policy field before evaluation side effects."""
+    if type(request) is not ProjectEvaluationRequest:
+        raise ProjectEvaluationError("request must be an exact ProjectEvaluationRequest")
+    try:
+        validate_review_config(request.config)
+    except ValueError as exc:
+        raise ProjectEvaluationError(str(exc)) from exc
+    if type(request.config.model) is not str or not request.config.model:
+        raise ProjectEvaluationError("model must be a non-empty string")
+    limits = request.limits
+    if (
+        isinstance(limits.wall_timeout_s, bool)
+        or not isinstance(limits.wall_timeout_s, (int, float))
+        or not math.isfinite(limits.wall_timeout_s)
+        or limits.wall_timeout_s <= 0
+    ):
+        raise ProjectEvaluationError("wall_timeout_s must be a finite positive number")
+    for name, value in (
+        ("cpu_timeout_s", limits.cpu_timeout_s),
+        ("memory_mb", limits.memory_mb),
+        ("output_bytes", limits.output_bytes),
+    ):
+        if type(value) is not int or value <= 0:
+            raise ProjectEvaluationError(f"{name} must be a positive integer")
+    if (
+        isinstance(request.verification_timeout_s, bool)
+        or not isinstance(request.verification_timeout_s, (int, float))
+        or not math.isfinite(request.verification_timeout_s)
+        or request.verification_timeout_s <= 0
+    ):
+        raise ProjectEvaluationError(
+            "verification_timeout_s must be a finite positive number"
+        )
+    if type(request.repeats) is not int or request.repeats < 1:
+        raise ProjectEvaluationError("repeats must be an integer >= 1")
+    if (
+        isinstance(request.deadline_s, bool)
+        or not isinstance(request.deadline_s, (int, float))
+        or not math.isfinite(request.deadline_s)
+        or request.deadline_s < 0
+    ):
+        raise ProjectEvaluationError("deadline_s must be a finite non-negative number")
+    if type(request.line_slack) is not int or request.line_slack < 0:
+        raise ProjectEvaluationError("line_slack must be a non-negative integer")
+    if type(request.pull_request_number) is not int or request.pull_request_number < 1:
+        raise ProjectEvaluationError("pull_request_number must be a positive integer")
+    if type(request.repeat) is not int or request.repeat < 0:
+        raise ProjectEvaluationError("repeat must be a non-negative integer")
 
 
 @dataclass(frozen=True)
@@ -296,6 +430,7 @@ def evaluate_project(
     clock: Callable[[], float] = time.monotonic,
 ) -> ProjectEvaluationResult:
     """Evaluate one immutable base/head pair and return frozen, typed results."""
+    validate_project_evaluation_request(request)
     resolved = _resolve(request)
     started = clock()
     workspace = _own_worktree(request, resolved.head_sha)
@@ -354,6 +489,7 @@ def evaluate_projects(
     results: list[ProjectEvaluationResult] = []
     for request in requests:
         try:
+            validate_project_evaluation_request(request)
             results.append(
                 evaluate_project(
                     request,
@@ -389,6 +525,7 @@ def build_evaluation_binding(
     provider, interpreter, environment, or exact code is not allowed to create
     a resumable paid-study predeclaration.
     """
+    validate_project_evaluation_request(request)
     if not request.repository.strip():
         raise ProjectEvaluationError("repository must be a non-empty identity")
     for label, value in (
@@ -417,45 +554,25 @@ def build_evaluation_binding(
     )
     if diff is None:
         raise ProjectEvaluationError("could not digest the resolved base/head diff")
-    truth_payload: object = None
-    if request.truth is not None:
-        truth_payload = {
-            "fixed_sha": resolved.fixed_sha,
-            "defects": [
-                asdict(defect)
-                for defect in sorted(request.truth.defects, key=lambda item: item.defect_id)
-            ],
-        }
+    resolved_truth = (
+        None
+        if request.truth is None
+        else replace(request.truth, fixed_ref=resolved.fixed_sha)
+    )
     config = request.config
-    policy = {
-        "alpha": config.alpha,
-        "budget_usd": config.budget_usd,
-        "k_samples": config.k_samples,
-        "max_findings": config.max_findings,
-        "auto_tighten_alpha": config.auto_tighten_alpha,
-        "tier0_commands": list(config.tier0_commands),
-        "limits": asdict(request.limits),
-        "verification_timeout_s": request.verification_timeout_s,
-        "repeats": request.repeats,
-        "deadline_s": request.deadline_s,
-    }
-    prompt_bundle = {"proposal": SYSTEM_PROMPT, "generator": GENERATOR_SYSTEM}
-    schema_bundle = {"proposal": PROPOSAL_SCHEMA, "generator": REPRO_SCHEMA}
     return ProjectEvaluationBinding(
         repository=request.repository,
         base_sha=resolved.base_sha,
         head_sha=resolved.head_sha,
         fixed_sha=resolved.fixed_sha,
         diff_sha256=hashlib.sha256(diff).hexdigest(),
-        truth_sha256=(
-            ABSENT_BINDING_SHA256 if truth_payload is None else _json_digest(truth_payload)
-        ),
+        truth_sha256=project_truth_sha256(resolved_truth),
         receipt_sha256=receipt_sha256 or ABSENT_BINDING_SHA256,
-        policy_sha256=_json_digest(policy),
+        policy_sha256=_json_digest(_evaluation_policy_payload(request)),
         provider_id=provider_id,
         model_id=config.model,
-        prompt_sha256=_json_digest(prompt_bundle),
-        schema_sha256=_json_digest(schema_bundle),
+        prompt_sha256=_current_prompt_sha256(),
+        schema_sha256=_current_schema_sha256(),
         interpreter_id=interpreter_id,
         environment_sha256=environment_sha256,
         code_sha256=code_sha256,
@@ -467,22 +584,90 @@ def freeze_evaluation_request(
     request: ProjectEvaluationRequest, binding: ProjectEvaluationBinding
 ) -> ProjectEvaluationRequest:
     """Replace movable refs with the SHAs already sealed by a predeclaration."""
+    validate_project_evaluation_request(request)
     if binding.repository != request.repository:
         raise ProjectEvaluationError("binding repository does not match the request")
     if binding.model_id != request.config.model or binding.budget_usd != request.config.budget_usd:
         raise ProjectEvaluationError("binding model or budget does not match the request")
+    if binding.policy_sha256 != _json_digest(_evaluation_policy_payload(request)):
+        raise ProjectEvaluationError("binding policy does not match the request")
+    if binding.prompt_sha256 != _current_prompt_sha256():
+        raise ProjectEvaluationError("binding prompt does not match the current evaluator")
+    if binding.schema_sha256 != _current_schema_sha256():
+        raise ProjectEvaluationError("binding schema does not match the current evaluator")
     truth = request.truth
     frozen_truth = (
         None
         if truth is None
         else replace(truth, fixed_ref=binding.fixed_sha)
     )
+    if binding.truth_sha256 != project_truth_sha256(frozen_truth):
+        raise ProjectEvaluationError("binding truth does not match the request")
     return replace(
         request,
         base_ref=binding.base_sha,
         head_ref=binding.head_sha,
         truth=frozen_truth,
     )
+
+
+def require_prebuilt_evaluation_binding(
+    request: ProjectEvaluationRequest,
+    binding: ProjectEvaluationBinding,
+    *,
+    provider_id: str,
+) -> ProjectEvaluationRequest:
+    """Validate a trusted synthetic binding without binding a local checkout path."""
+    validate_project_evaluation_request(request)
+    expected_fixed = None if request.truth is None else request.truth.fixed_ref
+    if (
+        binding.base_sha != request.base_ref
+        or binding.head_sha != request.head_ref
+        or binding.fixed_sha != expected_fixed
+    ):
+        raise ProjectEvaluationError(
+            "prebuilt binding commits do not match the manifest-checked request"
+        )
+    if binding.provider_id != provider_id:
+        raise ProjectEvaluationError(
+            "prebuilt binding provider does not match the live provider"
+        )
+    diff = _git_bytes(
+        request.repo,
+        "diff",
+        "--binary",
+        "--no-ext-diff",
+        request.base_ref,
+        request.head_ref,
+        "--",
+    )
+    if diff is None or binding.diff_sha256 != hashlib.sha256(diff).hexdigest():
+        raise ProjectEvaluationError(
+            "prebuilt binding diff does not match the manifest-checked request"
+        )
+    return freeze_evaluation_request(request, binding)
+
+
+def _evaluation_policy_payload(request: ProjectEvaluationRequest) -> dict[str, object]:
+    """Canonical execution/scoring policy sealed into every evaluation binding."""
+    return {
+        "config": asdict(request.config),
+        "limits": asdict(request.limits),
+        "verification_timeout_s": request.verification_timeout_s,
+        "repeats": request.repeats,
+        "deadline_s": request.deadline_s,
+        "line_slack": request.line_slack,
+        "pull_request_number": request.pull_request_number,
+        "repeat": request.repeat,
+    }
+
+
+def _current_prompt_sha256() -> str:
+    return _json_digest({"proposal": SYSTEM_PROMPT, "generator": GENERATOR_SYSTEM})
+
+
+def _current_schema_sha256() -> str:
+    return _json_digest({"proposal": PROPOSAL_SCHEMA, "generator": REPRO_SCHEMA})
 
 
 def _resolve(request: ProjectEvaluationRequest) -> _Resolved:

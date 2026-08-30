@@ -13,11 +13,16 @@ from typing import Any
 
 import pytest
 
-from attest.benchmark.api import ProjectEvaluationRequest, ProjectTruth
+from attest.benchmark.api import (
+    ProjectEvaluationRequest,
+    ProjectTruth,
+    project_truth_sha256,
+)
 from attest.benchmark.baselines import (
     ARM_BARE_PROMPT,
     ARM_PRODUCT,
     ARM_RUFF,
+    COMPARISON_CHECKPOINT_SCHEMA_VERSION,
     EVIDENCE_STATIC_DIAGNOSTIC,
     EVIDENCE_UNVERIFIED_CLAIM,
     BarePromptBaseline,
@@ -30,7 +35,11 @@ from attest.benchmark.checkpoints import (
     CALL_ROLE_BENCHMARK_ORACLE,
     CALL_ROLE_PRODUCT,
 )
-from attest.benchmark.corpus import load_validation_receipt
+from attest.benchmark.corpus import (
+    ValidationReceipt,
+    load_validation_receipt,
+    validation_receipt_binding_bytes,
+)
 from attest.benchmark.report import (
     RECEIPT_HISTORICAL,
     RECEIPT_MISSING,
@@ -44,7 +53,12 @@ from attest.review.diffs import parse_diff
 from attest.review.executor import ExecutorLimits
 from attest.review.proposer import PROPOSER_MAX_OUTPUT_TOKENS, ProviderResult
 
-from ._validation_v2 import verified_validation_authority
+from ._validation_v2 import (
+    KEY,
+    KEY_ID,
+    build_validation_v2_bundle,
+    verified_validation_authority,
+)
 from .test_corpus import _git
 
 _SCRIPT = Path(__file__).parents[2] / "scripts" / "benchmark.py"
@@ -387,6 +401,8 @@ def _plans(tmp_path: Path) -> tuple[list[ComparisonPlan], dict[str, Cassette], P
         replayed = case.role == "historical_bug_replay"
         plans.append(
             ComparisonPlan(
+                manifest=manifest,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
                 case=case,
                 request=ProjectEvaluationRequest(
                     case_id=case.case_id,
@@ -412,6 +428,214 @@ def _plans(tmp_path: Path) -> tuple[list[ComparisonPlan], dict[str, Cassette], P
             )
         )
     return plans, cassettes, manifest_path
+
+
+@pytest.mark.parametrize("drift", ("truth_absent", "truth_altered", "commit", "role"))
+def test_compare_arms_rejects_manifest_contract_drift_before_provider(
+    tmp_path: Path, drift: str
+) -> None:
+    """A caller cannot redefine hidden truth or immutable case identity."""
+    plans, cassettes, _ = _plans(tmp_path)
+    original = plans[0]
+    if drift == "truth_absent":
+        changed = replace(original, request=replace(original.request, truth=None))
+    elif drift == "truth_altered":
+        assert original.request.truth is not None
+        changed_truth = replace(
+            original.request.truth,
+            defects=(
+                replace(original.request.truth.defects[0], file="different.py"),
+                *original.request.truth.defects[1:],
+            ),
+        )
+        changed = replace(
+            original, request=replace(original.request, truth=changed_truth)
+        )
+    elif drift == "commit":
+        changed = replace(
+            original,
+            request=replace(original.request, base_ref=original.request.head_ref),
+        )
+    else:
+        changed = replace(
+            original,
+            case=replace(original.case, role="developer_fix_control"),
+        )
+    drifted = [changed, *plans[1:]]
+    provider_calls: list[str] = []
+    checkpoint_root = tmp_path / f"{drift}-calls"
+
+    with pytest.raises(ValueError, match="manifest|truth|commit|role"):
+        compare_arms(
+            drifted,
+            provider_factory=lambda request: (
+                provider_calls.append(f"product:{request.case_id}")
+                or ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=lambda case_id: (
+                provider_calls.append(f"bare:{case_id}")
+                or ReplayProvider(cassettes[case_id])
+            ),
+            ruff_executable=None,
+            checkpoint_root=checkpoint_root,
+        )
+    assert provider_calls == []
+    assert not checkpoint_root.exists()
+
+
+@pytest.mark.parametrize("receipt_kind", ("verification", "raw_v2"))
+def test_compare_arms_rejects_v2_authority_before_provider_or_checkpoint(
+    tmp_path: Path, receipt_kind: str
+) -> None:
+    """Phase0 execution accepts no symmetric-key current authority object."""
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    authority = verified_validation_authority(
+        tmp_path / "execution-authority", manifest_path
+    )
+    receipt: object = authority if receipt_kind == "verification" else authority.receipt
+    provider_calls: list[str] = []
+    checkpoint_root = tmp_path / f"{receipt_kind}-execution-calls"
+
+    with pytest.raises(ValueError, match="X-01|public-key|symmetric"):
+        compare_arms(
+            plans,
+            provider_factory=lambda request: (
+                provider_calls.append(f"product:{request.case_id}")
+                or ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=lambda case_id: (
+                provider_calls.append(f"bare:{case_id}")
+                or ReplayProvider(cassettes[case_id])
+            ),
+            ruff_executable=None,
+            checkpoint_root=checkpoint_root,
+            validation_receipt=receipt,  # type: ignore[arg-type]
+        )
+    assert provider_calls == []
+    assert not checkpoint_root.exists()
+
+
+def test_compare_arms_no_longer_accepts_an_opaque_receipt_digest(
+    tmp_path: Path,
+) -> None:
+    """A digest cannot masquerade as typed execution authority."""
+    plans, cassettes, _ = _plans(tmp_path)
+    checkpoint_root = tmp_path / "opaque-digest-calls"
+
+    with pytest.raises(TypeError, match="receipt_sha256"):
+        compare_arms(
+            plans,
+            provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=checkpoint_root,
+            receipt_sha256="a" * 64,
+        )
+    assert not checkpoint_root.exists()
+
+
+@pytest.mark.parametrize("line_slack", (-1, True))
+def test_compare_arms_rejects_invalid_line_slack_before_side_effects(
+    tmp_path: Path, line_slack: object
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    provider_calls: list[str] = []
+    checkpoint_root = tmp_path / "invalid-line-slack"
+
+    with pytest.raises(ValueError, match="line_slack"):
+        compare_arms(
+            plans,
+            provider_factory=lambda request: (
+                provider_calls.append(f"product:{request.case_id}")
+                or ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=lambda case_id: (
+                provider_calls.append(f"bare:{case_id}")
+                or ReplayProvider(cassettes[case_id])
+            ),
+            ruff_executable=None,
+            checkpoint_root=checkpoint_root,
+            line_slack=line_slack,  # type: ignore[arg-type]
+        )
+    assert provider_calls == []
+    assert not checkpoint_root.exists()
+
+
+def test_compare_arms_rejects_request_line_slack_drift_before_side_effects(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plans[0] = replace(
+        plans[0], request=replace(plans[0].request, line_slack=1)
+    )
+    provider_calls: list[str] = []
+    checkpoint_root = tmp_path / "request-line-slack"
+
+    with pytest.raises(ValueError, match="line_slack"):
+        compare_arms(
+            plans,
+            provider_factory=lambda request: (
+                provider_calls.append(f"product:{request.case_id}")
+                or ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=lambda case_id: (
+                provider_calls.append(f"bare:{case_id}")
+                or ReplayProvider(cassettes[case_id])
+            ),
+            ruff_executable=None,
+            checkpoint_root=checkpoint_root,
+            line_slack=0,
+        )
+    assert provider_calls == []
+    assert not checkpoint_root.exists()
+
+
+def test_comparison_resume_rejects_pull_request_policy_drift_before_provider(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    checkpoint_root = tmp_path / "comparison-pr-policy"
+    compare_arms(
+        plans,
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=checkpoint_root,
+    )
+    before = {
+        str(path.relative_to(checkpoint_root)): path.read_bytes()
+        for path in sorted(checkpoint_root.rglob("*"))
+        if path.is_file()
+    }
+    drifted = [
+        replace(
+            plans[0],
+            request=replace(plans[0].request, pull_request_number=2),
+        ),
+        *plans[1:],
+    ]
+    provider_calls: list[str] = []
+
+    with pytest.raises(ValueError, match="predeclaration|drift"):
+        compare_arms(
+            drifted,
+            provider_factory=lambda request: (
+                provider_calls.append(f"product:{request.case_id}")
+                or ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=lambda case_id: (
+                provider_calls.append(f"bare:{case_id}")
+                or ReplayProvider(cassettes[case_id])
+            ),
+            ruff_executable=None,
+            checkpoint_root=checkpoint_root,
+        )
+    assert provider_calls == []
+    assert {
+        str(path.relative_to(checkpoint_root)): path.read_bytes()
+        for path in sorted(checkpoint_root.rglob("*"))
+        if path.is_file()
+    } == before
 
 
 def test_compare_arms_measures_all_three_arms_with_honest_evidence(tmp_path: Path) -> None:
@@ -591,10 +815,9 @@ def test_comparison_defer_after_settled_response_preserves_paid_call_evidence(
         manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         validation_receipt=None,
     ).to_json_dict()
-    assert report["schema_version"] == "3"
-    product_payload = next(
-        run for run in report["runs"] if run["arm"] == ARM_PRODUCT
-    )
+    assert report["schema_version"] == "4"
+    assert "validation_authority" in report
+    product_payload = next(run for run in report["runs"] if run["arm"] == ARM_PRODUCT)
     assert product_payload["paid_calls"] == list(product.paid_calls)
     assert product_payload["paid_calls_sha256"] == product.paid_calls_sha256
     assert product_payload["total_spend_usd"] == pytest.approx(
@@ -1034,6 +1257,8 @@ def test_comparison_report_rejects_self_consistent_empty_measurements(
         bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
         ruff_executable=None,
         checkpoint_root=None,
+        manifest=load_manifest(manifest_path),
+        manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
     )
     assert any((measurements.checkpoint_root or tmp_path).rglob("*.json"))
 
@@ -1177,6 +1402,8 @@ def test_comparison_report_rejects_orphan_paid_call_roots(
             bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
             ruff_executable=None,
             checkpoint_root=None,
+            manifest=load_manifest(manifest_path),
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         ),
         checkpoint_root=checkpoint_root,
     )
@@ -1200,6 +1427,8 @@ def test_comparison_report_allows_predeclared_empty_plan(
         bare_provider_factory=lambda case_id: pytest.fail("empty plan dispatched bare"),
         ruff_executable=None,
         checkpoint_root=tmp_path / "empty-calls",
+        manifest=load_manifest(manifest_path),
+        manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
     )
 
     payload = build_comparison_report(
@@ -1253,12 +1482,7 @@ def test_comparison_resume_rejects_incomplete_or_mismatched_paid_evidence(
     )
 
     product_root = checkpoint_root / ARM_PRODUCT / plan.case.case_id
-    reconciliation = (
-        checkpoint_root
-        / "reconciliation"
-        / ARM_PRODUCT
-        / f"{plan.case.case_id}.json"
-    )
+    reconciliation = checkpoint_root / "reconciliation" / ARM_PRODUCT / f"{plan.case.case_id}.json"
     if corruption == "missing_reconciliation":
         reconciliation.unlink()
     elif corruption == "duplicate_spend":
@@ -1331,14 +1555,31 @@ def test_compare_arms_requires_repeat_zero_and_reports_deferred_arms(
     assert {run.arm for run in deferred_runs} == {ARM_RUFF}
 
 
-def _receipt_artifacts(tmp_path: Path, manifest: Path) -> tuple[Path, Path]:
+def _receipt_artifacts(
+    tmp_path: Path,
+    manifest: Path,
+    *,
+    name: str = "validation",
+    historical_note: str | None = None,
+) -> tuple[Path, Path]:
     document = json.loads(manifest.read_text(encoding="utf-8"))
     pair_ids = sorted({case["pair_id"] for case in document["cases"]})
     manifest_sha256 = hashlib.sha256(manifest.read_bytes()).hexdigest()
     results = {
         "schema_version": "1",
         "manifest_sha256": manifest_sha256,
-        "results": [{"pair_id": pair_id, "status": "validated"} for pair_id in pair_ids],
+        "results": [
+            {
+                "pair_id": pair_id,
+                "status": "validated",
+                **(
+                    {"historical_note": historical_note}
+                    if historical_note is not None
+                    else {}
+                ),
+            }
+            for pair_id in pair_ids
+        ],
     }
     results_bytes = (
         json.dumps(results, sort_keys=True, separators=(",", ":")) + "\n"
@@ -1349,13 +1590,104 @@ def _receipt_artifacts(tmp_path: Path, manifest: Path) -> tuple[Path, Path]:
         "validated_pair_ids": pair_ids,
         "validation_results_sha256": hashlib.sha256(results_bytes).hexdigest(),
     }
-    receipt_path = tmp_path / "validation-receipt.json"
-    results_path = tmp_path / "validation-results.json"
+    receipt_path = tmp_path / f"{name}-receipt.json"
+    results_path = tmp_path / f"{name}-results.json"
     results_path.write_bytes(results_bytes)
     receipt_path.write_bytes(
         (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode()
     )
     return receipt_path, results_path
+
+
+def _two_historical_receipts(
+    tmp_path: Path, manifest_path: Path
+) -> tuple[ValidationReceipt, ValidationReceipt]:
+    receipt_a_path, results_a_path = _receipt_artifacts(
+        tmp_path, manifest_path, name="historical-a"
+    )
+    receipt_b_path, results_b_path = _receipt_artifacts(
+        tmp_path,
+        manifest_path,
+        name="historical-b",
+        historical_note="distinct-but-nonauthoritative-v1-evidence",
+    )
+    return (
+        load_validation_receipt(receipt_a_path, manifest_path, results_a_path),
+        load_validation_receipt(receipt_b_path, manifest_path, results_b_path),
+    )
+
+
+def test_comparison_report_rejects_historical_receipt_a_to_b_swap(
+    tmp_path: Path,
+) -> None:
+    """Typed V1 execution still freezes the exact historical receipt bytes."""
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    manifest = load_manifest(manifest_path)
+    receipt_a, receipt_b = _two_historical_receipts(tmp_path, manifest_path)
+    assert validation_receipt_binding_bytes(receipt_a) != validation_receipt_binding_bytes(
+        receipt_b
+    )
+    measurements = compare_arms(
+        plans,
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=tmp_path / "historical-a-report-calls",
+        validation_receipt=receipt_a,
+    )
+
+    with pytest.raises(ValueError, match="receipt.*(binding|predeclaration)"):
+        build_comparison_report(
+            manifest,
+            measurements,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=receipt_b,
+        )
+
+
+def test_comparison_resume_rejects_historical_receipt_a_to_b_without_mutation(
+    tmp_path: Path,
+) -> None:
+    """A V1 binding swap is rejected before provider construction on resume."""
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    receipt_a, receipt_b = _two_historical_receipts(tmp_path, manifest_path)
+    checkpoint_root = tmp_path / "historical-a-resume-calls"
+    compare_arms(
+        plans,
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=checkpoint_root,
+        validation_receipt=receipt_a,
+    )
+    before = {
+        str(path.relative_to(checkpoint_root)): path.read_bytes()
+        for path in sorted(checkpoint_root.rglob("*"))
+        if path.is_file()
+    }
+    provider_calls: list[str] = []
+
+    with pytest.raises(ValueError, match="predeclaration|drift"):
+        compare_arms(
+            plans,
+            provider_factory=lambda request: (
+                provider_calls.append(f"product:{request.case_id}")
+                or ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=lambda case_id: (
+                provider_calls.append(f"bare:{case_id}")
+                or ReplayProvider(cassettes[case_id])
+            ),
+            ruff_executable=None,
+            checkpoint_root=checkpoint_root,
+            validation_receipt=receipt_b,
+        )
+    assert provider_calls == []
+    assert {
+        str(path.relative_to(checkpoint_root)): path.read_bytes()
+        for path in sorted(checkpoint_root.rglob("*"))
+        if path.is_file()
+    } == before
 
 
 def test_comparison_report_withholds_accuracy_without_a_receipt(tmp_path: Path) -> None:
@@ -1389,39 +1721,306 @@ def test_comparison_report_withholds_accuracy_without_a_receipt(tmp_path: Path) 
 
     receipt_path, results_path = _receipt_artifacts(tmp_path, manifest_path)
     receipt = load_validation_receipt(receipt_path, manifest_path, results_path)
+    historical_measurements = compare_arms(
+        plans,
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=_ruff_executable(),
+        checkpoint_root=tmp_path / "comparison-historical-receipt-calls",
+        validation_receipt=receipt,
+    )
     historical = build_comparison_report(
         manifest,
-        measurements,
+        historical_measurements,
         manifest_sha256=manifest_sha256,
         validation_receipt=receipt,
     )
     assert historical.metrics_withheld_reason == RECEIPT_HISTORICAL
+    expected_receipt_sha256 = hashlib.sha256(
+        validation_receipt_binding_bytes(receipt)
+    ).hexdigest()
+    assert historical_measurements.checkpoint_root is not None
+    predeclaration = json.loads(
+        (historical_measurements.checkpoint_root / "comparison.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    expected_predeclaration_sha256 = hashlib.sha256(
+        json.dumps(predeclaration, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    assert historical.receipt_sha256 == expected_receipt_sha256
+    assert historical.predeclaration_sha256 == expected_predeclaration_sha256
+    assert predeclaration["receipt_sha256"] == expected_receipt_sha256
+    assert {row["binding"]["receipt_sha256"] for row in predeclaration["bindings"]} == {
+        expected_receipt_sha256
+    }
+    frozen_by_case = {
+        row["case_id"]: row["binding"] for row in predeclaration["bindings"]
+    }
+    for plan in plans:
+        frozen = frozen_by_case[plan.case.case_id]
+        assert frozen["base_sha"] == plan.request.base_ref
+        assert frozen["head_sha"] == plan.request.head_ref
+        assert frozen["truth_sha256"] == project_truth_sha256(plan.request.truth)
+
     authority = verified_validation_authority(
         tmp_path / "comparison-validation-authority", manifest_path
     )
-    authorized = build_comparison_report(
-        manifest,
-        measurements,
-        manifest_sha256=manifest_sha256,
-        validation_receipt=authority,
-    )
-    granted = authorized.to_json_dict()
-    assert granted["metrics_withheld_reason"] is None
-    for arm in granted["arms"]:
-        assert arm["accuracy"]["detection_rate"] == 1.0
-        assert arm["accuracy"]["silence_precision"] == 1.0
-        assert arm["accuracy"]["detection_rate_interval"] is not None
+    current_root = tmp_path / "comparison-current-authority-calls"
+    with pytest.raises(ValueError, match="X-01|public-key|symmetric"):
+        compare_arms(
+            plans,
+            provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=_ruff_executable(),
+            checkpoint_root=current_root,
+            validation_receipt=authority,
+        )
+    assert not current_root.exists()
 
-    markdown = render_comparison_markdown(authorized)
+    markdown = render_comparison_markdown(historical)
     assert ARM_PRODUCT in markdown
     assert ARM_BARE_PROMPT in markdown
     assert ARM_RUFF in markdown
-    assert "authorized provenance: PASS" in markdown
-    assert "semantic policy: PASS" in markdown
     assert "not an AI reviewer" in markdown
-    notes = " ".join(granted["limitations"])
+    assert f"receipt SHA-256: `{expected_receipt_sha256}`" in markdown
+    assert (
+        f"predeclaration SHA-256: `{expected_predeclaration_sha256}`" in markdown
+    )
+    notes = " ".join(historical.limitations)
     assert "losing" in notes or "every arm" in notes
     assert "repeat zero" in notes
+
+
+def test_comparison_report_rejects_authority_added_after_absent_predeclaration(
+    tmp_path: Path,
+) -> None:
+    """A report cannot attach scoring authority after comparison outcomes exist."""
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    manifest = load_manifest(manifest_path)
+    measurements = compare_arms(
+        plans,
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=_ruff_executable(),
+        checkpoint_root=tmp_path / "absent-authority-calls",
+    )
+    authority = verified_validation_authority(tmp_path / "absent-authority", manifest_path)
+
+    with pytest.raises(ValueError, match="receipt.*(binding|predeclaration)"):
+        build_comparison_report(
+            manifest,
+            measurements,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=authority,
+        )
+
+
+def test_comparison_resume_rejects_current_authority_before_provider_and_preserves_state(
+    tmp_path: Path,
+) -> None:
+    """A current verifier capability cannot touch historical execution state."""
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    receipt_path, results_path = _receipt_artifacts(tmp_path, manifest_path)
+    historical = load_validation_receipt(receipt_path, manifest_path, results_path)
+    checkpoint_root = tmp_path / "receipt-resume-calls"
+    compare_arms(
+        plans,
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=_ruff_executable(),
+        checkpoint_root=checkpoint_root,
+        validation_receipt=historical,
+    )
+    before = {
+        str(artifact_file.relative_to(checkpoint_root)): artifact_file.read_bytes()
+        for artifact_file in sorted(checkpoint_root.rglob("*"))
+        if artifact_file.is_file()
+    }
+    provider_calls: list[str] = []
+    authority = verified_validation_authority(
+        tmp_path / "resume-current-authority", manifest_path
+    )
+
+    with pytest.raises(ValueError, match="X-01|public-key|symmetric"):
+        compare_arms(
+            plans,
+            provider_factory=lambda request: (
+                provider_calls.append(f"product:{request.case_id}")
+                or ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=lambda case_id: (
+                provider_calls.append(f"bare:{case_id}") or ReplayProvider(cassettes[case_id])
+            ),
+            ruff_executable=_ruff_executable(),
+            checkpoint_root=checkpoint_root,
+            validation_receipt=authority,
+        )
+    assert provider_calls == []
+    assert {
+        str(artifact_file.relative_to(checkpoint_root)): artifact_file.read_bytes()
+        for artifact_file in sorted(checkpoint_root.rglob("*"))
+        if artifact_file.is_file()
+    } == before
+
+
+def test_comparison_report_rejects_coordinated_manifest_role_rewrite(
+    tmp_path: Path,
+) -> None:
+    """Run roles and recomputed summaries remain subordinate to manifest roles."""
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    manifest = load_manifest(manifest_path)
+    measurements = compare_arms(
+        plans,
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=_ruff_executable(),
+        checkpoint_root=tmp_path / "role-rewrite-calls",
+    )
+    rewritten_runs = tuple(
+        replace(
+            run,
+            role=(
+                "developer_fix_control"
+                if run.role == "historical_bug_replay"
+                else "historical_bug_replay"
+            ),
+        )
+        for run in measurements.runs
+    )
+    rewritten = replace(
+        measurements,
+        runs=rewritten_runs,
+        arms=tuple(
+            _summarize_arm(
+                arm,
+                tuple(run for run in rewritten_runs if run.arm == arm),
+            )
+            for arm in (ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF)
+        ),
+    )
+
+    with pytest.raises(ValueError, match="role.*manifest"):
+        build_comparison_report(
+            manifest,
+            rewritten,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
+def test_comparison_report_rejects_role_subclass_equality_bypass(
+    tmp_path: Path,
+) -> None:
+    """A caller-defined role cannot override its exact manifest join."""
+
+    class DeceptiveRole(str):
+        def __eq__(self, other: object) -> bool:
+            return True
+
+        def __ne__(self, other: object) -> bool:
+            return False
+
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    manifest = load_manifest(manifest_path)
+    measurements = compare_arms(
+        plans,
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=_ruff_executable(),
+        checkpoint_root=tmp_path / "role-subclass-calls",
+    )
+    original = measurements.runs[0]
+    deceptive_role = DeceptiveRole(
+        "developer_fix_control"
+        if original.role == "historical_bug_replay"
+        else "historical_bug_replay"
+    )
+    rewritten_runs = (replace(original, role=deceptive_role), *measurements.runs[1:])
+    rewritten = replace(
+        measurements,
+        runs=rewritten_runs,
+        arms=tuple(
+            _summarize_arm(
+                arm,
+                tuple(run for run in rewritten_runs if run.arm == arm),
+            )
+            for arm in (ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF)
+        ),
+    )
+
+    with pytest.raises(ValueError, match="role.*(exact|manifest)"):
+        build_comparison_report(
+            manifest,
+            rewritten,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
+def test_comparison_report_rejects_coordinated_match_and_summary_rewrite(
+    tmp_path: Path,
+) -> None:
+    """Publication replays matching from manifest truth instead of trusting aggregates."""
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    manifest = load_manifest(manifest_path)
+    measurements = compare_arms(
+        plans,
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=_ruff_executable(),
+        checkpoint_root=tmp_path / "truth-rewrite-calls",
+    )
+    rewritten_runs = tuple(
+        replace(run, matched_defect_ids=(None,) * len(run.findings))
+        for run in measurements.runs
+    )
+    rewritten = replace(
+        measurements,
+        runs=rewritten_runs,
+        arms=tuple(
+            _summarize_arm(
+                arm,
+                tuple(run for run in rewritten_runs if run.arm == arm),
+            )
+            for arm in (ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF)
+        ),
+    )
+
+    with pytest.raises(ValueError, match="truth|match|summary"):
+        build_comparison_report(
+            manifest,
+            rewritten,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
+
+
+def test_comparison_checkpoint_v5_is_retained_and_rejected_without_replay(
+    tmp_path: Path,
+) -> None:
+    """The v6 receipt freeze must never rewrite an existing v5 paid state."""
+    assert COMPARISON_CHECKPOINT_SCHEMA_VERSION == "6"
+    plans, cassettes, _ = _plans(tmp_path)
+    checkpoint_root = tmp_path / "legacy-v5-comparison"
+    checkpoint_root.mkdir()
+    legacy_path = checkpoint_root / "comparison.json"
+    legacy_path.write_text(json.dumps({"schema_version": "5"}), encoding="utf-8")
+    before = legacy_path.read_bytes()
+    provider_calls: list[str] = []
+
+    with pytest.raises(ValueError, match="version.*6|supported.*6"):
+        compare_arms(
+            plans,
+            provider_factory=lambda request: (
+                provider_calls.append(request.case_id) or ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=_ruff_executable(),
+            checkpoint_root=checkpoint_root,
+        )
+    assert provider_calls == []
+    assert legacy_path.read_bytes() == before
 
 
 def test_compare_cli_runs_three_arms_offline_end_to_end(tmp_path: Path) -> None:
@@ -1496,3 +2095,117 @@ def test_compare_cli_runs_three_arms_offline_end_to_end(tmp_path: Path) -> None:
     assert report["validation_authority"]["authority"] == "historical_integrity_only"
     assert (output / "comparison.md").is_file()
     assert report["digest"]
+    state_root = output / "state" / "comparison-calls"
+    predeclaration = json.loads(
+        (state_root / "comparison.json").read_text(encoding="utf-8")
+    )
+    assert predeclaration["bindings"] == []
+    assert predeclaration["paid_trials"] == []
+    assert not (state_root / "reconciliation").exists()
+    assert not (state_root / ARM_PRODUCT).exists()
+    assert not (state_root / ARM_BARE_PROMPT).exists()
+
+    no_root_output = tmp_path / "no-root-out"
+    no_root = subprocess.run(
+        [
+            sys.executable,
+            str(_SCRIPT),
+            "compare",
+            "--manifest",
+            str(manifest_path),
+            "--cassette-root",
+            str(cassettes_dir),
+            "--output",
+            str(no_root_output),
+            "--ruff-executable",
+            _ruff_executable(),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    assert no_root.returncode == 3, no_root.stderr
+    assert json.loads(no_root.stdout)["status"] == "not_executed"
+    no_root_state = no_root_output / "state" / "comparison-calls"
+    no_root_predeclaration = json.loads(
+        (no_root_state / "comparison.json").read_text(encoding="utf-8")
+    )
+    assert no_root_predeclaration["bindings"] == []
+    assert no_root_predeclaration["paid_trials"] == []
+    assert not (no_root_state / "reconciliation").exists()
+
+
+def test_compare_cli_rejects_v2_hmac_authority_before_offline_execution(
+    tmp_path: Path,
+) -> None:
+    """Local checkout execution cannot share the V2 symmetric verification key."""
+    manifest_path, root, replay_id, control_id = _comparison_fixture(tmp_path)
+    cassettes_dir = tmp_path / "v2-cassettes"
+    cassettes_dir.mkdir()
+    (cassettes_dir / f"{replay_id}.json").write_text(
+        json.dumps(
+            {
+                "proposal": _PROPOSAL,
+                "repro": _REPRO,
+                "input_tokens": 800,
+                "output_tokens": 200,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (cassettes_dir / f"{control_id}.json").write_text(
+        json.dumps(
+            {
+                "proposal": json.dumps({"findings": []}),
+                "repro": json.dumps({"test_body": ""}),
+                "input_tokens": 800,
+                "output_tokens": 200,
+            }
+        ),
+        encoding="utf-8",
+    )
+    bundle = build_validation_v2_bundle(tmp_path / "compare-v2-authority", manifest_path, root)
+    key_file = tmp_path / "compare-authority.key"
+    key_file.write_bytes(KEY)
+    output = tmp_path / "compare-v2-out"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(_SCRIPT),
+            "compare",
+            "--manifest",
+            str(manifest_path),
+            "--cassette-root",
+            str(cassettes_dir),
+            "--root",
+            str(root),
+            "--output",
+            str(output),
+            "--validation-receipt",
+            str(bundle.receipt_path),
+            "--validation-results",
+            str(bundle.results_path),
+            "--validation-artifacts",
+            str(bundle.artifact_root),
+            "--validation-provenance-key-id",
+            KEY_ID,
+            "--validation-provenance-key-file",
+            str(key_file),
+            "--ruff-executable",
+            _ruff_executable(),
+            "--k-samples",
+            "2",
+            "--differential-repeats",
+            "1",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 2
+    assert "X-01" in json.loads(completed.stderr)["error"]
+    assert not output.exists()
+    assert KEY not in (completed.stdout + completed.stderr).encode()

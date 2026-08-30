@@ -45,12 +45,17 @@ from threading import Lock
 from typing import Any
 
 from attest.benchmark.api import (
+    ABSENT_BINDING_SHA256,
     EVALUATION_BINDING_SCHEMA_VERSION,
     ProjectEvaluationRequest,
+    ProjectTruth,
     build_evaluation_binding,
     current_runtime_identity,
     evaluate_project,
     freeze_evaluation_request,
+    manifest_project_truth,
+    project_truth_sha256,
+    require_manifest_evaluation_request,
 )
 from attest.benchmark.checkpoints import (
     CALL_ROLE_BENCHMARK_ORACLE,
@@ -61,8 +66,20 @@ from attest.benchmark.checkpoints import (
     PaidCallTotals,
     paid_call_totals,
 )
+from attest.benchmark.corpus import (
+    ValidationReceipt,
+    ValidationReceiptV2,
+    ValidationVerification,
+    validation_receipt_binding_bytes,
+)
 from attest.benchmark.metrics import silence_precision, wilson_interval
-from attest.benchmark.schema import BenchmarkCase, TruthDefect, is_scored_placement
+from attest.benchmark.schema import (
+    BenchmarkCase,
+    BenchmarkManifest,
+    TruthDefect,
+    is_scored_placement,
+    require_manifest_binding,
+)
 from attest.review.budget import Budget, BudgetExceeded
 from attest.review.config import ReviewConfig
 from attest.review.diffs import DiffInfo, git_diff, norm_path
@@ -78,7 +95,7 @@ from attest.review.schema import PROPOSAL_SCHEMA, validate_finding
 ARM_PRODUCT = "attest_product"
 ARM_BARE_PROMPT = "bare_prompt"
 ARM_RUFF = "ruff_static"
-COMPARISON_CHECKPOINT_SCHEMA_VERSION = "5"
+COMPARISON_CHECKPOINT_SCHEMA_VERSION = "6"
 COMPARISON_RECONCILIATION_SCHEMA_VERSION = "2"
 _EMPTY_PAID_CALLS_SHA256 = hashlib.sha256(b"[]").hexdigest()
 _EVALUATION_BINDING_FIELDS = frozenset(
@@ -279,6 +296,8 @@ class ArmSummary:
 class ComparisonPlan:
     """One case and the repeat-zero product request every arm shares."""
 
+    manifest: BenchmarkManifest
+    manifest_sha256: str
     case: BenchmarkCase
     request: ProjectEvaluationRequest
 
@@ -289,6 +308,7 @@ class ComparisonMeasurements:
 
     line_slack: int
     budget_ceiling_usd: float
+    manifest_sha256: str
     arms: tuple[ArmSummary, ...]
     runs: tuple[ArmRun, ...]
     evaluated_case_ids: tuple[str, ...]
@@ -632,6 +652,67 @@ class RuffBaseline:
         )
 
 
+def _manifest_truth(
+    manifest: BenchmarkManifest, case_id: str
+) -> ProjectTruth | None:
+    return manifest_project_truth(manifest, case_id)
+
+
+def _comparison_manifest_contract(
+    plans: Sequence[ComparisonPlan],
+    empty_manifest: BenchmarkManifest | None,
+    empty_manifest_sha256: str | None,
+) -> tuple[BenchmarkManifest, str]:
+    if plans:
+        manifest = require_manifest_binding(
+            plans[0].manifest, plans[0].manifest_sha256
+        )
+        manifest_sha256 = plans[0].manifest_sha256
+        if empty_manifest is not None:
+            if empty_manifest_sha256 is None:
+                raise ValueError("explicit comparison manifest requires its digest")
+            explicit_manifest = require_manifest_binding(
+                empty_manifest, empty_manifest_sha256
+            )
+            if (
+                explicit_manifest != manifest
+                or empty_manifest_sha256 != manifest_sha256
+            ):
+                raise ValueError(
+                    "explicit comparison manifest differs from planned manifest"
+                )
+    else:
+        if empty_manifest is None or empty_manifest_sha256 is None:
+            raise ValueError("an empty comparison still requires an exact bound manifest")
+        manifest = require_manifest_binding(empty_manifest, empty_manifest_sha256)
+        manifest_sha256 = empty_manifest_sha256
+    cases = {case.case_id: case for case in manifest.cases}
+    seen: set[str] = set()
+    for plan in plans:
+        plan_manifest = require_manifest_binding(
+            plan.manifest, plan.manifest_sha256
+        )
+        if plan.manifest_sha256 != manifest_sha256 or plan_manifest != manifest:
+            raise ValueError("comparison plans do not share one exact bound manifest")
+        exact_case = cases.get(plan.case.case_id)
+        if (
+            type(plan.case) is not BenchmarkCase
+            or exact_case is None
+            or plan.case != exact_case
+        ):
+            raise ValueError("comparison plan case does not match the bound manifest")
+        if plan.case.case_id in seen:
+            raise ValueError("comparison plan repeats a manifest case")
+        seen.add(plan.case.case_id)
+        request = plan.request
+        if request.case_id != exact_case.case_id:
+            raise ValueError("plan case and request must name the same manifest case")
+        require_manifest_evaluation_request(
+            manifest, request, source_id=exact_case.source_id
+        )
+    return manifest, manifest_sha256
+
+
 def compare_arms(
     plans: Sequence[ComparisonPlan],
     *,
@@ -642,16 +723,41 @@ def compare_arms(
     clock: Callable[[], float] = time.monotonic,
     checkpoint_root: Path | None = None,
     provider_id: str = "comparison-provider-v1",
-    receipt_sha256: str | None = None,
+    validation_receipt: (
+        ValidationReceipt | ValidationReceiptV2 | ValidationVerification | None
+    ) = None,
+    manifest: BenchmarkManifest | None = None,
+    manifest_sha256: str | None = None,
 ) -> ComparisonMeasurements:
     """Run all three arms over every planned case and aggregate per arm.
 
     One case's failure under one arm becomes that run's DEFER; it never aborts
     the comparison and never hides the runs that completed.
     """
-    if line_slack < 0:
-        raise ValueError("line_slack must not be negative")
+    if type(line_slack) is not int or line_slack < 0:
+        raise ValueError("line_slack must be an exact non-negative integer")
+    if isinstance(validation_receipt, (ValidationReceiptV2, ValidationVerification)):
+        raise ValueError(
+            "symmetric current validation authority cannot authorize comparison "
+            "execution; wait for X-01/V-03 or a public-key protocol"
+        )
+    if validation_receipt is not None and type(validation_receipt) is not ValidationReceipt:
+        raise ValueError("comparison execution accepts only a historical V1 receipt")
+    receipt_sha256 = (
+        ABSENT_BINDING_SHA256
+        if validation_receipt is None
+        else hashlib.sha256(
+            validation_receipt_binding_bytes(validation_receipt)
+        ).hexdigest()
+    )
+    bound_manifest, bound_manifest_sha256 = _comparison_manifest_contract(
+        plans, manifest, manifest_sha256
+    )
     for plan in plans:
+        if type(plan.request.line_slack) is not int or plan.request.line_slack != line_slack:
+            raise ValueError(
+                "every comparison request line_slack must exactly match the study line_slack"
+            )
         if plan.request.repeat != 0:
             raise ValueError(
                 "comparison accuracy uses repeat zero only; every planned request "
@@ -674,12 +780,16 @@ def compare_arms(
                 interpreter_id=runtime.interpreter_id,
                 environment_sha256=runtime.environment_sha256,
                 code_sha256=runtime.code_sha256,
-                receipt_sha256=receipt_sha256,
+                receipt_sha256=(
+                    None if validation_receipt is None else receipt_sha256
+                ),
             )
             for plan in plans
         ]
         predeclaration = {
             "schema_version": COMPARISON_CHECKPOINT_SCHEMA_VERSION,
+            "manifest_sha256": bound_manifest_sha256,
+            "receipt_sha256": receipt_sha256,
             "line_slack": line_slack,
             "provider_id": provider_id,
             "paid_call_roles": sorted(CALL_ROLES),
@@ -748,6 +858,7 @@ def compare_arms(
     return ComparisonMeasurements(
         line_slack=line_slack,
         budget_ceiling_usd=next(iter(ceilings)) if ceilings else 0.0,
+        manifest_sha256=bound_manifest_sha256,
         arms=arms,
         runs=tuple(runs),
         evaluated_case_ids=evaluated,
@@ -1060,18 +1171,43 @@ class _VerificationOnlyComparisonProvider:
         raise AssertionError("comparison report verification must never dispatch")
 
 
-def validate_comparison_measurements(measurements: ComparisonMeasurements) -> None:
+def validate_comparison_measurements(
+    measurements: ComparisonMeasurements,
+    receipt_sha256: str,
+    manifest: BenchmarkManifest,
+    manifest_sha256: str,
+) -> str:
     """Re-read authoritative call/spend/artifact joins immediately before publication."""
+    manifest = require_manifest_binding(manifest, manifest_sha256)
+    if (
+        type(measurements.manifest_sha256) is not str
+        or measurements.manifest_sha256 != manifest_sha256
+    ):
+        raise ComparisonEvidenceError(
+            "comparison measurements do not match the bound manifest digest"
+        )
     paid_runs = tuple(run for run in measurements.runs if run.arm != ARM_RUFF)
     if measurements.checkpoint_root is None:
         raise ComparisonEvidenceError(
             "comparison report has no authoritative checkpoint root"
         )
-    paid_trials, declared_line_slack, declared_budget, binding_sha256 = (
-        _comparison_predeclared_paid_trials(
-            measurements.checkpoint_root
+    (
+        paid_trials,
+        declared_line_slack,
+        declared_budget,
+        binding_sha256,
+        declared_receipt_sha256,
+        declared_manifest_sha256,
+        frozen_bindings,
+    ) = _comparison_predeclared_paid_trials(measurements.checkpoint_root)
+    if declared_manifest_sha256 != manifest_sha256:
+        raise ComparisonEvidenceError(
+            "comparison predeclaration does not match the report manifest digest"
         )
-    )
+    if declared_receipt_sha256 != receipt_sha256:
+        raise ComparisonEvidenceError(
+            "comparison validation receipt binding does not match its predeclaration"
+        )
     if measurements.line_slack != declared_line_slack or not math.isclose(
         measurements.budget_ceiling_usd,
         declared_budget,
@@ -1089,6 +1225,35 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
             "comparison predeclared paid trials do not match report runs"
         )
     case_ids = {case_id for case_id, _ in paid_trials}
+    manifest_cases = {case.case_id: case for case in manifest.cases}
+    if set(frozen_bindings) != case_ids:
+        raise ComparisonEvidenceError(
+            "comparison frozen bindings do not match predeclared cases"
+        )
+    for case_id, binding in frozen_bindings.items():
+        case = manifest_cases.get(case_id)
+        if case is None:
+            raise ComparisonEvidenceError(
+                "comparison frozen binding case is absent from the bound manifest"
+            )
+        expected_truth = _manifest_truth(manifest, case_id)
+        expected_base = (
+            case.fixed_commit if case.role == _ROLE_POSITIVE else case.buggy_commit
+        )
+        expected_head = (
+            case.buggy_commit if case.role == _ROLE_POSITIVE else case.fixed_commit
+        )
+        if (
+            binding.get("base_sha") != expected_base
+            or binding.get("head_sha") != expected_head
+            or binding.get("fixed_sha")
+            != (None if expected_truth is None else case.fixed_commit)
+            or binding.get("truth_sha256")
+            != project_truth_sha256(expected_truth)
+        ):
+            raise ComparisonEvidenceError(
+                "comparison frozen commit/truth binding does not match the manifest"
+            )
     expected_run_keys = {
         (case_id, arm)
         for case_id in case_ids
@@ -1106,6 +1271,27 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
         raise ComparisonEvidenceError(
             "comparison evaluated case IDs do not match completed runs"
         )
+    truths_by_case: dict[str, tuple[TruthDefect, ...]] = {}
+    for case_id in case_ids:
+        truth = _manifest_truth(manifest, case_id)
+        truths_by_case[case_id] = () if truth is None else truth.defects
+    for run in measurements.runs:
+        case = manifest_cases.get(run.case_id)
+        if case is None or type(run.role) is not str or run.role != case.role:
+            raise ComparisonEvidenceError(
+                "comparison run role/case does not match the bound manifest"
+            )
+        expected_matches = (
+            _match_locations(
+                truths_by_case[run.case_id], run.findings, measurements.line_slack
+            )
+            if run.status == "completed"
+            else ()
+        )
+        if run.matched_defect_ids != expected_matches:
+            raise ComparisonEvidenceError(
+                "comparison run matches do not reproduce from bound manifest truth"
+            )
     expected_summaries = tuple(
         _summarize_arm(
             arm, tuple(run for run in measurements.runs if run.arm == arm)
@@ -1178,11 +1364,20 @@ def validate_comparison_measurements(measurements: ComparisonMeasurements) -> No
             raise ComparisonEvidenceError(
                 f"comparison {run.arm}/{run.case_id} report evidence is not authoritative"
             )
+    return binding_sha256
 
 
 def _comparison_predeclared_paid_trials(
     root: Path,
-) -> tuple[dict[tuple[str, str], tuple[str, str]], int, float, str]:
+) -> tuple[
+    dict[tuple[str, str], tuple[str, str]],
+    int,
+    float,
+    str,
+    str,
+    str,
+    dict[str, dict[str, object]],
+]:
     path = root / "comparison.json"
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -1196,6 +1391,8 @@ def _comparison_predeclared_paid_trials(
     line_slack = raw.get("line_slack") if isinstance(raw, dict) else None
     provider_id = raw.get("provider_id") if isinstance(raw, dict) else None
     paid_call_roles = raw.get("paid_call_roles") if isinstance(raw, dict) else None
+    receipt_sha256 = raw.get("receipt_sha256") if isinstance(raw, dict) else None
+    manifest_sha256 = raw.get("manifest_sha256") if isinstance(raw, dict) else None
     if (
         version != COMPARISON_CHECKPOINT_SCHEMA_VERSION
         or not isinstance(trials, list)
@@ -1206,12 +1403,16 @@ def _comparison_predeclared_paid_trials(
         or not isinstance(provider_id, str)
         or not provider_id
         or paid_call_roles != sorted(CALL_ROLES)
+        or not _is_sha256(receipt_sha256)
+        or not _is_sha256(manifest_sha256)
     ):
         raise ComparisonEvidenceError(
             f"comparison predeclaration schema/paid-trial binding is invalid; supported "
             f"version is {COMPARISON_CHECKPOINT_SCHEMA_VERSION}"
         )
+    assert isinstance(receipt_sha256, str)
     binding_models: dict[str, str] = {}
+    frozen_bindings: dict[str, dict[str, object]] = {}
     budgets: set[float] = set()
     for row in bindings:
         case_id = row.get("case_id") if isinstance(row, dict) else None
@@ -1230,8 +1431,14 @@ def _comparison_predeclared_paid_trials(
             raise ComparisonEvidenceError(
                 "comparison predeclaration contains an invalid frozen binding"
             )
-        binding_model_id, budget = validated
+        assert isinstance(binding, dict)
+        binding_model_id, budget, binding_receipt_sha256 = validated
+        if binding_receipt_sha256 != receipt_sha256:
+            raise ComparisonEvidenceError(
+                "comparison frozen receipt digest differs across case bindings"
+            )
         binding_models[case_id] = binding_model_id
+        frozen_bindings[case_id] = dict(binding)
         budgets.add(budget)
     if len(budgets) > 1:
         raise ComparisonEvidenceError(
@@ -1278,17 +1485,21 @@ def _comparison_predeclared_paid_trials(
         raise ComparisonEvidenceError(
             "comparison paid trials do not exactly cover frozen bindings"
         )
+    assert isinstance(manifest_sha256, str)
     return (
         normalized,
         line_slack,
         next(iter(budgets), 0.0),
         _json_mapping_sha256(raw),
+        receipt_sha256,
+        manifest_sha256,
+        frozen_bindings,
     )
 
 
 def _validated_frozen_evaluation_binding(
     binding: Mapping[str, object], provider_id: str
-) -> tuple[str, float] | None:
+) -> tuple[str, float, str] | None:
     if (
         set(binding) != _EVALUATION_BINDING_FIELDS
         or binding.get("schema_version") != EVALUATION_BINDING_SCHEMA_VERSION
@@ -1320,7 +1531,9 @@ def _validated_frozen_evaluation_binding(
     ):
         return None
     assert isinstance(model_id, str)
-    return model_id, float(budget)
+    receipt_sha256 = binding["receipt_sha256"]
+    assert isinstance(receipt_sha256, str)
+    return model_id, float(budget), receipt_sha256
 
 
 def _is_git_object_id(value: object) -> bool:

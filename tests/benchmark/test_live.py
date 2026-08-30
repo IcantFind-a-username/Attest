@@ -20,11 +20,10 @@ from pathlib import Path
 import pytest
 
 from attest.benchmark.api import (
-    ABSENT_BINDING_SHA256,
-    ProjectEvaluationBinding,
     ProjectEvaluationRequest,
     ProjectEvaluationResult,
     ProjectTruth,
+    build_evaluation_binding,
 )
 from attest.benchmark.checkpoints import (
     CALL_ROLE_BENCHMARK_ORACLE,
@@ -37,6 +36,7 @@ from attest.benchmark.checkpoints import (
 from attest.benchmark.checkpoints import (
     STATE_RESPONSE_PERSISTED as CALL_RESPONSE_PERSISTED,
 )
+from attest.benchmark.corpus import ValidationVerification
 from attest.benchmark.live import (
     ACCURACY_WITHHELD_REPLAY,
     MINIMUM_GLOBAL_LABELS,
@@ -62,6 +62,7 @@ from attest.benchmark.live import (
 from attest.benchmark.report import LIVE_MODE, REPLAY_MODE
 from attest.benchmark.runner import Cassette, ReplayProvider, ReproReceipt
 from attest.benchmark.schema import (
+    BenchmarkManifest,
     Placement,
     Prediction,
     RunRecord,
@@ -70,7 +71,7 @@ from attest.benchmark.schema import (
 from attest.review.config import ReviewConfig
 from attest.review.proposer import Provider
 
-from ._validation_v2 import verified_validation_authority
+from ._validation_v2 import KEY, KEY_ID, build_validation_v2_bundle, verified_validation_authority
 from .test_cli import _run
 from .test_corpus import _oracle_fixture
 
@@ -97,8 +98,7 @@ def _freeze(manifest: Path) -> Path:
 def _devspend(tmp_path: Path, total: str = "3.5930", cap: str = "10.00") -> Path:
     path = tmp_path / "DEVSPEND.md"
     path.write_text(
-        "# Development spend ledger\n\n"
-        f"**Total API spend: ${total} of ${cap}.**\n",
+        f"# Development spend ledger\n\n**Total API spend: ${total} of ${cap}.**\n",
         encoding="utf-8",
     )
     return path
@@ -234,6 +234,72 @@ class TestPreflight:
         assert total == pytest.approx(3.5930)
         assert cap == pytest.approx(10.00)
 
+    def test_read_devspend_rejects_a_decimal_cap_that_overflows_float(
+        self, tmp_path: Path
+    ) -> None:
+        """An unbounded decimal cannot turn the hard development cap into infinity."""
+        ledger = _devspend(tmp_path, total="0", cap="9" * 1_000)
+
+        with pytest.raises(ValueError, match="finite"):
+            read_devspend(ledger)
+
+    def test_read_devspend_rejects_overflowed_total_and_cap(
+        self, tmp_path: Path
+    ) -> None:
+        """Infinity minus infinity must not become trusted NaN headroom."""
+        huge = "9" * 1_000
+        ledger = _devspend(tmp_path, total=huge, cap=huge)
+
+        with pytest.raises(ValueError, match="finite"):
+            read_devspend(ledger)
+
+    @pytest.mark.parametrize(
+        ("total", "cap"),
+        (("0", "0"), ("10.01", "10.00")),
+    )
+    def test_read_devspend_rejects_an_invalid_hard_cap_range(
+        self, tmp_path: Path, total: str, cap: str
+    ) -> None:
+        """The ledger cannot declare a zero cap or spend beyond its cap."""
+        ledger = _devspend(tmp_path, total=total, cap=cap)
+
+        with pytest.raises(ValueError, match="total.*cap"):
+            read_devspend(ledger)
+
+    def test_preflight_rejects_a_finite_budget_sequence_whose_sum_overflows(
+        self, tmp_path: Path
+    ) -> None:
+        """Every reserved aggregate must remain finite before live side effects."""
+        manifest = _frozen_manifest(tmp_path)
+        ledger = _devspend(tmp_path, total="0", cap="10")
+
+        with pytest.raises(ValueError, match="reserved.*finite"):
+            _preflight(
+                tmp_path,
+                manifest=manifest,
+                devspend=ledger,
+                case_budgets_usd=(1e308, 1e308),
+            )
+
+    @pytest.mark.parametrize(
+        "budget",
+        (False, "0.25", 0, -1, float("nan"), float("inf")),
+    )
+    def test_preflight_rejects_non_positive_or_non_finite_case_budgets(
+        self, tmp_path: Path, budget: object
+    ) -> None:
+        """A paid reservation accepts only exact positive finite numbers."""
+        manifest = _frozen_manifest(tmp_path)
+        ledger = _devspend(tmp_path, total="0", cap="10")
+
+        with pytest.raises(ValueError, match="finite positive"):
+            _preflight(
+                tmp_path,
+                manifest=manifest,
+                devspend=ledger,
+                case_budgets_usd=(budget,),  # type: ignore[arg-type]
+            )
+
 
 def _completed_result(
     case_id: str,
@@ -273,37 +339,99 @@ def _completed_result(
     )
 
 
-def _fake_case(tmp_path: Path, case_id: str, *, budget: float = 0.25) -> LiveCase:
+def _fake_case(
+    tmp_path: Path, case_id: str, *, budget: float = 0.25, line_slack: int = 0
+) -> LiveCase:
+    manifest_path = tmp_path / "manifest.json"
+    if not manifest_path.exists():
+        _oracle_fixture(tmp_path)
+    manifest = load_manifest(manifest_path)
+    case = next(case for case in manifest.cases if case.case_id == case_id)
+    runtime = next(row for row in manifest.runtime if row.case_id == case_id)
+    truth_defects = tuple(
+        defect for defect in manifest.truth_defects if defect.case_id == case_id
+    )
+    truth = (
+        ProjectTruth(defects=truth_defects, fixed_ref=case.fixed_commit)
+        if truth_defects
+        else None
+    )
+    repo = tmp_path / "cache" / runtime.cwd
     request = ProjectEvaluationRequest(
         case_id=case_id,
-        repo=tmp_path / "unused-repo",
-        base_ref="base",
-        head_ref="head",
+        repo=repo,
+        base_ref=(
+            case.fixed_commit
+            if case.role == "historical_bug_replay"
+            else case.buggy_commit
+        ),
+        head_ref=(
+            case.buggy_commit
+            if case.role == "historical_bug_replay"
+            else case.fixed_commit
+        ),
         workspace_root=tmp_path / "ws",
         config=ReviewConfig(budget_usd=budget),
         repeats=1,
+        line_slack=line_slack,
+        truth=truth,
+        repository=f"local:{repo.resolve()}",
     )
     return LiveCase(
         request=request,
         source_id="source-111111111111",
-        binding=ProjectEvaluationBinding(
-            repository=request.repository,
-            base_sha="b" * 40,
-            head_sha="h" * 40,
-            fixed_sha=None,
-            diff_sha256="d" * 64,
-            truth_sha256=ABSENT_BINDING_SHA256,
-            receipt_sha256=ABSENT_BINDING_SHA256,
-            policy_sha256="2" * 64,
+        binding=build_evaluation_binding(
+            request,
             provider_id="injected-fake-v1",
-            model_id=request.config.model,
-            prompt_sha256="a" * 64,
-            schema_sha256="3" * 64,
             interpreter_id="injected-python-v1",
             environment_sha256="e" * 64,
             code_sha256="c" * 64,
-            budget_usd=request.config.budget_usd,
         ),
+    )
+
+
+def _manifest_live_case(
+    manifest: BenchmarkManifest,
+    root: Path,
+    source_id: str,
+    *,
+    role: str = "developer_fix_control",
+) -> LiveCase:
+    case = next(case for case in manifest.cases if case.role == role)
+    runtime = next(row for row in manifest.runtime if row.case_id == case.case_id)
+    truth_defects = tuple(
+        defect for defect in manifest.truth_defects if defect.case_id == case.case_id
+    )
+    repo = root / runtime.cwd
+    source = next(
+        (source for source in manifest.sources if source.source_id == source_id),
+        None,
+    )
+    return LiveCase(
+        request=ProjectEvaluationRequest(
+            case_id=case.case_id,
+            repo=repo,
+            base_ref=(
+                case.fixed_commit
+                if case.role == "historical_bug_replay"
+                else case.buggy_commit
+            ),
+            head_ref=(
+                case.buggy_commit
+                if case.role == "historical_bug_replay"
+                else case.fixed_commit
+            ),
+            workspace_root=root.parent / "workspace",
+            config=ReviewConfig(k_samples=2),
+            repeats=1,
+            truth=(
+                ProjectTruth(defects=truth_defects, fixed_ref=case.fixed_commit)
+                if truth_defects
+                else None
+            ),
+            repository=(source.project_url if source is not None else f"local:{repo.resolve()}"),
+        ),
+        source_id=source_id,
     )
 
 
@@ -319,6 +447,8 @@ def _run_fake(
     env: dict[str, str] | None = None,
     provider_factory: Callable[[ProjectEvaluationRequest], Provider] | None = None,
     on_call_transition: Callable[[str, str, str], None] | None = None,
+    validation_receipt: ValidationVerification | None = None,
+    line_slack: int = 0,
 ) -> object:
     manifest = tmp_path / "manifest.json"
     if not manifest.exists():
@@ -342,6 +472,9 @@ def _run_fake(
         interpreters=dict(interpreters or {}),
         env=env,
         on_call_transition=on_call_transition,
+        validation_receipt=validation_receipt,
+        line_slack=line_slack,
+        provider_id="injected-fake-v1",
     )
 
 
@@ -350,6 +483,615 @@ class _Interrupt(RuntimeError):
 
 
 class TestCheckpoints:
+    @pytest.mark.parametrize("line_slack", (-1, True))
+    def test_live_rejects_invalid_line_slack_before_side_effects(
+        self, tmp_path: Path, line_slack: object
+    ) -> None:
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        case = _manifest_live_case(manifest, root, source_id)
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+        state = tmp_path / "invalid-slack-state"
+        output = tmp_path / "invalid-slack-output"
+
+        with pytest.raises(ValueError, match="line_slack"):
+            run_live_local(
+                [case],
+                run_id="invalid-slack",
+                state_dir=state,
+                output_dir=output,
+                manifest=manifest,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                provider_factory=lambda request: (
+                    provider_calls.append(request.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+                evaluate=lambda request, provider: (
+                    evaluator_calls.append(request.case_id)
+                    or _completed_result(request.case_id)
+                ),
+                line_slack=line_slack,  # type: ignore[arg-type]
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not state.exists()
+        assert not output.exists()
+
+    def test_live_rejects_request_line_slack_drift_before_side_effects(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        case = _manifest_live_case(manifest, root, source_id)
+        case = replace(case, request=replace(case.request, line_slack=1))
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+        state = tmp_path / "request-slack-state"
+        output = tmp_path / "request-slack-output"
+
+        with pytest.raises(ValueError, match="line_slack"):
+            run_live_local(
+                [case],
+                run_id="request-slack",
+                state_dir=state,
+                output_dir=output,
+                manifest=manifest,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                provider_factory=lambda request: (
+                    provider_calls.append(request.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+                evaluate=lambda request, provider: (
+                    evaluator_calls.append(request.case_id)
+                    or _completed_result(request.case_id)
+                ),
+                line_slack=0,
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not state.exists()
+        assert not output.exists()
+
+    @pytest.mark.parametrize(
+        "drift",
+        ("source", "repository", "base", "head", "truth", "case"),
+    )
+    def test_live_rejects_manifest_case_drift_before_side_effects(
+        self, tmp_path: Path, drift: str
+    ) -> None:
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        if drift == "repository":
+            document = json.loads(manifest_path.read_text(encoding="utf-8"))
+            case = document["cases"][0]
+            document["sources"] = [
+                {
+                    "source_id": source_id,
+                    "project_url": "https://example.invalid/original.git",
+                    "source_license": "MIT",
+                    "license_file": "LICENSE",
+                    "license_sha256": "1" * 64,
+                    "license_commits_verified": [
+                        case["buggy_commit"],
+                        case["fixed_commit"],
+                    ],
+                }
+            ]
+            manifest_path.write_text(json.dumps(document), encoding="utf-8")
+        manifest = load_manifest(manifest_path)
+        role = "historical_bug_replay" if drift == "truth" else "developer_fix_control"
+        live_case = _manifest_live_case(manifest, root, source_id, role=role)
+        request = live_case.request
+        if drift == "source":
+            live_case = replace(live_case, source_id="source-999999999999")
+        elif drift == "repository":
+            live_case = replace(
+                live_case,
+                request=replace(
+                    request,
+                    repository="https://example.invalid/different.git",
+                ),
+            )
+        elif drift == "base":
+            live_case = replace(live_case, request=replace(request, base_ref=request.head_ref))
+        elif drift == "head":
+            live_case = replace(live_case, request=replace(request, head_ref=request.base_ref))
+        elif drift == "truth":
+            assert request.truth is not None
+            changed = replace(request.truth.defects[0], file="different.py")
+            live_case = replace(
+                live_case,
+                request=replace(
+                    request,
+                    truth=replace(request.truth, defects=(changed, *request.truth.defects[1:])),
+                ),
+            )
+        else:
+            live_case = replace(
+                live_case,
+                request=replace(request, case_id="case-999999999999", truth=None),
+            )
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+        state = tmp_path / f"{drift}-manifest-state"
+        output = tmp_path / f"{drift}-manifest-output"
+
+        with pytest.raises(ValueError, match="manifest|source|repo|commit|truth|case"):
+            run_live_local(
+                [live_case],
+                run_id=f"{drift}-manifest",
+                state_dir=state,
+                output_dir=output,
+                manifest=manifest,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                provider_factory=lambda item: (
+                    provider_calls.append(item.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+                evaluate=lambda item, provider: (
+                    evaluator_calls.append(item.case_id)
+                    or _completed_result(item.case_id)
+                ),
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not state.exists()
+        assert not output.exists()
+
+    def test_live_accepts_an_equivalent_checkout_path_for_the_same_bound_inputs(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        case = _manifest_live_case(manifest, root, source_id)
+        alias = tmp_path / "equivalent-checkout"
+        alias.symlink_to(case.request.repo, target_is_directory=True)
+        case = replace(case, request=replace(case.request, repo=alias))
+
+        result = run_live_local(
+            [case],
+            run_id="equivalent-checkout",
+            state_dir=tmp_path / "equivalent-state",
+            output_dir=tmp_path / "equivalent-output",
+            manifest=manifest,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            preregistration_sha256="f" * 64,
+            provider_factory=lambda item: ReplayProvider(Cassette("{}", "{}")),
+            evaluate=lambda item, provider: _completed_result(item.case_id),
+        )
+
+        assert result.executed_cases == 1
+
+    @pytest.mark.parametrize(
+        "field",
+        ("config", "limits", "verification_timeout_s", "repeats", "deadline_s", "line_slack"),
+    )
+    def test_live_rejects_mixed_study_policy_before_side_effects(
+        self, tmp_path: Path, field: str
+    ) -> None:
+        cases = [
+            _fake_case(tmp_path, "case-333333333333"),
+            _fake_case(tmp_path, "case-444444444444"),
+        ]
+        request = cases[1].request
+        values: dict[str, object] = {
+            "config": replace(request.config, alpha=0.2),
+            "limits": replace(request.limits, wall_timeout_s=61.0),
+            "verification_timeout_s": request.verification_timeout_s + 1.0,
+            "repeats": request.repeats + 1,
+            "deadline_s": request.deadline_s + 1.0,
+            "line_slack": request.line_slack + 1,
+        }
+        cases[1] = replace(cases[1], request=replace(request, **{field: values[field]}))
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+
+        with pytest.raises(ValueError, match="policy|configuration|line_slack|study"):
+            _run_fake(
+                tmp_path,
+                cases,
+                lambda item, provider: (
+                    evaluator_calls.append(item.case_id)
+                    or _completed_result(item.case_id)
+                ),
+                provider_factory=lambda item: (
+                    provider_calls.append(item.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not (tmp_path / "state").exists()
+        assert not (tmp_path / "out").exists()
+
+    def test_live_rejects_nonprimary_request_repeat_before_side_effects(
+        self, tmp_path: Path
+    ) -> None:
+        case = _fake_case(tmp_path, "case-333333333333")
+        case = replace(case, request=replace(case.request, repeat=1))
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+
+        with pytest.raises(ValueError, match="repeat"):
+            _run_fake(
+                tmp_path,
+                [case],
+                lambda item, provider: (
+                    evaluator_calls.append(item.case_id)
+                    or _completed_result(item.case_id)
+                ),
+                provider_factory=lambda item: (
+                    provider_calls.append(item.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not (tmp_path / "state").exists()
+        assert not (tmp_path / "out").exists()
+
+    @pytest.mark.parametrize(
+        "budget", (float("nan"), float("inf"), float("-inf"), True)
+    )
+    def test_live_rejects_invalid_mutated_budget_before_side_effects(
+        self, tmp_path: Path, budget: object
+    ) -> None:
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        case = _manifest_live_case(manifest, root, source_id)
+        case.request.config.budget_usd = budget  # type: ignore[assignment]
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+        state = tmp_path / "invalid-budget-state"
+        output = tmp_path / "invalid-budget-output"
+
+        with pytest.raises(ValueError, match="budget"):
+            run_live_local(
+                [case],
+                run_id="invalid-budget",
+                state_dir=state,
+                output_dir=output,
+                manifest=manifest,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                provider_factory=lambda request: (
+                    provider_calls.append(request.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+                evaluate=lambda request, provider: (
+                    evaluator_calls.append(request.case_id)
+                    or _completed_result(request.case_id)
+                ),
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not state.exists()
+        assert not output.exists()
+
+    def test_live_rejects_truth_budget_multiplier_overflow_before_side_effects(
+        self, tmp_path: Path
+    ) -> None:
+        """A finite product budget cannot derive an infinite truth reservation."""
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        case = _manifest_live_case(
+            manifest, root, source_id, role="historical_bug_replay"
+        )
+        case.request.config.budget_usd = 1e308
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+        state = tmp_path / "derived-overflow-state"
+        output = tmp_path / "derived-overflow-output"
+
+        with pytest.raises(ValueError, match="reservation.*finite"):
+            run_live_local(
+                [case],
+                run_id="derived-overflow",
+                state_dir=state,
+                output_dir=output,
+                manifest=manifest,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                provider_factory=lambda request: (
+                    provider_calls.append(request.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+                interpreters={source_id: sys.executable},
+                evaluate=lambda request, provider: (
+                    evaluator_calls.append(request.case_id)
+                    or _completed_result(request.case_id)
+                ),
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not state.exists()
+        assert not output.exists()
+
+    def test_live_rejects_finite_case_reservations_whose_sum_overflows(
+        self, tmp_path: Path
+    ) -> None:
+        """The complete public-API reservation is finite before state is created."""
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        control = _manifest_live_case(manifest, root, source_id)
+        replay = _manifest_live_case(
+            manifest, root, source_id, role="historical_bug_replay"
+        )
+        control.request.config.budget_usd = 8e307
+        replay.request.config.budget_usd = 8e307
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+        state = tmp_path / "aggregate-overflow-state"
+        output = tmp_path / "aggregate-overflow-output"
+
+        with pytest.raises(ValueError, match="reserved total.*finite"):
+            run_live_local(
+                [control, replay],
+                run_id="aggregate-overflow",
+                state_dir=state,
+                output_dir=output,
+                manifest=manifest,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                provider_factory=lambda request: (
+                    provider_calls.append(request.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+                interpreters={source_id: sys.executable},
+                evaluate=lambda request, provider: (
+                    evaluator_calls.append(request.case_id)
+                    or _completed_result(request.case_id)
+                ),
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not state.exists()
+        assert not output.exists()
+
+    def test_live_resume_rejects_pull_request_policy_drift(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        case = _manifest_live_case(manifest, root, source_id)
+        common = {
+            "run_id": "pr-policy-drift",
+            "state_dir": tmp_path / "pr-state",
+            "output_dir": tmp_path / "pr-output",
+            "manifest": manifest,
+            "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            "preregistration_sha256": "f" * 64,
+            "evaluate": lambda item, provider: _completed_result(item.case_id),
+        }
+        run_live_local(
+            [case],
+            provider_factory=lambda item: ReplayProvider(Cassette("{}", "{}")),
+            **common,  # type: ignore[arg-type]
+        )
+        before = {
+            str(path.relative_to(common["state_dir"])): path.read_bytes()  # type: ignore[union-attr]
+            for path in sorted((common["state_dir"]).rglob("*"))  # type: ignore[union-attr]
+            if path.is_file()
+        }
+        drifted = replace(
+            case, request=replace(case.request, pull_request_number=2)
+        )
+        provider_calls: list[str] = []
+
+        with pytest.raises(ValueError, match="predeclaration|policy"):
+            run_live_local(
+                [drifted],
+                provider_factory=lambda item: (
+                    provider_calls.append(item.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+                resume=True,
+                **common,  # type: ignore[arg-type]
+            )
+        assert provider_calls == []
+        assert {
+            str(path.relative_to(common["state_dir"])): path.read_bytes()  # type: ignore[union-attr]
+            for path in sorted((common["state_dir"]).rglob("*"))  # type: ignore[union-attr]
+            if path.is_file()
+        } == before
+
+    @pytest.mark.parametrize(
+        "field", ("base_sha", "head_sha", "fixed_sha", "diff_sha256", "provider_id")
+    )
+    def test_fresh_live_rejects_prebuilt_binding_identity_drift(
+        self, tmp_path: Path, field: str
+    ) -> None:
+        case = _fake_case(tmp_path, "case-444444444444")
+        assert case.binding is not None
+        values: dict[str, object] = {
+            "base_sha": case.binding.head_sha,
+            "head_sha": case.binding.base_sha,
+            "fixed_sha": "1" * 40,
+            "diff_sha256": "1" * 64,
+            "provider_id": "different-provider-v1",
+        }
+        case = replace(
+            case,
+            binding=replace(case.binding, **{field: values[field]}),
+        )
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+
+        with pytest.raises(ValueError, match="binding|provider|commit|diff"):
+            _run_fake(
+                tmp_path,
+                [case],
+                lambda item, provider: (
+                    evaluator_calls.append(item.case_id)
+                    or _completed_result(item.case_id)
+                ),
+                provider_factory=lambda item: (
+                    provider_calls.append(item.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not (tmp_path / "state").exists()
+        assert not (tmp_path / "out").exists()
+
+    def test_current_authority_for_same_manifest_fails_before_side_effects(
+        self, tmp_path: Path
+    ) -> None:
+        """Even a valid same-manifest HMAC capability cannot enter live execution."""
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        authority = _current_validation_authority(manifest_path)
+        case = _manifest_live_case(manifest, root, source_id)
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+        state = tmp_path / "same-current-state"
+        output = tmp_path / "same-current-output"
+
+        with pytest.raises(ValueError, match="X-01|public-key|symmetric"):
+            run_live_local(
+                [case],
+                run_id="same-current-refused",
+                state_dir=state,
+                output_dir=output,
+                manifest=manifest,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                provider_factory=lambda request: (
+                    provider_calls.append(request.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+                evaluate=lambda request, provider: (
+                    evaluator_calls.append(request.case_id)
+                    or _completed_result(request.case_id)
+                ),
+                validation_receipt=authority,
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not state.exists()
+        assert not output.exists()
+
+    def test_raw_v2_receipt_fails_before_live_side_effects(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        receipt = _current_validation_authority(manifest_path).receipt
+        assert receipt is not None
+        case = _manifest_live_case(manifest, root, source_id)
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+        state = tmp_path / "raw-v2-state"
+        output = tmp_path / "raw-v2-output"
+
+        with pytest.raises(ValueError, match="X-01|public-key|symmetric"):
+            run_live_local(
+                [case],
+                run_id="raw-v2-refused",
+                state_dir=state,
+                output_dir=output,
+                manifest=manifest,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                provider_factory=lambda request: (
+                    provider_calls.append(request.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+                evaluate=lambda request, provider: (
+                    evaluator_calls.append(request.case_id)
+                    or _completed_result(request.case_id)
+                ),
+                validation_receipt=receipt,
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not state.exists()
+        assert not output.exists()
+
+    def test_current_authority_for_another_manifest_fails_before_side_effects(
+        self, tmp_path: Path
+    ) -> None:
+        """A same-process HMAC verifier capability never reaches live execution."""
+        authority_root = tmp_path / "authority-a"
+        authority_root.mkdir()
+        manifest_a_path, _, _ = _oracle_fixture(authority_root)
+        authority = _current_validation_authority(manifest_a_path)
+        manifest_root = tmp_path / "manifest-b"
+        manifest_root.mkdir()
+        manifest_b_path, root_b, source_id = _oracle_fixture(manifest_root)
+        document_b = json.loads(manifest_b_path.read_text(encoding="utf-8"))
+        document_b["truth_defects"][0]["file"] = "different.py"
+        manifest_b_path.write_text(json.dumps(document_b), encoding="utf-8")
+        manifest_b = load_manifest(manifest_b_path)
+        case = _manifest_live_case(manifest_b, root_b, source_id)
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+        state = tmp_path / "current-state"
+        output = tmp_path / "current-output"
+
+        with pytest.raises(ValueError, match="X-01|public-key|symmetric"):
+            run_live_local(
+                [case],
+                run_id="current-refused",
+                state_dir=state,
+                output_dir=output,
+                manifest=manifest_b,
+                manifest_sha256=hashlib.sha256(manifest_b_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                provider_factory=lambda request: (
+                    provider_calls.append(request.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+                evaluate=lambda request, provider: (
+                    evaluator_calls.append(request.case_id)
+                    or _completed_result(request.case_id)
+                ),
+                validation_receipt=authority,
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not state.exists()
+        assert not output.exists()
+
+    def test_wrong_manifest_digest_fails_before_live_side_effects(
+        self, tmp_path: Path
+    ) -> None:
+        """Exact manifest bytes are checked before runtime, state, or dispatch."""
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        case = _manifest_live_case(manifest, root, source_id)
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+        state = tmp_path / "wrong-digest-state"
+        output = tmp_path / "wrong-digest-output"
+
+        with pytest.raises(ValueError, match="manifest.*digest"):
+            run_live_local(
+                [case],
+                run_id="wrong-digest",
+                state_dir=state,
+                output_dir=output,
+                manifest=manifest,
+                manifest_sha256="0" * 64,
+                preregistration_sha256="f" * 64,
+                provider_factory=lambda request: (
+                    provider_calls.append(request.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+                evaluate=lambda request, provider: (
+                    evaluator_calls.append(request.case_id)
+                    or _completed_result(request.case_id)
+                ),
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not state.exists()
+        assert not output.exists()
+
     def test_full_budget_is_reserved_before_the_first_provider_call(
         self, tmp_path: Path
     ) -> None:
@@ -411,6 +1153,169 @@ class TestCheckpoints:
                 lambda request, provider: _completed_result(request.case_id),
                 resume=True,
             )
+
+    def test_resume_rejects_retained_live_v4_predeclaration_before_side_effects(
+        self, tmp_path: Path
+    ) -> None:
+        """The former v4 payload is history, not current configuration drift."""
+        case = _fake_case(tmp_path, "case-333333333333")
+        assert case.binding is not None
+        binding_v1 = case.binding.to_json_dict()
+        binding_v1["schema_version"] = "1"
+        request = case.request
+        config = request.config
+        run_dir = tmp_path / "state" / "pilot-1"
+        run_dir.mkdir(parents=True)
+        old_v4 = {
+            "schema_version": "4",
+            "mode": "live_local",
+            "paid_call_roles": ["benchmark_oracle", "product"],
+            "run_id": "pilot-1",
+            "manifest_sha256": hashlib.sha256(
+                (tmp_path / "manifest.json").read_bytes()
+            ).hexdigest(),
+            "preregistration_sha256": "f" * 64,
+            "line_slack": 0,
+            "cases": [
+                {
+                    "case_id": request.case_id,
+                    "source_id": case.source_id,
+                    "base_ref": request.base_ref,
+                    "head_ref": request.head_ref,
+                    "reserved_usd": reserved_case_budget_usd(request),
+                    "has_truth": request.truth is not None,
+                    "evaluation_binding": binding_v1,
+                }
+            ],
+            "reserved_total_usd": reserved_case_budget_usd(request),
+            "configuration": {
+                "alpha": config.alpha,
+                "budget_usd": config.budget_usd,
+                "model": config.model,
+                "k_samples": config.k_samples,
+                "max_findings": config.max_findings,
+                "auto_tighten_alpha": config.auto_tighten_alpha,
+                "tier0_commands": list(config.tier0_commands),
+                "differential_repeats": request.repeats,
+                "deadline_s": request.deadline_s,
+                "verification_timeout_s": request.verification_timeout_s,
+                "wall_timeout_s": request.limits.wall_timeout_s,
+            },
+        }
+        (run_dir / "run.json").write_text(
+            json.dumps(old_v4, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        (run_dir / "retained-paid-state.bin").write_bytes(b"old-v4-paid-state")
+        before = {
+            str(path.relative_to(run_dir)): path.read_bytes()
+            for path in sorted(run_dir.rglob("*"))
+            if path.is_file()
+        }
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "unsupported live predeclaration schema version '4'.*"
+                "supported version is 5"
+            ),
+        ):
+            _run_fake(
+                tmp_path,
+                [case],
+                lambda item, provider: (
+                    evaluator_calls.append(item.case_id)
+                    or _completed_result(item.case_id)
+                ),
+                resume=True,
+                provider_factory=lambda item: (
+                    provider_calls.append(item.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+            )
+        after = {
+            str(path.relative_to(run_dir)): path.read_bytes()
+            for path in sorted(run_dir.rglob("*"))
+            if path.is_file()
+        }
+        assert after == before
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not (tmp_path / "out").exists()
+
+    def test_fresh_run_rejects_absent_to_current_validation_authority_swap(
+        self, tmp_path: Path
+    ) -> None:
+        """Report authority must equal the receipt frozen before any paid call."""
+        manifest_path, _, _ = _oracle_fixture(tmp_path)
+        case = _fake_case(tmp_path, "case-333333333333")
+        authority = _current_validation_authority(manifest_path)
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+
+        def evaluate(
+            request: ProjectEvaluationRequest, provider: object
+        ) -> ProjectEvaluationResult:
+            evaluator_calls.append(request.case_id)
+            return _completed_result(request.case_id)
+
+        with pytest.raises(ValueError, match="X-01|public-key|symmetric"):
+            _run_fake(
+                tmp_path,
+                [case],
+                evaluate,
+                validation_receipt=authority,
+                provider_factory=lambda request: (
+                    provider_calls.append(request.case_id) or ReplayProvider(Cassette("{}", "{}"))
+                ),
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not (tmp_path / "state" / "pilot-1" / "run.json").exists()
+
+    def test_live_rejects_receipt_digest_subclass_before_side_effects(
+        self, tmp_path: Path
+    ) -> None:
+        """A prebuilt binding cannot override digest equality at the receipt join."""
+
+        class DeceptiveDigest(str):
+            def __eq__(self, other: object) -> bool:
+                return True
+
+            def __ne__(self, other: object) -> bool:
+                return False
+
+        case = _fake_case(tmp_path, "case-333333333333")
+        assert case.binding is not None
+        case = replace(
+            case,
+            binding=replace(
+                case.binding,
+                receipt_sha256=DeceptiveDigest("1" * 64),
+            ),
+        )
+        provider_calls: list[str] = []
+        evaluator_calls: list[str] = []
+
+        with pytest.raises(ValueError, match="receipt.*(exact|binding|digest)"):
+            _run_fake(
+                tmp_path,
+                [case],
+                lambda request, provider: (
+                    evaluator_calls.append(request.case_id)
+                    or _completed_result(request.case_id)
+                ),
+                provider_factory=lambda request: (
+                    provider_calls.append(request.case_id)
+                    or ReplayProvider(Cassette("{}", "{}"))
+                ),
+            )
+        assert provider_calls == []
+        assert evaluator_calls == []
+        assert not (tmp_path / "state").exists()
+        assert not (tmp_path / "out").exists()
 
     @pytest.mark.parametrize(
         "field",
@@ -616,15 +1521,7 @@ class TestCheckpoints:
             return _completed_result(request.case_id)
 
         _run_fake(tmp_path, cases, evaluate)
-        call = (
-            tmp_path
-            / "state"
-            / "pilot-1"
-            / "calls"
-            / case_id
-            / "calls"
-            / "000000.json"
-        )
+        call = tmp_path / "state" / "pilot-1" / "calls" / case_id / "calls" / "000000.json"
         call.unlink()
 
         def must_not_run(
@@ -916,7 +1813,6 @@ def test_two_case_live_run_interrupted_after_provider_completion_resumes_cleanly
     manifest_path, root, source_id = _oracle_fixture(tmp_path)
     _freeze(manifest_path)
     manifest = load_manifest(manifest_path)
-    receipt = _current_validation_authority(manifest_path)
     cases_by_role = {case.role: case for case in manifest.cases}
     control = cases_by_role["developer_fix_control"]
     replay = cases_by_role["historical_bug_replay"]
@@ -981,7 +1877,6 @@ def test_two_case_live_run_interrupted_after_provider_completion_resumes_cleanly
         "manifest_sha256": manifest_sha256,
         "preregistration_sha256": prereg_sha256,
         "interpreters": {source_id: sys.executable},
-        "validation_receipt": receipt,
     }
     before = os.environ.get("ATTEST_PROJECT_PYTHON")
 
@@ -1090,11 +1985,9 @@ def test_two_case_live_run_interrupted_after_provider_completion_resumes_cleanly
     assert report["cost"]["total_spend_usd"] == pytest.approx(
         result.settled_spend_usd + result.settled_oracle_spend_usd
     )
-    assert report["accuracy_withheld_reason"] is None
-    assert report["accuracy"]["true_positives"] == 1
-    assert report["accuracy"]["true_negatives"] == 1
-    assert report["accuracy"]["finding_false_positives"] == 0
-    assert report["channel_outcomes"]["regression_reproduced"]["matched"] == 1
+    assert report["accuracy_withheld_reason"] == "validation_receipt_missing"
+    assert report["accuracy"] is None
+    assert report["channel_outcomes"]["regression_reproduced"]["matched"] is None
     assert report["differential_v"]["confirmed"] == 1
     assert report["sample_sufficiency"]["status"] == "recommendation_only"
     assert report["sample_sufficiency"]["constants_patch"] == "prohibited"
@@ -1205,14 +2098,14 @@ class TestCalibrationReport:
         )
         payload = report.to_json_dict()
 
+        assert payload["schema_version"] == "4"
         assert payload["mode"] == LIVE_MODE
         assert payload["accuracy_withheld_reason"] is None
-        assert payload["validation_authority"] == report.underlying.to_json_dict()[
-            "validation_authority"
-        ]
-        assert payload["validation_authority"]["authority"] == (
-            "current_scoring_authority"
+        assert (
+            payload["validation_authority"]
+            == report.underlying.to_json_dict()["validation_authority"]
         )
+        assert payload["validation_authority"]["authority"] == ("current_scoring_authority")
         accuracy = payload["accuracy"]
         assert accuracy["true_positives"] == 1
         assert accuracy["true_negatives"] == 1
@@ -1237,10 +2130,7 @@ class TestCalibrationReport:
             (row["source_id"], row["role"]): row for row in payload["strata"]
         }
         assert strata[("source-111111111111", "historical_bug_replay")]["cases"] == 1
-        assert (
-            strata[("source-111111111111", "historical_bug_replay")]["surfaced_cases"]
-            == 1
-        )
+        assert strata[("source-111111111111", "historical_bug_replay")]["surfaced_cases"] == 1
         assert strata[("source-111111111111", "developer_fix_control")]["cases"] == 1
         assert payload["latency"]["p50_s"] == pytest.approx(2.0)
         assert payload["latency"]["p95_s"] == pytest.approx(4.0)
@@ -1422,20 +2312,22 @@ class TestLiveLocalCli:
     def test_live_local_refuses_without_allow_paid_api_before_anything_else(
         self, tmp_path: Path
     ) -> None:
-        manifest_path, _, _ = _oracle_fixture(tmp_path)
-        _freeze(manifest_path)
         traps, marker = self._traps(tmp_path)
 
         completed = _run(
             "live-local",
             "--manifest",
-            str(manifest_path),
+            str(tmp_path / "missing-manifest.json"),
             "--output",
             str(tmp_path / "out"),
             "--run-id",
             "pilot-1",
             "--devspend",
-            str(_devspend(tmp_path)),
+            str(tmp_path / "missing-devspend.md"),
+            "--validation-receipt",
+            str(tmp_path / "receipt-read-trap.json"),
+            "--validation-results",
+            str(tmp_path / "results-read-trap.json"),
             env=self._environment(traps),
         )
 
@@ -1525,9 +2417,52 @@ class TestLiveLocalCli:
         assert summary["spend_usd"] == 0.0
         assert not marker.exists()
 
-    def test_live_local_requires_exactly_one_of_run_id_and_resume(
+    def test_live_local_cli_rejects_v2_hmac_authority_before_preflight(
         self, tmp_path: Path
     ) -> None:
+        """A paid executor never receives or runs alongside the symmetric key."""
+        manifest_path, root, _ = _oracle_fixture(tmp_path)
+        _freeze(manifest_path)
+        bundle = build_validation_v2_bundle(tmp_path / "live-cli-v2", manifest_path, root)
+        key_file = tmp_path / "live-authority.key"
+        key_file.write_bytes(KEY)
+        traps, marker = self._traps(tmp_path)
+        common = (
+            "live-local",
+            "--allow-paid-api",
+            "--manifest",
+            str(manifest_path),
+            "--run-id",
+            "pilot-v2",
+            "--devspend",
+            str(_devspend(tmp_path)),
+            "--validation-receipt",
+            str(bundle.receipt_path),
+            "--validation-results",
+            str(bundle.results_path),
+            "--validation-artifacts",
+            str(bundle.artifact_root),
+            "--validation-provenance-key-id",
+            KEY_ID,
+            "--validation-provenance-key-file",
+            str(key_file),
+        )
+        output = tmp_path / "live-v2-out"
+
+        completed = _run(
+            *common,
+            "--output",
+            str(output),
+            env=self._environment(traps),
+        )
+
+        assert completed.returncode == 2
+        assert "X-01" in json.loads(completed.stderr)["error"]
+        assert not output.exists()
+        assert not marker.exists()
+        assert KEY not in (completed.stdout + completed.stderr).encode()
+
+    def test_live_local_requires_exactly_one_of_run_id_and_resume(self, tmp_path: Path) -> None:
         manifest_path, _, _ = _oracle_fixture(tmp_path)
         _freeze(manifest_path)
         traps, _ = self._traps(tmp_path)

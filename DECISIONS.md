@@ -266,3 +266,47 @@ contract is active only when the owning architecture/acceptance document changes
   study; never invent roles for old state or migrate it into current scoring authority.
 - **Trace:** `INV-COST-001`, `INV-VERSION-001`, `G-MEASURE-003`; work order M-03;
   `src/attest/benchmark/checkpoints.py` and its stability/live/comparison consumers.
+
+#### 2026-08-31 amendment — integrated receipt, input, and execution authority
+
+- **Status/scope:** active clarification for the M-02/M-03 integration. This amendment
+  supersedes only D-047's current-version statements; the 2026-08-30 text and its accepted
+  `bce13f0` observation remain immutable history.
+- **Version contract:** the current comparison checkpoint is schema v6, the comparison
+  report is schema v4, the calibration report is schema v4, and the project evaluation
+  binding is schema v2. The live predeclaration and per-case checkpoint are schema v5;
+  the stability predeclaration is schema v5 while the unchanged stability report remains
+  schema v4 and its observation remains schema v3. The v6 comparison checkpoint combines
+  receipt binding with exact manifest/truth/input-policy binding in the single migration
+  from the externally accepted v5 format. Existing comparison checkpoint v5, live
+  predeclaration/checkpoint v4, stability predeclaration v4, and comparison/calibration
+  report v3 artifacts are retained only as history; they are not upgraded, replayed, or
+  reinterpreted as current authority. Unknown versions fail closed. Paid-call checkpoint
+  v5, artifact/cost v4, stability report v4, observation v3, and comparison reconciliation
+  v2 are unchanged by this amendment.
+- **Symmetric-authority boundary:** Phase 0 has no supported current-V2 production
+  execution workflow. Public corpus validation executes project code only to create
+  unsigned, content-addressed evidence and never accepts a signing key or emits current
+  scoring authority. `verify-validation` is the sole production CLI path for V2 and is a
+  pure offline verifier that never loads a checkout, runner, evaluator, or provider.
+  Execution APIs and the `replay`, `compare`, and `live-local` commands accept only no
+  receipt or an exact historical V1 receipt for exclusion inspection; V1 always remains
+  `historical_integrity_only` and every execution report withholds accuracy. Raw V2 or a
+  current `ValidationVerification` fails before runtime, state, output, checkpoint,
+  provider, or evaluator effects. HMAC-backed current execution remains blocked pending
+  X-01/V-03 or an approved public-key protocol that keeps signing authority unavailable to
+  untrusted code.
+- **Synthetic/reducer boundary:** a prebuilt evaluation binding is a trusted synthetic,
+  non-authorizing seam. Pure report reducers may validate already-existing trusted
+  evidence, but neither an opaque receipt digest nor an in-process V2 verifier capability
+  authorizes execution. This amendment makes no comparison-accuracy quality claim: the
+  inherited ability to coordinate-rewrite caller-supplied `ArmRun` outcomes while retaining
+  paid-call evidence is owned by M-01/G-MEASURE-001 and must be closed with the versioned
+  authoritative outcome artifact there, not with a partial Phase 0 adapter.
+- **Compatibility/reversal:** preserve the original M-02 BLOCKED report, M-03 acceptance,
+  INVALIDATED bundles, v1 receipt/results/protocol bytes, and every old state blob. Roll
+  back by withholding current metrics and reading historical artifacts only; never coerce
+  v1/v3/v4/v5 material into current scoring authority.
+- **Trace:** `INV-SEC-001`, `INV-TRUTH-001`, `INV-VERSION-001`, `G-CODE-002`,
+  `G-MEASURE-001`, `G-MEASURE-002`, `G-MEASURE-003`; work orders M-01, M-02, M-03,
+  X-01, and V-03.

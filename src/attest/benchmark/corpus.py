@@ -40,6 +40,7 @@ from attest.benchmark.schema import (
     BenchmarkManifest,
     RuntimeDescriptor,
     load_manifest,
+    manifest_binding_bytes,
     normalize_unified_diff_bytes,
     verify_descriptor_bytes,
 )
@@ -758,13 +759,11 @@ def validate_corpus(
     runner: CorpusRunner,
     *,
     artifact_store: ArtifactStore | None = None,
-    provenance_key_id: str | None = None,
-    provenance_key: bytes | None = None,
 ) -> dict[str, Any]:
-    """Validate prepared pairs and optionally issue an evidence-bearing v2 bundle."""
-    manifest_bytes = _read_protocol_file(manifest)
-    assert manifest_bytes is not None
+    """Validate prepared pairs and emit unsigned, hash-bound execution evidence."""
     typed = load_manifest(manifest)
+    manifest_bytes = manifest_binding_bytes(typed)
+    _require_manifest_snapshot(manifest, manifest_bytes)
     runtimes = {runtime.case_id: runtime for runtime in typed.runtime}
     if set(runtimes) != {case.case_id for case in typed.cases}:
         raise ValueError("runtime rows must exactly cover manifest cases")
@@ -776,6 +775,7 @@ def validate_corpus(
     results_v2: list[dict[str, object]] = []
     command_success = True
     for pair_id in sorted(by_pair):
+        _require_manifest_snapshot(manifest, manifest_bytes)
         members = by_pair[pair_id]
         replay = next(case for case in members if case.role == "historical_bug_replay")
         control = next(case for case in members if case.role == "developer_fix_control")
@@ -888,28 +888,10 @@ def validate_corpus(
             "validation results exceed their protocol byte limit",
             failure_path="validation_results.size_bytes",
         )
-    isolation_verified = (
-        isinstance(runner, SubprocessCorpusRunner) and runner.isolation_verified
-    )
     receipt: dict[str, object] | None = None
     if artifact_store is not None:
-        artifact_manifest = artifact_store.finalize()
-        if (
-            provenance_key_id
-            and provenance_key
-            and (
-                not validated_pair_ids
-                or (command_success and isolation_verified)
-            )
-        ):
-            receipt = _validation_receipt_v2(
-                manifest_sha256,
-                validation_results_bytes,
-                hashlib.sha256(artifact_manifest.read_bytes()).hexdigest(),
-                validated_pair_ids,
-                provenance_key_id,
-                provenance_key,
-            )
+        artifact_store.finalize()
+    _require_manifest_snapshot(manifest, manifest_bytes)
     return {
         "manifest": manifest.name,
         "manifest_sha256": manifest_sha256,
@@ -923,6 +905,16 @@ def validate_corpus(
         "validation_results": validation_results,
         "receipt": receipt,
     }
+
+
+def _require_manifest_snapshot(path: Path, expected: bytes) -> None:
+    """Detect path replacement without treating a later read as authoritative."""
+    try:
+        current = path.read_bytes()
+    except OSError as exc:
+        raise ValueError("manifest changed after its exact snapshot was loaded") from exc
+    if current != expected:
+        raise ValueError("manifest changed after its exact snapshot was loaded")
 
 
 def _validation_result_v2(
@@ -1215,12 +1207,12 @@ def verify_validation_receipt(
     results = _parse_validation_results_v2(
         results_value, semantic_failures, integrity_failures
     )
-    manifest_bytes = _read_protocol_file(
-        manifest, "manifest", integrity_failures, required=False
-    )
     try:
-        typed_manifest = load_manifest(manifest) if manifest_bytes is not None else None
+        typed_manifest = load_manifest(manifest)
+        manifest_bytes = manifest_binding_bytes(typed_manifest)
+        _require_manifest_snapshot(manifest, manifest_bytes)
     except (OSError, ValueError):
+        manifest_bytes = None
         typed_manifest = None
         integrity_failures.append("manifest")
     if receipt is not None:
@@ -1238,6 +1230,11 @@ def verify_validation_receipt(
         if receipt.protocol_version != VALIDATION_PROTOCOL_V2:
             semantic_failures.append("receipt.protocol_version")
     _verify_v2_semantics(results, artifact_root, typed_manifest, semantic_failures)
+    if manifest_bytes is not None:
+        try:
+            _require_manifest_snapshot(manifest, manifest_bytes)
+        except ValueError:
+            integrity_failures.append("manifest")
     integrity = ValidationAuthorityCheck(
         not integrity_failures, tuple(dict.fromkeys(integrity_failures))
     )
@@ -2440,6 +2437,9 @@ def load_validation_receipt(
     path: Path, manifest: Path, validation_results: Path
 ) -> ValidationReceipt:
     """Derive the allowlist from exact manifest-bound validation-results bytes."""
+    typed_manifest = load_manifest(manifest)
+    manifest_bytes = manifest_binding_bytes(typed_manifest)
+    _require_manifest_snapshot(manifest, manifest_bytes)
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -2461,7 +2461,7 @@ def load_validation_receipt(
         r"[0-9a-f]{64}", manifest_sha256
     ) is None:
         raise ValueError("validation receipt manifest digest is invalid")
-    if manifest_sha256 != hashlib.sha256(manifest.read_bytes()).hexdigest():
+    if manifest_sha256 != hashlib.sha256(manifest_bytes).hexdigest():
         raise ValueError("validation receipt manifest digest does not match")
     if not isinstance(result_sha256, str) or re.fullmatch(
         r"[0-9a-f]{64}", result_sha256
@@ -2496,7 +2496,7 @@ def load_validation_receipt(
     ):
         raise ValueError("validation results rows are invalid")
     result_pair_ids = [row["pair_id"] for row in result_rows]
-    manifest_pair_ids = {case.pair_id for case in load_manifest(manifest).cases}
+    manifest_pair_ids = {case.pair_id for case in typed_manifest.cases}
     if len(result_pair_ids) != len(set(result_pair_ids)) or set(result_pair_ids) != (
         manifest_pair_ids
     ):
@@ -2518,6 +2518,7 @@ def load_validation_receipt(
         raise ValueError("validation receipt validated pair allowlist does not match results")
     if not derived_pair_ids:
         raise ValueError("validation receipt must contain a validated pair")
+    _require_manifest_snapshot(manifest, manifest_bytes)
     return ValidationReceipt(
         schema_version=schema_version,
         manifest_sha256=manifest_sha256,

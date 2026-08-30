@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Any
 
 from attest.benchmark.api import (
+    ABSENT_BINDING_SHA256,
     ProjectEvaluationBinding,
     ProjectEvaluationRequest,
     ProjectEvaluationResult,
@@ -53,6 +54,8 @@ from attest.benchmark.api import (
     current_runtime_identity,
     evaluate_project,
     freeze_evaluation_request,
+    require_manifest_evaluation_request,
+    require_prebuilt_evaluation_binding,
 )
 from attest.benchmark.checkpoints import (
     CALL_ROLE_BENCHMARK_ORACLE,
@@ -85,11 +88,12 @@ from attest.benchmark.schema import (
     RunRecord,
     TruthDefect,
     is_scored_placement,
+    require_manifest_binding,
 )
 from attest.review.proposer import Provider, ProviderResult
 
-LIVE_SCHEMA_VERSION = "4"
-CALIBRATION_SCHEMA_VERSION = "3"
+LIVE_SCHEMA_VERSION = "5"
+CALIBRATION_SCHEMA_VERSION = "4"
 CALIBRATION_JSON_NAME = "calibration.json"
 CALIBRATION_MARKDOWN_NAME = "calibration.md"
 
@@ -187,8 +191,16 @@ def read_devspend(path: Path) -> tuple[float, float]:
             "'**Total API spend: $X of $Y.**' line; refusing to reserve paid "
             "budget without a trustworthy total"
         )
-    total, cap = matches[0]
-    return float(total), float(cap)
+    total_text, cap_text = matches[0]
+    total = float(total_text)
+    cap = float(cap_text)
+    if not math.isfinite(total) or not math.isfinite(cap):
+        raise ValueError("development spend total and cap must be finite numbers")
+    if total < 0 or cap <= 0 or total > cap:
+        raise ValueError(
+            "development spend must have total >= 0, cap > 0, and total <= cap"
+        )
+    return total, cap
 
 
 def preflight_live(
@@ -240,11 +252,20 @@ def preflight_live(
         )
     reserved_total = 0.0
     for budget in case_budgets_usd:
-        if not math.isfinite(budget) or budget < 0:
-            raise ValueError("every case budget must be a finite non-negative amount")
+        if (
+            isinstance(budget, bool)
+            or not isinstance(budget, (int, float))
+            or not math.isfinite(budget)
+            or budget <= 0
+        ):
+            raise ValueError("every case budget must be a finite positive amount")
         reserved_total += budget
+    if not math.isfinite(reserved_total):
+        raise ValueError("reserved total must remain finite")
     total, cap = read_devspend(devspend_path)
     headroom = cap - total - reserved_total
+    if not math.isfinite(headroom):
+        raise ValueError("development-cap headroom must remain finite")
     if headroom < 0:
         raise LivePreflightError(
             REASON_INSUFFICIENT_HEADROOM,
@@ -294,7 +315,17 @@ def reserved_case_budget_usd(request: ProjectEvaluationRequest) -> float:
     """The pre-call reservation for one case: product budget, doubled when a
     truth reference means the independent benchmark oracle will also spend."""
     budget = request.config.budget_usd
-    return budget * 2.0 if request.truth is not None else budget
+    if (
+        isinstance(budget, bool)
+        or not isinstance(budget, (int, float))
+        or not math.isfinite(budget)
+        or budget <= 0
+    ):
+        raise ValueError("live case budget must be a finite positive number")
+    reserved = budget * (2.0 if request.truth is not None else 1.0)
+    if not math.isfinite(reserved) or reserved <= 0:
+        raise ValueError("live case reservation must be finite and positive")
+    return reserved
 
 
 def case_payload(result: ProjectEvaluationResult) -> dict[str, object]:
@@ -425,13 +456,84 @@ def run_live_local(
     artifact hash and refuses -- retaining the evidence -- on any state whose
     cost cannot be known.
     """
+    manifest = require_manifest_binding(manifest, manifest_sha256)
+    if isinstance(validation_receipt, (ValidationReceiptV2, ValidationVerification)):
+        raise ValueError(
+            "symmetric current validation authority cannot authorize live execution; "
+            "wait for X-01/V-03 or a public-key protocol"
+        )
+    if validation_receipt is not None and type(validation_receipt) is not ValidationReceipt:
+        raise ValueError("live execution accepts only an exact historical V1 receipt")
     if not cases:
         raise ValueError("a live run needs at least one selected case")
+    if type(line_slack) is not int or line_slack < 0:
+        raise ValueError("line_slack must be an exact non-negative integer")
     if _RUN_ID_PATTERN.fullmatch(run_id) is None:
         raise ValueError("run_id must be a short, path-safe identifier")
     case_ids = [case.request.case_id for case in cases]
     if len(set(case_ids)) != len(case_ids):
         raise ValueError("selected cases must be unique")
+    first_request = cases[0].request
+    study_policy = (
+        first_request.config,
+        first_request.limits,
+        first_request.verification_timeout_s,
+        first_request.repeats,
+        first_request.deadline_s,
+        first_request.line_slack,
+    )
+    reserved_total = 0.0
+    for live_case in cases:
+        request = live_case.request
+        require_manifest_evaluation_request(
+            manifest, request, source_id=live_case.source_id
+        )
+        if type(request.line_slack) is not int or request.line_slack != line_slack:
+            raise ValueError(
+                "every live request line_slack must exactly match the study line_slack"
+            )
+        if type(request.repeat) is not int or request.repeat != 0:
+            raise ValueError("primary live execution requires request repeat zero")
+        if (
+            request.config,
+            request.limits,
+            request.verification_timeout_s,
+            request.repeats,
+            request.deadline_s,
+            request.line_slack,
+        ) != study_policy:
+            raise ValueError("every live case must share one exact study policy")
+        reserved_total += reserved_case_budget_usd(request)
+        if not math.isfinite(reserved_total):
+            raise ValueError("live reserved total must remain finite")
+    receipt_sha256 = (
+        None
+        if validation_receipt is None
+        else hashlib.sha256(
+            validation_receipt_binding_bytes(validation_receipt)
+        ).hexdigest()
+    )
+    prebuilt_requests: dict[str, ProjectEvaluationRequest] = {}
+    for live_case in cases:
+        if live_case.binding is None:
+            continue
+        if evaluate is None:
+            raise ValueError(
+                "prebuilt evaluation bindings are accepted only with an injected evaluator"
+            )
+        expected_receipt_sha256 = receipt_sha256 or ABSENT_BINDING_SHA256
+        if (
+            type(live_case.binding.receipt_sha256) is not str
+            or live_case.binding.receipt_sha256 != expected_receipt_sha256
+        ):
+            raise ValueError(
+                "validation receipt binding must be an exact matching digest"
+            )
+        prebuilt_requests[live_case.request.case_id] = require_prebuilt_evaluation_binding(
+            live_case.request,
+            live_case.binding,
+            provider_id=provider_id,
+        )
     environment: MutableMapping[str, str] = os.environ if env is None else env
     def default_evaluator(
         request: ProjectEvaluationRequest, provider: Provider
@@ -448,20 +550,9 @@ def run_live_local(
     evaluator = evaluate or default_evaluator
     interpreter_by_source = dict(interpreters or {})
     runtime = current_runtime_identity()
-    receipt_sha256 = (
-        None
-        if validation_receipt is None
-        else hashlib.sha256(
-            validation_receipt_binding_bytes(validation_receipt)
-        ).hexdigest()
-    )
     bindings: dict[str, ProjectEvaluationBinding] = {}
     for live_case in cases:
         if live_case.binding is not None:
-            if evaluate is None:
-                raise ValueError(
-                    "prebuilt evaluation bindings are accepted only with an injected evaluator"
-                )
             bindings[live_case.request.case_id] = live_case.binding
             continue
         interpreter = interpreter_by_source.get(live_case.source_id)
@@ -488,8 +579,12 @@ def run_live_local(
     cases = tuple(
         replace(
             live_case,
-            request=freeze_evaluation_request(
-                live_case.request, bindings[live_case.request.case_id]
+            request=(
+                prebuilt_requests[live_case.request.case_id]
+                if live_case.binding is not None
+                else freeze_evaluation_request(
+                    live_case.request, bindings[live_case.request.case_id]
+                )
             ),
         )
         for live_case in cases
@@ -1079,6 +1174,10 @@ def _predeclaration(
                 "head_ref": request.head_ref,
                 "reserved_usd": _rounded(reserved),
                 "has_truth": request.truth is not None,
+                "line_slack": request.line_slack,
+                "pull_request_number": request.pull_request_number,
+                "repeat": request.repeat,
+                "policy_sha256": bindings[request.case_id].policy_sha256,
                 "evaluation_binding": bindings[request.case_id].to_json_dict(),
             }
         )
@@ -1095,17 +1194,25 @@ def _predeclaration(
         "cases": rows,
         "reserved_total_usd": _rounded(reserved_total),
         "configuration": {
-            "alpha": config.alpha,
-            "budget_usd": config.budget_usd,
-            "model": config.model,
-            "k_samples": config.k_samples,
-            "max_findings": config.max_findings,
-            "auto_tighten_alpha": config.auto_tighten_alpha,
-            "tier0_commands": list(config.tier0_commands),
+            "review_config": {
+                "alpha": config.alpha,
+                "budget_usd": config.budget_usd,
+                "model": config.model,
+                "k_samples": config.k_samples,
+                "max_findings": config.max_findings,
+                "auto_tighten_alpha": config.auto_tighten_alpha,
+                "tier0_commands": list(config.tier0_commands),
+            },
+            "limits": {
+                "wall_timeout_s": request.limits.wall_timeout_s,
+                "cpu_timeout_s": request.limits.cpu_timeout_s,
+                "memory_mb": request.limits.memory_mb,
+                "output_bytes": request.limits.output_bytes,
+            },
             "differential_repeats": request.repeats,
             "deadline_s": request.deadline_s,
             "verification_timeout_s": request.verification_timeout_s,
-            "wall_timeout_s": request.limits.wall_timeout_s,
+            "line_slack": request.line_slack,
         },
     }
 
@@ -1232,6 +1339,11 @@ def build_calibration_report(
     """
     if mode not in (REPLAY_MODE, LIVE_MODE):
         raise ValueError("mode must be replay or live")
+    if (
+        type(validation_receipt) is ValidationVerification
+        and validation_receipt.authority == "current_scoring_authority"
+    ):
+        manifest = require_manifest_binding(manifest, manifest_sha256)
     scored: list[Mapping[str, object]] = []
     abstentions: list[ReportAbstention] = []
     excluded: list[ReportExclusion] = list(exclusions)

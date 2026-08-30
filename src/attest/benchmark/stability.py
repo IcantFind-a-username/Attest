@@ -57,7 +57,8 @@ from attest.review.proposer import Provider, ProviderResult
 
 #: The preregistered repeat count. Ten is part of the study design, not a knob.
 STABILITY_REPEATS = 10
-STABILITY_SCHEMA_VERSION = "4"
+STABILITY_PREDECLARATION_SCHEMA_VERSION = "5"
+STABILITY_REPORT_SCHEMA_VERSION = "4"
 _OBSERVATION_SCHEMA_VERSION = "3"
 
 _OUTCOME_SURFACED = "surfaced"
@@ -490,7 +491,7 @@ def summarize_stability(
     wealth_spread = dispersion(wealth_values)
 
     report = StabilityReport(
-        schema_version=STABILITY_SCHEMA_VERSION,
+        schema_version=STABILITY_REPORT_SCHEMA_VERSION,
         case_id=case_id,
         manifest_sha256=manifest_sha256,
         provider_label=provider_label,
@@ -579,12 +580,17 @@ def run_stability_study(
             stored = json.loads(study_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ValueError("stability study predeclaration is unreadable") from exc
-        if not isinstance(stored, dict) or stored.get("schema_version") != STABILITY_SCHEMA_VERSION:
+        if (
+            not isinstance(stored, dict)
+            or stored.get("schema_version")
+            != STABILITY_PREDECLARATION_SCHEMA_VERSION
+        ):
             version = stored.get("schema_version") if isinstance(stored, dict) else None
             raise ValueError(
                 f"unsupported stability predeclaration schema version {version!r}; "
-                f"supported version is {STABILITY_SCHEMA_VERSION}. Use the compatible "
-                "reader and retain all paid-call state; never coerce old rows."
+                f"supported version is {STABILITY_PREDECLARATION_SCHEMA_VERSION}. Use "
+                "the compatible reader and retain all paid-call state; never coerce "
+                "old rows."
             )
         if stored != predeclaration:
             raise ValueError(
@@ -813,7 +819,7 @@ def _predeclaration(
     """
     config = request.config
     return {
-        "schema_version": STABILITY_SCHEMA_VERSION,
+        "schema_version": STABILITY_PREDECLARATION_SCHEMA_VERSION,
         "paid_call_roles": sorted(CALL_ROLES),
         "case_id": request.case_id,
         "manifest_sha256": manifest_sha256,

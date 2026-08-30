@@ -7,6 +7,7 @@ Actual usage replaces the estimate once known.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -32,6 +33,13 @@ class Budget:
     _prices: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        if (
+            isinstance(self.limit_usd, bool)
+            or not isinstance(self.limit_usd, (int, float))
+            or not math.isfinite(self.limit_usd)
+            or self.limit_usd <= 0
+        ):
+            raise ValueError("budget limit must be a finite positive number")
         pricing = load_pricing()
         try:
             m = pricing["models"][self.model]

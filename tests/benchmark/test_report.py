@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -35,6 +36,7 @@ from attest.benchmark.schema import (
     RunRecord,
     TestDescriptor,
     TruthDefect,
+    load_manifest,
 )
 
 from ._validation_v2 import verified_validation_authority
@@ -187,6 +189,7 @@ def _runs() -> tuple[RunRecord, ...]:
 
 
 _VALID_RECEIPT: ValidationVerification = _verified_receipt()
+_BOUND_MANIFEST: BenchmarkManifest = _manifest()
 
 
 def _write_report_manifest(tmp_path: Path) -> tuple[Path, Path]:
@@ -261,17 +264,20 @@ def _write_report_manifest(tmp_path: Path) -> tuple[Path, Path]:
 
 @pytest.fixture(autouse=True)
 def _install_verified_default_authority(tmp_path: Path):
-    global MANIFEST_SHA, _VALID_RECEIPT
+    global MANIFEST_SHA, _BOUND_MANIFEST, _VALID_RECEIPT
     original_sha = MANIFEST_SHA
+    original_manifest = _BOUND_MANIFEST
     original_receipt = _VALID_RECEIPT
     manifest_path, root = _write_report_manifest(tmp_path)
     MANIFEST_SHA = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    _BOUND_MANIFEST = load_manifest(manifest_path)
     _VALID_RECEIPT = verified_validation_authority(
         tmp_path / "report-authority", manifest_path, root
     )
     assert _VALID_RECEIPT.authority == "current_scoring_authority"
     yield
     MANIFEST_SHA = original_sha
+    _BOUND_MANIFEST = original_manifest
     _VALID_RECEIPT = original_receipt
 
 
@@ -285,13 +291,9 @@ def _report(
     abstentions: tuple[ReportAbstention, ...] = (),
     manifest_sha256: str | None = None,
 ):
-    authority = (
-        _VALID_RECEIPT
-        if validation_receipt is _DEFAULT_AUTHORITY
-        else validation_receipt
-    )
+    authority = _VALID_RECEIPT if validation_receipt is _DEFAULT_AUTHORITY else validation_receipt
     return build_report(
-        _manifest(),
+        _BOUND_MANIFEST,
         _runs() if runs is None else runs,
         mode=mode,
         manifest_sha256=manifest_sha256 or MANIFEST_SHA,
@@ -320,6 +322,161 @@ def test_report_scores_only_evaluated_cases_and_never_hides_exclusions() -> None
     assert report.metrics.true_negatives == 1
     assert report.metrics.finding_true_positives == 1
     assert report.metrics.finding_false_positives == 1
+
+
+@pytest.mark.parametrize("mutation", ["truth", "role", "commit", "runtime", "descriptor"])
+def test_current_authority_rejects_typed_manifest_detached_from_bound_bytes(
+    tmp_path: Path, mutation: str
+) -> None:
+    """A receipt for manifest A cannot score any altered typed manifest B."""
+    manifest_path, root = _write_report_manifest(tmp_path / "detached-manifest")
+    manifest = load_manifest(manifest_path)
+    authority = verified_validation_authority(
+        tmp_path / "detached-manifest-authority", manifest_path, root
+    )
+    if mutation == "truth":
+        altered = replace(
+            manifest,
+            truth_defects=tuple(
+                replace(defect, file="different.py", start_line=999, end_line=999)
+                for defect in manifest.truth_defects
+            ),
+        )
+    elif mutation == "role":
+        altered = replace(
+            manifest,
+            cases=(
+                replace(manifest.cases[0], role="developer_fix_control"),
+                *manifest.cases[1:],
+            ),
+        )
+    elif mutation == "commit":
+        altered = replace(
+            manifest,
+            cases=(
+                replace(manifest.cases[0], buggy_commit="9" * 40),
+                *manifest.cases[1:],
+            ),
+        )
+    elif mutation == "runtime":
+        altered = replace(
+            manifest,
+            runtime=(replace(manifest.runtime[0], cwd="different/root"), *manifest.runtime[1:]),
+        )
+    else:
+        altered_case = replace(
+            manifest.cases[0],
+            patch=replace(manifest.cases[0].patch, sha256="9" * 64),
+        )
+        altered = replace(manifest, cases=(altered_case, *manifest.cases[1:]))
+
+    with pytest.raises(ValueError, match="manifest.*(bytes|digest|binding)"):
+        build_report(
+            altered,
+            _runs(),
+            mode=REPLAY_MODE,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=authority,
+        )
+
+
+def test_current_authority_hard_rejects_a_different_exact_manifest(
+    tmp_path: Path,
+) -> None:
+    """A's verified capability cannot be downgraded to withholding while scoring B."""
+    manifest_a_path, root = _write_report_manifest(tmp_path / "manifest-a")
+    authority_a = verified_validation_authority(
+        tmp_path / "manifest-a-authority", manifest_a_path, root
+    )
+    document_b = json.loads(manifest_a_path.read_text(encoding="utf-8"))
+    document_b["truth_defects"][0]["file"] = "different.py"
+    manifest_b_path = tmp_path / "manifest-b.json"
+    manifest_b_path.write_text(json.dumps(document_b), encoding="utf-8")
+    manifest_b = load_manifest(manifest_b_path)
+
+    with pytest.raises(ValueError, match="current.*manifest.*digest"):
+        build_report(
+            manifest_b,
+            _runs(),
+            mode=REPLAY_MODE,
+            manifest_sha256=hashlib.sha256(manifest_b_path.read_bytes()).hexdigest(),
+            validation_receipt=authority_a,
+        )
+
+
+def test_current_authority_rejects_digest_subclass_equality_bypass(
+    tmp_path: Path,
+) -> None:
+    """Python equality overrides cannot join authority A to exact manifest B."""
+
+    class DeceptiveDigest(str):
+        def __eq__(self, other: object) -> bool:
+            return True
+
+        def __ne__(self, other: object) -> bool:
+            return False
+
+    manifest_a_path, root = _write_report_manifest(tmp_path / "digest-a")
+    authority_a = verified_validation_authority(
+        tmp_path / "digest-a-authority", manifest_a_path, root
+    )
+    document_b = json.loads(manifest_a_path.read_text(encoding="utf-8"))
+    document_b["truth_defects"][0]["file"] = "attacker-selected.py"
+    manifest_b_path = tmp_path / "digest-b.json"
+    manifest_b_path.write_text(json.dumps(document_b), encoding="utf-8")
+    manifest_b = load_manifest(manifest_b_path)
+    deceptive_digest = DeceptiveDigest(
+        hashlib.sha256(manifest_b_path.read_bytes()).hexdigest()
+    )
+
+    with pytest.raises(ValueError, match="manifest.*digest.*exact|string"):
+        build_report(
+            manifest_b,
+            _runs(),
+            mode=REPLAY_MODE,
+            manifest_sha256=deceptive_digest,
+            validation_receipt=authority_a,
+        )
+
+
+def test_current_authority_rejects_nested_truth_subclass_equality_bypass(
+    tmp_path: Path,
+) -> None:
+    """A nested record cannot lie about equality while changing scoring truth."""
+
+    class DeceptiveTruth(TruthDefect):
+        def __eq__(self, other: object) -> bool:
+            return True
+
+        def __ne__(self, other: object) -> bool:
+            return False
+
+    manifest_path, root = _write_report_manifest(tmp_path / "nested-truth")
+    manifest = load_manifest(manifest_path)
+    authority = verified_validation_authority(
+        tmp_path / "nested-truth-authority", manifest_path, root
+    )
+    original = manifest.truth_defects[0]
+    deceptive = DeceptiveTruth(
+        defect_id=original.defect_id,
+        case_id=original.case_id,
+        file="attacker-selected.py",
+        start_line=999,
+        end_line=999,
+    )
+    altered = replace(
+        manifest,
+        truth_defects=(deceptive, *manifest.truth_defects[1:]),
+    )
+
+    with pytest.raises(ValueError, match="manifest.*(canonical|typed|bytes)"):
+        build_report(
+            altered,
+            _runs(),
+            mode=REPLAY_MODE,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=authority,
+        )
 
 
 def test_headline_rates_carry_wilson_intervals() -> None:
@@ -401,13 +558,10 @@ def test_report_withholds_accuracy_without_a_receipt_but_still_reports_operation
     assert "delivery_rate" in markdown
 
 
-def test_report_withholds_accuracy_for_a_receipt_bound_to_another_manifest() -> None:
-    """A receipt earned by a different corpus authorises nothing here."""
-    report = _report(manifest_sha256="b" * 64)
-
-    assert report.metrics is None
-    assert report.metrics_withheld_reason == "validation_receipt_manifest_mismatch"
-    assert "validation receipt" in " ".join(report.limitations)
+def test_report_hard_rejects_current_authority_with_a_different_manifest_digest() -> None:
+    """A current capability and typed manifest may never carry detached digests."""
+    with pytest.raises(ValueError, match="manifest.*digest"):
+        _report(manifest_sha256="b" * 64)
 
 
 def test_report_rejects_hand_constructed_current_verification() -> None:

@@ -170,6 +170,33 @@ def test_predeclaration_binding_resolves_every_drift_sensitive_input(
     assert binding["schema_sha256"] != ABSENT_BINDING_SHA256
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (("line_slack", 1), ("pull_request_number", 2), ("repeat", 1)),
+)
+def test_evaluation_policy_binding_covers_scoring_and_run_identity(
+    tmp_path: Path, field: str, value: int
+) -> None:
+    """A resumable evaluation digest changes for every execution-semantic field."""
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    request = _request(tmp_path, repo, base_sha, head_sha)
+    kwargs = {
+        "provider_id": "cassette-v1",
+        "interpreter_id": "cpython-3.11.5",
+        "environment_sha256": "e" * 64,
+        "code_sha256": "c" * 64,
+    }
+
+    original = build_evaluation_binding(request, **kwargs).to_json_dict()
+    drifted = build_evaluation_binding(
+        replace(request, **{field: value}), **kwargs
+    ).to_json_dict()
+
+    assert original["schema_version"] == "2"
+    assert drifted["schema_version"] == "2"
+    assert original["policy_sha256"] != drifted["policy_sha256"]
+
+
 def test_runtime_code_digest_includes_paid_controller_and_package_data(
     tmp_path: Path,
 ) -> None:
@@ -214,6 +241,108 @@ def test_frozen_request_uses_predeclared_shas_even_if_symbolic_refs_move(
 
     assert frozen.base_ref == base_sha
     assert frozen.head_ref == head_sha
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("config", ReviewConfig(alpha=0.2)),
+        ("limits", ExecutorLimits(wall_timeout_s=61.0)),
+        ("verification_timeout_s", 601.0),
+        ("repeats", 4),
+        ("deadline_s", 61.0),
+        ("line_slack", 1),
+        ("pull_request_number", 2),
+        ("repeat", 1),
+    ),
+)
+def test_freeze_rejects_request_policy_drift(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    request = _request(tmp_path, repo, base_sha, head_sha)
+    binding = build_evaluation_binding(
+        request,
+        provider_id="cassette-v1",
+        interpreter_id="cpython-3.11.5",
+        environment_sha256="e" * 64,
+        code_sha256="c" * 64,
+    )
+
+    with pytest.raises(ProjectEvaluationError, match="policy"):
+        freeze_evaluation_request(replace(request, **{field: value}), binding)
+
+
+def test_freeze_rejects_truth_drift_from_prebuilt_binding(tmp_path: Path) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    truth = ProjectTruth(
+        fixed_ref=base_sha,
+        defects=(
+            TruthDefect(
+                defect_id="defect-1",
+                case_id=CASE_ID,
+                file="app.py",
+                start_line=1,
+                end_line=1,
+            ),
+        ),
+    )
+    request = _request(tmp_path, repo, base_sha, head_sha, truth=truth)
+    binding = build_evaluation_binding(
+        request,
+        provider_id="cassette-v1",
+        interpreter_id="cpython-3.11.5",
+        environment_sha256="e" * 64,
+        code_sha256="c" * 64,
+    )
+    changed_truth = replace(
+        truth, defects=(replace(truth.defects[0], file="different.py"),)
+    )
+
+    with pytest.raises(ProjectEvaluationError, match="truth"):
+        freeze_evaluation_request(replace(request, truth=changed_truth), binding)
+
+
+@pytest.mark.parametrize("field", ("prompt_sha256", "schema_sha256"))
+def test_freeze_rejects_current_prompt_or_schema_drift(
+    tmp_path: Path, field: str
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    request = _request(tmp_path, repo, base_sha, head_sha)
+    binding = build_evaluation_binding(
+        request,
+        provider_id="cassette-v1",
+        interpreter_id="cpython-3.11.5",
+        environment_sha256="e" * 64,
+        code_sha256="c" * 64,
+    )
+
+    with pytest.raises(ProjectEvaluationError, match="prompt|schema"):
+        freeze_evaluation_request(replace(request), replace(binding, **{field: "0" * 64}))
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("repeats", True),
+        ("verification_timeout_s", float("inf")),
+        ("deadline_s", float("nan")),
+        ("line_slack", True),
+        ("pull_request_number", True),
+        ("repeat", -1),
+    ),
+)
+def test_request_policy_is_rejected_before_git_workspace_or_provider(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    request = replace(
+        _request(tmp_path, repo, base_sha, head_sha), **{field: value}
+    )
+
+    with pytest.raises(ProjectEvaluationError, match=field):
+        evaluate_project(request, provider=RefusingProvider())
+    assert not request.workspace_root.exists()
 
 
 @pytest.mark.parametrize(

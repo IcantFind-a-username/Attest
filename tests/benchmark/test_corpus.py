@@ -773,8 +773,6 @@ def test_validate_corpus_requires_three_real_fixed_passes_and_stable_buggy_failu
         root,
         runner,
         artifact_store=ArtifactStore(artifact_root),
-        provenance_key_id=KEY_ID,
-        provenance_key=b"test-only-local-validation-authority-key",
     )
 
     assert report["validated_pairs"] == 1
@@ -788,37 +786,22 @@ def test_validate_corpus_requires_three_real_fixed_passes_and_stable_buggy_failu
     assert report["command_success"] is True
     assert report["corpus_valid"] is True
     assert report["validation_status"] == "valid"
-    assert report["scorable"] is True
-    assert report["receipt"]["schema_version"] == "2"
-    assert report["receipt"]["validated_pair_ids"] == ["pair-222222222222"]
-    assert report["receipt"]["manifest_sha256"] == __import__("hashlib").sha256(
-        manifest.read_bytes()
-    ).hexdigest()
-    results_path = tmp_path / "issued-validation-results.json"
-    receipt_path = tmp_path / "issued-validation-receipt.json"
-    _write_canonical_json(results_path, report["validation_results"])
-    _write_canonical_json(receipt_path, report["receipt"])
-    from attest.benchmark.corpus import verify_validation_receipt
-
-    verification = verify_validation_receipt(
-        receipt_path,
-        manifest,
-        results_path,
-        artifact_root,
-        authorized_provenance_keys={
-            KEY_ID: b"test-only-local-validation-authority-key"
-        },
-    )
-    assert verification.authority == "current_scoring_authority", verification.to_json_dict()
-    assert len(verification.results[0].attempts[0].runs) == 6
-    environment_record = dict(verification.results[0].attempts[0].runs[0].artifacts)[
+    assert report["scorable"] is False
+    assert report["receipt"] is None
+    result_v2 = report["validation_results"]["results"][0]
+    assert len(result_v2["attempts"][0]["runs"]) == 6
+    environment_record = result_v2["attempts"][0]["runs"][0]["artifacts"][
         "environment"
     ]
-    environment = json.loads((artifact_root / environment_record.name).read_text())
+    environment = json.loads(
+        (artifact_root / environment_record["name"]).read_text()
+    )
     assert environment["variables"]["LANG"] == "M02_ENVIRONMENT_SENTINEL"
 
 
-def test_validate_corpus_preserves_signature_through_stdout_bound(tmp_path: Path) -> None:
+def test_validate_corpus_preserves_failure_digest_through_stdout_bound(
+    tmp_path: Path,
+) -> None:
     """Bounded stdout retains a digest marker for the failure-defining lines."""
     manifest, root, _ = _oracle_fixture(tmp_path)
     outcomes = [RunOutcome(0, b"1 passed\n", False)] * 3 + [
@@ -841,6 +824,100 @@ def test_validate_corpus_preserves_signature_through_stdout_bound(tmp_path: Path
     assert (tmp_path / "bounded-artifacts" / stdout_name).read_bytes().startswith(
         b"FAILED attest:"
     )
+
+
+def test_validate_corpus_rejects_legacy_signing_credentials_before_project_execution(
+    tmp_path: Path,
+) -> None:
+    """The Phase0 execution API has no same-process HMAC issuance capability."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    calls: list[str] = []
+
+    class ForbiddenRunner:
+        def run(
+            self, source_id: str, tool: str, args: tuple[str, ...], cwd: Path
+        ) -> RunOutcome:
+            calls.append(source_id)
+            return RunOutcome(0, b"1 passed\n", False)
+
+    with pytest.raises(TypeError, match="provenance_key"):
+        validate_corpus(
+            manifest,
+            root,
+            ForbiddenRunner(),
+            artifact_store=ArtifactStore(tmp_path / "must-not-exist"),
+            provenance_key_id=KEY_ID,
+            provenance_key=b"must-not-enter-project-execution",
+        )
+    assert calls == []
+    assert not (tmp_path / "must-not-exist").exists()
+
+
+def test_validate_corpus_rejects_manifest_path_replacement_before_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    original = manifest.read_bytes()
+    changed = json.loads(original)
+    changed["corpus_commit"] = "6" * 64
+    changed_bytes = json.dumps(changed).encode()
+    real_read_bytes = Path.read_bytes
+    manifest_reads = 0
+
+    def staged_read(path: Path) -> bytes:
+        nonlocal manifest_reads
+        if path == manifest:
+            manifest_reads += 1
+            return original if manifest_reads == 1 else changed_bytes
+        return real_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", staged_read)
+    calls: list[str] = []
+
+    class ForbiddenRunner:
+        def run(
+            self, source_id: str, tool: str, args: tuple[str, ...], cwd: Path
+        ) -> RunOutcome:
+            calls.append(source_id)
+            return RunOutcome(0, b"1 passed\n", False)
+
+    with pytest.raises(ValueError, match="manifest changed"):
+        validate_corpus(manifest, root, ForbiddenRunner())
+    assert calls == []
+
+
+def test_v2_verifier_uses_one_manifest_snapshot_under_path_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from attest.benchmark.corpus import verify_validation_receipt
+
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path / "toctou-bundle", manifest, root)
+    original = manifest.read_bytes()
+    changed = json.loads(original)
+    changed["corpus_commit"] = "6" * 64
+    changed_bytes = json.dumps(changed).encode()
+    real_read_bytes = Path.read_bytes
+    manifest_reads = 0
+
+    def staged_read(path: Path) -> bytes:
+        nonlocal manifest_reads
+        if path == manifest:
+            manifest_reads += 1
+            return original if manifest_reads == 1 else changed_bytes
+        return real_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", staged_read)
+    verification = verify_validation_receipt(
+        bundle.receipt_path,
+        manifest,
+        bundle.results_path,
+        bundle.artifact_root,
+        authorized_provenance_keys=bundle.authorized_keys,
+    )
+
+    assert verification.authority == "none"
+    assert "manifest" in verification.integrity.failure_paths
 
 
 def test_validate_corpus_preserves_dependency_classification_through_stdout_bound(
@@ -906,10 +983,10 @@ def test_validate_corpus_preserves_dependency_classification_through_stdout_boun
     )
 
 
-def test_validate_corpus_issues_provenance_bound_all_excluded_receipt(
+def test_validate_corpus_preserves_unsigned_all_excluded_evidence(
     tmp_path: Path,
 ) -> None:
-    """Real exclusion attempts are signed even when no pair earns scoring authority."""
+    """Real exclusion attempts remain hash-bound but never become authority."""
     manifest, root, source_id = _oracle_fixture(tmp_path, missing_dependency=True)
     artifact_root = tmp_path / "excluded-artifacts"
     runner = SubprocessCorpusRunner(
@@ -923,43 +1000,20 @@ def test_validate_corpus_issues_provenance_bound_all_excluded_receipt(
         root,
         runner,
         artifact_store=ArtifactStore(artifact_root),
-        provenance_key_id=KEY_ID,
-        provenance_key=b"test-only-local-validation-authority-key",
     )
 
     assert report["validated_pairs"] == 0
     assert report["excluded_pairs"] == 1
     assert report["scorable"] is False
-    assert report["receipt"]["validated_pair_ids"] == []
+    assert report["receipt"] is None
     result = report["validation_results"]["results"][0]
     assert result["exclusion_reason"] == "dependency_or_setup_failure"
     assert len(result["attempts"][0]["runs"]) == 1
 
-    results_path = tmp_path / "excluded-validation-results.json"
-    receipt_path = tmp_path / "excluded-validation-receipt.json"
-    _write_canonical_json(results_path, report["validation_results"])
-    _write_canonical_json(receipt_path, report["receipt"])
-    from attest.benchmark.corpus import verify_validation_receipt
-
-    verification = verify_validation_receipt(
-        receipt_path,
-        manifest,
-        results_path,
-        artifact_root,
-        authorized_provenance_keys={
-            KEY_ID: b"test-only-local-validation-authority-key"
-        },
-    )
-
-    assert verification.integrity.accepted is True
-    assert verification.provenance.accepted is True
-    assert verification.semantic_policy.accepted is True
-    assert verification.authority == "current_scoring_authority"
-    with pytest.raises(ValueError, match="not in validation receipt"):
-        require_validated_pair(verification, "pair-222222222222")
+    assert (artifact_root / "artifacts.json").is_file()
 
 
-def test_validate_corpus_signs_all_preflight_exclusions_without_scoring(
+def test_validate_corpus_preserves_unsigned_preflight_exclusions(
     tmp_path: Path,
 ) -> None:
     """A controller envelope preserves a real preflight attempt with no run evidence."""
@@ -979,39 +1033,17 @@ def test_validate_corpus_signs_all_preflight_exclusions_without_scoring(
         root,
         runner,
         artifact_store=ArtifactStore(artifact_root),
-        provenance_key_id=KEY_ID,
-        provenance_key=b"test-only-local-validation-authority-key",
     )
 
     assert report["validated_pairs"] == 0
     assert report["scorable"] is False
-    assert report["receipt"]["validated_pair_ids"] == []
+    assert report["receipt"] is None
     result = report["validation_results"]["results"][0]
     assert result["exclusion_reason"] == "dirty_checkout"
     assert result["attempts"][0]["phase"] == "preflight"
     assert result["attempts"][0]["runs"] == []
 
-    results_path = tmp_path / "preflight-validation-results.json"
-    receipt_path = tmp_path / "preflight-validation-receipt.json"
-    _write_canonical_json(results_path, report["validation_results"])
-    _write_canonical_json(receipt_path, report["receipt"])
-    from attest.benchmark.corpus import verify_validation_receipt
-
-    verification = verify_validation_receipt(
-        receipt_path,
-        manifest,
-        results_path,
-        artifact_root,
-        authorized_provenance_keys={
-            KEY_ID: b"test-only-local-validation-authority-key"
-        },
-    )
-
-    assert verification.integrity.accepted is True
-    assert verification.provenance.accepted is True
-    assert verification.semantic_policy.accepted is True
-    assert verification.receipt is not None
-    assert verification.receipt.validated_pair_ids == ()
+    assert (artifact_root / "artifacts.json").is_file()
 
 
 def test_validate_corpus_preserves_large_junit_semantics_through_bound(
@@ -1033,8 +1065,6 @@ def test_validate_corpus_preserves_large_junit_semantics_through_bound(
         root,
         runner,
         artifact_store=ArtifactStore(artifact_root),
-        provenance_key_id=KEY_ID,
-        provenance_key=b"test-only-local-validation-authority-key",
     )
 
     result = report["validation_results"]["results"][0]
@@ -1044,30 +1074,11 @@ def test_validate_corpus_preserves_large_junit_semantics_through_bound(
     assert bounded_junit.startswith(b"J attest:")
     assert bounded_junit.endswith(b"</testsuites>")
 
-    from attest.benchmark.corpus import verify_validation_receipt
-
-    results_path = tmp_path / "bounded-junit-validation-results.json"
-    receipt_path = tmp_path / "bounded-junit-validation-receipt.json"
-    _write_canonical_json(results_path, report["validation_results"])
-    _write_canonical_json(receipt_path, report["receipt"])
-
-    verification = verify_validation_receipt(
-        receipt_path,
-        manifest,
-        results_path,
-        artifact_root,
-        authorized_provenance_keys={
-            KEY_ID: b"test-only-local-validation-authority-key"
-        },
-    )
-
-    assert verification.authority == "current_scoring_authority", (
-        verification.to_json_dict()
-    )
+    assert report["receipt"] is None
 
 
-def test_validate_corpus_signs_redacted_persisted_stdout_bytes(tmp_path: Path) -> None:
-    """Redaction cannot make issuer and verifier compute different failure signatures."""
+def test_validate_corpus_hashes_redacted_persisted_stdout_bytes(tmp_path: Path) -> None:
+    """Unsigned evidence hashes the exact redacted bytes persisted for inspection."""
     manifest, root, _ = _oracle_fixture(tmp_path)
     secret = "M02_PRIVATE_SENTINEL"
     failure = f"FAILED test_calc.py::test_{secret}\n".encode()
@@ -1095,7 +1106,7 @@ def test_validate_corpus_signs_redacted_persisted_stdout_bytes(tmp_path: Path) -
 def test_validate_corpus_hashes_redacted_environment_evidence(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Secret redaction cannot invalidate an issuer-created environment binding."""
+    """Secret redaction preserves the unsigned environment-evidence binding."""
     secret = "M02_PRIVATE_ENV_SENTINEL"
     runtime_tmp = tmp_path / f"runtime-{secret}"
     runtime_tmp.mkdir()
@@ -1112,8 +1123,6 @@ def test_validate_corpus_hashes_redacted_environment_evidence(
             isolation=_sandbox_isolation(),
         ),
         artifact_store=ArtifactStore(artifact_root, secrets=(secret,)),
-        provenance_key_id=KEY_ID,
-        provenance_key=b"test-only-local-validation-authority-key",
     )
 
     run = report["validation_results"]["results"][0]["attempts"][0]["runs"][0]
@@ -1122,25 +1131,7 @@ def test_validate_corpus_hashes_redacted_environment_evidence(
     assert secret.encode() not in environment_bytes
     assert b"[REDACTED]" in environment_bytes
 
-    results_path = tmp_path / "redacted-environment-results.json"
-    receipt_path = tmp_path / "redacted-environment-receipt.json"
-    _write_canonical_json(results_path, report["validation_results"])
-    _write_canonical_json(receipt_path, report["receipt"])
-    from attest.benchmark.corpus import verify_validation_receipt
-
-    verification = verify_validation_receipt(
-        receipt_path,
-        manifest,
-        results_path,
-        artifact_root,
-        authorized_provenance_keys={
-            KEY_ID: b"test-only-local-validation-authority-key"
-        },
-    )
-
-    assert verification.authority == "current_scoring_authority", (
-        verification.to_json_dict()
-    )
+    assert report["receipt"] is None
 
 
 def test_validate_corpus_rejects_raw_failures_collapsed_by_stdout_bound(
@@ -1231,7 +1222,9 @@ def test_v1_validation_receipt_is_manifest_bound_but_historical_only(
         load_validation_receipt(receipt_path, manifest, results_path)
 
 
-def test_protocol_runner_without_verified_boundary_cannot_sign_receipt(tmp_path: Path) -> None:
+def test_protocol_runner_produces_unsigned_non_authorizing_evidence(
+    tmp_path: Path,
+) -> None:
     """Synthetic outcomes can test oracle logic but cannot become scoring authority."""
     manifest, root, _ = _oracle_fixture(tmp_path)
     outcomes = [RunOutcome(0, b"pass", False)] * 3 + [
@@ -2677,6 +2670,35 @@ def _two_pair_validation_artifacts(manifest: Path) -> tuple[dict[str, object], d
     return receipt, results
 
 
+def test_v1_receipt_loader_rejects_manifest_path_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    receipt, validation_results = _two_pair_validation_artifacts(manifest)
+    receipt_path = tmp_path / "snapshot-receipt.json"
+    results_path = tmp_path / "snapshot-results.json"
+    _write_canonical_json(receipt_path, receipt)
+    _write_canonical_json(results_path, validation_results)
+    original = manifest.read_bytes()
+    changed = json.loads(original)
+    changed["corpus_commit"] = "6" * 64
+    changed_bytes = json.dumps(changed).encode()
+    real_read_bytes = Path.read_bytes
+    manifest_reads = 0
+
+    def staged_read(path: Path) -> bytes:
+        nonlocal manifest_reads
+        if path == manifest:
+            manifest_reads += 1
+            return original if manifest_reads == 1 else changed_bytes
+        return real_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", staged_read)
+
+    with pytest.raises(ValueError, match="manifest changed"):
+        load_validation_receipt(receipt_path, manifest, results_path)
+
+
 def test_validation_receipt_rejects_known_pair_substitution_and_arbitrary_hash(
     tmp_path: Path,
 ) -> None:
@@ -2835,8 +2857,8 @@ def _sandbox_isolation() -> IsolationAdapter:
     )
 
 
-def test_plain_or_forged_isolation_cannot_execute_or_sign_receipt(tmp_path: Path) -> None:
-    """A claimed capability must fail when its real boundary can connect a socket."""
+def test_plain_or_forged_isolation_produces_no_authority(tmp_path: Path) -> None:
+    """A claimed capability cannot make unisolated diagnostics authoritative."""
     manifest, root, source_id = _oracle_fixture(tmp_path)
     passthrough = tmp_path / "passthrough"
     passthrough.write_text("#!/bin/sh\nexec \"$@\"\n", encoding="utf-8")

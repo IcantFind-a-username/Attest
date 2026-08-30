@@ -31,6 +31,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from attest.benchmark.api import ABSENT_BINDING_SHA256
 from attest.benchmark.baselines import (
     ArmRun,
     ComparisonMeasurements,
@@ -42,13 +43,19 @@ from attest.benchmark.corpus import (
     ValidationReceiptV2,
     ValidationVerification,
     require_validated_pair,
+    validation_receipt_binding_bytes,
 )
 from attest.benchmark.metrics import (
     ORACLE_INCONCLUSIVE_REASON,
     BenchmarkReport,
     aggregate,
 )
-from attest.benchmark.schema import BenchmarkCase, BenchmarkManifest, RunRecord
+from attest.benchmark.schema import (
+    BenchmarkCase,
+    BenchmarkManifest,
+    RunRecord,
+    require_manifest_binding,
+)
 from attest.benchmark.stability import StabilityReport
 
 REPLAY_MODE = "replay"
@@ -56,7 +63,7 @@ LIVE_MODE = "live"
 REPORT_SCHEMA_VERSION = "3"
 JSON_NAME = "report.json"
 MARKDOWN_NAME = "report.md"
-COMPARISON_SCHEMA_VERSION = "3"
+COMPARISON_SCHEMA_VERSION = "4"
 COMPARISON_JSON_NAME = "comparison.json"
 COMPARISON_MARKDOWN_NAME = "comparison.md"
 STABILITY_JSON_NAME = "stability.json"
@@ -186,6 +193,10 @@ def build_report(
     """
     if mode not in (REPLAY_MODE, LIVE_MODE):
         raise ValueError("mode must be replay or live")
+    authority = _validation_authority(validation_receipt)
+    manifest = _require_current_manifest_authority(
+        authority, manifest, manifest_sha256
+    )
     records = tuple(runs)
     abstained = tuple(
         sorted(abstentions, key=lambda abstention: (abstention.case_id, abstention.reason))
@@ -216,7 +227,6 @@ def build_report(
             key=lambda exclusion: (exclusion.case_id, exclusion.reason),
         )
     )
-    authority = _validation_authority(validation_receipt)
     withheld = (
         None
         if measurements is None
@@ -333,6 +343,25 @@ def _validation_authority(
         _authority="missing" if missing else "none",
         receipt=receipt,
     )
+
+
+def _require_current_manifest_authority(
+    authority: ValidationVerification,
+    manifest: BenchmarkManifest,
+    manifest_sha256: str,
+) -> BenchmarkManifest:
+    """Bind a current verifier capability to the exact typed manifest in use."""
+    if authority.authority != "current_scoring_authority":
+        return manifest
+    bound = require_manifest_binding(manifest, manifest_sha256)
+    receipt = authority.receipt
+    if type(receipt) is not ValidationReceiptV2:
+        raise ValueError("current validation authority requires a V2 receipt")
+    if receipt.manifest_sha256 != manifest_sha256:
+        raise ValueError(
+            "current validation authority manifest digest does not match bound manifest"
+        )
+    return bound
 
 
 def _with_digest(report: BenchmarkRunReport) -> BenchmarkRunReport:
@@ -639,6 +668,8 @@ class ComparisonRunReport:
     protocol_version: str
     corpus_commit: str
     manifest_sha256: str
+    receipt_sha256: str
+    predeclaration_sha256: str
     mode: str
     line_slack: int
     budget_ceiling_usd: float
@@ -661,6 +692,8 @@ class ComparisonRunReport:
             "protocol_version": self.protocol_version,
             "corpus_commit": self.corpus_commit,
             "manifest_sha256": self.manifest_sha256,
+            "receipt_sha256": self.receipt_sha256,
+            "predeclaration_sha256": self.predeclaration_sha256,
             "mode": self.mode,
             "line_slack": self.line_slack,
             "budget_ceiling_usd": round(self.budget_ceiling_usd, 6),
@@ -742,10 +775,27 @@ def build_comparison_report(
     """
     if mode not in (REPLAY_MODE, LIVE_MODE):
         raise ValueError("mode must be replay or live")
-    validate_comparison_measurements(measurements)
+    manifest = require_manifest_binding(manifest, manifest_sha256)
+    receipt_sha256 = _validation_receipt_sha256(validation_receipt)
+    predeclaration_sha256 = validate_comparison_measurements(
+        measurements,
+        receipt_sha256,
+        manifest,
+        manifest_sha256,
+    )
+    authority = _validation_authority(validation_receipt)
+    manifest = _require_current_manifest_authority(
+        authority, manifest, manifest_sha256
+    )
+    manifest_roles = {case.case_id: case.role for case in manifest.cases}
+    if any(
+        type(run.role) is not str
+        or manifest_roles.get(run.case_id) != run.role
+        for run in measurements.runs
+    ):
+        raise ValueError("comparison run role does not match the bound manifest")
     evaluated_ids = set(measurements.evaluated_case_ids)
     cases = tuple(case for case in manifest.cases if case.case_id in evaluated_ids)
-    authority = _validation_authority(validation_receipt)
     withheld = None if not cases else _scoring_refusal(authority, manifest_sha256, cases)
     excluded = tuple(
         sorted(exclusions, key=lambda exclusion: (exclusion.case_id, exclusion.reason))
@@ -755,6 +805,8 @@ def build_comparison_report(
         protocol_version=manifest.protocol_version,
         corpus_commit=manifest.corpus_commit,
         manifest_sha256=manifest_sha256,
+        receipt_sha256=receipt_sha256,
+        predeclaration_sha256=predeclaration_sha256,
         mode=mode,
         line_slack=measurements.line_slack,
         budget_ceiling_usd=measurements.budget_ceiling_usd,
@@ -767,6 +819,14 @@ def build_comparison_report(
     encoded = json.dumps(report._payload(), sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
     return replace(report, digest=digest)
+
+
+def _validation_receipt_sha256(
+    receipt: ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None,
+) -> str:
+    if receipt is None:
+        return ABSENT_BINDING_SHA256
+    return hashlib.sha256(validation_receipt_binding_bytes(receipt)).hexdigest()
 
 
 def _comparison_limitations(
@@ -829,6 +889,8 @@ def render_comparison_markdown(report: ComparisonRunReport) -> str:
         f"- mode: `{report.mode}`",
         f"- corpus commit: `{report.corpus_commit}`",
         f"- manifest SHA-256: `{report.manifest_sha256}`",
+        f"- receipt SHA-256: `{report.receipt_sha256}`",
+        f"- predeclaration SHA-256: `{report.predeclaration_sha256}`",
         f"- per-case USD ceiling: {report.budget_ceiling_usd:.6f}",
         f"- line slack: {report.line_slack}",
         f"- evaluated cases: {len(report.measurements.evaluated_case_ids)}",

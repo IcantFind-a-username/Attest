@@ -43,6 +43,12 @@ def test_budget_unknown_model_rejected() -> None:
         Budget(limit_usd=0.25, model="not-a-model")
 
 
+@pytest.mark.parametrize("limit", (float("nan"), float("inf"), float("-inf"), True, 0.0))
+def test_budget_rejects_nonfinite_boolean_or_nonpositive_limit(limit: object) -> None:
+    with pytest.raises(ValueError, match="limit"):
+        Budget(limit_usd=limit, model=DEFAULT_MODEL)  # type: ignore[arg-type]
+
+
 def test_ledger_roundtrip(tmp_path) -> None:
     led = Ledger(tmp_path)
     led.record_review("t1", "f1", ["S", "T"], 0.05, 5.3, "drawer")
