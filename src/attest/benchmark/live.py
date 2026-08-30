@@ -41,7 +41,7 @@ from collections.abc import (
     Sequence,
 )
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -62,7 +62,12 @@ from attest.benchmark.checkpoints import (
     PaidCallTotals,
     paid_call_totals,
 )
-from attest.benchmark.corpus import ValidationReceipt
+from attest.benchmark.corpus import (
+    ValidationReceipt,
+    ValidationReceiptV2,
+    ValidationVerification,
+    validation_receipt_binding_bytes,
+)
 from attest.benchmark.matcher import match_findings
 from attest.benchmark.metrics import wilson_interval
 from attest.benchmark.report import (
@@ -395,7 +400,9 @@ def run_live_local(
     resume: bool = False,
     interpreters: Mapping[str, str] | None = None,
     exclusions: Iterable[ReportExclusion] = (),
-    validation_receipt: ValidationReceipt | None = None,
+    validation_receipt: (
+        ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None
+    ) = None,
     line_slack: int = 0,
     globally_labeled_findings: int | None = None,
     evaluate: (
@@ -444,7 +451,9 @@ def run_live_local(
     receipt_sha256 = (
         None
         if validation_receipt is None
-        else hashlib.sha256(_canonical_bytes(asdict(validation_receipt))).hexdigest()
+        else hashlib.sha256(
+            validation_receipt_binding_bytes(validation_receipt)
+        ).hexdigest()
     )
     bindings: dict[str, ProjectEvaluationBinding] = {}
     for live_case in cases:
@@ -1176,6 +1185,7 @@ class CalibrationReport:
             "abstained_cases": underlying["abstained_cases"],
             "excluded_cases": underlying["excluded_cases"],
             "evidence_class_counts": underlying["evidence_class_counts"],
+            "validation_authority": underlying["validation_authority"],
             "accuracy": (
                 None if self.accuracy_withheld_reason is not None else underlying["metrics"]
             ),
@@ -1203,7 +1213,9 @@ def build_calibration_report(
     manifest_sha256: str,
     preregistration_sha256: str,
     exclusions: Iterable[ReportExclusion] = (),
-    validation_receipt: ValidationReceipt | None = None,
+    validation_receipt: (
+        ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None
+    ) = None,
     differential_repeats: int = 0,
     line_slack: int = 0,
     globally_labeled_findings: int | None = None,

@@ -9,9 +9,13 @@ gate.
 
 - [`2026-08-30-evolution-scaffold.md`](2026-08-30-evolution-scaffold.md) — F-00 /
   `G-DOC-001` construction-scaffold acceptance.
-- [`2026-08-30-m03-revalidation.md`](2026-08-30-m03-revalidation.md) — M-03 /
-  `G-CODE-001` / `G-MEASURE-003` final-SHA revalidation; supersedes the retained
-  INVALIDATED historical M-03 report.
+- [`2026-08-30-m02-validation-receipts.md`](2026-08-30-m02-validation-receipts.md) —
+  M-02 receipt evidence/authority implementation; `G-MEASURE-002` and `G-CODE-002`
+  passed on that branch, while the report remains retained `BLOCKED BY EVIDENCE`
+  historical evidence for its then-failing `G-CODE-001` run.
+- [`2026-08-31-m03-role-revalidation.md`](2026-08-31-m03-role-revalidation.md) — M-03 /
+  `G-CODE-001` / `G-MEASURE-003` immutable paid-call role revalidation; supersedes,
+  but does not erase, the explicitly INVALIDATED historical M-03 reports.
 - [`phase-3.md`](phase-3.md) — historical planted-fixture GitHub Action integration smoke.
   It predates the complete evidence-bundle and workflow-exit requirements.
 

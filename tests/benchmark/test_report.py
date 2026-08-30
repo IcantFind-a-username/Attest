@@ -2,10 +2,20 @@
 
 from __future__ import annotations
 
+import copy
+import hashlib
 import json
 from pathlib import Path
 
-from attest.benchmark.corpus import ValidationReceipt
+import pytest
+
+from attest.benchmark.corpus import (
+    ValidationAuthorityCheck,
+    ValidationProvenanceEnvelope,
+    ValidationReceipt,
+    ValidationReceiptV2,
+    ValidationVerification,
+)
 from attest.benchmark.report import (
     LIVE_MODE,
     REPLAY_MODE,
@@ -27,20 +37,51 @@ from attest.benchmark.schema import (
     TruthDefect,
 )
 
+from ._validation_v2 import verified_validation_authority
+
 REPLAY_CASE = "case-aaaaaaaaaaaa"
 CONTROL_CASE = "case-bbbbbbbbbbbb"
 UNRUN_CASE = "case-cccccccccccc"
 UNRUN_CONTROL = "case-dddddddddddd"
 MANIFEST_SHA = "e" * 64
+_TEST_BYTES = b"{python} -m pytest -q test_calc.py\n"
+_DEFAULT_AUTHORITY = object()
 
 
-def _receipt(manifest_sha256: str = MANIFEST_SHA) -> ValidationReceipt:
-    """A receipt bound to one manifest digest, as the corpus validator issues it."""
+def _historical_receipt(manifest_sha256: str = MANIFEST_SHA) -> ValidationReceipt:
+    """A frozen v1 receipt has inspectable integrity but no current authority."""
     return ValidationReceipt(
         schema_version="1",
         manifest_sha256=manifest_sha256,
         validated_pair_ids=("pair-111111111111", "pair-222222222222"),
         validation_results_sha256="a" * 64,
+    )
+
+
+def _verified_receipt(manifest_sha256: str = MANIFEST_SHA) -> ValidationVerification:
+    """A report consumes the separated result of offline v2 verification."""
+    accepted = ValidationAuthorityCheck(True)
+    receipt = ValidationReceiptV2(
+        schema_version="2",
+        protocol_version="attest-validation-v2",
+        manifest_sha256=manifest_sha256,
+        validated_pair_ids=("pair-111111111111", "pair-222222222222"),
+        validation_results_sha256="a" * 64,
+        artifact_manifest_sha256="b" * 64,
+        provenance_envelope=ValidationProvenanceEnvelope(
+            envelope_version="1",
+            algorithm="hmac-sha256",
+            key_id="local-test-authority",
+            payload_sha256="c" * 64,
+            authentication_tag="d" * 64,
+        ),
+    )
+    return ValidationVerification(
+        integrity=accepted,
+        provenance=accepted,
+        semantic_policy=accepted,
+        _authority="current_scoring_authority",
+        receipt=receipt,
     )
 
 
@@ -55,7 +96,11 @@ def _case(case_id: str, pair_id: str, role: str) -> BenchmarkCase:
         buggy_commit="a" * 40,
         fixed_commit="b" * 40,
         patch=PatchDescriptor("artifacts/fix.patch", "c" * 64, "unified_diff"),
-        tests=TestDescriptor("artifacts/test.argv", "d" * 64, "normalized_text"),
+        tests=TestDescriptor(
+            "artifacts/test.argv",
+            hashlib.sha256(_TEST_BYTES).hexdigest(),
+            "normalized_text",
+        ),
         changed_locations=(ChangedLocation("app.py", 1, 2),),
         split="test",
     )
@@ -141,28 +186,122 @@ def _runs() -> tuple[RunRecord, ...]:
     )
 
 
-_VALID_RECEIPT = _receipt()
+_VALID_RECEIPT: ValidationVerification = _verified_receipt()
+
+
+def _write_report_manifest(tmp_path: Path) -> tuple[Path, Path]:
+    root = tmp_path / "corpus"
+    (root / "artifacts").mkdir(parents=True)
+    (root / "artifacts/test.argv").write_bytes(_TEST_BYTES)
+    manifest = _manifest()
+    document = {
+        "schema_version": "1",
+        "protocol_version": "1",
+        "corpus_commit": "f" * 64,
+        "cases": [
+            {
+                "case_id": case.case_id,
+                "pair_id": case.pair_id,
+                "source_id": case.source_id,
+                "role": case.role,
+                "provenance_kind": case.provenance_kind,
+                "source_license": case.source_license,
+                "buggy_commit": case.buggy_commit,
+                "fixed_commit": case.fixed_commit,
+                "patch": {
+                    "relative_path": case.patch.relative_path,
+                    "sha256": case.patch.sha256,
+                    "normalization": case.patch.normalization,
+                },
+                "tests": {
+                    "relative_path": case.tests.relative_path,
+                    "sha256": case.tests.sha256,
+                    "normalization": case.tests.normalization,
+                },
+                "changed_locations": [
+                    {
+                        "path": location.path,
+                        "start_line": location.start_line,
+                        "end_line": location.end_line,
+                        "side": location.side,
+                    }
+                    for location in case.changed_locations
+                ],
+                "split": case.split,
+            }
+            for case in manifest.cases
+        ],
+        "truth_defects": [
+            {
+                "defect_id": defect.defect_id,
+                "case_id": defect.case_id,
+                "file": defect.file,
+                "start_line": defect.start_line,
+                "end_line": defect.end_line,
+            }
+            for defect in manifest.truth_defects
+        ],
+        "runtime": [
+            {
+                "case_id": case.case_id,
+                "cwd": f"{case.source_id}/{case.pair_id}/"
+                + ("replay" if case.role == "historical_bug_replay" else "control"),
+                "command": {
+                    "tool": "python",
+                    "args": ["-m", "pytest", "-q", "test_calc.py"],
+                },
+            }
+            for case in manifest.cases
+        ],
+    }
+    path = tmp_path / "report-manifest.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    return path, root
+
+
+@pytest.fixture(autouse=True)
+def _install_verified_default_authority(tmp_path: Path):
+    global MANIFEST_SHA, _VALID_RECEIPT
+    original_sha = MANIFEST_SHA
+    original_receipt = _VALID_RECEIPT
+    manifest_path, root = _write_report_manifest(tmp_path)
+    MANIFEST_SHA = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    _VALID_RECEIPT = verified_validation_authority(
+        tmp_path / "report-authority", manifest_path, root
+    )
+    assert _VALID_RECEIPT.authority == "current_scoring_authority"
+    yield
+    MANIFEST_SHA = original_sha
+    _VALID_RECEIPT = original_receipt
 
 
 def _report(
     mode: str = REPLAY_MODE,
     *,
-    validation_receipt: ValidationReceipt | None = _VALID_RECEIPT,
+    validation_receipt: (
+        ValidationVerification | ValidationReceipt | None | object
+    ) = _DEFAULT_AUTHORITY,
     runs: tuple[RunRecord, ...] | None = None,
     abstentions: tuple[ReportAbstention, ...] = (),
+    manifest_sha256: str | None = None,
 ):
+    authority = (
+        _VALID_RECEIPT
+        if validation_receipt is _DEFAULT_AUTHORITY
+        else validation_receipt
+    )
     return build_report(
         _manifest(),
         _runs() if runs is None else runs,
         mode=mode,
-        manifest_sha256=MANIFEST_SHA,
+        manifest_sha256=manifest_sha256 or MANIFEST_SHA,
         exclusions=(
             ReportExclusion(UNRUN_CASE, "prepared_environment_required"),
             ReportExclusion(UNRUN_CONTROL, "prepared_environment_required"),
         ),
         abstentions=abstentions,
         differential_repeats=3,
-        validation_receipt=validation_receipt,
+        validation_receipt=authority,  # type: ignore[arg-type]
     )
 
 
@@ -264,11 +403,102 @@ def test_report_withholds_accuracy_without_a_receipt_but_still_reports_operation
 
 def test_report_withholds_accuracy_for_a_receipt_bound_to_another_manifest() -> None:
     """A receipt earned by a different corpus authorises nothing here."""
-    report = _report(validation_receipt=_receipt("b" * 64))
+    report = _report(manifest_sha256="b" * 64)
 
     assert report.metrics is None
     assert report.metrics_withheld_reason == "validation_receipt_manifest_mismatch"
     assert "validation receipt" in " ".join(report.limitations)
+
+
+def test_report_rejects_hand_constructed_current_verification() -> None:
+    """Only the offline verifier may mint the capability that authorizes scoring."""
+    report = _report(validation_receipt=_verified_receipt())
+
+    assert report.metrics is None
+    assert report.validation_authority.authority == "none"
+    assert report.metrics_withheld_reason == "validation_receipt_provenance_unauthorized"
+
+
+def test_report_rejects_verification_subclass_authority_override() -> None:
+    """A caller-defined property override cannot impersonate the offline verifier."""
+
+    class ForgedVerification(ValidationVerification):
+        @property
+        def authority(self) -> str:
+            return "current_scoring_authority"
+
+    direct = _verified_receipt()
+    forged = ForgedVerification(
+        integrity=direct.integrity,
+        provenance=direct.provenance,
+        semantic_policy=direct.semantic_policy,
+        _authority="current_scoring_authority",
+        receipt=direct.receipt,
+    )
+
+    report = _report(validation_receipt=forged)
+
+    assert report.metrics is None
+    assert report.validation_authority.authority == "none"
+    assert report.metrics_withheld_reason == "validation_receipt_provenance_unauthorized"
+
+
+def test_report_rejects_copied_verifier_capability() -> None:
+    """Copying fields and a private seal does not copy verifier-minted object identity."""
+    assert isinstance(_VALID_RECEIPT, ValidationVerification)
+    copied = copy.copy(_VALID_RECEIPT)
+
+    report = _report(validation_receipt=copied)
+
+    assert report.metrics is None
+    assert report.validation_authority.authority == "none"
+    assert report.metrics_withheld_reason == "validation_receipt_provenance_unauthorized"
+
+
+def test_report_rejects_in_place_mutation_of_verifier_capability() -> None:
+    """Registered identity cannot authorize fields changed after offline verification."""
+    assert isinstance(_VALID_RECEIPT.receipt, ValidationReceiptV2)
+    forged_manifest_sha256 = "b" * 64
+    object.__setattr__(
+        _VALID_RECEIPT.receipt,
+        "manifest_sha256",
+        forged_manifest_sha256,
+    )
+
+    report = _report(
+        validation_receipt=_VALID_RECEIPT,
+        manifest_sha256=forged_manifest_sha256,
+    )
+
+    assert _VALID_RECEIPT.authority == "none"
+    assert report.metrics is None
+    assert report.metrics_withheld_reason == "validation_receipt_provenance_unauthorized"
+
+
+def test_report_marks_v1_as_historical_integrity_only_and_withholds_scoring() -> None:
+    """A readable legacy receipt must never be upgraded into current scoring authority."""
+    report = _report(validation_receipt=_historical_receipt())
+    payload = report.to_json_dict()
+
+    assert report.metrics is None
+    assert report.metrics_withheld_reason == "validation_receipt_historical_integrity_only"
+    assert payload["validation_authority"] == {
+        "authority": "historical_integrity_only",
+        "integrity": {"accepted": True, "failure_paths": []},
+        "authorized_provenance": {
+            "accepted": False,
+            "failure_paths": ["receipt.provenance_envelope"],
+        },
+        "semantic_policy": {
+            "accepted": False,
+            "failure_paths": ["validation_results.results[*].attempts"],
+        },
+    }
+    markdown = render_markdown(report)
+    assert "historical_integrity_only" in markdown
+    assert "integrity: PASS" in markdown
+    assert "authorized provenance: FAIL" in markdown
+    assert "semantic policy: FAIL" in markdown
 
 
 def test_report_publishes_accuracy_for_a_receipt_bound_to_this_manifest() -> None:
@@ -279,6 +509,13 @@ def test_report_publishes_accuracy_for_a_receipt_bound_to_this_manifest() -> Non
     assert report.metrics_withheld_reason is None
     assert report.to_json_dict()["metrics"]["true_positives"] == 1
     assert report.to_json_dict()["operational"]["decided_cases"] == 2
+    assert report.to_json_dict()["validation_authority"]["authority"] == (
+        "current_scoring_authority"
+    )
+    markdown = render_markdown(report)
+    assert "integrity: PASS" in markdown
+    assert "authorized provenance: PASS" in markdown
+    assert "semantic policy: PASS" in markdown
 
 
 def test_report_surfaces_abstentions_with_counts_and_reasons() -> None:

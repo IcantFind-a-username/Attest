@@ -163,7 +163,11 @@ changes.
   and delivery.
 - [ ] **M-02 — receipt authority and raw validation evidence.** Reject incomplete/manual
   validation rows, retain bounded fixed/buggy run evidence, and distinguish integrity,
-  provenance, and semantic authority.
+  provenance, and semantic authority. The M-02 implementation passed `G-MEASURE-002`
+  and `G-CODE-002`, but its original report remains **BLOCKED BY EVIDENCE** because its
+  branch run preceded M-03's repair of the date-literal failure required by `G-CODE-001`;
+  see the retained historical
+  [`2026-08-30 report`](acceptance/2026-08-30-m02-validation-receipts.md).
 - [x] **M-03 — deterministic and crash-safe measurement.** The role-bound implementation
   `bce13f0` passed fresh Python 3.11/3.12 Gates and a new independent review with
   P0=0/P1=0; see the

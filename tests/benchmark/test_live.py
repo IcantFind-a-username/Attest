@@ -37,7 +37,6 @@ from attest.benchmark.checkpoints import (
 from attest.benchmark.checkpoints import (
     STATE_RESPONSE_PERSISTED as CALL_RESPONSE_PERSISTED,
 )
-from attest.benchmark.corpus import load_validation_receipt
 from attest.benchmark.live import (
     ACCURACY_WITHHELD_REPLAY,
     MINIMUM_GLOBAL_LABELS,
@@ -71,8 +70,15 @@ from attest.benchmark.schema import (
 from attest.review.config import ReviewConfig
 from attest.review.proposer import Provider
 
-from .test_cli import _receipt_artifacts, _run
+from ._validation_v2 import verified_validation_authority
+from .test_cli import _run
 from .test_corpus import _oracle_fixture
+
+
+def _current_validation_authority(manifest_path: Path):
+    return verified_validation_authority(
+        manifest_path.parent / "report-validation-authority", manifest_path
+    )
 
 
 def _freeze(manifest: Path) -> Path:
@@ -910,8 +916,7 @@ def test_two_case_live_run_interrupted_after_provider_completion_resumes_cleanly
     manifest_path, root, source_id = _oracle_fixture(tmp_path)
     _freeze(manifest_path)
     manifest = load_manifest(manifest_path)
-    receipt_path, results_path = _receipt_artifacts(tmp_path, manifest_path)
-    receipt = load_validation_receipt(receipt_path, manifest_path, results_path)
+    receipt = _current_validation_authority(manifest_path)
     cases_by_role = {case.role: case for case in manifest.cases}
     control = cases_by_role["developer_fix_control"]
     replay = cases_by_role["historical_bug_replay"]
@@ -1187,8 +1192,7 @@ class TestCalibrationReport:
     ) -> None:
         manifest_path, payloads = self._payloads(tmp_path)
         manifest = load_manifest(manifest_path)
-        receipt_path, results_path = _receipt_artifacts(tmp_path, manifest_path)
-        receipt = load_validation_receipt(receipt_path, manifest_path, results_path)
+        receipt = _current_validation_authority(manifest_path)
 
         report = build_calibration_report(
             manifest,
@@ -1203,6 +1207,12 @@ class TestCalibrationReport:
 
         assert payload["mode"] == LIVE_MODE
         assert payload["accuracy_withheld_reason"] is None
+        assert payload["validation_authority"] == report.underlying.to_json_dict()[
+            "validation_authority"
+        ]
+        assert payload["validation_authority"]["authority"] == (
+            "current_scoring_authority"
+        )
         accuracy = payload["accuracy"]
         assert accuracy["true_positives"] == 1
         assert accuracy["true_negatives"] == 1
@@ -1283,8 +1293,7 @@ class TestCalibrationReport:
     ) -> None:
         manifest_path, payloads = self._payloads(tmp_path)
         manifest = load_manifest(manifest_path)
-        receipt_path, results_path = _receipt_artifacts(tmp_path, manifest_path)
-        receipt = load_validation_receipt(receipt_path, manifest_path, results_path)
+        receipt = _current_validation_authority(manifest_path)
 
         report = build_calibration_report(
             manifest,
@@ -1331,8 +1340,7 @@ class TestCalibrationReport:
     ) -> None:
         manifest_path, payloads = self._payloads(tmp_path)
         manifest = load_manifest(manifest_path)
-        receipt_path, results_path = _receipt_artifacts(tmp_path, manifest_path)
-        receipt = load_validation_receipt(receipt_path, manifest_path, results_path)
+        receipt = _current_validation_authority(manifest_path)
 
         report = build_calibration_report(
             manifest,
@@ -1373,8 +1381,7 @@ class TestCalibrationReport:
                 )
             ),
         ]
-        receipt_path, results_path = _receipt_artifacts(tmp_path, manifest_path)
-        receipt = load_validation_receipt(receipt_path, manifest_path, results_path)
+        receipt = _current_validation_authority(manifest_path)
 
         report = build_calibration_report(
             manifest,

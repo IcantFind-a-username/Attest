@@ -228,8 +228,10 @@ def test_validate_prepared_root_requires_verified_isolation_and_writes_bound_art
     assert report["command_success"] is True
     assert report["corpus_valid"] is True
     assert report["validation_status"] == "valid"
-    assert json.loads(receipt.read_text()) == report["receipt"]
-    assert json.loads(results.read_text()) == report["validation_results"]
+    assert report["receipt"] is None
+    assert report["scorable"] is False
+    assert not receipt.exists()
+    assert not results.exists()
 
 
 def _cassette(root: Path, case_id: str, proposal: str, repro: str) -> None:
@@ -437,7 +439,7 @@ def test_replay_with_a_prepared_root_runs_the_real_product_path(tmp_path: Path) 
 def test_replay_scores_only_when_a_receipt_for_this_manifest_authorises_it(
     tmp_path: Path,
 ) -> None:
-    """The gate authorises; it is not a refusal that can never be satisfied."""
+    """The CLI must not upgrade a historical v1 receipt into current authority."""
     manifest, root, cassettes, _, _ = _replay_fixture(tmp_path)
     receipt, results = _receipt_artifacts(tmp_path, manifest)
     environment = dict(os.environ)
@@ -465,14 +467,12 @@ def test_replay_scores_only_when_a_receipt_for_this_manifest_authorises_it(
         env=environment,
     )
 
-    assert completed.returncode == 0, completed.stderr
-    assert json.loads(completed.stdout)["metrics_status"] == "reported"
+    assert completed.returncode == 3, completed.stderr
+    assert json.loads(completed.stdout)["metrics_status"] == "withheld"
     report = json.loads((output / "report.json").read_text(encoding="utf-8"))
-    assert report["metrics_withheld_reason"] is None
-    assert report["metrics"]["true_positives"] == 1
-    assert report["metrics"]["true_negatives"] == 1
-    assert report["metrics"]["finding_false_positives"] == 0
-    assert report["operational"]["decided_cases"] == 2
+    assert report["validation_authority"]["authority"] == "historical_integrity_only"
+    assert report["metrics"] is None
+    assert report["operational"]["decided_cases"] == 0
 
 
 def test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence(
@@ -486,7 +486,6 @@ def test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence(
     manifest, root, cassettes, _, control_id = _replay_fixture(
         tmp_path, control_proposal="not-json-at-all"
     )
-    receipt, results = _receipt_artifacts(tmp_path, manifest)
     environment = dict(os.environ)
     environment["ANTHROPIC_API_KEY"] = "must-not-be-used"
     output = tmp_path / "out-deferred"
@@ -501,10 +500,6 @@ def test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence(
         str(root),
         "--output",
         str(output),
-        "--validation-receipt",
-        str(receipt),
-        "--validation-results",
-        str(results),
         "--k-samples",
         "2",
         "--repeats",
@@ -520,11 +515,10 @@ def test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence(
     assert [row["case_id"] for row in report["abstained_cases"]] == [control_id]
     assert report["abstained_cases"][0]["reason"]
     assert control_id not in {row["case_id"] for row in report["excluded_cases"]}
-    assert report["metrics"]["true_negatives"] == 0
-    assert report["metrics"]["false_positives"] == 0
-    assert report["metrics"]["specificity"] is None
-    assert report["metrics"]["clean_false_positive_rate"] is None
-    assert report["metrics"]["true_positives"] == 1
+    assert report["metrics"] is None
+    assert report["metrics_withheld_reason"] == (
+        "validation_receipt_missing"
+    )
     assert report["operational"]["decided_cases"] == 1
     assert report["operational"]["abstained_cases"] == 1
     markdown = (output / "report.md").read_text(encoding="utf-8")
