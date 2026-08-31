@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import math
 import time
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -1037,10 +1038,17 @@ def _deferred_reason_from_rows(
         and row["reason"]
     ]
     if verification_reasons:
-        reason = f"verification deferred: {verification_reasons[0]}"
-        if len(verification_reasons) > 1:
-            reason += f" ({len(verification_reasons)} candidates)"
-        return reason
+        counts = Counter(verification_reasons)
+        details = []
+        for reason, count in counts.items():
+            candidate_word = "candidate" if count == 1 else "candidates"
+            suffix = (
+                ""
+                if len(verification_reasons) == 1
+                else f" ({count} {candidate_word})"
+            )
+            details.append(reason + suffix)
+        return "verification deferred: " + "; ".join(details)
     defer_reasons = [
         str(row["reason"])
         for row in rows

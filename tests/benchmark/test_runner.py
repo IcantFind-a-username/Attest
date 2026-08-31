@@ -18,7 +18,7 @@ from attest.benchmark.api import (
     _adjudicate_measurement,
     _score,
 )
-from attest.benchmark.measurement import reduce_measurements
+from attest.benchmark.measurement import TaskDeliveryTerminalStatus, reduce_measurements
 from attest.benchmark.runner import (
     REPRO_STATUS_BY_EVIDENCE_CLASS,
     BenchmarkRunner,
@@ -27,6 +27,7 @@ from attest.benchmark.runner import (
     LoopbackGitHub,
     ReplayProvider,
     ReproReceipt,
+    _deferred_reason_from_rows,
     ci_final_decisions,
     extract_predictions,
     load_cassette,
@@ -441,6 +442,30 @@ def test_replay_report_preserves_generation_defer_reason_from_ledger(
     assert result.deferred_reason is not None
     assert "verification deferred: generation failed: ValueError" in result.deferred_reason
     assert 'raw="{}"' in result.deferred_reason
+
+
+def test_deferred_reason_reports_each_verification_cause() -> None:
+    task_id = "task-mixed-defer"
+    rows = [
+        {
+            "kind": "verification",
+            "task_id": task_id,
+            "outcome": "deferred",
+            "reason": reason,
+        }
+        for reason in ("child process blocked", "schema invalid", "child process blocked")
+    ]
+
+    reason = _deferred_reason_from_rows(
+        rows,
+        task_id,
+        TaskDeliveryTerminalStatus.DEFERRED,
+    )
+
+    assert reason == (
+        "verification deferred: child process blocked (2 candidates); "
+        "schema invalid (1 candidate)"
+    )
 
 
 def test_overflow_surfaces_are_extracted_as_scored_predictions(
