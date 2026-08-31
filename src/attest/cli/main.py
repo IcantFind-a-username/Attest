@@ -200,19 +200,10 @@ def cmd_stats(args: argparse.Namespace) -> int:
         if e.get("kind") == "review_run" and str(e.get("task_id", "")) not in final_tasks
     ] + final_runs
     reviews = [e for e in entries if e.get("kind") == "review"]
-    surfaced = [
-        e
-        for e in reviews
-        if str(e.get("action", "")).endswith("surface")
-        and str(e.get("task_id", "")) not in final_tasks
-    ]
-    surfaced.extend(
-        decision
-        for run in final_runs
-        for decision in run.get("decisions", [])
-        if isinstance(decision, dict) and decision.get("action") == "surface"
+    surfaced = ledger.surfaced_finding_ids(entries)
+    precision, n = ledger.surfaced_precision(
+        entries=entries, surfaced_ids=surfaced
     )
-    precision, n = ledger.surfaced_precision()
     spend = sum(float(e.get("spend_usd", 0)) for e in runs)
     lat = sorted(float(e["elapsed_s"]) for e in runs if "elapsed_s" in e)
     p50 = lat[len(lat) // 2] if lat else None

@@ -21,7 +21,7 @@ from attest.benchmark.api import (
     freeze_evaluation_request,
 )
 from attest.benchmark.artifacts import ArtifactStore, verify_artifacts
-from attest.benchmark.measurement import decode_measurement_record
+from attest.benchmark.measurement import decode_measurement_record, reduce_measurements
 from attest.benchmark.runner import BenchmarkRunner, Cassette, ReplayProvider
 from attest.benchmark.schema import TruthDefect
 from attest.review.config import ReviewConfig
@@ -120,6 +120,38 @@ def test_evaluate_project_measures_a_caller_owned_repository_without_truth(
     assert not any((tmp_path / "workspace").iterdir())
     assert len(git(repo, "worktree", "list").splitlines()) == 1
     assert str(tmp_path / "workspace") not in git(repo, "worktree", "list")
+
+
+def test_explicit_null_truth_is_adjudicated_before_artifact_persistence(
+    tmp_path: Path,
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    store = ArtifactStore(tmp_path / "artifacts")
+
+    result = evaluate_project(
+        _request(
+            tmp_path,
+            repo,
+            base_sha,
+            head_sha,
+            truth=ProjectTruth(defects=()),
+        ),
+        provider=_provider(),
+        artifact_store=store,
+    )
+
+    assert result.measurement.truth_status.value == "null"
+    assert result.score is not None
+    assert (result.score.matched, result.score.unmatched) == (0, 1)
+    scored_record = next(
+        record for record in result.artifacts if record.kind == "scored_run"
+    )
+    persisted = json.loads(
+        (tmp_path / "artifacts" / scored_record.name).read_text(encoding="utf-8")
+    )
+    measurement = decode_measurement_record(persisted["measurement"])
+    assert measurement == result.measurement
+    assert measurement.findings[0].accuracy_status.value == "wrong"
 
 
 def test_batch_preflight_deep_snapshots_mutable_review_policy_before_factory(
@@ -527,6 +559,123 @@ def test_evaluate_project_scores_surfaced_findings_against_supplied_truth(
     assert result.score.matches[0].defect_id == "defect-1"
     assert result.predictions[0].repro_status == "buggy_fail_fixed_pass"
     assert result.oracle_receipts[0].confirmed is True
+    summary = reduce_measurements((result.measurement,))
+    assert result.measurement.truth_status.value == "positive"
+    assert result.measurement.eligible_defect_ids == ("defect-1",)
+    assert [finding.accuracy_status.value for finding in result.measurement.findings] == [
+        "correct"
+    ]
+    assert summary.published == result.score.surfaced == 1
+    assert summary.correct == result.score.matched == 1
+    assert summary.wrong == result.score.unmatched == 0
+
+
+def test_mixed_surface_defer_preserves_predictions(tmp_path: Path) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    surfaced = (
+        {
+            "claim": "Empty batch division crashes request processing.",
+            "anchor": {"file": "app.py", "line": 2},
+            "failure_scenario": "A request submits an empty batch.",
+            "falsification_plan": "Call the helper with no batch entries.",
+        },
+        {
+            "claim": "Missing measurements abort the scheduled aggregation.",
+            "anchor": {"file": "app.py", "line": 2},
+            "failure_scenario": "A scheduled job receives no measurements.",
+            "falsification_plan": "Run the scheduled job without measurements.",
+        },
+        {
+            "claim": "Vacant samples terminate the health calculation.",
+            "anchor": {"file": "app.py", "line": 2},
+            "failure_scenario": "A health window contains vacant samples.",
+            "falsification_plan": "Evaluate a health window containing no samples.",
+        },
+        {
+            "claim": "Zero observations make the reporting endpoint unavailable.",
+            "anchor": {"file": "app.py", "line": 2},
+            "failure_scenario": "The endpoint handles a period with zero observations.",
+            "falsification_plan": "Request a report for an observation-free period.",
+        },
+    )
+    deferred = {
+        "claim": "An unrelated private checkpoint may be inconsistent.",
+        "anchor": {"file": "app.py", "line": 1},
+        "failure_scenario": "A private checkpoint receives no state.",
+        "falsification_plan": "Inspect the unavailable private checkpoint.",
+    }
+    proposal = json.dumps({"findings": [*surfaced, deferred]})
+    repro = json.dumps(
+        {
+            "test_body": "import runpy\n\n"
+            "def test_empty_input_is_safe():\n"
+            "    average = runpy.run_path('app.py')['average']\n"
+            "    assert average([]) == 0\n"
+        }
+    )
+
+    class MixedProvider:
+        def sample(
+            self,
+            system: str,
+            prompt: str,
+            schema: dict[str, Any],
+            max_tokens: int,
+            *,
+            timeout_s: float | None = None,
+        ) -> ProviderResult:
+            del schema, max_tokens, timeout_s
+            if "focused pytest reproduction" not in system:
+                return ProviderResult(text=proposal, input_tokens=10, output_tokens=10)
+            payload = "{}" if deferred["claim"] in prompt else repro
+            return ProviderResult(text=payload, input_tokens=10, output_tokens=10)
+
+    truth = ProjectTruth(
+        fixed_ref=base_sha,
+        defects=(
+            TruthDefect(
+                defect_id="defect-1",
+                case_id=CASE_ID,
+                file="app.py",
+                start_line=1,
+                end_line=2,
+            ),
+        ),
+    )
+
+    result = evaluate_project(
+        _request(
+            tmp_path,
+            repo,
+            base_sha,
+            head_sha,
+            truth=truth,
+            config=ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[]),
+        ),
+        provider=MixedProvider(),
+    )
+
+    summary = reduce_measurements((result.measurement,))
+    assert result.status == "deferred"
+    assert result.measurement.task_status.value == "partially_deferred"
+    assert len(result.predictions) == result.measurement.published_count == 4
+    assert result.measurement.unresolved_count == 1
+    assert result.score is not None
+    assert (result.score.surfaced, result.score.matched, result.score.unmatched) == (
+        4,
+        1,
+        3,
+    )
+    assert (summary.published, summary.correct, summary.wrong, summary.unresolved) == (
+        4,
+        1,
+        3,
+        1,
+    )
+    with pytest.raises(ValueError, match="status does not match.*task_status"):
+        replace(result, status="completed")
+    with pytest.raises(ValueError, match="requires an abstain_reason"):
+        replace(result, abstain_reason=None)
 
 
 def test_scored_run_rejects_caller_oracle_and_prediction_rewrite(

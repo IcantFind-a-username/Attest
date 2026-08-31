@@ -14,6 +14,7 @@ import pytest
 
 from attest.benchmark.api import (
     ProjectEvaluationRequest,
+    ProjectTruth,
     build_evaluation_binding,
     current_runtime_identity,
 )
@@ -25,8 +26,9 @@ from attest.benchmark.checkpoints import (
     STATE_RESPONSE_PERSISTED,
     AmbiguousCostError,
 )
+from attest.benchmark.measurement import ARM_ATTEST_PRODUCT, TaskStatus
 from attest.benchmark.runner import Cassette, ReplayProvider
-from attest.benchmark.schema import ChangedLocation, load_manifest
+from attest.benchmark.schema import ChangedLocation, TruthDefect, load_manifest
 from attest.benchmark.stability import (
     STABILITY_REPEATS,
     StabilityObservation,
@@ -38,6 +40,7 @@ from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits
 from attest.review.proposer import Provider
 
+from .test_baselines import _finding, _measurement_record
 from .test_corpus import _oracle_fixture
 
 _SCRIPT = Path(__file__).parents[2] / "scripts" / "benchmark.py"
@@ -66,8 +69,9 @@ _EMPTY_PROPOSAL = json.dumps({"findings": []})
 _LOCATIONS = (ChangedLocation(path="calc.py", start_line=2, end_line=2, side="old"),)
 
 
-def _surfaced(wealth: float) -> SurfacedAnchor:
+def _surfaced(wealth: float, finding_id: str = "finding-1") -> SurfacedAnchor:
     return SurfacedAnchor(
+        finding_id=finding_id,
         file="calc.py",
         line=2,
         placement="inline",
@@ -86,13 +90,45 @@ def _observation(
     latency_s: float = 1.0,
     spend_usd: float = 0.01,
 ) -> StabilityObservation:
+    findings = tuple(
+        _finding(
+            anchor.finding_id,
+            accuracy="unadjudicated",
+            defect_id=None,
+        )
+        for anchor in surfaced
+    )
+    findings += tuple(
+        _finding(
+            f"unresolved-{repeat}-{index}",
+            status="unresolved",
+            accuracy="unadjudicated",
+            defect_id=None,
+        )
+        for index in range(candidate_count - len(findings))
+    )
+    stop = "candidate_defer" if deferred is not None and surfaced else (
+        "task_defer" if deferred is not None else "none"
+    )
+    measurement = replace(
+        _measurement_record(
+            stop=stop,
+            findings=findings,
+            repeat=repeat,
+            eligible_defect_ids=(),
+            truth_status="unadjudicated",
+        ),
+        case_id="case-333333333333",
+        arm=ARM_ATTEST_PRODUCT,
+    )
     return StabilityObservation(
         repeat=repeat,
         run_id=f"run-{repeat}",
-        status="deferred" if deferred is not None else "completed",
+        status=measurement.task_status.value,
         abstain_reason=deferred,
-        surfaced=() if deferred is not None else surfaced,
-        candidate_count=candidate_count,
+        surfaced=surfaced,
+        candidate_count=measurement.candidate_count,
+        measurement=measurement,
         latency_s=latency_s,
         product_spend_usd=spend_usd,
         oracle_spend_usd=0.0,
@@ -124,7 +160,15 @@ def test_summarize_stability_reports_exact_agreement_and_dispersion() -> None:
     )
 
     assert report.repeats == STABILITY_REPEATS == 10
-    assert report.schema_version == "4"
+    assert report.schema_version == "5"
+    assert report.semantic_n == 1
+    assert report.operational_repeats == 10
+    assert report.task_status_counts == {
+        "completed": 9,
+        "partially_deferred": 0,
+        "fully_deferred": 1,
+        "failed": 0,
+    }
     assert len(report.run_ids) == 10
     assert report.outcomes == (
         "surfaced",
@@ -166,6 +210,32 @@ def test_summarize_stability_reports_exact_agreement_and_dispersion() -> None:
     assert report.digest
 
 
+def test_stability_partial_defer_retains_author_visible_surface() -> None:
+    observations = (
+        *(_observation(repeat) for repeat in range(9)),
+        _observation(
+            9,
+            deferred="candidate evidence remained unresolved",
+            surfaced=(_surfaced(12.0),),
+            candidate_count=2,
+        ),
+    )
+
+    report = summarize_stability(
+        case_id="case-333333333333",
+        manifest_sha256="ab" * 32,
+        observations=observations,
+        locations=_LOCATIONS,
+    )
+
+    assert report.outcomes[-1] == "surfaced_deferred"
+    assert [(row.repeat, row.reason) for row in report.deferred_runs] == [
+        (9, "candidate evidence remained unresolved")
+    ]
+    assert report.clusters[0].decisions[-1] == "inline"
+    assert report.clusters[0].runs_present == 1
+
+
 def test_stability_report_digest_binds_each_repeat_reconciliation() -> None:
     observations = _synthetic_observations()
     original = summarize_stability(
@@ -192,6 +262,7 @@ def test_summarize_stability_gives_off_location_anchors_singleton_clusters() -> 
     """An anchor outside every preregistered location clusters by its own
     canonical file and line, never by claim prose."""
     stray = SurfacedAnchor(
+        finding_id="finding-stray",
         file="calc.py",
         line=40,
         placement="overflow",
@@ -238,6 +309,26 @@ def test_summarize_stability_requires_exactly_ten_distinct_repeats() -> None:
             observations=duplicated,
             locations=_LOCATIONS,
         )
+
+
+def test_stability_observation_rejects_status_and_surface_authority_drift() -> None:
+    observation = _observation(0, surfaced=(_surfaced(10.0),), candidate_count=1)
+
+    with pytest.raises(ValueError, match="status.*measurement"):
+        replace(observation, status=TaskStatus.FAILED.value)
+    with pytest.raises(ValueError, match="published finding"):
+        replace(
+            observation,
+            surfaced=(replace(observation.surfaced[0], finding_id="injected"),),
+        )
+
+
+def test_retained_stability_v3_observation_is_not_reinterpreted() -> None:
+    payload = _observation(0).to_json_dict()
+    payload["schema_version"] = "3"
+
+    with pytest.raises(ValueError, match="unsupported observation schema version '3'"):
+        StabilityObservation.from_json_dict(payload)
 
 
 def test_stability_report_is_operational_only() -> None:
@@ -463,52 +554,30 @@ def test_post_settlement_exception_preserves_authoritative_role_spend(
     monkeypatch.setattr(
         "attest.benchmark.stability.evaluate_project", settle_then_fail
     )
-    result = run_stability_study(
-        request,
-        provider_factory=lambda _repeat: ReplayProvider(
-            Cassette(proposal="{}", repro="{}", input_tokens=100, output_tokens=20)
-        ),
-        state_dir=state_dir,
-        locations=_LOCATIONS,
-        manifest_sha256="cd" * 32,
-        provider_label="injected_fake",
-    )
-
-    observation = json.loads(
-        (state_dir / "repeat-0.json").read_text(encoding="utf-8")
-    )
-    assert "spend_usd" not in observation
-    assert (observation["product_spend_usd"] > 0) is expected_product
-    assert (observation["oracle_spend_usd"] > 0) is expected_oracle
-    assert observation["total_spend_usd"] == pytest.approx(
-        observation["product_spend_usd"] + observation["oracle_spend_usd"]
-    )
-    assert result.report.product_spend_total_usd == pytest.approx(
-        sum(
-            json.loads((state_dir / f"repeat-{repeat}.json").read_text())["product_spend_usd"]
-            for repeat in range(STABILITY_REPEATS)
+    with pytest.raises(RuntimeError, match="evaluation failed after settlement"):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: ReplayProvider(
+                Cassette(proposal="{}", repro="{}", input_tokens=100, output_tokens=20)
+            ),
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
         )
-    )
-    assert result.report.oracle_spend_total_usd == pytest.approx(
-        sum(
-            json.loads((state_dir / f"repeat-{repeat}.json").read_text())["oracle_spend_usd"]
-            for repeat in range(STABILITY_REPEATS)
-        )
-    )
-    assert result.report.total_spend_total_usd == pytest.approx(
-        result.report.product_spend_total_usd
-        + result.report.oracle_spend_total_usd
-    )
 
-    resumed = run_stability_study(
-        request,
-        provider_factory=lambda _repeat: pytest.fail("resume dispatched a provider"),
-        state_dir=state_dir,
-        locations=_LOCATIONS,
-        manifest_sha256="cd" * 32,
-        provider_label="injected_fake",
-    )
-    assert resumed.report.digest == result.report.digest
+    assert not (state_dir / "repeat-0.json").exists()
+    cost_rows = [
+        json.loads(line)
+        for line in (state_dir / "repeat-0-calls" / "costs.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert len(cost_rows) == 1
+    assert cost_rows[0]["role"] == settled_role
+    assert cost_rows[0]["cost_usd"] > 0
+    assert (settled_role == CALL_ROLE_PRODUCT) is expected_product
+    assert (settled_role == CALL_ROLE_BENCHMARK_ORACLE) is expected_oracle
 
 
 def test_stability_resume_rejects_observation_spend_tampering(
@@ -640,8 +709,6 @@ def test_run_stability_study_fails_closed_on_drift_truth_or_corrupt_state(
         provider_label="injected_fake",
     )
 
-    from dataclasses import replace
-
     drifted = replace(
         request,
         config=ReviewConfig(
@@ -657,9 +724,6 @@ def test_run_stability_study_fails_closed_on_drift_truth_or_corrupt_state(
             manifest_sha256="cd" * 32,
             provider_label="injected_fake",
         )
-
-    from attest.benchmark.api import ProjectTruth
-    from attest.benchmark.schema import TruthDefect
 
     with_truth = ProjectEvaluationRequest(
         case_id=request.case_id,

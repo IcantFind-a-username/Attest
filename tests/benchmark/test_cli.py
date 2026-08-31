@@ -701,7 +701,7 @@ def test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence(
 
     assert completed.returncode == 0, completed.stderr
     summary = json.loads(completed.stdout)
-    assert summary["evaluated_cases"] == 1
+    assert summary["evaluated_cases"] == 2
     assert summary["abstained_cases"] == 1
     report = json.loads((output / "report.json").read_text(encoding="utf-8"))
     assert [row["case_id"] for row in report["abstained_cases"]] == [control_id]
@@ -717,3 +717,65 @@ def test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence(
     assert "## Abstentions" in markdown
     assert f"| `{control_id}` |" in markdown
     assert "abstention" in " ".join(report["limitations"])
+
+
+def test_compare_cli_reports_authoritative_mixed_outcome_counts(
+    tmp_path: Path,
+    local_ruff_executable: Path,
+    comparison_cli_authority: tuple[Path, str],
+) -> None:
+    """Compare stdout must project the sealed product reducer, not top-level runs."""
+    manifest, root, cassettes, _, _ = _replay_fixture(
+        tmp_path, control_proposal="not-json-at-all"
+    )
+    output = tmp_path / "compare-mixed"
+    authority_root, run_identity = comparison_cli_authority
+
+    completed = _run(
+        "compare",
+        "--manifest",
+        str(manifest),
+        "--cassette-root",
+        str(cassettes),
+        "--root",
+        str(root),
+        "--output",
+        str(output),
+        "--comparison-authority-root",
+        str(authority_root),
+        "--comparison-run-id",
+        run_identity,
+        "--ruff-executable",
+        str(local_ruff_executable),
+        "--k-samples",
+        "2",
+        "--differential-repeats",
+        "1",
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    summary = json.loads(completed.stdout)
+    assert summary["outcome_accounting"] == {
+        "abstentions": 1,
+        "deployment_misses": None,
+        "failures": 0,
+        "metrics_withheld_reason": None,
+        "operational_unadjudicated": 0,
+        "operational_repeats": 2,
+        "pr_any_wrong_withheld_reason": None,
+        "published": 1,
+        "reducer_semantics": "mixed_outcome_v3",
+        "semantic_n": 2,
+        "task_status_counts": {
+            "completed": 1,
+            "failed": 0,
+            "fully_deferred": 1,
+            "partially_deferred": 0,
+        },
+        "unadjudicated": 0,
+        "unresolved": 0,
+    }
+    report = json.loads((output / "comparison.json").read_text(encoding="utf-8"))
+    product = next(arm for arm in report["arms"] if arm["arm"] == "attest_product")
+    assert product["outcome_accounting"] == summary["outcome_accounting"]
+    assert product["accuracy"] is None

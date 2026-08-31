@@ -20,7 +20,7 @@ from attest.benchmark.api import (
     ProjectEvaluationAuthorityError,
     ProjectEvaluationRequest,
     ProjectEvaluationResult,
-    ProjectTruth,
+    manifest_project_truth,
     project_truth_sha256,
 )
 from attest.benchmark.api import (
@@ -53,6 +53,28 @@ from attest.benchmark.corpus import (
     load_validation_receipt,
     validation_receipt_binding_bytes,
 )
+from attest.benchmark.measurement import (
+    CURRENT_MEASUREMENT_SCHEMA_VERSION,
+    CURRENT_MEASUREMENT_SEMANTICS,
+    DELIVERY_TRANSCRIPT_PROTOCOL,
+    DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
+    EMPTY_DELIVERY_TRANSCRIPT_SHA256,
+    AccuracyStatus,
+    DeliveryStatus,
+    DeliveryTranscriptReceipt,
+    FindingAuthority,
+    FindingOutcome,
+    FindingStatus,
+    MeasurementRecord,
+    PublicationChannel,
+    PublicationEvent,
+    PublicationMember,
+    PublicationOutcome,
+    PublicationPlacement,
+    StopKind,
+    TruthStatus,
+    derive_task_status,
+)
 from attest.benchmark.report import (
     RECEIPT_HISTORICAL,
     RECEIPT_MISSING,
@@ -62,7 +84,7 @@ from attest.benchmark.report import (
     build_comparison_report as _build_comparison_report,
 )
 from attest.benchmark.runner import Cassette, ReplayProvider
-from attest.benchmark.schema import TruthDefect, load_manifest, normalize_unified_diff_bytes
+from attest.benchmark.schema import load_manifest, normalize_unified_diff_bytes
 from attest.review.config import ReviewConfig
 from attest.review.diffs import parse_diff
 from attest.review.executor import ExecutorLimits
@@ -151,6 +173,108 @@ def build_comparison_report(manifest, measurements, **kwargs):
     if "publication_authority" not in kwargs:
         kwargs["publication_authority"] = measurements.publication_authority
     return _build_comparison_report(manifest, measurements, **kwargs)
+
+
+def _finding(
+    finding_id: str,
+    *,
+    status: str = "published",
+    accuracy: str = "correct",
+    defect_id: str | None = "defect-1",
+    authority: str = "automated",
+) -> FindingOutcome:
+    return FindingOutcome(
+        finding_id=finding_id,
+        finding_status=FindingStatus(status),
+        accuracy_status=AccuracyStatus(accuracy),
+        defect_id=defect_id,
+        publication_event_ids=(
+            ("publication:event",) if status == "published" else ()
+        ),
+        authority=FindingAuthority(authority),
+    )
+
+
+def _measurement_record(
+    *,
+    stop: str = "none",
+    findings: tuple[FindingOutcome, ...] = (),
+    repeat: int = 0,
+    eligible_defect_ids: tuple[str, ...] = ("defect-1",),
+    pull_request_number: int = 17,
+    truth_status: str = "positive",
+) -> MeasurementRecord:
+    stop_kind = StopKind(stop)
+    task_status = derive_task_status(stop_kind, findings)
+    published_count = sum(finding.author_visible for finding in findings)
+    unresolved_count = sum(
+        finding.finding_status is FindingStatus.UNRESOLVED for finding in findings
+    )
+    publication_events = (
+        (
+            PublicationEvent(
+                event_id="publication:event",
+                attempt_id="attempt:publication",
+                attempt_ordinal=0,
+                repository="local/project",
+                pull_request_number=pull_request_number,
+                head_sha="1" * 40,
+                members=tuple(
+                    PublicationMember(
+                        finding_id=finding.finding_id,
+                        placement=PublicationPlacement.INLINE,
+                    )
+                    for finding in findings
+                    if finding.author_visible
+                ),
+                channel=PublicationChannel.INLINE_REVIEW,
+                outcome=PublicationOutcome.SUCCEEDED,
+                body_sha256="a" * 64,
+                request_sha256="d" * 64,
+                remote_response_id="101",
+                delivered_at_s=5.0,
+                deadline_s=60.0,
+            ),
+        )
+        if published_count
+        else ()
+    )
+    return MeasurementRecord(
+        schema_version=CURRENT_MEASUREMENT_SCHEMA_VERSION,
+        scoring_semantics=CURRENT_MEASUREMENT_SEMANTICS,
+        case_id="case-1",
+        arm="product",
+        repeat=repeat,
+        stop_kind=stop_kind,
+        task_status=task_status,
+        findings=findings,
+        eligible_defect_ids=eligible_defect_ids,
+        pull_request_number=pull_request_number,
+        truth_status=TruthStatus(truth_status),
+        delivery_status=(
+            DeliveryStatus.PUBLISHED_ON_TIME
+            if published_count
+            else DeliveryStatus.NO_PUBLICATION
+        ),
+        candidate_count=len(findings),
+        published_count=published_count,
+        unresolved_count=unresolved_count,
+        publication_events=publication_events,
+        task_delivery_events=(),
+        delivery_transcript=DeliveryTranscriptReceipt(
+            schema_version=DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
+            protocol=DELIVERY_TRANSCRIPT_PROTOCOL,
+            task_id=("task:measurement" if publication_events else None),
+            expected_attempt_count=(1 if publication_events else 0),
+            last_attempt_ordinal=(0 if publication_events else None),
+            transcript_sha256=(
+                "e" * 64 if publication_events else EMPTY_DELIVERY_TRANSCRIPT_SHA256
+            ),
+        ),
+        metrics_withheld_reason=None,
+        delivery_withheld_reason=None,
+        task_delivery_withheld_reason=None,
+    )
 
 
 def _replace_execution_measurements(
@@ -594,9 +718,6 @@ def _plans(tmp_path: Path) -> tuple[list[ComparisonPlan], dict[str, Cassette], P
             output_tokens=200,
         ),
     }
-    truths: dict[str, tuple[TruthDefect, ...]] = {}
-    for truth in manifest.truth_defects:
-        truths[truth.case_id] = (*truths.get(truth.case_id, ()), truth)
     plans: list[ComparisonPlan] = []
     for case in manifest.cases:
         runtime = next(r for r in manifest.runtime if r.case_id == case.case_id)
@@ -619,13 +740,7 @@ def _plans(tmp_path: Path) -> tuple[list[ComparisonPlan], dict[str, Cassette], P
                     verification_timeout_s=120.0,
                     repeats=1,
                     deadline_s=60.0,
-                    truth=(
-                        ProjectTruth(
-                            fixed_ref=case.fixed_commit, defects=truths[case.case_id]
-                        )
-                        if case.case_id in truths
-                        else None
-                    ),
+                    truth=manifest_project_truth(manifest, case.case_id),
                 ),
             )
         )
@@ -3000,6 +3115,115 @@ def test_compare_arms_requires_repeat_zero_and_reports_deferred_arms(
     assert ruff_arm.accuracy.detection_rate is None
     deferred_runs = [run for run in measurements.runs if run.status == "deferred"]
     assert {run.arm for run in deferred_runs} == {ARM_RUFF}
+
+
+def test_comparison_authoritative_partial_defer_retains_visible_findings_in_accuracy(
+) -> None:
+    measurement = _measurement_record(
+        stop="candidate_defer",
+        findings=(
+            _finding("correct", defect_id="defect-1"),
+            _finding("wrong", accuracy="wrong", defect_id=None),
+            _finding(
+                "unresolved",
+                status="unresolved",
+                accuracy="unadjudicated",
+                defect_id=None,
+            ),
+        ),
+        eligible_defect_ids=("defect-1", "defect-2"),
+    )
+    run = baselines_module.ArmRun(
+        arm=ARM_PRODUCT,
+        case_id=measurement.case_id,
+        role="historical_bug_replay",
+        status="partially_deferred",
+        abstain_reason="one candidate remained unresolved",
+        findings=(
+            baselines_module.BaselineFinding(
+                file="app.py", line=1, evidence_class="regression_reproduced", finding_id="correct"
+            ),
+            baselines_module.BaselineFinding(
+                file="app.py", line=2, evidence_class="regression_reproduced", finding_id="wrong"
+            ),
+        ),
+        matched_defect_ids=("defect-1", None),
+        model_calls=1,
+        input_tokens=1,
+        output_tokens=1,
+        spend_usd=0.0,
+        oracle_spend_usd=0.0,
+        wall_time_s=1.0,
+        tool_cost_s=None,
+        product_measurement=measurement,
+    )
+
+    summary = _summarize_arm(ARM_PRODUCT, (run,))
+
+    assert summary.scoring_semantics == "mixed_outcome_v3"
+    assert summary.accuracy.finding_true_positives == 1
+    assert summary.accuracy.finding_false_positives == 1
+    assert summary.accuracy.finding_precision == pytest.approx(0.5)
+    assert summary.accuracy.detected_positive_cases == 1
+    assert summary.accuracy.decided_positive_cases == 1
+    assert summary.operational.evaluated_cases == 1
+    assert summary.operational.deferred_cases == 1
+    assert summary.operational.surfaced_findings == 2
+    assert summary.outcome_accounting["unresolved"] == 1
+    assert summary.outcome_accounting["missed_defects"] == 1
+
+
+def test_product_run_matches_are_an_exact_measurement_projection() -> None:
+    wrong = _measurement_record(
+        findings=(_finding("finding-1", accuracy="wrong", defect_id=None),)
+    )
+    findings = (
+        baselines_module.BaselineFinding(
+            file="matching-location.py",
+            line=1,
+            evidence_class="regression_reproduced",
+            finding_id="finding-1",
+        ),
+    )
+
+    assert baselines_module._product_measurement_matches(findings, wrong) == (None,)
+    with pytest.raises(ValueError, match="exact.*finding_id|finding_id.*exact"):
+        baselines_module._product_measurement_matches(
+            (replace(findings[0], finding_id="injected"),), wrong
+        )
+
+
+def test_comparison_authoritative_silent_defer_is_never_a_clean_control() -> None:
+    measurement = _measurement_record(
+        stop="task_defer",
+        findings=(),
+        eligible_defect_ids=(),
+        truth_status="null",
+    )
+    run = baselines_module.ArmRun(
+        arm=ARM_PRODUCT,
+        case_id=measurement.case_id,
+        role="developer_fix_control",
+        status="fully_deferred",
+        abstain_reason="task deferred",
+        findings=(),
+        matched_defect_ids=(),
+        model_calls=1,
+        input_tokens=1,
+        output_tokens=1,
+        spend_usd=0.0,
+        oracle_spend_usd=0.0,
+        wall_time_s=1.0,
+        tool_cost_s=None,
+        product_measurement=measurement,
+    )
+
+    summary = _summarize_arm(ARM_PRODUCT, (run,))
+
+    assert summary.accuracy.decided_control_cases == 0
+    assert summary.accuracy.silent_control_cases == 0
+    assert summary.accuracy.clean_false_positive_rate is None
+    assert summary.outcome_accounting["null_pull_requests"] == 0
 
 
 def _receipt_artifacts(

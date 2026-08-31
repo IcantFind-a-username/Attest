@@ -54,6 +54,56 @@ def _watermark(tighten_entry: dict[str, Any]) -> int:
     return value if isinstance(value, int) else 0
 
 
+def _surfaced_finding_ids(entries: list[dict[str, Any]]) -> tuple[str, ...]:
+    """Return the ordered, de-duplicated author-visible finding population."""
+
+    from attest.review.ci import reconcile_delivery_rows
+
+    final_tasks = {
+        str(entry["task_id"])
+        for entry in entries
+        if entry.get("kind") == "ci_final" and isinstance(entry.get("task_id"), str)
+    }
+    delivery_tasks = {
+        str(entry["task_id"])
+        for entry in entries
+        if entry.get("kind")
+        in {
+            "delivery_attempt_intent",
+            "delivery_attempt_settlement",
+            "delivery_journal_finalization",
+        }
+        and isinstance(entry.get("task_id"), str)
+    }
+    delivered_by_task = {
+        task_id: tuple(
+            finding_id
+            for event in reconcile_delivery_rows(entries, task_id)[0]
+            if event.outcome == "succeeded"
+            for finding_id, _placement in event.members
+        )
+        for task_id in final_tasks & delivery_tasks
+    }
+    surfaced_ids: list[str] = []
+    for entry in entries:
+        finding_ids: tuple[str, ...] = ()
+        if entry.get("kind") == "ci_final":
+            task_id = str(entry.get("task_id", ""))
+            finding_ids = delivered_by_task.get(task_id, ())
+        elif (
+            entry.get("kind") == "review"
+            and str(entry.get("action", "")).endswith("surface")
+            and str(entry.get("task_id", "")) not in final_tasks
+        ):
+            finding_ids = (str(entry.get("finding_id", "")),)
+        for finding_id in finding_ids:
+            if finding_id in surfaced_ids:
+                surfaced_ids.remove(finding_id)
+            if finding_id:
+                surfaced_ids.append(finding_id)
+    return tuple(surfaced_ids)
+
+
 def _known_secrets() -> tuple[str, ...]:
     return tuple(
         value
@@ -450,32 +500,19 @@ class Ledger:
             entry["elapsed_s"] = round(elapsed_s, 2)
         self.append(entry)
 
-    def surfaced_precision(self, window: int = PRECISION_WINDOW) -> tuple[float | None, int]:
+    def surfaced_precision(
+        self,
+        window: int = PRECISION_WINDOW,
+        *,
+        entries: list[dict[str, Any]] | None = None,
+        surfaced_ids: tuple[str, ...] | None = None,
+    ) -> tuple[float | None, int]:
         """Precision over the last `window` surfaced findings that have
         feedback labels. Returns (precision or None, n_labeled)."""
-        entries = self.entries()
-        final_tasks = {
-            str(e["task_id"])
-            for e in entries
-            if e.get("kind") == "ci_final" and isinstance(e.get("task_id"), str)
-        }
-        surfaced_ids: list[str] = []
-        for e in entries:
-            if e.get("kind") == "ci_final":
-                for decision in e.get("decisions", []):
-                    if isinstance(decision, dict) and decision.get("action") == "surface":
-                        fid = str(decision.get("finding_id", ""))
-                        if fid in surfaced_ids:
-                            surfaced_ids.remove(fid)
-                        if fid:
-                            surfaced_ids.append(fid)
-            if e.get("kind") == "review" and str(e.get("action", "")).endswith("surface"):
-                if str(e.get("task_id", "")) in final_tasks:
-                    continue
-                fid = e["finding_id"]
-                if fid in surfaced_ids:  # re-verification must not double-count
-                    surfaced_ids.remove(fid)
-                surfaced_ids.append(fid)
+        entries = self.entries() if entries is None else entries
+        surfaced_ids = (
+            _surfaced_finding_ids(entries) if surfaced_ids is None else surfaced_ids
+        )
         polarities: dict[str, str] = {}
         for e in entries:
             if e.get("kind") == "feedback":
@@ -492,6 +529,13 @@ class Ledger:
             return None, 0
         precision = sum(1 for _, polarity in labeled if polarity == "true") / len(labeled)
         return precision, len(labeled)
+
+    def surfaced_finding_ids(
+        self, entries: list[dict[str, Any]] | None = None
+    ) -> tuple[str, ...]:
+        """Return the exact finding population used by surfaced precision."""
+
+        return _surfaced_finding_ids(self.entries() if entries is None else entries)
 
     def maybe_tighten_alpha(self, alpha: float, enabled: bool) -> tuple[float, str | None]:
         """MVP auto-tighten rule: rolling surfaced precision < 90% (with at

@@ -12,6 +12,7 @@ from attest.cli.main import main
 from attest.review.candidates import CandidateStore
 from attest.review.config import load_pricing
 from attest.review.gate import GateResult
+from attest.review.ledger import Ledger
 from attest.review.schema import Finding
 
 CLEAN = """def total(items):
@@ -143,6 +144,23 @@ def test_review_verify_feedback_stats(repo: Path, mocks: list[str], capsys) -> N
     assert rc == 0
     assert "runs: 1" in out
     assert "surfaced: 1" in out  # the verified surface
+
+
+def test_stats_uses_the_same_deduplicated_surface_population_as_precision(
+    repo: Path, capsys
+) -> None:
+    ledger = Ledger(repo)
+    ledger.record_review("task-1", "finding-1", ["S"], 0.0, 12.0, "surface")
+    ledger.record_review(
+        "task-1", "finding-1", ["V"], 0.0, 60.0, "verified_surface"
+    )
+    ledger.record_feedback("finding-1", "good")
+
+    assert main(["--repo", str(repo), "stats"]) == 0
+
+    out = capsys.readouterr().out
+    assert "findings evaluated: 2; surfaced: 1\n" in out
+    assert "surfaced precision: 1.0 (1 labeled)" in out
 
 
 def test_feedback_flags_record_distinct_labels(repo: Path, capsys) -> None:

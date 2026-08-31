@@ -73,10 +73,16 @@ from attest.benchmark.corpus import (
 )
 from attest.benchmark.matcher import match_findings
 from attest.benchmark.measurement import (
+    ARM_ATTEST_PRODUCT,
+    AccuracyStatus,
+    FindingAuthority,
     MeasurementRecord,
     MeasurementSummary,
+    StopKind,
     TaskStatus,
+    TruthStatus,
     decode_measurement_record,
+    measurement_summary_payload,
     reduce_measurements,
 )
 from attest.benchmark.metrics import wilson_interval
@@ -86,6 +92,7 @@ from attest.benchmark.report import (
     BenchmarkRunReport,
     ReportAbstention,
     ReportExclusion,
+    _gated_outcome_accounting,
     build_report,
 )
 from attest.benchmark.schema import (
@@ -319,8 +326,7 @@ class LiveCase:
 
 
 def reserved_case_budget_usd(request: ProjectEvaluationRequest) -> float:
-    """The pre-call reservation for one case: product budget, doubled when a
-    truth reference means the independent benchmark oracle will also spend."""
+    """Reserve product cost, plus oracle cost only for non-empty positive truth."""
     budget = request.config.budget_usd
     if (
         isinstance(budget, bool)
@@ -329,7 +335,9 @@ def reserved_case_budget_usd(request: ProjectEvaluationRequest) -> float:
         or budget <= 0
     ):
         raise ValueError("live case budget must be a finite positive number")
-    reserved = budget * (2.0 if request.truth is not None else 1.0)
+    reserved = budget * (
+        2.0 if request.truth is not None and request.truth.defects else 1.0
+    )
     if not math.isfinite(reserved) or reserved <= 0:
         raise ValueError("live case reservation must be finite and positive")
     return reserved
@@ -1241,6 +1249,7 @@ class _Channel:
     surfaced: int = 0
     withheld: int = 0
     matched: int = 0
+    accuracy_withheld: bool = False
 
 
 @dataclass
@@ -1276,6 +1285,7 @@ class CalibrationReport:
     cost: Mapping[str, object]
     paid_calls: tuple[Mapping[str, object], ...]
     outcome_accounting: Mapping[str, object]
+    authoritative_accuracy: Mapping[str, object] | None
     sample_sufficiency: Mapping[str, object]
     limitations: tuple[str, ...]
     digest: str = ""
@@ -1287,6 +1297,17 @@ class CalibrationReport:
 
     def _payload(self) -> dict[str, object]:
         underlying = self.underlying.to_json_dict()
+        outcome_accounting = _gated_outcome_accounting(
+            self.outcome_accounting,
+            authorized=self.accuracy_withheld_reason is None,
+        )
+        if isinstance(outcome_accounting, dict):
+            outcome_accounting = {
+                **outcome_accounting,
+                "scoring_semantics": self.outcome_accounting.get(
+                    "scoring_semantics"
+                ),
+            }
         return {
             "schema_version": self.schema_version,
             "run_id": self.run_id,
@@ -1302,7 +1323,18 @@ class CalibrationReport:
             "evidence_class_counts": underlying["evidence_class_counts"],
             "validation_authority": underlying["validation_authority"],
             "accuracy": (
-                None if self.accuracy_withheld_reason is not None else underlying["metrics"]
+                None
+                if self.accuracy_withheld_reason is not None
+                else (
+                    dict(self.authoritative_accuracy)
+                    if self.authoritative_accuracy is not None
+                    else (
+                        underlying["metrics"]
+                        if self.outcome_accounting.get("scoring_semantics")
+                        == "legacy_v1_scoring"
+                        else None
+                    )
+                )
             ),
             "accuracy_withheld_reason": self.accuracy_withheld_reason,
             "operational": underlying["operational"],
@@ -1314,7 +1346,7 @@ class CalibrationReport:
             "latency": dict(self.latency),
             "cost": dict(self.cost),
             "paid_calls": [dict(row) for row in self.paid_calls],
-            "outcome_accounting": dict(self.outcome_accounting),
+            "outcome_accounting": outcome_accounting,
             "sample_sufficiency": dict(self.sample_sufficiency),
             "limitations": list(self.limitations),
         }
@@ -1358,7 +1390,10 @@ def build_calibration_report(
     abstentions: list[ReportAbstention] = []
     excluded: list[ReportExclusion] = list(exclusions)
     for payload in payloads:
-        case_id = str(payload.get("case_id"))
+        case_id_value = payload.get("case_id")
+        if type(case_id_value) is not str or not case_id_value:
+            raise ValueError("case payload case_id must be a non-empty exact string")
+        case_id = case_id_value
         reason = payload.get("abstain_reason")
         task_id = payload.get("task_id")
         measurement_payload = payload.get("measurement")
@@ -1367,12 +1402,49 @@ def build_calibration_report(
             if type(measurement_payload) is dict
             else None
         )
-        if task_id is None:
-            excluded.append(ReportExclusion(case_id, str(reason or "not_executed")))
-            continue
         if measurement is not None:
             if measurement.case_id != case_id:
                 raise ValueError("case payload measurement case_id mismatch")
+            outer_repeat = payload.get("repeat")
+            if type(outer_repeat) is not int or outer_repeat != measurement.repeat:
+                raise ValueError("current payload repeat does not match measurement repeat")
+            expected_status = (
+                "completed"
+                if measurement.task_status is TaskStatus.COMPLETED
+                else "deferred"
+            )
+            if payload.get("status") != expected_status:
+                raise ValueError(
+                    "current payload status does not match measurement task_status"
+                )
+            if measurement.task_status is TaskStatus.COMPLETED:
+                if reason is not None:
+                    raise ValueError(
+                        "completed current measurement cannot carry abstain_reason"
+                    )
+            elif type(reason) is not str or not reason.strip():
+                raise ValueError(
+                    f"{measurement.task_status.value.replace('_', ' ')} current "
+                    "measurement requires a non-empty abstain_reason"
+                )
+        if task_id is None:
+            if measurement is not None and (
+                measurement.arm != ARM_ATTEST_PRODUCT
+                or measurement.delivery_transcript.task_id is not None
+                or measurement.task_status is not TaskStatus.FAILED
+                or measurement.stop_kind is not StopKind.FAILURE
+                or measurement.truth_status is not TruthStatus.UNADJUDICATED
+                or measurement.findings
+                or measurement.publication_events
+                or measurement.task_delivery_events
+            ):
+                raise ValueError(
+                    "taskless current payload requires the exact pre-execution "
+                    "failure measurement"
+                )
+            excluded.append(ReportExclusion(case_id, str(reason or "not_executed")))
+            continue
+        if measurement is not None:
             if (
                 type(task_id) is not str
                 or not task_id
@@ -1383,13 +1455,14 @@ def build_calibration_report(
                     "matching delivery_transcript.task_id"
                 )
             measurement_records.append(measurement)
-            if measurement.task_status is TaskStatus.FULLY_DEFERRED:
-                if type(reason) is not str or not reason.strip():
-                    raise ValueError(
-                        "fully deferred current measurement requires a non-empty "
-                        "abstain_reason"
-                    )
+            if measurement.task_status in {
+                TaskStatus.PARTIALLY_DEFERRED,
+                TaskStatus.FULLY_DEFERRED,
+            } and measurement.repeat == 0:
+                if type(reason) is not str:  # pragma: no cover - validated above
+                    raise AssertionError("deferred measurement reason was not validated")
                 abstentions.append(ReportAbstention(case_id, reason))
+            if measurement.task_status is TaskStatus.FULLY_DEFERRED:
                 continue
             scored.append(payload)
         elif reason is not None:
@@ -1407,13 +1480,19 @@ def build_calibration_report(
         differential_repeats=differential_repeats,
         line_slack=line_slack,
         validation_receipt=validation_receipt,
+        measurement_records=measurement_records,
     )
     accuracy_withheld = (
         ACCURACY_WITHHELD_REPLAY if mode == REPLAY_MODE else underlying.metrics_withheld_reason
     )
     authorized = accuracy_withheld is None and underlying.measurements is not None
     channel_outcomes = _channel_outcomes(
-        manifest, scored, authorized=authorized, line_slack=line_slack
+        manifest,
+        scored,
+        records=records,
+        measurements=tuple(measurement_records),
+        authorized=authorized,
+        line_slack=line_slack,
     )
     labels = (
         globally_labeled_findings
@@ -1428,6 +1507,11 @@ def build_calibration_report(
             "prohibited" if labels < MINIMUM_GLOBAL_LABELS else "owner_decision_required"
         ),
     }
+    measurement_summary = (
+        reduce_measurements(tuple(measurement_records))
+        if measurement_records
+        else None
+    )
     report = CalibrationReport(
         schema_version=CALIBRATION_SCHEMA_VERSION,
         run_id=run_id,
@@ -1442,9 +1526,11 @@ def build_calibration_report(
         latency=_latency(scored),
         cost=_cost(payloads, reserved_total_usd, mode=mode),
         paid_calls=_report_paid_calls(payloads, mode=mode),
-        outcome_accounting=_outcome_accounting(
-            reduce_measurements(tuple(measurement_records))
-            if measurement_records
+        outcome_accounting=_outcome_accounting(measurement_summary),
+        authoritative_accuracy=(
+            _authoritative_accuracy(measurement_summary)
+            if measurement_summary is not None
+            and accuracy_withheld is None
             else None
         ),
         sample_sufficiency=sufficiency,
@@ -1471,23 +1557,77 @@ def _outcome_accounting(summary: MeasurementSummary | None) -> dict[str, object]
             "task_delivered": None,
             "finding_precision": None,
         }
+    payload = measurement_summary_payload(summary)
+    payload["scoring_semantics"] = summary.reducer_semantics
+    return payload
+
+
+def _authoritative_accuracy(summary: MeasurementSummary) -> dict[str, object]:
+    """Project headline accuracy from the single mixed-outcome reducer."""
+
+    true_positives = summary.detected_positive_pull_requests
+    false_negatives = summary.missed_positive_pull_requests
+    false_positives = summary.pr_false_positive_events
+    true_negatives = summary.true_negative_pull_requests
+    correct = summary.correct
+    wrong = summary.wrong
+    positive_total = summary.positive_pull_requests
+    clean_total = summary.null_pull_requests
+    finding_total = (
+        correct + wrong
+        if correct is not None and wrong is not None
+        else 0
+    )
     return {
-        "scoring_semantics": "author_visible_v2",
-        "task_status_counts": {
-            "completed": summary.completed,
-            "partially_deferred": summary.partially_deferred,
-            "fully_deferred": summary.fully_deferred,
-            "failed": summary.failed,
-        },
-        "published": summary.published,
-        "unresolved": summary.unresolved,
-        "task_delivered": summary.task_delivered,
+        "true_positives": true_positives,
+        "false_positives": false_positives,
+        "false_negatives": false_negatives,
+        "true_negatives": true_negatives,
+        "decided_cases": positive_total + clean_total,
+        "finding_true_positives": correct,
+        "finding_false_positives": wrong,
+        "clean_false_positive_rate": summary.pr_false_positive_rate,
+        "specificity": (
+            true_negatives / clean_total
+            if true_negatives is not None and clean_total
+            else None
+        ),
+        "all_positive_detection": (
+            true_positives / positive_total
+            if true_positives is not None and positive_total
+            else None
+        ),
         "finding_precision": summary.finding_precision,
-        "metrics_withheld_reason": summary.metrics_withheld_reason,
-        "delivery_withheld_reason": summary.delivery_withheld_reason,
-        "task_delivery_withheld_reason": summary.task_delivery_withheld_reason,
-        "operational_repeats": summary.operational_repeats,
-        "semantic_n": summary.semantic_n,
+        "conditional_recall": None,
+        "abstention_rate": (
+            (summary.partially_deferred + summary.fully_deferred) / summary.semantic_n
+            if summary.semantic_n
+            else None
+        ),
+        "duplicate_surfaces": None,
+        "delivery_rate": (
+            summary.task_delivered / summary.semantic_n
+            if summary.task_delivered is not None and summary.semantic_n
+            else None
+        ),
+        "delivery_p50_s": None,
+        "delivery_p95_s": None,
+        "deadline_censored": None,
+        "all_positive_detection_interval": (
+            wilson_interval(true_positives, positive_total)
+            if true_positives is not None
+            else None
+        ),
+        "finding_precision_interval": (
+            wilson_interval(correct, finding_total)
+            if correct is not None
+            else None
+        ),
+        "clean_false_positive_rate_interval": (
+            wilson_interval(false_positives, clean_total)
+            if false_positives is not None
+            else None
+        ),
     }
 
 
@@ -1502,25 +1642,59 @@ def _channel_outcomes(
     manifest: BenchmarkManifest,
     scored: Sequence[Mapping[str, object]],
     *,
+    records: tuple[RunRecord, ...],
+    measurements: tuple[MeasurementRecord, ...],
     authorized: bool,
     line_slack: int,
 ) -> dict[str, dict[str, object]]:
     truths: dict[str, tuple[TruthDefect, ...]] = {}
     for truth in manifest.truth_defects:
         truths[truth.case_id] = truths.get(truth.case_id, ()) + (truth,)
+    measurements_by_slot = {
+        (measurement.case_id, measurement.repeat): measurement
+        for measurement in measurements
+    }
+    if len(measurements_by_slot) != len(measurements):
+        raise ValueError("current channel outcomes contain a duplicate measurement slot")
     channels: dict[str, _Channel] = {}
-    for payload in scored:
+    for payload, record in zip(scored, records, strict=True):
         case_id = str(payload.get("case_id"))
         predictions = _payload_predictions(payload)
         matched_ids: set[str] = set()
+        measurement_withheld = False
         if authorized:
-            matches = match_findings(
-                truths.get(case_id, ()), predictions, line_slack=line_slack
-            )
-            matched_ids = {match.finding_id for match in matches if match.matched}
+            measurement = measurements_by_slot.get((case_id, record.repeat))
+            if measurement is not None:
+                measurement_withheld = (
+                    measurement.truth_status is TruthStatus.UNADJUDICATED
+                    or measurement.metrics_withheld_reason is not None
+                    or any(
+                        finding.author_visible
+                        and finding.authority is FindingAuthority.AUTOMATED
+                        and finding.accuracy_status
+                        is AccuracyStatus.UNADJUDICATED
+                        for finding in measurement.findings
+                    )
+                )
+                matched_ids = {
+                    finding.finding_id
+                    for finding in measurement.findings
+                    if finding.author_visible
+                    and finding.authority is FindingAuthority.AUTOMATED
+                    and finding.accuracy_status is AccuracyStatus.CORRECT
+                }
+            elif measurements_by_slot:
+                raise ValueError("current channel outcome has no authoritative measurement")
+            else:
+                matches = match_findings(
+                    truths.get(case_id, ()), predictions, line_slack=line_slack
+                )
+                matched_ids = {match.finding_id for match in matches if match.matched}
         for prediction in predictions:
             channel = channels.setdefault(prediction.evidence_class, _Channel())
             channel.predictions += 1
+            if measurement_withheld:
+                channel.accuracy_withheld = True
             if is_scored_placement(prediction.placement):
                 channel.surfaced += 1
                 if prediction.finding_id in matched_ids:
@@ -1532,7 +1706,11 @@ def _channel_outcomes(
             "predictions": channel.predictions,
             "surfaced": channel.surfaced,
             "withheld": channel.withheld,
-            "matched": channel.matched if authorized else None,
+            "matched": (
+                channel.matched
+                if authorized and not channel.accuracy_withheld
+                else None
+            ),
         }
         for name, channel in sorted(channels.items())
     }
@@ -1579,7 +1757,12 @@ def _strata(
         return strata.setdefault((case.source_id, case.role), _Stratum())
 
     for payload in scored:
-        stratum = stratum_for(str(payload.get("case_id")))
+        if payload.get("repeat", 0) != 0:
+            continue
+        case_id = payload.get("case_id")
+        if type(case_id) is not str:
+            continue
+        stratum = stratum_for(case_id)
         if stratum is None:
             continue
         stratum.cases += 1
@@ -1738,9 +1921,9 @@ def _calibration_limitations(
         )
     if abstained:
         notes.append(
-            f"abstentions: {abstained} case(s) were deferred by the tool and enter "
-            "no accuracy numerator or denominator; an abstention is never counted "
-            "as correct silence."
+            f"abstentions: {abstained} case(s) were deferred by the tool. Task state "
+            "does not erase published precision/harm, positive misses remain deployment "
+            "misses, and silent non-completed controls are not true negatives."
         )
     return tuple(notes)
 

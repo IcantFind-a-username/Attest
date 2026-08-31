@@ -4,8 +4,8 @@ The study asks one question: given identical diff bytes and identical
 configuration, how much does the product's behaviour vary run to run? Exactly
 :data:`STABILITY_REPEATS` independent provider runs are executed through the
 real product path (D-025), cross-run findings are grouped by canonical file
-and preregistered location cluster -- never by claim prose -- and every failed
-or missing run is carried as a DEFER instead of being dropped.
+and preregistered location cluster -- never by claim prose -- and every partial
+defer, full defer, and failure remains a distinct authoritative outcome.
 
 Receipt discipline (D-019/D-032): every number this module emits is
 **operational**. Stability measures agreement between runs, spend, latency,
@@ -46,10 +46,15 @@ from attest.benchmark.checkpoints import (
     CALL_ROLE_BENCHMARK_ORACLE,
     CALL_ROLE_PRODUCT,
     CALL_ROLES,
-    AmbiguousCostError,
     CheckpointedProvider,
     PaidCallTotals,
     paid_call_totals,
+)
+from attest.benchmark.measurement import (
+    ARM_ATTEST_PRODUCT,
+    MeasurementRecord,
+    TaskStatus,
+    decode_measurement_record,
 )
 from attest.benchmark.metrics import dispersion, mean_pairwise_jaccard
 from attest.benchmark.schema import ChangedLocation, is_scored_placement
@@ -58,20 +63,25 @@ from attest.review.proposer import Provider, ProviderResult
 #: The preregistered repeat count. Ten is part of the study design, not a knob.
 STABILITY_REPEATS = 10
 STABILITY_PREDECLARATION_SCHEMA_VERSION = "5"
-STABILITY_REPORT_SCHEMA_VERSION = "4"
-_OBSERVATION_SCHEMA_VERSION = "3"
+STABILITY_REPORT_SCHEMA_VERSION = "5"
+_OBSERVATION_SCHEMA_VERSION = "4"
 
 _OUTCOME_SURFACED = "surfaced"
+_OUTCOME_SURFACED_DEFERRED = "surfaced_deferred"
+_OUTCOME_SURFACED_FAILED = "surfaced_failed"
 _OUTCOME_SILENT = "silent"
 _OUTCOME_DEFERRED = "deferred"
+_OUTCOME_FAILED = "failed"
 _DECISION_ABSENT = "absent"
 _DECISION_DEFERRED = "deferred"
+_DECISION_FAILED = "failed"
 
 
 @dataclass(frozen=True)
 class SurfacedAnchor:
     """One author-visible finding, reduced to what stability may compare on."""
 
+    finding_id: str
     file: str
     line: int
     placement: str
@@ -81,6 +91,7 @@ class SurfacedAnchor:
 
     def to_json_dict(self) -> dict[str, object]:
         return {
+            "finding_id": self.finding_id,
             "file": self.file,
             "line": self.line,
             "placement": self.placement,
@@ -100,6 +111,7 @@ class StabilityObservation:
     abstain_reason: str | None
     surfaced: tuple[SurfacedAnchor, ...]
     candidate_count: int
+    measurement: MeasurementRecord
     latency_s: float
     product_spend_usd: float
     oracle_spend_usd: float
@@ -108,9 +120,38 @@ class StabilityObservation:
     call_count: int = 0
     call_evidence_sha256: str = hashlib.sha256(b"[]").hexdigest()
 
+    def __post_init__(self) -> None:
+        if type(self.measurement) is not MeasurementRecord:
+            raise ValueError("observation measurement must be an exact MeasurementRecord")
+        if self.repeat != self.measurement.repeat:
+            raise ValueError("observation repeat does not match measurement")
+        if self.measurement.arm != ARM_ATTEST_PRODUCT:
+            raise ValueError("stability measurement must use the product arm")
+        if self.status != self.measurement.task_status.value:
+            raise ValueError("observation status does not match measurement task status")
+        if self.candidate_count != self.measurement.candidate_count:
+            raise ValueError("observation candidate count does not match measurement")
+        surfaced_ids = tuple(anchor.finding_id for anchor in self.surfaced)
+        published_ids = tuple(
+            finding.finding_id
+            for finding in self.measurement.findings
+            if finding.author_visible
+        )
+        if len(set(surfaced_ids)) != len(surfaced_ids) or set(surfaced_ids) != set(
+            published_ids
+        ):
+            raise ValueError(
+                "observation surfaces must exactly match measurement published finding IDs"
+            )
+
     @property
     def outcome(self) -> str:
-        if self.status == "deferred":
+        status = self.measurement.task_status
+        if status is TaskStatus.FAILED:
+            return _OUTCOME_SURFACED_FAILED if self.surfaced else _OUTCOME_FAILED
+        if status in {TaskStatus.PARTIALLY_DEFERRED, TaskStatus.FULLY_DEFERRED} and self.surfaced:
+            return _OUTCOME_SURFACED_DEFERRED
+        if status in {TaskStatus.PARTIALLY_DEFERRED, TaskStatus.FULLY_DEFERRED}:
             return _OUTCOME_DEFERRED
         return _OUTCOME_SURFACED if self.surfaced else _OUTCOME_SILENT
 
@@ -123,6 +164,7 @@ class StabilityObservation:
             "abstain_reason": self.abstain_reason,
             "surfaced": [anchor.to_json_dict() for anchor in self.surfaced],
             "candidate_count": self.candidate_count,
+            "measurement": self.measurement.to_json_dict(),
             "latency_s": self.latency_s,
             "product_spend_usd": self.product_spend_usd,
             "oracle_spend_usd": self.oracle_spend_usd,
@@ -149,8 +191,8 @@ class StabilityObservation:
         status = raw.get("status")
         if not isinstance(run_id, str) or not run_id:
             raise ValueError("observation run_id must be a non-empty string")
-        if status not in ("completed", "deferred"):
-            raise ValueError("observation status must be completed or deferred")
+        if status not in {task_status.value for task_status in TaskStatus}:
+            raise ValueError("observation status must be an exact task status")
         reason = raw.get("abstain_reason")
         if reason is not None and not isinstance(reason, str):
             raise ValueError("observation abstain_reason must be a string or null")
@@ -165,6 +207,10 @@ class StabilityObservation:
             or candidate_count < 0
         ):
             raise ValueError("observation candidate_count must be a non-negative integer")
+        measurement_raw = raw.get("measurement")
+        if not isinstance(measurement_raw, dict):
+            raise ValueError("observation measurement must be an object")
+        measurement = decode_measurement_record(measurement_raw)
         call_count = raw.get("call_count")
         call_evidence_sha256 = raw.get("call_evidence_sha256")
         if (
@@ -186,6 +232,7 @@ class StabilityObservation:
             abstain_reason=reason,
             surfaced=surfaced,
             candidate_count=candidate_count,
+            measurement=measurement,
             latency_s=_finite_number(raw.get("latency_s"), "latency_s"),
             product_spend_usd=_finite_number(
                 raw.get("product_spend_usd"), "product_spend_usd"
@@ -209,8 +256,11 @@ class StabilityObservation:
 def _anchor_from_json(raw: object) -> SurfacedAnchor:
     if not isinstance(raw, dict):
         raise ValueError("surfaced anchor must be an object")
+    finding_id = raw.get("finding_id")
     file = raw.get("file")
     line = raw.get("line")
+    if not isinstance(finding_id, str) or not finding_id:
+        raise ValueError("surfaced anchor finding_id must be a non-empty string")
     if not isinstance(file, str) or not file:
         raise ValueError("surfaced anchor file must be a non-empty string")
     if not isinstance(line, int) or isinstance(line, bool) or line < 1:
@@ -228,6 +278,7 @@ def _anchor_from_json(raw: object) -> SurfacedAnchor:
     if wealth is not None and not isinstance(wealth, (int, float)):
         raise ValueError("surfaced anchor wealth_final must be a number or null")
     return SurfacedAnchor(
+        finding_id=finding_id,
         file=file,
         line=line,
         placement=placement,
@@ -246,6 +297,17 @@ def _finite_number(value: object, label: str) -> float:
 @dataclass(frozen=True)
 class DeferredRun:
     """One repeat the product could not decide, with its recorded reason."""
+
+    repeat: int
+    reason: str
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {"repeat": self.repeat, "reason": self.reason}
+
+
+@dataclass(frozen=True)
+class FailedRun:
+    """One repeat whose authoritative task outcome is failed."""
 
     repeat: int
     reason: str
@@ -295,11 +357,16 @@ class StabilityReport:
     manifest_sha256: str
     provider_label: str
     repeats: int
+    semantic_n: int
+    operational_repeats: int
     run_ids: tuple[str, ...]
+    task_statuses: tuple[str, ...]
+    task_status_counts: dict[str, int]
     outcomes: tuple[str, ...]
     modal_outcome: str
     run_outcome_stability: float
     deferred_runs: tuple[DeferredRun, ...]
+    failed_runs: tuple[FailedRun, ...]
     clusters: tuple[ClusterStability, ...]
     mean_pairwise_jaccard: float | None
     jaccard_pairs: int
@@ -341,11 +408,16 @@ class StabilityReport:
             "manifest_sha256": self.manifest_sha256,
             "provider_label": self.provider_label,
             "repeats": self.repeats,
+            "semantic_n": self.semantic_n,
+            "operational_repeats": self.operational_repeats,
             "run_ids": list(self.run_ids),
+            "task_statuses": list(self.task_statuses),
+            "task_status_counts": dict(self.task_status_counts),
             "outcomes": list(self.outcomes),
             "modal_outcome": self.modal_outcome,
             "run_outcome_stability": _rounded(self.run_outcome_stability),
             "deferred_runs": [row.to_json_dict() for row in self.deferred_runs],
+            "failed_runs": [row.to_json_dict() for row in self.failed_runs],
             "clusters": [cluster.to_json_dict() for cluster in self.clusters],
             "mean_pairwise_jaccard": _rounded(self.mean_pairwise_jaccard),
             "jaccard_pairs": self.jaccard_pairs,
@@ -412,6 +484,8 @@ def summarize_stability(
     ordered = tuple(sorted(observations, key=lambda observation: observation.repeat))
     if [observation.repeat for observation in ordered] != list(range(STABILITY_REPEATS)):
         raise ValueError("observations must cover repeat 0 through 9 exactly once")
+    if any(observation.measurement.case_id != case_id for observation in ordered):
+        raise ValueError("observation measurement case does not match stability case")
     if any(
         not _same_cost(
             observation.total_spend_usd,
@@ -435,14 +509,25 @@ def summarize_stability(
         raise ValueError("observation paid-call reconciliation binding is invalid")
 
     outcomes = tuple(observation.outcome for observation in ordered)
+    task_statuses = tuple(observation.status for observation in ordered)
+    task_status_counts = Counter(task_statuses)
     modal_outcome, modal_count = _modal(outcomes)
     deferred = tuple(
         DeferredRun(observation.repeat, observation.abstain_reason or "unspecified")
         for observation in ordered
-        if observation.outcome == _OUTCOME_DEFERRED
+        if observation.measurement.task_status
+        in {TaskStatus.PARTIALLY_DEFERRED, TaskStatus.FULLY_DEFERRED}
     )
-    completed = tuple(
-        observation for observation in ordered if observation.outcome != _OUTCOME_DEFERRED
+    failed = tuple(
+        FailedRun(observation.repeat, observation.abstain_reason or "unspecified")
+        for observation in ordered
+        if observation.measurement.task_status is TaskStatus.FAILED
+    )
+    usable = tuple(
+        observation
+        for observation in ordered
+        if observation.measurement.task_status is TaskStatus.COMPLETED
+        or bool(observation.surfaced)
     )
 
     cluster_keys: dict[str, tuple[str, int, int]] = {}
@@ -462,17 +547,19 @@ def summarize_stability(
 
     surface_sets = [
         frozenset(anchors_by_run[observation.repeat])
-        for observation in completed
+        for observation in ordered
+        if observation.measurement.task_status is TaskStatus.COMPLETED
+        or observation.surfaced
     ]
     jaccard = mean_pairwise_jaccard(surface_sets)
     jaccard_pairs = len(surface_sets) * (len(surface_sets) - 1) // 2
 
     candidate_counts = tuple(observation.candidate_count for observation in ordered)
     candidate_spread = dispersion(
-        [float(observation.candidate_count) for observation in completed]
+        [float(observation.candidate_count) for observation in usable]
     )
-    latency_spread = dispersion([observation.latency_s for observation in completed])
-    latencies = [observation.latency_s for observation in completed]
+    latency_spread = dispersion([observation.latency_s for observation in usable])
+    latencies = [observation.latency_s for observation in usable]
     product_spend_per_run = tuple(
         observation.product_spend_usd for observation in ordered
     )
@@ -496,11 +583,18 @@ def summarize_stability(
         manifest_sha256=manifest_sha256,
         provider_label=provider_label,
         repeats=STABILITY_REPEATS,
+        semantic_n=1,
+        operational_repeats=STABILITY_REPEATS,
         run_ids=tuple(observation.run_id for observation in ordered),
+        task_statuses=task_statuses,
+        task_status_counts={
+            status.value: task_status_counts[status.value] for status in TaskStatus
+        },
         outcomes=outcomes,
         modal_outcome=modal_outcome,
         run_outcome_stability=modal_count / STABILITY_REPEATS,
         deferred_runs=deferred,
+        failed_runs=failed,
         clusters=clusters,
         mean_pairwise_jaccard=jaccard,
         jaccard_pairs=jaccard_pairs,
@@ -526,7 +620,7 @@ def summarize_stability(
         wealth_mean=None if wealth_spread is None else wealth_spread.mean,
         wealth_variance=None if wealth_spread is None else wealth_spread.variance,
         wealth_range=None if wealth_spread is None else wealth_spread.value_range,
-        limitations=_limitations(deferred),
+        limitations=_limitations(deferred, failed),
         digest="",
     )
     return _with_digest(report)
@@ -727,60 +821,53 @@ def _observe(
         repeat=repeat,
         workspace_root=request.workspace_root / f"repeat-{repeat}",
     )
-    try:
-        assert isinstance(provider, CheckpointedProvider)
-        result = evaluate_project(
-            prepared,
-            provider=provider,
-            oracle_provider=provider.for_role(CALL_ROLE_BENCHMARK_ORACLE),
-            clock=clock,
-        )
-    except AmbiguousCostError:
-        raise
-    except Exception as exc:  # noqa: BLE001 - a failed run is a DEFER, never dropped
-        return StabilityObservation(
-            repeat=repeat,
-            run_id=f"{request.case_id}-repeat-{repeat}-deferred",
-            status="deferred",
-            abstain_reason=f"{type(exc).__name__}: {exc}",
-            surfaced=(),
-            candidate_count=0,
-            latency_s=0.0,
-            product_spend_usd=0.0,
-            oracle_spend_usd=0.0,
-            total_spend_usd=0.0,
-            delivery_at_s=None,
-        )
+    assert isinstance(provider, CheckpointedProvider)
+    result = evaluate_project(
+        prepared,
+        provider=provider,
+        oracle_provider=provider.for_role(CALL_ROLE_BENCHMARK_ORACLE),
+        clock=clock,
+    )
     wealth_by_finding: dict[str, float] = {}
     for decision in result.final_decisions:
         finding_id = decision.get("finding_id")
         wealth = decision.get("wealth_final")
         if isinstance(finding_id, str) and isinstance(wealth, (int, float)):
             wealth_by_finding[finding_id] = float(wealth)
-    deferred = result.abstain_reason is not None
-    surfaced = (
-        ()
-        if deferred
-        else tuple(
-            SurfacedAnchor(
-                file=prediction.file,
-                line=prediction.line,
-                placement=prediction.placement.value,
-                action=prediction.action,
-                evidence_class=prediction.evidence_class,
-                wealth_final=wealth_by_finding.get(prediction.finding_id),
-            )
-            for prediction in result.predictions
-            if is_scored_placement(prediction.placement)
+    surfaced_predictions = tuple(
+        prediction
+        for prediction in result.predictions
+        if is_scored_placement(prediction.placement)
+    )
+    published_ids = {
+        finding.finding_id
+        for finding in result.measurement.findings
+        if finding.author_visible
+    }
+    if {prediction.finding_id for prediction in surfaced_predictions} != published_ids:
+        raise ValueError(
+            "stability predictions do not match authoritative published findings"
         )
+    surfaced = tuple(
+        SurfacedAnchor(
+            finding_id=prediction.finding_id,
+            file=prediction.file,
+            line=prediction.line,
+            placement=prediction.placement.value,
+            action=prediction.action,
+            evidence_class=prediction.evidence_class,
+            wealth_final=wealth_by_finding.get(prediction.finding_id),
+        )
+        for prediction in surfaced_predictions
     )
     return StabilityObservation(
         repeat=repeat,
         run_id=result.run.run_id,
-        status="deferred" if deferred else "completed",
+        status=result.measurement.task_status.value,
         abstain_reason=result.abstain_reason,
         surfaced=surfaced,
-        candidate_count=len(result.final_decisions),
+        candidate_count=result.measurement.candidate_count,
+        measurement=result.measurement,
         latency_s=result.latency_s,
         product_spend_usd=0.0,
         oracle_spend_usd=0.0,
@@ -880,17 +967,21 @@ def _cluster_stability(
     wealth_values: list[float] = []
     present = 0
     for observation in ordered:
-        if observation.outcome == _OUTCOME_DEFERRED:
-            decisions.append(_DECISION_DEFERRED)
-            continue
         anchor = anchors_by_run[observation.repeat].get(cluster_id)
-        if anchor is None:
+        if anchor is not None:
+            present += 1
+            decisions.append(anchor.placement)
+            if anchor.wealth_final is not None:
+                wealth_values.append(anchor.wealth_final)
+        elif observation.measurement.task_status in {
+            TaskStatus.PARTIALLY_DEFERRED,
+            TaskStatus.FULLY_DEFERRED,
+        }:
+            decisions.append(_DECISION_DEFERRED)
+        elif observation.measurement.task_status is TaskStatus.FAILED:
+            decisions.append(_DECISION_FAILED)
+        else:
             decisions.append(_DECISION_ABSENT)
-            continue
-        present += 1
-        decisions.append(anchor.placement)
-        if anchor.wealth_final is not None:
-            wealth_values.append(anchor.wealth_final)
     modal_decision, modal_count = _modal(tuple(decisions))
     wealth_spread = dispersion(wealth_values)
     file, start_line, end_line = span
@@ -916,7 +1007,9 @@ def _modal(values: tuple[str, ...]) -> tuple[str, int]:
     return winner, top
 
 
-def _limitations(deferred: tuple[DeferredRun, ...]) -> tuple[str, ...]:
+def _limitations(
+    deferred: tuple[DeferredRun, ...], failed: tuple[FailedRun, ...]
+) -> tuple[str, ...]:
     notes = [
         "operational_only: every number here measures run-to-run variability of the "
         "product under one fixed configuration. None is an accuracy claim, no hidden "
@@ -935,9 +1028,14 @@ def _limitations(deferred: tuple[DeferredRun, ...]) -> tuple[str, ...]:
     ]
     if deferred:
         notes.append(
-            f"defers: {len(deferred)} run(s) failed or could not decide and are carried "
-            "as DEFER with their reasons. They stay in every stability denominator and "
-            "are never dropped or scored as silence."
+            f"defers: {len(deferred)} partially or fully deferred run(s) are carried "
+            "with their reasons. Published findings remain visible, and the defer state "
+            "is never collapsed into silence."
+        )
+    if failed:
+        notes.append(
+            f"failures: {len(failed)} authoritative failed run(s) are reported separately "
+            "from defers; any findings published before failure remain visible."
         )
     return tuple(notes)
 

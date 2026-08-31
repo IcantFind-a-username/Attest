@@ -17,6 +17,7 @@ from attest.benchmark.corpus import (
     ValidationReceiptV2,
     ValidationVerification,
 )
+from attest.benchmark.measurement import ARM_ATTEST_PRODUCT, MeasurementRecord
 from attest.benchmark.report import (
     LIVE_MODE,
     REPLAY_MODE,
@@ -40,6 +41,7 @@ from attest.benchmark.schema import (
 )
 
 from ._validation_v2 import verified_validation_authority
+from .test_baselines import _finding, _measurement_record
 
 REPLAY_CASE = "case-aaaaaaaaaaaa"
 CONTROL_CASE = "case-bbbbbbbbbbbb"
@@ -188,6 +190,35 @@ def _runs() -> tuple[RunRecord, ...]:
     )
 
 
+def _current_measurements(
+    runs: tuple[RunRecord, ...],
+) -> tuple[MeasurementRecord, ...]:
+    records = []
+    for run in runs:
+        positive = run.case_id in {REPLAY_CASE, UNRUN_CASE}
+        findings = tuple(
+            _finding(
+                prediction.finding_id,
+                accuracy=("correct" if prediction.finding_id == "f-hit" else "wrong"),
+                defect_id=("defect-1" if prediction.finding_id == "f-hit" else None),
+            )
+            for prediction in run.predictions
+        )
+        records.append(
+            replace(
+                _measurement_record(
+                    findings=findings,
+                    repeat=run.repeat,
+                    eligible_defect_ids=(("defect-1",) if positive else ()),
+                    truth_status=("positive" if positive else "null"),
+                ),
+                case_id=run.case_id,
+                arm=ARM_ATTEST_PRODUCT,
+            )
+        )
+    return tuple(records)
+
+
 _VALID_RECEIPT: ValidationVerification = _verified_receipt()
 _BOUND_MANIFEST: BenchmarkManifest = _manifest()
 
@@ -288,13 +319,20 @@ def _report(
         ValidationVerification | ValidationReceipt | None | object
     ) = _DEFAULT_AUTHORITY,
     runs: tuple[RunRecord, ...] | None = None,
+    measurement_records: tuple[MeasurementRecord, ...] | None = None,
     abstentions: tuple[ReportAbstention, ...] = (),
     manifest_sha256: str | None = None,
 ):
     authority = _VALID_RECEIPT if validation_receipt is _DEFAULT_AUTHORITY else validation_receipt
+    selected_runs = _runs() if runs is None else runs
+    selected_measurements = (
+        _current_measurements(selected_runs)
+        if measurement_records is None
+        else measurement_records
+    )
     return build_report(
         _BOUND_MANIFEST,
-        _runs() if runs is None else runs,
+        selected_runs,
         mode=mode,
         manifest_sha256=manifest_sha256 or MANIFEST_SHA,
         exclusions=(
@@ -304,6 +342,7 @@ def _report(
         abstentions=abstentions,
         differential_repeats=3,
         validation_receipt=authority,  # type: ignore[arg-type]
+        measurement_records=selected_measurements,
     )
 
 
@@ -545,8 +584,8 @@ def test_report_withholds_accuracy_without_a_receipt_but_still_reports_operation
     assert report.metrics_withheld_reason == "validation_receipt_missing"
     assert payload["metrics_withheld_reason"] == "validation_receipt_missing"
     operational = payload["operational"]
-    assert operational["delivery_rate"] == 1.0
-    assert operational["delivery_p50_s"] == 9.0
+    assert operational["delivery_rate"] == 0.0
+    assert operational["delivery_p50_s"] is None
     assert operational["deadline_censored"] == 0
     assert operational["decided_cases"] == 2
     assert report.evaluated_cases == 2
@@ -674,8 +713,19 @@ def test_report_publishes_accuracy_for_a_receipt_bound_to_this_manifest() -> Non
 
 def test_report_surfaces_abstentions_with_counts_and_reasons() -> None:
     """A run attest could not decide is an abstention, never earned silence."""
+    selected_runs = (_runs()[0], _runs()[2])
+    deferred_control = replace(
+        _measurement_record(
+            stop="task_defer",
+            eligible_defect_ids=(),
+            truth_status="null",
+        ),
+        case_id=CONTROL_CASE,
+        arm=ARM_ATTEST_PRODUCT,
+    )
     report = _report(
-        runs=(_runs()[0], _runs()[2]),
+        runs=selected_runs,
+        measurement_records=(*_current_measurements(selected_runs), deferred_control),
         abstentions=(ReportAbstention(CONTROL_CASE, "budget: exhausted before review"),),
     )
     payload = report.to_json_dict()
@@ -699,8 +749,211 @@ def test_report_surfaces_abstentions_with_counts_and_reasons() -> None:
     assert f"| `{CONTROL_CASE}` | budget: exhausted before review |" in markdown
 
 
-def test_report_surfaces_an_inconclusive_oracle_exclusion_with_its_reason() -> None:
-    """An undecided oracle removes the case from scoring and says so in both reports."""
+@pytest.mark.parametrize(
+    ("case_id", "eligible_defect_ids"),
+    (
+        ("case-injected000000", ("defect-1",)),
+        (REPLAY_CASE, ("injected-defect",)),
+        (CONTROL_CASE, ("injected-defect",)),
+    ),
+)
+def test_current_measurement_report_rejects_unbound_manifest_truth(
+    case_id: str, eligible_defect_ids: tuple[str, ...]
+) -> None:
+    injected = replace(
+        _measurement_record(
+            findings=(),
+            eligible_defect_ids=eligible_defect_ids,
+        ),
+        case_id=case_id,
+        arm=ARM_ATTEST_PRODUCT,
+    )
+
+    with pytest.raises(ValueError, match="manifest|truth|eligible"):
+        build_report(
+            _BOUND_MANIFEST,
+            (),
+            mode=LIVE_MODE,
+            manifest_sha256=MANIFEST_SHA,
+            validation_receipt=_VALID_RECEIPT,
+            measurement_records=(injected,),
+        )
+
+
+def test_current_measurement_report_requires_an_explicit_slot_for_silent_defer(
+) -> None:
+    deferred = replace(
+        _measurement_record(
+            stop="task_defer",
+            findings=(
+                _finding(
+                    "unresolved",
+                    status="unresolved",
+                    accuracy="unadjudicated",
+                    defect_id=None,
+                ),
+            ),
+        ),
+        case_id=REPLAY_CASE,
+        arm=ARM_ATTEST_PRODUCT,
+    )
+
+    with pytest.raises(ValueError, match="abstention|RunRecord|slot"):
+        build_report(
+            _BOUND_MANIFEST,
+            (),
+            mode=LIVE_MODE,
+            manifest_sha256=MANIFEST_SHA,
+            validation_receipt=_VALID_RECEIPT,
+            measurement_records=(deferred,),
+        )
+
+
+def test_current_visible_unadjudicated_accuracy_is_explicit_missingness() -> None:
+    measurement = replace(
+        _measurement_record(
+            findings=(
+                _finding(
+                    "visible-unadjudicated",
+                    accuracy="unadjudicated",
+                    defect_id=None,
+                ),
+            ),
+        ),
+        case_id=REPLAY_CASE,
+        arm=ARM_ATTEST_PRODUCT,
+    )
+    run = RunRecord(
+        run_id="visible-unadjudicated",
+        case_id=REPLAY_CASE,
+        repeat=0,
+        predictions=(
+            _prediction(
+                "visible-unadjudicated",
+                1,
+                repro_status="buggy_fail_fixed_pass",
+                evidence_class="regression_reproduced",
+            ),
+        ),
+        delivery_at_s=1.0,
+        deadline_s=60.0,
+    )
+
+    payload = build_report(
+        _BOUND_MANIFEST,
+        (run,),
+        mode=LIVE_MODE,
+        manifest_sha256=MANIFEST_SHA,
+        validation_receipt=_VALID_RECEIPT,
+        measurement_records=(measurement,),
+    ).to_json_dict()
+
+    assert payload["metrics"] is None
+    assert payload["metrics_withheld_reason"] == (
+        "current_measurement_accuracy_unadjudicated"
+    )
+    assert payload["outcome_accounting"]["unadjudicated"] == 1
+    assert payload["outcome_accounting"]["deployment_misses"] is None
+
+
+def test_current_operational_full_defer_does_not_create_primary_abstention() -> None:
+    primary_run = _runs()[0]
+    primary = _current_measurements((primary_run,))[0]
+    operational_defer = replace(
+        _measurement_record(stop="task_defer", repeat=1),
+        case_id=REPLAY_CASE,
+        arm=ARM_ATTEST_PRODUCT,
+    )
+
+    payload = build_report(
+        _BOUND_MANIFEST,
+        (primary_run,),
+        mode=LIVE_MODE,
+        manifest_sha256=MANIFEST_SHA,
+        validation_receipt=_VALID_RECEIPT,
+        measurement_records=(primary, operational_defer),
+    ).to_json_dict()
+
+    assert payload["abstained_cases"] == []
+    assert payload["outcome_accounting"]["semantic_n"] == 1
+    assert payload["outcome_accounting"]["operational_repeats"] == 2
+    assert payload["outcome_accounting"]["task_status_counts"]["completed"] == 1
+
+
+def test_current_measurement_report_scores_partial_defer_visible_finding_and_retains_abstention(
+) -> None:
+
+    measurement = replace(
+        _measurement_record(
+            stop="candidate_defer",
+            findings=(
+                _finding("correct", defect_id="defect-1"),
+                _finding("wrong", accuracy="wrong", defect_id=None),
+                _finding(
+                    "unresolved",
+                    status="unresolved",
+                    accuracy="unadjudicated",
+                    defect_id=None,
+                ),
+            ),
+            eligible_defect_ids=("defect-1",),
+        ),
+        case_id=REPLAY_CASE,
+        arm=ARM_ATTEST_PRODUCT,
+    )
+    run = RunRecord(
+        run_id="mixed-run",
+        case_id=REPLAY_CASE,
+        repeat=0,
+        predictions=(
+            _prediction(
+                "correct",
+                1,
+                repro_status="buggy_fail_fixed_pass",
+                evidence_class="regression_reproduced",
+            ),
+            _prediction(
+                "wrong",
+                20,
+                repro_status="buggy_fail_fixed_pass",
+                evidence_class="regression_reproduced",
+            ),
+        ),
+        delivery_at_s=1.0,
+        deadline_s=60.0,
+    )
+
+    with pytest.raises(ValueError, match="abstentions.*exactly match"):
+        build_report(
+            _BOUND_MANIFEST,
+            (run,),
+            mode=LIVE_MODE,
+            manifest_sha256=MANIFEST_SHA,
+            validation_receipt=_VALID_RECEIPT,
+            measurement_records=(measurement,),
+        )
+
+    report = build_report(
+        _BOUND_MANIFEST,
+        (run,),
+        mode=LIVE_MODE,
+        manifest_sha256=MANIFEST_SHA,
+        abstentions=(ReportAbstention(REPLAY_CASE, "one candidate unresolved"),),
+        validation_receipt=_VALID_RECEIPT,
+        measurement_records=(measurement,),
+    ).to_json_dict()
+
+    assert report["metrics"]["finding_true_positives"] == 1
+    assert report["metrics"]["finding_false_positives"] == 1
+    assert report["metrics"]["finding_precision"] == pytest.approx(0.5)
+    assert report["metrics"]["true_positives"] == 1
+    assert report["abstained_cases"] == [
+        {"case_id": REPLAY_CASE, "reason": "one candidate unresolved"}
+    ]
+
+
+def test_current_authority_rejects_run_record_only_oracle_scoring() -> None:
+    """Current authority cannot promote a legacy RunRecord into scored evidence."""
     undecided = RunRecord(
         run_id="run-1",
         case_id=REPLAY_CASE,
@@ -716,19 +969,11 @@ def test_report_surfaces_an_inconclusive_oracle_exclusion_with_its_reason() -> N
         delivery_at_s=12.0,
         deadline_s=60.0,
     )
-    report = _report(runs=(undecided, _runs()[1]))
-    payload = report.to_json_dict()
-
-    assert report.metrics is not None
-    assert (report.metrics.false_negatives, report.metrics.finding_false_positives) == (0, 0)
-    assert report.metrics.decided_cases == 1
-    assert {
-        (exclusion["case_id"], exclusion["reason"])
-        for exclusion in payload["excluded_cases"]
-    } >= {(REPLAY_CASE, "oracle_inconclusive")}
-    assert payload["operational"]["excluded_cases"] == 3
-    assert "oracle_inconclusive" in render_markdown(report)
-    assert "oracle_inconclusive" in " ".join(report.limitations)
+    with pytest.raises(ValueError, match="current.*MeasurementRecord|measurement"):
+        _report(
+            runs=(undecided, _runs()[1]),
+            measurement_records=(),
+        )
 
 
 def test_report_without_runs_reports_no_metrics_rather_than_zeros() -> None:

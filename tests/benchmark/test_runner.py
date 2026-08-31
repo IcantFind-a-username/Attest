@@ -12,6 +12,13 @@ from pathlib import Path
 import pytest
 
 import attest.review.ci as ci_module
+from attest.benchmark.api import (
+    ProjectEvaluationRequest,
+    ProjectTruth,
+    _adjudicate_measurement,
+    _score,
+)
+from attest.benchmark.measurement import reduce_measurements
 from attest.benchmark.runner import (
     REPRO_STATUS_BY_EVIDENCE_CLASS,
     BenchmarkRunner,
@@ -26,7 +33,7 @@ from attest.benchmark.runner import (
     rebuild_case_run_from_ledger,
     run_differential_repro,
 )
-from attest.benchmark.schema import Placement
+from attest.benchmark.schema import Placement, TruthDefect
 from attest.github.client import GitHubApiError, PreparedGitHubWrite
 from attest.review.candidates import StoredCandidate
 from attest.review.ci import CiPublicationEvent, reconcile_delivery_rows
@@ -747,6 +754,18 @@ def test_failed_publication_is_not_author_visible_measurement(tmp_path: Path) ->
     assert result.measurement.delivery_status.value == "no_publication"
     assert result.measurement.metrics_withheld_reason == "ambiguous_publication"
     assert result.measurement.delivery_withheld_reason == "ambiguous_publication"
+    assert Ledger(repo).surfaced_finding_ids() == ()
+
+
+def test_ci_final_without_delivery_authority_is_not_a_surface(tmp_path: Path) -> None:
+    ledger = Ledger(tmp_path)
+    ledger.record_ci_final(
+        task_id="task-crashed-before-delivery",
+        decisions=[{"finding_id": "planned", "action": "surface"}],
+        spend_usd=0.01,
+    )
+
+    assert ledger.surfaced_finding_ids() == ()
 
 
 def test_non_integer_github_response_identity_is_ambiguous(tmp_path: Path) -> None:
@@ -967,6 +986,33 @@ def test_inline_success_survives_a_failed_final_summary(
         and not event.succeeded
         for event in result.measurement.publication_events
     )
+    prediction = result.run.predictions[0]
+    request = ProjectEvaluationRequest(
+        case_id=CASE_ID,
+        repo=repo,
+        base_ref=base_sha,
+        head_ref=head_sha,
+        workspace_root=tmp_path / "adjudication",
+        truth=ProjectTruth(
+            defects=(
+                TruthDefect(
+                    defect_id="truth-1",
+                    case_id=CASE_ID,
+                    file=prediction.file,
+                    start_line=prediction.line,
+                    end_line=prediction.line,
+                ),
+            ),
+            fixed_ref=base_sha,
+        ),
+    )
+    measurement = _adjudicate_measurement(
+        request, result.measurement, result.run.predictions
+    )
+    assert reduce_measurements((measurement,)).metrics_withheld_reason == (
+        "ambiguous_publication"
+    )
+    assert _score(measurement) is None
 
 
 def test_inline_success_survives_final_status_prepare_read_failure(

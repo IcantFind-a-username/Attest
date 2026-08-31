@@ -23,7 +23,9 @@ from attest.benchmark.api import (
     ProjectEvaluationRequest,
     ProjectEvaluationResult,
     ProjectTruth,
+    _deferred,
     build_evaluation_binding,
+    manifest_project_truth,
 )
 from attest.benchmark.checkpoints import (
     CALL_ROLE_BENCHMARK_ORACLE,
@@ -83,6 +85,7 @@ from attest.benchmark.measurement import (
     TaskDeliveryTerminalStatus,
     TaskStatus,
     TruthStatus,
+    decode_measurement_record,
 )
 from attest.benchmark.report import LIVE_MODE, REPLAY_MODE
 from attest.benchmark.runner import Cassette, ReplayProvider, ReproReceipt
@@ -527,14 +530,7 @@ def _fake_case(
     manifest = load_manifest(manifest_path)
     case = next(case for case in manifest.cases if case.case_id == case_id)
     runtime = next(row for row in manifest.runtime if row.case_id == case_id)
-    truth_defects = tuple(
-        defect for defect in manifest.truth_defects if defect.case_id == case_id
-    )
-    truth = (
-        ProjectTruth(defects=truth_defects, fixed_ref=case.fixed_commit)
-        if truth_defects
-        else None
-    )
+    truth = manifest_project_truth(manifest, case_id)
     repo = tmp_path / "cache" / runtime.cwd
     request = ProjectEvaluationRequest(
         case_id=case_id,
@@ -578,9 +574,6 @@ def _manifest_live_case(
 ) -> LiveCase:
     case = next(case for case in manifest.cases if case.role == role)
     runtime = next(row for row in manifest.runtime if row.case_id == case.case_id)
-    truth_defects = tuple(
-        defect for defect in manifest.truth_defects if defect.case_id == case.case_id
-    )
     repo = root / runtime.cwd
     source = next(
         (source for source in manifest.sources if source.source_id == source_id),
@@ -603,11 +596,7 @@ def _manifest_live_case(
             workspace_root=root.parent / "workspace",
             config=ReviewConfig(k_samples=2),
             repeats=1,
-            truth=(
-                ProjectTruth(defects=truth_defects, fixed_ref=case.fixed_commit)
-                if truth_defects
-                else None
-            ),
+            truth=manifest_project_truth(manifest, case.case_id),
             repository=(source.project_url if source is not None else f"local:{repo.resolve()}"),
         ),
         source_id=source_id,
@@ -911,6 +900,22 @@ class TestCheckpoints:
         assert evaluator_calls == []
         assert not (tmp_path / "state").exists()
         assert not (tmp_path / "out").exists()
+
+    @pytest.mark.parametrize(
+        ("role", "multiplier"),
+        (("developer_fix_control", 1.0), ("historical_bug_replay", 2.0)),
+    )
+    def test_live_reservation_doubles_only_for_positive_oracle_truth(
+        self, tmp_path: Path, role: str, multiplier: float
+    ) -> None:
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        case = _manifest_live_case(
+            load_manifest(manifest_path), root, source_id, role=role
+        )
+
+        assert reserved_case_budget_usd(case.request) == pytest.approx(
+            case.request.config.budget_usd * multiplier
+        )
 
     @pytest.mark.parametrize(
         "budget", (float("nan"), float("inf"), float("-inf"), True)
@@ -2007,6 +2012,7 @@ def test_two_case_live_run_interrupted_after_provider_completion_resumes_cleanly
                 workspace_root=tmp_path / "ws",
                 config=config,
                 repeats=1,
+                truth=manifest_project_truth(manifest, control.case_id),
             ),
             source_id=source_id,
         ),
@@ -2257,6 +2263,29 @@ class TestCalibrationReport:
         payloads[1]["paid_calls"] = [
             _report_call(control.case_id, CALL_ROLE_PRODUCT, 0.02, 0)
         ]
+        defect_id = next(
+            defect.defect_id
+            for defect in manifest.truth_defects
+            if defect.case_id == replay.case_id
+        )
+        replay_measurement = decode_measurement_record(payloads[0]["measurement"])
+        payloads[0]["measurement"] = replace(
+            replay_measurement,
+            findings=tuple(
+                replace(
+                    finding,
+                    accuracy_status=AccuracyStatus.CORRECT,
+                    defect_id=defect_id,
+                )
+                for finding in replay_measurement.findings
+            ),
+            eligible_defect_ids=(defect_id,),
+            truth_status=TruthStatus.POSITIVE,
+        ).to_json_dict()
+        payloads[1]["measurement"] = replace(
+            decode_measurement_record(payloads[1]["measurement"]),
+            truth_status=TruthStatus.NULL,
+        ).to_json_dict()
         return manifest_path, payloads
 
     def test_live_report_carries_every_preregistered_section(
@@ -2325,6 +2354,117 @@ class TestCalibrationReport:
         assert "constant" in notes
         assert report.digest
 
+    def test_current_channel_outcomes_project_measurement_accuracy(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, payloads = self._payloads(tmp_path)
+        manifest = load_manifest(manifest_path)
+        payload = payloads[0]
+        measurement = decode_measurement_record(payload["measurement"])
+        payload["measurement"] = replace(
+            measurement,
+            findings=tuple(
+                replace(
+                    finding,
+                    accuracy_status=AccuracyStatus.WRONG,
+                    defect_id=None,
+                )
+                for finding in measurement.findings
+            ),
+        ).to_json_dict()
+
+        report = build_calibration_report(
+            manifest,
+            [payload],
+            run_id="pilot-live-channel-authority",
+            mode=LIVE_MODE,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            preregistration_sha256="f" * 64,
+            validation_receipt=_current_validation_authority(manifest_path),
+        ).to_json_dict()
+
+        assert report["outcome_accounting"]["correct"] == 0
+        assert report["outcome_accounting"]["wrong"] == 1
+        assert report["accuracy"]["finding_precision"] == 0.0
+        assert report["channel_outcomes"]["regression_reproduced"]["matched"] == 0
+
+    @pytest.mark.parametrize(
+        ("accuracy", "truth_status", "expected_matched", "operational_unadjudicated"),
+        (
+            ("wrong", "positive", 1, 0),
+            ("unadjudicated", "positive", None, 1),
+            ("unadjudicated", "unadjudicated", None, 1),
+        ),
+    )
+    def test_current_channel_outcomes_join_exact_operational_repeat(
+        self,
+        tmp_path: Path,
+        accuracy: str,
+        truth_status: str,
+        expected_matched: int | None,
+        operational_unadjudicated: int,
+    ) -> None:
+        manifest_path, payloads = self._payloads(tmp_path)
+        first = payloads[0]
+        measurement = decode_measurement_record(first["measurement"])
+        second = dict(first)
+        second["repeat"] = 1
+        second["run_id"] = f"{first['run_id']}-repeat-1"
+        second["paid_calls"] = [
+            _report_call(
+                f"{first['case_id']}-repeat-1", CALL_ROLE_PRODUCT, 0.03, 0
+            ),
+            _report_call(
+                f"{first['case_id']}-repeat-1",
+                CALL_ROLE_BENCHMARK_ORACLE,
+                0.01,
+                1,
+            ),
+        ]
+        second["measurement"] = replace(
+            measurement,
+            repeat=1,
+            findings=tuple(
+                replace(
+                    finding,
+                    accuracy_status=AccuracyStatus(accuracy),
+                    defect_id=None,
+                )
+                for finding in measurement.findings
+            ),
+            eligible_defect_ids=(
+                measurement.eligible_defect_ids
+                if truth_status == "positive"
+                else ()
+            ),
+            truth_status=TruthStatus(truth_status),
+        ).to_json_dict()
+
+        report = build_calibration_report(
+            load_manifest(manifest_path),
+            [first, second],
+            run_id="pilot-live-channel-repeats",
+            mode=LIVE_MODE,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            preregistration_sha256="f" * 64,
+            validation_receipt=_current_validation_authority(manifest_path),
+        ).to_json_dict()
+
+        channel = report["channel_outcomes"]["regression_reproduced"]
+        assert channel["predictions"] == 2
+        assert channel["matched"] == expected_matched
+        assert report["accuracy"]["finding_precision"] == 1.0
+        assert report["outcome_accounting"]["operational_unadjudicated"] == (
+            operational_unadjudicated
+        )
+        replay_stratum = next(
+            row
+            for row in report["strata"]
+            if row["role"] == "historical_bug_replay"
+        )
+        assert replay_stratum["cases"] == 1
+        assert replay_stratum["surfaced_cases"] == 1
+
     def test_calibration_report_rejects_totals_that_disagree_with_paid_rows(
         self, tmp_path: Path
     ) -> None:
@@ -2379,6 +2519,8 @@ class TestCalibrationReport:
         assert payload["accuracy"] is None
         assert payload["accuracy_withheld_reason"] == ACCURACY_WITHHELD_REPLAY
         assert payload["channel_outcomes"]["regression_reproduced"]["matched"] is None
+        assert "correct" not in payload["outcome_accounting"]
+        assert payload["outcome_accounting"]["deployment_misses"] is None
         notes = " ".join(payload["limitations"])
         assert "replay" in notes
         assert payload["operational"]["decided_cases"] == 2
@@ -2403,6 +2545,8 @@ class TestCalibrationReport:
         assert payload["accuracy"] is None
         assert payload["accuracy_withheld_reason"] == "validation_receipt_missing"
         assert payload["channel_outcomes"]["regression_reproduced"]["matched"] is None
+        assert "wrong" not in payload["outcome_accounting"]
+        assert payload["outcome_accounting"]["deployment_misses"] is None
 
     def test_sufficient_labels_still_require_an_owner_decision(
         self, tmp_path: Path
@@ -2425,7 +2569,7 @@ class TestCalibrationReport:
         assert sufficiency["status"] == "sufficient"
         assert sufficiency["constants_patch"] == "owner_decision_required"
 
-    def test_abstention_is_reported_with_its_reason_and_enters_no_denominator(
+    def test_abstention_is_reported_and_current_measurements_stay_authoritative(
         self, tmp_path: Path
     ) -> None:
         manifest_path, _, _ = _oracle_fixture(tmp_path)
@@ -2436,17 +2580,41 @@ class TestCalibrationReport:
         control = next(
             case for case in manifest.cases if case.role == "developer_fix_control"
         )
-        payloads = [
-            case_payload(
-                _completed_result(
-                    replay.case_id,
-                    predictions=(_tp_prediction(replay.case_id),),
-                    receipts=(_confirmed_receipt(),),
+        defect_id = next(
+            defect.defect_id
+            for defect in manifest.truth_defects
+            if defect.case_id == replay.case_id
+        )
+        replay_result = _completed_result(
+            replay.case_id,
+            predictions=(_tp_prediction(replay.case_id),),
+            receipts=(_confirmed_receipt(),),
+        )
+        replay_measurement = replace(
+            replay_result.measurement,
+            findings=tuple(
+                replace(
+                    finding,
+                    accuracy_status=AccuracyStatus.CORRECT,
+                    defect_id=defect_id,
                 )
+                for finding in replay_result.measurement.findings
             ),
+            eligible_defect_ids=(defect_id,),
+            truth_status=TruthStatus.POSITIVE,
+        )
+        control_result = _completed_result(
+            control.case_id, abstain_reason="budget: deferred before any call"
+        )
+        payloads = [
+            case_payload(replace(replay_result, measurement=replay_measurement)),
             case_payload(
-                _completed_result(
-                    control.case_id, abstain_reason="budget: deferred before any call"
+                replace(
+                    control_result,
+                    measurement=replace(
+                        control_result.measurement,
+                        truth_status=TruthStatus.NULL,
+                    ),
                 )
             ),
         ]
@@ -2467,6 +2635,125 @@ class TestCalibrationReport:
         ]
         assert payload["accuracy"]["true_negatives"] == 0
         assert payload["accuracy"]["true_positives"] == 1
+
+    def test_silent_partial_defer_control_is_abstention_not_true_negative(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, _, _ = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        control = next(
+            case for case in manifest.cases if case.role == "developer_fix_control"
+        )
+        original = _completed_result(control.case_id)
+        rejected = FindingOutcome(
+            finding_id="rejected",
+            finding_status=FindingStatus.REJECTED,
+            accuracy_status=AccuracyStatus.NOT_APPLICABLE,
+            defect_id=None,
+            publication_event_ids=(),
+            authority=FindingAuthority.AUTOMATED,
+        )
+        unresolved = FindingOutcome(
+            finding_id="unresolved",
+            finding_status=FindingStatus.UNRESOLVED,
+            accuracy_status=AccuracyStatus.UNADJUDICATED,
+            defect_id=None,
+            publication_event_ids=(),
+            authority=FindingAuthority.AUTOMATED,
+        )
+        measurement = replace(
+            original.measurement,
+            stop_kind=StopKind.CANDIDATE_DEFER,
+            task_status=TaskStatus.PARTIALLY_DEFERRED,
+            findings=(rejected, unresolved),
+            truth_status=TruthStatus.NULL,
+            candidate_count=2,
+            unresolved_count=1,
+        )
+        result = replace(
+            original,
+            status="deferred",
+            abstain_reason="candidate evidence remained unresolved",
+            measurement=measurement,
+        )
+
+        report = build_calibration_report(
+            manifest,
+            [case_payload(result)],
+            run_id="pilot-live-partial-null",
+            mode=LIVE_MODE,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            preregistration_sha256="f" * 64,
+            validation_receipt=_current_validation_authority(manifest_path),
+        ).to_json_dict()
+
+        assert report["accuracy"]["true_negatives"] == 0
+        assert report["outcome_accounting"]["task_status_counts"] == {
+            "completed": 0,
+            "partially_deferred": 1,
+            "fully_deferred": 0,
+            "failed": 0,
+        }
+        assert report["outcome_accounting"]["null_pull_requests"] == 0
+        assert report["outcome_accounting"]["true_negative_pull_requests"] == 0
+        assert report["outcome_accounting"]["pr_false_positive_rate"] is None
+
+    def test_fully_deferred_positive_remains_deployment_miss_while_abstained(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, _, _ = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        replay = next(
+            case for case in manifest.cases if case.role == "historical_bug_replay"
+        )
+        defect_id = next(
+            defect.defect_id
+            for defect in manifest.truth_defects
+            if defect.case_id == replay.case_id
+        )
+        original = _completed_result(
+            replay.case_id, abstain_reason="task evidence remained unresolved"
+        )
+        unresolved = FindingOutcome(
+            finding_id="unresolved-positive",
+            finding_status=FindingStatus.UNRESOLVED,
+            accuracy_status=AccuracyStatus.UNADJUDICATED,
+            defect_id=None,
+            publication_event_ids=(),
+            authority=FindingAuthority.AUTOMATED,
+        )
+        measurement = replace(
+            original.measurement,
+            findings=(unresolved,),
+            eligible_defect_ids=(defect_id,),
+            truth_status=TruthStatus.POSITIVE,
+            candidate_count=1,
+            unresolved_count=1,
+        )
+
+        report = build_calibration_report(
+            manifest,
+            [case_payload(replace(original, measurement=measurement))],
+            run_id="pilot-live-fully-deferred-positive",
+            mode=LIVE_MODE,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            preregistration_sha256="f" * 64,
+            validation_receipt=_current_validation_authority(manifest_path),
+        ).to_json_dict()
+
+        assert report["accuracy"]["true_positives"] == 0
+        assert report["accuracy"]["false_negatives"] == 1
+        assert report["outcome_accounting"]["eligible_defects"] == 1
+        assert report["outcome_accounting"]["detected_defects"] == 0
+        assert report["outcome_accounting"]["missed_defects"] == 1
+        assert report["outcome_accounting"]["detection_rate"] == 0.0
+        assert report["outcome_accounting"]["task_status_counts"]["fully_deferred"] == 1
+        assert report["abstained_cases"] == [
+            {
+                "case_id": replay.case_id,
+                "reason": "task evidence remained unresolved",
+            }
+        ]
 
     def test_fully_deferred_current_measurement_requires_an_abstain_reason(
         self, tmp_path: Path
@@ -2497,7 +2784,7 @@ class TestCalibrationReport:
                 validation_receipt=_current_validation_authority(manifest_path),
             )
 
-    def test_taskless_current_measurement_remains_excluded_from_outcome_accounting(
+    def test_taskless_current_measurement_must_join_the_sealed_transcript(
         self, tmp_path: Path
     ) -> None:
         manifest_path, _, _ = _oracle_fixture(tmp_path)
@@ -2507,10 +2794,32 @@ class TestCalibrationReport:
         )
         payload = case_payload(replace(_completed_result(control.case_id), task_id=None))
 
+        with pytest.raises(ValueError, match="exact pre-execution failure measurement"):
+            build_calibration_report(
+                manifest,
+                [payload],
+                run_id="pilot-live-taskless-current",
+                mode=LIVE_MODE,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                validation_receipt=_current_validation_authority(manifest_path),
+            )
+
+    def test_taskless_preexecution_failure_remains_an_exclusion(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, _, _ = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        control = next(
+            case for case in manifest.cases if case.role == "developer_fix_control"
+        )
+        reason = "ProjectEvaluationPreExecutionError: checkout refused"
+        result = _deferred(_fake_case(tmp_path, control.case_id).request, reason)
+
         report = build_calibration_report(
             manifest,
-            [payload],
-            run_id="pilot-live-taskless-current",
+            [case_payload(result)],
+            run_id="pilot-live-preexecution-exclusion",
             mode=LIVE_MODE,
             manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
             preregistration_sha256="f" * 64,
@@ -2518,17 +2827,11 @@ class TestCalibrationReport:
         ).to_json_dict()
 
         assert report["excluded_cases"] == [
-            {"case_id": control.case_id, "reason": "not_executed"}
+            {"case_id": control.case_id, "reason": reason}
         ]
         assert report["outcome_accounting"]["scoring_semantics"] == (
             "legacy_v1_scoring"
         )
-        assert report["outcome_accounting"]["task_status_counts"] == {
-            "completed": 0,
-            "partially_deferred": 0,
-            "fully_deferred": 0,
-            "failed": 0,
-        }
 
     def test_taskless_payload_still_rejects_a_malformed_current_measurement(
         self, tmp_path: Path
@@ -2573,6 +2876,52 @@ class TestCalibrationReport:
                 manifest,
                 [payload],
                 run_id="pilot-live-task-id-join",
+                mode=LIVE_MODE,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                validation_receipt=_current_validation_authority(manifest_path),
+            )
+
+    @pytest.mark.parametrize("repeat", (True, "0", None))
+    def test_current_measurement_requires_the_exact_outer_repeat(
+        self, tmp_path: Path, repeat: object
+    ) -> None:
+        manifest_path, _, _ = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        control = next(
+            case for case in manifest.cases if case.role == "developer_fix_control"
+        )
+        payload = case_payload(_completed_result(control.case_id))
+        payload["repeat"] = repeat
+
+        with pytest.raises(ValueError, match="repeat does not match measurement"):
+            build_calibration_report(
+                manifest,
+                [payload],
+                run_id="pilot-live-repeat-join",
+                mode=LIVE_MODE,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                validation_receipt=_current_validation_authority(manifest_path),
+            )
+
+    def test_current_measurement_requires_the_exact_outer_status(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, _, _ = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        control = next(
+            case for case in manifest.cases if case.role == "developer_fix_control"
+        )
+        payload = case_payload(_completed_result(control.case_id))
+        payload["status"] = "deferred"
+        payload["abstain_reason"] = "caller status rewrite"
+
+        with pytest.raises(ValueError, match="status does not match.*task_status"):
+            build_calibration_report(
+                manifest,
+                [payload],
+                run_id="pilot-live-status-join",
                 mode=LIVE_MODE,
                 manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
                 preregistration_sha256="f" * 64,

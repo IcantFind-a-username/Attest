@@ -9,10 +9,10 @@ wrong, and are therefore always emitted:
   measurement.
 * **an unevaluated case is an exclusion.** Cases that were not run appear by
   identifier with a reason and never enter any denominator as a negative.
-* **an undecided run is an abstention.** A case the tool deferred on -- budget
-  exhausted, deadline exceeded, infrastructure failure -- is reported with its
-  reason and excluded from every accuracy numerator and denominator. "I could
-  not evaluate this" is not "I correctly stayed silent".
+* **task state does not erase findings.** Partial defer, full defer, and failure
+  remain separate from publication and accuracy. Already-published findings
+  retain their precision/harm outcomes, and a positive miss remains a miss;
+  silent non-completed controls are never inferred to be true negatives.
 * **accuracy needs authorisation.** Precision, recall, and specificity are
   published only when a validation receipt bound to this exact manifest digest
   authorises scoring (D-019). Operational measurements claim no correctness and
@@ -46,16 +46,28 @@ from attest.benchmark.corpus import (
     require_validated_pair,
     validation_receipt_binding_bytes,
 )
+from attest.benchmark.measurement import (
+    ARM_ATTEST_PRODUCT,
+    LEGACY_MEASUREMENT_SEMANTICS,
+    MeasurementRecord,
+    MeasurementSummary,
+    TaskStatus,
+    TruthStatus,
+    measurement_summary_payload,
+    reduce_measurements,
+)
 from attest.benchmark.metrics import (
     ORACLE_INCONCLUSIVE_REASON,
     BenchmarkReport,
     aggregate,
+    wilson_interval,
 )
 from attest.benchmark.outcomes import ComparisonPublicationAuthority
 from attest.benchmark.schema import (
     BenchmarkCase,
     BenchmarkManifest,
     RunRecord,
+    is_scored_placement,
     require_manifest_binding,
 )
 from attest.benchmark.stability import StabilityReport
@@ -79,6 +91,8 @@ RECEIPT_HISTORICAL = "validation_receipt_historical_integrity_only"
 RECEIPT_INTEGRITY_INVALID = "validation_receipt_integrity_invalid"
 RECEIPT_PROVENANCE_UNAUTHORIZED = "validation_receipt_provenance_unauthorized"
 RECEIPT_SEMANTIC_REJECTED = "validation_receipt_semantic_policy_rejected"
+CURRENT_TRUTH_UNADJUDICATED = "current_measurement_truth_unadjudicated"
+CURRENT_ACCURACY_UNADJUDICATED = "current_measurement_accuracy_unadjudicated"
 
 
 @dataclass(frozen=True)
@@ -129,6 +143,8 @@ class BenchmarkRunReport:
     metrics_withheld_reason: str | None
     validation_authority: ValidationVerification
     evidence_class_counts: Mapping[str, int]
+    scoring_semantics: str
+    outcome_accounting: Mapping[str, object] | None
     limitations: tuple[str, ...]
     digest: str = ""
 
@@ -163,6 +179,11 @@ class BenchmarkRunReport:
             "metrics": _metrics_payload(self.metrics),
             "metrics_withheld_reason": self.metrics_withheld_reason,
             "validation_authority": self.validation_authority.to_json_dict(),
+            "scoring_semantics": self.scoring_semantics,
+            "outcome_accounting": _gated_outcome_accounting(
+                self.outcome_accounting,
+                authorized=self.metrics_withheld_reason is None,
+            ),
             "operational": _operational_payload(
                 self.measurements, self.abstained_cases, self.excluded_cases
             ),
@@ -183,15 +204,16 @@ def build_report(
     validation_receipt: (
         ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None
     ) = None,
+    measurement_records: Iterable[MeasurementRecord] = (),
 ) -> BenchmarkRunReport:
     """Aggregate the evaluated subset and attach its provenance limitations.
 
     Accuracy is withheld unless ``validation_receipt`` is bound to
     ``manifest_sha256`` and covers every scored pair; the default is refusal,
     because a report that scores without a receipt claims a number it has not
-    earned (D-019). Cases the caller lists in ``abstentions`` are reported with
-    their reasons and are never handed to :func:`aggregate`, so an undecided run
-    can enter no denominator.
+    earned (D-019). Current records keep task status separate from finding
+    publication: defer/failure never erases a published outcome or a positive
+    deployment miss, while silent non-completed controls are not true negatives.
     """
     if mode not in (REPLAY_MODE, LIVE_MODE):
         raise ValueError("mode must be replay or live")
@@ -200,20 +222,49 @@ def build_report(
         authority, manifest, manifest_sha256
     )
     records = tuple(runs)
+    current_records = tuple(measurement_records)
     abstained = tuple(
         sorted(abstentions, key=lambda abstention: (abstention.case_id, abstention.reason))
     )
     abstained_ids = {abstention.case_id for abstention in abstained}
-    if abstained_ids & {run.case_id for run in records}:
+    if (
+        authority.authority == "current_scoring_authority"
+        and (records or abstained)
+        and not current_records
+    ):
+        raise ValueError(
+            "current validation authority requires strict MeasurementRecord evidence"
+        )
+    if not current_records and abstained_ids & {run.case_id for run in records}:
         raise ValueError("an abstained case must not also be scored")
-    evaluated_ids = {run.case_id for run in records}
+    if current_records:
+        if len(abstained_ids) != len(abstained):
+            raise ValueError("current report contains duplicate abstention case_ids")
+        _validate_current_report_records(
+            current_records,
+            records,
+            manifest,
+            abstained_ids,
+        )
+    evaluated_ids = (
+        {record.case_id for record in current_records}
+        if current_records
+        else {run.case_id for run in records}
+    )
     cases = tuple(case for case in manifest.cases if case.case_id in evaluated_ids)
     truths = tuple(
         truth for truth in manifest.truth_defects if truth.case_id in evaluated_ids
     )
-    repeats = len({run.repeat for run in records})
+    repeats = len(
+        {record.repeat for record in current_records}
+        if current_records
+        else {run.repeat for run in records}
+    )
+    current_summary = reduce_measurements(current_records) if current_records else None
     measurements = (
-        aggregate(cases, truths, records, line_slack=line_slack) if cases else None
+        _current_benchmark_report(current_summary)
+        if current_summary is not None
+        else (aggregate(cases, truths, records, line_slack=line_slack) if cases else None)
     )
     excluded = tuple(
         sorted(
@@ -234,6 +285,17 @@ def build_report(
         if measurements is None
         else _scoring_refusal(authority, manifest_sha256, cases)
     )
+    if current_summary is not None and withheld is None:
+        if current_summary.metrics_withheld_reason is not None:
+            withheld = current_summary.metrics_withheld_reason
+        elif any(
+            record.repeat == 0
+            and record.truth_status is TruthStatus.UNADJUDICATED
+            for record in current_records
+        ):
+            withheld = CURRENT_TRUTH_UNADJUDICATED
+        elif current_summary.unadjudicated:
+            withheld = CURRENT_ACCURACY_UNADJUDICATED
     counts: dict[str, int] = {}
     for run in records:
         if run.repeat != 0:
@@ -250,13 +312,27 @@ def build_report(
         differential_repeats=differential_repeats,
         line_slack=line_slack,
         evaluated_cases=len(cases),
-        scored_runs=sum(1 for run in records if run.repeat == 0),
+        scored_runs=(
+            len(tuple(record for record in current_records if record.repeat == 0))
+            if current_records
+            else sum(1 for run in records if run.repeat == 0)
+        ),
         excluded_cases=excluded,
         abstained_cases=abstained,
         measurements=measurements,
         metrics_withheld_reason=withheld,
         validation_authority=authority,
         evidence_class_counts=counts,
+        scoring_semantics=(
+            current_summary.reducer_semantics
+            if current_summary is not None
+            else LEGACY_MEASUREMENT_SEMANTICS
+        ),
+        outcome_accounting=(
+            measurement_summary_payload(current_summary)
+            if current_summary is not None
+            else None
+        ),
         limitations=_limitations(
             manifest,
             mode,
@@ -269,6 +345,137 @@ def build_report(
         ),
     )
     return _with_digest(report)
+
+
+def _validate_current_report_records(
+    measurements: tuple[MeasurementRecord, ...],
+    runs: tuple[RunRecord, ...],
+    manifest: BenchmarkManifest,
+    abstained_ids: set[str],
+) -> None:
+    cases_by_id = {case.case_id: case for case in manifest.cases}
+    truth_ids_by_case: dict[str, set[str]] = {}
+    for defect in manifest.truth_defects:
+        truth_ids_by_case.setdefault(defect.case_id, set()).add(defect.defect_id)
+    run_by_slot = {(run.case_id, run.repeat): run for run in runs}
+    if len(run_by_slot) != len(runs):
+        raise ValueError("current report contains duplicate RunRecord slots")
+    measurement_slots = {(record.case_id, record.repeat) for record in measurements}
+    if len(measurement_slots) != len(measurements):
+        raise ValueError("current report contains duplicate measurement slots")
+    if not set(run_by_slot) <= measurement_slots:
+        raise ValueError("current report RunRecord lacks an authoritative measurement")
+    expected_abstained_ids = {
+        record.case_id
+        for record in measurements
+        if record.repeat == 0
+        and record.task_status
+        in {TaskStatus.PARTIALLY_DEFERRED, TaskStatus.FULLY_DEFERRED}
+    }
+    if abstained_ids != expected_abstained_ids:
+        raise ValueError(
+            "current report abstentions must exactly match primary deferred measurements"
+        )
+    for measurement in measurements:
+        case = cases_by_id.get(measurement.case_id)
+        if case is None:
+            raise ValueError("current measurement case_id is absent from the manifest")
+        if measurement.arm != ARM_ATTEST_PRODUCT:
+            raise ValueError("current report measurement arm must be attest_product")
+        expected_defects = truth_ids_by_case.get(case.case_id, set())
+        if case.role == "historical_bug_replay":
+            if measurement.truth_status is TruthStatus.NULL:
+                raise ValueError("current null measurement contradicts manifest truth")
+            if (
+                measurement.truth_status is TruthStatus.POSITIVE
+                and set(measurement.eligible_defect_ids) != expected_defects
+            ):
+                raise ValueError(
+                    "current measurement eligible defects do not match manifest truth"
+                )
+        elif case.role == "developer_fix_control":
+            if expected_defects or measurement.truth_status is TruthStatus.POSITIVE:
+                raise ValueError("current measurement contradicts manifest control truth")
+        else:  # pragma: no cover - BenchmarkCase validates the closed role set
+            raise ValueError("current measurement case has an unsupported manifest role")
+        run = run_by_slot.get((measurement.case_id, measurement.repeat))
+        published_ids = {
+            finding.finding_id
+            for finding in measurement.findings
+            if finding.author_visible
+        }
+        if run is None:
+            if published_ids:
+                raise ValueError(
+                    "current report published measurement lacks its RunRecord"
+                )
+            if measurement.task_status is not TaskStatus.FULLY_DEFERRED or (
+                measurement.repeat == 0
+                and measurement.case_id not in abstained_ids
+            ):
+                raise ValueError(
+                    "current report silent measurement requires an explicit "
+                    "fully-deferred abstention slot"
+                )
+            continue
+        prediction_ids = {
+            prediction.finding_id
+            for prediction in run.predictions
+            if is_scored_placement(prediction.placement)
+        }
+        if prediction_ids != published_ids:
+            raise ValueError(
+                "current report predictions do not match authoritative publications"
+            )
+
+
+def _current_benchmark_report(summary: MeasurementSummary) -> BenchmarkReport:
+    true_positives = summary.detected_positive_pull_requests or 0
+    false_negatives = summary.missed_positive_pull_requests or 0
+    false_positives = summary.pr_false_positive_events or 0
+    true_negatives = summary.true_negative_pull_requests or 0
+    correct = summary.correct or 0
+    wrong = summary.wrong or 0
+    positive_total = summary.positive_pull_requests
+    clean_total = summary.null_pull_requests
+    finding_total = correct + wrong
+    abstentions = summary.partially_deferred + summary.fully_deferred
+    return BenchmarkReport(
+        true_positives=true_positives,
+        false_positives=false_positives,
+        false_negatives=false_negatives,
+        true_negatives=true_negatives,
+        decided_cases=positive_total + clean_total,
+        excluded_cases=(),
+        finding_true_positives=correct,
+        finding_false_positives=wrong,
+        clean_false_positive_rate=summary.pr_false_positive_rate,
+        specificity=(true_negatives / clean_total if clean_total else None),
+        all_positive_detection=(
+            true_positives / positive_total if positive_total else None
+        ),
+        finding_precision=summary.finding_precision,
+        conditional_recall=None,
+        abstention_rate=(
+            abstentions / summary.semantic_n if summary.semantic_n else None
+        ),
+        duplicate_surfaces=0,
+        delivery_rate=(
+            summary.task_delivered / summary.semantic_n
+            if summary.task_delivered is not None and summary.semantic_n
+            else None
+        ),
+        delivery_p50_s=None,
+        delivery_p95_s=None,
+        deadline_censored=0,
+        all_positive_detection_interval=wilson_interval(
+            true_positives, positive_total
+        ),
+        finding_precision_interval=wilson_interval(correct, finding_total),
+        clean_false_positive_rate_interval=wilson_interval(
+            false_positives, clean_total
+        ),
+    )
 
 
 def _scoring_refusal(
@@ -436,9 +643,10 @@ def _limitations(
     if abstained:
         notes.append(
             f"abstentions: {len(abstained)} case(s) were deferred by the tool and are "
-            "listed by identifier with a reason. An abstention means the tool could "
-            "not evaluate the case, so it enters no accuracy numerator and no accuracy "
-            "denominator; it is never counted as correct silence."
+            "listed by identifier with a reason. Task state never removes an already-"
+            "published finding from precision or harm; a positive non-completed task "
+            "without a correct visible finding remains a deployment miss, while a "
+            "silent non-completed control is not a true negative."
         )
     if withheld is not None:
         notes.append(
@@ -533,6 +741,7 @@ def render_markdown(report: BenchmarkRunReport) -> str:
         f"- run repeats recorded: {report.repeats}",
         f"- differential repeats per side: {report.differential_repeats}",
         f"- line slack: {report.line_slack}",
+        f"- scoring semantics: `{report.scoring_semantics}`",
         f"- report digest: `{report.digest}`",
         "",
         "## Validation authority",
@@ -543,6 +752,13 @@ def render_markdown(report: BenchmarkRunReport) -> str:
         "",
     ]
     lines.extend(f"- {note}" for note in report.limitations)
+    accounting = _gated_outcome_accounting(
+        report.outcome_accounting,
+        authorized=report.metrics_withheld_reason is None,
+    )
+    if accounting is not None:
+        lines.extend(["", "## Outcome accounting", ""])
+        lines.extend(_value_table("measurement", accounting))
     lines.extend(["", "## Metrics", ""])
     metrics = report.metrics
     if metrics is not None:
@@ -710,6 +926,10 @@ class ComparisonRunReport:
                     "abstentions": [row.to_json_dict() for row in summary.abstentions],
                     "operational": summary.operational.to_json_dict(),
                     "accuracy": summary.accuracy.to_json_dict() if authorized else None,
+                    "scoring_semantics": summary.scoring_semantics,
+                    "outcome_accounting": _gated_outcome_accounting(
+                        summary.outcome_accounting, authorized=authorized
+                    ),
                 }
                 for summary in self.measurements.arms
             ],
@@ -719,6 +939,34 @@ class ComparisonRunReport:
             "validation_authority": self.validation_authority.to_json_dict(),
             "limitations": list(self.limitations),
         }
+
+
+def _gated_outcome_accounting(
+    accounting: Mapping[str, object] | None, *, authorized: bool
+) -> dict[str, object] | None:
+    if accounting is None:
+        return None
+    if authorized:
+        return dict(accounting)
+    operational_fields = {
+        "reducer_semantics",
+        "semantic_n",
+        "operational_repeats",
+        "published",
+        "unresolved",
+        "unadjudicated",
+        "operational_unadjudicated",
+        "metrics_withheld_reason",
+        "pr_any_wrong_withheld_reason",
+        "task_status_counts",
+        "abstentions",
+        "failures",
+    }
+    projected = {
+        key: value for key, value in accounting.items() if key in operational_fields
+    }
+    projected["deployment_misses"] = None
+    return projected
 
 
 def _arm_run_payload(run: ArmRun, authorized: bool) -> dict[str, object]:
@@ -851,7 +1099,12 @@ def _comparison_limitations(
     excluded: tuple[ReportExclusion, ...],
     withheld: str | None,
 ) -> tuple[str, ...]:
-    deferred_runs = sum(1 for run in measurements.runs if run.status != "completed")
+    deferred_runs = sum(
+        1
+        for run in measurements.runs
+        if run.status in {"deferred", "partially_deferred", "fully_deferred"}
+    )
+    failed_runs = sum(1 for run in measurements.runs if run.status == "failed")
     notes = [
         (
             "replay regression: model responses were served from recorded cassettes, "
@@ -862,7 +1115,8 @@ def _comparison_limitations(
             "during this run; the result is one observation under one configuration."
         ),
         "losing_arms: every arm's results are reported, including losing arms and "
-        f"the {deferred_runs} failed or deferred run(s); no selective omission.",
+        f"the {deferred_runs} deferred and {failed_runs} failed run(s); no selective "
+        "omission.",
         "static_arm: the ruff_static arm is a deterministic static analyzer. It is "
         "not an AI reviewer, and its numbers must never be presented as evidence "
         "about one.",
@@ -872,10 +1126,12 @@ def _comparison_limitations(
         "a verified one.",
         "intervals: every accuracy denominator and Wilson interval uses repeat zero "
         "only; repeats never enlarge them.",
-        "abstentions: a run an arm could not decide -- tool unavailable, invalid "
-        "response, budget refusal, crash -- is a DEFER carried with its reason. It "
-        "enters no accuracy numerator or denominator and is never inferred to be a "
-        "negative label.",
+        "task_states: the authoritative product arm carries defer and failure "
+        "separately with their reasons. Neither erases already-published product "
+        "precision/harm outcomes; a positive miss remains a deployment miss, while "
+        "silent non-completed controls are not true negatives. Bare-prompt and ruff "
+        "accuracy remain explicit legacy_v1_scoring summaries and do not acquire "
+        "these current four-state semantics.",
         "product_accounting: the product arm's call and token totals include the "
         "benchmark oracle's independent re-verification; that oracle spend is "
         "disclosed separately as oracle_spend_usd and is not product cost.",
@@ -925,10 +1181,18 @@ def render_comparison_markdown(report: ComparisonRunReport) -> str:
     for arm in arms:
         assert isinstance(arm, dict)
         lines.extend(["", f"## Arm `{arm['arm']}`", "", str(arm["description"]), ""])
+        lines.append(f"scoring semantics: `{arm['scoring_semantics']}`")
         lines.extend(["### Operational", ""])
         operational = arm["operational"]
         assert isinstance(operational, dict)
         lines.extend(_value_table("measurement", operational))
+        lines.extend(["", "### Outcome accounting", ""])
+        accounting = arm["outcome_accounting"]
+        if accounting is None:
+            lines.append("(not available)")
+        else:
+            assert isinstance(accounting, dict)
+            lines.extend(_value_table("measurement", accounting))
         lines.extend(["", "### Accuracy", ""])
         accuracy = arm["accuracy"]
         if accuracy is None:
@@ -994,7 +1258,9 @@ def render_stability_markdown(report: StabilityReport) -> str:
         f"- case: `{report.case_id}`",
         f"- manifest SHA-256: `{report.manifest_sha256}`",
         f"- provider: `{report.provider_label}`",
-        f"- repeats: {report.repeats}",
+        f"- semantic units: {report.semantic_n}",
+        f"- operational repeats: {report.operational_repeats}",
+        f"- task status counts: `{json.dumps(report.task_status_counts, sort_keys=True)}`",
         f"- report digest: `{report.digest}`",
         "",
         "## Limitations",
@@ -1006,14 +1272,15 @@ def render_stability_markdown(report: StabilityReport) -> str:
             "",
             "## Run outcomes",
             "",
-            "| repeat | run id | outcome | candidates | product spend (USD) | "
+            "| repeat | run id | task status | outcome | candidates | product spend (USD) | "
             "oracle spend (USD) | total spend (USD) |",
-            "| --- | --- | --- | --- | --- | --- | --- |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for repeat in range(report.repeats):
         lines.append(
-            f"| {repeat} | `{report.run_ids[repeat]}` | {report.outcomes[repeat]} | "
+            f"| {repeat} | `{report.run_ids[repeat]}` | "
+            f"{report.task_statuses[repeat]} | {report.outcomes[repeat]} | "
             f"{report.candidate_counts[repeat]} | "
             f"{report.product_spend_per_run_usd[repeat]:.6f} | "
             f"{report.oracle_spend_per_run_usd[repeat]:.6f} | "
@@ -1066,6 +1333,11 @@ def render_stability_markdown(report: StabilityReport) -> str:
     lines.extend(["", "## Defers", "", "| repeat | reason |", "| --- | --- |"])
     if report.deferred_runs:
         lines.extend(f"| {row.repeat} | {row.reason} |" for row in report.deferred_runs)
+    else:
+        lines.append("| (none) | (none) |")
+    lines.extend(["", "## Failures", "", "| repeat | reason |", "| --- | --- |"])
+    if report.failed_runs:
+        lines.extend(f"| {row.repeat} | {row.reason} |" for row in report.failed_runs)
     else:
         lines.append("| (none) | (none) |")
     return "\n".join(lines) + "\n"

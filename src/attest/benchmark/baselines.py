@@ -18,9 +18,9 @@ Fairness rules the module enforces rather than promises:
 * the matcher uses preregistered location truth only. It never pretends the
   bare-prompt or static arm purchased verification: every finding records its
   evidence class, and only the product arm can carry a verification class;
-* a run an arm could not decide (tool unavailable, invalid response, budget
-  refusal, crash) is a DEFER with a reason. It enters no accuracy numerator or
-  denominator and is never turned into a negative label; and
+* task state is separate from finding outcomes: defer/failure never erases an
+  already-published precision or harm outcome, positive misses remain misses,
+  and silent non-completed controls are not inferred to be true negatives; and
 * Wilson denominators come from repeat zero only.
 
 Publication of accuracy-flavoured numbers is not decided here: the report
@@ -74,7 +74,16 @@ from attest.benchmark.corpus import (
     ValidationVerification,
     validation_receipt_binding_bytes,
 )
-from attest.benchmark.measurement import ARM_ATTEST_PRODUCT, MeasurementRecord, TaskStatus
+from attest.benchmark.measurement import (
+    ARM_ATTEST_PRODUCT,
+    AccuracyStatus,
+    FindingAuthority,
+    MeasurementRecord,
+    TaskStatus,
+    TruthStatus,
+    measurement_summary_payload,
+    reduce_measurements,
+)
 from attest.benchmark.metrics import silence_precision, wilson_interval
 from attest.benchmark.outcomes import (
     COMPARISON_FINAL_RECEIPT_PATH,
@@ -215,6 +224,7 @@ class ArmRun:
     paid_calls: tuple[Mapping[str, object], ...] = ()
     paid_calls_sha256: str = _EMPTY_PAID_CALLS_SHA256
     model_id: str | None = None
+    product_measurement: MeasurementRecord | None = None
 
 
 class ComparisonEvidenceError(ValueError):
@@ -321,6 +331,8 @@ class ArmSummary:
     operational: ArmOperational
     abstentions: tuple[ArmAbstention, ...]
     evidence_class_counts: Mapping[str, int]
+    scoring_semantics: str = "legacy_v1_scoring"
+    outcome_accounting: Mapping[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -1203,7 +1215,16 @@ def compare_arms(
             bound_manifest,
             line_slack,
         )
-        runs.append(_with_matches(product_run, defects, line_slack))
+        if product_run.product_measurement is None:  # pragma: no cover - arm contract
+            raise ComparisonEvidenceError("product run has no authoritative measurement")
+        runs.append(
+            replace(
+                product_run,
+                matched_defect_ids=_product_measurement_matches(
+                    product_run.findings, product_run.product_measurement
+                ),
+            )
+        )
         bare_run, ruff_run = _baseline_arms(
             plan,
             bare_provider_factory,
@@ -1282,9 +1303,7 @@ def compare_arms(
             _summarize_arm(arm, tuple(run for run in runs if run.arm == arm))
             for arm in (ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF)
         )
-        evaluated = tuple(
-            sorted({run.case_id for run in runs if run.status == "completed"})
-        )
+        evaluated = tuple(sorted({run.case_id for run in runs}))
         measurements = ComparisonMeasurements(
             line_slack=line_slack,
             budget_ceiling_usd=next(iter(ceilings)) if ceilings else 0.0,
@@ -2149,7 +2168,11 @@ def validate_comparison_measurements(
             binding.get("base_sha") != expected_base
             or binding.get("head_sha") != expected_head
             or binding.get("fixed_sha")
-            != (None if expected_truth is None else case.fixed_commit)
+            != (
+                None
+                if expected_truth is None or not expected_truth.defects
+                else case.fixed_commit
+            )
             or binding.get("truth_sha256")
             != project_truth_sha256(expected_truth)
         ):
@@ -2166,9 +2189,7 @@ def validate_comparison_measurements(
         raise ComparisonEvidenceError(
             "comparison report does not contain exactly one run for every declared arm"
         )
-    expected_evaluated = tuple(
-        sorted({run.case_id for run in measurements.runs if run.status == "completed"})
-    )
+    expected_evaluated = tuple(sorted({run.case_id for run in measurements.runs}))
     if measurements.evaluated_case_ids != expected_evaluated:
         raise ComparisonEvidenceError(
             "comparison evaluated case IDs do not match completed runs"
@@ -2183,13 +2204,18 @@ def validate_comparison_measurements(
             raise ComparisonEvidenceError(
                 "comparison run role/case does not match the bound manifest"
             )
-        expected_matches = (
-            _match_locations(
+        if run.arm == ARM_PRODUCT:
+            if run.product_measurement is None:
+                raise ComparisonEvidenceError(
+                    "product comparison run has no authoritative measurement"
+                )
+            expected_matches = _product_measurement_matches(
+                run.findings, run.product_measurement
+            )
+        else:
+            expected_matches = _match_locations(
                 truths_by_case[run.case_id], run.findings, measurements.line_slack
             )
-            if run.status == "completed"
-            else ()
-        )
         if run.matched_defect_ids != expected_matches:
             raise ComparisonEvidenceError(
                 "comparison run matches do not reproduce from bound manifest truth"
@@ -2311,9 +2337,7 @@ def validate_comparison_measurements(
         )
         for arm in (ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF)
     )
-    fresh_evaluated = tuple(
-        sorted({run.case_id for run in fresh_runs if run.status == "completed"})
-    )
+    fresh_evaluated = tuple(sorted({run.case_id for run in fresh_runs}))
     fresh_measurements = replace(
         measurements,
         runs=fresh_runs,
@@ -2372,9 +2396,7 @@ def _comparison_measurements_from_verified(
         _summarize_arm(arm, tuple(run for run in runs if run.arm == arm))
         for arm in (ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF)
     )
-    evaluated = tuple(
-        sorted({run.case_id for run in runs if run.status == "completed"})
-    )
+    evaluated = tuple(sorted({run.case_id for run in runs}))
     return ComparisonMeasurements(
         line_slack=line_slack,
         budget_ceiling_usd=budget_ceiling_usd,
@@ -2515,14 +2537,25 @@ def _rebuild_comparison_run_from_outcome(
         paid_calls=records,
         paid_calls_sha256=digest,
         model_id=model_id,
+        product_measurement=outcome.product_measurement,
     )
     truth = _manifest_truth(manifest, slot.case_id)
     defects = () if truth is None else truth.defects
+    if slot.arm == ARM_PRODUCT:
+        if outcome.product_measurement is None:
+            raise ComparisonEvidenceError(
+                "product comparison outcome has no authoritative measurement"
+            )
+        matched_defect_ids = _product_measurement_matches(
+            findings, outcome.product_measurement
+        )
+    else:
+        matched_defect_ids = (
+            _match_locations(defects, findings, line_slack) if findings else ()
+        )
     return replace(
         run,
-        matched_defect_ids=(
-            _match_locations(defects, findings, line_slack) if findings else ()
-        ),
+        matched_defect_ids=matched_defect_ids,
     )
 
 
@@ -2974,6 +3007,14 @@ def _product_arm(
         for prediction in result.predictions
         if is_scored_placement(prediction.placement)
     )
+    product_measurement = result.measurement
+    if (
+        plan.case.role == _ROLE_CONTROL
+        and product_measurement.truth_status is not TruthStatus.NULL
+    ):
+        raise ComparisonEvidenceError(
+            "control product measurement was not adjudicated before persistence"
+        )
     run = ArmRun(
         arm=ARM_PRODUCT,
         case_id=request.case_id,
@@ -2989,6 +3030,7 @@ def _product_arm(
         oracle_spend_usd=result.oracle_spend_usd,
         wall_time_s=result.latency_s,
         tool_cost_s=None,
+        product_measurement=product_measurement,
     )
     run = replace(run, model_id=request.config.model)
     if reconciliation is not None:
@@ -2997,7 +3039,7 @@ def _product_arm(
         outcome_authority,
         run,
         repeat=request.repeat,
-        product_measurement=result.measurement,
+        product_measurement=product_measurement,
     )
     return run
 
@@ -3370,10 +3412,31 @@ def _diagnostic_anchor(
 def _with_matches(
     run: ArmRun, defects: tuple[TruthDefect, ...], line_slack: int
 ) -> ArmRun:
-    if run.status != "completed" or not run.findings:
+    if not run.findings:
         return run
     matched = _match_locations(defects, run.findings, line_slack)
     return replace(run, matched_defect_ids=matched)
+
+
+def _product_measurement_matches(
+    findings: tuple[BaselineFinding, ...], measurement: MeasurementRecord
+) -> tuple[str | None, ...]:
+    """Project product run detail from its already-adjudicated measurement."""
+
+    published = tuple(finding for finding in measurement.findings if finding.author_visible)
+    if tuple(finding.finding_id for finding in findings) != tuple(
+        finding.finding_id for finding in published
+    ):
+        raise ComparisonEvidenceError(
+            "product run and measurement require an exact finding_id join"
+        )
+    return tuple(
+        finding.defect_id
+        if finding.authority is FindingAuthority.AUTOMATED
+        and finding.accuracy_status is AccuracyStatus.CORRECT
+        else None
+        for finding in published
+    )
 
 
 def _match_locations(
@@ -3455,6 +3518,10 @@ def _distance(line: int, start_line: int, end_line: int) -> int:
 
 
 def _summarize_arm(arm: str, runs: tuple[ArmRun, ...]) -> ArmSummary:
+    if arm == ARM_PRODUCT and runs and all(
+        run.product_measurement is not None for run in runs
+    ):
+        return _summarize_authoritative_product(runs)
     completed = tuple(run for run in runs if run.status == "completed")
     deferred = tuple(run for run in runs if run.status != "completed")
     finding_true_positives = sum(
@@ -3525,6 +3592,97 @@ def _summarize_arm(arm: str, runs: tuple[ArmRun, ...]) -> ArmSummary:
             for run in deferred
         ),
         evidence_class_counts=dict(sorted(counts.items())),
+    )
+
+
+def _summarize_authoritative_product(runs: tuple[ArmRun, ...]) -> ArmSummary:
+    records = tuple(
+        run.product_measurement
+        for run in runs
+        if run.product_measurement is not None
+    )
+    summary = reduce_measurements(records)
+    correct = summary.correct
+    wrong = summary.wrong
+    detected = summary.detected_positive_pull_requests
+    missed = summary.missed_positive_pull_requests
+    flagged = summary.pr_false_positive_events
+    silent_controls = summary.true_negative_pull_requests
+    published = summary.published
+    if (
+        correct is None
+        or wrong is None
+        or detected is None
+        or missed is None
+        or flagged is None
+        or silent_controls is None
+        or published is None
+    ):
+        raise ComparisonEvidenceError(
+            "authoritative product accuracy is withheld by its measurement record"
+        )
+    silent_positives = sum(
+        record.truth_status is TruthStatus.POSITIVE and record.published_count == 0
+        for record in records
+    )
+    finding_total = correct + wrong
+    positive_total = summary.positive_pull_requests
+    control_total = summary.null_pull_requests
+    silent_cases = sum(record.published_count == 0 for record in records)
+    counts: dict[str, int] = {}
+    for run in runs:
+        for finding in run.findings:
+            counts[finding.evidence_class] = counts.get(finding.evidence_class, 0) + 1
+    tool_costs = [run.tool_cost_s for run in runs if run.tool_cost_s is not None]
+    accuracy = ArmAccuracy(
+        finding_true_positives=correct,
+        finding_false_positives=wrong,
+        finding_precision=summary.finding_precision,
+        finding_precision_interval=wilson_interval(correct, finding_total),
+        detected_positive_cases=detected,
+        decided_positive_cases=positive_total,
+        detection_rate=_ratio(detected, positive_total),
+        detection_rate_interval=wilson_interval(detected, positive_total),
+        flagged_control_cases=flagged,
+        decided_control_cases=control_total,
+        clean_false_positive_rate=summary.pr_false_positive_rate,
+        clean_false_positive_rate_interval=wilson_interval(flagged, control_total),
+        silent_control_cases=silent_controls,
+        silent_positive_cases=silent_positives,
+        silence_precision=silence_precision(silent_controls, silent_positives),
+        silence_precision_interval=wilson_interval(
+            silent_controls, silent_controls + silent_positives
+        ),
+    )
+    operational = ArmOperational(
+        evaluated_cases=summary.semantic_n,
+        deferred_cases=summary.semantic_n - summary.completed,
+        surfaced_findings=published,
+        silent_cases=silent_cases,
+        silence_rate=_ratio(silent_cases, summary.semantic_n),
+        model_calls=sum(run.model_calls for run in runs),
+        input_tokens=sum(run.input_tokens for run in runs),
+        output_tokens=sum(run.output_tokens for run in runs),
+        spend_usd=sum(run.spend_usd for run in runs),
+        oracle_spend_usd=sum(run.oracle_spend_usd for run in runs),
+        wall_time_s=sum(run.wall_time_s for run in runs),
+        tool_cost_s=sum(tool_costs) if tool_costs else None,
+    )
+    return ArmSummary(
+        arm=ARM_PRODUCT,
+        description=ARM_DESCRIPTIONS[ARM_PRODUCT],
+        accuracy=accuracy,
+        operational=operational,
+        abstentions=tuple(
+            ArmAbstention(run.case_id, run.abstain_reason or "unspecified")
+            for run in runs
+            if run.product_measurement is not None
+            and run.product_measurement.task_status
+            in {TaskStatus.PARTIALLY_DEFERRED, TaskStatus.FULLY_DEFERRED}
+        ),
+        evidence_class_counts=dict(sorted(counts.items())),
+        scoring_semantics=summary.reducer_semantics,
+        outcome_accounting=measurement_summary_payload(summary),
     )
 
 

@@ -13,12 +13,13 @@ import json
 import math
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import cast
 
 CURRENT_MEASUREMENT_SCHEMA_VERSION = 2
 CURRENT_MEASUREMENT_SEMANTICS = "author_visible_v2"
+CURRENT_REDUCER_SEMANTICS = "mixed_outcome_v3"
 LEGACY_MEASUREMENT_SEMANTICS = "legacy_v1_scoring"
 LEGACY_V1_METRICS_WITHHELD = "legacy_v1_scoring_metrics_withheld"
 ARM_ATTEST_PRODUCT = "attest_product"
@@ -879,6 +880,7 @@ class MeasurementRecord:
 class MeasurementSummary:
     """Author-visible denominators over primary semantic units."""
 
+    reducer_semantics: str
     operational_repeats: int
     operational_published: int | None
     operational_unresolved: int
@@ -904,9 +906,13 @@ class MeasurementSummary:
     detected_defects: int | None
     missed_defects: int | None
     detection_rate: float | None
+    positive_pull_requests: int
+    detected_positive_pull_requests: int | None
+    missed_positive_pull_requests: int | None
     null_pull_requests: int
     pr_false_positive_events: int | None
     pr_false_positive_rate: float | None
+    true_negative_pull_requests: int | None
     adjudicated_pull_requests: int
     pr_any_wrong_events: int | None
     pr_any_wrong_rate: float | None
@@ -928,6 +934,77 @@ class LegacyV1ScoringRecord:
     payload_sha256: str
     scoring_semantics: str = LEGACY_MEASUREMENT_SEMANTICS
     metrics_withheld_reason: str = LEGACY_V1_METRICS_WITHHELD
+
+
+_SUMMARY_ACCOUNTING_FIELDS = (
+    "reducer_semantics",
+    "operational_repeats",
+    "operational_published",
+    "operational_unresolved",
+    "operational_correct",
+    "operational_wrong",
+    "operational_unadjudicated",
+    "semantic_n",
+    "published",
+    "automated_published",
+    "unresolved",
+    "correct",
+    "wrong",
+    "unadjudicated",
+    "finding_precision",
+    "eligible_defects",
+    "detected_defects",
+    "missed_defects",
+    "detection_rate",
+    "positive_pull_requests",
+    "detected_positive_pull_requests",
+    "missed_positive_pull_requests",
+    "null_pull_requests",
+    "pr_false_positive_events",
+    "pr_false_positive_rate",
+    "true_negative_pull_requests",
+    "adjudicated_pull_requests",
+    "pr_any_wrong_events",
+    "pr_any_wrong_rate",
+    "pr_any_wrong_withheld_reason",
+    "task_delivered",
+    "metrics_withheld_reason",
+    "delivery_withheld_reason",
+    "task_delivery_withheld_reason",
+)
+
+
+def _normalize_summary_payload(value: object) -> object:
+    """Recursively normalize one dataclass projection for stable JSON reports."""
+
+    if type(value) is float:
+        return round(value, 6)
+    if isinstance(value, dict):
+        return {str(key): _normalize_summary_payload(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_normalize_summary_payload(item) for item in value]
+    return value
+
+
+def measurement_summary_payload(summary: MeasurementSummary) -> dict[str, object]:
+    """Project one reducer result without reimplementing any scoring logic."""
+
+    if type(summary) is not MeasurementSummary:
+        raise ValueError("summary must be an exact MeasurementSummary")
+    normalized = _normalize_summary_payload(asdict(summary))
+    if not isinstance(normalized, dict):  # pragma: no cover - asdict contract
+        raise AssertionError("measurement summary projection must be an object")
+    payload = {field: normalized[field] for field in _SUMMARY_ACCOUNTING_FIELDS}
+    task_status_counts = {
+        status.value: normalized[status.value] for status in TaskStatus
+    }
+    payload["task_status_counts"] = task_status_counts
+    payload["abstentions"] = (
+        summary.partially_deferred + summary.fully_deferred
+    )
+    payload["failures"] = summary.failed
+    payload["deployment_misses"] = payload["missed_positive_pull_requests"]
+    return payload
 
 
 def derive_task_status(
@@ -1019,6 +1096,8 @@ def reduce_measurements(records: Sequence[MeasurementRecord]) -> MeasurementSumm
     eligible: set[tuple[str, str, str]] = set()
     detected: set[tuple[str, str, str]] = set()
     null_pull_requests = pr_false_positive_events = 0
+    positive_pull_requests = detected_positive_pull_requests = 0
+    true_negative_pull_requests = 0
     adjudicated_pull_requests = pr_any_wrong_events = 0
     incomplete_pr_accuracy = False
     statuses = {status: 0 for status in TaskStatus}
@@ -1079,11 +1158,20 @@ def reduce_measurements(records: Sequence[MeasurementRecord]) -> MeasurementSumm
             for finding in correct_findings
             if finding.defect_id is not None
         )
-        if record.truth_status is TruthStatus.NULL:
+        if record.truth_status is TruthStatus.POSITIVE:
+            positive_pull_requests += 1
+            if correct_findings:
+                detected_positive_pull_requests += 1
+        adjudicated_null = record.truth_status is TruthStatus.NULL and (
+            record.task_status is TaskStatus.COMPLETED or bool(wrong_findings)
+        )
+        if adjudicated_null:
             null_pull_requests += 1
             if wrong_findings:
                 pr_false_positive_events += 1
-        if record.truth_status in {TruthStatus.POSITIVE, TruthStatus.NULL}:
+            else:
+                true_negative_pull_requests += 1
+        if record.truth_status is TruthStatus.POSITIVE or adjudicated_null:
             if any(
                 finding.accuracy_status is AccuracyStatus.UNADJUDICATED
                 for finding in automated
@@ -1126,6 +1214,7 @@ def reduce_measurements(records: Sequence[MeasurementRecord]) -> MeasurementSumm
     )
     quality_known = metrics_withheld_reason is None
     return MeasurementSummary(
+        reducer_semantics=CURRENT_REDUCER_SEMANTICS,
         operational_repeats=len(records),
         operational_published=(len(operational_visible) if quality_known else None),
         operational_unresolved=operational_unresolved,
@@ -1193,6 +1282,15 @@ def reduce_measurements(records: Sequence[MeasurementRecord]) -> MeasurementSumm
             if eligible_count and metrics_withheld_reason is None
             else None
         ),
+        positive_pull_requests=positive_pull_requests,
+        detected_positive_pull_requests=(
+            detected_positive_pull_requests if quality_known else None
+        ),
+        missed_positive_pull_requests=(
+            positive_pull_requests - detected_positive_pull_requests
+            if quality_known
+            else None
+        ),
         null_pull_requests=null_pull_requests,
         pr_false_positive_events=(
             pr_false_positive_events if quality_known else None
@@ -1202,10 +1300,17 @@ def reduce_measurements(records: Sequence[MeasurementRecord]) -> MeasurementSumm
             if null_pull_requests and metrics_withheld_reason is None
             else None
         ),
+        true_negative_pull_requests=(
+            true_negative_pull_requests if quality_known else None
+        ),
         adjudicated_pull_requests=adjudicated_pull_requests,
         pr_any_wrong_events=(
             pr_any_wrong_events
-            if quality_known and not incomplete_pr_accuracy
+            if (
+                quality_known
+                and not incomplete_pr_accuracy
+                and adjudicated_pull_requests
+            )
             else None
         ),
         pr_any_wrong_rate=(

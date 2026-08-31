@@ -39,12 +39,15 @@ from attest.benchmark.measurement import (
     ARM_ATTEST_PRODUCT,
     CURRENT_MEASUREMENT_SCHEMA_VERSION,
     CURRENT_MEASUREMENT_SEMANTICS,
+    AccuracyStatus,
     DeliveryStatus,
+    FindingAuthority,
     MeasurementRecord,
     StopKind,
     TaskStatus,
     TruthStatus,
     empty_delivery_transcript_receipt,
+    reduce_measurements,
 )
 from attest.benchmark.runner import (
     BenchmarkRunner,
@@ -61,7 +64,6 @@ from attest.benchmark.schema import (
     Prediction,
     RunRecord,
     TruthDefect,
-    is_scored_placement,
 )
 from attest.review.config import ReviewConfig, validate_review_config
 from attest.review.executor import (
@@ -223,12 +225,14 @@ def manifest_project_truth(
     manifest: BenchmarkManifest, case_id: str
 ) -> ProjectTruth | None:
     """Derive the only scoring truth allowed for one manifest case."""
+    case = next(case for case in manifest.cases if case.case_id == case_id)
     defects = tuple(
         defect for defect in manifest.truth_defects if defect.case_id == case_id
     )
+    if case.role == "developer_fix_control":
+        return ProjectTruth(defects=())
     if not defects:
         return None
-    case = next(case for case in manifest.cases if case.case_id == case_id)
     return ProjectTruth(defects=defects, fixed_ref=case.fixed_commit)
 
 
@@ -276,7 +280,7 @@ def require_manifest_evaluation_request(
         raise ProjectEvaluationError("evaluation repository base does not match manifest")
     if _commit(request.repo, request.head_ref, "head_ref") != expected_head:
         raise ProjectEvaluationError("evaluation repository head does not match manifest")
-    if request.truth is not None and (
+    if request.truth is not None and request.truth.defects and (
         _commit(request.repo, request.truth.fixed_ref or "", "fixed_ref")
         != case.fixed_commit
     ):
@@ -406,6 +410,24 @@ class ProjectEvaluationResult:
     def __post_init__(self) -> None:
         if type(self.measurement) is not MeasurementRecord:
             raise ValueError("project evaluation requires an exact current measurement")
+        expected_status = (
+            "completed"
+            if self.measurement.task_status is TaskStatus.COMPLETED
+            else "deferred"
+        )
+        if self.status != expected_status:
+            raise ValueError(
+                "project evaluation status does not match measurement task_status"
+            )
+        if self.measurement.task_status is TaskStatus.COMPLETED:
+            if self.abstain_reason is not None:
+                raise ValueError(
+                    "completed project evaluation cannot carry abstain_reason"
+                )
+        elif type(self.abstain_reason) is not str or not self.abstain_reason.strip():
+            raise ValueError(
+                "non-completed project evaluation requires an abstain_reason"
+            )
 
     @property
     def total_spend_usd(self) -> float:
@@ -604,6 +626,12 @@ def _evaluate_prepared_project(
                 deadline_s=request.deadline_s,
                 expected_authority=frozen_authorities[0],
             )
+            run = replace(
+                run,
+                measurement=_adjudicate_measurement(
+                    request, run.measurement, run.run.predictions
+                ),
+            )
             decisions = tuple(
                 ci_final_decisions_from_rows(ledger_rows, run.task_id)
                 if run.task_id
@@ -637,10 +665,11 @@ def evaluate_projects(
     artifact_store: ArtifactStore | None = None,
     clock: Callable[[], float] = time.monotonic,
 ) -> tuple[ProjectEvaluationResult, ...]:
-    """Evaluate many projects in input order, isolating each case's failure.
+    """Evaluate projects in order, excluding only pre-execution refusals.
 
-    One case's refusal or crash becomes that case's explicit DEFER. It never
-    aborts the batch and never hides the cases that already completed.
+    Provider construction and typed preflight failures become taskless
+    presentation DEFERs. Once execution starts, authority failures propagate so
+    a possibly published finding cannot disappear from current accounting.
     """
     results: list[ProjectEvaluationResult] = []
     for request in requests:
@@ -853,7 +882,9 @@ def _resolve(request: ProjectEvaluationRequest) -> _Resolved:
     truth = request.truth
     if truth is not None:
         if not truth.defects:
-            raise ProjectEvaluationError("truth must contain at least one defect")
+            if truth.fixed_ref is not None:
+                raise ProjectEvaluationError("null truth cannot carry a fixed reference")
+            return _Resolved(base_sha=base_sha, head_sha=head_sha, fixed_sha=None)
         if not truth.fixed_ref:
             raise ProjectEvaluationError(
                 "truth requires a fixed reference to score differential evidence against"
@@ -959,9 +990,8 @@ def _persist(
     """Write this case's evidence into its own namespace inside the store.
 
     An artifact refusal is never swallowed: a payload that still looks like a
-    secret, or a name that escapes the store, is a security event. It
-    propagates, and ``evaluate_projects`` turns it into an explicit per-case
-    DEFER rather than a quietly incomplete evidence set.
+    secret, or a name that escapes the store, is a post-execution authority
+    failure and propagates rather than producing incomplete evidence.
     """
     if store is None or run.task_id is None:
         return ()
@@ -1015,15 +1045,20 @@ def _result(
     counts: dict[str, int] = {}
     for prediction in run.run.predictions:
         counts[prediction.evidence_class] = counts.get(prediction.evidence_class, 0) + 1
+    measurement = run.measurement
+    completed = measurement.task_status is TaskStatus.COMPLETED
+    abstain_reason = run.deferred_reason
+    if not completed and not abstain_reason:
+        abstain_reason = f"measurement task status was {measurement.task_status.value}"
     return ProjectEvaluationResult(
         case_id=request.case_id,
-        status="deferred" if run.deferred_reason is not None else "completed",
+        status="completed" if completed else "deferred",
         task_id=run.task_id,
         base_sha=resolved.base_sha,
         head_sha=resolved.head_sha,
         predictions=run.run.predictions,
         final_decisions=decisions,
-        abstain_reason=run.deferred_reason,
+        abstain_reason=abstain_reason,
         latency_s=latency_s,
         spend_usd=run.spend_usd,
         oracle_spend_usd=run.oracle_spend_usd,
@@ -1031,25 +1066,94 @@ def _result(
         evidence_class_counts=counts,
         oracle_receipts=run.oracle_receipts,
         run=run.run,
-        score=_score(request, run.run.predictions),
-        measurement=run.measurement,
+        score=_score(measurement),
+        measurement=measurement,
     )
 
 
-def _score(
-    request: ProjectEvaluationRequest, predictions: tuple[Prediction, ...]
-) -> ProjectEvaluationScore | None:
-    """Score only when the caller supplied truth; silence is not a negative label."""
+def _adjudicate_measurement(
+    request: ProjectEvaluationRequest,
+    measurement: MeasurementRecord,
+    predictions: tuple[Prediction, ...],
+) -> MeasurementRecord:
+    """Bind frozen truth to the freshly verified execution measurement."""
+
     truth = request.truth
     if truth is None:
-        return None
+        return measurement
     matches = match_findings(truth.defects, predictions, line_slack=request.line_slack)
-    matched = sum(match.matched for match in matches)
-    surfaced = sum(
-        1 for prediction in predictions if is_scored_placement(prediction.placement)
+    matches_by_id = {match.finding_id: match for match in matches}
+    visible_ids = {
+        finding.finding_id
+        for finding in measurement.findings
+        if finding.author_visible
+        and finding.authority is FindingAuthority.AUTOMATED
+    }
+    if set(matches_by_id) != visible_ids:
+        raise ValueError("truth matching does not cover the authoritative publication set")
+    findings = tuple(
+        replace(
+            finding,
+            accuracy_status=(
+                AccuracyStatus.CORRECT
+                if matches_by_id[finding.finding_id].matched
+                else AccuracyStatus.WRONG
+            ),
+            defect_id=matches_by_id[finding.finding_id].defect_id,
+        )
+        if finding.finding_id in matches_by_id
+        else finding
+        for finding in measurement.findings
     )
+    return replace(
+        measurement,
+        findings=findings,
+        eligible_defect_ids=tuple(defect.defect_id for defect in truth.defects),
+        truth_status=(TruthStatus.POSITIVE if truth.defects else TruthStatus.NULL),
+    )
+
+
+def _score(measurement: MeasurementRecord) -> ProjectEvaluationScore | None:
+    """Project the presentation score from the authoritative measurement only."""
+
+    if measurement.repeat != 0:
+        return None
+    summary = reduce_measurements((measurement,))
+    if (
+        measurement.truth_status is TruthStatus.UNADJUDICATED
+        or summary.metrics_withheld_reason is not None
+        or summary.unadjudicated
+    ):
+        return None
+    visible = tuple(
+        finding
+        for finding in measurement.findings
+        if finding.author_visible
+        and finding.authority is FindingAuthority.AUTOMATED
+    )
+    if (
+        summary.automated_published is None
+        or summary.correct is None
+        or summary.wrong is None
+    ):
+        return None
+    matches = tuple(
+        MatchResult(
+            finding_id=finding.finding_id,
+            defect_id=finding.defect_id,
+            matched=finding.accuracy_status is AccuracyStatus.CORRECT,
+        )
+        for finding in visible
+    )
+    matched = sum(match.matched for match in matches)
+    if (
+        len(visible) != summary.automated_published
+        or matched != summary.correct
+        or len(matches) - matched != summary.wrong
+    ):
+        raise ValueError("score projection does not match authoritative measurement")
     return ProjectEvaluationScore(
-        surfaced=surfaced,
+        surfaced=len(visible),
         matched=matched,
         unmatched=len(matches) - matched,
         matches=matches,
@@ -1057,7 +1161,7 @@ def _score(
 
 
 def _deferred(request: ProjectEvaluationRequest, reason: str) -> ProjectEvaluationResult:
-    """An explicit per-case DEFER that hides nothing and invents no label."""
+    """Represent a taskless pre-execution exclusion without inventing a label."""
     run = RunRecord(
         run_id=f"{request.case_id}-deferred",
         case_id=request.case_id,

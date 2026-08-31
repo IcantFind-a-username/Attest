@@ -15,8 +15,8 @@ from typing import Any
 from attest.benchmark.api import (
     ProjectEvaluationRequest,
     ProjectEvaluationResult,
-    ProjectTruth,
     evaluate_projects,
+    manifest_project_truth,
 )
 from attest.benchmark.artifacts import ArtifactStore, process_secrets
 from attest.benchmark.baselines import ComparisonPlan, compare_arms
@@ -71,6 +71,7 @@ from attest.benchmark.live import (
     reserved_case_budget_usd,
     run_live_local,
 )
+from attest.benchmark.measurement import ARM_ATTEST_PRODUCT, TaskStatus
 from attest.benchmark.report import (
     LIVE_MODE,
     REPLAY_MODE,
@@ -870,8 +871,10 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
     without a recording, without a prepared checkout, or outside the validation
     receipt's allowlist is an **exclusion**: the product path never ran. A case
     the product ran and DEFERRED is an **abstention**: attest could not decide
-    it, which is not the same as correctly staying silent, so it enters no
-    accuracy denominator. A completed run retains operational evidence, but
+    it, which is not the same as correctly staying silent. Task state does not
+    erase published precision/harm, positive misses remain deployment misses,
+    and silent non-completed controls are not true negatives. Every run retains
+    operational evidence, but
     Phase0 execution never publishes accuracy: V1 is historical inspection
     only and V2 is accepted only by ``verify-validation``.
     """
@@ -886,15 +889,16 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
         artifact_store=store,
     )
-    scored = tuple(
-        result
-        for result in results
-        if result.task_id is not None and result.abstain_reason is None
-    )
+    measured = tuple(result for result in results if result.task_id is not None)
     abstentions: list[ReportAbstention] = []
     for result in results:
         reason = result.abstain_reason
-        if result.task_id is not None and reason is not None:
+        if (
+            result.task_id is not None
+            and result.measurement.task_status
+            in {TaskStatus.PARTIALLY_DEFERRED, TaskStatus.FULLY_DEFERRED}
+            and reason is not None
+        ):
             abstentions.append(ReportAbstention(result.case_id, reason))
     exclusions.extend(
         ReportExclusion(result.case_id, _exclusion_reason(result))
@@ -903,7 +907,7 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
     )
     report = build_report(
         manifest,
-        tuple(result.run for result in scored),
+        tuple(result.run for result in measured),
         mode=REPLAY_MODE,
         manifest_sha256=manifest_sha256,
         exclusions=exclusions,
@@ -911,6 +915,7 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
         differential_repeats=args.repeats,
         line_slack=args.line_slack,
         validation_receipt=receipt,
+        measurement_records=tuple(result.measurement for result in measured),
     )
     store.finalize()
     report_path, markdown_path = write_report(report, args.output)
@@ -925,6 +930,8 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
         "excluded_cases": len(report.excluded_cases),
         "metrics_status": "reported" if report.metrics is not None else "withheld",
         "metrics_withheld_reason": report.metrics_withheld_reason,
+        "scoring_semantics": report.scoring_semantics,
+        "outcome_accounting": report.to_json_dict()["outcome_accounting"],
         "spend_usd": round(sum(result.spend_usd for result in results), 6),
         "oracle_spend_usd": round(sum(result.oracle_spend_usd for result in results), 6),
         "digest": report.digest,
@@ -987,9 +994,6 @@ def _replay_plan(
     workspace_root = args.workspace or (args.output / "workspace")
     runtimes = {row.case_id: row for row in manifest.runtime}
     sources = {row.source_id: row for row in manifest.sources}
-    truths: dict[str, tuple[Any, ...]] = {}
-    for truth in manifest.truth_defects:
-        truths[truth.case_id] = (*truths.get(truth.case_id, ()), truth)
     requests: list[ProjectEvaluationRequest] = []
     cassettes: dict[str, Cassette] = {}
     exclusions: list[ReportExclusion] = []
@@ -1026,11 +1030,7 @@ def _replay_plan(
                 repeats=args.repeats,
                 deadline_s=args.deadline,
                 line_slack=args.line_slack,
-                truth=(
-                    ProjectTruth(fixed_ref=case.fixed_commit, defects=truths[case.case_id])
-                    if case.case_id in truths
-                    else None
-                ),
+                truth=manifest_project_truth(manifest, case.case_id),
                 repository=_repository_identity(sources, case.source_id, repo),
             )
         )
@@ -1133,7 +1133,11 @@ def _stability(args: argparse.Namespace) -> dict[str, object]:
         "repeats": result.report.repeats,
         "executed_repeats": result.executed_repeats,
         "resumed_repeats": result.resumed_repeats,
+        "semantic_n": result.report.semantic_n,
+        "operational_repeats": result.report.operational_repeats,
+        "task_status_counts": result.report.task_status_counts,
         "deferred_repeats": len(result.report.deferred_runs),
+        "failed_repeats": len(result.report.failed_runs),
         "spend_usd": round(result.report.spend_total_usd, 6),
         "digest": result.report.digest,
         "report": str(report_path),
@@ -1212,6 +1216,7 @@ def _compare(args: argparse.Namespace) -> dict[str, object]:
             "metrics_withheld_reason": (
                 "comparison_not_executed_no_publication_authority"
             ),
+            "outcome_accounting": None,
             "spend_usd": 0.0,
             "oracle_spend_usd": 0.0,
             "digest": None,
@@ -1227,9 +1232,25 @@ def _compare(args: argparse.Namespace) -> dict[str, object]:
         publication_authority=execution.publication_authority,
     )
     report_path, markdown_path = write_comparison_report(report, args.output)
-    measurements = execution.measurements
+    measurements = report.measurements
     evaluated = len(measurements.evaluated_case_ids)
     reported = evaluated > 0 and report.metrics_withheld_reason is None
+    report_payload = report.to_json_dict()
+    arms_payload = report_payload.get("arms")
+    if not isinstance(arms_payload, list):
+        raise ValueError("comparison report arms payload is malformed")
+    product_payload = next(
+        (
+            arm
+            for arm in arms_payload
+            if isinstance(arm, dict) and arm.get("arm") == ARM_ATTEST_PRODUCT
+        ),
+        None,
+    )
+    if not isinstance(product_payload, dict) or not isinstance(
+        product_payload.get("outcome_accounting"), dict
+    ):
+        raise ValueError("comparison report lacks current product outcome accounting")
     return {
         "status": "ok" if evaluated else "not_executed",
         "offline": True,
@@ -1240,10 +1261,11 @@ def _compare(args: argparse.Namespace) -> dict[str, object]:
         "evaluated_cases": evaluated,
         "excluded_cases": len(report.excluded_cases),
         "deferred_runs": sum(
-            1 for run in measurements.runs if run.status != "completed"
+            len(summary.abstentions) for summary in measurements.arms
         ),
         "metrics_status": "reported" if reported else "withheld",
         "metrics_withheld_reason": report.metrics_withheld_reason,
+        "outcome_accounting": product_payload["outcome_accounting"],
         "spend_usd": round(sum(run.spend_usd for run in measurements.runs), 6),
         "oracle_spend_usd": round(
             sum(run.oracle_spend_usd for run in measurements.runs), 6
@@ -1379,9 +1401,6 @@ def _live_plan(
     workspace_root = args.workspace or (args.output / "workspace")
     runtimes = {row.case_id: row for row in manifest.runtime}
     sources = {row.source_id: row for row in manifest.sources}
-    truths: dict[str, tuple[Any, ...]] = {}
-    for truth in manifest.truth_defects:
-        truths[truth.case_id] = (*truths.get(truth.case_id, ()), truth)
     selected = set(args.case)
     unknown = selected - {case.case_id for case in manifest.cases}
     if unknown:
@@ -1423,13 +1442,7 @@ def _live_plan(
                     repeats=args.repeats,
                     deadline_s=args.deadline,
                     line_slack=args.line_slack,
-                    truth=(
-                        ProjectTruth(
-                            fixed_ref=case.fixed_commit, defects=truths[case.case_id]
-                        )
-                        if case.case_id in truths
-                        else None
-                    ),
+                    truth=manifest_project_truth(manifest, case.case_id),
                     repository=_repository_identity(sources, case.source_id, repo),
                 ),
                 source_id=case.source_id,

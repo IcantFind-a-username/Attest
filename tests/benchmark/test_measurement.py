@@ -31,6 +31,11 @@ from attest.benchmark.checkpoints import (
     CALL_ROLE_PRODUCT,
 )
 from attest.benchmark.live import LIVE_MODE, build_calibration_report, case_payload
+from attest.benchmark.measurement import (
+    AccuracyStatus,
+    decode_measurement_record,
+    reduce_measurements,
+)
 from attest.benchmark.report import build_comparison_report
 from attest.benchmark.runner import (
     BenchmarkRunner,
@@ -42,7 +47,13 @@ from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits
 from attest.review.proposer import ProviderResult
 
-from .test_baselines import _comparison_authority, _plans, _ruff_executable
+from .test_baselines import (
+    _comparison_authority,
+    _finding,
+    _measurement_record,
+    _plans,
+    _ruff_executable,
+)
 from .test_corpus import _oracle_fixture
 
 
@@ -2142,134 +2153,6 @@ def test_comparison_final_receipt_write_rejects_stale_outcome_bytes(
     assert not (authority_root / COMPARISON_FINAL_RECEIPT_PATH).exists()
 
 
-def _finding(
-    finding_id: str,
-    *,
-    status: str = "published",
-    accuracy: str = "correct",
-    defect_id: str | None = "defect-1",
-    authority: str = "automated",
-):
-    from attest.benchmark.measurement import (
-        AccuracyStatus,
-        FindingAuthority,
-        FindingOutcome,
-        FindingStatus,
-    )
-
-    return FindingOutcome(
-        finding_id=finding_id,
-        finding_status=FindingStatus(status),
-        accuracy_status=AccuracyStatus(accuracy),
-        defect_id=defect_id,
-        publication_event_ids=(
-            ("publication:event",) if status == "published" else ()
-        ),
-        authority=FindingAuthority(authority),
-    )
-
-
-def _measurement_record(
-    *,
-    stop: str = "none",
-    findings=(),
-    repeat: int = 0,
-    eligible_defect_ids: tuple[str, ...] = ("defect-1",),
-    pull_request_number: int = 17,
-    truth_status: str = "positive",
-):
-    from attest.benchmark.measurement import (
-        CURRENT_MEASUREMENT_SCHEMA_VERSION,
-        CURRENT_MEASUREMENT_SEMANTICS,
-        DELIVERY_TRANSCRIPT_PROTOCOL,
-        DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
-        EMPTY_DELIVERY_TRANSCRIPT_SHA256,
-        DeliveryStatus,
-        DeliveryTranscriptReceipt,
-        MeasurementRecord,
-        PublicationChannel,
-        PublicationEvent,
-        PublicationMember,
-        PublicationOutcome,
-        PublicationPlacement,
-        StopKind,
-        TruthStatus,
-        derive_task_status,
-    )
-
-    stop_kind = StopKind(stop)
-    task_status = derive_task_status(stop_kind, tuple(findings))
-    published_count = sum(finding.author_visible for finding in findings)
-    unresolved_count = sum(
-        finding.finding_status.value == "unresolved" for finding in findings
-    )
-    publication_events = (
-        (
-            PublicationEvent(
-                event_id="publication:event",
-                attempt_id="attempt:publication",
-                attempt_ordinal=0,
-                repository="local/project",
-                pull_request_number=pull_request_number,
-                head_sha="1" * 40,
-                members=tuple(
-                    PublicationMember(
-                        finding_id=finding.finding_id,
-                        placement=PublicationPlacement.INLINE,
-                    )
-                    for finding in findings
-                    if finding.author_visible
-                ),
-                channel=PublicationChannel.INLINE_REVIEW,
-                outcome=PublicationOutcome.SUCCEEDED,
-                body_sha256="a" * 64,
-                request_sha256="d" * 64,
-                remote_response_id="101",
-                delivered_at_s=5.0,
-                deadline_s=60.0,
-            ),
-        )
-        if published_count
-        else ()
-    )
-    return MeasurementRecord(
-        schema_version=CURRENT_MEASUREMENT_SCHEMA_VERSION,
-        scoring_semantics=CURRENT_MEASUREMENT_SEMANTICS,
-        case_id="case-1",
-        arm="product",
-        repeat=repeat,
-        stop_kind=stop_kind,
-        task_status=task_status,
-        findings=tuple(findings),
-        eligible_defect_ids=eligible_defect_ids,
-        pull_request_number=pull_request_number,
-        truth_status=TruthStatus(truth_status),
-        delivery_status=(
-            DeliveryStatus.PUBLISHED_ON_TIME
-            if published_count
-            else DeliveryStatus.NO_PUBLICATION
-        ),
-        candidate_count=len(findings),
-        published_count=published_count,
-        unresolved_count=unresolved_count,
-        publication_events=publication_events,
-        task_delivery_events=(),
-        delivery_transcript=DeliveryTranscriptReceipt(
-            schema_version=DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
-            protocol=DELIVERY_TRANSCRIPT_PROTOCOL,
-            task_id=("task:measurement" if publication_events else None),
-            expected_attempt_count=(1 if publication_events else 0),
-            last_attempt_ordinal=(0 if publication_events else None),
-            transcript_sha256=(
-                "e" * 64 if publication_events else EMPTY_DELIVERY_TRANSCRIPT_SHA256
-            ),
-        ),
-        metrics_withheld_reason=None,
-        delivery_withheld_reason=None,
-        task_delivery_withheld_reason=None,
-    )
-
-
 def _repeat_record(primary, repeat: int):
     event_id = f"repeat-{repeat}:publication"
     finding_by_id = {
@@ -2448,6 +2331,172 @@ def test_measurement_reducer_counts_harm_only_for_adjudicated_null_prs() -> None
     assert summary.adjudicated_pull_requests == 1
     assert summary.pr_any_wrong_events == 1
     assert summary.pr_any_wrong_rate == pytest.approx(1.0)
+
+
+def test_silent_fully_deferred_null_is_not_a_clean_control_denominator() -> None:
+    record = _measurement_record(
+        stop="task_defer",
+        findings=(),
+        eligible_defect_ids=(),
+        truth_status="null",
+        pull_request_number=617,
+    )
+
+    summary = reduce_measurements((record,))
+
+    assert summary.semantic_n == 1
+    assert summary.operational_repeats == 1
+    assert summary.published == 0
+    assert summary.finding_precision is None
+    assert summary.fully_deferred == 1
+    assert summary.null_pull_requests == 0
+    assert summary.pr_false_positive_events == 0
+    assert summary.pr_false_positive_rate is None
+    assert summary.adjudicated_pull_requests == 0
+    assert summary.pr_any_wrong_events is None
+    assert summary.pr_any_wrong_rate is None
+
+
+def test_current_measurement_v3_round_trip_preserves_status_visible_findings_and_abstentions(
+) -> None:
+    record = _measurement_record(
+        stop="candidate_defer",
+        findings=(
+            _finding("correct", accuracy="correct", defect_id="defect-1"),
+            _finding("wrong", accuracy="wrong", defect_id=None),
+            _finding(
+                "unresolved",
+                status="unresolved",
+                accuracy="unadjudicated",
+                defect_id=None,
+            ),
+        ),
+        eligible_defect_ids=("defect-1", "defect-2"),
+    )
+
+    decoded = decode_measurement_record(record.to_json_dict())
+    summary = reduce_measurements((decoded,))
+
+    assert decoded.schema_version == 2
+    assert decoded.scoring_semantics == "author_visible_v2"
+    assert summary.reducer_semantics == "mixed_outcome_v3"
+    assert decoded.task_status.value == "partially_deferred"
+    assert decoded.published_count == 2
+    assert decoded.unresolved_count == 1
+    assert summary.published == 2
+    assert summary.correct == 1
+    assert summary.wrong == 1
+    assert summary.unresolved == 1
+    assert summary.partially_deferred == 1
+    assert summary.eligible_defects == 2
+    assert summary.detected_defects == 1
+    assert summary.missed_defects == 1
+
+
+def test_authoritative_five_unit_truth_table_keeps_harm_misses_and_task_state(
+) -> None:
+    records = (
+        replace(
+            _measurement_record(
+                findings=(),
+                eligible_defect_ids=("defect-0",),
+                pull_request_number=101,
+            ),
+            case_id="completed-positive-silent",
+        ),
+        replace(
+            _measurement_record(
+                stop="candidate_defer",
+                findings=(
+                    _finding("correct", defect_id="defect-1"),
+                    _finding("wrong", accuracy="wrong", defect_id=None),
+                    _finding(
+                        "unresolved",
+                        status="unresolved",
+                        accuracy="unadjudicated",
+                        defect_id=None,
+                    ),
+                ),
+                eligible_defect_ids=("defect-1", "defect-2"),
+                pull_request_number=102,
+            ),
+            case_id="partial-positive-mixed",
+        ),
+        replace(
+            _measurement_record(
+                stop="task_defer",
+                findings=(
+                    _finding(
+                        "fully-unresolved",
+                        status="unresolved",
+                        accuracy="unadjudicated",
+                        defect_id=None,
+                    ),
+                ),
+                eligible_defect_ids=("defect-3",),
+                pull_request_number=103,
+            ),
+            case_id="fully-deferred-positive",
+        ),
+        replace(
+            _measurement_record(
+                stop="failure",
+                findings=(_finding("failed-wrong", accuracy="wrong", defect_id=None),),
+                eligible_defect_ids=(),
+                truth_status="null",
+                pull_request_number=104,
+            ),
+            case_id="failed-null-harm",
+        ),
+        replace(
+            _measurement_record(
+                findings=(),
+                eligible_defect_ids=(),
+                truth_status="null",
+                pull_request_number=105,
+            ),
+            case_id="completed-null-quiet",
+        ),
+    )
+
+    summary = reduce_measurements(records)
+
+    assert summary.semantic_n == 5
+    assert summary.operational_repeats == 5
+    assert (
+        summary.completed,
+        summary.partially_deferred,
+        summary.fully_deferred,
+        summary.failed,
+    ) == (2, 1, 1, 1)
+    assert (summary.published, summary.unresolved) == (3, 2)
+    assert (summary.correct, summary.wrong, summary.finding_precision) == (
+        1,
+        2,
+        pytest.approx(1 / 3),
+    )
+    assert (
+        summary.eligible_defects,
+        summary.detected_defects,
+        summary.missed_defects,
+        summary.detection_rate,
+    ) == (4, 1, 3, pytest.approx(1 / 4))
+    assert (
+        summary.null_pull_requests,
+        summary.pr_false_positive_events,
+        summary.pr_false_positive_rate,
+    ) == (2, 1, pytest.approx(1 / 2))
+    assert (
+        summary.adjudicated_pull_requests,
+        summary.pr_any_wrong_events,
+        summary.pr_any_wrong_rate,
+    ) == (5, 2, pytest.approx(2 / 5))
+    assert (
+        summary.positive_pull_requests,
+        summary.detected_positive_pull_requests,
+        summary.missed_positive_pull_requests,
+        summary.true_negative_pull_requests,
+    ) == (3, 1, 2, 1)
 
 
 def test_adjudicated_null_pr_cannot_hide_an_automated_publication_as_unadjudicated(
@@ -3331,12 +3380,34 @@ def test_comparison_publication_rejects_coordinated_outcome_rewrite(
     assert original_product.accuracy.detection_rate == 1.0
     assert any(run.findings for run in measurements.runs if run.arm == ARM_PRODUCT)
 
-    rewritten_runs = tuple(
-        replace(run, findings=(), matched_defect_ids=())
-        if run.arm == ARM_PRODUCT
-        else run
-        for run in measurements.runs
-    )
+    rewritten_rows = []
+    for run in measurements.runs:
+        if run.arm != ARM_PRODUCT:
+            rewritten_rows.append(run)
+            continue
+        assert run.product_measurement is not None
+        rewritten_measurement = replace(
+            run.product_measurement,
+            findings=tuple(
+                replace(
+                    finding,
+                    accuracy_status=AccuracyStatus.WRONG,
+                    defect_id=None,
+                )
+                if finding.accuracy_status is AccuracyStatus.CORRECT
+                else finding
+                for finding in run.product_measurement.findings
+            ),
+        )
+        rewritten_rows.append(
+            replace(
+                run,
+                findings=(),
+                matched_defect_ids=(),
+                product_measurement=rewritten_measurement,
+            )
+        )
+    rewritten_runs = tuple(rewritten_rows)
     rewritten = replace(
         measurements,
         runs=rewritten_runs,
@@ -3351,7 +3422,10 @@ def test_comparison_publication_rejects_coordinated_outcome_rewrite(
     rewritten_product = next(summary for summary in rewritten.arms if summary.arm == ARM_PRODUCT)
     assert rewritten_product.accuracy.detection_rate == 0.0
 
-    with pytest.raises(ValueError, match="authoritative.*outcome|outcome.*artifact"):
+    with pytest.raises(
+        ValueError,
+        match="authoritative.*outcome|outcome.*artifact|exact finding_id join",
+    ):
         build_comparison_report(
             load_manifest(manifest_path),
             rewritten,
@@ -3493,7 +3567,13 @@ def test_real_mixed_publications_remain_scored_when_one_candidate_defers(
         finding.accuracy_status.value
         for finding in evaluated.measurement.findings
         if finding.author_visible
-    } == {"unadjudicated"}
+    } == {"correct", "wrong"}
+    assert evaluated.score is not None
+    assert (
+        evaluated.score.surfaced,
+        evaluated.score.matched,
+        evaluated.score.unmatched,
+    ) == (4, 1, 3)
 
     payload = case_payload(evaluated)
     payload["paid_calls"] = [
