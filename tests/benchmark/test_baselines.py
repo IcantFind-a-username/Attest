@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from dataclasses import replace
@@ -121,7 +122,6 @@ def _ruff_executable() -> str:
     candidate = Path(sys.executable).with_name("ruff")
     if candidate.is_file():
         return str(candidate)
-    import shutil
 
     found = shutil.which("ruff")
     if found is None:
@@ -1094,8 +1094,304 @@ def test_comparison_post_response_failure_preserves_paid_evidence_and_fails_clos
     rows = [json.loads(line) for line in costs.read_text(encoding="utf-8").splitlines()]
     assert len(rows) == 1
     assert rows[0]["cost_usd"] > 0
-    assert not (root.with_name(root.name + "-owner") / "final.json").exists()
-    assert not (root / "authoritative-outcomes" / "outcomes" / "000000.json").exists()
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+    assert not (
+        root
+        / "authoritative-outcomes"
+        / "comparison-outcomes"
+        / "000000.json"
+    ).exists()
+
+
+def test_bare_post_response_failure_cannot_seal_false_terminal_outcomes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / "bare-post-response-failure"
+    original_evaluate = BarePromptBaseline.evaluate
+
+    def crash_after_bare_response(
+        self: BarePromptBaseline,
+        *,
+        case_id: str,
+        role: str,
+        diff: Any,
+        config: ReviewConfig,
+    ) -> object:
+        completed = original_evaluate(
+            self,
+            case_id=case_id,
+            role=role,
+            diff=diff,
+            config=config,
+        )
+        assert completed.model_calls == 1
+        raise RuntimeError("bare failure after a durable response")
+
+    monkeypatch.setattr(
+        BarePromptBaseline,
+        "evaluate",
+        crash_after_bare_response,
+    )
+    with pytest.raises(RuntimeError, match="durable response"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    bare_costs = root / ARM_BARE_PROMPT / plan.case.case_id / "costs.jsonl"
+    rows = [
+        json.loads(line)
+        for line in bare_costs.read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(rows) == 1
+    assert rows[0]["cost_usd"] > 0
+    outcomes = root / "authoritative-outcomes" / "comparison-outcomes"
+    assert not (outcomes / "000001.json").exists()
+    assert not (outcomes / "000002.json").exists()
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+
+
+def test_fresh_materialization_failure_does_not_write_unreconciled_baseline_slots(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / "fresh-materialization-failure"
+    destination = (
+        plan.request.workspace_root / f"{plan.request.case_id}-baseline-arms"
+    )
+    destination.mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="baseline worktree.*already exists"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda _case_id: pytest.fail(
+                "materialization failure must precede bare provider construction"
+            ),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    outcomes = root / "authoritative-outcomes" / "comparison-outcomes"
+    assert not (outcomes / "000001.json").exists()
+    assert not (outcomes / "000002.json").exists()
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+
+
+def test_materialization_failure_cannot_replace_settled_bare_recovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / "recovery-materialization-failure"
+    real_write = baselines_module.write_comparison_arm_outcome_once
+
+    def crash_before_bare_slot(authority, slot, outcome):
+        if slot.arm == ARM_BARE_PROMPT:
+            raise KeyboardInterrupt("crash after bare settlement")
+        return real_write(authority, slot, outcome)
+
+    monkeypatch.setattr(
+        baselines_module,
+        "write_comparison_arm_outcome_once",
+        crash_before_bare_slot,
+    )
+    with pytest.raises(KeyboardInterrupt, match="bare settlement"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+    bare_costs = root / ARM_BARE_PROMPT / plan.case.case_id / "costs.jsonl"
+    bare_reconciliation = (
+        root / "reconciliation" / ARM_BARE_PROMPT / f"{plan.case.case_id}.json"
+    )
+    before = (bare_costs.read_bytes(), bare_reconciliation.read_bytes())
+
+    monkeypatch.setattr(
+        baselines_module,
+        "write_comparison_arm_outcome_once",
+        real_write,
+    )
+    destination = (
+        plan.request.workspace_root / f"{plan.request.case_id}-baseline-arms"
+    )
+    destination.mkdir(parents=True)
+    with pytest.raises(ValueError, match="baseline worktree.*already exists"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda _request: pytest.fail(
+                "durable product slot must skip provider construction"
+            ),
+            bare_provider_factory=lambda _case_id: pytest.fail(
+                "settled bare recovery must skip provider construction"
+            ),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    assert (bare_costs.read_bytes(), bare_reconciliation.read_bytes()) == before
+    outcomes = root / "authoritative-outcomes" / "comparison-outcomes"
+    assert not (outcomes / "000001.json").exists()
+    assert not (outcomes / "000002.json").exists()
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+
+
+def test_comparison_refuses_orphan_paid_root_before_external_final(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / "orphan-paid-root"
+    real_write = baselines_module.write_comparison_arm_outcome_once
+
+    def inject_orphan_after_last_slot(authority, slot, outcome):
+        written = real_write(authority, slot, outcome)
+        if slot.arm == ARM_RUFF:
+            (root / ARM_PRODUCT / "orphan-case" / "calls").mkdir(parents=True)
+            (root / ARM_PRODUCT / "orphan-case" / "artifacts").mkdir()
+        return written
+
+    monkeypatch.setattr(
+        baselines_module,
+        "write_comparison_arm_outcome_once",
+        inject_orphan_after_last_slot,
+    )
+    with pytest.raises(ComparisonEvidenceError, match="paid-call roots do not match"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+
+
+def test_comparison_refuses_orphan_reconciliation_before_external_final(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / "orphan-reconciliation"
+    real_write = baselines_module.write_comparison_arm_outcome_once
+
+    def inject_orphan_after_last_slot(authority, slot, outcome):
+        written = real_write(authority, slot, outcome)
+        if slot.arm == ARM_RUFF:
+            orphan = root / "reconciliation" / ARM_PRODUCT / "orphan-case.json"
+            orphan.parent.mkdir(parents=True, exist_ok=True)
+            orphan.write_text("{}\n", encoding="utf-8")
+        return written
+
+    monkeypatch.setattr(
+        baselines_module,
+        "write_comparison_arm_outcome_once",
+        inject_orphan_after_last_slot,
+    )
+    with pytest.raises(
+        ComparisonEvidenceError, match="reconciliation markers do not match"
+    ):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+
+
+def test_comparison_does_not_recreate_a_missing_zero_call_paid_root_before_final(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    original = plans[0]
+    plan = replace(
+        original,
+        request=replace(
+            original.request,
+            config=replace(original.request.config, budget_usd=1e-9),
+        ),
+    )
+    root = tmp_path / "missing-zero-call-root"
+    real_write = baselines_module.write_comparison_arm_outcome_once
+
+    def delete_paid_root_after_last_slot(authority, slot, outcome):
+        written = real_write(authority, slot, outcome)
+        if slot.arm == ARM_RUFF:
+            marker = json.loads(
+                (
+                    root
+                    / "reconciliation"
+                    / ARM_BARE_PROMPT
+                    / f"{plan.case.case_id}.json"
+                ).read_text(encoding="utf-8")
+            )
+            assert marker["status"] == "settled"
+            assert marker["call_count"] == 0
+            shutil.rmtree(root / ARM_BARE_PROMPT / plan.case.case_id)
+        return written
+
+    monkeypatch.setattr(
+        baselines_module,
+        "write_comparison_arm_outcome_once",
+        delete_paid_root_after_last_slot,
+    )
+    with pytest.raises(ComparisonEvidenceError, match="paid-call roots do not match"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    assert not (root / ARM_BARE_PROMPT / plan.case.case_id).exists()
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
 
 
 def test_comparison_propagates_post_execution_authority_failure(
@@ -1132,8 +1428,16 @@ def test_comparison_propagates_post_execution_authority_failure(
             checkpoint_root=root,
         )
 
-    assert not (root.with_name(root.name + "-owner") / "final.json").exists()
-    assert not (root / "authoritative-outcomes" / "outcomes" / "000000.json").exists()
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+    assert not (
+        root
+        / "authoritative-outcomes"
+        / "comparison-outcomes"
+        / "000000.json"
+    ).exists()
 
 
 def test_comparison_post_publication_failure_fails_closed_without_empty_outcome(
@@ -1178,8 +1482,16 @@ def test_comparison_post_publication_failure_fails_closed_without_empty_outcome(
 
     assert published_results
     assert published_results[0].predictions
-    assert not (root.with_name(root.name + "-owner") / "final.json").exists()
-    assert not (root / "authoritative-outcomes" / "outcomes" / "000000.json").exists()
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+    assert not (
+        root
+        / "authoritative-outcomes"
+        / "comparison-outcomes"
+        / "000000.json"
+    ).exists()
 
 
 def test_interrupted_unsettled_comparison_resume_rejects_before_factory(
@@ -1266,8 +1578,16 @@ def test_comparison_failed_after_settled_oracle_response_preserves_oracle_spend(
     assert len(rows) == 1
     assert rows[0]["role"] == CALL_ROLE_BENCHMARK_ORACLE
     assert rows[0]["cost_usd"] > 0
-    assert not (root.with_name(root.name + "-owner") / "final.json").exists()
-    assert not (root / "authoritative-outcomes" / "outcomes" / "000000.json").exists()
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+    assert not (
+        root
+        / "authoritative-outcomes"
+        / "comparison-outcomes"
+        / "000000.json"
+    ).exists()
 
 
 def test_comparison_report_rejects_oracle_spend_field_tampering(

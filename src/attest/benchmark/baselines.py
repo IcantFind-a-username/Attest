@@ -1053,10 +1053,14 @@ def compare_arms(
                     expected_final_receipt=final_receipt,
                     expected_comparison_sha256=comparison_document.sha256,
                 )
+                paid_trials = _paid_trials_from_plans(plans)
+                _require_exact_comparison_paid_evidence(
+                    checkpoint_root, paid_trials
+                )
                 measurements = _comparison_measurements_from_verified(
                     verified,
                     checkpoint_root=checkpoint_root,
-                    paid_trials=_paid_trials_from_plans(plans),
+                    paid_trials=paid_trials,
                     binding_sha256=comparison_binding_sha256,
                     manifest=bound_manifest,
                     line_slack=line_slack,
@@ -1105,11 +1109,28 @@ def compare_arms(
             and comparison_binding_sha256 is not None
             and checkpoint_root is not None
         )
+        paid_trials = _paid_trials_from_plans(plans)
+        _require_exact_comparison_paid_evidence(checkpoint_root, paid_trials)
         final_receipt = finalize_comparison_outcomes(
             outcome_authority,
             launch_receipt,
             checkpoint_root=checkpoint_root,
             authority_root=authority_root,
+        )
+        verified = verify_comparison_outcomes(
+            outcome_authority.root,
+            expected_final_receipt=final_receipt,
+            expected_comparison_sha256=comparison_document.sha256,
+        )
+        _comparison_measurements_from_verified(
+            verified,
+            checkpoint_root=checkpoint_root,
+            paid_trials=paid_trials,
+            binding_sha256=comparison_binding_sha256,
+            manifest=bound_manifest,
+            line_slack=line_slack,
+            budget_ceiling_usd=(next(iter(ceilings)) if ceilings else 0.0),
+            manifest_sha256=bound_manifest_sha256,
         )
         write_comparison_final_receipt_once(
             authority_root,
@@ -1132,7 +1153,7 @@ def compare_arms(
         measurements = _comparison_measurements_from_verified(
             verified,
             checkpoint_root=checkpoint_root,
-            paid_trials=_paid_trials_from_plans(plans),
+            paid_trials=paid_trials,
             binding_sha256=comparison_binding_sha256,
             manifest=bound_manifest,
             line_slack=line_slack,
@@ -1873,16 +1894,9 @@ def validate_comparison_measurements(
         raise ComparisonEvidenceError(
             "comparison arm summaries do not match their authoritative runs"
         )
-    marker_keys = _comparison_reconciliation_keys(measurements.checkpoint_root)
-    if marker_keys != set(paid_trials):
-        raise ComparisonEvidenceError(
-            "comparison reconciliation markers do not match predeclared paid trials"
-        )
-    call_root_keys = _comparison_paid_call_root_keys(measurements.checkpoint_root)
-    if call_root_keys != set(paid_trials):
-        raise ComparisonEvidenceError(
-            "comparison paid-call roots do not match predeclared paid trials"
-        )
+    _require_exact_comparison_paid_evidence(
+        measurements.checkpoint_root, paid_trials
+    )
     for run in measurements.runs:
         validate_arm_run_reconciliation(run)
         if run.arm == ARM_RUFF:
@@ -2530,6 +2544,23 @@ def _comparison_paid_call_root_keys(root: Path) -> set[tuple[str, str]]:
     return keys
 
 
+def _require_exact_comparison_paid_evidence(
+    root: Path,
+    paid_trials: Mapping[tuple[str, str], tuple[str, str]],
+) -> None:
+    expected = set(paid_trials)
+    marker_keys = _comparison_reconciliation_keys(root)
+    if marker_keys != expected:
+        raise ComparisonEvidenceError(
+            "comparison reconciliation markers do not match predeclared paid trials"
+        )
+    call_root_keys = _comparison_paid_call_root_keys(root)
+    if call_root_keys != expected:
+        raise ComparisonEvidenceError(
+            "comparison paid-call roots do not match predeclared paid trials"
+        )
+
+
 def _atomic_write_json(path: Path, payload: Mapping[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     encoded = (
@@ -2740,98 +2771,59 @@ def _baseline_arms(
             model_id=request.config.model,
             binding_sha256=binding_sha256,
         )
-    try:
-        with _materialized_diff(request) as (worktree, diff):
-            if bare is None:
-                reconciliation = bare_recovery
-                if reconciliation is None:
-                    inner = bare_provider_factory(request.case_id)
-                    if checkpoint_root is not None:
-                        assert binding_sha256 is not None
-                        reconciliation = _checkpointed_comparison_provider(
-                            inner,
-                            checkpoint_root=checkpoint_root,
-                            arm=ARM_BARE_PROMPT,
-                            case_id=request.case_id,
-                            model_id=request.config.model,
-                            binding_sha256=binding_sha256,
-                        )
-                else:
-                    inner = _VerificationOnlyComparisonProvider()
-                bare = BarePromptBaseline(
-                    inner
-                    if reconciliation is None
-                    else _FailClosedCheckpointProvider(
-                        reconciliation[0],
-                        maximum_calls=_settled_replay_limit(reconciliation[2]),
-                    ),
-                    clock=clock,
-                ).evaluate(
-                    case_id=request.case_id,
-                    role=role,
-                    diff=diff,
-                    config=request.config,
-                )
-                bare = replace(bare, model_id=request.config.model)
-                if reconciliation is not None:
-                    bare = _attach_comparison_reconciliation(bare, *reconciliation)
-                _write_comparison_run_outcome(
-                    outcome_authority,
-                    bare,
-                    repeat=request.repeat,
-                    product_measurement=None,
-                )
-            ruff = RuffBaseline(ruff_executable, clock=clock).evaluate(
+    with _materialized_diff(request) as (worktree, diff):
+        if bare is None:
+            reconciliation = bare_recovery
+            if reconciliation is None:
+                inner = bare_provider_factory(request.case_id)
+                if checkpoint_root is not None:
+                    assert binding_sha256 is not None
+                    reconciliation = _checkpointed_comparison_provider(
+                        inner,
+                        checkpoint_root=checkpoint_root,
+                        arm=ARM_BARE_PROMPT,
+                        case_id=request.case_id,
+                        model_id=request.config.model,
+                        binding_sha256=binding_sha256,
+                    )
+            else:
+                inner = _VerificationOnlyComparisonProvider()
+            bare = BarePromptBaseline(
+                inner
+                if reconciliation is None
+                else _FailClosedCheckpointProvider(
+                    reconciliation[0],
+                    maximum_calls=_settled_replay_limit(reconciliation[2]),
+                ),
+                clock=clock,
+            ).evaluate(
                 case_id=request.case_id,
                 role=role,
                 diff=diff,
-                worktree=worktree,
+                config=request.config,
             )
+            bare = replace(bare, model_id=request.config.model)
+            if reconciliation is not None:
+                bare = _attach_comparison_reconciliation(bare, *reconciliation)
             _write_comparison_run_outcome(
                 outcome_authority,
-                ruff,
+                bare,
                 repeat=request.repeat,
                 product_measurement=None,
             )
-        return bare, ruff
-    except (AmbiguousCostError, ComparisonEvidenceError):
-        raise
-    except Exception as exc:  # noqa: BLE001 - an unpreparable case is a DEFER
-        reason = f"diff_unavailable: {type(exc).__name__}"
-        runs = (
-            bare
-            if bare is not None
-            else _shared_defer(ARM_BARE_PROMPT, request.case_id, role, reason),
-            _shared_defer(ARM_RUFF, request.case_id, role, reason),
+        ruff = RuffBaseline(ruff_executable, clock=clock).evaluate(
+            case_id=request.case_id,
+            role=role,
+            diff=diff,
+            worktree=worktree,
         )
-        for run in runs:
-            _write_comparison_run_outcome(
-                outcome_authority,
-                run,
-                repeat=request.repeat,
-                product_measurement=None,
-            )
-        return runs
-
-
-def _shared_defer(arm: str, case_id: str, role: str, reason: str) -> ArmRun:
-    return ArmRun(
-        arm=arm,
-        case_id=case_id,
-        role=role,
-        status="deferred",
-        abstain_reason=reason,
-        findings=(),
-        matched_defect_ids=(),
-        model_calls=0,
-        input_tokens=0,
-        output_tokens=0,
-        spend_usd=0.0,
-        oracle_spend_usd=0.0,
-        wall_time_s=0.0,
-        tool_cost_s=None,
-    )
-
+        _write_comparison_run_outcome(
+            outcome_authority,
+            ruff,
+            repeat=request.repeat,
+            product_measurement=None,
+        )
+        return bare, ruff
 
 def _arm_task_status(
     run: ArmRun, product_measurement: MeasurementRecord | None
