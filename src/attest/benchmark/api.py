@@ -474,7 +474,22 @@ def _snapshot_project_evaluation_request(
     if truth is not None:
         if type(truth) is not ProjectTruth or type(truth.defects) is not tuple:
             raise ProjectEvaluationError("truth must be an exact immutable ProjectTruth")
-        truth = ProjectTruth(defects=tuple(truth.defects), fixed_ref=truth.fixed_ref)
+        defects: list[TruthDefect] = []
+        for defect in truth.defects:
+            if type(defect) is not TruthDefect:
+                raise ProjectEvaluationError(
+                    "truth defects must be exact TruthDefect values"
+                )
+            defects.append(
+                TruthDefect(
+                    defect_id=defect.defect_id,
+                    case_id=defect.case_id,
+                    file=defect.file,
+                    start_line=defect.start_line,
+                    end_line=defect.end_line,
+                )
+            )
+        truth = ProjectTruth(defects=tuple(defects), fixed_ref=truth.fixed_ref)
     snapshot = replace(
         request,
         config=config,

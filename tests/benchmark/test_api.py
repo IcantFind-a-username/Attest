@@ -157,6 +157,55 @@ def test_batch_preflight_deep_snapshots_mutable_review_policy_before_factory(
     assert observed == [(2, (), False)]
 
 
+def test_batch_preflight_deep_snapshots_each_truth_defect_before_factory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import attest.benchmark.api as api_module
+
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    original_defect = TruthDefect(
+        defect_id="defect-1",
+        case_id=CASE_ID,
+        file="app.py",
+        start_line=1,
+        end_line=2,
+    )
+    truth = ProjectTruth(fixed_ref=base_sha, defects=(original_defect,))
+    request = _request(tmp_path, repo, base_sha, head_sha, truth=truth)
+    observed: list[tuple[bool, str, str, int, int]] = []
+    real_evaluate = api_module._evaluate_prepared_project
+
+    def inspect_snapshot(preflight, **kwargs):
+        snapshot_truth = preflight.request.truth
+        assert snapshot_truth is not None
+        defect = snapshot_truth.defects[0]
+        observed.append(
+            (
+                defect is original_defect,
+                defect.defect_id,
+                defect.file,
+                defect.start_line,
+                defect.end_line,
+            )
+        )
+        return real_evaluate(preflight, **kwargs)
+
+    def mutate_after_preflight(received: ProjectEvaluationRequest):
+        assert received.truth is not None
+        object.__setattr__(received.truth.defects[0], "file", "caller-mutated.py")
+        return _provider()
+
+    monkeypatch.setattr(api_module, "_evaluate_prepared_project", inspect_snapshot)
+
+    results = evaluate_projects((request,), provider_factory=mutate_after_preflight)
+
+    assert observed == [(False, "defect-1", "app.py", 1, 2)]
+    assert len(results) == 1
+    assert results[0].score is not None
+    assert results[0].score.matched == 1
+    assert results[0].score.unmatched == 0
+
+
 @pytest.mark.parametrize("persist_artifacts", (False, True))
 def test_scored_run_fresh_reconcile_rejects_a_rewritten_delivery_transcript(
     tmp_path: Path,
