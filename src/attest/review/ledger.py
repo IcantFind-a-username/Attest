@@ -59,8 +59,10 @@ def _label_polarity(entry: dict[str, Any]) -> str:
     return recorded
 
 
-def _surfaced_finding_ids(entries: list[dict[str, Any]]) -> tuple[str, ...]:
-    """Return the ordered, de-duplicated author-visible finding population."""
+def _surfaced_projection(
+    entries: list[dict[str, Any]],
+) -> tuple[tuple[str, ...], dict[str, int]]:
+    """Return surfaced order and each finding's first author-visible row."""
 
     from attest.review.ci import reconcile_delivery_rows
 
@@ -97,7 +99,8 @@ def _surfaced_finding_ids(entries: list[dict[str, Any]]) -> tuple[str, ...]:
         if event.outcome == "succeeded"
     }
     surfaced_ids: list[str] = []
-    for entry in entries:
+    first_surface: dict[str, int] = {}
+    for index, entry in enumerate(entries):
         finding_ids: tuple[str, ...] = ()
         if entry.get("kind") == "delivery_attempt_settlement":
             finding_ids = delivered_by_attempt.get(str(entry.get("attempt_id", "")), ())
@@ -111,42 +114,50 @@ def _surfaced_finding_ids(entries: list[dict[str, Any]]) -> tuple[str, ...]:
             if finding_id in surfaced_ids:
                 surfaced_ids.remove(finding_id)
             if finding_id:
+                first_surface.setdefault(finding_id, index)
                 surfaced_ids.append(finding_id)
-    return tuple(surfaced_ids)
+    return tuple(surfaced_ids), first_surface
+
+
+def _surfaced_finding_ids(entries: list[dict[str, Any]]) -> tuple[str, ...]:
+    """Return the ordered, de-duplicated author-visible finding population."""
+
+    return _surfaced_projection(entries)[0]
 
 
 def _labeled_surfaced(
     entries: list[dict[str, Any]],
     surfaced_ids: tuple[str, ...],
+    first_surface: dict[str, int],
     *,
     window: int | None = None,
-) -> tuple[tuple[tuple[str, str], ...], int]:
-    """Project latest labels and count physical precision-state revisions."""
+) -> tuple[tuple[str, str], ...]:
+    """Project latest labels written after first author-visible delivery."""
 
     population = surfaced_ids if window is None else surfaced_ids[-window:]
     included = set(population)
     polarities: dict[str, str] = {}
-    revisions = 0
-    for entry in entries:
+    for index, entry in enumerate(entries):
         finding_id = str(entry.get("finding_id", ""))
-        if entry.get("kind") != "feedback" or finding_id not in included:
+        if (
+            entry.get("kind") != "feedback"
+            or finding_id not in included
+            or index <= first_surface[finding_id]
+        ):
             continue
-        polarity = _label_polarity(entry)
-        prior = polarities.get(finding_id, _AMBIGUOUS_POLARITY)
-        if polarity != prior:
-            revisions += 1
-        polarities[finding_id] = polarity
-    labeled = tuple(
+        polarities[finding_id] = _label_polarity(entry)
+    return tuple(
         (finding_id, polarities[finding_id])
         for finding_id in population
         if finding_id in polarities
         and polarities[finding_id] != _AMBIGUOUS_POLARITY
     )
-    return labeled, revisions
 
 
-def _watermark(entries: list[dict[str, Any]], tighten_index: int) -> int | None:
-    """Reconstruct the precision-state revision at one historical tightening."""
+def _watermark(
+    entries: list[dict[str, Any]], tighten_index: int
+) -> tuple[tuple[str, str], ...] | None:
+    """Reconstruct the rolling precision population at one tightening."""
 
     tighten_entry = entries[tighten_index]
     if "label_count" in tighten_entry:
@@ -155,8 +166,14 @@ def _watermark(entries: list[dict[str, Any]], tighten_index: int) -> int | None:
             return None
     prefix = entries[:tighten_index]
     try:
-        surfaced_ids = _surfaced_finding_ids(prefix)
-        return _labeled_surfaced(prefix, surfaced_ids)[1]
+        surfaced_ids, first_surface = _surfaced_projection(prefix)
+        labeled = _labeled_surfaced(
+            prefix,
+            surfaced_ids,
+            first_surface,
+            window=PRECISION_WINDOW,
+        )
+        return tuple(sorted(labeled))
     except ValueError:
         return None
 
@@ -578,14 +595,16 @@ class Ledger:
         """Precision over the last `window` surfaced findings that have
         feedback labels. Returns (precision or None, n_labeled)."""
         entries = self.entries() if entries is None else entries
-        surfaced_ids = (
-            _surfaced_finding_ids(entries) if surfaced_ids is None else surfaced_ids
-        )
+        canonical_ids, first_surface = _surfaced_projection(entries)
+        if surfaced_ids is None:
+            surfaced_ids = canonical_ids
+        elif surfaced_ids != canonical_ids:
+            raise ValueError("surfaced finding population does not match ledger evidence")
         # ambiguous labels (legacy 'dismiss') are excluded from BOTH the
         # numerator and the denominator -- never silently counted as either
         # a true or a false label.
-        labeled, _revisions = _labeled_surfaced(
-            entries, surfaced_ids, window=window
+        labeled = _labeled_surfaced(
+            entries, surfaced_ids, first_surface, window=window
         )
         if not labeled:
             return None, 0
@@ -607,14 +626,15 @@ class Ledger:
         if not enabled:
             return alpha, None
         entries = self.entries()
-        surfaced_ids = _surfaced_finding_ids(entries)
-        # Only labels that can MOVE surfaced precision count toward the
-        # watermark. Ambiguous (legacy 'dismiss') labels are excluded from the
-        # precision ratio, so counting them here advanced the watermark while
-        # leaving the precision figure untouched -- which re-opened the gate on
-        # a stale window and let alpha be halved again, once per dismissal, all
-        # the way to the floor.
-        _labeled, revision = _labeled_surfaced(entries, surfaced_ids)
+        surfaced_ids, first_surface = _surfaced_projection(entries)
+        all_labeled = _labeled_surfaced(entries, surfaced_ids, first_surface)
+        rolling_labeled = _labeled_surfaced(
+            entries,
+            surfaced_ids,
+            first_surface,
+            window=PRECISION_WINDOW,
+        )
+        precision_state = tuple(sorted(rolling_labeled))
         last_tighten_index = next(
             (
                 index
@@ -623,15 +643,21 @@ class Ledger:
             ),
             None,
         )
-        # Watermark: never re-halve on the same precision state. Reconstructing
-        # the physical revision from the historical prefix avoids trusting the
-        # legacy label_count field and detects polarity changes for one finding.
+        # Watermark: never re-halve on the same rolling precision population.
+        # Reconstructing it from the historical prefix avoids trusting the
+        # legacy label_count field and keeps the gate aligned with the window.
         if last_tighten_index is not None:
             watermark = _watermark(entries, last_tighten_index)
-            if watermark is None or revision <= watermark:
+            if watermark is None or precision_state == watermark:
                 return alpha, None
-        precision, n = self.surfaced_precision(
-            entries=entries, surfaced_ids=surfaced_ids
+        n = len(rolling_labeled)
+        precision = (
+            None
+            if not rolling_labeled
+            else sum(
+                polarity == "true" for _finding_id, polarity in rolling_labeled
+            )
+            / n
         )
         if precision is None or n < 10 or precision >= PRECISION_TARGET:
             return alpha, None
@@ -647,7 +673,7 @@ class Ledger:
                 "kind": "alpha_tightened",
                 "from": alpha,
                 "to": new_alpha,
-                "label_count": len(_labeled),
+                "label_count": len(all_labeled),
                 "note": note,
             }
         )

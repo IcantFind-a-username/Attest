@@ -176,6 +176,54 @@ def test_wrong_ambiguous_wrong_each_changes_precision_state(tmp_path: Path) -> N
     assert alpha == 0.0125 and note is not None
 
 
+def test_watermark_ignores_label_changes_outside_the_precision_window(
+    tmp_path: Path,
+) -> None:
+    led = Ledger(tmp_path)
+    for index in range(60):
+        finding_id = f"f{index}"
+        led.record_review("t", finding_id, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(finding_id, "good" if index < 50 else "wrong")
+    alpha, _note = led.maybe_tighten_alpha(0.1, enabled=True)
+    assert led.surfaced_precision() == (pytest.approx(0.8), 50)
+
+    led.record_feedback("f0", "wrong")
+
+    assert led.surfaced_precision() == (pytest.approx(0.8), 50)
+    assert led.maybe_tighten_alpha(alpha, enabled=True) == (0.05, None)
+
+
+def test_watermark_tracks_surface_changes_to_the_precision_window(
+    tmp_path: Path,
+) -> None:
+    led = Ledger(tmp_path)
+    for index in range(60):
+        finding_id = f"f{index}"
+        led.record_review("t", finding_id, ["S"], 0.0, 12.0, "surface")
+        label = "wrong" if index < 10 or index >= 50 else "good"
+        led.record_feedback(finding_id, label)
+    alpha, _note = led.maybe_tighten_alpha(0.1, enabled=True)
+    assert led.surfaced_precision() == (pytest.approx(0.8), 50)
+
+    for index in range(10):
+        led.record_review("repeat", f"f{index}", ["S"], 0.0, 12.0, "surface")
+
+    assert led.surfaced_precision() == (pytest.approx(0.6), 50)
+    tightened, note = led.maybe_tighten_alpha(alpha, enabled=True)
+    assert tightened == 0.025 and note is not None
+
+
+def test_feedback_before_first_surface_is_not_a_precision_label(tmp_path: Path) -> None:
+    led = Ledger(tmp_path)
+    for index in range(10):
+        finding_id = f"f{index}"
+        led.record_feedback(finding_id, "wrong")
+        led.record_review("t", finding_id, ["S"], 0.0, 12.0, "surface")
+
+    assert led.surfaced_precision() == (None, 0)
+    assert led.maybe_tighten_alpha(0.1, enabled=True) == (0.1, None)
+
+
 def test_ci_surface_order_is_anchored_to_successful_settlement(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
