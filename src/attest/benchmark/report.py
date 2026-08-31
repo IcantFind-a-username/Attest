@@ -777,7 +777,7 @@ def build_comparison_report(
         raise ValueError("mode must be replay or live")
     manifest = require_manifest_binding(manifest, manifest_sha256)
     receipt_sha256 = _validation_receipt_sha256(validation_receipt)
-    predeclaration_sha256 = validate_comparison_measurements(
+    predeclaration_sha256, measurements = validate_comparison_measurements(
         measurements,
         receipt_sha256,
         manifest,
