@@ -14,6 +14,7 @@ import math
 import os
 import stat
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -69,6 +70,68 @@ def _require_finite_nonnegative(value: object, field: str) -> None:
         raise ValueError(f"ledger {field} must be a finite non-negative number")
 
 
+def _require_label_count(entry: Mapping[str, Any]) -> None:
+    if "label_count" in entry:
+        value = entry["label_count"]
+        if type(value) is not int or value < 0:
+            raise ValueError("alpha label_count must be an exact non-negative integer")
+
+
+def _parse_ci_final_decisions(
+    decisions: object, *, allow_legacy_placement: bool
+) -> tuple[dict[str, Any], ...]:
+    if type(decisions) is not list:
+        raise ValueError("ci_final decisions must be an exact list")
+    base_fields = {"finding_id", "action", "wealth_final"}
+    current_fields = base_fields | {"placement"}
+    allowed_placements = {
+        "surface": {"inline", "overflow"},
+        "drawer": {"drawer"},
+        "discard": {"discard"},
+    }
+    parsed: list[dict[str, Any]] = []
+    finding_ids: set[str] = set()
+    for decision in decisions:
+        if type(decision) is not dict or (
+            set(decision) != current_fields
+            and not (allow_legacy_placement and set(decision) == base_fields)
+        ):
+            raise ValueError("ci_final decision fields are invalid")
+        finding_id = _required_string(decision, "finding_id")
+        if finding_id in finding_ids:
+            raise ValueError("duplicate ci_final finding_id")
+        action = _required_string(decision, "action")
+        if action not in allowed_placements:
+            raise ValueError("ci_final action is invalid")
+        if "placement" in decision:
+            placement = _required_string(decision, "placement")
+            if placement not in allowed_placements[action]:
+                raise ValueError("ci_final action does not match its placement")
+        _require_finite_nonnegative(decision["wealth_final"], "ci_final wealth_final")
+        finding_ids.add(finding_id)
+        parsed.append(dict(decision))
+    return tuple(parsed)
+
+
+def ci_final_decisions_from_rows(
+    ledger_rows: Sequence[Mapping[str, Any]], task_id: str
+) -> tuple[dict[str, Any], ...]:
+    """Decode one exact current-schema ci_final row from a frozen snapshot."""
+
+    rows = [
+        row
+        for row in ledger_rows
+        if row.get("kind") == "ci_final" and row.get("task_id") == task_id
+    ]
+    if not rows:
+        return ()
+    if len(rows) != 1:
+        raise ValueError("duplicate ci_final rows for task")
+    return _parse_ci_final_decisions(
+        rows[0].get("decisions"), allow_legacy_placement=False
+    )
+
+
 def _label_polarity(entry: dict[str, Any]) -> str:
     """Precision polarity of one feedback row, re-deriving it for older ledger
     rows written before `label_polarity` was recorded."""
@@ -115,8 +178,9 @@ def _surfaced_projection(
                 {"elapsed_s"},
             )
             task_id = _required_string(entry, "task_id")
-            if type(entry["decisions"]) is not list:
-                raise ValueError("ci_final decisions must be an exact list")
+            _parse_ci_final_decisions(
+                entry["decisions"], allow_legacy_placement=True
+            )
             _require_finite_nonnegative(entry["spend_usd"], "spend_usd")
             if "elapsed_s" in entry:
                 _require_finite_nonnegative(entry["elapsed_s"], "elapsed_s")
@@ -128,14 +192,20 @@ def _surfaced_projection(
                 {"reason"},
             )
             task_id = _required_string(entry, "task_id")
-            _required_string(entry, "phase")
+            phase = _required_string(entry, "phase")
+            if phase not in {"running", "candidate_count", "review", "complete", "defer"}:
+                raise ValueError("github_comment phase is invalid")
             if type(entry["outcome"]) is not str or entry["outcome"] not in {
                 "posted",
                 "failed",
             }:
                 raise ValueError("github_comment outcome is invalid")
-            if "reason" in entry and type(entry["reason"]) is not str:
-                raise ValueError("github_comment reason must be an exact string")
+            reason = entry.get("reason")
+            if entry["outcome"] == "failed":
+                if type(reason) is not str or not reason:
+                    raise ValueError("failed github_comment requires an exact reason")
+            elif "reason" in entry:
+                raise ValueError("posted github_comment cannot carry a reason")
             comment_tasks.add(task_id)
         elif kind in _DELIVERY_KINDS:
             delivery_tasks.add(_required_string(entry, "task_id"))
@@ -179,7 +249,11 @@ def _surfaced_projection(
             finding_id = _required_string(entry, "finding_id")
             action = _required_string(entry, "action")
             channels = entry["channels_bought"]
-            if type(channels) is not list or any(type(item) is not str for item in channels):
+            if (
+                type(channels) is not list
+                or any(type(item) is not str or item not in {"S", "T", "V"} for item in channels)
+                or len(set(channels)) != len(channels)
+            ):
                 raise ValueError("review channels_bought must be an exact string list")
             _require_finite_nonnegative(entry["spend"], "spend")
             _require_finite_nonnegative(entry["wealth_final"], "wealth_final")
@@ -193,6 +267,8 @@ def _surfaced_projection(
                 "verified_surface",
             }:
                 raise ValueError("review action is invalid")
+            if action.endswith("surface") and not channels:
+                raise ValueError("surfaced review must contain an evidence channel")
             if action.endswith("surface") and task_id not in ci_tasks:
                 finding_ids = (finding_id,)
         for finding_id in finding_ids:
@@ -244,13 +320,12 @@ def _watermark(
 ) -> tuple[tuple[str, str], ...] | None:
     """Reconstruct the rolling precision population at one tightening."""
 
-    for tighten_entry in entries[: tighten_index + 1]:
-        if tighten_entry.get("kind") != "alpha_tightened":
-            continue
-        if "label_count" in tighten_entry:
-            recorded = tighten_entry["label_count"]
-            if type(recorded) is not int or recorded < 0:
-                return None
+    try:
+        for tighten_entry in entries[: tighten_index + 1]:
+            if tighten_entry.get("kind") == "alpha_tightened":
+                _require_label_count(tighten_entry)
+    except ValueError:
+        return None
     prefix = entries[:tighten_index]
     try:
         surfaced_ids, first_surface = _surfaced_projection(prefix)
@@ -778,6 +853,7 @@ class Ledger:
         for e in self.entries_strict():
             if e.get("kind") != "alpha_tightened":
                 continue
+            _require_label_count(e)
             start = _alpha_number(e.get("from"), "alpha transition from")
             end = _alpha_number(e.get("to"), "alpha transition to")
             expected = max(ALPHA_FLOOR, start / 2)

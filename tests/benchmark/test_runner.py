@@ -761,7 +761,14 @@ def test_ci_final_without_delivery_authority_is_not_a_surface(tmp_path: Path) ->
     ledger = Ledger(tmp_path)
     ledger.record_ci_final(
         task_id="task-crashed-before-delivery",
-        decisions=[{"finding_id": "planned", "action": "surface"}],
+        decisions=[
+            {
+                "finding_id": "planned",
+                "action": "surface",
+                "wealth_final": 40.0,
+                "placement": "inline",
+            }
+        ],
         spend_usd=0.01,
     )
 

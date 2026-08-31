@@ -239,6 +239,58 @@ def test_feedback_before_first_surface_is_not_a_precision_label(tmp_path: Path) 
     (
         {"kind": "review", "finding_id": "phantom", "action": "surface"},
         {"kind": "github_comment", "task_id": "legacy"},
+        {
+            "kind": "github_comment",
+            "task_id": "task",
+            "phase": "unknown",
+            "outcome": "posted",
+        },
+        {
+            "kind": "github_comment",
+            "task_id": "task",
+            "phase": "review",
+            "outcome": "failed",
+        },
+        {
+            "kind": "github_comment",
+            "task_id": "task",
+            "phase": "review",
+            "outcome": "posted",
+            "reason": "not allowed on success",
+        },
+        {
+            "kind": "ci_final",
+            "task_id": "task",
+            "decisions": [None],
+            "spend_usd": 0.0,
+        },
+        {
+            "kind": "review",
+            "task_id": "legacy",
+            "finding_id": "phantom",
+            "channels_bought": ["X"],
+            "spend": 0.0,
+            "wealth_final": 12.0,
+            "action": "surface",
+        },
+        {
+            "kind": "review",
+            "task_id": "legacy",
+            "finding_id": "phantom",
+            "channels_bought": ["S", "S"],
+            "spend": 0.0,
+            "wealth_final": 12.0,
+            "action": "surface",
+        },
+        {
+            "kind": "review",
+            "task_id": "legacy",
+            "finding_id": "phantom",
+            "channels_bought": [],
+            "spend": 0.0,
+            "wealth_final": 12.0,
+            "action": "surface",
+        },
     ),
 )
 def test_malformed_surface_authority_rows_fail_closed(
@@ -461,6 +513,8 @@ def test_any_malformed_historical_label_count_fails_closed(
     led.record_review("t", "fresh", ["S"], 0.0, 12.0, "surface")
     led.record_feedback("fresh", "wrong")
 
+    with pytest.raises(ValueError, match="label_count"):
+        led.current_alpha(0.1)
     assert led.maybe_tighten_alpha(0.025, enabled=True) == (0.025, None)
 
 

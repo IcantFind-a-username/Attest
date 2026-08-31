@@ -77,7 +77,7 @@ from attest.review.executor import (
     execute_differential,
     generate_repro,
 )
-from attest.review.ledger import Ledger
+from attest.review.ledger import Ledger, ci_final_decisions_from_rows
 from attest.review.proposer import Provider, ProviderResult
 
 GENERATOR_MARKER = "focused pytest reproduction"
@@ -355,59 +355,6 @@ def run_differential_repro(
 def ci_final_decisions(repo: Path, task_id: str) -> tuple[dict[str, Any], ...]:
     """The authoritative post-verification decisions recorded for one task."""
     return ci_final_decisions_from_rows(Ledger(repo).entries(), task_id)
-
-
-def ci_final_decisions_from_rows(
-    ledger_rows: Sequence[Mapping[str, Any]], task_id: str
-) -> tuple[dict[str, Any], ...]:
-    """Decode one exact ci_final row from an already-frozen ledger snapshot."""
-
-    rows = [
-        row
-        for row in ledger_rows
-        if row.get("kind") == "ci_final" and row.get("task_id") == task_id
-    ]
-    if not rows:
-        return ()
-    if len(rows) != 1:
-        raise ValueError("duplicate ci_final rows for task")
-    decisions = rows[-1].get("decisions")
-    if not isinstance(decisions, list):
-        raise ValueError("ci_final decisions must be a list")
-    exact_fields = {"finding_id", "action", "wealth_final", "placement"}
-    parsed: list[dict[str, Any]] = []
-    finding_ids: set[str] = set()
-    for decision in decisions:
-        if type(decision) is not dict or set(decision) != exact_fields:
-            raise ValueError("ci_final decision fields do not match the current schema")
-        finding_id = decision.get("finding_id")
-        if type(finding_id) is not str or not finding_id:
-            raise ValueError("ci_final finding_id must be a non-empty string")
-        if finding_id in finding_ids:
-            raise ValueError("duplicate ci_final finding_id")
-        action = decision.get("action")
-        placement = decision.get("placement")
-        if type(action) is not str or type(placement) is not str:
-            raise ValueError("ci_final action and placement must be exact strings")
-        allowed_placements = {
-            "surface": {Placement.INLINE.value, Placement.OVERFLOW.value},
-            "drawer": {Placement.DRAWER.value},
-            "discard": {Placement.DISCARD.value},
-        }
-        if (
-            action not in allowed_placements
-            or placement not in allowed_placements[action]
-        ):
-            raise ValueError("ci_final action does not match its placement")
-        wealth = decision.get("wealth_final")
-        if type(wealth) not in (int, float):
-            raise ValueError("ci_final wealth_final must be an exact finite number")
-        numeric_wealth = cast(int | float, wealth)
-        if not math.isfinite(float(numeric_wealth)):
-            raise ValueError("ci_final wealth_final must be an exact finite number")
-        finding_ids.add(finding_id)
-        parsed.append(dict(decision))
-    return tuple(parsed)
 
 
 def product_evidence_classes(repo: Path, task_id: str) -> dict[str, str]:
