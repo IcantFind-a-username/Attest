@@ -100,12 +100,17 @@ wealth threshold decides who speaks** — surface at wealth ≥ 1/alpha, discard
    Phase 3: add `fail_under = 90` to `[tool.coverage.report]` so the gate is
    enforced, not honor-system.
 7. **Decision log**: every non-trivial tradeoff gets one line in `DECISIONS.md`
-   (what / why / when reversible). Highest existing number is **D-014** (note:
-   file order is not numeric — D-005 appears last); continue from D-015. The
-   independent-review-before-merge pattern (D-014 caught 8 real defects) is
-   expected for every phase.
+   (what / why / when reversible). **Numbering: read `DECISIONS.md`, take the
+   highest `D-NNN` in it, and continue from the next one — never trust a
+   number cached in this guide.** Entries are not stored in numeric order and
+   the sequence has gaps, so scan the whole file rather than reading its last
+   line; a number cached here once went stale for twenty-three consecutive
+   entries. The independent-review-before-merge pattern (D-014 caught 8 real
+   defects) is expected for every phase.
 8. **Stop and ask the owner** before: changing any factory statistical constant
-   (default alpha, channel caps, LR schedules), anything that touches a red
+   (default alpha, channel caps, LR schedules, and the alpha auto-tighten trio
+   named in D-038 — `PRECISION_TARGET`, `PRECISION_WINDOW`, `ALPHA_FLOOR`),
+   anything that touches a red
    line below, any remote/publish action, or exceeding the spend cap.
 
 ## Continuation priorities
