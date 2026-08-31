@@ -5,10 +5,10 @@ Status: implementation checkpoint complete; M-01 and Task 3 are not complete.
 ## Binding
 
 - Baseline: `b9ff22733daee9e78c8302ed3ad190978d9cc85a`
-- Implementation: `9efa0455353deb3722450c7ce3fe89d145a4a738`
-- Tree: `35cd321a75a8c0c6343fcb9f3fa8aead303831d5`
+- Implementation: `f01a4af54dd3bfa1cd570ed381cb169c17b5a6bd`
+- Tree: `15ec252e429b4db8082fe002d213f306886cdcb6`
 - Branch: `feature/m01-authoritative-outcomes`
-- Scope: nine tracked implementation/test files; no protocol fixture, lock, action,
+- Scope: ten tracked implementation/test files; no protocol fixture, lock, action,
   historical evidence, or factory-statistics change.
 
 ## Contract implemented
@@ -41,6 +41,9 @@ Status: implementation checkpoint complete; M-01 and Task 3 are not complete.
   report paths share one exact-set check: reconciliation-marker keys and paid arm/case roots
   must both equal the frozen product/bare trial set. Orphan roots/markers and a missing
   zero-call paid root fail closed without being recreated.
+- Settlement-before-slot recovery separately requires an existing marker and paid case root
+  to have identical presence before constructing `CheckpointedProvider`; a zero-call marker
+  cannot recreate a deleted root, and a root without its marker is also rejected.
 
 ## TDD evidence
 
@@ -62,6 +65,8 @@ Focused REDs were observed before the corresponding GREEN, including:
 - orphan paid roots, orphan reconciliation markers, and deletion of a legitimate zero-call
   paid root were accepted until after final issuance (the deleted root was silently
   recreated by reconstruction).
+- a zero-call bare marker retained after a settlement-before-slot crash could likewise
+  recreate its deleted paid root during resume and then obtain an external final receipt.
 
 The new attacks now fail at their named authority boundary. The existing coordinated
 caller rewrite, in-place Ruff outcome plus seal rewrite, A/B root substitution, legacy
@@ -69,25 +74,23 @@ checkpoint rejection, full completed resume, and bare-before-Ruff crash tests al
 
 ## Verification at implementation SHA
 
-- Sixteen targeted tests spanning normal three-arm execution, full resume, product/bare
+- Seventeen targeted tests spanning normal three-arm execution, full resume, product/bare
   settled-before-slot recovery, post-response/publication failures, fresh/recovery
   materialization refusal, orphan marker/root refusal, zero-call-root deletion, and oracle
-  spend preservation — **16 passed**, exit 0.
+  spend preservation — **17 passed**, exit 0 at the final implementation tree.
 - Changed-file `ruff check` over the two files changed after the earlier checkpoint —
   **pass**, exit 0.
+- `python -m pytest -p no:cacheprovider -q tests/test_ci_flow.py` — **16 passed**, exit 0.
+- `python -m ruff check .` — **pass**, exit 0. The prior accepted-base `ci.py` import-spacing
+  failure was repaired by the isolated semantic-free commit
+  `f01a4af54dd3bfa1cd570ed381cb169c17b5a6bd`; it is not treated as a Gate exemption.
 - `python -m mypy src/attest` — **Success: no issues found in 49 source files**, exit 0.
 - `git diff --check` — **pass**, exit 0.
 - The five-file matrix reached **337 passed**, exit 0, immediately before the final
   exact-set hardening. Because those production/tests bytes subsequently changed, that run
   is recorded only as an intermediate regression and is not claimed as the final-SHA Gate.
-- Full `ruff check .` — exit 1 solely for `I001` in unchanged
-  `src/attest/review/ci.py`. Exact baseline reproduction:
-  `git show b9ff227:src/attest/review/ci.py | python -m ruff check
-  --stdin-filename src/attest/review/ci.py -` — the same sole `I001`, exit 1. This
-  checkpoint intentionally does not modify that accepted-base file.
-
 Full-repository/coverage, dual-Python clean gates, and independent delta re-review must run
-from `9efa0455353deb3722450c7ce3fe89d145a4a738`; the terminated `184e7fc` Gate logs are
+from `f01a4af54dd3bfa1cd570ed381cb169c17b5a6bd`; the terminated `184e7fc` Gate logs are
 invalidated and are not claimed by this report.
 
 ## Remaining scope and limits
