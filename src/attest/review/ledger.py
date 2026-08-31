@@ -552,16 +552,22 @@ class Ledger:
         if not enabled:
             return alpha, None
         entries = self.entries()
+        surfaced_ids = _surfaced_finding_ids(entries)
+        surfaced_population = set(surfaced_ids)
         # Only labels that can MOVE surfaced precision count toward the
         # watermark. Ambiguous (legacy 'dismiss') labels are excluded from the
         # precision ratio, so counting them here advanced the watermark while
         # leaving the precision figure untouched -- which re-opened the gate on
         # a stale window and let alpha be halved again, once per dismissal, all
         # the way to the floor.
-        n_labels = sum(
-            1
+        polarities = {
+            str(e.get("finding_id", "")): _label_polarity(e)
             for e in entries
-            if e.get("kind") == "feedback" and _label_polarity(e) != _AMBIGUOUS_POLARITY
+            if e.get("kind") == "feedback"
+            and str(e.get("finding_id", "")) in surfaced_population
+        }
+        n_labels = sum(
+            polarity != _AMBIGUOUS_POLARITY for polarity in polarities.values()
         )
         last_tighten = next(
             (e for e in reversed(entries) if e.get("kind") == "alpha_tightened"), None
@@ -574,7 +580,9 @@ class Ledger:
         # than admit a stale re-halving.
         if last_tighten is not None and n_labels <= _watermark(last_tighten):
             return alpha, None
-        precision, n = self.surfaced_precision()
+        precision, n = self.surfaced_precision(
+            entries=entries, surfaced_ids=surfaced_ids
+        )
         if precision is None or n < 10 or precision >= PRECISION_TARGET:
             return alpha, None
         new_alpha = max(ALPHA_FLOOR, alpha / 2)

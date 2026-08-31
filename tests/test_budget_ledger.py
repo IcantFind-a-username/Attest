@@ -183,6 +183,26 @@ def test_tighten_watermark_blocks_stale_rehalving(tmp_path) -> None:
         alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
         assert alpha == 0.05 and note is None
 
+    stale = led.surfaced_precision()
+    led.append(
+        {
+            "kind": "github_comment",
+            "task_id": "current-ci",
+            "phase": "running",
+            "outcome": "posted",
+        }
+    )
+    led.record_review("current-ci", "phantom", ["S"], 0.0, 12.0, "surface")
+    led.record_feedback("phantom", "wrong")
+    alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
+    assert led.surfaced_precision() == stale
+    assert alpha == 0.05 and note is None
+
+    led.record_review("legacy", "fresh", ["S"], 0.0, 12.0, "surface")
+    led.record_feedback("fresh", "wrong")
+    alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
+    assert alpha == 0.025 and note is not None
+
 
 def test_ambiguous_labels_do_not_advance_the_tighten_watermark(tmp_path) -> None:
     """Regression: legacy `dismiss` labels are excluded from surfaced precision,
