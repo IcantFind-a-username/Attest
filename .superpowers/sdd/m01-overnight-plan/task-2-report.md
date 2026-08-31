@@ -5,8 +5,9 @@ Status: implementation checkpoint complete; M-01 and Task 3 are not complete.
 ## Binding
 
 - Baseline: `b9ff22733daee9e78c8302ed3ad190978d9cc85a`
-- Implementation: `0cde430146ee3664aeaeeb40c02f8a336564cf6e`
-- Tree: `0ae4e64b8da3c48df2811c7f889f4f8c965ebc93`
+- Implementation: `eddfee6736f18331b42045074d02de3892461dcb`
+- Tree: `cd55929f4a1495126a7d94cc8fb84f8366e47635`
+- Prior live-route checkpoint: `0cde430146ee3664aeaeeb40c02f8a336564cf6e`
 - Settlement-recovery hardening: `0b5d75ed7309f4fcfa8721be6e9ab1d4ce9fc350`
 - Branch: `feature/m01-authoritative-outcomes`
 - Scope: twelve tracked implementation/test files; no protocol fixture, lock, action,
@@ -51,6 +52,12 @@ Status: implementation checkpoint complete; M-01 and Task 3 are not complete.
   payload's non-empty reason and exact outer/transcript task-ID join. Taskless payloads keep
   the historical exclusion priority and do not enter outcome accounting, while a malformed
   current measurement dictionary still fails its strict decoder before exclusion.
+- Fresh product/bare reconciliation is durable before either provider factory is entered.
+  The controller preconstructs the empty checkpoint skeleton around a late-bound delegate,
+  holds no-follow directory descriptors for checkpoint root, arm, case, calls, and
+  artifacts across factory construction, and exact-compares their device/inode/mode
+  identities before binding or dispatch. Marker, directory, or paid-evidence drift fails
+  before provider sampling, outcome writes, or final publication.
 
 ## TDD evidence
 
@@ -82,6 +89,14 @@ Focused REDs were observed before the corresponding GREEN, including:
   payloads entered v2 outcome accounting, wrong/empty/non-string outer task IDs were not
   joined to the delivery transcript, and a malformed taskless measurement dictionary could
   bypass strict decoding.
+- provider factories ran before a durable reconciliation marker, could remove or replace
+  that marker, inject paid evidence, or redirect its parent; after marker ordering was
+  repaired, a factory could still rename a paid arm and replace it with an outside symlink.
+  Controlled guard removal on the final fixture produced two product-provider calls and one
+  bare-provider call plus outside checkpoint writes before the late publication guard.
+- the CLI end-to-end assertion still pinned the former six-field `CiRun` payload and the
+  full coverage Gate exposed newly added authority/recovery paths that lacked adversarial
+  execution coverage.
 
 The new attacks now fail at their named authority boundary. The existing coordinated
 caller rewrite, in-place Ruff outcome plus seal rewrite, A/B root substitution, legacy
@@ -106,6 +121,24 @@ checkpoint rejection, full completed resume, and bare-before-Ruff crash tests al
 - The five-file matrix reached **337 passed**, exit 0, immediately before the final
   exact-set hardening. Because those production/tests bytes subsequently changed, that run
   is recorded only as an intermediate regression and is not claimed as the final-SHA Gate.
+- Final paid-factory marker/directory and settled-resume matrix — **39 passed**, exit 0.
+  It covers product/bare marker ordering and identity drift, injected evidence, failed
+  factories, outside marker-parent aliases, outside paid-arm aliases, exact five-descriptor
+  closure, same-shaped arm/calls/artifacts replacement on return and exception, completed
+  resume, and settled-before-slot recovery.
+- Controlled removal of the paid-directory identity check — **2 failed as required**:
+  product made two provider calls and bare made one. Restoring the exact implementation
+  yielded the public alias test plus replacement matrix — **14 passed**, exit 0.
+- Python 3.12.8 full repository coverage at the exact implementation tree — **1445 passed**,
+  exit 0; total source coverage **11920/13240 = 90.030211%** and `attest.core`
+  **428/429 = 99.766900%**.
+- `python -m ruff check .` — **pass**, exit 0; `python -m mypy src/attest` —
+  **Success: no issues found in 49 source files**, exit 0; `git diff --check` — **pass**,
+  exit 0.
+- Three bounded independent re-reviews of the final paid-factory directory-identity delta
+  report **P0=0/P1=0/P2=0**. The review explicitly covers both paid arms, no bind/sample,
+  unchanged outside bytes, five closed descriptors, same-shaped leaf replacement, and
+  resume with no slot/final side effect.
 
 Local raw RED/GREEN logs for the Gate integration repair are retained outside the repository
 under `/private/tmp/m01-task2-*`: `test-live-f01-red`,
@@ -116,11 +149,18 @@ under `/private/tmp/m01-task2-*`: `test-live-f01-red`,
 `live-integration-collection`, and `live-integration-static-green` (each with its adjacent
 `.exit` marker where applicable). They are diagnostic logs, not a sealed acceptance bundle.
 
+The final coverage-repair diagnostics are likewise retained outside the repository:
+`m01-task2-provider-paid-alias-real-red`,
+`m01-task2-provider-paid-alias-real-green`,
+`m01-task2-provider-directory-lease-final-4`,
+`m01-task2-provider-directory-lease-static-3`, and
+`m01-task2-local-final-coverage` (with adjacent `.exit`/JSON files where applicable).
+
 The dual-Python full Gate attempts against `f01a4af` failed on the stale live fixture and are
-invalidated. Full-repository/coverage and dual-Python clean gates must be rerun against
-`0cde430146ee3664aeaeeb40c02f8a336564cf6e` and are not claimed by this report. The latest
-narrow independent review reports P0=0/P1=0 for this integration repair; final acceptance
-review remains pending the clean Gates. The terminated `184e7fc` Gate logs remain invalidated.
+invalidated. The local Python 3.12.8 full/coverage Gate is now green at the exact
+`eddfee6736f18331b42045074d02de3892461dcb` tree. A clean Python 3.11 final Gate and the
+remaining cross-version acceptance run are still pending and are not claimed by this
+report. The terminated `184e7fc` Gate logs remain invalidated.
 
 ## Remaining scope and limits
 
