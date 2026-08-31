@@ -7,6 +7,7 @@ Status: implementation checkpoint complete; M-01 and Task 3 are not complete.
 - Baseline: `b9ff22733daee9e78c8302ed3ad190978d9cc85a`
 - Implementation: `f01a4af54dd3bfa1cd570ed381cb169c17b5a6bd`
 - Tree: `15ec252e429b4db8082fe002d213f306886cdcb6`
+- Settlement-recovery hardening: `0b5d75ed7309f4fcfa8721be6e9ab1d4ce9fc350`
 - Branch: `feature/m01-authoritative-outcomes`
 - Scope: ten tracked implementation/test files; no protocol fixture, lock, action,
   historical evidence, or factory-statistics change.
@@ -81,17 +82,17 @@ checkpoint rejection, full completed resume, and bare-before-Ruff crash tests al
 - Changed-file `ruff check` over the two files changed after the earlier checkpoint —
   **pass**, exit 0.
 - `python -m pytest -p no:cacheprovider -q tests/test_ci_flow.py` — **16 passed**, exit 0.
-- `python -m ruff check .` — **pass**, exit 0. The prior accepted-base `ci.py` import-spacing
-  failure was repaired by the isolated semantic-free commit
-  `f01a4af54dd3bfa1cd570ed381cb169c17b5a6bd`; it is not treated as a Gate exemption.
+- `python -m ruff check .` — **pass**, exit 0 at
+  `f01a4af54dd3bfa1cd570ed381cb169c17b5a6bd`.
 - `python -m mypy src/attest` — **Success: no issues found in 49 source files**, exit 0.
 - `git diff --check` — **pass**, exit 0.
 - The five-file matrix reached **337 passed**, exit 0, immediately before the final
   exact-set hardening. Because those production/tests bytes subsequently changed, that run
   is recorded only as an intermediate regression and is not claimed as the final-SHA Gate.
-Full-repository/coverage, dual-Python clean gates, and independent delta re-review must run
-from `f01a4af54dd3bfa1cd570ed381cb169c17b5a6bd`; the terminated `184e7fc` Gate logs are
-invalidated and are not claimed by this report.
+
+Full-repository/coverage and dual-Python clean gates are being scheduled against
+`f01a4af54dd3bfa1cd570ed381cb169c17b5a6bd` and are not claimed by this report. Independent
+delta re-review is also pending. The terminated `184e7fc` Gate logs remain invalidated.
 
 ## Remaining scope and limits
 
