@@ -565,6 +565,14 @@ When a work order completes:
 
 ### Progress
 
+- **2026-08-31 — M-01 bounded closeout, still open:** implementation `dd37a8e` closes
+  reproduced outer-row, strict-reader, delivery-decision join, and physical-order defects;
+  the focused ledger/CI/CLI/runner/API matrix plus Ruff and Mypy passed. D-049 then stopped
+  the task because it had exceeded the single-task commit/time/accretion bounds. The final
+  SHA has no dual-Python full Gate or independent review, so M-01, `G-MEASURE-001`, and
+  Phase 0 remain open. Task 4's 20-process measurement remains valid historical evidence;
+  see [`acceptance/2026-08-31-m01-mixed-outcome.md`](acceptance/2026-08-31-m01-mixed-outcome.md).
+
 - **2026-08-31 — M-02/M-03 integration accepted; Phase 0 remains open:** implementation
   `14a57fb` integrates M-02 receipt/raw-evidence authority with M-03 immutable paid-call
   role, reconciliation, checkpoint, and report authority. Clean detached CPython 3.11.5

@@ -332,6 +332,10 @@ is active only when the owning architecture/acceptance document changes with it.
   versioned before/after and 20-repeat offline contract. Final `G-MEASURE-001` acceptance
   remains pending Task 5 dual-Python full Gates. Retain old artifacts with compatible
   readers; never coerce them into current scoring authority.
+- **Bounded closeout:** later implementation `dd37a8e` closes reproduced strict-reader and
+  delivery/decision authority gaps and passed the focused affected matrix plus Ruff/Mypy.
+  D-049 stopped the already-overbound repair loop before dual-Python full Gates or a
+  final-SHA independent review; therefore M-01 and `G-MEASURE-001` remain open.
 - **Trace:** `INV-MEASURE-001`, `INV-VERSION-001`; M-01 Tasks 3–4; Task 5 pending.
 
 ### D-048 — Alpha auto-tighten constants are protected factory authority
@@ -350,3 +354,22 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** owner call with preregistered calibration and downstream Gate evidence.
 - **Trace:** `src/attest/review/ledger.py`; `AGENTS.md` §§14/16; factory-statistics
   stop-and-ask boundary.
+
+### D-049 — Self-review and single-task effort are bounded
+
+- **Date/status/scope:** 2026-08-31 · owner-merged process rule · all work orders.
+  Renumbered from `origin/main`'s colliding D-039 because the evolution log already owns
+  D-039.
+- **Decision:** run one independent review pass per work-order branch. Fix only defects
+  reproduced in that pass; unreproduced concerns and every later-round finding go to
+  `docs/backlog.md`. End the task in a handoff report when any one condition holds: three
+  consecutive commits to the same file have more additions than deletions; the task reaches
+  eight commits or three hours; or its stated measurement is in hand.
+- **Why:** an unbounded repair loop had produced more guards and code without a terminating
+  product measurement. The same evidence threshold used for product findings now governs
+  development findings.
+- **Consequences:** a stop signal does not convert a missing Gate into PASS. It freezes the
+  honest state, names the missing Gate, and returns prioritization to the owner or next
+  explicitly scoped task. Plans and checklist exhaustion cannot override the bound.
+- **Reversal:** owner call, supported by observed tasks that need a different bound.
+- **Trace:** `AGENTS.md` §11; `docs/backlog.md`; all roadmap work orders.

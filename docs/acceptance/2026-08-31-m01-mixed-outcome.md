@@ -1,6 +1,6 @@
 # M-01 mixed-outcome offline acceptance — 2026-08-31
 
-Status: **Task 4 PASS; M-01 / `G-MEASURE-001` awaits Task 5 dual-Python closure.**
+Status: **Task 4 PASS; M-01 / `G-MEASURE-001` remains OPEN because Task 5 did not run.**
 
 ## Binding and protocol
 
@@ -41,3 +41,12 @@ committed aggregate command decoded all 20 and called `reduce_measurements` once
 
 Task 5 must still run the exact final branch on Python 3.11 and 3.12, complete the full
 coverage/static/integrity Gates, update the roadmap, and seal the final M-01 acceptance.
+
+## Bounded closeout
+
+Implementation `dd37a8e` makes current benchmark readers strict and binds each delivered
+finding/placement to one prior exact `ci_final` decision. The focused ledger/CI/CLI/runner/API
+matrix, Ruff, and mypy passed. The new owner-merged D-049 stop rule then fired: M-01 had
+already exceeded eight commits, three hours, and three net-additive ledger commits. No
+dual-Python full Gate or final-SHA independent review was run, so this is not Task 5 evidence
+and must not be cited as `G-CODE-001` or final `G-MEASURE-001` acceptance.

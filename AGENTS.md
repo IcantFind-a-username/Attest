@@ -253,6 +253,17 @@ For every behavior change:
 8. fix confirmed findings and rerun affected gates;
 9. update roadmap/decision/evidence links only after the gate exists.
 
+The review/repair loop is bounded by D-049:
+
+- run exactly one independent review pass per work-order branch;
+- fix only defects reproduced in that pass; unreproduced concerns and every finding from a
+  second review round go to `docs/backlog.md`, one line each, rather than another code commit;
+- any one stop signal ends the task in a handoff report: three consecutive commits to the
+  same file where additions exceed deletions, eight commits or three hours on one task
+  (whichever comes first), or the task's stated measurement is in hand;
+- a task is complete only when its stated measurement exists. Plans and checkbox exhaustion
+  are background, not authority to overrun these bounds.
+
 Do not weaken a regression pin, skip/xfail a failing security test, lower coverage, change a
 denominator, or relax a receipt check to make the suite pass.
 
