@@ -5,11 +5,11 @@ Status: implementation checkpoint complete; M-01 and Task 3 are not complete.
 ## Binding
 
 - Baseline: `b9ff22733daee9e78c8302ed3ad190978d9cc85a`
-- Implementation: `f01a4af54dd3bfa1cd570ed381cb169c17b5a6bd`
-- Tree: `15ec252e429b4db8082fe002d213f306886cdcb6`
+- Implementation: `0cde430146ee3664aeaeeb40c02f8a336564cf6e`
+- Tree: `0ae4e64b8da3c48df2811c7f889f4f8c965ebc93`
 - Settlement-recovery hardening: `0b5d75ed7309f4fcfa8721be6e9ab1d4ce9fc350`
 - Branch: `feature/m01-authoritative-outcomes`
-- Scope: ten tracked implementation/test files; no protocol fixture, lock, action,
+- Scope: twelve tracked implementation/test files; no protocol fixture, lock, action,
   historical evidence, or factory-statistics change.
 
 ## Contract implemented
@@ -45,6 +45,12 @@ Status: implementation checkpoint complete; M-01 and Task 3 are not complete.
 - Settlement-before-slot recovery separately requires an existing marker and paid case root
   to have identical presence before constructing `CheckpointedProvider`; a zero-call marker
   cannot recreate a deleted root, and a root without its marker is also rejected.
+- Calibration routing now consumes exact current `MeasurementRecord` payloads. A valid
+  `fully_deferred` record remains in current outcome accounting while also entering the
+  explicit abstention list, and it never enters legacy scoring. The route requires the
+  payload's non-empty reason and exact outer/transcript task-ID join. Taskless payloads keep
+  the historical exclusion priority and do not enter outcome accounting, while a malformed
+  current measurement dictionary still fails its strict decoder before exclusion.
 
 ## TDD evidence
 
@@ -68,6 +74,14 @@ Focused REDs were observed before the corresponding GREEN, including:
   recreated by reconstruction).
 - a zero-call bare marker retained after a settlement-before-slot crash could likewise
   recreate its deleted paid root during resume and then obtain an external final receipt.
+- the first dual-Python Gate attempt against `f01a4af` exposed 39 stale live-test fixtures
+  that omitted the now-required current measurement; after replacing the fixture with an
+  honest typed record, the remaining live RED showed `fully_deferred` entering legacy
+  scoring instead of abstention;
+- a current `fully_deferred` payload without its reason was accepted, taskless current
+  payloads entered v2 outcome accounting, wrong/empty/non-string outer task IDs were not
+  joined to the delivery transcript, and a malformed taskless measurement dictionary could
+  bypass strict decoding.
 
 The new attacks now fail at their named authority boundary. The existing coordinated
 caller rewrite, in-place Ruff outcome plus seal rewrite, A/B root substitution, legacy
@@ -83,16 +97,30 @@ checkpoint rejection, full completed resume, and bare-before-Ruff crash tests al
   **pass**, exit 0.
 - `python -m pytest -p no:cacheprovider -q tests/test_ci_flow.py` — **16 passed**, exit 0.
 - `python -m ruff check .` — **pass**, exit 0 at
-  `f01a4af54dd3bfa1cd570ed381cb169c17b5a6bd`.
+  `0cde430146ee3664aeaeeb40c02f8a336564cf6e`.
 - `python -m mypy src/attest` — **Success: no issues found in 49 source files**, exit 0.
 - `git diff --check` — **pass**, exit 0.
+- Final live-route focused selection — **7 passed**, exit 0.
+- `tests/benchmark/test_live.py` — **106 collected and passed**, exit 0.
+- Combined API/runner/live selection — **207 collected and passed**, exit 0.
 - The five-file matrix reached **337 passed**, exit 0, immediately before the final
   exact-set hardening. Because those production/tests bytes subsequently changed, that run
   is recorded only as an intermediate regression and is not claimed as the final-SHA Gate.
 
-Full-repository/coverage and dual-Python clean gates are being scheduled against
-`f01a4af54dd3bfa1cd570ed381cb169c17b5a6bd` and are not claimed by this report. Independent
-delta re-review is also pending. The terminated `184e7fc` Gate logs remain invalidated.
+Local raw RED/GREEN logs for the Gate integration repair are retained outside the repository
+under `/private/tmp/m01-task2-*`: `test-live-f01-red`,
+`test-live-post-helper-blocker`, `live-missing-reason-red`,
+`live-taskless-exclusion-red`, `live-task-id-join-red`,
+`live-taskless-malformed-red`, `live-route-focused-green`,
+`test-live-current-green`, `api-runner-live-green`,
+`live-integration-collection`, and `live-integration-static-green` (each with its adjacent
+`.exit` marker where applicable). They are diagnostic logs, not a sealed acceptance bundle.
+
+The dual-Python full Gate attempts against `f01a4af` failed on the stale live fixture and are
+invalidated. Full-repository/coverage and dual-Python clean gates must be rerun against
+`0cde430146ee3664aeaeeb40c02f8a336564cf6e` and are not claimed by this report. The latest
+narrow independent review reports P0=0/P1=0 for this integration repair; final acceptance
+review remains pending the clean Gates. The terminated `184e7fc` Gate logs remain invalidated.
 
 ## Remaining scope and limits
 
