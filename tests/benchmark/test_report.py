@@ -711,6 +711,15 @@ def test_report_publishes_accuracy_for_a_receipt_bound_to_this_manifest() -> Non
     assert "semantic policy: PASS" in markdown
 
 
+def test_current_completed_without_publications_counts_as_a_silent_run() -> None:
+    """Task completion is independent from whether an author saw a finding."""
+    report = _report()
+
+    assert report.to_json_dict()["operational"]["silent_run_rate"] == 0.5
+    assert report.measurements is not None
+    assert report.measurements.abstention_rate == 0.0
+
+
 def test_report_surfaces_abstentions_with_counts_and_reasons() -> None:
     """A run attest could not decide is an abstention, never earned silence."""
     selected_runs = (_runs()[0], _runs()[2])
@@ -738,6 +747,7 @@ def test_report_surfaces_abstentions_with_counts_and_reasons() -> None:
         {"case_id": CONTROL_CASE, "reason": "budget: exhausted before review"}
     ]
     assert payload["operational"]["abstained_cases"] == 1
+    assert payload["operational"]["silent_run_rate"] == 0.0
     assert report.metrics is not None
     assert report.metrics.true_negatives == 0
     assert report.metrics.specificity is None

@@ -262,7 +262,7 @@ def build_report(
     )
     current_summary = reduce_measurements(current_records) if current_records else None
     measurements = (
-        _current_benchmark_report(current_summary)
+        _current_benchmark_report(current_summary, current_records)
         if current_summary is not None
         else (aggregate(cases, truths, records, line_slack=line_slack) if cases else None)
     )
@@ -429,7 +429,10 @@ def _validate_current_report_records(
             )
 
 
-def _current_benchmark_report(summary: MeasurementSummary) -> BenchmarkReport:
+def _current_benchmark_report(
+    summary: MeasurementSummary,
+    records: tuple[MeasurementRecord, ...],
+) -> BenchmarkReport:
     true_positives = summary.detected_positive_pull_requests or 0
     false_negatives = summary.missed_positive_pull_requests or 0
     false_positives = summary.pr_false_positive_events or 0
@@ -440,6 +443,16 @@ def _current_benchmark_report(summary: MeasurementSummary) -> BenchmarkReport:
     clean_total = summary.null_pull_requests
     finding_total = correct + wrong
     abstentions = summary.partially_deferred + summary.fully_deferred
+    completed_runs = sum(
+        record.repeat == 0 and record.task_status is TaskStatus.COMPLETED
+        for record in records
+    )
+    silent_runs = sum(
+        record.repeat == 0
+        and record.task_status is TaskStatus.COMPLETED
+        and record.published_count == 0
+        for record in records
+    )
     return BenchmarkReport(
         true_positives=true_positives,
         false_positives=false_positives,
@@ -458,6 +471,9 @@ def _current_benchmark_report(summary: MeasurementSummary) -> BenchmarkReport:
         conditional_recall=None,
         abstention_rate=(
             abstentions / summary.semantic_n if summary.semantic_n else None
+        ),
+        silent_run_rate=(
+            silent_runs / completed_runs if completed_runs else None
         ),
         duplicate_surfaces=0,
         delivery_rate=(
@@ -706,7 +722,7 @@ def _operational_payload(
             0 if measurements is None else measurements.duplicate_surfaces
         ),
         "silent_run_rate": (
-            None if measurements is None else _number(measurements.abstention_rate)
+            None if measurements is None else _number(measurements.silent_run_rate)
         ),
         "delivery_rate": None if measurements is None else _number(measurements.delivery_rate),
         "delivery_p50_s": (

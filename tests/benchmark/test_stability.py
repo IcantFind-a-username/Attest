@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -18,6 +19,7 @@ from attest.benchmark.api import (
     build_evaluation_binding,
     current_runtime_identity,
 )
+from attest.benchmark.artifacts import canonical_json_bytes
 from attest.benchmark.checkpoints import (
     CALL_ROLE_BENCHMARK_ORACLE,
     CALL_ROLE_PRODUCT,
@@ -135,6 +137,13 @@ def _observation(
         total_spend_usd=spend_usd,
         delivery_at_s=None if deferred is not None else latency_s,
     )
+
+
+def _sealed_observation_payload(
+    observation: StabilityObservation,
+) -> dict[str, object]:
+    digest = hashlib.sha256(canonical_json_bytes(observation._payload())).hexdigest()
+    return replace(observation, digest=digest).to_json_dict()
 
 
 def _synthetic_observations() -> tuple[StabilityObservation, ...]:
@@ -323,11 +332,34 @@ def test_stability_observation_rejects_status_and_surface_authority_drift() -> N
         )
 
 
-def test_retained_stability_v3_observation_is_not_reinterpreted() -> None:
-    payload = _observation(0).to_json_dict()
-    payload["schema_version"] = "3"
+@pytest.mark.parametrize("mutation", ["extra-field", "non-finite-wealth"])
+def test_stability_observation_rejects_unsealed_anchor_data(mutation: str) -> None:
+    payload = _sealed_observation_payload(
+        _observation(0, surfaced=(_surfaced(10.0),), candidate_count=1)
+    )
+    surfaced = payload["surfaced"]
+    assert isinstance(surfaced, list)
+    anchor = surfaced[0]
+    assert isinstance(anchor, dict)
+    if mutation == "extra-field":
+        anchor["unsigned_extra"] = "injected"
+    else:
+        anchor["wealth_final"] = float("nan")
+        unsealed = dict(payload)
+        unsealed.pop("digest")
+        payload["digest"] = hashlib.sha256(
+            canonical_json_bytes(unsealed)
+        ).hexdigest()
 
-    with pytest.raises(ValueError, match="unsupported observation schema version '3'"):
+    with pytest.raises(ValueError, match="field set|finite"):
+        StabilityObservation.from_json_dict(payload)
+
+
+def test_retained_stability_v4_observation_is_not_reinterpreted() -> None:
+    payload = _observation(0).to_json_dict()
+    payload["schema_version"] = "4"
+
+    with pytest.raises(ValueError, match="unsupported observation schema version '4'"):
         StabilityObservation.from_json_dict(payload)
 
 
@@ -599,9 +631,43 @@ def test_stability_resume_rejects_observation_spend_tampering(
     observation = json.loads(path.read_text(encoding="utf-8"))
     observation["product_spend_usd"] += 1.0
     observation["total_spend_usd"] += 1.0
-    path.write_text(json.dumps(observation) + "\n", encoding="utf-8")
+    unsealed = dict(observation)
+    unsealed.pop("digest")
+    observation["digest"] = hashlib.sha256(canonical_json_bytes(unsealed)).hexdigest()
+    path.write_bytes(canonical_json_bytes(observation))
 
     with pytest.raises(ValueError, match="spend|evidence binding|authoritative"):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: pytest.fail("tamper path dispatched"),
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+
+
+def test_stability_resume_rejects_canonical_observation_latency_tampering(
+    tmp_path: Path,
+) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+    run_stability_study(
+        request,
+        provider_factory=lambda _repeat: ReplayProvider(
+            Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+        ),
+        state_dir=state_dir,
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+    path = state_dir / "repeat-0.json"
+    observation = json.loads(path.read_bytes())
+    observation["latency_s"] += 1.0
+    path.write_bytes(canonical_json_bytes(observation))
+
+    with pytest.raises(ValueError, match="repeat-0.*corrupt"):
         run_stability_study(
             request,
             provider_factory=lambda _repeat: pytest.fail("tamper path dispatched"),

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
+import math
 import time
 from collections import Counter
 from collections.abc import Callable, Mapping
@@ -41,6 +41,12 @@ from attest.benchmark.api import (
     current_runtime_identity,
     evaluate_project,
     freeze_evaluation_request,
+)
+from attest.benchmark.artifacts import (
+    ArtifactError,
+    _atomic_write,
+    canonical_json_bytes,
+    read_artifact_bytes,
 )
 from attest.benchmark.checkpoints import (
     CALL_ROLE_BENCHMARK_ORACLE,
@@ -64,7 +70,7 @@ from attest.review.proposer import Provider, ProviderResult
 STABILITY_REPEATS = 10
 STABILITY_PREDECLARATION_SCHEMA_VERSION = "5"
 STABILITY_REPORT_SCHEMA_VERSION = "5"
-_OBSERVATION_SCHEMA_VERSION = "4"
+_OBSERVATION_SCHEMA_VERSION = "5"
 
 _OUTCOME_SURFACED = "surfaced"
 _OUTCOME_SURFACED_DEFERRED = "surfaced_deferred"
@@ -119,6 +125,7 @@ class StabilityObservation:
     delivery_at_s: float | None
     call_count: int = 0
     call_evidence_sha256: str = hashlib.sha256(b"[]").hexdigest()
+    digest: str = ""
 
     def __post_init__(self) -> None:
         if type(self.measurement) is not MeasurementRecord:
@@ -143,6 +150,11 @@ class StabilityObservation:
             raise ValueError(
                 "observation surfaces must exactly match measurement published finding IDs"
             )
+        if self.digest and (
+            len(self.digest) != 64
+            or any(character not in "0123456789abcdef" for character in self.digest)
+        ):
+            raise ValueError("observation digest must be a SHA-256 digest")
 
     @property
     def outcome(self) -> str:
@@ -156,6 +168,11 @@ class StabilityObservation:
         return _OUTCOME_SURFACED if self.surfaced else _OUTCOME_SILENT
 
     def to_json_dict(self) -> dict[str, object]:
+        payload = self._payload()
+        payload["digest"] = self.digest
+        return payload
+
+    def _payload(self) -> dict[str, object]:
         return {
             "schema_version": _OBSERVATION_SCHEMA_VERSION,
             "repeat": self.repeat,
@@ -178,6 +195,9 @@ class StabilityObservation:
     def from_json_dict(cls, raw: object) -> StabilityObservation:
         if not isinstance(raw, dict):
             raise ValueError("observation must be an object")
+        expected_fields = set(cls.__dataclass_fields__) | {"schema_version"}
+        if set(raw) != expected_fields:
+            raise ValueError("observation has an invalid field set")
         version = raw.get("schema_version")
         if version != _OBSERVATION_SCHEMA_VERSION:
             raise ValueError(
@@ -213,6 +233,7 @@ class StabilityObservation:
         measurement = decode_measurement_record(measurement_raw)
         call_count = raw.get("call_count")
         call_evidence_sha256 = raw.get("call_evidence_sha256")
+        digest = raw.get("digest")
         if (
             not isinstance(call_count, int)
             or isinstance(call_count, bool)
@@ -225,7 +246,13 @@ class StabilityObservation:
             or any(character not in "0123456789abcdef" for character in call_evidence_sha256)
         ):
             raise ValueError("observation call_evidence_sha256 must be a SHA-256 digest")
-        return cls(
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise ValueError("observation digest must be a SHA-256 digest")
+        observation = cls(
             repeat=repeat,
             run_id=run_id,
             status=status,
@@ -250,12 +277,21 @@ class StabilityObservation:
             ),
             call_count=call_count,
             call_evidence_sha256=call_evidence_sha256,
+            digest=digest,
         )
+        actual_digest = hashlib.sha256(
+            canonical_json_bytes(observation._payload())
+        ).hexdigest()
+        if observation.digest != actual_digest:
+            raise ValueError("observation digest does not match its canonical payload")
+        return observation
 
 
 def _anchor_from_json(raw: object) -> SurfacedAnchor:
     if not isinstance(raw, dict):
         raise ValueError("surfaced anchor must be an object")
+    if set(raw) != set(SurfacedAnchor.__dataclass_fields__):
+        raise ValueError("surfaced anchor has an invalid field set")
     finding_id = raw.get("finding_id")
     file = raw.get("file")
     line = raw.get("line")
@@ -275,8 +311,6 @@ def _anchor_from_json(raw: object) -> SurfacedAnchor:
     ):
         raise ValueError("surfaced anchor decisions must be strings")
     wealth = raw.get("wealth_final")
-    if wealth is not None and not isinstance(wealth, (int, float)):
-        raise ValueError("surfaced anchor wealth_final must be a number or null")
     return SurfacedAnchor(
         finding_id=finding_id,
         file=file,
@@ -284,14 +318,21 @@ def _anchor_from_json(raw: object) -> SurfacedAnchor:
         placement=placement,
         action=action,
         evidence_class=evidence_class,
-        wealth_final=None if wealth is None else float(wealth),
+        wealth_final=(
+            None
+            if wealth is None
+            else _finite_number(wealth, "surfaced anchor wealth_final")
+        ),
     )
 
 
 def _finite_number(value: object, label: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"observation {label} must be a number")
-    return float(value)
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"observation {label} must be finite")
+    return number
 
 
 @dataclass(frozen=True)
@@ -692,7 +733,7 @@ def run_stability_study(
                 "refusing to mix incomparable runs"
             )
     else:
-        _atomic_write_json(study_path, predeclaration)
+        _atomic_write(state_dir, study_path.name, canonical_json_bytes(predeclaration))
 
     observations: list[StabilityObservation] = []
     executed = resumed = 0
@@ -754,7 +795,17 @@ def run_stability_study(
                 call_count=call_count,
                 call_evidence_sha256=call_evidence_sha256,
             )
-            _atomic_write_json(path, observation.to_json_dict())
+            observation = replace(
+                observation,
+                digest=hashlib.sha256(
+                    canonical_json_bytes(observation._payload())
+                ).hexdigest(),
+            )
+            _atomic_write(
+                state_dir,
+                path.name,
+                canonical_json_bytes(observation.to_json_dict()),
+            )
             executed += 1
         observations.append(observation)
 
@@ -878,9 +929,12 @@ def _observe(
 
 def _load_observation(path: Path, repeat: int) -> StabilityObservation:
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        encoded = read_artifact_bytes(path.parent, path.name)
+        raw = json.loads(encoded)
+        if canonical_json_bytes(raw) != encoded:
+            raise ValueError("observation is not canonical JSON")
         observation = StabilityObservation.from_json_dict(raw)
-    except (OSError, json.JSONDecodeError, ValueError) as exc:
+    except (ArtifactError, OSError, json.JSONDecodeError, ValueError) as exc:
         raise ValueError(
             f"stability state {path.name} is corrupt; refusing to guess whether the "
             "run was paid for"
@@ -1057,12 +1111,3 @@ def _rounded(value: float | None) -> float | None:
 def _with_digest(report: StabilityReport) -> StabilityReport:
     encoded = json.dumps(report._payload(), sort_keys=True, separators=(",", ":"))
     return replace(report, digest=hashlib.sha256(encoded.encode("utf-8")).hexdigest())
-
-
-def _atomic_write_json(path: Path, payload: Mapping[str, object]) -> None:
-    encoded = (
-        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
-    ).encode("utf-8")
-    temporary = path.with_name(path.name + ".tmp")
-    temporary.write_bytes(encoded)
-    os.replace(temporary, path)
