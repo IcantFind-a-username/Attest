@@ -4,7 +4,7 @@ Status: **normative target**
 
 Baseline audited: `main@c945788` on 2026-08-30
 
-Decisions: D-038 through D-044
+Decisions: D-038 through D-049
 
 ## 1. Outcome
 
@@ -69,9 +69,10 @@ The existing Core assumptions do not fit real review scheduling without redesign
 Core is therefore preserved as research code and evolved behind a new scheduling
 interface. It is not activated as a certifier.
 
-### 2.3 Known gaps that the target must close
+### 2.3 Known gaps and closed regression obligations
 
-The roadmap treats these as measured implementation gaps, not hypothetical polish:
+The roadmap tracks unresolved implementation gaps and recently closed gaps that remain
+regression obligations, not hypothetical polish:
 
 - `alpha > 1/9` can currently let S/T surface before differential verification, and CI
   intentionally skips verification for an already-terminal candidate.
@@ -85,16 +86,20 @@ The roadmap treats these as measured implementation gaps, not hypothetical polis
 - JUnit handling does not yet prove exactly one intended node ran with zero skip/xfail;
   repeat runs may share mutable worktree state.
 - the ledger does not retain a complete, content-addressed reproduction bundle.
-- mixed surfaced findings plus another candidate-level DEFER can be published by CI but
-  dropped from benchmark accuracy accounting.
-- a validation receipt can be hash-consistent while containing hand-authored or incomplete
-  run rows; receipt integrity is not authenticity.
+- M-01's versioned outcome accounting now preserves author-visible findings beside
+  candidate/task DEFER and closes the former mixed-outcome denominator hole; this does not
+  by itself authorize public accuracy.
+- V2 validation types and the offline verifier reject incomplete/unauthorized evidence, but
+  no current V2 authority may accompany production execution pending X-01/V-03; the frozen
+  corpus receipt is historical V1 integrity evidence, not current scoring authority.
+- M-03's current paid live/stability/comparison paths use locked tools and role-bound,
+  crash-safe checkpoints; every future paid/execution path must reuse that state contract.
 - current containment is a best-effort same-user process guard, not a security boundary.
 - the dated historical replay report contains only abstaining bug-replay attempts; schema
   robustness, project context, and safe subprocess support are observed recall blockers.
   Counts and current status belong in `docs/roadmap.md` and dated evidence, not this target.
 
-### 2.4 Current-to-target gap index
+### 2.4 Current-to-target gap and closure index
 
 | ID | Current seam/evidence | Target owner | Work orders |
 |---|---|---|---|
@@ -104,9 +109,9 @@ The roadmap treats these as measured implementation gaps, not hypothetical polis
 | `GAP-FAMILY-01` | `gate.apply_gate` and presentation keep overflow author-visible; no PR family policy | PR publication policy | C-05 |
 | `GAP-RECEIPT-01` | executor/ledger lack exact-node, complete environment/run artifacts, semantic binding, and authenticated provenance | receipt/kernel/execution | V-01/V-02/V-03 |
 | `GAP-TASK-01` | diff path accepts a base ref without one task-wide merge-base/base-policy manifest | immutable task | C-03/R-01 |
-| `GAP-MEASURE-01` | benchmark calibration can discard a whole mixed surface+DEFER case | measurement contract | M-01 |
-| `GAP-CORPUS-01` | corpus receipt validates hashes/status but not full authorized run/semantic evidence | measurement authority | M-02/E-02 |
-| `GAP-CRASH-01` | paid-call/repeat checkpoint boundaries do not all support exactly-once recovery | measurement state machine | M-03 |
+| `GAP-MEASURE-01` | **Closed by M-01 at `5efe3d1`:** versioned accounting preserves every author-visible outcome beside DEFER | measurement contract | M-01 complete; regression obligation |
+| `GAP-CORPUS-01` | V2 evidence/provenance verification exists, but production execution has no current V2 authority and the frozen corpus remains historical V1 | measurement authority | M-02 complete; X-01/V-03/E-02 remain |
+| `GAP-CRASH-01` | **Closed for current measurement paths by M-03:** paid roles, calls, artifacts, spend, resume, and locked tools are bound fail-closed | measurement state machine | M-03 complete; reuse obligation |
 | `GAP-SEC-01` | credentials and untrusted same-repo code share a runner; language hooks are best-effort | controller/executor split | X-01/X-02/X-03 |
 | `GAP-RECALL-01` | monolithic context, strict schema, deletion/new-code/non-Python limits, process-free execution | discovery/execution | R-01 through R-04, X-03 |
 | `GAP-CORE-01` | `core.Engine` is disconnected and binary-judge-specific; synthetic priority pools tasks | scheduler | S-01 through S-04, E-05 |

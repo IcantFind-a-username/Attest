@@ -127,8 +127,8 @@ python -m venv .venv
 ```
 
 On Windows, use `.venv\Scripts\python` in place of `.venv/bin/python`. The supported
-toolchain will be locked by roadmap task M-03; until then, record exact versions with any
-gate result.
+Gate toolchain is pinned in `requirements-toolchain.lock`; use the current branch's lock
+and record exact interpreter/tool versions with every Gate result.
 
 Coding agents start with [AGENTS.md](AGENTS.md). The complete documentation map is
 [docs/README.md](docs/README.md). Design decisions are preserved in
@@ -136,6 +136,8 @@ Coding agents start with [AGENTS.md](AGENTS.md). The complete documentation map 
 
 ## Evidence already in the repository
 
+- `docs/acceptance/2026-08-31-m01-task5-recovery.md` — superseding M-01 / Phase 0
+  acceptance with exact dual-Python evidence;
 - `docs/acceptance/phase-3.md` — two historical Action integration smoke runs;
 - `docs/real-data-evaluation-status.md` — the dated overnight report plus audit errata;
 - `benchmarks/attest-v1/` — frozen corpus metadata and a historical hash-bound receipt;

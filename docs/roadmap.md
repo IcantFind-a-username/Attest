@@ -46,7 +46,8 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
   indeterminate;
 - GitHub Action smoke acceptance on regression/control/new-code fixtures;
 - generic benchmark/replay/live/stability/experiment infrastructure;
-- frozen 20-pair metadata corpus and hash-bound validation receipt with 9 accepted pairs;
+- frozen 20-pair metadata corpus and historical hash-bound receipt with 9/20
+  receipt-validated pairs;
 - 761-test inventory at the historical overnight timestamp, with coverage/ruff/mypy gates
   then reported green;
 - synthetic evidence that S/T priority can save verification budget under its assumptions.
@@ -63,9 +64,9 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
 - no prospective natural-PR result;
 - no release readiness.
 
-The five historical bug-replay attempts all abstained. This means surfaced delivery was
-0/5; finding precision and recall were not estimable under the repository's own scoring
-contract. The four silent controls are a small smoke result, not a useful FPR bound.
+All five historical bug-replay attempts DEFERred and surfaced delivery was 0/5; finding
+precision and recall were not estimable under the repository's own scoring contract. The
+controls were silent 4/4, a small smoke result rather than a useful FPR bound.
 
 ### 2.3 Immediate hazards
 
