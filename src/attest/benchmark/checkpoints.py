@@ -26,8 +26,8 @@ from attest.review.budget import CHARS_PER_TOKEN
 from attest.review.config import load_pricing
 from attest.review.proposer import Provider, ProviderResult
 
-CALL_CHECKPOINT_SCHEMA_VERSION = "5"
-CALL_ARTIFACT_SCHEMA_VERSION = "4"
+CALL_CHECKPOINT_SCHEMA_VERSION = "6"
+CALL_ARTIFACT_SCHEMA_VERSION = "5"
 CALL_COST_SCHEMA_VERSION = "4"
 CALL_ROLE_PRODUCT = "product"
 CALL_ROLE_BENCHMARK_ORACLE = "benchmark_oracle"
@@ -253,6 +253,7 @@ class CheckpointedProvider:
             "text": response.text,
             "input_tokens": response.input_tokens,
             "output_tokens": response.output_tokens,
+            "stop_reason": response.stop_reason,
         }
         artifact = self._artifact_payload(
             checkpoint,
@@ -821,7 +822,10 @@ class CheckpointedProvider:
         text = response.get("text")
         input_tokens = response.get("input_tokens")
         output_tokens = response.get("output_tokens")
+        stop_reason = response.get("stop_reason")
         if (
+            set(response) != {"text", "input_tokens", "output_tokens", "stop_reason"}
+            or
             not isinstance(text, str)
             or not isinstance(input_tokens, int)
             or isinstance(input_tokens, bool)
@@ -829,9 +833,10 @@ class CheckpointedProvider:
             or not isinstance(output_tokens, int)
             or isinstance(output_tokens, bool)
             or output_tokens < 0
+            or (stop_reason is not None and not isinstance(stop_reason, str))
         ):
             raise ValueError(f"call checkpoint {path.name} has an invalid response artifact")
-        return ProviderResult(text, input_tokens, output_tokens)
+        return ProviderResult(text, input_tokens, output_tokens, stop_reason)
 
     def _commit(self, path: Path, checkpoint: Mapping[str, object]) -> None:
         payload = _canonical_bytes(checkpoint) + b"\n"

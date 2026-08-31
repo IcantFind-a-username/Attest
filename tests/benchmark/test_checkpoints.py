@@ -10,6 +10,8 @@ from typing import Any
 import pytest
 
 from attest.benchmark.checkpoints import (
+    CALL_ARTIFACT_SCHEMA_VERSION,
+    CALL_CHECKPOINT_SCHEMA_VERSION,
     CALL_ROLE_BENCHMARK_ORACLE,
     CALL_ROLE_PRODUCT,
     STATE_AMBIGUOUS_COST,
@@ -41,7 +43,7 @@ class _Provider:
         self.calls += 1
         if self.fail:
             raise TimeoutError("outcome unknown")
-        return ProviderResult("{\"findings\": []}", 100, 20)
+        return ProviderResult("{\"findings\": []}", 100, 20, "end_turn")
 
 
 class _Crash(RuntimeError):
@@ -524,6 +526,7 @@ def test_dispatched_checkpoint_recovers_settled_artifact_without_redispatch(
         "text": expected.text,
         "input_tokens": expected.input_tokens,
         "output_tokens": expected.output_tokens,
+        "stop_reason": expected.stop_reason,
     }
     assert artifact_path.read_bytes() == artifact_bytes
     assert costs_path.read_bytes() == cost_bytes
@@ -577,7 +580,13 @@ def test_old_checkpoint_schema_fails_with_actionable_version_message(tmp_path: P
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="unsupported.*schema version.*0.*supported.*5"):
+    with pytest.raises(
+        ValueError,
+        match=(
+            "unsupported.*schema version.*0.*supported.*"
+            + CALL_CHECKPOINT_SCHEMA_VERSION
+        ),
+    ):
         _wrapper(_Provider(), tmp_path)
 
 
@@ -596,7 +605,13 @@ def test_old_paid_evidence_schema_fails_with_actionable_version_message(
     payload["schema_version"] = "3"
     path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="unsupported.*schema version.*3.*supported.*4"):
+    expected_version = (
+        CALL_ARTIFACT_SCHEMA_VERSION if target == "artifact" else "4"
+    )
+    with pytest.raises(
+        ValueError,
+        match="unsupported.*schema version.*3.*supported.*" + expected_version,
+    ):
         _wrapper(_Provider(), tmp_path)
 
 
