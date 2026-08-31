@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import math
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -13,12 +15,14 @@ from attest.benchmark.runner import (
     REPRO_STATUS_BY_EVIDENCE_CLASS,
     BenchmarkRunner,
     Cassette,
+    ExecutionResultAuthority,
     LoopbackGitHub,
     ReplayProvider,
     ReproReceipt,
     ci_final_decisions,
     extract_predictions,
     load_cassette,
+    rebuild_case_run_from_ledger,
     run_differential_repro,
 )
 from attest.benchmark.schema import Placement
@@ -31,6 +35,197 @@ from attest.review.ledger import Ledger
 from attest.review.schema import Finding
 
 CASE_ID = "case-0123456789ab"
+
+
+@pytest.mark.parametrize("field", ("spend_usd", "oracle_spend_usd", "elapsed_s"))
+def test_execution_authority_normalizes_negative_zero(
+    tmp_path: Path, field: str
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    with LoopbackGitHub() as github:
+        result = BenchmarkRunner(repeats=1).run_case(
+            repo,
+            case_id=CASE_ID,
+            base_sha=base_sha,
+            head_sha=head_sha,
+            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            provider=ReplayProvider(cassette()),
+            client=github.client(),
+        )
+    authority = ExecutionResultAuthority.from_case_run(
+        replace(result, **{field: -0.0})
+    )
+
+    assert math.copysign(1.0, getattr(authority, field)) == 1.0
+
+
+def test_taskless_rebuild_rejects_caller_fields_outside_frozen_authority(
+    tmp_path: Path,
+) -> None:
+    from attest.benchmark.measurement import (
+        DeliveryStatus,
+        StopKind,
+        TaskStatus,
+        empty_delivery_transcript_receipt,
+    )
+
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    with LoopbackGitHub() as github:
+        result = BenchmarkRunner(repeats=1).run_case(
+            repo,
+            case_id=CASE_ID,
+            base_sha=base_sha,
+            head_sha=head_sha,
+            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            provider=ReplayProvider(cassette()),
+            client=github.client(),
+        )
+    empty_measurement = replace(
+        result.measurement,
+        stop_kind=StopKind.NONE,
+        task_status=TaskStatus.COMPLETED,
+        findings=(),
+        candidate_count=0,
+        published_count=0,
+        unresolved_count=0,
+        publication_events=(),
+        task_delivery_events=(),
+        delivery_transcript=empty_delivery_transcript_receipt(),
+        delivery_status=DeliveryStatus.NO_PUBLICATION,
+    )
+    authority = ExecutionResultAuthority(
+        measurement=empty_measurement,
+        oracle_receipts=(),
+        product_evidence_classes=(),
+        predictions=(),
+        candidate_count=0,
+        surfaced_count=0,
+        spend_usd=1.0,
+        oracle_spend_usd=2.0,
+        elapsed_s=3.0,
+    )
+    caller = replace(
+        result,
+        task_id=None,
+        run=replace(result.run, run_id="taskless", predictions=()),
+        candidate_count=0,
+        surfaced_count=123,
+        spend_usd=999.0,
+        oracle_spend_usd=888.0,
+        elapsed_s=777.0,
+        product_evidence_classes={"x": "y"},
+        oracle_receipts=(),
+        measurement=empty_measurement,
+    )
+
+    with pytest.raises(ValueError, match="fresh outcome.*mismatch"):
+        rebuild_case_run_from_ledger(
+            repo,
+            caller,
+            (),
+            repository="local/project",
+            head_sha=head_sha,
+            pull_request_number=1,
+            deadline_s=60.0,
+            expected_authority=authority,
+        )
+
+
+@pytest.mark.parametrize(
+    ("stop_kind", "task_status", "caller_reason", "expected_reason"),
+    (
+        ("failure", "failed", None, "measurement task status was failed"),
+        (
+            "task_defer",
+            "fully_deferred",
+            None,
+            "measurement task status was fully_deferred",
+        ),
+        ("none", "completed", "synthetic caller defer", None),
+    ),
+)
+def test_taskless_rebuild_derives_deferred_reason_from_frozen_measurement(
+    tmp_path: Path,
+    stop_kind: str,
+    task_status: str,
+    caller_reason: str | None,
+    expected_reason: str | None,
+) -> None:
+    from attest.benchmark.measurement import (
+        DeliveryStatus,
+        StopKind,
+        TaskStatus,
+        empty_delivery_transcript_receipt,
+    )
+
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    with LoopbackGitHub() as github:
+        result = BenchmarkRunner(repeats=1).run_case(
+            repo,
+            case_id=CASE_ID,
+            base_sha=base_sha,
+            head_sha=head_sha,
+            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            provider=ReplayProvider(cassette()),
+            client=github.client(),
+        )
+    measurement = replace(
+        result.measurement,
+        stop_kind=StopKind(stop_kind),
+        task_status=TaskStatus(task_status),
+        findings=(),
+        candidate_count=0,
+        published_count=0,
+        unresolved_count=0,
+        publication_events=(),
+        task_delivery_events=(),
+        delivery_transcript=empty_delivery_transcript_receipt(),
+        delivery_status=DeliveryStatus.NO_PUBLICATION,
+    )
+    authority = ExecutionResultAuthority(
+        measurement=measurement,
+        oracle_receipts=(),
+        product_evidence_classes=(),
+        predictions=(),
+        candidate_count=0,
+        surfaced_count=0,
+        spend_usd=1.0,
+        oracle_spend_usd=2.0,
+        elapsed_s=3.0,
+    )
+    caller = replace(
+        result,
+        task_id=None,
+        run=replace(
+            result.run,
+            run_id="taskless",
+            predictions=(),
+            delivery_at_s=None,
+        ),
+        candidate_count=0,
+        surfaced_count=0,
+        deferred_reason=caller_reason,
+        delivered=False,
+        spend_usd=1.0,
+        oracle_spend_usd=2.0,
+        elapsed_s=3.0,
+        product_evidence_classes={},
+        oracle_receipts=(),
+        measurement=measurement,
+    )
+
+    rebuilt = rebuild_case_run_from_ledger(
+        repo,
+        caller,
+        (),
+        repository="local/project",
+        head_sha=head_sha,
+        pull_request_number=1,
+        deadline_s=60.0,
+        expected_authority=authority,
+    )
+
+    assert rebuilt.deferred_reason == expected_reason
 
 
 def git(repo: Path, *args: str) -> str:

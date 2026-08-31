@@ -49,6 +49,7 @@ from attest.benchmark.measurement import (
     PublicationPlacement,
     TaskDeliveryEvent,
     TaskDeliveryTerminalStatus,
+    TaskStatus,
     TruthStatus,
     derive_stop_kind,
     derive_task_status,
@@ -845,6 +846,36 @@ def rebuild_case_run_from_ledger(
         raise ValueError("fresh outcome requires an exact current measurement")
     transcript = expected.delivery_transcript
     authoritative_task_id = transcript.task_id
+    if run.oracle_receipts != expected_authority.oracle_receipts:
+        raise ValueError("fresh outcome oracle receipt mismatch")
+    if dict(run.product_evidence_classes) != dict(
+        expected_authority.product_evidence_classes
+    ):
+        raise ValueError("fresh outcome product evidence mismatch")
+    if run.run.predictions != expected_authority.predictions:
+        raise ValueError("fresh outcome prediction authority mismatch")
+    if run.measurement.publication_events != expected.publication_events:
+        raise ValueError("fresh outcome publication mismatch")
+    if run.measurement.task_delivery_events != expected.task_delivery_events:
+        raise ValueError("fresh outcome task delivery mismatch")
+    if run.measurement != expected:
+        raise ValueError("fresh outcome measurement mismatch")
+    if (
+        run.case_id != expected.case_id
+        or run.run.case_id != expected.case_id
+        or run.run.repeat != expected.repeat
+    ):
+        raise ValueError("fresh outcome run binding mismatch")
+    if run.candidate_count != expected_authority.candidate_count:
+        raise ValueError("fresh outcome candidate count mismatch")
+    if run.surfaced_count != expected_authority.surfaced_count:
+        raise ValueError("fresh outcome surfaced count mismatch")
+    if (
+        run.spend_usd != expected_authority.spend_usd
+        or run.oracle_spend_usd != expected_authority.oracle_spend_usd
+        or run.elapsed_s != expected_authority.elapsed_s
+    ):
+        raise ValueError("fresh outcome operational totals mismatch")
     current_delivery_kinds = {
         "delivery_attempt_intent",
         "delivery_attempt_settlement",
@@ -853,11 +884,51 @@ def rebuild_case_run_from_ledger(
     if authoritative_task_id is None:
         if any(row.get("kind") in current_delivery_kinds for row in rows):
             raise ValueError("taskless outcome conflicts with fresh delivery ledger")
-        if run.task_id is not None or run.run.predictions or run.candidate_count:
+        if run.task_id is not None:
             raise ValueError("taskless outcome conflicts with caller run state")
-        if expected != run.measurement:
-            raise ValueError("fresh outcome measurement mismatch")
-        return run
+        if (
+            expected_authority.predictions
+            or expected_authority.oracle_receipts
+            or expected_authority.product_evidence_classes
+            or expected_authority.candidate_count != 0
+            or expected_authority.surfaced_count != 0
+            or expected.findings
+            or expected.publication_events
+            or expected.task_delivery_events
+            or expected.candidate_count != 0
+            or expected.published_count != 0
+            or expected.unresolved_count != 0
+        ):
+            raise ValueError("taskless fresh outcome authority is not empty")
+        return replace(
+            run,
+            case_id=expected.case_id,
+            task_id=None,
+            run=RunRecord(
+                run_id=f"{expected.case_id}-deferred",
+                case_id=expected.case_id,
+                repeat=expected.repeat,
+                predictions=expected_authority.predictions,
+                delivery_at_s=None,
+                deadline_s=deadline_s,
+            ),
+            candidate_count=expected_authority.candidate_count,
+            surfaced_count=expected_authority.surfaced_count,
+            deferred_reason=(
+                None
+                if expected.task_status is TaskStatus.COMPLETED
+                else f"measurement task status was {expected.task_status.value}"
+            ),
+            delivered=False,
+            spend_usd=expected_authority.spend_usd,
+            oracle_spend_usd=expected_authority.oracle_spend_usd,
+            elapsed_s=expected_authority.elapsed_s,
+            product_evidence_classes=dict(
+                expected_authority.product_evidence_classes
+            ),
+            oracle_receipts=expected_authority.oracle_receipts,
+            measurement=expected,
+        )
     if run.task_id != authoritative_task_id:
         raise ValueError("fresh outcome task binding mismatch")
 
@@ -946,20 +1017,8 @@ def rebuild_case_run_from_ledger(
         raise ValueError("fresh outcome task delivery mismatch")
     if fresh_measurement != expected:
         raise ValueError("fresh outcome measurement mismatch")
-    if run.oracle_receipts != expected_authority.oracle_receipts:
-        raise ValueError("fresh outcome oracle receipt mismatch")
-    if dict(run.product_evidence_classes) != dict(
-        expected_authority.product_evidence_classes
-    ):
-        raise ValueError("fresh outcome product evidence mismatch")
     if predictions != expected_authority.predictions:
         raise ValueError("fresh outcome prediction authority mismatch")
-    if run.measurement.publication_events != expected.publication_events:
-        raise ValueError("fresh outcome publication mismatch")
-    if run.measurement.task_delivery_events != expected.task_delivery_events:
-        raise ValueError("fresh outcome task delivery mismatch")
-    if run.measurement != expected:
-        raise ValueError("fresh outcome measurement mismatch")
     if run.run.predictions != predictions:
         raise ValueError("fresh outcome prediction mismatch")
     if (
@@ -967,15 +1026,6 @@ def rebuild_case_run_from_ledger(
         or run.candidate_count != expected_authority.candidate_count
     ):
         raise ValueError("fresh outcome candidate count mismatch")
-    if run.surfaced_count != expected_authority.surfaced_count:
-        raise ValueError("fresh outcome surfaced count mismatch")
-    if (
-        run.spend_usd != expected_authority.spend_usd
-        or run.oracle_spend_usd != expected_authority.oracle_spend_usd
-        or run.elapsed_s != expected_authority.elapsed_s
-    ):
-        raise ValueError("fresh outcome operational totals mismatch")
-
     successful_task_deliveries = tuple(
         event
         for event in fresh_measurement.task_delivery_events
@@ -1114,7 +1164,8 @@ class ExecutionResultAuthority:
                 or value < 0
             ):
                 raise ValueError(f"execution authority {name} is invalid")
-            object.__setattr__(self, name, float(value))
+            number = float(value)
+            object.__setattr__(self, name, 0.0 if number == 0.0 else number)
 
     @classmethod
     def from_case_run(cls, run: CaseRunResult) -> ExecutionResultAuthority:

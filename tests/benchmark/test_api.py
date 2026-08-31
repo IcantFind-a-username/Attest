@@ -403,7 +403,7 @@ def test_scored_run_rejects_coordinated_ledger_and_taskless_caller_rewrite(
 
     monkeypatch.setattr(BenchmarkRunner, "run_case", rewrite_after_execution)
 
-    with pytest.raises(ValueError, match="expected|sealed|delivery|task"):
+    with pytest.raises(ValueError, match="fresh outcome prediction authority mismatch"):
         evaluate_project(
             _request(tmp_path, repo, base_sha, head_sha),
             provider=_provider(),
