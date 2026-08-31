@@ -421,6 +421,28 @@ def test_replay_runner_drives_the_real_review_gate_executor_and_ledger(tmp_path:
     assert result.run.delivery_at_s is not None
 
 
+def test_replay_report_preserves_generation_defer_reason_from_ledger(
+    tmp_path: Path,
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    invalid_repro = replace(cassette(), repro="{}")
+
+    with LoopbackGitHub() as github:
+        result = BenchmarkRunner(repeats=1).run_case(
+            repo,
+            case_id=CASE_ID,
+            base_sha=base_sha,
+            head_sha=head_sha,
+            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            provider=ReplayProvider(invalid_repro),
+            client=github.client(),
+        )
+
+    assert result.deferred_reason is not None
+    assert "verification deferred: generation failed: ValueError" in result.deferred_reason
+    assert 'raw="{}"' in result.deferred_reason
+
+
 def test_overflow_surfaces_are_extracted_as_scored_predictions(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

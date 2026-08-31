@@ -919,10 +919,8 @@ def rebuild_case_run_from_ledger(
     terminal_status = _delivery_terminal_status(
         publication_events, task_delivery_events
     )
-    fresh_deferred_reason = (
-        None
-        if terminal_status is TaskDeliveryTerminalStatus.COMPLETED
-        else f"terminal task status was {terminal_status.value}"
+    fresh_deferred_reason = _deferred_reason_from_rows(
+        rows, authoritative_task_id, terminal_status
     )
 
     decisions = ci_final_decisions_from_rows(rows, authoritative_task_id)
@@ -1018,6 +1016,53 @@ def rebuild_case_run_from_ledger(
         oracle_receipts=expected_authority.oracle_receipts,
         measurement=fresh_measurement,
     )
+
+
+def _deferred_reason_from_rows(
+    rows: Sequence[Mapping[str, Any]],
+    task_id: str,
+    terminal_status: TaskDeliveryTerminalStatus,
+) -> str | None:
+    """Recover the detailed terminal reason from the strict ledger snapshot."""
+
+    if terminal_status is TaskDeliveryTerminalStatus.COMPLETED:
+        return None
+    verification_reasons = [
+        str(row["reason"])
+        for row in rows
+        if row.get("kind") == "verification"
+        and row.get("task_id") == task_id
+        and row.get("outcome") == "deferred"
+        and type(row.get("reason")) is str
+        and row["reason"]
+    ]
+    if verification_reasons:
+        reason = f"verification deferred: {verification_reasons[0]}"
+        if len(verification_reasons) > 1:
+            reason += f" ({len(verification_reasons)} candidates)"
+        return reason
+    defer_reasons = [
+        str(row["reason"])
+        for row in rows
+        if row.get("kind") == "defer"
+        and row.get("task_id") == task_id
+        and type(row.get("reason")) is str
+        and row["reason"]
+    ]
+    if defer_reasons:
+        return defer_reasons[-1]
+    github_reasons = [
+        str(row["reason"])
+        for row in rows
+        if row.get("kind") == "github_comment"
+        and row.get("task_id") == task_id
+        and row.get("outcome") == "failed"
+        and type(row.get("reason")) is str
+        and row["reason"]
+    ]
+    if github_reasons:
+        return github_reasons[-1]
+    return f"terminal task status was {terminal_status.value}"
 
 
 @dataclass(frozen=True)
