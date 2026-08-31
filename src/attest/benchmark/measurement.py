@@ -21,6 +21,24 @@ CURRENT_MEASUREMENT_SCHEMA_VERSION = 2
 CURRENT_MEASUREMENT_SEMANTICS = "author_visible_v2"
 LEGACY_MEASUREMENT_SEMANTICS = "legacy_v1_scoring"
 LEGACY_V1_METRICS_WITHHELD = "legacy_v1_scoring_metrics_withheld"
+ARM_ATTEST_PRODUCT = "attest_product"
+DELIVERY_TRANSCRIPT_SCHEMA_VERSION = 1
+DELIVERY_TRANSCRIPT_PROTOCOL = "attest.delivery-transcript.v1"
+EMPTY_DELIVERY_TRANSCRIPT_SHA256 = hashlib.sha256(
+    json.dumps(
+        {
+            "schema_version": DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
+            "protocol": DELIVERY_TRANSCRIPT_PROTOCOL,
+            "task_id": None,
+            "expected_attempt_count": 0,
+            "last_attempt_ordinal": None,
+            "attempts": [],
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode()
+).hexdigest()
 
 
 class TaskStatus(StrEnum):
@@ -113,6 +131,72 @@ class TaskDeliveryTerminalStatus(StrEnum):
 
 
 @dataclass(frozen=True)
+class DeliveryTranscriptReceipt:
+    """Sealed binding to the fresh ordered delivery-attempt transcript."""
+
+    schema_version: int
+    protocol: str
+    task_id: str | None
+    expected_attempt_count: int
+    last_attempt_ordinal: int | None
+    transcript_sha256: str
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.schema_version) is not int
+            or self.schema_version != DELIVERY_TRANSCRIPT_SCHEMA_VERSION
+        ):
+            raise ValueError("unsupported delivery transcript schema_version")
+        if type(self.protocol) is not str or self.protocol != DELIVERY_TRANSCRIPT_PROTOCOL:
+            raise ValueError("unsupported delivery transcript protocol")
+        if self.task_id is not None:
+            _require_nonempty_string(self.task_id, "delivery transcript task_id")
+        if (
+            type(self.expected_attempt_count) is not int
+            or self.expected_attempt_count < 0
+        ):
+            raise ValueError(
+                "expected_attempt_count must be an exact non-negative integer"
+            )
+        expected_last = (
+            self.expected_attempt_count - 1
+            if self.expected_attempt_count
+            else None
+        )
+        if self.last_attempt_ordinal != expected_last:
+            raise ValueError("delivery transcript last ordinal mismatch")
+        _require_sha256(self.transcript_sha256, "delivery transcript_sha256")
+        if self.task_id is None and (
+            self.expected_attempt_count != 0
+            or self.transcript_sha256 != EMPTY_DELIVERY_TRANSCRIPT_SHA256
+        ):
+            raise ValueError("taskless delivery transcript must be the exact empty receipt")
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "protocol": self.protocol,
+            "task_id": self.task_id,
+            "expected_attempt_count": self.expected_attempt_count,
+            "last_attempt_ordinal": self.last_attempt_ordinal,
+            "transcript_sha256": self.transcript_sha256,
+        }
+
+
+def empty_delivery_transcript_receipt() -> DeliveryTranscriptReceipt:
+    """Return the exact no-task/no-attempt transcript sentinel."""
+
+    return DeliveryTranscriptReceipt(
+        schema_version=DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
+        protocol=DELIVERY_TRANSCRIPT_PROTOCOL,
+        task_id=None,
+        expected_attempt_count=0,
+        last_attempt_ordinal=None,
+        transcript_sha256=EMPTY_DELIVERY_TRANSCRIPT_SHA256,
+    )
+
+
+@dataclass(frozen=True)
 class PublicationMember:
     """One finding and its canonical placement within a batched API call."""
 
@@ -169,14 +253,22 @@ class PublicationEvent:
             raise ValueError("outcome must be an exact PublicationOutcome")
         _require_sha256(self.body_sha256, "body_sha256")
         _require_sha256(self.request_sha256, "request_sha256")
-        _exact_number(self.deadline_s, "deadline_s", minimum=0.0)
+        object.__setattr__(
+            self,
+            "deadline_s",
+            _exact_number(self.deadline_s, "deadline_s", minimum=0.0),
+        )
         if self.outcome is PublicationOutcome.SUCCEEDED:
             if self.remote_response_id is None:
                 raise ValueError("successful publication requires remote_response_id")
-            _require_nonempty_string(self.remote_response_id, "remote_response_id")
+            _require_response_id(self.remote_response_id)
             if self.delivered_at_s is None:
                 raise ValueError("successful publication requires delivered_at_s")
-            _exact_number(self.delivered_at_s, "delivered_at_s", minimum=0.0)
+            object.__setattr__(
+                self,
+                "delivered_at_s",
+                _exact_number(self.delivered_at_s, "delivered_at_s", minimum=0.0),
+            )
         elif self.delivered_at_s is not None or self.remote_response_id is not None:
             raise ValueError(
                 "failed or ambiguous publication has no response or delivery identity"
@@ -259,14 +351,22 @@ class TaskDeliveryEvent:
             raise ValueError("outcome must be an exact PublicationOutcome")
         _require_sha256(self.body_sha256, "body_sha256")
         _require_sha256(self.request_sha256, "request_sha256")
-        _exact_number(self.deadline_s, "deadline_s", minimum=0.0)
+        object.__setattr__(
+            self,
+            "deadline_s",
+            _exact_number(self.deadline_s, "deadline_s", minimum=0.0),
+        )
         if self.outcome is PublicationOutcome.SUCCEEDED:
             if self.remote_response_id is None:
                 raise ValueError("successful task delivery requires remote_response_id")
-            _require_nonempty_string(self.remote_response_id, "remote_response_id")
+            _require_response_id(self.remote_response_id)
             if self.delivered_at_s is None:
                 raise ValueError("successful task delivery requires delivered_at_s")
-            _exact_number(self.delivered_at_s, "delivered_at_s", minimum=0.0)
+            object.__setattr__(
+                self,
+                "delivered_at_s",
+                _exact_number(self.delivered_at_s, "delivered_at_s", minimum=0.0),
+            )
         elif self.remote_response_id is not None or self.delivered_at_s is not None:
             raise ValueError("non-success task delivery has no delivery identity")
 
@@ -381,6 +481,7 @@ class MeasurementRecord:
     unresolved_count: int
     publication_events: tuple[PublicationEvent, ...]
     task_delivery_events: tuple[TaskDeliveryEvent, ...]
+    delivery_transcript: DeliveryTranscriptReceipt
     metrics_withheld_reason: str | None
     delivery_withheld_reason: str | None
     task_delivery_withheld_reason: str | None
@@ -426,6 +527,10 @@ class MeasurementRecord:
             type(event) is not TaskDeliveryEvent for event in self.task_delivery_events
         ):
             raise ValueError("task_delivery_events must be an exact tuple")
+        if type(self.delivery_transcript) is not DeliveryTranscriptReceipt:
+            raise ValueError(
+                "delivery_transcript must be an exact DeliveryTranscriptReceipt"
+            )
         for label, value in (
             ("candidate_count", self.candidate_count),
             ("published_count", self.published_count),
@@ -461,6 +566,28 @@ class MeasurementRecord:
             set(task_ordinals)
         ) != len(task_ordinals):
             raise ValueError("duplicate task delivery attempt identity or ordinal")
+        attempt_pairs = {
+            (event.attempt_ordinal, event.attempt_id)
+            for event in self.publication_events
+        } | {
+            (event.attempt_ordinal, event.attempt_id)
+            for event in self.task_delivery_events
+        }
+        ordinal_to_attempt: dict[int, str] = {}
+        attempt_to_ordinal: dict[str, int] = {}
+        for ordinal, attempt_id in attempt_pairs:
+            prior_attempt = ordinal_to_attempt.setdefault(ordinal, attempt_id)
+            prior_ordinal = attempt_to_ordinal.setdefault(attempt_id, ordinal)
+            if prior_attempt != attempt_id or prior_ordinal != ordinal:
+                raise ValueError(
+                    "delivery attempt ordinal and attempt_id must form a global bijection"
+                )
+        if set(ordinal_to_attempt) != set(
+            range(self.delivery_transcript.expected_attempt_count)
+        ):
+            raise ValueError(
+                "delivery events do not cover the sealed transcript attempt ordinals"
+            )
         if any(
             event.pull_request_number != self.pull_request_number
             for event in self.publication_events
@@ -737,6 +864,7 @@ class MeasurementRecord:
             "task_delivery_events": [
                 event.to_json_dict() for event in self.task_delivery_events
             ],
+            "delivery_transcript": self.delivery_transcript.to_json_dict(),
             "metrics_withheld_reason": self.metrics_withheld_reason,
             "delivery_withheld_reason": self.delivery_withheld_reason,
             "task_delivery_withheld_reason": self.task_delivery_withheld_reason,
@@ -828,6 +956,32 @@ def derive_task_status(
         if has_resolved_outcome
         else TaskStatus.FULLY_DEFERRED
     )
+
+
+def derive_stop_kind(
+    terminal_status: TaskDeliveryTerminalStatus,
+    findings: Sequence[FindingOutcome],
+) -> StopKind:
+    """Derive execution stop state from typed terminal and finding outcomes."""
+
+    if type(terminal_status) is not TaskDeliveryTerminalStatus:
+        raise ValueError("terminal_status must be an exact TaskDeliveryTerminalStatus")
+    if any(type(finding) is not FindingOutcome for finding in findings):
+        raise ValueError("findings must contain exact FindingOutcome values")
+    if terminal_status is TaskDeliveryTerminalStatus.FAILED:
+        return StopKind.FAILURE
+    unresolved = sum(
+        finding.finding_status is FindingStatus.UNRESOLVED for finding in findings
+    )
+    if unresolved:
+        return (
+            StopKind.CANDIDATE_DEFER
+            if unresolved < len(findings)
+            else StopKind.TASK_DEFER
+        )
+    if terminal_status is TaskDeliveryTerminalStatus.DEFERRED:
+        return StopKind.TASK_DEFER
+    return StopKind.NONE
 
 
 def reduce_measurements(records: Sequence[MeasurementRecord]) -> MeasurementSummary:
@@ -1126,6 +1280,9 @@ def decode_measurement_record(payload: Mapping[str, object]) -> MeasurementRecor
                 row["task_delivery_events"], "task_delivery_events"
             )
         ),
+        delivery_transcript=_decode_delivery_transcript(
+            row["delivery_transcript"]
+        ),
         metrics_withheld_reason=_optional_string(
             row["metrics_withheld_reason"], "metrics_withheld_reason"
         ),
@@ -1183,6 +1340,7 @@ _MEASUREMENT_FIELDS = frozenset(
         "unresolved_count",
         "publication_events",
         "task_delivery_events",
+        "delivery_transcript",
         "metrics_withheld_reason",
         "delivery_withheld_reason",
         "task_delivery_withheld_reason",
@@ -1252,6 +1410,41 @@ _TASK_DELIVERY_EVENT_FIELDS = frozenset(
     }
 )
 _PUBLICATION_MEMBER_FIELDS = frozenset({"finding_id", "placement"})
+_DELIVERY_TRANSCRIPT_FIELDS = frozenset(
+    {
+        "schema_version",
+        "protocol",
+        "task_id",
+        "expected_attempt_count",
+        "last_attempt_ordinal",
+        "transcript_sha256",
+    }
+)
+
+
+def _decode_delivery_transcript(value: object) -> DeliveryTranscriptReceipt:
+    row = _exact_mapping(
+        value, _DELIVERY_TRANSCRIPT_FIELDS, "delivery transcript receipt"
+    )
+    last_ordinal = row["last_attempt_ordinal"]
+    return DeliveryTranscriptReceipt(
+        schema_version=_exact_int(
+            row["schema_version"], "delivery transcript schema_version", minimum=0
+        ),
+        protocol=_exact_string(row["protocol"], "delivery transcript protocol"),
+        task_id=_optional_string(row["task_id"], "delivery transcript task_id"),
+        expected_attempt_count=_exact_int(
+            row["expected_attempt_count"], "expected_attempt_count", minimum=0
+        ),
+        last_attempt_ordinal=(
+            None
+            if last_ordinal is None
+            else _exact_int(last_ordinal, "last_attempt_ordinal", minimum=0)
+        ),
+        transcript_sha256=_sha256(
+            row["transcript_sha256"], "delivery transcript_sha256"
+        ),
+    )
 
 
 def _decode_finding(value: object) -> FindingOutcome:
@@ -1420,6 +1613,18 @@ def _require_sha256(value: object, label: str) -> None:
         or any(character not in "0123456789abcdef" for character in value)
     ):
         raise ValueError(f"{label} must be an exact lowercase SHA-256 digest")
+
+
+def _require_response_id(value: object) -> None:
+    _require_nonempty_string(value, "remote_response_id")
+    assert isinstance(value, str)
+    if (
+        not value.isascii()
+        or not value.isdecimal()
+        or str(int(value)) != value
+        or int(value) < 1
+    ):
+        raise ValueError("remote_response_id must be a canonical positive integer")
 
 
 def _sha256(value: object, label: str) -> str:

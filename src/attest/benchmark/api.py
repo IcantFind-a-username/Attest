@@ -35,13 +35,25 @@ from typing import Any
 
 from attest.benchmark.artifacts import ArtifactRecord, ArtifactStore
 from attest.benchmark.matcher import MatchResult, match_findings
-from attest.benchmark.measurement import MeasurementRecord
+from attest.benchmark.measurement import (
+    ARM_ATTEST_PRODUCT,
+    CURRENT_MEASUREMENT_SCHEMA_VERSION,
+    CURRENT_MEASUREMENT_SEMANTICS,
+    DeliveryStatus,
+    MeasurementRecord,
+    StopKind,
+    TaskStatus,
+    TruthStatus,
+    empty_delivery_transcript_receipt,
+)
 from attest.benchmark.runner import (
     BenchmarkRunner,
     CaseRunResult,
+    ExecutionResultAuthority,
     LoopbackGitHub,
     ReproReceipt,
-    ci_final_decisions,
+    ci_final_decisions_from_rows,
+    rebuild_case_run_from_ledger,
 )
 from attest.benchmark.schema import (
     BenchmarkCase,
@@ -74,6 +86,10 @@ EVALUATION_BINDING_SCHEMA_VERSION = "2"
 
 class ProjectEvaluationError(ValueError):
     """A request was refused before any model, GitHub, or head-code execution."""
+
+
+class ProjectEvaluationPreExecutionError(ProjectEvaluationError):
+    """A typed refusal known to occur before project execution/publication."""
 
 
 @dataclass(frozen=True)
@@ -381,7 +397,11 @@ class ProjectEvaluationResult:
     oracle_receipts: tuple[ReproReceipt, ...]
     run: RunRecord
     score: ProjectEvaluationScore | None
-    measurement: MeasurementRecord | None
+    measurement: MeasurementRecord
+
+    def __post_init__(self) -> None:
+        if type(self.measurement) is not MeasurementRecord:
+            raise ValueError("project evaluation requires an exact current measurement")
 
     @property
     def total_spend_usd(self) -> float:
@@ -420,10 +440,27 @@ class ProjectEvaluationResult:
             "deadline_s": self.run.deadline_s,
             "repeat": self.run.repeat,
             "score": None if self.score is None else self.score.to_json_dict(),
-            "measurement": (
-                None if self.measurement is None else self.measurement.to_json_dict()
-            ),
+            "measurement": self.measurement.to_json_dict(),
         }
+
+
+@dataclass(frozen=True)
+class _ProjectPreflight:
+    request: ProjectEvaluationRequest
+    resolved: _Resolved
+    workspace: Path
+
+
+def _prepare_project_evaluation(request: ProjectEvaluationRequest) -> _ProjectPreflight:
+    """Resolve refs and own the clean worktree before constructing a provider."""
+
+    try:
+        validate_project_evaluation_request(request)
+        resolved = _resolve(request)
+        workspace = _own_worktree(request, resolved.head_sha)
+    except ProjectEvaluationError as exc:
+        raise ProjectEvaluationPreExecutionError(str(exc)) from exc
+    return _ProjectPreflight(request=request, resolved=resolved, workspace=workspace)
 
 
 def evaluate_project(
@@ -435,12 +472,41 @@ def evaluate_project(
     clock: Callable[[], float] = time.monotonic,
 ) -> ProjectEvaluationResult:
     """Evaluate one immutable base/head pair and return frozen, typed results."""
-    validate_project_evaluation_request(request)
-    resolved = _resolve(request)
+    preflight = _prepare_project_evaluation(request)
+    return _evaluate_prepared_project(
+        preflight,
+        provider=provider,
+        oracle_provider=oracle_provider,
+        artifact_store=artifact_store,
+        clock=clock,
+    )
+
+
+def _evaluate_prepared_project(
+    preflight: _ProjectPreflight,
+    *,
+    provider: Provider,
+    oracle_provider: Provider | None,
+    artifact_store: ArtifactStore | None,
+    clock: Callable[[], float],
+) -> ProjectEvaluationResult:
+    """Execute one exact preflight token without resolving mutable refs again."""
+
+    if type(preflight) is not _ProjectPreflight:
+        raise ValueError("project evaluation requires an exact preflight token")
+    request = preflight.request
+    resolved = preflight.resolved
+    workspace = preflight.workspace
     started = clock()
-    workspace = _own_worktree(request, resolved.head_sha)
     try:
         with LoopbackGitHub() as github:
+            frozen_authorities: list[ExecutionResultAuthority] = []
+
+            def freeze_execution_result(authority: ExecutionResultAuthority) -> None:
+                if frozen_authorities:
+                    raise ValueError("project execution produced duplicate authorities")
+                frozen_authorities.append(authority)
+
             runner = BenchmarkRunner(
                 limits=request.limits,
                 verification_timeout_s=request.verification_timeout_s,
@@ -461,12 +527,34 @@ def evaluate_project(
                 pull_request_number=request.pull_request_number,
                 deadline_s=request.deadline_s,
                 repeat=request.repeat,
+                execution_result_sink=freeze_execution_result,
             )
             summary = github.status_bodies[-1] if github.status_bodies else ""
-        decisions = tuple(
-            ci_final_decisions(workspace, run.task_id) if run.task_id else ()
+        if len(frozen_authorities) != 1:
+            raise ValueError("project execution did not freeze one expected authority")
+        ledger_rows = Ledger(workspace).entries_strict()
+        run = rebuild_case_run_from_ledger(
+            workspace,
+            run,
+            ledger_rows,
+            repository=request.repository,
+            head_sha=resolved.head_sha,
+            pull_request_number=request.pull_request_number,
+            deadline_s=request.deadline_s,
+            expected_authority=frozen_authorities[0],
         )
-        records = _persist(artifact_store, request, run, workspace, summary)
+        decisions = tuple(
+            ci_final_decisions_from_rows(ledger_rows, run.task_id)
+            if run.task_id
+            else ()
+        )
+        records = _persist(
+            artifact_store,
+            request,
+            run,
+            ledger_rows,
+            summary,
+        )
     finally:
         _release_worktree(request.repo, workspace)
     return _result(
@@ -494,17 +582,25 @@ def evaluate_projects(
     results: list[ProjectEvaluationResult] = []
     for request in requests:
         try:
-            validate_project_evaluation_request(request)
-            results.append(
-                evaluate_project(
-                    request,
-                    provider=provider_factory(request),
-                    artifact_store=artifact_store,
-                    clock=clock,
-                )
-            )
-        except Exception as exc:  # noqa: BLE001 - a per-case failure is a DEFER
+            preflight = _prepare_project_evaluation(request)
+        except ProjectEvaluationPreExecutionError as exc:
             results.append(_deferred(request, f"{type(exc).__name__}: {exc}"))
+            continue
+        try:
+            provider = provider_factory(request)
+        except Exception as exc:  # noqa: BLE001 - no execution has started
+            _release_worktree(request.repo, preflight.workspace)
+            results.append(_deferred(request, f"{type(exc).__name__}: {exc}"))
+            continue
+        results.append(
+            _evaluate_prepared_project(
+                preflight,
+                provider=provider,
+                oracle_provider=None,
+                artifact_store=artifact_store,
+                clock=clock,
+            )
+        )
     return tuple(results)
 
 
@@ -794,7 +890,7 @@ def _persist(
     store: ArtifactStore | None,
     request: ProjectEvaluationRequest,
     run: CaseRunResult,
-    workspace: Path,
+    ledger_rows: Sequence[Mapping[str, Any]],
     summary: str,
 ) -> tuple[ArtifactRecord, ...]:
     """Write this case's evidence into its own namespace inside the store.
@@ -807,9 +903,9 @@ def _persist(
     if store is None or run.task_id is None:
         return ()
     prefix = f"cases/{request.case_id}/repeat-{request.repeat}"
-    ledger_rows = [row for row in Ledger(workspace).entries() if row.get("task_id")]
+    task_rows = [row for row in ledger_rows if row.get("task_id")]
     records: list[ArtifactRecord] = [
-        store.write(f"{prefix}/ledger.jsonl", "product_ledger", ledger_rows)
+        store.write(f"{prefix}/ledger.jsonl", "product_ledger", task_rows)
     ]
     records.append(
         store.write(
@@ -834,7 +930,7 @@ def _persist(
     )
     repro_output = "\n".join(
         f"{row.get('finding_id')}: {row.get('evidence', '')}"
-        for row in ledger_rows
+        for row in task_rows
         if row.get("kind") == "verification"
     )
     if repro_output:
@@ -924,5 +1020,27 @@ def _deferred(request: ProjectEvaluationRequest, reason: str) -> ProjectEvaluati
         oracle_receipts=(),
         run=run,
         score=None,
-        measurement=None,
+        measurement=MeasurementRecord(
+            schema_version=CURRENT_MEASUREMENT_SCHEMA_VERSION,
+            scoring_semantics=CURRENT_MEASUREMENT_SEMANTICS,
+            case_id=request.case_id,
+            arm=ARM_ATTEST_PRODUCT,
+            repeat=request.repeat,
+            stop_kind=StopKind.FAILURE,
+            task_status=TaskStatus.FAILED,
+            findings=(),
+            eligible_defect_ids=(),
+            pull_request_number=request.pull_request_number,
+            truth_status=TruthStatus.UNADJUDICATED,
+            delivery_status=DeliveryStatus.NO_PUBLICATION,
+            candidate_count=0,
+            published_count=0,
+            unresolved_count=0,
+            publication_events=(),
+            task_delivery_events=(),
+            delivery_transcript=empty_delivery_transcript_receipt(),
+            metrics_withheld_reason=None,
+            delivery_withheld_reason=None,
+            task_delivery_withheld_reason=None,
+        ),
     )

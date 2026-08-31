@@ -10,6 +10,7 @@ also the label source for the alpha auto-tighten rule and, eventually
 from __future__ import annotations
 
 import json
+import math
 import os
 import stat
 import time
@@ -73,6 +74,50 @@ def _redact(value: Any, secrets: tuple[str, ...]) -> Any:
     return value
 
 
+def _strict_object_pairs(rows: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in rows:
+        if key in value:
+            raise ValueError("duplicate JSON key")
+        value[key] = item
+    return value
+
+
+def _reject_nonfinite_constant(_: str) -> object:
+    raise ValueError("non-finite JSON number")
+
+
+def _require_finite_json(value: object) -> None:
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError("strict ledger contains a non-finite JSON number")
+    if isinstance(value, list):
+        for item in value:
+            _require_finite_json(item)
+    elif isinstance(value, dict):
+        for item in value.values():
+            _require_finite_json(item)
+
+
+def _open_directory_path(path: Path, flags: int) -> int:
+    """Open every absolute path component without following an ancestor symlink."""
+
+    absolute = path if path.is_absolute() else Path.cwd() / path
+    descriptors: list[int] = []
+    try:
+        current = os.open("/", flags)
+        descriptors.append(current)
+        for component in absolute.parts[1:]:
+            current = os.open(component, flags, dir_fd=current)
+            descriptors.append(current)
+    except OSError as exc:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+        raise ValueError("strict ledger path contains a symlink or unsafe ancestor") from exc
+    for descriptor in descriptors[:-1]:
+        os.close(descriptor)
+    return descriptors[-1]
+
+
 @dataclass
 class Ledger:
     root: Path  # repo root; entries live in root/.attest/ledger.jsonl
@@ -117,7 +162,7 @@ class Ledger:
             directory_flags = (
                 os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
             )
-            root_descriptor = os.open(self.root, directory_flags)
+            root_descriptor = _open_directory_path(self.root, directory_flags)
             created_parent = False
             try:
                 os.mkdir(".attest", mode=0o700, dir_fd=root_descriptor)
@@ -182,6 +227,115 @@ class Ledger:
                 except json.JSONDecodeError:
                     continue
         return out
+
+    def entries_strict(self) -> list[dict[str, Any]]:
+        """Fresh same-FD snapshot for current measurement authority.
+
+        Historical readers retain ``entries``.  Current outcome construction
+        rejects malformed, duplicate-key, non-finite, linked, or racing ledger
+        bytes instead of silently skipping them.
+        """
+
+        required = ("O_CLOEXEC", "O_DIRECTORY", "O_NOFOLLOW", "O_NONBLOCK")
+        if any(
+            not hasattr(os, name)
+            or type(getattr(os, name)) is not int
+            or getattr(os, name) == 0
+            for name in required
+        ):
+            raise ValueError("strict ledger filesystem capabilities are unavailable")
+        descriptors: list[int] = []
+        try:
+            directory_flags = (
+                os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+            )
+            root_descriptor = _open_directory_path(self.root, directory_flags)
+            descriptors.append(root_descriptor)
+            try:
+                parent_descriptor = os.open(
+                    ".attest", directory_flags, dir_fd=root_descriptor
+                )
+            except FileNotFoundError:
+                return []
+            descriptors.append(parent_descriptor)
+            try:
+                file_descriptor = os.open(
+                    "ledger.jsonl",
+                    os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK,
+                    dir_fd=parent_descriptor,
+                )
+            except FileNotFoundError:
+                return []
+            descriptors.append(file_descriptor)
+            before = os.fstat(file_descriptor)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_nlink != 1
+                or not 0 <= before.st_size <= _MAX_DURABLE_LEDGER_BYTES
+            ):
+                raise ValueError("strict ledger must be a bounded single-link regular file")
+            chunks: list[bytes] = []
+            remaining = before.st_size
+            while remaining:
+                chunk = os.read(file_descriptor, min(remaining, 64 * 1024))
+                if not chunk:
+                    raise ValueError("strict ledger changed while it was read")
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            if os.read(file_descriptor, 1):
+                raise ValueError("strict ledger grew while it was read")
+            after = os.fstat(file_descriptor)
+            if (
+                before.st_dev,
+                before.st_ino,
+                before.st_mode,
+                before.st_nlink,
+                before.st_size,
+                before.st_mtime_ns,
+                before.st_ctime_ns,
+            ) != (
+                after.st_dev,
+                after.st_ino,
+                after.st_mode,
+                after.st_nlink,
+                after.st_size,
+                after.st_mtime_ns,
+                after.st_ctime_ns,
+            ):
+                raise ValueError("strict ledger changed while it was read")
+            data = b"".join(chunks)
+        except OSError as exc:
+            raise ValueError("strict ledger path is missing or unsafe") from exc
+        finally:
+            for descriptor in reversed(descriptors):
+                os.close(descriptor)
+        if not data:
+            return []
+        if not data.endswith(b"\n"):
+            raise ValueError("strict ledger contains a truncated JSON row")
+        entries: list[dict[str, Any]] = []
+        for encoded_line in data.splitlines(keepends=True):
+            if len(encoded_line) > _MAX_DURABLE_LEDGER_ROW_BYTES:
+                raise ValueError("strict ledger row exceeds the size limit")
+            if encoded_line == b"\n":
+                raise ValueError("strict ledger contains an empty row")
+            try:
+                line = encoded_line[:-1].decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError("strict ledger is not UTF-8 JSON") from exc
+            try:
+                value = json.loads(
+                    line,
+                    object_pairs_hook=_strict_object_pairs,
+                    parse_constant=_reject_nonfinite_constant,
+                )
+            except (json.JSONDecodeError, ValueError) as exc:
+                raise ValueError("strict ledger contains malformed JSON") from exc
+            if type(value) is not dict:
+                raise ValueError("strict ledger row must be an exact object")
+            _require_finite_json(value)
+            entries.append(value)
+        return entries
 
     def record_review(
         self,

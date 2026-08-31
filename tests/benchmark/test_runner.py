@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import attest.review.ci as ci_module
 from attest.benchmark.runner import (
     REPRO_STATUS_BY_EVIDENCE_CLASS,
     BenchmarkRunner,
@@ -230,6 +231,7 @@ def test_identical_cassettes_produce_identical_scored_output(tmp_path: Path) -> 
     """Replay regression: the same cassette scores identically, timestamps excluded."""
     repo, base_sha, head_sha = regression_repo(tmp_path / "project")
     payloads = []
+    results = []
     for _ in range(2):
         with LoopbackGitHub() as github:
             result = BenchmarkRunner(
@@ -245,8 +247,19 @@ def test_identical_cassettes_produce_identical_scored_output(tmp_path: Path) -> 
                 fixed_sha=base_sha,
             )
         payloads.append(result.scored_payload())
+        results.append(result)
 
-    assert payloads[0] == payloads[1]
+    from attest.benchmark.measurement import decode_measurement_record
+
+    assert [payload["schema_version"] for payload in payloads] == [2, 2]
+    assert [
+        decode_measurement_record(payload["measurement"])
+        for payload in payloads
+    ] == [result.measurement for result in results]
+    assert (
+        payloads[0]["semantic_measurement_sha256"]
+        == payloads[1]["semantic_measurement_sha256"]
+    )
     assert "task_id" not in payloads[0]
     assert "elapsed_s" not in payloads[0]
 
@@ -481,6 +494,55 @@ def test_failed_publication_is_not_author_visible_measurement(tmp_path: Path) ->
     assert result.measurement.delivery_status.value == "no_publication"
     assert result.measurement.metrics_withheld_reason == "ambiguous_publication"
     assert result.measurement.delivery_withheld_reason == "ambiguous_publication"
+
+
+def test_non_integer_github_response_identity_is_ambiguous(tmp_path: Path) -> None:
+    class InvalidIdentityClient:
+        def upsert_issue_comment(
+            self, repository: str, number: int, marker: str, body: str
+        ) -> dict[str, object]:
+            return {"id": 1}
+
+        def create_review(
+            self,
+            repository: str,
+            number: int,
+            commit_id: str,
+            comments: list[dict[str, object]],
+        ) -> dict[str, object]:
+            return {"id": " "}
+
+        def prepare_issue_comment(
+            self, repository: str, number: int, marker: str, body: str
+        ) -> PreparedGitHubWrite:
+            return PreparedGitHubWrite(
+                method="POST",
+                path=f"/repos/{repository}/issues/{number}/comments",
+                payload={"body": f"{marker}\n{body}"},
+            )
+
+        def execute_prepared_write(
+            self, request: PreparedGitHubWrite
+        ) -> dict[str, object]:
+            return {"id": " "}
+
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    result = BenchmarkRunner(repeats=1).run_case(
+        repo,
+        case_id=CASE_ID,
+        base_sha=base_sha,
+        head_sha=head_sha,
+        config=ReviewConfig(k_samples=2, tier0_commands=[]),
+        provider=ReplayProvider(cassette()),
+        client=InvalidIdentityClient(),  # type: ignore[arg-type]
+    )
+
+    assert result.measurement.publication_events
+    assert all(
+        event.outcome.value == "ambiguous"
+        and event.remote_response_id is None
+        for event in result.measurement.publication_events
+    )
 
 
 def test_definitive_review_rejection_then_defer_summary_success_is_visible(
@@ -758,7 +820,7 @@ def test_status_delivery_rejects_malicious_prepared_write_before_dispatch() -> N
 def test_legacy_run_record_withholds_ambiguous_task_delivery_point_estimate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from attest.review.ci import CiRun, CiTaskDeliveryEvent
+    from attest.review.ci import CiDeliveryTranscript, CiRun, CiTaskDeliveryEvent
 
     repo, base_sha, head_sha = regression_repo(tmp_path / "project")
     common = {
@@ -792,16 +854,26 @@ def test_legacy_run_record_withholds_ambiguous_task_delivery_point_estimate(
         delivered_at_s=70.0,
         **common,
     )
+    task_id = "task-synthetic-ambiguous-delivery"
+    transcript = CiDeliveryTranscript(
+        schema_version=1,
+        protocol="attest.delivery-transcript.v1",
+        task_id=task_id,
+        expected_attempt_count=2,
+        last_attempt_ordinal=1,
+        transcript_sha256="e" * 64,
+    )
     monkeypatch.setattr(
         "attest.benchmark.runner.run_ci",
         lambda *args, **kwargs: CiRun(
-            task_id=None,
+            task_id=task_id,
             candidate_count=0,
             surfaced_count=0,
             deferred_reason=None,
             spend_usd=0.0,
             elapsed_s=1.0,
             task_delivery_events=(ambiguous, success),
+            delivery_transcript=transcript,
         ),
     )
 
@@ -821,6 +893,48 @@ def test_legacy_run_record_withholds_ambiguous_task_delivery_point_estimate(
     )
     assert result.run.delivery_at_s is None
     assert result.delivered is False
+
+
+def test_runner_rejects_a_non_exact_delivery_transcript_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from attest.review.ci import CiRun
+
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    task_id = "task-forged-transcript"
+    forged = SimpleNamespace(
+        schema_version=999,
+        protocol="evil",
+        task_id=task_id,
+        expected_attempt_count=0,
+        last_attempt_ordinal=None,
+        transcript_sha256="e" * 64,
+    )
+    monkeypatch.setattr(
+        "attest.benchmark.runner.run_ci",
+        lambda *args, **kwargs: CiRun(
+            task_id=task_id,
+            candidate_count=0,
+            surfaced_count=0,
+            deferred_reason=None,
+            spend_usd=0.0,
+            elapsed_s=1.0,
+            delivery_transcript=forged,  # type: ignore[arg-type]
+        ),
+    )
+
+    with pytest.raises(ValueError, match="exact.*transcript|schema|protocol"):
+        BenchmarkRunner(repeats=1).run_case(
+            repo,
+            case_id=CASE_ID,
+            base_sha=base_sha,
+            head_sha=head_sha,
+            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            provider=ReplayProvider(cassette()),
+            client=object(),  # type: ignore[arg-type]
+        )
 
 
 def test_inline_event_names_only_the_three_comments_actually_sent(
@@ -934,7 +1048,6 @@ def test_delivery_ledger_reconciliation_is_exact_and_fail_closed(tmp_path: Path)
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
-
     assert result.task_id is not None
     rows = Ledger(repo).entries()
     publications, task_deliveries = reconcile_delivery_rows(rows, result.task_id)
@@ -988,12 +1101,8 @@ def test_delivery_ledger_reconciliation_is_exact_and_fail_closed(tmp_path: Path)
             and row.get("attempt_id") == first_attempt_id
         )
     ]
-    reconciled, _ = reconcile_delivery_rows(intent_only, result.task_id)
-    assert next(
-        event for event in reconciled if event.attempt_id == first_attempt_id
-    ).outcome == (
-        "ambiguous"
-    )
+    with pytest.raises(ValueError, match="transcript|finalization"):
+        reconcile_delivery_rows(intent_only, result.task_id)
 
     orphan = [
         row
@@ -1193,6 +1302,14 @@ def test_delivery_journal_finalizes_the_expected_attempt_count(tmp_path: Path) -
 
     assert len(finalizations) == 1
     assert finalizations[0]["expected_attempt_count"] == 2
+    assert finalizations[0]["schema_version"] == 1
+    assert finalizations[0]["protocol"] == "attest.delivery-transcript.v1"
+    assert finalizations[0]["last_attempt_ordinal"] == 1
+    assert len(str(finalizations[0]["transcript_sha256"])) == 64
+    assert (
+        result.measurement.delivery_transcript.transcript_sha256
+        == finalizations[0]["transcript_sha256"]
+    )
 
 
 def test_delivery_finalization_rejects_coordinated_tail_rewrite(tmp_path: Path) -> None:
@@ -1234,6 +1351,138 @@ def test_delivery_finalization_rejects_coordinated_tail_rewrite(tmp_path: Path) 
 
     with pytest.raises(ValueError, match="transcript|sealed|finalization"):
         reconcile_delivery_rows(rewritten, result.task_id)
+
+
+def test_sealed_measurement_rejects_a_self_consistent_rewritten_transcript(
+    tmp_path: Path,
+) -> None:
+    """A digest recomputed from one mutable ledger is not external authority."""
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    with LoopbackGitHub() as github:
+        result = BenchmarkRunner(repeats=1).run_case(
+            repo,
+            case_id=CASE_ID,
+            base_sha=base_sha,
+            head_sha=head_sha,
+            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            provider=ReplayProvider(cassette()),
+            client=github.client(),
+        )
+    assert result.task_id is not None
+    rows = [dict(row) for row in Ledger(repo).entries()]
+    tail = next(
+        row
+        for row in rows
+        if row.get("kind") == "delivery_attempt_intent"
+        and row.get("attempt_ordinal") == 1
+    )
+    rewritten = [
+        row
+        for row in rows
+        if not (
+            row.get("attempt_id") == tail["attempt_id"]
+            and row.get("kind")
+            in {"delivery_attempt_intent", "delivery_attempt_settlement"}
+        )
+    ]
+    forged = ci_module.build_delivery_transcript(
+        [
+            row
+            for row in rewritten
+            if row.get("kind") != "delivery_journal_finalization"
+        ],
+        result.task_id,
+    )
+    finalization = next(
+        row
+        for row in rewritten
+        if row.get("kind") == "delivery_journal_finalization"
+    )
+    finalization.update(forged.to_finalization_dict())
+
+    reconcile_delivery_rows(rewritten, result.task_id)
+    with pytest.raises(ValueError, match="sealed.*transcript|transcript.*mismatch"):
+        reconcile_delivery_rows(
+            rewritten,
+            result.task_id,
+            expected_transcript_sha256=(
+                result.measurement.delivery_transcript.transcript_sha256
+            ),
+        )
+
+
+def test_delivery_settlement_rejects_a_noncanonical_response_identity(
+    tmp_path: Path,
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    with LoopbackGitHub() as github:
+        result = BenchmarkRunner(repeats=1).run_case(
+            repo,
+            case_id=CASE_ID,
+            base_sha=base_sha,
+            head_sha=head_sha,
+            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            provider=ReplayProvider(cassette()),
+            client=github.client(),
+        )
+    assert result.task_id is not None
+    rows = [dict(row) for row in Ledger(repo).entries()]
+    settlement = next(
+        row
+        for row in rows
+        if row.get("kind") == "delivery_attempt_settlement"
+        and row.get("outcome") == "succeeded"
+    )
+    settlement["remote_response_id"] = " "
+    without_finalization = [
+        row for row in rows if row.get("kind") != "delivery_journal_finalization"
+    ]
+
+    with pytest.raises(ValueError, match="response|identity|canonical|positive"):
+        ci_module.build_delivery_transcript(
+            without_finalization, result.task_id
+        )
+
+
+def test_current_delivery_ledger_reader_rejects_malformed_rows(tmp_path: Path) -> None:
+    repo = tmp_path / "project"
+    repo.mkdir()
+    ledger = Ledger(repo)
+    ledger.append_durable({"kind": "delivery_journal_finalization", "task_id": "t"})
+    with ledger.path.open("a", encoding="utf-8") as stream:
+        stream.write('{"kind":"delivery_attempt_intent"\n')
+
+    assert hasattr(ledger, "entries_strict"), "current ledger needs a strict reader"
+    with pytest.raises(ValueError, match="ledger|JSON|malformed"):
+        ledger.entries_strict()
+
+
+def test_current_delivery_ledger_reader_rejects_an_ancestor_symlink(
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "outside"
+    project = outside / "project"
+    project.mkdir(parents=True)
+    ledger = Ledger(project)
+    ledger.append_durable({"kind": "safe", "task_id": "task-1"})
+    anchor = tmp_path / "anchor"
+    anchor.mkdir()
+    (anchor / "link").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="ledger|symlink|unsafe"):
+        Ledger(anchor / "link" / "project").entries_strict()
+
+
+def test_current_delivery_ledger_reader_rejects_an_oversize_row_before_json(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "project"
+    path = repo / ".attest" / "ledger.jsonl"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b'{"blob":"' + b"x" * (1024 * 1024) + b'"}\n')
+
+    with pytest.raises(ValueError, match="ledger.*row|row.*size|size.*row"):
+        Ledger(repo).entries_strict()
 
 
 @pytest.mark.parametrize(

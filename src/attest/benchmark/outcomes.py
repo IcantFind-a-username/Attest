@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from attest.benchmark.measurement import ARM_ATTEST_PRODUCT
+
 OUTCOME_SEAL_SCHEMA_VERSION = "1"
 OUTCOME_SEAL_PATH = "outcomes.seal.json"
 OUTCOME_PREDECLARATION_SCHEMA_VERSION = "1"
@@ -24,7 +26,7 @@ DEFAULT_MAX_OUTCOME_BYTES = 4 * 1024 * 1024
 MAX_OUTCOME_CASES = 128
 MAX_OUTCOME_REPEATS = 20
 MAX_OUTCOME_SLOTS = 4096
-_OUTCOME_ARMS = ("attest_product", "bare_prompt", "ruff_static")
+_OUTCOME_ARMS = (ARM_ATTEST_PRODUCT, "bare_prompt", "ruff_static")
 _SUPPORTED_DIR_FD_NAMES = frozenset(function.__name__ for function in os.supports_dir_fd)
 _SUPPORTED_FOLLOW_SYMLINK_NAMES = frozenset(
     function.__name__ for function in os.supports_follow_symlinks
@@ -321,7 +323,8 @@ def write_measurement_outcome_once(
     if type(measurement) is not MeasurementRecord:
         raise ValueError("authoritative outcome requires an exact MeasurementRecord")
     measurement_payload = measurement.to_json_dict()
-    if decode_measurement_record(measurement_payload) != measurement:
+    decoded_payload = decode_measurement_record(measurement_payload).to_json_dict()
+    if canonical_json_bytes(decoded_payload) != canonical_json_bytes(measurement_payload):
         raise ValueError("authoritative outcome MeasurementRecord did not round-trip")
     payload = {
         "schema_version": OUTCOME_SEAL_SCHEMA_VERSION,

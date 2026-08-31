@@ -72,6 +72,7 @@ from attest.benchmark.corpus import (
     ValidationVerification,
     validation_receipt_binding_bytes,
 )
+from attest.benchmark.measurement import ARM_ATTEST_PRODUCT
 from attest.benchmark.metrics import silence_precision, wilson_interval
 from attest.benchmark.schema import (
     BenchmarkCase,
@@ -92,7 +93,7 @@ from attest.review.proposer import (
 )
 from attest.review.schema import PROPOSAL_SCHEMA, validate_finding
 
-ARM_PRODUCT = "attest_product"
+ARM_PRODUCT = ARM_ATTEST_PRODUCT
 ARM_BARE_PROMPT = "bare_prompt"
 ARM_RUFF = "ruff_static"
 COMPARISON_CHECKPOINT_SCHEMA_VERSION = "6"

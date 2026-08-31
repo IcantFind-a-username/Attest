@@ -852,7 +852,11 @@ def _measurement_record(
     from attest.benchmark.measurement import (
         CURRENT_MEASUREMENT_SCHEMA_VERSION,
         CURRENT_MEASUREMENT_SEMANTICS,
+        DELIVERY_TRANSCRIPT_PROTOCOL,
+        DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
+        EMPTY_DELIVERY_TRANSCRIPT_SHA256,
         DeliveryStatus,
+        DeliveryTranscriptReceipt,
         MeasurementRecord,
         PublicationChannel,
         PublicationEvent,
@@ -921,6 +925,16 @@ def _measurement_record(
         unresolved_count=unresolved_count,
         publication_events=publication_events,
         task_delivery_events=(),
+        delivery_transcript=DeliveryTranscriptReceipt(
+            schema_version=DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
+            protocol=DELIVERY_TRANSCRIPT_PROTOCOL,
+            task_id=("task:measurement" if publication_events else None),
+            expected_attempt_count=(1 if publication_events else 0),
+            last_attempt_ordinal=(0 if publication_events else None),
+            transcript_sha256=(
+                "e" * 64 if publication_events else EMPTY_DELIVERY_TRANSCRIPT_SHA256
+            ),
+        ),
         metrics_withheld_reason=None,
         delivery_withheld_reason=None,
         task_delivery_withheld_reason=None,
@@ -947,6 +961,20 @@ def _repeat_record(primary, repeat: int):
                 delivered_at_s=5.0 + repeat,
             )
             for event in primary.publication_events
+        ),
+    )
+
+
+def _synthetic_delivery_transcript(record, attempt_count: int):
+    from attest.benchmark.measurement import EMPTY_DELIVERY_TRANSCRIPT_SHA256
+
+    return replace(
+        record.delivery_transcript,
+        task_id=("task:measurement" if attempt_count else None),
+        expected_attempt_count=attempt_count,
+        last_attempt_ordinal=(attempt_count - 1 if attempt_count else None),
+        transcript_sha256=(
+            "f" * 64 if attempt_count else EMPTY_DELIVERY_TRANSCRIPT_SHA256
         ),
     )
 
@@ -1105,6 +1133,58 @@ def test_adjudicated_null_pr_cannot_hide_an_automated_publication_as_unadjudicat
         )
 
 
+@pytest.mark.parametrize(
+    ("terminal_status", "findings", "expected_stop", "expected_task"),
+    (
+        ("completed", (), "none", "completed"),
+        (
+            "completed",
+            (
+                _finding(
+                    "unresolved",
+                    status="unresolved",
+                    accuracy="unadjudicated",
+                    defect_id=None,
+                ),
+            ),
+            "task_defer",
+            "fully_deferred",
+        ),
+        (
+            "deferred",
+            (
+                _finding("published"),
+                _finding(
+                    "unresolved",
+                    status="unresolved",
+                    accuracy="unadjudicated",
+                    defect_id=None,
+                ),
+            ),
+            "candidate_defer",
+            "partially_deferred",
+        ),
+        ("deferred", (_finding("published"),), "task_defer", "partially_deferred"),
+        ("failed", (_finding("published"),), "failure", "failed"),
+    ),
+)
+def test_terminal_status_derives_stop_without_reason_text(
+    terminal_status: str,
+    findings: tuple,
+    expected_stop: str,
+    expected_task: str,
+) -> None:
+    from attest.benchmark.measurement import (
+        TaskDeliveryTerminalStatus,
+        derive_stop_kind,
+        derive_task_status,
+    )
+
+    stop = derive_stop_kind(TaskDeliveryTerminalStatus(terminal_status), findings)
+    assert stop.value == expected_stop
+    assert derive_task_status(stop, findings).value == expected_task
+
+
 def test_any_wrong_metric_withholds_a_pr_with_visible_unadjudicated_findings() -> None:
     from attest.benchmark.measurement import reduce_measurements
 
@@ -1159,6 +1239,7 @@ def test_finding_delivery_uses_earliest_successful_batch_event() -> None:
         record,
         findings=(finding,),
         publication_events=(first, late),
+        delivery_transcript=_synthetic_delivery_transcript(record, 2),
         delivery_status=DeliveryStatus.PUBLISHED_ON_TIME,
     )
 
@@ -1195,7 +1276,11 @@ def test_known_on_time_success_before_ambiguity_does_not_withhold_delivery() -> 
         delivered_at_s=None,
         deadline_s=60.0,
     )
-    record = replace(record, publication_events=(success, ambiguous))
+    record = replace(
+        record,
+        publication_events=(success, ambiguous),
+        delivery_transcript=_synthetic_delivery_transcript(record, 2),
+    )
 
     summary = reduce_measurements((record,))
 
@@ -1322,6 +1407,109 @@ def test_empty_status_task_view_cannot_share_an_inline_publication_attempt() -> 
         replace(record, task_delivery_events=(task_event,))
 
 
+def test_delivery_attempt_ordinal_is_globally_bound_to_one_attempt_id() -> None:
+    from attest.benchmark.measurement import (
+        PublicationChannel,
+        PublicationOutcome,
+        TaskDeliveryEvent,
+        TaskDeliveryTerminalStatus,
+    )
+
+    record = _measurement_record(findings=(_finding("published"),))
+    publication = record.publication_events[0]
+    task_event = TaskDeliveryEvent(
+        event_id="task:different-attempt-same-ordinal",
+        attempt_id="attempt:different",
+        attempt_ordinal=publication.attempt_ordinal,
+        repository=publication.repository,
+        pull_request_number=publication.pull_request_number,
+        head_sha=publication.head_sha,
+        channel=PublicationChannel.STATUS_SUMMARY,
+        members=(),
+        terminal_status=TaskDeliveryTerminalStatus.COMPLETED,
+        outcome=PublicationOutcome.SUCCEEDED,
+        body_sha256="b" * 64,
+        request_sha256="c" * 64,
+        remote_response_id="102",
+        delivered_at_s=6.0,
+        deadline_s=publication.deadline_s,
+    )
+
+    with pytest.raises(ValueError, match="global|ordinal|bijection"):
+        replace(record, task_delivery_events=(task_event,))
+
+
+def test_measurement_event_rejects_a_noncanonical_response_identity() -> None:
+    record = _measurement_record(findings=(_finding("published"),))
+
+    with pytest.raises(ValueError, match="response|identity|canonical|positive"):
+        replace(record.publication_events[0], remote_response_id=" ")
+
+
+@pytest.mark.parametrize("event_kind", ("publication", "task"))
+def test_delivery_event_numbers_have_one_canonical_byte_representation(
+    event_kind: str,
+) -> None:
+    from attest.benchmark.measurement import (
+        PublicationChannel,
+        PublicationOutcome,
+        TaskDeliveryEvent,
+        TaskDeliveryTerminalStatus,
+        decode_measurement_record,
+    )
+    from attest.benchmark.outcomes import canonical_json_bytes
+
+    if event_kind == "publication":
+        record = _measurement_record(findings=(_finding("published"),))
+        event = replace(
+            record.publication_events[0], delivered_at_s=5, deadline_s=60
+        )
+        record = replace(record, publication_events=(event,))
+    else:
+        record = _measurement_record(findings=())
+        event = TaskDeliveryEvent(
+            event_id="task:one",
+            attempt_id="attempt:one",
+            attempt_ordinal=0,
+            repository="local/project",
+            pull_request_number=17,
+            head_sha="1" * 40,
+            channel=PublicationChannel.STATUS_SUMMARY,
+            members=(),
+            terminal_status=TaskDeliveryTerminalStatus.COMPLETED,
+            outcome=PublicationOutcome.SUCCEEDED,
+            body_sha256="a" * 64,
+            request_sha256="b" * 64,
+            remote_response_id="102",
+            delivered_at_s=5,
+            deadline_s=60,
+        )
+        record = replace(
+            record,
+            task_delivery_events=(event,),
+            delivery_transcript=_synthetic_delivery_transcript(record, 1),
+        )
+
+    payload = record.to_json_dict()
+    decoded = decode_measurement_record(payload)
+    assert canonical_json_bytes(payload) == canonical_json_bytes(
+        decoded.to_json_dict()
+    )
+
+
+def test_delivery_events_cover_every_sealed_transcript_attempt() -> None:
+    record = _measurement_record(findings=(_finding("published"),))
+    forged_transcript = replace(
+        record.delivery_transcript,
+        expected_attempt_count=2,
+        last_attempt_ordinal=1,
+        transcript_sha256="f" * 64,
+    )
+
+    with pytest.raises(ValueError, match="transcript|attempt|ordinal"):
+        replace(record, delivery_transcript=forged_transcript)
+
+
 def test_task_delivery_ambiguity_with_later_success_has_no_point_estimate() -> None:
     from attest.benchmark.measurement import (
         PublicationChannel,
@@ -1366,6 +1554,7 @@ def test_task_delivery_ambiguity_with_later_success_has_no_point_estimate() -> N
     record = replace(
         record,
         task_delivery_events=(ambiguous, success),
+        delivery_transcript=_synthetic_delivery_transcript(record, 2),
         task_delivery_withheld_reason="ambiguous_task_delivery",
     )
 
@@ -1415,6 +1604,7 @@ def test_unresolved_ambiguous_publication_withholds_quality_metrics() -> None:
     record = replace(
         record,
         publication_events=(ambiguous,),
+        delivery_transcript=_synthetic_delivery_transcript(record, 1),
         metrics_withheld_reason="ambiguous_publication",
         delivery_withheld_reason="ambiguous_publication",
     )
@@ -1451,7 +1641,7 @@ def test_ambiguous_attempt_followed_by_late_success_withholds_only_delivery() ->
         attempt_ordinal=1,
         delivered_at_s=70.0,
         request_sha256="e" * 64,
-        remote_response_id="later-success",
+        remote_response_id="103",
     )
     ambiguous = PublicationEvent(
         event_id="attempt:ambiguous",
@@ -1476,6 +1666,7 @@ def test_ambiguous_attempt_followed_by_late_success_withholds_only_delivery() ->
         record,
         findings=(finding,),
         publication_events=(ambiguous, success),
+        delivery_transcript=_synthetic_delivery_transcript(record, 2),
         delivery_status=DeliveryStatus.PUBLISHED_LATE,
         delivery_withheld_reason="ambiguous_publication",
     )

@@ -32,10 +32,12 @@ from types import TracebackType
 from typing import Any, cast
 
 from attest.benchmark.measurement import (
+    ARM_ATTEST_PRODUCT,
     CURRENT_MEASUREMENT_SCHEMA_VERSION,
     CURRENT_MEASUREMENT_SEMANTICS,
     AccuracyStatus,
     DeliveryStatus,
+    DeliveryTranscriptReceipt,
     FindingAuthority,
     FindingOutcome,
     FindingStatus,
@@ -45,18 +47,27 @@ from attest.benchmark.measurement import (
     PublicationMember,
     PublicationOutcome,
     PublicationPlacement,
-    StopKind,
     TaskDeliveryEvent,
     TaskDeliveryTerminalStatus,
     TruthStatus,
+    derive_stop_kind,
     derive_task_status,
+    empty_delivery_transcript_receipt,
+    semantic_measurement_sha256,
 )
 from attest.benchmark.schema import Placement, Prediction, RunRecord, is_scored_placement
 from attest.github.client import GitHubClient
 from attest.github.context import PullRequestContext
 from attest.review.budget import Budget
 from attest.review.candidates import CandidateStore, StoredCandidate
-from attest.review.ci import CiPublicationEvent, CiTaskDeliveryEvent, run_ci
+from attest.review.ci import (
+    CiDeliveryTranscript,
+    CiPublicationEvent,
+    CiTaskDeliveryEvent,
+    build_delivery_transcript,
+    reconcile_delivery_rows,
+    run_ci,
+)
 from attest.review.config import ReviewConfig
 from attest.review.executor import (
     EvidenceClass,
@@ -342,9 +353,17 @@ def run_differential_repro(
 
 def ci_final_decisions(repo: Path, task_id: str) -> tuple[dict[str, Any], ...]:
     """The authoritative post-verification decisions recorded for one task."""
+    return ci_final_decisions_from_rows(Ledger(repo).entries(), task_id)
+
+
+def ci_final_decisions_from_rows(
+    ledger_rows: Sequence[Mapping[str, Any]], task_id: str
+) -> tuple[dict[str, Any], ...]:
+    """Decode one exact ci_final row from an already-frozen ledger snapshot."""
+
     rows = [
         row
-        for row in Ledger(repo).entries()
+        for row in ledger_rows
         if row.get("kind") == "ci_final" and row.get("task_id") == task_id
     ]
     if not rows:
@@ -386,14 +405,22 @@ def ci_final_decisions(repo: Path, task_id: str) -> tuple[dict[str, Any], ...]:
         if not math.isfinite(float(numeric_wealth)):
             raise ValueError("ci_final wealth_final must be an exact finite number")
         finding_ids.add(finding_id)
-        parsed.append(decision)
+        parsed.append(dict(decision))
     return tuple(parsed)
 
 
 def product_evidence_classes(repo: Path, task_id: str) -> dict[str, str]:
     """Per-finding evidence class exactly as the product ledger recorded it."""
+    return product_evidence_classes_from_rows(Ledger(repo).entries(), task_id)
+
+
+def product_evidence_classes_from_rows(
+    ledger_rows: Sequence[Mapping[str, Any]], task_id: str
+) -> dict[str, str]:
+    """Decode evidence classes from one already-frozen ledger snapshot."""
+
     classes: dict[str, str] = {}
-    for row in Ledger(repo).entries():
+    for row in ledger_rows:
         if row.get("kind") != "verification" or row.get("task_id") != task_id:
             continue
         finding_id = row.get("finding_id")
@@ -416,7 +443,36 @@ def extract_predictions(
     head_sha: str | None = None,
 ) -> tuple[Prediction, ...]:
     """Join persisted candidate anchors to the authoritative ``ci_final`` row."""
-    decisions = ci_final_decisions(repo, task_id)
+    return extract_predictions_from_rows(
+        repo,
+        ledger_rows=Ledger(repo).entries(),
+        task_id=task_id,
+        case_id=case_id,
+        repro_status=repro_status,
+        evidence_class=evidence_class,
+        publication_events=publication_events,
+        repository=repository,
+        pull_request_number=pull_request_number,
+        head_sha=head_sha,
+    )
+
+
+def extract_predictions_from_rows(
+    repo: Path,
+    *,
+    ledger_rows: Sequence[Mapping[str, Any]],
+    task_id: str,
+    case_id: str,
+    repro_status: Mapping[str, str] | None = None,
+    evidence_class: Mapping[str, str] | None = None,
+    publication_events: Sequence[CiPublicationEvent] = (),
+    repository: str | None = None,
+    pull_request_number: int | None = None,
+    head_sha: str | None = None,
+) -> tuple[Prediction, ...]:
+    """Join candidates to ci_final and delivery from one ledger snapshot."""
+
+    decisions = ci_final_decisions_from_rows(ledger_rows, task_id)
     if not decisions:
         return ()
     candidates = CandidateStore(repo).load(task_id)
@@ -501,6 +557,25 @@ def _published_finding_ids(
     return frozenset(published)
 
 
+def _delivery_terminal_status(
+    publication_events: Sequence[CiPublicationEvent],
+    task_events: Sequence[CiTaskDeliveryEvent],
+) -> TaskDeliveryTerminalStatus:
+    """Return one typed terminal status; a missing status is an execution failure."""
+
+    if any(event.outcome == PublicationOutcome.FAILED.value for event in publication_events):
+        return TaskDeliveryTerminalStatus.FAILED
+    values = {event.terminal_status for event in task_events}
+    if len(values) > 1:
+        raise ValueError("fresh outcome contains conflicting terminal task statuses")
+    if not values:
+        return TaskDeliveryTerminalStatus.FAILED
+    try:
+        return TaskDeliveryTerminalStatus(next(iter(values)))
+    except ValueError as exc:
+        raise ValueError("fresh outcome contains an unknown terminal task status") from exc
+
+
 def _execution_measurement(
     repo: Path,
     *,
@@ -512,12 +587,13 @@ def _execution_measurement(
     head_sha: str,
     pull_request_number: int,
     deadline_s: float,
-    deferred_reason: str | None,
+    terminal_status: TaskDeliveryTerminalStatus,
     candidate_count: int,
     decisions: Sequence[Mapping[str, Any]],
     predictions: Sequence[Prediction],
     publication_events: Sequence[CiPublicationEvent],
     task_delivery_events: Sequence[CiTaskDeliveryEvent],
+    delivery_transcript: CiDeliveryTranscript | None,
 ) -> MeasurementRecord:
     """Build the unadjudicated execution layer from exact API events and candidates."""
 
@@ -618,19 +694,7 @@ def _execution_measurement(
     unresolved_count = sum(
         finding.finding_status is FindingStatus.UNRESOLVED for finding in findings
     )
-    resolved_count = len(findings) - unresolved_count
-    if deferred_reason is not None and (
-        "GitHub" in deferred_reason or "comment" in deferred_reason
-    ):
-        stop_kind = StopKind.FAILURE
-    elif unresolved_count:
-        stop_kind = (
-            StopKind.CANDIDATE_DEFER if resolved_count else StopKind.TASK_DEFER
-        )
-    elif deferred_reason is not None:
-        stop_kind = StopKind.TASK_DEFER
-    else:
-        stop_kind = StopKind.NONE
+    stop_kind = derive_stop_kind(terminal_status, findings)
     published_count = len(prediction_ids)
     if published_count:
         on_time_by_finding = {
@@ -712,6 +776,23 @@ def _execution_measurement(
         not task_success_ordinals
         or min(task_ambiguous_ordinals) < min(task_success_ordinals)
     )
+    if delivery_transcript is None:
+        if task_id is not None or publication_events or task_delivery_events:
+            raise ValueError("current execution requires a sealed delivery transcript")
+        typed_transcript = empty_delivery_transcript_receipt()
+    else:
+        if type(delivery_transcript) is not CiDeliveryTranscript:
+            raise ValueError("current execution requires an exact delivery transcript")
+        if task_id != delivery_transcript.task_id:
+            raise ValueError("delivery transcript task binding mismatch")
+        typed_transcript = DeliveryTranscriptReceipt(
+            schema_version=delivery_transcript.schema_version,
+            protocol=delivery_transcript.protocol,
+            task_id=delivery_transcript.task_id,
+            expected_attempt_count=delivery_transcript.expected_attempt_count,
+            last_attempt_ordinal=delivery_transcript.last_attempt_ordinal,
+            transcript_sha256=delivery_transcript.transcript_sha256,
+        )
     return MeasurementRecord(
         schema_version=CURRENT_MEASUREMENT_SCHEMA_VERSION,
         scoring_semantics=CURRENT_MEASUREMENT_SEMANTICS,
@@ -730,6 +811,7 @@ def _execution_measurement(
         unresolved_count=unresolved_count,
         publication_events=tuple(typed_events),
         task_delivery_events=tuple(typed_task_events),
+        delivery_transcript=typed_transcript,
         metrics_withheld_reason=(
             "ambiguous_publication" if ambiguous_unresolved else None
         ),
@@ -742,6 +824,191 @@ def _execution_measurement(
     )
 
 
+def rebuild_case_run_from_ledger(
+    repo: Path,
+    run: CaseRunResult,
+    ledger_rows: Sequence[Mapping[str, Any]],
+    *,
+    repository: str,
+    head_sha: str,
+    pull_request_number: int,
+    deadline_s: float,
+    expected_authority: ExecutionResultAuthority,
+) -> CaseRunResult:
+    """Freshly reconstruct current delivery and publication from one strict snapshot."""
+
+    rows = [dict(row) for row in ledger_rows]
+    if type(expected_authority) is not ExecutionResultAuthority:
+        raise ValueError("fresh outcome requires an exact execution-result authority")
+    expected = expected_authority.measurement
+    if type(expected) is not MeasurementRecord:
+        raise ValueError("fresh outcome requires an exact current measurement")
+    transcript = expected.delivery_transcript
+    authoritative_task_id = transcript.task_id
+    current_delivery_kinds = {
+        "delivery_attempt_intent",
+        "delivery_attempt_settlement",
+        "delivery_journal_finalization",
+    }
+    if authoritative_task_id is None:
+        if any(row.get("kind") in current_delivery_kinds for row in rows):
+            raise ValueError("taskless outcome conflicts with fresh delivery ledger")
+        if run.task_id is not None or run.run.predictions or run.candidate_count:
+            raise ValueError("taskless outcome conflicts with caller run state")
+        if expected != run.measurement:
+            raise ValueError("fresh outcome measurement mismatch")
+        return run
+    if run.task_id != authoritative_task_id:
+        raise ValueError("fresh outcome task binding mismatch")
+
+    publication_events, task_delivery_events = reconcile_delivery_rows(
+        rows,
+        authoritative_task_id,
+        expected_transcript_sha256=transcript.transcript_sha256,
+    )
+    fresh_transcript = build_delivery_transcript(
+        [
+            row
+            for row in rows
+            if not (
+                row.get("task_id") == authoritative_task_id
+                and row.get("kind") == "delivery_journal_finalization"
+            )
+        ],
+        authoritative_task_id,
+    )
+    fresh_receipt = DeliveryTranscriptReceipt(
+        schema_version=fresh_transcript.schema_version,
+        protocol=fresh_transcript.protocol,
+        task_id=fresh_transcript.task_id,
+        expected_attempt_count=fresh_transcript.expected_attempt_count,
+        last_attempt_ordinal=fresh_transcript.last_attempt_ordinal,
+        transcript_sha256=fresh_transcript.transcript_sha256,
+    )
+    if fresh_receipt != transcript:
+        raise ValueError("fresh outcome delivery transcript mismatch")
+
+    terminal_status = _delivery_terminal_status(
+        publication_events, task_delivery_events
+    )
+    fresh_deferred_reason = (
+        None
+        if terminal_status is TaskDeliveryTerminalStatus.COMPLETED
+        else f"terminal task status was {terminal_status.value}"
+    )
+
+    decisions = ci_final_decisions_from_rows(rows, authoritative_task_id)
+    classes = product_evidence_classes_from_rows(rows, authoritative_task_id)
+    statuses = {
+        receipt.finding_id: receipt.repro_status
+        for receipt in expected_authority.oracle_receipts
+    }
+    receipt_classes = {
+        receipt.finding_id: receipt.evidence_class
+        for receipt in expected_authority.oracle_receipts
+    }
+    for finding_id, evidence_class in classes.items():
+        receipt_classes.setdefault(finding_id, evidence_class)
+    predictions = extract_predictions_from_rows(
+        repo,
+        ledger_rows=rows,
+        task_id=authoritative_task_id,
+        case_id=run.case_id,
+        repro_status=statuses,
+        evidence_class=receipt_classes,
+        publication_events=publication_events,
+        repository=repository,
+        pull_request_number=pull_request_number,
+        head_sha=head_sha,
+    )
+    candidate_count = len(CandidateStore(repo).load(authoritative_task_id))
+    fresh_measurement = _execution_measurement(
+        repo,
+        task_id=authoritative_task_id,
+        case_id=run.case_id,
+        arm=ARM_ATTEST_PRODUCT,
+        repeat=run.run.repeat,
+        repository=repository,
+        head_sha=head_sha,
+        pull_request_number=pull_request_number,
+        deadline_s=deadline_s,
+        terminal_status=terminal_status,
+        candidate_count=candidate_count,
+        decisions=decisions,
+        predictions=predictions,
+        publication_events=publication_events,
+        task_delivery_events=task_delivery_events,
+        delivery_transcript=fresh_transcript,
+    )
+    if fresh_measurement.publication_events != expected.publication_events:
+        raise ValueError("fresh outcome publication mismatch")
+    if fresh_measurement.task_delivery_events != expected.task_delivery_events:
+        raise ValueError("fresh outcome task delivery mismatch")
+    if fresh_measurement != expected:
+        raise ValueError("fresh outcome measurement mismatch")
+    if run.oracle_receipts != expected_authority.oracle_receipts:
+        raise ValueError("fresh outcome oracle receipt mismatch")
+    if dict(run.product_evidence_classes) != dict(
+        expected_authority.product_evidence_classes
+    ):
+        raise ValueError("fresh outcome product evidence mismatch")
+    if predictions != expected_authority.predictions:
+        raise ValueError("fresh outcome prediction authority mismatch")
+    if run.measurement.publication_events != expected.publication_events:
+        raise ValueError("fresh outcome publication mismatch")
+    if run.measurement.task_delivery_events != expected.task_delivery_events:
+        raise ValueError("fresh outcome task delivery mismatch")
+    if run.measurement != expected:
+        raise ValueError("fresh outcome measurement mismatch")
+    if run.run.predictions != predictions:
+        raise ValueError("fresh outcome prediction mismatch")
+    if (
+        run.candidate_count != candidate_count
+        or run.candidate_count != expected_authority.candidate_count
+    ):
+        raise ValueError("fresh outcome candidate count mismatch")
+    if run.surfaced_count != expected_authority.surfaced_count:
+        raise ValueError("fresh outcome surfaced count mismatch")
+    if (
+        run.spend_usd != expected_authority.spend_usd
+        or run.oracle_spend_usd != expected_authority.oracle_spend_usd
+        or run.elapsed_s != expected_authority.elapsed_s
+    ):
+        raise ValueError("fresh outcome operational totals mismatch")
+
+    successful_task_deliveries = tuple(
+        event
+        for event in fresh_measurement.task_delivery_events
+        if event.succeeded and event.delivered_at_s is not None
+    )
+    delivery_at_s = (
+        min(cast(float, event.delivered_at_s) for event in successful_task_deliveries)
+        if successful_task_deliveries
+        and fresh_measurement.task_delivery_withheld_reason is None
+        else None
+    )
+    fresh_run = RunRecord(
+        run_id=authoritative_task_id,
+        case_id=run.case_id,
+        repeat=run.run.repeat,
+        predictions=predictions,
+        delivery_at_s=delivery_at_s,
+        deadline_s=deadline_s,
+    )
+    return replace(
+        run,
+        run=fresh_run,
+        candidate_count=candidate_count,
+        surfaced_count=fresh_measurement.published_count,
+        deferred_reason=fresh_deferred_reason,
+        delivered=delivery_at_s is not None,
+        spend_usd=expected_authority.spend_usd,
+        oracle_spend_usd=expected_authority.oracle_spend_usd,
+        elapsed_s=expected_authority.elapsed_s,
+        measurement=fresh_measurement,
+    )
+
+
 @dataclass(frozen=True)
 class CaseRunResult:
     """Everything one replayed case produced, product record and oracle apart."""
@@ -751,10 +1018,10 @@ class CaseRunResult:
     run: RunRecord
     candidate_count: int
     surfaced_count: int
-    deferred_reason: str | None
     spend_usd: float
     oracle_spend_usd: float
     elapsed_s: float
+    deferred_reason: str | None
     delivered: bool
     product_evidence_classes: Mapping[str, str]
     oracle_receipts: tuple[ReproReceipt, ...]
@@ -768,6 +1035,7 @@ class CaseRunResult:
         are excluded because they are timestamps, not measurements.
         """
         return {
+            "schema_version": 2,
             "case_id": self.case_id,
             "candidate_count": self.candidate_count,
             "surfaced_count": self.surfaced_count,
@@ -795,7 +1063,74 @@ class CaseRunResult:
                 }
                 for receipt in self.oracle_receipts
             ],
+            "measurement": self.measurement.to_json_dict(),
+            "semantic_measurement_sha256": semantic_measurement_sha256(
+                self.measurement
+            ),
         }
+
+
+@dataclass(frozen=True)
+class ExecutionResultAuthority:
+    """Controller-frozen execution result captured before caller mutation."""
+
+    measurement: MeasurementRecord
+    oracle_receipts: tuple[ReproReceipt, ...]
+    product_evidence_classes: tuple[tuple[str, str], ...]
+    predictions: tuple[Prediction, ...]
+    candidate_count: int
+    surfaced_count: int
+    spend_usd: float
+    oracle_spend_usd: float
+    elapsed_s: float
+
+    def __post_init__(self) -> None:
+        if type(self.measurement) is not MeasurementRecord:
+            raise ValueError("execution authority requires an exact measurement")
+        if type(self.oracle_receipts) is not tuple or any(
+            type(receipt) is not ReproReceipt for receipt in self.oracle_receipts
+        ):
+            raise ValueError("execution authority requires exact oracle receipts")
+        if type(self.product_evidence_classes) is not tuple or any(
+            type(row) is not tuple
+            or len(row) != 2
+            or any(type(value) is not str or not value for value in row)
+            for row in self.product_evidence_classes
+        ):
+            raise ValueError("execution authority requires exact product evidence rows")
+        if type(self.predictions) is not tuple or any(
+            type(prediction) is not Prediction for prediction in self.predictions
+        ):
+            raise ValueError("execution authority requires exact predictions")
+        if type(self.candidate_count) is not int or self.candidate_count < 0:
+            raise ValueError("execution authority candidate_count is invalid")
+        if type(self.surfaced_count) is not int or self.surfaced_count < 0:
+            raise ValueError("execution authority surfaced_count is invalid")
+        for name in ("spend_usd", "oracle_spend_usd", "elapsed_s"):
+            value = getattr(self, name)
+            if (
+                type(value) not in {int, float}
+                or not math.isfinite(float(value))
+                or value < 0
+            ):
+                raise ValueError(f"execution authority {name} is invalid")
+            object.__setattr__(self, name, float(value))
+
+    @classmethod
+    def from_case_run(cls, run: CaseRunResult) -> ExecutionResultAuthority:
+        return cls(
+            measurement=run.measurement,
+            oracle_receipts=run.oracle_receipts,
+            product_evidence_classes=tuple(
+                sorted(run.product_evidence_classes.items())
+            ),
+            predictions=run.run.predictions,
+            candidate_count=run.candidate_count,
+            surfaced_count=run.surfaced_count,
+            spend_usd=run.spend_usd,
+            oracle_spend_usd=run.oracle_spend_usd,
+            elapsed_s=run.elapsed_s,
+        )
 
 
 class BenchmarkRunner:
@@ -832,6 +1167,7 @@ class BenchmarkRunner:
         pull_request_number: int = 1,
         deadline_s: float = 60.0,
         repeat: int = 0,
+        execution_result_sink: Callable[[ExecutionResultAuthority], None] | None = None,
     ) -> CaseRunResult:
         """Run the real product path, then score it against the fixed reference."""
         context = PullRequestContext(
@@ -907,18 +1243,21 @@ class BenchmarkRunner:
             repo,
             task_id=task_id,
             case_id=case_id,
-            arm="product",
+            arm=ARM_ATTEST_PRODUCT,
             repeat=repeat,
             repository=repository,
             head_sha=head_sha,
             pull_request_number=pull_request_number,
             deadline_s=deadline_s,
-            deferred_reason=ci.deferred_reason,
+            terminal_status=_delivery_terminal_status(
+                ci.publication_events, ci.task_delivery_events
+            ),
             candidate_count=ci.candidate_count,
             decisions=decisions,
             predictions=predictions,
             publication_events=ci.publication_events,
             task_delivery_events=ci.task_delivery_events,
+            delivery_transcript=ci.delivery_transcript,
         )
         successful_task_deliveries = tuple(
             event
@@ -931,6 +1270,7 @@ class BenchmarkRunner:
                 for event in successful_task_deliveries
             )
             if successful_task_deliveries
+            and measurement.task_delivery_withheld_reason is None
             else None
         )
         delivered = delivery_at_s is not None
@@ -942,7 +1282,7 @@ class BenchmarkRunner:
             delivery_at_s=delivery_at_s,
             deadline_s=deadline_s,
         )
-        return CaseRunResult(
+        result = CaseRunResult(
             case_id=case_id,
             task_id=task_id,
             run=run,
@@ -957,6 +1297,9 @@ class BenchmarkRunner:
             oracle_receipts=receipts,
             measurement=measurement,
         )
+        if execution_result_sink is not None:
+            execution_result_sink(ExecutionResultAuthority.from_case_run(result))
+        return result
 
     def _score_evidence(
         self,

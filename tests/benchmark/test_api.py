@@ -21,10 +21,12 @@ from attest.benchmark.api import (
     freeze_evaluation_request,
 )
 from attest.benchmark.artifacts import ArtifactStore, verify_artifacts
-from attest.benchmark.runner import Cassette, ReplayProvider
+from attest.benchmark.measurement import decode_measurement_record
+from attest.benchmark.runner import BenchmarkRunner, Cassette, ReplayProvider
 from attest.benchmark.schema import TruthDefect
 from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits
+from attest.review.ledger import Ledger
 from attest.review.proposer import ProviderResult
 
 from .test_runner import PROPOSAL, REPRO, git, regression_repo
@@ -97,12 +99,315 @@ def test_evaluate_project_measures_a_caller_owned_repository_without_truth(
         "predictions",
         "scored_run",
     }
+    scored_record = next(
+        record for record in result.artifacts if record.kind == "scored_run"
+    )
+    scored_payload = json.loads(
+        (tmp_path / "artifacts" / scored_record.name).read_text(encoding="utf-8")
+    )
+    assert scored_payload["schema_version"] == 2
+    assert (
+        decode_measurement_record(scored_payload["measurement"])
+        == result.measurement
+    )
+    with pytest.raises(ValueError, match="measurement"):
+        replace(result, measurement=None)  # type: ignore[arg-type]
 
     assert git(repo, "status", "--porcelain") == ""
     assert (tmp_path / "workspace").exists()
     assert not any((tmp_path / "workspace").iterdir())
     assert len(git(repo, "worktree", "list").splitlines()) == 1
     assert str(tmp_path / "workspace") not in git(repo, "worktree", "list")
+
+
+@pytest.mark.parametrize("persist_artifacts", (False, True))
+def test_scored_run_fresh_reconcile_rejects_a_rewritten_delivery_transcript(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    persist_artifacts: bool,
+) -> None:
+    import attest.review.ci as ci_module
+
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    store = ArtifactStore(tmp_path / "artifacts") if persist_artifacts else None
+    real_run_case = BenchmarkRunner.run_case
+
+    def rewrite_after_execution(self, workspace, **kwargs):
+        run = real_run_case(self, workspace, **kwargs)
+        assert run.task_id is not None
+        ledger = Ledger(workspace)
+        rows = [dict(row) for row in ledger.entries()]
+        tail = next(
+            row
+            for row in rows
+            if row.get("kind") == "delivery_attempt_intent"
+            and row.get("attempt_ordinal") == 1
+        )
+        rewritten = [
+            row
+            for row in rows
+            if not (
+                row.get("attempt_id") == tail["attempt_id"]
+                and row.get("kind")
+                in {"delivery_attempt_intent", "delivery_attempt_settlement"}
+            )
+        ]
+        forged = ci_module.build_delivery_transcript(
+            [
+                row
+                for row in rewritten
+                if row.get("kind") != "delivery_journal_finalization"
+            ],
+            run.task_id,
+        )
+        finalization = next(
+            row
+            for row in rewritten
+            if row.get("kind") == "delivery_journal_finalization"
+        )
+        finalization.update(forged.to_finalization_dict())
+        ledger.path.write_text(
+            "".join(
+                json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n"
+                for row in rewritten
+            ),
+            encoding="utf-8",
+        )
+        return run
+
+    monkeypatch.setattr(BenchmarkRunner, "run_case", rewrite_after_execution)
+
+    with pytest.raises(ValueError, match="sealed.*transcript|transcript.*mismatch"):
+        evaluate_project(
+            _request(tmp_path, repo, base_sha, head_sha),
+            provider=_provider(),
+            artifact_store=store,
+        )
+
+    if store is not None:
+        assert not any(record.kind == "scored_run" for record in store.records())
+
+
+@pytest.mark.parametrize("persist_artifacts", (False, True))
+def test_scored_run_fresh_reconcile_rejects_a_caller_event_rewrite(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    persist_artifacts: bool,
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    store = ArtifactStore(tmp_path / "artifacts") if persist_artifacts else None
+    real_run_case = BenchmarkRunner.run_case
+
+    def rewrite_after_execution(self, workspace, **kwargs):
+        run = real_run_case(self, workspace, **kwargs)
+        assert run.measurement.publication_events
+        events = list(run.measurement.publication_events)
+        inline_index = next(
+            index
+            for index, event in enumerate(events)
+            if event.channel.value == "inline_review"
+        )
+        events[inline_index] = replace(
+            events[inline_index], remote_response_id="999"
+        )
+        forged_measurement = replace(
+            run.measurement, publication_events=tuple(events)
+        )
+        assert forged_measurement.publication_events[inline_index].remote_response_id == "999"
+        return replace(run, measurement=forged_measurement)
+
+    monkeypatch.setattr(BenchmarkRunner, "run_case", rewrite_after_execution)
+
+    with pytest.raises(ValueError, match="fresh outcome publication mismatch"):
+        evaluate_project(
+            _request(tmp_path, repo, base_sha, head_sha),
+            provider=_provider(),
+            artifact_store=store,
+        )
+
+    if store is not None:
+        assert not any(record.kind == "scored_run" for record in store.records())
+
+
+def test_batch_does_not_erase_a_publication_after_authority_persistence_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import attest.benchmark.api as api_module
+
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+
+    def refuse_post_delivery(*args, **kwargs):
+        raise ValueError("injected post-delivery outcome refusal")
+
+    monkeypatch.setattr(api_module, "_persist", refuse_post_delivery)
+
+    with pytest.raises(ValueError, match="post-delivery outcome refusal"):
+        evaluate_projects(
+            (_request(tmp_path, repo, base_sha, head_sha),),
+            provider_factory=lambda request: _provider(),
+            artifact_store=ArtifactStore(tmp_path / "artifacts"),
+        )
+
+
+def test_batch_resolves_invalid_refs_before_provider_factory(
+    tmp_path: Path,
+) -> None:
+    repo, base_sha, _ = regression_repo(tmp_path / "project")
+    factory_calls: list[str] = []
+    request = _request(tmp_path, repo, base_sha, "missing-head")
+
+    def provider_factory(candidate: ProjectEvaluationRequest):
+        factory_calls.append(candidate.case_id)
+        return _provider()
+
+    results = evaluate_projects((request,), provider_factory=provider_factory)
+
+    assert factory_calls == []
+    assert len(results) == 1
+    assert results[0].status == "deferred"
+    assert results[0].task_id is None
+
+
+def test_scored_run_rejects_caller_legacy_predictions_that_erase_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    real_run_case = BenchmarkRunner.run_case
+
+    def rewrite_after_execution(self, workspace, **kwargs):
+        run = real_run_case(self, workspace, **kwargs)
+        assert run.measurement.published_count == 1
+        return replace(run, run=replace(run.run, predictions=()))
+
+    monkeypatch.setattr(BenchmarkRunner, "run_case", rewrite_after_execution)
+
+    with pytest.raises(ValueError, match="measurement|prediction|publication|outcome"):
+        evaluate_project(
+            _request(tmp_path, repo, base_sha, head_sha),
+            provider=_provider(),
+        )
+
+
+def test_scored_run_rejects_taskless_caller_state_when_fresh_ledger_has_delivery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from attest.benchmark.measurement import (
+        DeliveryStatus,
+        StopKind,
+        TaskStatus,
+        empty_delivery_transcript_receipt,
+    )
+
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    real_run_case = BenchmarkRunner.run_case
+
+    def rewrite_after_execution(self, workspace, **kwargs):
+        run = real_run_case(self, workspace, **kwargs)
+        assert run.task_id is not None
+        empty_measurement = replace(
+            run.measurement,
+            stop_kind=StopKind.NONE,
+            task_status=TaskStatus.COMPLETED,
+            findings=(),
+            candidate_count=0,
+            published_count=0,
+            unresolved_count=0,
+            publication_events=(),
+            task_delivery_events=(),
+            delivery_transcript=empty_delivery_transcript_receipt(),
+            delivery_status=DeliveryStatus.NO_PUBLICATION,
+        )
+        return replace(
+            run,
+            task_id=None,
+            candidate_count=0,
+            surfaced_count=0,
+            run=replace(run.run, predictions=()),
+            measurement=empty_measurement,
+        )
+
+    monkeypatch.setattr(BenchmarkRunner, "run_case", rewrite_after_execution)
+
+    with pytest.raises(ValueError, match="task|ledger|measurement|delivery|outcome"):
+        evaluate_project(
+            _request(tmp_path, repo, base_sha, head_sha),
+            provider=_provider(),
+        )
+
+
+def test_scored_run_rejects_caller_defer_that_relabels_a_published_outcome(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from attest.benchmark.measurement import StopKind, TaskStatus
+
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    real_run_case = BenchmarkRunner.run_case
+
+    def rewrite_after_execution(self, workspace, **kwargs):
+        run = real_run_case(self, workspace, **kwargs)
+        assert run.measurement.published_count == 1
+        forged = replace(
+            run.measurement,
+            stop_kind=StopKind.TASK_DEFER,
+            task_status=TaskStatus.PARTIALLY_DEFERRED,
+        )
+        return replace(run, deferred_reason="synthetic caller defer", measurement=forged)
+
+    monkeypatch.setattr(BenchmarkRunner, "run_case", rewrite_after_execution)
+
+    with pytest.raises(ValueError, match="fresh outcome measurement mismatch"):
+        evaluate_project(
+            _request(tmp_path, repo, base_sha, head_sha),
+            provider=_provider(),
+        )
+
+
+def test_scored_run_rejects_coordinated_ledger_and_taskless_caller_rewrite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from attest.benchmark.measurement import (
+        DeliveryStatus,
+        StopKind,
+        TaskStatus,
+        empty_delivery_transcript_receipt,
+    )
+
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    real_run_case = BenchmarkRunner.run_case
+
+    def rewrite_after_execution(self, workspace, **kwargs):
+        run = real_run_case(self, workspace, **kwargs)
+        assert run.task_id is not None
+        Ledger(workspace).path.write_bytes(b"")
+        empty_measurement = replace(
+            run.measurement,
+            stop_kind=StopKind.NONE,
+            task_status=TaskStatus.COMPLETED,
+            findings=(),
+            candidate_count=0,
+            published_count=0,
+            unresolved_count=0,
+            publication_events=(),
+            task_delivery_events=(),
+            delivery_transcript=empty_delivery_transcript_receipt(),
+            delivery_status=DeliveryStatus.NO_PUBLICATION,
+        )
+        return replace(
+            run,
+            task_id=None,
+            candidate_count=0,
+            surfaced_count=0,
+            run=replace(run.run, predictions=()),
+            measurement=empty_measurement,
+        )
+
+    monkeypatch.setattr(BenchmarkRunner, "run_case", rewrite_after_execution)
+
+    with pytest.raises(ValueError, match="expected|sealed|delivery|task"):
+        evaluate_project(
+            _request(tmp_path, repo, base_sha, head_sha),
+            provider=_provider(),
+        )
 
 
 def test_evaluate_project_scores_surfaced_findings_against_supplied_truth(
@@ -136,6 +441,78 @@ def test_evaluate_project_scores_surfaced_findings_against_supplied_truth(
     assert result.score.matches[0].defect_id == "defect-1"
     assert result.predictions[0].repro_status == "buggy_fail_fixed_pass"
     assert result.oracle_receipts[0].confirmed is True
+
+
+def test_scored_run_rejects_caller_oracle_and_prediction_rewrite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    truth = ProjectTruth(
+        fixed_ref=base_sha,
+        defects=(
+            TruthDefect(
+                defect_id="defect-1",
+                case_id=CASE_ID,
+                file="app.py",
+                start_line=1,
+                end_line=2,
+            ),
+        ),
+    )
+    real_run_case = BenchmarkRunner.run_case
+
+    def rewrite_after_execution(self, workspace, **kwargs):
+        run = real_run_case(self, workspace, **kwargs)
+        assert run.oracle_receipts[0].confirmed
+        forged_receipt = replace(
+            run.oracle_receipts[0],
+            outcome="indeterminate",
+            evidence_class="indeterminate",
+            repro_status="not_executed",
+        )
+        forged_prediction = replace(
+            run.run.predictions[0],
+            evidence_class="indeterminate",
+            repro_status="not_executed",
+        )
+        return replace(
+            run,
+            oracle_receipts=(forged_receipt,),
+            run=replace(run.run, predictions=(forged_prediction,)),
+        )
+
+    monkeypatch.setattr(BenchmarkRunner, "run_case", rewrite_after_execution)
+
+    with pytest.raises(ValueError, match="fresh outcome oracle receipt mismatch"):
+        evaluate_project(
+            _request(tmp_path, repo, base_sha, head_sha, truth=truth),
+            provider=_provider(),
+        )
+
+
+def test_scored_run_rejects_caller_cost_and_elapsed_rewrite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    real_run_case = BenchmarkRunner.run_case
+
+    def rewrite_after_execution(self, workspace, **kwargs):
+        run = real_run_case(self, workspace, **kwargs)
+        assert run.spend_usd > 0
+        return replace(
+            run,
+            spend_usd=0.0,
+            oracle_spend_usd=999999.0,
+            elapsed_s=-123.0,
+        )
+
+    monkeypatch.setattr(BenchmarkRunner, "run_case", rewrite_after_execution)
+
+    with pytest.raises(ValueError, match="fresh outcome operational totals mismatch"):
+        evaluate_project(
+            _request(tmp_path, repo, base_sha, head_sha),
+            provider=_provider(),
+        )
 
 
 def test_predeclaration_binding_resolves_every_drift_sensitive_input(
@@ -471,6 +848,8 @@ def test_evaluate_projects_preserves_order_and_defers_one_failing_case(
     assert results[1].task_id is None
     assert results[1].predictions == ()
     assert results[1].score is None
+    assert results[1].measurement.task_status.value == "failed"
+    assert results[1].to_json_dict()["measurement"] is not None
     assert results[1].abstain_reason is not None
     assert "resolve" in results[1].abstain_reason
     assert results[0].task_id != results[2].task_id

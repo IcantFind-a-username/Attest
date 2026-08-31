@@ -34,6 +34,10 @@ from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
 
 
+DELIVERY_TRANSCRIPT_SCHEMA_VERSION = 1
+DELIVERY_TRANSCRIPT_PROTOCOL = "attest.delivery-transcript.v1"
+
+
 @dataclass
 class CiRun:
     task_id: str | None
@@ -44,6 +48,7 @@ class CiRun:
     elapsed_s: float
     publication_events: tuple[CiPublicationEvent, ...] = ()
     task_delivery_events: tuple[CiTaskDeliveryEvent, ...] = ()
+    delivery_transcript: CiDeliveryTranscript | None = None
 
 
 @dataclass(frozen=True)
@@ -87,6 +92,50 @@ class CiTaskDeliveryEvent:
     deadline_s: float | None
 
 
+@dataclass(frozen=True)
+class CiDeliveryTranscript:
+    """Versioned digest receipt for one ordered delivery-attempt transcript."""
+
+    schema_version: int
+    protocol: str
+    task_id: str
+    expected_attempt_count: int
+    last_attempt_ordinal: int | None
+    transcript_sha256: str
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.schema_version) is not int
+            or self.schema_version != DELIVERY_TRANSCRIPT_SCHEMA_VERSION
+        ):
+            raise ValueError("unsupported delivery transcript schema_version")
+        if type(self.protocol) is not str or self.protocol != DELIVERY_TRANSCRIPT_PROTOCOL:
+            raise ValueError("unsupported delivery transcript protocol")
+        _delivery_string(self.task_id, "task_id")
+        _delivery_nonnegative_int(
+            self.expected_attempt_count, "expected_attempt_count"
+        )
+        expected_last = (
+            self.expected_attempt_count - 1
+            if self.expected_attempt_count
+            else None
+        )
+        if self.last_attempt_ordinal != expected_last:
+            raise ValueError("delivery transcript last ordinal mismatch")
+        _delivery_sha(self.transcript_sha256, "transcript_sha256")
+
+    def to_finalization_dict(self) -> dict[str, object]:
+        return {
+            "kind": "delivery_journal_finalization",
+            "task_id": self.task_id,
+            "schema_version": self.schema_version,
+            "protocol": self.protocol,
+            "expected_attempt_count": self.expected_attempt_count,
+            "last_attempt_ordinal": self.last_attempt_ordinal,
+            "transcript_sha256": self.transcript_sha256,
+        }
+
+
 def _record_comment(
     ledger: Ledger,
     task_id: str | None,
@@ -123,6 +172,7 @@ def _ci_run(
 ) -> CiRun:
     ledger = Ledger(repo)
     rows = ledger.entries()
+    delivery_transcript: CiDeliveryTranscript | None = None
     if task_id is not None:
         if any(
             row.get("kind") == "delivery_journal_finalization"
@@ -130,20 +180,18 @@ def _ci_run(
             for row in rows
         ):
             raise ValueError("duplicate delivery journal finalization")
-        expected_attempt_count = sum(
-            row.get("kind") == "delivery_attempt_intent"
-            and row.get("task_id") == task_id
-            for row in rows
-        )
-        ledger.append_durable(
-            {
-                "kind": "delivery_journal_finalization",
-                "task_id": task_id,
-                "expected_attempt_count": expected_attempt_count,
-            }
-        )
+        delivery_transcript = build_delivery_transcript(rows, task_id)
+        ledger.append_durable(delivery_transcript.to_finalization_dict())
         rows = ledger.entries()
-    publication_events, task_delivery_events = reconcile_delivery_rows(rows, task_id)
+    publication_events, task_delivery_events = reconcile_delivery_rows(
+        rows,
+        task_id,
+        expected_transcript_sha256=(
+            None
+            if delivery_transcript is None
+            else delivery_transcript.transcript_sha256
+        ),
+    )
     return CiRun(
         task_id=task_id,
         candidate_count=candidate_count,
@@ -153,6 +201,7 @@ def _ci_run(
         elapsed_s=clock() - started,
         publication_events=publication_events,
         task_delivery_events=task_delivery_events,
+        delivery_transcript=delivery_transcript,
     )
 
 
@@ -249,7 +298,7 @@ class _DeliveryJournal:
                 outcome = "failed"
         else:
             response_id = response.get("id")
-            if type(response_id) in {int, str} and str(response_id):
+            if type(response_id) is int and response_id >= 1:
                 outcome = "succeeded"
                 remote_response_id = str(response_id)
                 delivered_at_s = self.clock() - self.started
@@ -316,8 +365,126 @@ def _prepare_status_delivery(
     )
 
 
+def build_delivery_transcript(
+    rows: list[dict[str, object]], task_id: str
+) -> CiDeliveryTranscript:
+    """Build the canonical ordered transcript receipt before finalization.
+
+    This receipt is still only a digest of the supplied rows.  Current authority
+    comes from persisting it in the write-once measurement outcome and comparing
+    later fresh ledger reads against that sealed value.
+    """
+
+    _delivery_string(task_id, "task_id")
+    intents: dict[str, dict[str, object]] = {}
+    settlements: dict[str, dict[str, object]] = {}
+    physically_seen_intents: set[str] = set()
+    next_physical_ordinal = 0
+    for row in rows:
+        if row.get("task_id") != task_id:
+            continue
+        kind = row.get("kind")
+        if kind == "delivery_journal_finalization":
+            raise ValueError("cannot build a transcript after finalization")
+        if kind not in {"delivery_attempt_intent", "delivery_attempt_settlement"}:
+            continue
+        attempt_id = _delivery_string(row.get("attempt_id"), "attempt_id")
+        if kind == "delivery_attempt_intent":
+            ordinal = _delivery_nonnegative_int(
+                row.get("attempt_ordinal"), "attempt_ordinal"
+            )
+            if ordinal != next_physical_ordinal:
+                raise ValueError(
+                    "delivery intent physical ordinals must be contiguous and ordered"
+                )
+            next_physical_ordinal += 1
+            physically_seen_intents.add(attempt_id)
+            destination = intents
+        else:
+            if attempt_id not in physically_seen_intents:
+                raise ValueError(
+                    "orphan delivery attempt settlement appears before its physical intent"
+                )
+            destination = settlements
+        if attempt_id in destination:
+            record_kind = "intent" if destination is intents else "settlement"
+            raise ValueError(f"duplicate delivery attempt {record_kind}")
+        destination[attempt_id] = row
+    if set(settlements) - set(intents):
+        raise ValueError("orphan delivery attempt settlement")
+
+    ordinal_attempts: dict[int, str] = {}
+    canonical_attempts: list[dict[str, object]] = []
+    for attempt_id, intent in intents.items():
+        _validate_delivery_intent(intent)
+        ordinal = _delivery_nonnegative_int(
+            intent["attempt_ordinal"], "attempt_ordinal"
+        )
+        prior = ordinal_attempts.setdefault(ordinal, attempt_id)
+        if prior != attempt_id:
+            raise ValueError("delivery attempt ordinal was reused")
+        settlement = settlements.get(attempt_id)
+        if settlement is not None:
+            _validate_delivery_settlement(settlement, intent)
+        canonical_attempts.append(
+            {
+                "attempt_id": attempt_id,
+                "attempt_ordinal": ordinal,
+                "intent": {
+                    "repository": intent["repository"],
+                    "pull_request_number": intent["pull_request_number"],
+                    "head_sha": intent["head_sha"],
+                    "channel": intent["channel"],
+                    "members": intent["members"],
+                    "terminal_status": intent["terminal_status"],
+                    "request": intent["request"],
+                    "body_sha256": intent["body_sha256"],
+                    "request_sha256": intent["request_sha256"],
+                    "deadline_s": intent["deadline_s"],
+                },
+                "settlement": (
+                    None
+                    if settlement is None
+                    else {
+                        "outcome": settlement["outcome"],
+                        "remote_response_id": settlement["remote_response_id"],
+                        "delivered_at_s": settlement["delivered_at_s"],
+                    }
+                ),
+            }
+        )
+    expected_count = len(intents)
+    if set(ordinal_attempts) != set(range(expected_count)):
+        raise ValueError("delivery attempt ordinals must be contiguous from zero")
+    canonical_attempts.sort(
+        key=lambda row: _delivery_nonnegative_int(
+            row["attempt_ordinal"], "attempt_ordinal"
+        )
+    )
+    last_ordinal = expected_count - 1 if expected_count else None
+    payload = {
+        "schema_version": DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
+        "protocol": DELIVERY_TRANSCRIPT_PROTOCOL,
+        "task_id": task_id,
+        "expected_attempt_count": expected_count,
+        "last_attempt_ordinal": last_ordinal,
+        "attempts": canonical_attempts,
+    }
+    return CiDeliveryTranscript(
+        schema_version=DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
+        protocol=DELIVERY_TRANSCRIPT_PROTOCOL,
+        task_id=task_id,
+        expected_attempt_count=expected_count,
+        last_attempt_ordinal=last_ordinal,
+        transcript_sha256=_canonical_sha256(payload),
+    )
+
+
 def reconcile_delivery_rows(
-    rows: list[dict[str, object]], task_id: str | None
+    rows: list[dict[str, object]],
+    task_id: str | None,
+    *,
+    expected_transcript_sha256: str | None = None,
 ) -> tuple[tuple[CiPublicationEvent, ...], tuple[CiTaskDeliveryEvent, ...]]:
     """Strictly join delivery intents and settlements for one task.
 
@@ -381,12 +548,53 @@ def reconcile_delivery_rows(
         "ts",
         "kind",
         "task_id",
+        "schema_version",
+        "protocol",
         "expected_attempt_count",
+        "last_attempt_ordinal",
+        "transcript_sha256",
     }:
         raise ValueError("delivery journal finalization has an invalid field set")
-    expected_attempt_count = _delivery_nonnegative_int(
-        finalization["expected_attempt_count"], "expected_attempt_count"
+    rebuilt_transcript = build_delivery_transcript(
+        [
+            row
+            for row in rows
+            if not (
+                row.get("task_id") == task_id
+                and row.get("kind") == "delivery_journal_finalization"
+            )
+        ],
+        task_id,
     )
+    finalization_transcript = CiDeliveryTranscript(
+        schema_version=_delivery_nonnegative_int(
+            finalization["schema_version"], "schema_version"
+        ),
+        protocol=_delivery_string(finalization["protocol"], "protocol"),
+        task_id=_delivery_string(finalization["task_id"], "task_id"),
+        expected_attempt_count=_delivery_nonnegative_int(
+            finalization["expected_attempt_count"], "expected_attempt_count"
+        ),
+        last_attempt_ordinal=(
+            None
+            if finalization["last_attempt_ordinal"] is None
+            else _delivery_nonnegative_int(
+                finalization["last_attempt_ordinal"], "last_attempt_ordinal"
+            )
+        ),
+        transcript_sha256=_delivery_sha(
+            finalization["transcript_sha256"], "transcript_sha256"
+        ),
+    )
+    if finalization_transcript != rebuilt_transcript:
+        raise ValueError("delivery finalization transcript mismatch")
+    if expected_transcript_sha256 is not None:
+        expected_digest = _delivery_sha(
+            expected_transcript_sha256, "expected_transcript_sha256"
+        )
+        if rebuilt_transcript.transcript_sha256 != expected_digest:
+            raise ValueError("sealed delivery transcript mismatch")
+    expected_attempt_count = finalization_transcript.expected_attempt_count
     if expected_attempt_count != len(intents):
         raise ValueError("delivery journal does not match its expected attempt count")
     ordinal_attempts: dict[int, str] = {}
@@ -576,7 +784,7 @@ def _validate_delivery_settlement(
     response_id = row["remote_response_id"]
     delivered_at_s = row["delivered_at_s"]
     if outcome == "succeeded":
-        _delivery_string(response_id, "remote_response_id")
+        _delivery_response_id(response_id)
         _delivery_number(delivered_at_s, "delivered_at_s")
     elif response_id is not None or delivered_at_s is not None:
         raise ValueError("non-success delivery attempt has delivery identity")
@@ -600,7 +808,7 @@ def _publication_from_reconciled(row: dict[str, object]) -> CiPublicationEvent:
         body_sha256=_delivery_sha(row["body_sha256"], "body_sha256"),
         request_sha256=_delivery_sha(row["request_sha256"], "request_sha256"),
         outcome=_delivery_string(row["outcome"], "outcome"),
-        remote_response_id=_delivery_optional_string(row["remote_response_id"]),
+        remote_response_id=_delivery_optional_response_id(row["remote_response_id"]),
         delivered_at_s=_delivery_optional_number(row["delivered_at_s"]),
         deadline_s=_delivery_optional_number(row["deadline_s"]),
     )
@@ -625,7 +833,7 @@ def _task_delivery_from_reconciled(row: dict[str, object]) -> CiTaskDeliveryEven
         body_sha256=_delivery_sha(row["body_sha256"], "body_sha256"),
         request_sha256=_delivery_sha(row["request_sha256"], "request_sha256"),
         outcome=_delivery_string(row["outcome"], "outcome"),
-        remote_response_id=_delivery_optional_string(row["remote_response_id"]),
+        remote_response_id=_delivery_optional_response_id(row["remote_response_id"]),
         delivered_at_s=_delivery_optional_number(row["delivered_at_s"]),
         deadline_s=_delivery_optional_number(row["deadline_s"]),
     )
@@ -689,6 +897,22 @@ def _delivery_string(value: object, field: str) -> str:
 
 def _delivery_optional_string(value: object) -> str | None:
     return None if value is None else _delivery_string(value, "remote_response_id")
+
+
+def _delivery_response_id(value: object) -> str:
+    text = _delivery_string(value, "remote_response_id")
+    if (
+        not text.isascii()
+        or not text.isdecimal()
+        or str(int(text)) != text
+        or int(text) < 1
+    ):
+        raise ValueError("remote_response_id must be a canonical positive integer")
+    return text
+
+
+def _delivery_optional_response_id(value: object) -> str | None:
+    return None if value is None else _delivery_response_id(value)
 
 
 def _delivery_number(value: object, field: str) -> float:
