@@ -1,32 +1,37 @@
 #!/usr/bin/env python3
 # ruff: noqa: E501, E702, I001
-"""Run one fresh, local-only M-01 mixed-outcome measurement."""
-
+"""Run and aggregate the isolated M-01 mixed-outcome measurement."""
 from __future__ import annotations
 
 import argparse
-import hashlib
+import importlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import threading
 import traceback
-from collections.abc import Mapping
-from dataclasses import replace
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, cast
 
 BASELINE = "0e58cd61a1a63c51a329d5c1a5509181be32adfa"
-CASE_ID = "case-333333333333"
-MARKER = "legacy_mixed_outcome_denominator"
+CASE_ID, MARKER = "case-333333333333", "legacy_mixed_outcome_denominator"
+ALLOWED_ENV = frozenset({"GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM", "HOME", "LC_ALL",
+                         "PATH", "PYTHONDONTWRITEBYTECODE", "TMPDIR"})
 CASSETTE_FIELDS = {"schema_version", "case_id", "fixture", "proposal", "generators"}
 GENERATOR_FIELDS = {"claim", "claim_sha256", "response", "response_sha256",
                     "input_tokens", "output_tokens"}
-
-def _sha(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+STABLE_FIELDS = ("cassette_sha256", "fixture_sha256", "input_sha256", "probe_sha256",
+                 "source_sha", "source_sha256", "source_tree_sha256")
+RUN_FIELDS = {*STABLE_FIELDS, "guards", "isolation_sha256", "measurement", "repeat",
+              "repeats", "schema_version", "semantic_digest"}
+GUARD_FIELDS = {"delivery_transport", "entry_environment_variable_names",
+                "environment_allowlist", "paid_provider_calls", "platform_environment_removed",
+                "provider_transport", "python_external_connect_attempts"}
+Support = tuple[Callable[[object], bytes], Callable[[bytes], str], Callable[..., Any], Callable[..., Any]]
 
 def _git(root: Path, *args: str) -> str:
     return subprocess.run(["git", *args], cwd=root, check=True,
@@ -49,12 +54,57 @@ def _count(row: Mapping[str, object], key: str) -> int:
         raise ValueError(f"{key} must be a non-negative integer")
     return value
 
-def _cassette(path: Path) -> tuple[dict[str, object], str]:
+def _support() -> Support:
+    support_src = str(Path(__file__).resolve().parents[2] / "src")
+    sys.path.insert(0, support_src)
+    try:
+        artifacts = importlib.import_module("attest.benchmark.artifacts")
+        outcomes = importlib.import_module("attest.benchmark.outcomes")
+        return (artifacts.canonical_json_bytes, artifacts.sha256_bytes,
+                outcomes.read_canonical_json, outcomes.write_canonical_json_once)
+    finally:
+        sys.path.remove(support_src)
+        for name in tuple(sys.modules):
+            if name == "attest" or name.startswith("attest."):
+                del sys.modules[name]
+
+def _guard_environment() -> tuple[list[str], bool]:
+    platform_value = os.environ.pop("__CF_USER_TEXT_ENCODING", None)
+    platform_removed = platform_value is not None
+    if platform_value is not None and re.fullmatch(
+        r"0x[0-9A-Fa-f]+:0x[0-9A-Fa-f]+:0x[0-9A-Fa-f]+", platform_value
+    ) is None:
+        raise ValueError("invalid platform-injected environment value")
+    unexpected = sorted(set(os.environ) - ALLOWED_ENV)
+    if not unexpected:
+        return sorted(os.environ), platform_removed
+    support_src = str(Path(__file__).resolve().parents[2] / "src")
+    sys.path.insert(0, support_src)
+    try:
+        parts = cast(tuple[str, ...], importlib.import_module(
+            "attest.review.executor")._CREDENTIAL_NAME_PARTS)
+    finally:
+        sys.path.remove(support_src)
+        for name in tuple(sys.modules):
+            if name == "attest" or name.startswith("attest."):
+                del sys.modules[name]
+    credential = any(any(part in name.upper() for part in parts) for name in unexpected)
+    raise ValueError(f"unexpected {'credential environment' if credential else 'environment'} variable name(s): {unexpected}")
+
+def _source(source: Path) -> tuple[Path, str]:
+    source = source.resolve(strict=True); sys.path.insert(0, str(source / "src"))
+    module = Path(cast(str, importlib.import_module("attest").__file__)).resolve()
+    if (not module.is_relative_to((source / "src").resolve())
+            or _git(source, "status", "--porcelain", "--", "src")):
+        raise ValueError("source import or clean-tree guard failed")
+    return source, _git(source, "rev-parse", "HEAD")
+
+def _cassette(path: Path, digest: Callable[[bytes], str]) -> tuple[dict[str, object], str]:
     raw = path.read_bytes(); doc = _exact(json.loads(raw), CASSETTE_FIELDS, "cassette")
     if doc["schema_version"] != "attest.m01-mixed-cassette.v1" or doc["case_id"] != CASE_ID:
         raise ValueError("unsupported cassette identity")
-    fixture = _exact(doc["fixture"], {"buggy", "buggy_sha256", "fixed",
-        "fixed_sha256", "test", "test_sha256"}, "fixture")
+    fixture = _exact(doc["fixture"], {"buggy", "buggy_sha256", "fixed", "fixed_sha256",
+        "test", "test_sha256"}, "fixture")
     proposal = _exact(doc["proposal"], {"response", "response_sha256",
         "input_tokens", "output_tokens"}, "proposal")
     values = doc["generators"]
@@ -62,24 +112,22 @@ def _cassette(path: Path) -> tuple[dict[str, object], str]:
         raise ValueError("cassette must contain five generators")
     generators = [_exact(row, GENERATOR_FIELDS, "generator") for row in values]
     for row in (proposal, *generators):
-        response = _text(row, "response")
-        if _sha(response.encode()) != _text(row, "response_sha256"):
+        if digest(_text(row, "response").encode()) != _text(row, "response_sha256"):
             raise ValueError("response hash mismatch")
-        _count(row, "input_tokens"); _count(row, "output_tokens")
     tokens = [(_count(row, "input_tokens"), _count(row, "output_tokens"))
               for row in (proposal, *generators)]
     if tokens != [(23, 101), *[(7, 19)] * 4, (7, 1)]:
         raise ValueError("token count mismatch")
     for row in generators:
-        if _sha(_text(row, "claim").encode()) != _text(row, "claim_sha256"):
+        if digest(_text(row, "claim").encode()) != _text(row, "claim_sha256"):
             raise ValueError("claim hash mismatch")
     for name in ("buggy", "fixed", "test"):
-        if _sha(_text(fixture, name).encode()) != _text(fixture, f"{name}_sha256"):
+        if digest(_text(fixture, name).encode()) != _text(fixture, f"{name}_sha256"):
             raise ValueError("fixture hash mismatch")
-    digest = _sha(raw); sums = (path.parent / "SHA256SUMS").read_text(encoding="ascii")
-    if sums != f"{digest}  {path.name}\n":
+    cassette_sha = digest(raw)
+    if (path.parent / "SHA256SUMS").read_text(encoding="ascii") != f"{cassette_sha}  {path.name}\n":
         raise ValueError("cassette SHA256SUMS mismatch")
-    return doc, digest
+    return doc, cassette_sha
 
 def _repository(root: Path, fixture: Mapping[str, object]) -> tuple[Path, str, str]:
     repo = root / "repository"; repo.mkdir(); _git(repo, "init", "-q")
@@ -94,49 +142,34 @@ def _repository(root: Path, fixture: Mapping[str, object]) -> tuple[Path, str, s
     return repo, buggy, _git(repo, "rev-parse", "HEAD")
 
 def _run(args: argparse.Namespace) -> int:
-    source = args.source_root.resolve(strict=True)
-    sys.path.insert(0, str(source / "src"))
-    import attest
+    canonical, digest, _, write_once = _support()
+    source, source_sha = _source(args.source_root)
     from attest.benchmark.api import ProjectEvaluationRequest, ProjectTruth, evaluate_project
-    from attest.benchmark.artifacts import ArtifactStore, _atomic_write, canonical_json_bytes
+    from attest.benchmark.artifacts import ArtifactStore
     from attest.benchmark.live import LIVE_MODE, build_calibration_report, case_payload
-    from attest.benchmark.schema import (BenchmarkCase, BenchmarkManifest,
-        ChangedLocation, PatchDescriptor, TestDescriptor, TruthDefect, is_scored_placement)
+    from attest.benchmark.schema import (BenchmarkCase, BenchmarkManifest, ChangedLocation,
+        PatchDescriptor, TestDescriptor, TruthDefect, is_scored_placement)
     from attest.review.config import ReviewConfig
-    from attest.review.executor import _CREDENTIAL_NAME_PARTS, ExecutorLimits
+    from attest.review.executor import ExecutorLimits
     from attest.review.proposer import ProviderResult
 
-    module = Path(attest.__file__).resolve()
-    dirty = _git(source, "status", "--porcelain", "--", "src")
-    if not module.is_relative_to((source / "src").resolve()) or dirty:
-        raise ValueError("source import or source tree guard failed")
-    removed = tuple(name for name in os.environ
-                    if any(part in name.upper() for part in _CREDENTIAL_NAME_PARTS))
-    for name in removed:
-        del os.environ[name]
     os.environ.update({"GIT_AUTHOR_DATE": "2001-01-01T00:00:00Z",
-                       "GIT_COMMITTER_DATE": "2001-01-01T00:00:00Z",
-                       "GIT_CONFIG_GLOBAL": "/dev/null"})
-    violations: list[str] = []
-
+                       "GIT_COMMITTER_DATE": "2001-01-01T00:00:00Z"})
+    external_attempts: list[str] = []
     def audit(event: str, values: tuple[object, ...]) -> None:
         if event == "socket.connect":
-            address = values[1]
-            host = address[0] if isinstance(address, tuple) and address else None
+            address = values[1]; host = address[0] if isinstance(address, tuple) and address else None
             if host not in {"127.0.0.1", "::1"}:
-                violations.append(str(host)); raise RuntimeError("external network denied")
-
+                external_attempts.append(str(host)); raise RuntimeError("external network denied")
     sys.addaudithook(audit)
-    doc, cassette_sha = _cassette(args.cassette.resolve(strict=True))
+    doc, cassette_sha = _cassette(args.cassette.resolve(strict=True), digest)
     proposal = cast(Mapping[str, object], doc["proposal"])
     generators = cast(list[dict[str, object]], doc["generators"])
-
     class Provider:
         def __init__(self) -> None:
             self.proposals = 0; self.generators = 0; self.lock = threading.Lock()
-
-        def sample(self, system: str, prompt: str, schema: dict[str, Any],
-                   max_tokens: int, *, timeout_s: float | None = None) -> ProviderResult:
+        def sample(self, system: str, prompt: str, schema: dict[str, Any], max_tokens: int,
+                   *, timeout_s: float | None = None) -> ProviderResult:
             with self.lock:
                 if "focused pytest reproduction" not in system:
                     self.proposals += 1; row = proposal
@@ -147,12 +180,11 @@ def _run(args: argparse.Namespace) -> int:
                         raise ValueError("generator prompt response mismatch")
                     row = matches[0]
             return ProviderResult(text=_text(row, "response"),
-                input_tokens=_count(row, "input_tokens"),
-                output_tokens=_count(row, "output_tokens"))
+                input_tokens=_count(row, "input_tokens"), output_tokens=_count(row, "output_tokens"))
 
     with tempfile.TemporaryDirectory(prefix="attest-m01-", dir="/private/tmp") as temporary:
-        root = Path(temporary)
-        repo, buggy, fixed = _repository(root, cast(Mapping[str, object], doc["fixture"]))
+        root = Path(temporary); repo, buggy, fixed = _repository(
+            root, cast(Mapping[str, object], doc["fixture"]))
         truth = TruthDefect("defect-1", CASE_ID, "calc.py", 2, 2)
         request = ProjectEvaluationRequest(case_id=CASE_ID, repo=repo, base_ref=fixed,
             head_ref=buggy, workspace_root=root / "workspace", repeat=args.repeat, repeats=1,
@@ -160,20 +192,18 @@ def _run(args: argparse.Namespace) -> int:
             limits=ExecutorLimits(wall_timeout_s=30.0),
             truth=ProjectTruth(defects=(truth,), fixed_ref=fixed))
         product, oracle = Provider(), Provider(); store = ArtifactStore(root / "artifacts")
-        result = evaluate_project(request, provider=product, oracle_provider=oracle,
-                                  artifact_store=store)
+        result = evaluate_project(request, provider=product, oracle_provider=oracle, artifact_store=store)
         store.finalize(); strict = case_payload(result)
         strict["paid_calls"] = [
             {"call_id": "m01:product", "role": "product", "cost_usd": result.spend_usd},
             {"call_id": "m01:oracle", "role": "benchmark_oracle",
-             "cost_usd": result.oracle_spend_usd},
-        ]
-        if json.loads(canonical_json_bytes(strict)) != strict:
+             "cost_usd": result.oracle_spend_usd}]
+        if json.loads(canonical(strict)) != strict:
             raise ValueError("strict payload round-trip failed")
+        # Report smoke normalizes only its copy; the persisted measurement below stays exact.
         report_input = dict(strict); report_input["repeat"] = 0
-        measurement_input = report_input.get("measurement")
-        if type(measurement_input) is dict:
-            report_input["measurement"] = {**measurement_input, "repeat": 0}
+        if type(report_input.get("measurement")) is dict:
+            report_input["measurement"] = {**cast(dict[str, object], strict["measurement"]), "repeat": 0}
         case = BenchmarkCase(CASE_ID, "pair-222222222222", "source-111111111111",
             "historical_bug_replay", "historical_fix", "MIT", buggy, fixed,
             PatchDescriptor("fix.patch", "a" * 64, "unified_diff"),
@@ -184,76 +214,141 @@ def _run(args: argparse.Namespace) -> int:
             mode=LIVE_MODE, manifest_sha256="6" * 64,
             preregistration_sha256="7" * 64, validation_receipt=None).to_json_dict()
         visible = tuple(item for item in result.predictions if is_scored_placement(item.placement))
-        placements = sorted(item.placement.value for item in visible)
         guards = (len(result.final_decisions) == 5, len(visible) == 4,
-            placements == ["inline", "inline", "inline", "overflow"],
+            sorted(item.placement.value for item in visible) == ["inline", "inline", "inline", "overflow"],
             result.task_id is not None, bool(result.abstain_reason and result.abstain_reason.strip()),
             product.proposals == 2, product.generators == 5,
-            oracle.proposals == 0, oracle.generators == 4, not violations)
+            oracle.proposals == 0, oracle.generators == 4, not external_attempts)
         if not all(guards):
             raise ValueError("common product execution guard failed")
-        isolation_sha = _sha(str(root).encode())
-
-    source_sha = _git(source, "rev-parse", "HEAD")
+        isolation_sha = digest(str(root).encode())
     payload: dict[str, object] = {
-        "schema_version": "attest.m01-offline-probe.v1", "source_sha": source_sha,
-        "source_sha256": _sha(source_sha.encode()),
-        "source_tree_sha256": _sha(_git(source, "rev-parse", "HEAD^{tree}").encode()),
-        "input_sha256": _sha(canonical_json_bytes(doc)),
-        "probe_sha256": _sha(Path(__file__).read_bytes()), "cassette_sha256": cassette_sha,
-        "fixture_sha256": _sha(canonical_json_bytes(doc["fixture"])),
-        "repeat": args.repeat, "repeats": 1, "candidate_count": 5,
-        "published": 4, "unresolved": 1, "partially_deferred": 1,
-        "task_status": "partially_deferred", "semantic_n": 1,
-        "operational_repeats": 1, "isolation_sha256": isolation_sha,
-        "guards": {"credential_variables_removed": len(removed),
-            "credentials_available": False, "external_network": False,
-            "local_only_provider": True, "loopback_delivery": True,
-            "paid_provider_calls": 0, "remote_writes": 0, "resume": False}}
+        "schema_version": "attest.m01-offline-run.v2", "source_sha": source_sha,
+        "source_sha256": digest(source_sha.encode()),
+        "source_tree_sha256": digest(_git(source, "rev-parse", "HEAD^{tree}").encode()),
+        "input_sha256": digest(canonical(doc)), "probe_sha256": digest(Path(__file__).read_bytes()),
+        "cassette_sha256": cassette_sha, "fixture_sha256": digest(canonical(doc["fixture"])),
+        "repeat": args.repeat, "repeats": 1, "isolation_sha256": isolation_sha,
+        "guards": {"delivery_transport": "loopback_http", "environment_allowlist": True,
+            "entry_environment_variable_names": args.entry_environment_names,
+            "paid_provider_calls": 0, "platform_environment_removed": args.platform_environment_removed,
+            "provider_transport": "in_process_frozen_cassette", "python_external_connect_attempts": 0}}
     if source_sha == BASELINE:
-        if report["evaluated_cases"] != 0 or len(cast(list[object], report["abstained_cases"])) != 1:
+        if report["evaluated_cases"] != 0 or len(
+            cast(list[object], report["abstained_cases"])) != 1:
             raise ValueError("unexpected baseline legacy filter result")
-        semantic = {key: payload[key] for key in ("candidate_count", "published",
-                    "unresolved", "partially_deferred", "task_status")}
-        payload["semantic_digest"] = _sha(canonical_json_bytes(semantic))
+        payload["observed"] = {"candidate_count": 5, "published": 4,
+                               "task_status": "partially_deferred", "unresolved": 1}
         payload["expected_failure"] = MARKER
-        _atomic_write(args.output.parent.resolve(), args.output.name, canonical_json_bytes(payload))
-        print(MARKER, file=sys.stderr)
-        return 1
-    from attest.benchmark.measurement import (decode_measurement_record,
-        reduce_measurements, semantic_measurement_sha256)
-
-    measurement = decode_measurement_record(result.measurement.to_json_dict())
-    summary = reduce_measurements((replace(measurement, repeat=0),))
+        write_once(args.output.parent.resolve(), args.output.name, payload)
+        print(MARKER, file=sys.stderr); return 1
+    from attest.benchmark.measurement import decode_measurement_record, semantic_measurement_sha256
+    measurement_payload = result.measurement.to_json_dict()
+    measurement = decode_measurement_record(measurement_payload)
     current = (report["evaluated_cases"] == 1, measurement.candidate_count == 5,
         measurement.published_count == 4,
         measurement.unresolved_count == 1,
-        measurement.task_status.value == "partially_deferred",
-        summary.semantic_n == 1, summary.operational_repeats == 1,
-        summary.published == 4, summary.unresolved == 1,
-        summary.partially_deferred == 1)
+        measurement.task_status.value == "partially_deferred")
     if not all(current):
         raise ValueError("current mixed-outcome denominator regression")
     payload["semantic_digest"] = semantic_measurement_sha256(measurement)
-    _atomic_write(args.output.parent.resolve(), args.output.name, canonical_json_bytes(payload))
+    payload["measurement"] = measurement_payload
+    write_once(args.output.parent.resolve(), args.output.name, payload)
     return 0
 
+def _aggregate(args: argparse.Namespace) -> int:
+    canonical, digest, read_canonical, write_once = _support()
+    source, source_sha = _source(args.source_root)
+    from attest.benchmark.measurement import (decode_measurement_record,
+        reduce_measurements, semantic_measurement_sha256)
+    root = args.input_root.resolve(strict=True)
+    expected = {f"current-{repeat}.json" for repeat in range(args.expected_repeats)}
+    files = {path.name for path in root.iterdir() if path.is_file()}
+    extra_dirs = {path.name for path in root.iterdir()
+                  if path.is_dir() and path.name != ".outcome-staging"}
+    if files != expected or extra_dirs:
+        raise ValueError("aggregate input root does not contain the exact repeat files")
+    payloads: list[dict[str, object]] = []; output_digests: dict[str, str] = {}; guards_seen = set()
+    for repeat in range(args.expected_repeats):
+        name = f"current-{repeat}.json"; document = read_canonical(root, name)
+        payload = _exact(document.value, RUN_FIELDS, "aggregate run input")
+        if (payload["schema_version"], payload["repeat"], payload["repeats"]) != (
+            "attest.m01-offline-run.v2", repeat, 1):
+            raise ValueError("aggregate repeat coverage mismatch")
+        guard = _exact(payload["guards"], GUARD_FIELDS, "aggregate run guards")
+        expected_guard = {"delivery_transport": "loopback_http", "environment_allowlist": True,
+            "entry_environment_variable_names": sorted(ALLOWED_ENV), "paid_provider_calls": 0,
+            "platform_environment_removed": guard["platform_environment_removed"],
+            "provider_transport": "in_process_frozen_cassette", "python_external_connect_attempts": 0}
+        if type(guard["platform_environment_removed"]) is not bool or guard != expected_guard:
+            raise ValueError("aggregate run guard verdict mismatch")
+        guards_seen.add(digest(canonical(guard)))
+        payloads.append(payload); output_digests[name] = digest(document.data)
+    if len(guards_seen) != 1:
+        raise ValueError("aggregate run guards disagree")
+    for field in STABLE_FIELDS:
+        if len({cast(str, payload[field]) for payload in payloads}) != 1:
+            raise ValueError(f"aggregate {field} mismatch")
+    if payloads[0]["source_sha"] != source_sha:
+        raise ValueError("aggregate source SHA does not match selected source")
+    if payloads[0]["source_sha256"] != digest(source_sha.encode()):
+        raise ValueError("aggregate source digest mismatch")
+    if payloads[0]["source_tree_sha256"] != digest(_git(source, "rev-parse", "HEAD^{tree}").encode()):
+        raise ValueError("aggregate source tree digest mismatch")
+    if payloads[0]["probe_sha256"] != digest(Path(__file__).read_bytes()):
+        raise ValueError("aggregate probe digest mismatch")
+    measurements = []; semantic_digests: set[str] = set(); isolations: set[str] = set()
+    for payload in payloads:
+        measurement_value = payload["measurement"]
+        if type(measurement_value) is not dict:
+            raise ValueError("aggregate input is missing an exact measurement")
+        measurement = decode_measurement_record(measurement_value)
+        semantic = semantic_measurement_sha256(measurement)
+        if measurement.repeat != payload["repeat"] or payload["semantic_digest"] != semantic:
+            raise ValueError("aggregate measurement repeat or semantic digest mismatch")
+        if measurement.candidate_count != 5:
+            raise ValueError("aggregate candidate count mismatch")
+        measurements.append(measurement); semantic_digests.add(semantic)
+        isolations.add(_text(payload, "isolation_sha256"))
+    if len(semantic_digests) != 1 or len(isolations) != args.expected_repeats:
+        raise ValueError("aggregate semantic or isolation coverage mismatch")
+    summary = reduce_measurements(tuple(measurements))
+    facts = (summary.semantic_n, summary.operational_repeats, summary.published,
+             summary.unresolved, summary.partially_deferred)
+    if facts != (1, args.expected_repeats, 4, 1, 1):
+        raise ValueError("aggregate authoritative reducer result mismatch")
+    receipt = {"schema_version": "attest.m01-offline-aggregate.v1",
+        **{field: payloads[0][field] for field in STABLE_FIELDS},
+        "expected_repeats": args.expected_repeats,
+        "candidate_count": measurements[0].candidate_count,
+        "published": summary.published, "unresolved": summary.unresolved,
+        "partially_deferred": summary.partially_deferred, "semantic_n": summary.semantic_n,
+        "operational_repeats": summary.operational_repeats,
+        "semantic_digest": next(iter(semantic_digests)), "isolation_count": len(isolations),
+        "run_outputs_sha256": output_digests}
+    write_once(args.output.parent.resolve(), args.output.name, receipt)
+    return 0
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(); commands = parser.add_subparsers(dest="command", required=True)
+    run = commands.add_parser("run")
     for name in ("source-root", "cassette", "output"):
-        parser.add_argument(f"--{name}", type=Path, required=True)
-    parser.add_argument("--repeat", type=int, required=True)
-    parser.add_argument("--repeats", type=int, choices=(1,), required=True)
+        run.add_argument(f"--{name}", type=Path, required=True)
+    run.add_argument("--repeat", type=int, required=True)
+    run.add_argument("--repeats", type=int, choices=(1,), required=True)
+    aggregate = commands.add_parser("aggregate")
+    for name in ("source-root", "input-root", "output"):
+        aggregate.add_argument(f"--{name}", type=Path, required=True)
+    aggregate.add_argument("--expected-repeats", type=int, choices=(20,), required=True)
     args = parser.parse_args()
-    if args.repeat < 0:
+    if args.command == "run" and args.repeat < 0:
         parser.error("--repeat must be non-negative")
-    args.output.parent.mkdir(parents=True, exist_ok=True)
     try:
-        return _run(args)
+        names, removed = _guard_environment()
+        args.entry_environment_names, args.platform_environment_removed = names, removed
+        return _run(args) if args.command == "run" else _aggregate(args)
     except Exception:
         traceback.print_exc(); return 2
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

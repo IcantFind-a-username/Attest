@@ -11,6 +11,7 @@ from attest.benchmark.artifacts import (
     ARTIFACT_KINDS,
     ArtifactError,
     ArtifactStore,
+    sha256_bytes,
     verify_artifacts,
 )
 
@@ -46,6 +47,14 @@ def test_canonical_json_is_one_stable_utf8_record() -> None:
     assert canonical_json_bytes({"z": "é", "a": [2, 1]}) == (
         b'{"a":[2,1],"z":"\\u00e9"}\n'
     )
+
+
+def test_sha256_bytes_hashes_only_exact_bytes() -> None:
+    assert sha256_bytes(b"attest\n") == (
+        "9d202405b53afe90b936a78cd43c32475467ef4f093bdc351f0978db305e4981"
+    )
+    with pytest.raises(TypeError, match="exact bytes"):
+        sha256_bytes(bytearray(b"attest\n"))  # type: ignore[arg-type]
 
 
 def test_allowlist_covers_the_preregistered_evidence_kinds() -> None:

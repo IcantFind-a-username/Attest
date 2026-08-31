@@ -209,7 +209,7 @@ class ArtifactStore:
         record = ArtifactRecord(
             name=relative,
             kind=kind,
-            sha256=hashlib.sha256(encoded).hexdigest(),
+            sha256=sha256_bytes(encoded),
             size_bytes=len(encoded),
             truncated=truncated,
         )
@@ -663,6 +663,14 @@ def canonical_json_bytes(value: object) -> bytes:
         json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
         + "\n"
     ).encode("utf-8")
+
+
+def sha256_bytes(payload: bytes) -> str:
+    """Return the lowercase SHA-256 digest of exact bytes."""
+
+    if type(payload) is not bytes:
+        raise TypeError("payload must be exact bytes")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def validation_failure_signature(output: bytes) -> str | None:
