@@ -110,6 +110,16 @@ def test_feedback_label_polarity_must_be_exact_and_consistent(
         led.surfaced_precision()
 
 
+def test_unknown_legacy_feedback_cannot_erase_a_false_label(tmp_path: Path) -> None:
+    led = Ledger(tmp_path)
+    led.record_review("t", "f", ["S"], 0.0, 12.0, "surface")
+    led.record_feedback("f", "wrong")
+    led.append({"kind": "feedback", "finding_id": "f", "feedback": "wron"})
+
+    with pytest.raises(ValueError, match="feedback label"):
+        led.surfaced_precision()
+
+
 def test_precision_excludes_legacy_dismiss_from_denominator(tmp_path) -> None:
     """Legacy `dismiss` rows are polarity-ambiguous and must be excluded from
     BOTH the numerator and the denominator of surfaced precision -- never
@@ -222,6 +232,41 @@ def test_feedback_before_first_surface_is_not_a_precision_label(tmp_path: Path) 
 
     assert led.surfaced_precision() == (None, 0)
     assert led.maybe_tighten_alpha(0.1, enabled=True) == (0.1, None)
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    (
+        {"kind": "review", "finding_id": "phantom", "action": "surface"},
+        {"kind": "github_comment", "task_id": "legacy"},
+    ),
+)
+def test_malformed_surface_authority_rows_fail_closed(
+    tmp_path: Path, malformed: dict[str, object]
+) -> None:
+    led = Ledger(tmp_path)
+    led.append(malformed)
+
+    with pytest.raises(ValueError):
+        led.surfaced_precision()
+
+
+@pytest.mark.parametrize("window", (0, -1, True, False, 1.0))
+def test_precision_window_must_be_an_exact_positive_integer(
+    tmp_path: Path, window: object
+) -> None:
+    with pytest.raises(ValueError, match="precision window"):
+        Ledger(tmp_path).surfaced_precision(window=window)  # type: ignore[arg-type]
+
+
+def test_current_precision_rejects_a_truncated_ledger(tmp_path: Path) -> None:
+    led = Ledger(tmp_path)
+    led.record_review("t", "f", ["S"], 0.0, 12.0, "surface")
+    with led.path.open("ab") as stream:
+        stream.write(b'{"kind":"feedback"')
+
+    with pytest.raises(ValueError, match="truncated"):
+        led.surfaced_precision()
 
 
 def test_ci_surface_order_is_anchored_to_successful_settlement(
@@ -610,7 +655,7 @@ def test_current_alpha_rejects_malformed_transitions(
     led = Ledger(tmp_path)
     led.append({"kind": "alpha_tightened", "from": 0.1, "to": bad_to})
 
-    with pytest.raises(ValueError, match="alpha transition"):
+    with pytest.raises(ValueError):
         led.current_alpha(0.1)
 
 

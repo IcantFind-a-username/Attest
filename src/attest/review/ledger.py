@@ -36,15 +36,52 @@ _LABEL_POLARITY: dict[str, str] = {
     "dismiss": "ambiguous",
 }
 _AMBIGUOUS_POLARITY = "ambiguous"
+_DELIVERY_KINDS = {
+    "delivery_attempt_intent",
+    "delivery_attempt_settlement",
+    "delivery_journal_finalization",
+}
+
+
+def _require_row_fields(
+    entry: dict[str, Any], required: set[str], optional: set[str] | None = None
+) -> None:
+    allowed = required | (set() if optional is None else optional)
+    if not required <= set(entry) <= allowed:
+        raise ValueError(f"{entry.get('kind', 'ledger')} row has an invalid field set")
+    for field in ("ts", "kind"):
+        if field in required and (type(entry[field]) is not str or not entry[field]):
+            raise ValueError(f"ledger {field} must be a non-empty exact string")
+
+
+def _required_string(entry: dict[str, Any], field: str) -> str:
+    value = entry.get(field)
+    if type(value) is not str or not value:
+        raise ValueError(f"ledger {field} must be a non-empty exact string")
+    return value
+
+
+def _require_finite_nonnegative(value: object, field: str) -> None:
+    if type(value) not in {int, float}:
+        raise ValueError(f"ledger {field} must be a finite non-negative number")
+    number = float(cast(int | float, value))
+    if not math.isfinite(number) or number < 0:
+        raise ValueError(f"ledger {field} must be a finite non-negative number")
 
 
 def _label_polarity(entry: dict[str, Any]) -> str:
     """Precision polarity of one feedback row, re-deriving it for older ledger
-    rows written before `label_polarity` was recorded. Unknown labels are
-    treated as ambiguous: they may never be counted as true or false."""
-    derived = _LABEL_POLARITY.get(
-        str(entry.get("feedback", "")), _AMBIGUOUS_POLARITY
+    rows written before `label_polarity` was recorded."""
+    _require_row_fields(
+        entry,
+        {"ts", "kind", "finding_id", "feedback"},
+        {"label_polarity"},
     )
+    _required_string(entry, "finding_id")
+    feedback = entry.get("feedback")
+    if type(feedback) is not str or feedback not in _LABEL_POLARITY:
+        raise ValueError("feedback label is invalid")
+    derived = _LABEL_POLARITY[feedback]
     if "label_polarity" not in entry:
         return derived
     recorded = entry["label_polarity"]
@@ -66,35 +103,49 @@ def _surfaced_projection(
 
     from attest.review.ci import reconcile_delivery_rows
 
-    final_tasks = {
-        str(entry["task_id"])
-        for entry in entries
-        if entry.get("kind") == "ci_final" and isinstance(entry.get("task_id"), str)
-    }
-    delivery_tasks = {
-        str(entry["task_id"])
-        for entry in entries
-        if entry.get("kind")
-        in {
-            "delivery_attempt_intent",
-            "delivery_attempt_settlement",
-            "delivery_journal_finalization",
-        }
-        and isinstance(entry.get("task_id"), str)
-    }
-    comment_tasks = {
-        str(entry["task_id"])
-        for entry in entries
-        if entry.get("kind") == "github_comment"
-        and isinstance(entry.get("task_id"), str)
-    }
+    final_tasks: set[str] = set()
+    delivery_tasks: set[str] = set()
+    comment_tasks: set[str] = set()
+    for entry in entries:
+        kind = entry.get("kind")
+        if kind == "ci_final":
+            _require_row_fields(
+                entry,
+                {"ts", "kind", "task_id", "decisions", "spend_usd"},
+                {"elapsed_s"},
+            )
+            task_id = _required_string(entry, "task_id")
+            if type(entry["decisions"]) is not list:
+                raise ValueError("ci_final decisions must be an exact list")
+            _require_finite_nonnegative(entry["spend_usd"], "spend_usd")
+            if "elapsed_s" in entry:
+                _require_finite_nonnegative(entry["elapsed_s"], "elapsed_s")
+            final_tasks.add(task_id)
+        elif kind == "github_comment":
+            _require_row_fields(
+                entry,
+                {"ts", "kind", "task_id", "phase", "outcome"},
+                {"reason"},
+            )
+            task_id = _required_string(entry, "task_id")
+            _required_string(entry, "phase")
+            if type(entry["outcome"]) is not str or entry["outcome"] not in {
+                "posted",
+                "failed",
+            }:
+                raise ValueError("github_comment outcome is invalid")
+            if "reason" in entry and type(entry["reason"]) is not str:
+                raise ValueError("github_comment reason must be an exact string")
+            comment_tasks.add(task_id)
+        elif kind in _DELIVERY_KINDS:
+            delivery_tasks.add(_required_string(entry, "task_id"))
     ci_tasks = final_tasks | delivery_tasks | comment_tasks
     delivered_by_attempt = {
         (task_id, event.attempt_id): tuple(
             finding_id
             for finding_id, _placement in event.members
         )
-        for task_id in final_tasks & delivery_tasks
+        for task_id in delivery_tasks
         for event in reconcile_delivery_rows(entries, task_id)[0]
         if event.outcome == "succeeded"
     }
@@ -110,12 +161,40 @@ def _surfaced_projection(
                 ),
                 (),
             )
-        elif (
-            entry.get("kind") == "review"
-            and str(entry.get("action", "")).endswith("surface")
-            and str(entry.get("task_id", "")) not in ci_tasks
-        ):
-            finding_ids = (str(entry.get("finding_id", "")),)
+        elif entry.get("kind") == "review":
+            _require_row_fields(
+                entry,
+                {
+                    "ts",
+                    "kind",
+                    "task_id",
+                    "finding_id",
+                    "channels_bought",
+                    "spend",
+                    "wealth_final",
+                    "action",
+                },
+            )
+            task_id = _required_string(entry, "task_id")
+            finding_id = _required_string(entry, "finding_id")
+            action = _required_string(entry, "action")
+            channels = entry["channels_bought"]
+            if type(channels) is not list or any(type(item) is not str for item in channels):
+                raise ValueError("review channels_bought must be an exact string list")
+            _require_finite_nonnegative(entry["spend"], "spend")
+            _require_finite_nonnegative(entry["wealth_final"], "wealth_final")
+            if action not in {
+                "discard",
+                "drawer",
+                "surface",
+                "overflow_surface",
+                "verified_discard",
+                "verified_drawer",
+                "verified_surface",
+            }:
+                raise ValueError("review action is invalid")
+            if action.endswith("surface") and task_id not in ci_tasks:
+                finding_ids = (finding_id,)
         for finding_id in finding_ids:
             if finding_id in surfaced_ids:
                 surfaced_ids.remove(finding_id)
@@ -602,7 +681,9 @@ class Ledger:
     ) -> tuple[float | None, int]:
         """Precision over the last `window` surfaced findings that have
         feedback labels. Returns (precision or None, n_labeled)."""
-        entries = self.entries() if entries is None else entries
+        if type(window) is not int or window <= 0:
+            raise ValueError("precision window must be an exact positive integer")
+        entries = self.entries_strict() if entries is None else entries
         canonical_ids, first_surface = _surfaced_projection(entries)
         if surfaced_ids is None:
             surfaced_ids = canonical_ids
@@ -626,7 +707,9 @@ class Ledger:
     ) -> tuple[str, ...]:
         """Return the exact finding population used by surfaced precision."""
 
-        return _surfaced_finding_ids(self.entries() if entries is None else entries)
+        return _surfaced_finding_ids(
+            self.entries_strict() if entries is None else entries
+        )
 
     def maybe_tighten_alpha(self, alpha: float, enabled: bool) -> tuple[float, str | None]:
         """MVP auto-tighten rule: rolling surfaced precision < 90% (with at
@@ -635,7 +718,7 @@ class Ledger:
         configurable off."""
         if not enabled:
             return alpha, None
-        entries = self.entries()
+        entries = self.entries_strict()
         surfaced_ids, first_surface = _surfaced_projection(entries)
         all_labeled = _labeled_surfaced(entries, surfaced_ids, first_surface)
         rolling_labeled = _labeled_surfaced(
@@ -692,7 +775,7 @@ class Ledger:
     def current_alpha(self, configured: float) -> float:
         """Configured alpha, overridden by any recorded tightenings."""
         alpha = _alpha_number(configured, "configured alpha")
-        for e in self.entries():
+        for e in self.entries_strict():
             if e.get("kind") != "alpha_tightened":
                 continue
             start = _alpha_number(e.get("from"), "alpha transition from")

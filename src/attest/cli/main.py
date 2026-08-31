@@ -191,7 +191,7 @@ def cmd_stats(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     config = load_config(repo)
     ledger = Ledger(repo)
-    entries = ledger.entries()
+    entries = ledger.entries_strict()
     final_runs = [e for e in entries if e.get("kind") == "ci_final"]
     final_tasks = {str(e.get("task_id", "")) for e in final_runs}
     runs = [
