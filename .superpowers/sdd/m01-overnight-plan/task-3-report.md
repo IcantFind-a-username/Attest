@@ -1,7 +1,8 @@
 # Task 3 report — authoritative mixed-outcome accounting
 
 Status: complete on `feature/m01-authoritative-outcomes` from baseline
-`7138482cbfe24404ebdee804671671972b708c39`. No paid provider, network provider,
+`7138482cbfe771108ac7163b8dcf1820bb761d02`. Implementation commit:
+`c86c957fcde97d5ba6479553bc5cdea247ccf6bb`. No paid provider, network provider,
 remote write, factory-constant change, pricing change, Core change, or historical
 evidence rewrite occurred.
 
@@ -181,11 +182,20 @@ addition to the canonical implementation in `artifacts.py`. None was introduced
 by this Task 3 diff. Consolidating those pre-existing implementations is an
 explicit whole-tree debt and was not mixed into this bounded change.
 
-## Known adjacent integration item
+## Fixed-SHA closure
 
-An out-of-scope probe combining CLI and `tests/test_budget_ledger.py` found the
-historical `test_final_ci_decisions_drive_surfaced_precision` fixture still expects
-a `ci_final` row without a successful delivery journal to count as surfaced. The
-new current contract correctly returns no surfaced population. Task 5 should update
-that non-owned fixture or give it a reconciled successful delivery event; production
-must not restore phantom publication accounting.
+- `git rev-parse c86c957^` resolves the baseline above, and
+  `git cat-file -e <baseline>^{commit}` succeeds.
+- The historical ledger fixture now states the current delivery contract directly:
+  a `ci_final` row is a publication plan, not successful delivery authority. Without
+  a reconciled successful delivery event, public `Ledger.surfaced_precision()`
+  returns `(None, 0)`. The successful-delivery path remains covered by
+  `tests/benchmark/test_runner.py`.
+- Closure Gate:
+  `.venv/bin/python -m pytest -q tests/test_budget_ledger.py tests/benchmark/test_runner.py`
+  — exit 0, `81 passed / 0 failed`; owned-test Ruff and `git diff --check`
+  also exit 0.
+- Closure diff: two files only — this report and `tests/test_budget_ledger.py`;
+  `23 insertions / 11 deletions`.
+- Tool reuse: the existing public `Ledger` API and existing delivery reconciliation;
+  no new helper, scorer, serializer, matcher, digest, receipt, or atomic-write tool.
