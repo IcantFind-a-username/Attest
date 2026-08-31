@@ -158,9 +158,14 @@ The final coverage-repair diagnostics are likewise retained outside the reposito
 
 The dual-Python full Gate attempts against `f01a4af` failed on the stale live fixture and are
 invalidated. The local Python 3.12.8 full/coverage Gate is now green at the exact
-`eddfee6736f18331b42045074d02de3892461dcb` tree. A clean Python 3.11 final Gate and the
-remaining cross-version acceptance run are still pending and are not claimed by this
-report. The terminated `184e7fc` Gate logs remain invalidated.
+`eddfee6736f18331b42045074d02de3892461dcb` tree. The clean detached Python 3.11.5 Gate is
+also green: 1046 benchmark tests collected and passed, 1445 full tests passed, coverage was
+11920/13240 total and 428/429 for `attest.core`, and Ruff/mypy/pip/diff/v1-integrity/clean
+state all exited zero. Its 30-file ledger is
+`/private/tmp/attest-m01-task2-final-311.hFXniR`, whose `ARTIFACTS.sha256` digest is
+`e33cade9ef8a36705a62ea55157b90c026cbeb503bda13eb2d132bbd6f95cce9`. A clean detached
+Python 3.12 acceptance bundle, if required beyond the exact-tree local Gate, is not claimed
+here. The terminated `184e7fc` Gate logs remain invalidated.
 
 ## Remaining scope and limits
 
