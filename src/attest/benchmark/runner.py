@@ -354,12 +354,12 @@ def run_differential_repro(
 
 def ci_final_decisions(repo: Path, task_id: str) -> tuple[dict[str, Any], ...]:
     """The authoritative post-verification decisions recorded for one task."""
-    return ci_final_decisions_from_rows(Ledger(repo).entries(), task_id)
+    return ci_final_decisions_from_rows(Ledger(repo).entries_strict(), task_id)
 
 
 def product_evidence_classes(repo: Path, task_id: str) -> dict[str, str]:
     """Per-finding evidence class exactly as the product ledger recorded it."""
-    return product_evidence_classes_from_rows(Ledger(repo).entries(), task_id)
+    return product_evidence_classes_from_rows(Ledger(repo).entries_strict(), task_id)
 
 
 def product_evidence_classes_from_rows(
@@ -393,7 +393,7 @@ def extract_predictions(
     """Join persisted candidate anchors to the authoritative ``ci_final`` row."""
     return extract_predictions_from_rows(
         repo,
-        ledger_rows=Ledger(repo).entries(),
+        ledger_rows=Ledger(repo).entries_strict(),
         task_id=task_id,
         case_id=case_id,
         repro_status=repro_status,

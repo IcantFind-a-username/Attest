@@ -113,6 +113,27 @@ def _parse_ci_final_decisions(
     return tuple(parsed)
 
 
+def _parse_ci_final_row(
+    entry: object, *, allow_legacy_placement: bool
+) -> tuple[str, tuple[dict[str, Any], ...]]:
+    if type(entry) is not dict:
+        raise ValueError("ci_final row must be an exact object")
+    row = cast(dict[str, Any], entry)
+    _require_row_fields(
+        row,
+        {"ts", "kind", "task_id", "decisions", "spend_usd"},
+        {"elapsed_s"},
+    )
+    task_id = _required_string(row, "task_id")
+    decisions = _parse_ci_final_decisions(
+        row["decisions"], allow_legacy_placement=allow_legacy_placement
+    )
+    _require_finite_nonnegative(row["spend_usd"], "spend_usd")
+    if "elapsed_s" in row:
+        _require_finite_nonnegative(row["elapsed_s"], "elapsed_s")
+    return task_id, decisions
+
+
 def ci_final_decisions_from_rows(
     ledger_rows: Sequence[Mapping[str, Any]], task_id: str
 ) -> tuple[dict[str, Any], ...]:
@@ -127,9 +148,10 @@ def ci_final_decisions_from_rows(
         return ()
     if len(rows) != 1:
         raise ValueError("duplicate ci_final rows for task")
-    return _parse_ci_final_decisions(
-        rows[0].get("decisions"), allow_legacy_placement=False
+    _parsed_task_id, decisions = _parse_ci_final_row(
+        rows[0], allow_legacy_placement=False
     )
+    return decisions
 
 
 def _label_polarity(entry: dict[str, Any]) -> str:
@@ -166,25 +188,19 @@ def _surfaced_projection(
 
     from attest.review.ci import reconcile_delivery_rows
 
-    final_tasks: set[str] = set()
+    final_rows: dict[str, tuple[int, dict[str, Any], tuple[dict[str, Any], ...]]] = {}
     delivery_tasks: set[str] = set()
+    first_delivery_intent: dict[str, int] = {}
     comment_tasks: set[str] = set()
-    for entry in entries:
+    for index, entry in enumerate(entries):
         kind = entry.get("kind")
         if kind == "ci_final":
-            _require_row_fields(
-                entry,
-                {"ts", "kind", "task_id", "decisions", "spend_usd"},
-                {"elapsed_s"},
+            task_id, decisions = _parse_ci_final_row(
+                entry, allow_legacy_placement=True
             )
-            task_id = _required_string(entry, "task_id")
-            _parse_ci_final_decisions(
-                entry["decisions"], allow_legacy_placement=True
-            )
-            _require_finite_nonnegative(entry["spend_usd"], "spend_usd")
-            if "elapsed_s" in entry:
-                _require_finite_nonnegative(entry["elapsed_s"], "elapsed_s")
-            final_tasks.add(task_id)
+            if task_id in final_rows:
+                raise ValueError("duplicate ci_final rows for task")
+            final_rows[task_id] = (index, entry, decisions)
         elif kind == "github_comment":
             _require_row_fields(
                 entry,
@@ -208,17 +224,40 @@ def _surfaced_projection(
                 raise ValueError("posted github_comment cannot carry a reason")
             comment_tasks.add(task_id)
         elif kind in _DELIVERY_KINDS:
-            delivery_tasks.add(_required_string(entry, "task_id"))
-    ci_tasks = final_tasks | delivery_tasks | comment_tasks
-    delivered_by_attempt = {
-        (task_id, event.attempt_id): tuple(
-            finding_id
-            for finding_id, _placement in event.members
-        )
-        for task_id in delivery_tasks
-        for event in reconcile_delivery_rows(entries, task_id)[0]
-        if event.outcome == "succeeded"
-    }
+            task_id = _required_string(entry, "task_id")
+            delivery_tasks.add(task_id)
+            if kind == "delivery_attempt_intent":
+                first_delivery_intent.setdefault(task_id, index)
+    ci_tasks = set(final_rows) | delivery_tasks | comment_tasks
+    delivered_by_attempt: dict[tuple[str, str], tuple[str, ...]] = {}
+    for task_id in delivery_tasks:
+        publication_events, _task_events = reconcile_delivery_rows(entries, task_id)
+        final_row = final_rows.get(task_id)
+        if final_row is not None:
+            final_index, row, _legacy_decisions = final_row
+            first_intent = first_delivery_intent.get(task_id)
+            if first_intent is not None and final_index >= first_intent:
+                raise ValueError("ci_final must precede its first delivery intent")
+            _parsed_task_id, current_decisions = _parse_ci_final_row(
+                row, allow_legacy_placement=False
+            )
+            expected_members = {
+                str(decision["finding_id"]): str(decision["placement"])
+                for decision in current_decisions
+                if decision["action"] == "surface"
+            }
+        else:
+            expected_members = {}
+        for event in publication_events:
+            for finding_id, placement in event.members:
+                if expected_members.get(finding_id) != placement:
+                    raise ValueError(
+                        "delivery member does not match its ci_final surface decision"
+                    )
+            if event.outcome == "succeeded":
+                delivered_by_attempt[(task_id, event.attempt_id)] = tuple(
+                    finding_id for finding_id, _placement in event.members
+                )
     surfaced_ids: list[str] = []
     first_surface: dict[str, int] = {}
     for index, entry in enumerate(entries):

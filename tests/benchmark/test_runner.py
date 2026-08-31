@@ -39,7 +39,7 @@ from attest.review.candidates import StoredCandidate
 from attest.review.ci import CiPublicationEvent, reconcile_delivery_rows
 from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits, ReproSpec
-from attest.review.ledger import Ledger
+from attest.review.ledger import Ledger, ci_final_decisions_from_rows
 from attest.review.schema import Finding
 
 CASE_ID = "case-0123456789ab"
@@ -689,6 +689,38 @@ def test_ci_final_rejects_action_placement_mismatches_before_measurement(
 
     with pytest.raises(ValueError, match="action|placement"):
         ci_final_decisions(repo, "task-1")
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("missing_ts", "extra_field", "invalid_spend", "negative_elapsed"),
+)
+def test_ci_final_rejects_malformed_outer_rows_before_measurement(mutation: str) -> None:
+    row: dict[str, object] = {
+        "ts": "2026-08-31T00:00:00Z",
+        "kind": "ci_final",
+        "task_id": "task-1",
+        "decisions": [
+            {
+                "finding_id": "finding-1",
+                "action": "surface",
+                "wealth_final": 12.0,
+                "placement": "inline",
+            }
+        ],
+        "spend_usd": 0.01,
+    }
+    if mutation == "missing_ts":
+        del row["ts"]
+    elif mutation == "extra_field":
+        row["forged"] = True
+    elif mutation == "invalid_spend":
+        row["spend_usd"] = "free"
+    else:
+        row["elapsed_s"] = -1.0
+
+    with pytest.raises(ValueError, match="ci_final|spend|elapsed"):
+        ci_final_decisions_from_rows([row], "task-1")
 
 
 def test_failed_publication_is_not_author_visible_measurement(tmp_path: Path) -> None:
@@ -1761,6 +1793,24 @@ def test_current_delivery_ledger_reader_rejects_malformed_rows(tmp_path: Path) -
     assert hasattr(ledger, "entries_strict"), "current ledger needs a strict reader"
     with pytest.raises(ValueError, match="ledger|JSON|malformed"):
         ledger.entries_strict()
+
+
+@pytest.mark.parametrize("entrypoint", ("ci_final", "predictions"))
+def test_current_benchmark_wrappers_reject_a_truncated_ledger(
+    tmp_path: Path, entrypoint: str
+) -> None:
+    repo = tmp_path / "project"
+    repo.mkdir()
+    ledger = Ledger(repo)
+    ledger.record_ci_final(task_id="task-1", decisions=[], spend_usd=0.0)
+    with ledger.path.open("a", encoding="utf-8") as stream:
+        stream.write('{"kind":"feedback"\n')
+
+    with pytest.raises(ValueError, match="ledger|JSON|malformed"):
+        if entrypoint == "ci_final":
+            ci_final_decisions(repo, "task-1")
+        else:
+            extract_predictions(repo, task_id="task-1", case_id=CASE_ID)
 
 
 def test_current_delivery_ledger_reader_rejects_an_ancestor_symlink(

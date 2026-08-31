@@ -326,7 +326,19 @@ def test_ci_surface_order_is_anchored_to_successful_settlement(
 ) -> None:
     led = Ledger(tmp_path)
     ci_ids = tuple(f"ci-{index}" for index in range(6))
-    led.record_ci_final(task_id="ci", decisions=[], spend_usd=0.0)
+    led.record_ci_final(
+        task_id="ci",
+        decisions=[
+            {
+                "finding_id": finding_id,
+                "action": "surface",
+                "wealth_final": 12.0,
+                "placement": "inline",
+            }
+            for finding_id in ci_ids
+        ],
+        spend_usd=0.0,
+    )
     for index in range(50):
         finding_id = f"legacy-{index}"
         led.record_review("legacy", finding_id, ["S"], 0.0, 12.0, "surface")
@@ -361,7 +373,18 @@ def test_ci_surface_attempt_is_bound_to_its_task(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     led = Ledger(tmp_path)
-    led.record_ci_final(task_id="task-a", decisions=[], spend_usd=0.0)
+    led.record_ci_final(
+        task_id="task-a",
+        decisions=[
+            {
+                "finding_id": "finding-a",
+                "action": "surface",
+                "wealth_final": 12.0,
+                "placement": "inline",
+            }
+        ],
+        spend_usd=0.0,
+    )
     led.append(
         {
             "kind": "delivery_attempt_settlement",
@@ -391,6 +414,47 @@ def test_ci_surface_attempt_is_bound_to_its_task(
 
     assert led.surfaced_finding_ids() == ("finding-a",)
     assert led.surfaced_precision() == (None, 0)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("unknown_member", "wrong_placement", "duplicate_final", "late_final", "legacy_final"),
+)
+def test_delivery_must_match_one_prior_current_ci_final(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    led = Ledger(tmp_path)
+    decision: dict[str, object] = {
+        "finding_id": "expected",
+        "action": "surface",
+        "wealth_final": 12.0,
+        "placement": "inline",
+    }
+    if mutation == "legacy_final":
+        del decision["placement"]
+    if mutation == "late_final":
+        led.append({"kind": "delivery_attempt_intent", "task_id": "task"})
+    led.record_ci_final(task_id="task", decisions=[decision], spend_usd=0.0)
+    if mutation == "duplicate_final":
+        led.record_ci_final(task_id="task", decisions=[decision], spend_usd=0.0)
+    if mutation != "late_final":
+        led.append({"kind": "delivery_attempt_intent", "task_id": "task"})
+    member = (
+        "unknown" if mutation == "unknown_member" else "expected",
+        "overflow" if mutation == "wrong_placement" else "inline",
+    )
+    event = SimpleNamespace(
+        attempt_id="attempt",
+        outcome="succeeded",
+        members=(member,),
+    )
+    monkeypatch.setattr(
+        "attest.review.ci.reconcile_delivery_rows",
+        lambda _entries, task_id: ((event,), ()) if task_id == "task" else ((), ()),
+    )
+
+    with pytest.raises(ValueError, match="ci_final|delivery member"):
+        led.surfaced_finding_ids()
 
 
 def test_wontfix_labels_do_not_tighten_alpha(tmp_path) -> None:
