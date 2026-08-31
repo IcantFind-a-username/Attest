@@ -15,7 +15,13 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from attest.benchmark.measurement import ARM_ATTEST_PRODUCT
+from attest.benchmark.measurement import (
+    ARM_ATTEST_PRODUCT,
+    FindingStatus,
+    MeasurementRecord,
+    TaskStatus,
+    decode_measurement_record,
+)
 
 OUTCOME_SEAL_SCHEMA_VERSION = "1"
 OUTCOME_SEAL_PATH = "outcomes.seal.json"
@@ -27,6 +33,16 @@ MAX_OUTCOME_CASES = 128
 MAX_OUTCOME_REPEATS = 20
 MAX_OUTCOME_SLOTS = 4096
 _OUTCOME_ARMS = (ARM_ATTEST_PRODUCT, "bare_prompt", "ruff_static")
+COMPARISON_ARM_OUTCOME_SCHEMA_VERSION = "1"
+COMPARISON_OUTCOME_PREDECLARATION_SCHEMA_VERSION = "1"
+COMPARISON_OUTCOME_PROTOCOL = "comparison-arm-outcomes-v1"
+COMPARISON_OUTCOME_PREDECLARATION_PATH = (
+    "comparison-outcomes.predeclaration.json"
+)
+COMPARISON_OUTCOME_SEAL_SCHEMA_VERSION = "1"
+COMPARISON_OUTCOME_SEAL_PATH = "comparison-outcomes.seal.json"
+COMPARISON_OUTCOME_DIRECTORY = "comparison-outcomes"
+EMPTY_PAID_CALLS_SHA256 = hashlib.sha256(b"[]").hexdigest()
 _SUPPORTED_DIR_FD_NAMES = frozenset(function.__name__ for function in os.supports_dir_fd)
 _SUPPORTED_FOLLOW_SYMLINK_NAMES = frozenset(
     function.__name__ for function in os.supports_follow_symlinks
@@ -139,6 +155,333 @@ class OutcomeSlot:
         if rebuilt.to_json_dict() != value:
             raise ValueError("outcome slot derived identity/path does not match its fields")
         return rebuilt
+
+
+@dataclass(frozen=True, init=False)
+class ComparisonOutcomeSlot:
+    """Domain-separated slot for one comparison case/arm/repeat outcome."""
+
+    ordinal: int
+    authority_id: str
+    manifest_sha256: str
+    case_id: str
+    arm: str
+    repeat: int
+    bindings_sha256: str
+    slot_id: str
+    relative_path: str
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        ordinal: int,
+        authority_id: str,
+        manifest_sha256: str,
+        case_id: str,
+        arm: str,
+        repeat: int,
+        bindings_sha256: str,
+    ) -> ComparisonOutcomeSlot:
+        if type(ordinal) is not int or ordinal < 0:
+            raise ValueError("comparison outcome ordinal must be an exact non-negative integer")
+        if type(repeat) is not int or repeat < 0:
+            raise ValueError("comparison outcome repeat must be an exact non-negative integer")
+        if type(case_id) is not str or not case_id:
+            raise ValueError("comparison outcome case_id must be a non-empty exact string")
+        if type(arm) is not str or arm not in _OUTCOME_ARMS:
+            raise ValueError("comparison outcome arm is not supported")
+        _require_sha256(authority_id, "comparison outcome authority_id")
+        _require_sha256(manifest_sha256, "comparison outcome manifest_sha256")
+        _require_sha256(bindings_sha256, "comparison outcome bindings_sha256")
+        identity = {
+            "authority_id": authority_id,
+            "authority_protocol": COMPARISON_OUTCOME_PROTOCOL,
+            "arm": arm,
+            "bindings_sha256": bindings_sha256,
+            "case_id": case_id,
+            "manifest_sha256": manifest_sha256,
+            "ordinal": ordinal,
+            "repeat": repeat,
+            "schema_version": COMPARISON_OUTCOME_PREDECLARATION_SCHEMA_VERSION,
+        }
+        slot = object.__new__(cls)
+        object.__setattr__(slot, "ordinal", ordinal)
+        object.__setattr__(slot, "authority_id", authority_id)
+        object.__setattr__(slot, "manifest_sha256", manifest_sha256)
+        object.__setattr__(slot, "case_id", case_id)
+        object.__setattr__(slot, "arm", arm)
+        object.__setattr__(slot, "repeat", repeat)
+        object.__setattr__(slot, "bindings_sha256", bindings_sha256)
+        object.__setattr__(
+            slot, "slot_id", hashlib.sha256(canonical_json_bytes(identity)).hexdigest()
+        )
+        object.__setattr__(
+            slot,
+            "relative_path",
+            f"{COMPARISON_OUTCOME_DIRECTORY}/{ordinal:06d}.json",
+        )
+        return slot
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {
+            "slot_id": self.slot_id,
+            "ordinal": self.ordinal,
+            "authority_id": self.authority_id,
+            "manifest_sha256": self.manifest_sha256,
+            "case_id": self.case_id,
+            "arm": self.arm,
+            "repeat": self.repeat,
+            "bindings_sha256": self.bindings_sha256,
+            "path": self.relative_path,
+        }
+
+    @classmethod
+    def from_json_dict(cls, value: object) -> ComparisonOutcomeSlot:
+        fields = {
+            "slot_id",
+            "ordinal",
+            "authority_id",
+            "manifest_sha256",
+            "case_id",
+            "arm",
+            "repeat",
+            "bindings_sha256",
+            "path",
+        }
+        if type(value) is not dict or set(value) != fields:
+            raise ValueError("comparison outcome slot has an invalid field set")
+        if type(value["ordinal"]) is not int or type(value["repeat"]) is not int:
+            raise ValueError("comparison outcome slot ordinal/repeat must be exact integers")
+        string_fields = (
+            "authority_id",
+            "manifest_sha256",
+            "case_id",
+            "arm",
+            "bindings_sha256",
+        )
+        if any(type(value[field]) is not str for field in string_fields):
+            raise ValueError("comparison outcome slot identity fields must be exact strings")
+        rebuilt = cls.create(
+            ordinal=value["ordinal"],
+            authority_id=value["authority_id"],
+            manifest_sha256=value["manifest_sha256"],
+            case_id=value["case_id"],
+            arm=value["arm"],
+            repeat=value["repeat"],
+            bindings_sha256=value["bindings_sha256"],
+        )
+        if rebuilt.to_json_dict() != value:
+            raise ValueError("comparison outcome slot derived identity/path mismatch")
+        return rebuilt
+
+
+@dataclass(frozen=True)
+class ComparisonSurfacedFinding:
+    """One ordered author-visible or baseline-visible finding fact."""
+
+    ordinal: int
+    finding_id: str
+    file: str
+    line: int
+    evidence_class: str
+
+    def __post_init__(self) -> None:
+        if type(self.ordinal) is not int or self.ordinal < 0:
+            raise ValueError("comparison finding ordinal must be an exact non-negative integer")
+        for name in ("finding_id", "file", "evidence_class"):
+            value = getattr(self, name)
+            if type(value) is not str or not value:
+                raise ValueError(f"comparison finding {name} must be a non-empty exact string")
+        if type(self.line) is not int or self.line < 1:
+            raise ValueError("comparison finding line must be an exact positive integer")
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {
+            "ordinal": self.ordinal,
+            "finding_id": self.finding_id,
+            "file": self.file,
+            "line": self.line,
+            "evidence_class": self.evidence_class,
+        }
+
+    @classmethod
+    def from_json_dict(cls, value: object) -> ComparisonSurfacedFinding:
+        fields = {"ordinal", "finding_id", "file", "line", "evidence_class"}
+        if type(value) is not dict or set(value) != fields:
+            raise ValueError("comparison surfaced finding has an invalid field set")
+        if type(value["ordinal"]) is not int or type(value["line"]) is not int:
+            raise ValueError("comparison surfaced finding numeric fields must be exact integers")
+        if any(
+            type(value[field]) is not str
+            for field in ("finding_id", "file", "evidence_class")
+        ):
+            raise ValueError("comparison surfaced finding identity must use exact strings")
+        return cls(
+            ordinal=value["ordinal"],
+            finding_id=value["finding_id"],
+            file=value["file"],
+            line=value["line"],
+            evidence_class=value["evidence_class"],
+        )
+
+
+@dataclass(frozen=True)
+class ComparisonArmOutcome:
+    """Irreducible execution facts for one predeclared comparison slot."""
+
+    task_status: TaskStatus
+    abstain_reason: str | None
+    surfaced_findings: tuple[ComparisonSurfacedFinding, ...]
+    product_measurement: MeasurementRecord | None
+    paid_calls_sha256: str
+    wall_time_s: float
+    tool_cost_s: float | None
+
+    def __post_init__(self) -> None:
+        if type(self.task_status) is not TaskStatus:
+            raise ValueError("comparison outcome task_status must be an exact TaskStatus")
+        if self.task_status is TaskStatus.COMPLETED:
+            if self.abstain_reason is not None:
+                raise ValueError("completed comparison outcome cannot carry abstain_reason")
+        elif type(self.abstain_reason) is not str or not self.abstain_reason:
+            raise ValueError("non-completed comparison outcome requires abstain_reason")
+        if type(self.surfaced_findings) is not tuple or any(
+            type(finding) is not ComparisonSurfacedFinding
+            for finding in self.surfaced_findings
+        ):
+            raise ValueError("comparison surfaced_findings must be an exact tuple")
+        if tuple(finding.ordinal for finding in self.surfaced_findings) != tuple(
+            range(len(self.surfaced_findings))
+        ):
+            raise ValueError("comparison finding ordinals must be contiguous from zero")
+        finding_ids = tuple(finding.finding_id for finding in self.surfaced_findings)
+        if len(set(finding_ids)) != len(finding_ids):
+            raise ValueError("comparison surfaced finding_id is duplicate")
+        if self.product_measurement is not None and type(
+            self.product_measurement
+        ) is not MeasurementRecord:
+            raise ValueError("comparison product_measurement must be exact or null")
+        _require_sha256(self.paid_calls_sha256, "comparison paid_calls_sha256")
+        object.__setattr__(self, "wall_time_s", _canonical_nonnegative_number(
+            self.wall_time_s, "comparison wall_time_s"
+        ))
+        if self.tool_cost_s is not None:
+            object.__setattr__(self, "tool_cost_s", _canonical_nonnegative_number(
+                self.tool_cost_s, "comparison tool_cost_s"
+            ))
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": COMPARISON_ARM_OUTCOME_SCHEMA_VERSION,
+            "task_status": self.task_status.value,
+            "abstain_reason": self.abstain_reason,
+            "surfaced_findings": [
+                finding.to_json_dict() for finding in self.surfaced_findings
+            ],
+            "product_measurement": (
+                None
+                if self.product_measurement is None
+                else self.product_measurement.to_json_dict()
+            ),
+            "paid_calls_sha256": self.paid_calls_sha256,
+            "wall_time_s": self.wall_time_s,
+            "tool_cost_s": self.tool_cost_s,
+        }
+
+    @classmethod
+    def from_json_dict(cls, value: object) -> ComparisonArmOutcome:
+        fields = {
+            "schema_version",
+            "task_status",
+            "abstain_reason",
+            "surfaced_findings",
+            "product_measurement",
+            "paid_calls_sha256",
+            "wall_time_s",
+            "tool_cost_s",
+        }
+        if type(value) is not dict or set(value) != fields:
+            raise ValueError("comparison arm outcome has an invalid field set")
+        if value["schema_version"] != COMPARISON_ARM_OUTCOME_SCHEMA_VERSION:
+            raise ValueError("comparison arm outcome has an unsupported version")
+        if type(value["task_status"]) is not str:
+            raise ValueError("comparison arm outcome task_status must be an exact string")
+        try:
+            task_status = TaskStatus(value["task_status"])
+        except ValueError as exc:
+            raise ValueError("comparison arm outcome task_status is unknown") from exc
+        surfaced = value["surfaced_findings"]
+        if type(surfaced) is not list:
+            raise ValueError("comparison surfaced_findings must be a list")
+        measurement_payload = value["product_measurement"]
+        measurement = (
+            None
+            if measurement_payload is None
+            else decode_measurement_record(measurement_payload)
+        )
+        paid_calls_sha256 = value["paid_calls_sha256"]
+        if type(paid_calls_sha256) is not str:
+            raise ValueError("comparison paid_calls_sha256 must be an exact string")
+        abstain_reason = value["abstain_reason"]
+        if abstain_reason is not None and type(abstain_reason) is not str:
+            raise ValueError("comparison abstain_reason must be an exact string or null")
+        return cls(
+            task_status=task_status,
+            abstain_reason=abstain_reason,
+            surfaced_findings=tuple(
+                ComparisonSurfacedFinding.from_json_dict(row) for row in surfaced
+            ),
+            product_measurement=measurement,
+            paid_calls_sha256=paid_calls_sha256,
+            wall_time_s=_exact_json_number(value["wall_time_s"], "comparison wall_time_s"),
+            tool_cost_s=(
+                None
+                if value["tool_cost_s"] is None
+                else _exact_json_number(value["tool_cost_s"], "comparison tool_cost_s")
+            ),
+        )
+
+
+@dataclass(frozen=True, init=False)
+class ComparisonOutcomeAuthority:
+    """Provider-before capability bound to one exact comparison predeclaration."""
+
+    root: Path
+    predeclaration_sha256: str
+    authority_id: str
+    manifest_sha256: str
+    slots: tuple[ComparisonOutcomeSlot, ...]
+
+    @classmethod
+    def _create(
+        cls,
+        *,
+        root: Path,
+        predeclaration_sha256: str,
+        authority_id: str,
+        manifest_sha256: str,
+        slots: tuple[ComparisonOutcomeSlot, ...],
+    ) -> ComparisonOutcomeAuthority:
+        authority = object.__new__(cls)
+        object.__setattr__(authority, "root", root)
+        object.__setattr__(authority, "predeclaration_sha256", predeclaration_sha256)
+        object.__setattr__(authority, "authority_id", authority_id)
+        object.__setattr__(authority, "manifest_sha256", manifest_sha256)
+        object.__setattr__(authority, "slots", slots)
+        return authority
+
+
+@dataclass(frozen=True)
+class VerifiedComparisonOutcomes:
+    """Fresh-decoded exact comparison outcomes accepted against an external anchor."""
+
+    predeclaration_sha256: str
+    authority_id: str
+    manifest_sha256: str
+    slots: tuple[ComparisonOutcomeSlot, ...]
+    outcomes: tuple[ComparisonArmOutcome, ...]
+    documents: tuple[CanonicalDocument, ...]
 
 
 def canonical_json_bytes(value: object) -> bytes:
@@ -415,6 +758,427 @@ def verify_outcome_seal(
         _validate_outcome_envelope(document.value, slot)
         documents[slot.slot_id] = document
     return documents
+
+
+def build_comparison_outcome_predeclaration(
+    *,
+    authority_id: str,
+    manifest_sha256: str,
+    case_bindings: Mapping[str, str],
+    repeats: int,
+) -> dict[str, object]:
+    """Build the exact domain-separated comparison arm predeclaration."""
+    _require_sha256(authority_id, "comparison outcome authority_id")
+    _require_sha256(manifest_sha256, "comparison outcome manifest_sha256")
+    if type(repeats) is not int or repeats < 1:
+        raise ValueError("comparison outcome repeats must be an exact positive integer")
+    if type(case_bindings) is not dict or not case_bindings:
+        raise ValueError("comparison outcome case bindings must be a non-empty mapping")
+    _require_outcome_resource_bounds(case_count=len(case_bindings), repeats=repeats)
+    normalized_bindings: dict[str, str] = {}
+    for case_id, digest in case_bindings.items():
+        if type(case_id) is not str or not case_id:
+            raise ValueError("comparison outcome case_id must be a non-empty exact string")
+        _require_sha256(digest, "comparison outcome bindings_sha256")
+        normalized_bindings[case_id] = digest
+    slots: list[ComparisonOutcomeSlot] = []
+    for case_id in sorted(normalized_bindings):
+        for repeat in range(repeats):
+            for arm in _OUTCOME_ARMS:
+                slots.append(
+                    ComparisonOutcomeSlot.create(
+                        ordinal=len(slots),
+                        authority_id=authority_id,
+                        manifest_sha256=manifest_sha256,
+                        case_id=case_id,
+                        arm=arm,
+                        repeat=repeat,
+                        bindings_sha256=normalized_bindings[case_id],
+                    )
+                )
+    return {
+        "schema_version": COMPARISON_OUTCOME_PREDECLARATION_SCHEMA_VERSION,
+        "protocol": COMPARISON_OUTCOME_PROTOCOL,
+        "authority_id": authority_id,
+        "manifest_sha256": manifest_sha256,
+        "repeats": repeats,
+        "case_bindings": [
+            {"case_id": case_id, "bindings_sha256": normalized_bindings[case_id]}
+            for case_id in sorted(normalized_bindings)
+        ],
+        "outcome_slots": [slot.to_json_dict() for slot in slots],
+    }
+
+
+def predeclare_comparison_outcomes(
+    root: Path,
+    *,
+    authority_id: str,
+    manifest_sha256: str,
+    case_bindings: Mapping[str, str],
+    repeats: int,
+) -> ComparisonOutcomeAuthority:
+    """Durably predeclare every comparison slot before any arm dispatch."""
+    payload = build_comparison_outcome_predeclaration(
+        authority_id=authority_id,
+        manifest_sha256=manifest_sha256,
+        case_bindings=case_bindings,
+        repeats=repeats,
+    )
+    document = write_canonical_json_once(
+        root, COMPARISON_OUTCOME_PREDECLARATION_PATH, payload
+    )
+    slots = _comparison_slots_from_predeclaration(document.value)
+    return ComparisonOutcomeAuthority._create(
+        root=root,
+        predeclaration_sha256=document.sha256,
+        authority_id=authority_id,
+        manifest_sha256=manifest_sha256,
+        slots=slots,
+    )
+
+
+def write_comparison_arm_outcome_once(
+    authority: ComparisonOutcomeAuthority,
+    slot: ComparisonOutcomeSlot,
+    outcome: ComparisonArmOutcome,
+) -> CanonicalDocument:
+    """Write one exact predeclared arm outcome after fresh capability validation."""
+    slots = _fresh_comparison_authority_slots(authority)
+    normalized_slot = _normalize_comparison_slot(slot)
+    by_id = {candidate.slot_id: candidate for candidate in slots}
+    if by_id.get(normalized_slot.slot_id) != normalized_slot:
+        raise ValueError("comparison outcome slot is absent from the frozen predeclaration")
+    if type(outcome) is not ComparisonArmOutcome:
+        raise ValueError("comparison arm outcome must be an exact typed outcome")
+    _validate_comparison_arm_outcome(outcome, normalized_slot)
+    outcome_payload = outcome.to_json_dict()
+    decoded = ComparisonArmOutcome.from_json_dict(outcome_payload)
+    if canonical_json_bytes(decoded.to_json_dict()) != canonical_json_bytes(outcome_payload):
+        raise ValueError("comparison arm outcome did not round-trip canonically")
+    payload = {
+        "schema_version": COMPARISON_ARM_OUTCOME_SCHEMA_VERSION,
+        "protocol": COMPARISON_OUTCOME_PROTOCOL,
+        "slot": normalized_slot.to_json_dict(),
+        "outcome": outcome_payload,
+    }
+    _decode_comparison_outcome_envelope(payload, normalized_slot)
+    return write_canonical_json_once(
+        authority.root, normalized_slot.relative_path, payload
+    )
+
+
+def seal_comparison_outcomes(
+    authority: ComparisonOutcomeAuthority,
+) -> CanonicalDocument:
+    """Seal the exact complete slot set owned by one frozen comparison capability."""
+    slots = _fresh_comparison_authority_slots(authority)
+    expected_paths = {slot.relative_path for slot in slots}
+    actual_paths = _list_comparison_outcome_files(
+        authority.root, maximum_files=len(slots) + 1
+    )
+    if actual_paths != expected_paths:
+        missing = sorted(expected_paths - actual_paths)
+        extra = sorted(actual_paths - expected_paths)
+        if missing:
+            raise ValueError(f"comparison outcome seal is missing slot(s): {missing}")
+        raise ValueError(f"comparison outcome seal contains extra slot(s): {extra}")
+    rows: list[dict[str, object]] = []
+    for slot in slots:
+        document = read_canonical_json(authority.root, slot.relative_path)
+        _decode_comparison_outcome_envelope(document.value, slot)
+        rows.append(
+            {
+                "slot_id": slot.slot_id,
+                "path": slot.relative_path,
+                "sha256": document.sha256,
+                "size": document.size,
+            }
+        )
+    payload = {
+        "schema_version": COMPARISON_OUTCOME_SEAL_SCHEMA_VERSION,
+        "protocol": COMPARISON_OUTCOME_PROTOCOL,
+        "authority_id": authority.authority_id,
+        "manifest_sha256": authority.manifest_sha256,
+        "predeclaration_sha256": authority.predeclaration_sha256,
+        "slots": rows,
+    }
+    return write_canonical_json_once(
+        authority.root, COMPARISON_OUTCOME_SEAL_PATH, payload
+    )
+
+
+def verify_comparison_outcomes(
+    root: Path,
+    *,
+    expected_predeclaration_sha256: str,
+    expected_authority_id: str,
+    expected_manifest_sha256: str,
+    expected_domain: str = COMPARISON_OUTCOME_PROTOCOL,
+) -> VerifiedComparisonOutcomes:
+    """Verify and fresh-decode a comparison set against external frozen anchors."""
+    for expected_value, label in (
+        (expected_predeclaration_sha256, "expected comparison predeclaration"),
+        (expected_authority_id, "expected comparison authority_id"),
+        (expected_manifest_sha256, "expected comparison manifest_sha256"),
+    ):
+        _require_sha256(expected_value, label)
+    if type(expected_domain) is not str or expected_domain != COMPARISON_OUTCOME_PROTOCOL:
+        raise ValueError("comparison outcome authority domain is unsupported")
+    predeclaration = read_canonical_json(root, COMPARISON_OUTCOME_PREDECLARATION_PATH)
+    if predeclaration.sha256 != expected_predeclaration_sha256:
+        raise ValueError("comparison outcome predeclaration differs from its frozen digest")
+    slots = _comparison_slots_from_predeclaration(predeclaration.value)
+    value = predeclaration.value
+    assert isinstance(value, dict)
+    if (
+        value["authority_id"] != expected_authority_id
+        or value["manifest_sha256"] != expected_manifest_sha256
+    ):
+        raise ValueError("comparison outcome predeclaration external binding mismatch")
+    seal = read_canonical_json(root, COMPARISON_OUTCOME_SEAL_PATH)
+    seal_value = seal.value
+    seal_fields = {
+        "schema_version",
+        "protocol",
+        "authority_id",
+        "manifest_sha256",
+        "predeclaration_sha256",
+        "slots",
+    }
+    if type(seal_value) is not dict or set(seal_value) != seal_fields:
+        raise ValueError("comparison outcome seal has an invalid field set")
+    if (
+        seal_value["schema_version"] != COMPARISON_OUTCOME_SEAL_SCHEMA_VERSION
+        or seal_value["protocol"] != expected_domain
+        or seal_value["authority_id"] != expected_authority_id
+        or seal_value["manifest_sha256"] != expected_manifest_sha256
+        or seal_value["predeclaration_sha256"] != expected_predeclaration_sha256
+        or type(seal_value["slots"]) is not list
+    ):
+        raise ValueError("comparison outcome seal external binding mismatch")
+    rows = seal_value["slots"]
+    if len(rows) != len(slots):
+        raise ValueError("comparison outcome seal does not exactly cover its slots")
+    if _list_comparison_outcome_files(root, maximum_files=len(slots) + 1) != {
+        slot.relative_path for slot in slots
+    }:
+        raise ValueError("comparison outcome tree does not exactly match its seal")
+    outcomes: list[ComparisonArmOutcome] = []
+    documents: list[CanonicalDocument] = []
+    for row, slot in zip(rows, slots, strict=True):
+        if type(row) is not dict or set(row) != {"slot_id", "path", "sha256", "size"}:
+            raise ValueError("comparison outcome seal contains an invalid slot row")
+        if row["slot_id"] != slot.slot_id or row["path"] != slot.relative_path:
+            raise ValueError("comparison outcome seal swaps slot rows")
+        _require_sha256(row["sha256"], "comparison outcome seal sha256")
+        if type(row["size"]) is not int or row["size"] < 1:
+            raise ValueError("comparison outcome seal size must be an exact positive integer")
+        document = read_canonical_json(root, slot.relative_path)
+        if document.sha256 != row["sha256"] or document.size != row["size"]:
+            raise ValueError("comparison outcome differs from its seal")
+        outcome = _decode_comparison_outcome_envelope(document.value, slot)
+        documents.append(document)
+        outcomes.append(outcome)
+    return VerifiedComparisonOutcomes(
+        predeclaration_sha256=expected_predeclaration_sha256,
+        authority_id=expected_authority_id,
+        manifest_sha256=expected_manifest_sha256,
+        slots=slots,
+        outcomes=tuple(outcomes),
+        documents=tuple(documents),
+    )
+
+
+def _fresh_comparison_authority_slots(
+    authority: ComparisonOutcomeAuthority,
+) -> tuple[ComparisonOutcomeSlot, ...]:
+    if type(authority) is not ComparisonOutcomeAuthority:
+        raise ValueError("comparison outcome authority must be an exact capability")
+    _require_sha256(authority.predeclaration_sha256, "comparison predeclaration digest")
+    _require_sha256(authority.authority_id, "comparison authority_id")
+    _require_sha256(authority.manifest_sha256, "comparison manifest_sha256")
+    predeclaration = read_canonical_json(
+        authority.root, COMPARISON_OUTCOME_PREDECLARATION_PATH
+    )
+    if predeclaration.sha256 != authority.predeclaration_sha256:
+        raise ValueError("comparison outcome predeclaration differs from frozen authority")
+    slots = _comparison_slots_from_predeclaration(predeclaration.value)
+    value = predeclaration.value
+    assert isinstance(value, dict)
+    if (
+        value["authority_id"] != authority.authority_id
+        or value["manifest_sha256"] != authority.manifest_sha256
+        or slots != authority.slots
+    ):
+        raise ValueError("comparison outcome authority binding mismatch")
+    return slots
+
+
+def _comparison_slots_from_predeclaration(
+    value: object,
+) -> tuple[ComparisonOutcomeSlot, ...]:
+    fields = {
+        "schema_version",
+        "protocol",
+        "authority_id",
+        "manifest_sha256",
+        "repeats",
+        "case_bindings",
+        "outcome_slots",
+    }
+    if type(value) is not dict or set(value) != fields:
+        raise ValueError("comparison outcome predeclaration has an invalid field set")
+    if (
+        value["schema_version"] != COMPARISON_OUTCOME_PREDECLARATION_SCHEMA_VERSION
+        or value["protocol"] != COMPARISON_OUTCOME_PROTOCOL
+    ):
+        raise ValueError("comparison outcome predeclaration protocol is unsupported")
+    authority_id = value["authority_id"]
+    manifest_sha256 = value["manifest_sha256"]
+    if type(authority_id) is not str or type(manifest_sha256) is not str:
+        raise ValueError("comparison outcome predeclaration digests must be strings")
+    _require_sha256(authority_id, "comparison outcome authority_id")
+    _require_sha256(manifest_sha256, "comparison outcome manifest_sha256")
+    repeats = value["repeats"]
+    case_rows = value["case_bindings"]
+    slot_rows = value["outcome_slots"]
+    if type(repeats) is not int or repeats < 1:
+        raise ValueError("comparison outcome repeats must be an exact positive integer")
+    if type(case_rows) is not list or not case_rows:
+        raise ValueError("comparison outcome case_bindings must be a non-empty list")
+    _require_outcome_resource_bounds(case_count=len(case_rows), repeats=repeats)
+    bindings: dict[str, str] = {}
+    for row in case_rows:
+        if type(row) is not dict or set(row) != {"case_id", "bindings_sha256"}:
+            raise ValueError("comparison outcome case binding has an invalid field set")
+        case_id = row["case_id"]
+        digest = row["bindings_sha256"]
+        if type(case_id) is not str or not case_id or case_id in bindings:
+            raise ValueError("comparison outcome case binding is duplicate or invalid")
+        if type(digest) is not str:
+            raise ValueError("comparison outcome binding digest must be an exact string")
+        _require_sha256(digest, "comparison outcome bindings_sha256")
+        bindings[case_id] = digest
+    if type(slot_rows) is not list or not slot_rows:
+        raise ValueError("comparison outcome slots must be a non-empty list")
+    supplied = _validated_comparison_slots(
+        tuple(ComparisonOutcomeSlot.from_json_dict(row) for row in slot_rows)
+    )
+    rebuilt = build_comparison_outcome_predeclaration(
+        authority_id=authority_id,
+        manifest_sha256=manifest_sha256,
+        case_bindings=bindings,
+        repeats=repeats,
+    )
+    if canonical_json_bytes(rebuilt) != canonical_json_bytes(value):
+        raise ValueError("comparison outcome predeclaration is not exactly derived")
+    return supplied
+
+
+def _normalize_comparison_slot(slot: ComparisonOutcomeSlot) -> ComparisonOutcomeSlot:
+    if type(slot) is not ComparisonOutcomeSlot:
+        raise ValueError("comparison outcome slot must be an exact typed slot")
+    rebuilt = ComparisonOutcomeSlot.create(
+        ordinal=slot.ordinal,
+        authority_id=slot.authority_id,
+        manifest_sha256=slot.manifest_sha256,
+        case_id=slot.case_id,
+        arm=slot.arm,
+        repeat=slot.repeat,
+        bindings_sha256=slot.bindings_sha256,
+    )
+    if rebuilt != slot:
+        raise ValueError("comparison outcome slot derived identity/path mismatch")
+    return rebuilt
+
+
+def _validated_comparison_slots(
+    slots: Sequence[ComparisonOutcomeSlot],
+) -> tuple[ComparisonOutcomeSlot, ...]:
+    normalized = tuple(_normalize_comparison_slot(slot) for slot in slots)
+    identities = tuple((slot.case_id, slot.arm, slot.repeat) for slot in normalized)
+    if (
+        len({slot.slot_id for slot in normalized}) != len(normalized)
+        or len({slot.relative_path for slot in normalized}) != len(normalized)
+        or len(set(identities)) != len(normalized)
+        or len({slot.ordinal for slot in normalized}) != len(normalized)
+    ):
+        raise ValueError("comparison outcome predeclaration contains duplicate slots")
+    ordered = tuple(sorted(normalized, key=lambda slot: slot.ordinal))
+    if tuple(slot.ordinal for slot in ordered) != tuple(range(len(ordered))):
+        raise ValueError("comparison outcome ordinals must be contiguous from zero")
+    if len({(slot.authority_id, slot.manifest_sha256) for slot in ordered}) != 1:
+        raise ValueError("comparison outcome slots cross authority domains")
+    return ordered
+
+
+def _validate_comparison_arm_outcome(
+    outcome: ComparisonArmOutcome, slot: ComparisonOutcomeSlot
+) -> None:
+    if slot.arm == ARM_ATTEST_PRODUCT:
+        measurement = outcome.product_measurement
+        if type(measurement) is not MeasurementRecord:
+            raise ValueError("product comparison outcome requires current MeasurementRecord")
+        if (
+            measurement.case_id != slot.case_id
+            or measurement.arm != slot.arm
+            or measurement.repeat != slot.repeat
+            or measurement.task_status is not outcome.task_status
+        ):
+            raise ValueError("product measurement does not match its comparison slot/status")
+        published_ids = tuple(
+            finding.finding_id
+            for finding in measurement.findings
+            if finding.finding_status is FindingStatus.PUBLISHED
+        )
+        surfaced_ids = tuple(finding.finding_id for finding in outcome.surfaced_findings)
+        if published_ids != surfaced_ids:
+            raise ValueError("product surfaced findings do not match its MeasurementRecord")
+    elif outcome.product_measurement is not None:
+        raise ValueError("baseline comparison outcomes cannot carry product measurement")
+    if slot.arm == "ruff_static" and outcome.paid_calls_sha256 != EMPTY_PAID_CALLS_SHA256:
+        raise ValueError("ruff comparison outcome must bind exact empty paid calls")
+
+
+def _decode_comparison_outcome_envelope(
+    value: object, slot: ComparisonOutcomeSlot
+) -> ComparisonArmOutcome:
+    fields = {"schema_version", "protocol", "slot", "outcome"}
+    if type(value) is not dict or set(value) != fields:
+        raise ValueError("comparison outcome envelope has an invalid field set")
+    if (
+        value["schema_version"] != COMPARISON_ARM_OUTCOME_SCHEMA_VERSION
+        or value["protocol"] != COMPARISON_OUTCOME_PROTOCOL
+    ):
+        raise ValueError("comparison outcome envelope protocol is unsupported")
+    if canonical_json_bytes(value["slot"]) != canonical_json_bytes(slot.to_json_dict()):
+        raise ValueError("comparison outcome envelope slot binding mismatch")
+    outcome = ComparisonArmOutcome.from_json_dict(value["outcome"])
+    _validate_comparison_arm_outcome(outcome, slot)
+    return outcome
+
+
+def _exact_json_number(value: object, label: str) -> float:
+    if type(value) not in {int, float}:
+        raise ValueError(f"{label} must be an exact finite number")
+    return _canonical_nonnegative_number(value, label)
+
+
+def _canonical_nonnegative_number(value: object, label: str) -> float:
+    if type(value) not in {int, float}:
+        raise ValueError(f"{label} must be a finite non-negative number")
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    number = float(value)
+    if not math.isfinite(number) or number < 0:
+        raise ValueError(f"{label} must be a finite non-negative number")
+    return 0.0 if number == 0.0 else number
+
+
+def _list_comparison_outcome_files(root: Path, *, maximum_files: int) -> set[str]:
+    return _list_flat_outcome_files(
+        root, COMPARISON_OUTCOME_DIRECTORY, maximum_files=maximum_files
+    )
 
 
 def _open_root(root: Path, *, create: bool = False) -> int:
@@ -696,12 +1460,19 @@ def _validate_outcome_envelope(value: object, slot: OutcomeSlot) -> None:
 
 def _list_outcome_files(root: Path, *, maximum_files: int) -> set[str]:
     """List the flat outcomes directory through handles; reject extra structure."""
+    return _list_flat_outcome_files(root, "outcomes", maximum_files=maximum_files)
+
+
+def _list_flat_outcome_files(
+    root: Path, directory: str, *, maximum_files: int
+) -> set[str]:
+    """List one authority-owned flat directory solely through safe handles."""
     descriptors: list[int] = []
     try:
         root_fd = _open_root(root)
         descriptors.append(root_fd)
         try:
-            outcomes_fd = _open_directory_component(root_fd, "outcomes")
+            outcomes_fd = _open_directory_component(root_fd, directory)
         except ValueError as exc:
             if isinstance(exc.__cause__, OSError) and exc.__cause__.errno == errno.ENOENT:
                 return set()
@@ -717,7 +1488,7 @@ def _list_outcome_files(root: Path, *, maximum_files: int) -> set[str]:
                 raise ValueError(
                     "authoritative outcome tree must be flat and contain regular files only"
                 )
-            found.add(PurePosixPath("outcomes", name).as_posix())
+            found.add(PurePosixPath(directory, name).as_posix())
         return found
     finally:
         for descriptor in reversed(descriptors):

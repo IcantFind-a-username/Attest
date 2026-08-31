@@ -390,6 +390,140 @@ def test_outcome_predeclaration_requires_exact_three_arm_coverage(tmp_path: Path
         seal_outcomes(root)
 
 
+def test_comparison_outcome_writer_freshly_resolves_nonzero_ordinal_slot(
+    tmp_path: Path,
+) -> None:
+    from attest.benchmark.measurement import TaskStatus
+    from attest.benchmark.outcomes import (
+        ComparisonArmOutcome,
+        predeclare_comparison_outcomes,
+        write_comparison_arm_outcome_once,
+    )
+
+    root = tmp_path / "state"
+    authority = predeclare_comparison_outcomes(
+        root,
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    slot = authority.slots[1]
+    outcome = ComparisonArmOutcome(
+        task_status=TaskStatus.COMPLETED,
+        abstain_reason=None,
+        surfaced_findings=(),
+        product_measurement=None,
+        paid_calls_sha256=hashlib.sha256(b"[]").hexdigest(),
+        wall_time_s=1.0,
+        tool_cost_s=None,
+    )
+
+    document = write_comparison_arm_outcome_once(
+        authority,
+        slot,
+        outcome,
+    )
+
+    assert document.relative_path == slot.relative_path
+
+
+def test_comparison_outcome_writer_rejects_slot_from_another_predeclaration(
+    tmp_path: Path,
+) -> None:
+    from attest.benchmark.measurement import TaskStatus
+    from attest.benchmark.outcomes import (
+        ComparisonArmOutcome,
+        predeclare_comparison_outcomes,
+        write_comparison_arm_outcome_once,
+    )
+
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first = predeclare_comparison_outcomes(
+        first_root,
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    second = predeclare_comparison_outcomes(
+        second_root,
+        authority_id="e" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "c" * 64},
+        repeats=1,
+    )
+    outcome = ComparisonArmOutcome(
+        task_status=TaskStatus.COMPLETED,
+        abstain_reason=None,
+        surfaced_findings=(),
+        product_measurement=None,
+        paid_calls_sha256=hashlib.sha256(b"[]").hexdigest(),
+        wall_time_s=1.0,
+        tool_cost_s=None,
+    )
+
+    with pytest.raises(ValueError, match="predeclaration|slot|binding"):
+        write_comparison_arm_outcome_once(second, first.slots[1], outcome)
+
+
+def test_comparison_slot_identity_and_path_are_domain_separated_from_generic_v1(
+    tmp_path: Path,
+) -> None:
+    from attest.benchmark.outcomes import predeclare_comparison_outcomes
+
+    generic = _outcome_slot(0, "case-1", ARM_PRODUCT)
+    comparison = predeclare_comparison_outcomes(
+        tmp_path / "comparison",
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    ).slots[0]
+
+    assert comparison.slot_id != generic.slot_id
+    assert comparison.relative_path != generic.relative_path
+
+
+def test_product_comparison_outcome_requires_exact_published_finding_join(
+    tmp_path: Path,
+) -> None:
+    from attest.benchmark.measurement import TaskStatus
+    from attest.benchmark.outcomes import (
+        ComparisonArmOutcome,
+        predeclare_comparison_outcomes,
+        write_comparison_arm_outcome_once,
+    )
+
+    authority = predeclare_comparison_outcomes(
+        tmp_path / "comparison",
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    slot = authority.slots[0]
+    measurement = replace(
+        _measurement_record(findings=(_finding("published-finding"),)),
+        case_id=slot.case_id,
+        arm=slot.arm,
+        repeat=slot.repeat,
+    )
+    outcome = ComparisonArmOutcome(
+        task_status=TaskStatus.COMPLETED,
+        abstain_reason=None,
+        surfaced_findings=(),
+        product_measurement=measurement,
+        paid_calls_sha256=hashlib.sha256(b"[]").hexdigest(),
+        wall_time_s=1.0,
+        tool_cost_s=None,
+    )
+
+    with pytest.raises(ValueError, match="surfaced findings|MeasurementRecord"):
+        write_comparison_arm_outcome_once(authority, slot, outcome)
+
+
 def test_outcome_predeclaration_rejects_resource_exhausting_repeats_before_range(
     tmp_path: Path,
 ) -> None:
@@ -811,6 +945,84 @@ def test_outcome_seal_rejects_fresh_predeclaration_digest_drift(tmp_path: Path) 
 
     with pytest.raises(ValueError, match="predeclaration|digest"):
         verify_outcome_seal(root)
+
+
+def test_outcome_seal_rejects_coordinated_whole_root_rewrite_against_frozen_digest(
+    tmp_path: Path,
+) -> None:
+    from attest.benchmark.measurement import TaskStatus
+    from attest.benchmark.outcomes import (
+        COMPARISON_OUTCOME_PREDECLARATION_PATH,
+        COMPARISON_OUTCOME_SEAL_PATH,
+        ComparisonArmOutcome,
+        predeclare_comparison_outcomes,
+        seal_comparison_outcomes,
+        verify_comparison_outcomes,
+        write_comparison_arm_outcome_once,
+    )
+
+    original_root = tmp_path / "original"
+    replacement_root = tmp_path / "replacement"
+    original = predeclare_comparison_outcomes(
+        original_root,
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    replacement = predeclare_comparison_outcomes(
+        replacement_root,
+        authority_id="e" * 64,
+        manifest_sha256="f" * 64,
+        case_bindings={"case-1": "c" * 64},
+        repeats=1,
+    )
+    for authority in (original, replacement):
+        for slot in authority.slots:
+            write_comparison_arm_outcome_once(
+                authority,
+                slot,
+                ComparisonArmOutcome(
+                    task_status=TaskStatus.COMPLETED,
+                    abstain_reason=None,
+                    surfaced_findings=(),
+                    product_measurement=(
+                        replace(
+                            _measurement_record(
+                                findings=(),
+                                eligible_defect_ids=(),
+                                truth_status="unadjudicated",
+                            ),
+                            case_id=slot.case_id,
+                            arm=slot.arm,
+                            repeat=slot.repeat,
+                        )
+                        if slot.arm == ARM_PRODUCT
+                        else None
+                    ),
+                    paid_calls_sha256=hashlib.sha256(b"[]").hexdigest(),
+                    wall_time_s=1.0,
+                    tool_cost_s=None,
+                ),
+            )
+        seal_comparison_outcomes(authority)
+
+    for relative_path in (
+        COMPARISON_OUTCOME_PREDECLARATION_PATH,
+        *(slot.relative_path for slot in replacement.slots),
+        COMPARISON_OUTCOME_SEAL_PATH,
+    ):
+        (original_root / relative_path).write_bytes(
+            (replacement_root / relative_path).read_bytes()
+        )
+
+    with pytest.raises(ValueError, match="predeclaration|frozen|digest"):
+        verify_comparison_outcomes(
+            original_root,
+            expected_predeclaration_sha256=original.predeclaration_sha256,
+            expected_authority_id=original.authority_id,
+            expected_manifest_sha256=original.manifest_sha256,
+        )
 
 
 def _finding(
