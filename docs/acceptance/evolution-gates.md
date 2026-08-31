@@ -170,7 +170,12 @@ and resolutions, `git diff --check`.
 - all adjacent tests pass;
 - full `pytest`, `ruff check .`, and `mypy src/attest` pass under the locked supported
   toolchain;
-- total source coverage ≥90%; `attest.core` stays ≥99% until intentionally replaced;
+- combined coverage for `attest.review`, `attest.cli`, and `attest.github` is ≥90%;
+- `attest.benchmark` and `attest.core` coverage are printed separately as informational
+  observations with no fail threshold; both packages are frozen against feature growth,
+  and `attest.core` code requires explicit owner approval to grow;
+- an ordinary work-order/wave Gate runs one supported Python; the final integration Gate
+  runs both the locked minimum and primary Python versions;
 - no test depends on current wall-clock date, global user environment, network, or secret;
 - minimum supported Python/tool combination is tested;
 - `git diff --check` clean;

@@ -264,8 +264,8 @@ The review/repair loop is bounded by D-049:
 - a task is complete only when its stated measurement exists. Plans and checkbox exhaustion
   are background, not authority to overrun these bounds.
 
-Do not weaken a regression pin, skip/xfail a failing security test, lower coverage, change a
-denominator, or relax a receipt check to make the suite pass.
+Do not weaken a regression pin, skip/xfail a failing security test, lower the product-package
+coverage threshold, change a denominator, or relax a receipt check to make the suite pass.
 
 ## 12. Change-impact matrix
 
@@ -288,15 +288,24 @@ denominator, or relax a receipt check to make the suite pass.
 Use the environment/lock specified by the current branch. Typical portable commands are:
 
 ```bash
-python -m pytest
+python -m pytest --cov=src/attest --cov-report=term-missing
+python -m coverage report --include='src/attest/benchmark/*' --fail-under=0
+python -m coverage report --include='src/attest/core/*' --fail-under=0
 python -m ruff check .
 python -m mypy src/attest
-python -m pytest --cov=src/attest --cov-report=term-missing
 git diff --check
 ```
 
 Inside an existing POSIX venv, replace `python` with `.venv/bin/python`; on Windows use the
 venv interpreter under `.venv\Scripts`. Never assume a platform-specific path in code.
+
+The coverage Gate applies `fail_under = 90` only to the production packages
+`attest.review`, `attest.cli`, and `attest.github`. The same run prints separate
+informational coverage reports for `attest.benchmark` and `attest.core` with no threshold.
+Benchmark is a frozen measurement tool whose correctness is established on known inputs;
+Core is research-only and frozen. Core code must not grow without explicit owner approval.
+Ordinary work-order/wave Gates use one supported Python; the final integration Gate uses
+both the locked minimum and primary Python versions.
 
 Repository gates:
 

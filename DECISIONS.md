@@ -402,3 +402,26 @@ is active only when the owning architecture/acceptance document changes with it.
   explicitly scoped task. Plans and checklist exhaustion cannot override the bound.
 - **Reversal:** owner call, supported by observed tasks that need a different bound.
 - **Trace:** `AGENTS.md` §11; `docs/backlog.md`; all roadmap work orders.
+
+### D-050 — Coverage authority follows the production package boundary
+
+- **Date/status/scope:** 2026-09-01 · owner-approved Gate amendment · `G-CODE-001`.
+- **Decision:** retain a hard 90% combined coverage threshold for `attest.review`,
+  `attest.cli`, and `attest.github`. Report `attest.benchmark` and `attest.core` coverage
+  separately without thresholds. Freeze both against feature growth; `attest.core` may not
+  gain code without explicit owner approval. Run one supported Python at ordinary
+  work-order/wave Gates and both locked Python versions at the final integration Gate.
+- **Why:** benchmark source plus its tests are the majority of repository measurement
+  apparatus and are not production authority. Requiring every product change to maintain
+  line coverage for frozen benchmark and research-only Core conflated tool maintenance with
+  product protection. Product coverage remains unchanged at 90%; known-input correctness
+  and the feature freeze protect the measurement and research packages.
+- **Evidence:** the pre-amendment Gate at `53f4641` passed 1543 tests with 90.13% total and
+  99.77% Core coverage in 736.62 wall-clock seconds. The SHA-bound post-amendment timing and
+  all three package reports are recorded in `docs/overnight-handoff.md`.
+- **Consequences:** the default coverage report is the production Gate; benchmark and Core
+  reports use `--fail-under=0`. This changes Gate scope, not the production threshold, test
+  expectations, security standard, or any product behavior.
+- **Reversal:** owner approval with a replacement package boundary and measured Gate-cost
+  evidence; never by lowering the production threshold after a failure.
+- **Trace:** `G-CODE-001`; `AGENTS.md` §13; `pyproject.toml` coverage configuration.

@@ -61,4 +61,9 @@ source = ["src/attest"]
 
 [tool.coverage.report]
 show_missing = true
+include = [
+    "src/attest/review/*",
+    "src/attest/cli/*",
+    "src/attest/github/*",
+]
 fail_under = 90
