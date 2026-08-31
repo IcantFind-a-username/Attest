@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -181,6 +182,162 @@ class _RecordingProvider:
             {"system": system, "prompt": prompt, "schema": schema, "max_tokens": max_tokens}
         )
         return ProviderResult(text=self.text, input_tokens=500, output_tokens=100)
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    (
+        ("missing", False),
+        ("empty", False),
+        ("calls", True),
+        ("artifacts", True),
+        ("costs", True),
+        ("rogue", "error"),
+        ("root_file", "error"),
+        ("root_symlink", "error"),
+        ("calls_file", "error"),
+        ("costs_symlink", "error"),
+        ("lstat_error", "error"),
+        ("reader_error", "error"),
+    ),
+)
+def test_paid_call_evidence_presence_is_an_exact_fail_closed_authority_boundary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    state: str,
+    expected: bool | str,
+) -> None:
+    """Missing reconciliation cannot ignore paid bytes or unsafe aliases."""
+
+    root = tmp_path / "paid"
+    if state == "empty":
+        root.mkdir()
+    elif state in {"calls", "artifacts"}:
+        evidence = root / state
+        evidence.mkdir(parents=True)
+        (evidence / "000000.json").write_text("{}\n", encoding="utf-8")
+    elif state == "costs":
+        root.mkdir()
+        (root / "costs.jsonl").write_text("{}\n", encoding="utf-8")
+    elif state == "rogue":
+        root.mkdir()
+        (root / "unbound").write_text("evidence\n", encoding="utf-8")
+    elif state == "root_file":
+        root.write_text("not a directory\n", encoding="utf-8")
+    elif state == "root_symlink":
+        target = tmp_path / "real-paid"
+        target.mkdir()
+        root.symlink_to(target, target_is_directory=True)
+    elif state == "calls_file":
+        root.mkdir()
+        (root / "calls").write_text("not a directory\n", encoding="utf-8")
+    elif state == "costs_symlink":
+        root.mkdir()
+        target = tmp_path / "outside-costs"
+        target.write_text("{}\n", encoding="utf-8")
+        (root / "costs.jsonl").symlink_to(target)
+    elif state == "lstat_error":
+        real_lstat = Path.lstat
+
+        def unreadable_lstat(path: Path):
+            if path == root:
+                raise OSError("simulated unreadable paid root")
+            return real_lstat(path)
+
+        monkeypatch.setattr(Path, "lstat", unreadable_lstat)
+    elif state == "reader_error":
+        root.mkdir()
+
+        def unreadable_directory(*_args, **_kwargs):
+            raise ValueError("simulated authoritative reader refusal")
+
+        monkeypatch.setattr(
+            baselines_module,
+            "list_authoritative_directory",
+            unreadable_directory,
+        )
+
+    if expected == "error":
+        with pytest.raises(ComparisonEvidenceError, match="unreadable|unsafe|entry"):
+            baselines_module._call_evidence_exists(root)
+    else:
+        assert baselines_module._call_evidence_exists(root) is expected
+
+
+@pytest.mark.parametrize(
+    "state",
+    (
+        "exact_reuse",
+        "exact_write_race",
+        "missing_write_race",
+        "unreadable",
+        "unsupported_version",
+        "payload_drift",
+        "returned_document_drift",
+    ),
+)
+def test_comparison_predeclaration_recovery_refuses_every_immutable_state_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    state: str,
+) -> None:
+    """Provider-before recovery accepts only the exact canonical declaration."""
+
+    from attest.benchmark.outcomes import write_canonical_json_once
+
+    root = tmp_path / "checkpoint"
+    expected = {
+        "schema_version": COMPARISON_CHECKPOINT_SCHEMA_VERSION,
+        "mode": "comparison",
+        "run_identity": "a" * 64,
+    }
+    if state in {"exact_reuse", "exact_write_race"}:
+        write_canonical_json_once(root, "comparison.json", expected)
+    elif state == "unreadable":
+        root.mkdir()
+        (root / "comparison.json").write_bytes(b'{"schema_version":7}\ntrailing')
+    elif state == "unsupported_version":
+        write_canonical_json_once(
+            root,
+            "comparison.json",
+            {**expected, "schema_version": "6"},
+        )
+    elif state == "payload_drift":
+        write_canonical_json_once(
+            root,
+            "comparison.json",
+            {**expected, "run_identity": "b" * 64},
+        )
+    elif state == "returned_document_drift":
+        returned = write_canonical_json_once(
+            tmp_path / "other",
+            "comparison.json",
+            {**expected, "run_identity": "c" * 64},
+        )
+        monkeypatch.setattr(
+            baselines_module,
+            "write_canonical_json_once",
+            lambda *_args, **_kwargs: returned,
+        )
+
+    if state in {"exact_write_race", "missing_write_race"}:
+        monkeypatch.setattr(
+            baselines_module,
+            "write_canonical_json_once",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                ValueError("simulated write race")
+            ),
+        )
+
+    if state in {"exact_reuse", "exact_write_race"}:
+        document = baselines_module._require_comparison_predeclaration(root, expected)
+        assert document.value == expected
+    else:
+        with pytest.raises(
+            ValueError,
+            match="write race|unreadable|unsupported|drift|canonical bytes",
+        ):
+            baselines_module._require_comparison_predeclaration(root, expected)
 
 
 def test_bare_prompt_baseline_makes_one_schema_call_and_keeps_valid_findings() -> None:
@@ -861,6 +1018,539 @@ def test_comparison_checkpoint_root_replays_every_model_subcall(tmp_path: Path) 
     )
     assert sum(p.proposal_calls + p.generator_calls for p in resumed_product) == 0
     assert sum(p.proposal_calls + p.generator_calls for p in resumed_bare) == 0
+
+
+@pytest.mark.parametrize("arm", (ARM_PRODUCT, ARM_BARE_PROMPT))
+def test_paid_factory_enters_after_exact_running_marker_and_may_create_empty_root(
+    tmp_path: Path, arm: str
+) -> None:
+    """A fresh paid factory runs only after its durable trial marker exists."""
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / f"marker-before-{arm}"
+    marker = root / "reconciliation" / arm / f"{plan.case.case_id}.json"
+    expected_marker = {
+        "schema_version": baselines_module.COMPARISON_RECONCILIATION_SCHEMA_VERSION,
+        "arm": arm,
+        "case_id": plan.case.case_id,
+        "trial_id": f"comparison:{arm}:{plan.case.case_id}",
+        "status": "running",
+    }
+    target_providers: list[ReplayProvider] = []
+
+    def target_factory() -> ReplayProvider:
+        document = baselines_module.read_canonical_json(
+            root, marker.relative_to(root)
+        )
+        assert document.value == expected_marker
+        case_root = root / arm / plan.case.case_id
+        assert {path.name for path in case_root.iterdir()} == {"calls", "artifacts"}
+        assert all(path.is_dir() and not tuple(path.iterdir()) for path in case_root.iterdir())
+        provider = ReplayProvider(cassettes[plan.case.case_id])
+        target_providers.append(provider)
+        return provider
+
+    execution = compare_arms(
+        [plan],
+        provider_factory=(
+            (lambda _request: target_factory())
+            if arm == ARM_PRODUCT
+            else lambda request: ReplayProvider(cassettes[request.case_id])
+        ),
+        bare_provider_factory=(
+            (lambda _case_id: target_factory())
+            if arm == ARM_BARE_PROMPT
+            else lambda case_id: ReplayProvider(cassettes[case_id])
+        ),
+        ruff_executable=None,
+        checkpoint_root=root,
+    )
+
+    assert target_providers
+    assert sum(
+        provider.proposal_calls + provider.generator_calls
+        for provider in target_providers
+    ) > 0
+    assert execution.publication_authority is not None
+    assert (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).is_file()
+
+
+@pytest.mark.parametrize("arm", (ARM_PRODUCT, ARM_BARE_PROMPT))
+@pytest.mark.parametrize(
+    "mutation",
+    ("unlink", "unlink_recreate_exact", "canonical_drift", "paid_evidence"),
+)
+def test_paid_factory_authority_tamper_is_rejected_before_dispatch_or_publication(
+    tmp_path: Path, arm: str, mutation: str
+) -> None:
+    """A factory cannot alter its marker or inject paid-call evidence."""
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / f"marker-{mutation}-{arm}"
+    marker = root / "reconciliation" / arm / f"{plan.case.case_id}.json"
+    expected_marker = {
+        "schema_version": baselines_module.COMPARISON_RECONCILIATION_SCHEMA_VERSION,
+        "arm": arm,
+        "case_id": plan.case.case_id,
+        "trial_id": f"comparison:{arm}:{plan.case.case_id}",
+        "status": "running",
+    }
+    target_providers: list[ReplayProvider] = []
+
+    def target_factory() -> ReplayProvider:
+        document = baselines_module.read_canonical_json(
+            root, marker.relative_to(root)
+        )
+        assert document.value == expected_marker
+        case_root = root / arm / plan.case.case_id
+        assert {path.name for path in case_root.iterdir()} == {"calls", "artifacts"}
+        if mutation == "unlink":
+            marker.unlink()
+        elif mutation == "unlink_recreate_exact":
+            original = marker.read_bytes()
+            marker.unlink()
+            marker.write_bytes(original)
+        elif mutation == "canonical_drift":
+            marker.write_text(
+                json.dumps(
+                    {**expected_marker, "status": "settled"},
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+        else:
+            calls = case_root / "calls"
+            (calls / "000000.json").write_text("{}\n", encoding="utf-8")
+        provider = ReplayProvider(cassettes[plan.case.case_id])
+        target_providers.append(provider)
+        return provider
+
+    with pytest.raises(ComparisonEvidenceError) as raised:
+        compare_arms(
+            [plan],
+            provider_factory=(
+                (lambda _request: target_factory())
+                if arm == ARM_PRODUCT
+                else lambda request: ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=(
+                (lambda _case_id: target_factory())
+                if arm == ARM_BARE_PROMPT
+                else lambda case_id: ReplayProvider(cassettes[case_id])
+            ),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    expected_error = (
+        "paid evidence appeared during provider factory"
+        if mutation == "paid_evidence"
+        else "reconciliation marker changed during provider factory"
+    )
+    assert str(raised.value) == (
+        f"comparison {arm}/{plan.case.case_id} {expected_error}"
+    )
+    assert target_providers
+    assert sum(
+        provider.proposal_calls + provider.generator_calls
+        for provider in target_providers
+    ) == 0
+    ordinal = 0 if arm == ARM_PRODUCT else 1
+    assert not (
+        root
+        / "authoritative-outcomes"
+        / "comparison-outcomes"
+        / f"{ordinal:06d}.json"
+    ).exists()
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+
+
+@pytest.mark.parametrize("arm", (ARM_PRODUCT, ARM_BARE_PROMPT))
+@pytest.mark.parametrize(
+    "factory_outcome", ("return_after_unlink", "raise_after_unlink", "raise_unchanged")
+)
+def test_factory_cannot_remove_marker_and_be_retried_as_fresh(
+    tmp_path: Path, arm: str, factory_outcome: str
+) -> None:
+    """Every factory exit leaves an exact marker that makes resume fail closed."""
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / f"failed-factory-{arm}"
+    marker = root / "reconciliation" / arm / f"{plan.case.case_id}.json"
+    expected_marker = {
+        "schema_version": baselines_module.COMPARISON_RECONCILIATION_SCHEMA_VERSION,
+        "arm": arm,
+        "case_id": plan.case.case_id,
+        "trial_id": f"comparison:{arm}:{plan.case.case_id}",
+        "status": "running",
+    }
+    first_factory_calls = 0
+
+    def attacking_factory() -> ReplayProvider:
+        nonlocal first_factory_calls
+        first_factory_calls += 1
+        document = baselines_module.read_canonical_json(
+            root, marker.relative_to(root)
+        )
+        assert document.value == expected_marker
+        if factory_outcome != "raise_unchanged":
+            marker.unlink()
+        if factory_outcome.startswith("raise"):
+            raise RuntimeError("factory failed after removing its marker")
+        return ReplayProvider(cassettes[plan.case.case_id])
+
+    def execute() -> ComparisonExecution:
+        return compare_arms(
+            [plan],
+            provider_factory=(
+                (lambda _request: attacking_factory())
+                if arm == ARM_PRODUCT
+                else lambda request: ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=(
+                (lambda _case_id: attacking_factory())
+                if arm == ARM_BARE_PROMPT
+                else lambda case_id: ReplayProvider(cassettes[case_id])
+            ),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    if factory_outcome == "raise_unchanged":
+        with pytest.raises(RuntimeError, match="factory failed"):
+            execute()
+    else:
+        with pytest.raises(ComparisonEvidenceError) as raised:
+            execute()
+        assert str(raised.value) == (
+            f"comparison {arm}/{plan.case.case_id} reconciliation marker changed "
+            f"during {'failed ' if factory_outcome.startswith('raise') else ''}"
+            "provider factory"
+        )
+
+    assert first_factory_calls == 1
+    case_root = root / arm / plan.case.case_id
+    assert {path.name for path in case_root.iterdir()} == {"calls", "artifacts"}
+    if factory_outcome == "raise_unchanged":
+        assert baselines_module.read_canonical_json(
+            root, marker.relative_to(root)
+        ).value == expected_marker
+    else:
+        assert not marker.exists()
+    ordinal = 0 if arm == ARM_PRODUCT else 1
+    outcome = (
+        root
+        / "authoritative-outcomes"
+        / "comparison-outcomes"
+        / f"{ordinal:06d}.json"
+    )
+    final = (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    )
+    assert not outcome.exists()
+    assert not final.exists()
+
+    resumed_factory_calls = 0
+
+    def forbidden_factory(*_args: object) -> ReplayProvider:
+        nonlocal resumed_factory_calls
+        resumed_factory_calls += 1
+        return ReplayProvider(cassettes[plan.case.case_id])
+
+    with pytest.raises(
+        ComparisonEvidenceError,
+        match="no reconciliation marker|interrupted reconciliation",
+    ):
+        compare_arms(
+            [plan],
+            provider_factory=forbidden_factory,
+            bare_provider_factory=forbidden_factory,
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    assert resumed_factory_calls == 0
+    assert not outcome.exists()
+    assert not final.exists()
+
+
+@pytest.mark.parametrize("arm", (ARM_PRODUCT, ARM_BARE_PROMPT))
+def test_failed_factory_cannot_redirect_marker_recovery_outside_checkpoint_root(
+    tmp_path: Path, arm: str
+) -> None:
+    """An aliased marker parent is rejected without writing through the alias."""
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / f"factory-parent-alias-{arm}"
+    marker_parent = root / "reconciliation" / arm
+    marker = marker_parent / f"{plan.case.case_id}.json"
+    outside = tmp_path / f"outside-marker-{arm}"
+    outside.mkdir()
+    outside_marker = outside / marker.name
+    outside_bytes = b"OUTSIDE-SENTINEL\n"
+    outside_marker.write_bytes(outside_bytes)
+    factory_calls = 0
+
+    def attacking_factory() -> ReplayProvider:
+        nonlocal factory_calls
+        factory_calls += 1
+        assert baselines_module.read_canonical_json(
+            root, marker.relative_to(root)
+        ).value["status"] == "running"
+        marker_parent.rename(marker_parent.with_name(arm + "-original"))
+        marker_parent.symlink_to(outside, target_is_directory=True)
+        raise RuntimeError("factory failed after aliasing marker parent")
+
+    with pytest.raises(ComparisonEvidenceError) as raised:
+        compare_arms(
+            [plan],
+            provider_factory=(
+                (lambda _request: attacking_factory())
+                if arm == ARM_PRODUCT
+                else lambda request: ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=(
+                (lambda _case_id: attacking_factory())
+                if arm == ARM_BARE_PROMPT
+                else lambda case_id: ReplayProvider(cassettes[case_id])
+            ),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    assert factory_calls == 1
+    assert outside_marker.read_bytes() == outside_bytes
+    assert str(raised.value) == (
+        f"comparison {arm}/{plan.case.case_id} reconciliation marker changed "
+        "during failed provider factory"
+    )
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+
+    resumed_factory_calls = 0
+
+    def forbidden_factory(*_args: object) -> ReplayProvider:
+        nonlocal resumed_factory_calls
+        resumed_factory_calls += 1
+        return ReplayProvider(cassettes[plan.case.case_id])
+
+    with pytest.raises(ComparisonEvidenceError, match="symlink|unsafe"):
+        compare_arms(
+            [plan],
+            provider_factory=forbidden_factory,
+            bare_provider_factory=forbidden_factory,
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    assert resumed_factory_calls == 0
+    assert outside_marker.read_bytes() == outside_bytes
+
+
+@pytest.mark.parametrize("arm", (ARM_PRODUCT, ARM_BARE_PROMPT))
+def test_paid_factory_cannot_alias_preconstructed_checkpoint_directories(
+    tmp_path: Path, arm: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A paid-root alias is rejected before checkpoint or provider dispatch."""
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / f"factory-paid-alias-{arm}"
+    outside = tmp_path / f"outside-paid-{arm}"
+    outside.mkdir()
+    sentinel = outside / "sentinel"
+    sentinel.write_bytes(b"OUTSIDE-PAID-SENTINEL\n")
+    outside_before = {
+        str(path.relative_to(outside)): (
+            "directory" if path.is_dir() else path.read_bytes()
+        )
+        for path in sorted(outside.rglob("*"))
+    }
+    target_providers: list[ReplayProvider] = []
+    bound_delegates: list[object] = []
+    captured_leases: list[tuple[str, tuple[int, ...], object]] = []
+    original_bind = baselines_module._LateBoundComparisonProvider.bind
+    original_lease_init = baselines_module._PaidCheckpointDirectoryLease.__init__
+
+    def recording_bind(self: object, delegate: object) -> None:
+        bound_delegates.append(delegate)
+        original_bind(self, delegate)
+
+    def recording_lease_init(
+        self: object, checkpoint_root: Path, *, arm: str, case_id: str
+    ) -> None:
+        original_lease_init(
+            self, checkpoint_root, arm=arm, case_id=case_id
+        )
+        captured_leases.append((arm, self._descriptors, self))
+
+    monkeypatch.setattr(
+        baselines_module._LateBoundComparisonProvider, "bind", recording_bind
+    )
+    monkeypatch.setattr(
+        baselines_module._PaidCheckpointDirectoryLease,
+        "__init__",
+        recording_lease_init,
+    )
+
+    def attacking_factory() -> ReplayProvider:
+        marker = root / "reconciliation" / arm / f"{plan.case.case_id}.json"
+        assert baselines_module.read_canonical_json(
+            root, marker.relative_to(root)
+        ).value["status"] == "running"
+        case_root = root / arm / plan.case.case_id
+        assert {path.name for path in case_root.iterdir()} == {"calls", "artifacts"}
+        arm_root = root / arm
+        arm_root.rename(root / f"{arm}-original")
+        arm_root.symlink_to(outside, target_is_directory=True)
+        provider = ReplayProvider(cassettes[plan.case.case_id])
+        target_providers.append(provider)
+        return provider
+
+    with pytest.raises(ComparisonEvidenceError) as raised:
+        compare_arms(
+            [plan],
+            provider_factory=(
+                (lambda _request: attacking_factory())
+                if arm == ARM_PRODUCT
+                else lambda request: ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=(
+                (lambda _case_id: attacking_factory())
+                if arm == ARM_BARE_PROMPT
+                else lambda case_id: ReplayProvider(cassettes[case_id])
+            ),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    assert target_providers
+    assert sum(
+        provider.proposal_calls + provider.generator_calls
+        for provider in target_providers
+    ) == 0
+    assert all(provider not in bound_delegates for provider in target_providers)
+    attacked_leases = [lease for lease in captured_leases if lease[0] == arm]
+    assert len(attacked_leases) == 1
+    _, initial_descriptors, lease = attacked_leases[0]
+    assert len(initial_descriptors) == 5
+    assert lease._descriptors == ()
+    for descriptor in initial_descriptors:
+        with pytest.raises(OSError) as closed:
+            os.fstat(descriptor)
+        assert closed.value.errno == errno.EBADF
+    assert {
+        str(path.relative_to(outside)): (
+            "directory" if path.is_dir() else path.read_bytes()
+        )
+        for path in sorted(outside.rglob("*"))
+    } == outside_before
+    assert str(raised.value) == (
+        f"comparison {arm}/{plan.case.case_id} paid checkpoint directory changed "
+        "during provider factory"
+    )
+    ordinal = 0 if arm == ARM_PRODUCT else 1
+    assert not (
+        root
+        / "authoritative-outcomes"
+        / "comparison-outcomes"
+        / f"{ordinal:06d}.json"
+    ).exists()
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+
+    resumed_factory_calls = 0
+
+    def forbidden_factory(*_args: object) -> ReplayProvider:
+        nonlocal resumed_factory_calls
+        resumed_factory_calls += 1
+        return ReplayProvider(cassettes[plan.case.case_id])
+
+    with pytest.raises(ComparisonEvidenceError):
+        compare_arms(
+            [plan],
+            provider_factory=forbidden_factory,
+            bare_provider_factory=forbidden_factory,
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    assert resumed_factory_calls == 0
+    assert {
+        str(path.relative_to(outside)): (
+            "directory" if path.is_dir() else path.read_bytes()
+        )
+        for path in sorted(outside.rglob("*"))
+    } == outside_before
+    assert not (
+        root
+        / "authoritative-outcomes"
+        / "comparison-outcomes"
+        / f"{ordinal:06d}.json"
+    ).exists()
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+
+
+@pytest.mark.parametrize("arm", (ARM_PRODUCT, ARM_BARE_PROMPT))
+@pytest.mark.parametrize("factory_outcome", ("return", "raise"))
+@pytest.mark.parametrize("replacement_component", ("arm", "calls", "artifacts"))
+def test_paid_checkpoint_directory_identity_rejects_real_replacement(
+    tmp_path: Path,
+    arm: str,
+    factory_outcome: str,
+    replacement_component: str,
+) -> None:
+    """A same-shaped replacement cannot satisfy the held directory identity."""
+    root = tmp_path / (
+        f"paid-directory-replacement-{arm}-{replacement_component}-{factory_outcome}"
+    )
+    case_id = "case-paid-directory"
+
+    def replacing_factory() -> _RecordingProvider:
+        if replacement_component == "arm":
+            arm_root = root / arm
+            arm_root.rename(root / f"{arm}-original")
+            replacement = arm_root / case_id
+            (replacement / "calls").mkdir(parents=True)
+            (replacement / "artifacts").mkdir()
+        else:
+            leaf = root / arm / case_id / replacement_component
+            leaf.rename(leaf.with_name(f"{replacement_component}-original"))
+            leaf.mkdir()
+        if factory_outcome == "raise":
+            raise RuntimeError("factory failed after replacing paid directories")
+        return _RecordingProvider("{}")
+
+    suffix = "failed provider factory" if factory_outcome == "raise" else "provider factory"
+    with pytest.raises(ComparisonEvidenceError) as raised:
+        baselines_module._fresh_checkpointed_comparison_provider(
+            replacing_factory,
+            checkpoint_root=root,
+            arm=arm,
+            case_id=case_id,
+            model_id="claude-sonnet-5",
+            binding_sha256="a" * 64,
+        )
+
+    assert str(raised.value) == (
+        f"comparison {arm}/{case_id} paid checkpoint directory changed during "
+        f"{suffix}"
+    )
 
 
 def test_completed_comparison_resume_loads_slots_without_provider_factories(

@@ -319,6 +319,95 @@ def test_reconciliation_corruption_fails_closed(
 
 
 @pytest.mark.parametrize(
+    "corruption",
+    (
+        "cost_invalid_utf8",
+        "cost_invalid_json",
+        "cost_non_object",
+        "cost_future_version",
+        "cost_symlink",
+        "checkpoint_invalid_utf8",
+        "checkpoint_non_object",
+        "checkpoint_unknown_state",
+        "checkpoint_unknown_role",
+        "checkpoint_response_digest",
+        "call_orphan_name",
+        "artifact_non_object",
+        "artifact_future_version",
+        "artifact_response_type",
+        "artifact_orphan_name",
+    ),
+)
+def test_current_paid_evidence_reader_rejects_typed_and_filesystem_mutations(
+    tmp_path: Path, corruption: str
+) -> None:
+    """Current reconciliation never coerces malformed paid evidence into authority."""
+
+    provider = _wrapper(_Provider(), tmp_path)
+    _sample(provider)
+    checkpoint_path = tmp_path / "calls" / "000000.json"
+    artifact_path = tmp_path / "artifacts" / "000000.json"
+    costs_path = tmp_path / "costs.jsonl"
+    checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    cost = json.loads(costs_path.read_text(encoding="utf-8"))
+
+    if corruption == "cost_invalid_utf8":
+        costs_path.write_bytes(b"\xff\n")
+    elif corruption == "cost_invalid_json":
+        costs_path.write_text("{\n", encoding="utf-8")
+    elif corruption == "cost_non_object":
+        costs_path.write_text("[]\n", encoding="utf-8")
+    elif corruption == "cost_future_version":
+        cost["schema_version"] = 999
+        costs_path.write_text(json.dumps(cost) + "\n", encoding="utf-8")
+    elif corruption == "cost_symlink":
+        costs_path.unlink()
+        outside = tmp_path / "outside-costs"
+        outside.write_text(json.dumps(cost) + "\n", encoding="utf-8")
+        costs_path.symlink_to(outside)
+    elif corruption == "checkpoint_invalid_utf8":
+        checkpoint_path.write_bytes(b"\xff\n")
+    elif corruption == "checkpoint_non_object":
+        checkpoint_path.write_text("[]\n", encoding="utf-8")
+    elif corruption == "checkpoint_unknown_state":
+        checkpoint["state"] = "future-state"
+        checkpoint_path.write_text(json.dumps(checkpoint) + "\n", encoding="utf-8")
+    elif corruption == "checkpoint_unknown_role":
+        checkpoint["role"] = "future-role"
+        checkpoint_path.write_text(json.dumps(checkpoint) + "\n", encoding="utf-8")
+    elif corruption == "checkpoint_response_digest":
+        checkpoint["response_sha256"] = "f" * 64
+        checkpoint_path.write_text(json.dumps(checkpoint) + "\n", encoding="utf-8")
+    elif corruption == "call_orphan_name":
+        (checkpoint_path.parent / "orphan").write_text("{}\n", encoding="utf-8")
+    elif corruption == "artifact_non_object":
+        artifact_path.write_text("[]\n", encoding="utf-8")
+    elif corruption == "artifact_future_version":
+        artifact["schema_version"] = 999
+        artifact_path.write_text(json.dumps(artifact) + "\n", encoding="utf-8")
+    elif corruption == "artifact_response_type":
+        artifact["response"] = "not-an-object"
+        artifact_bytes = json.dumps(
+            artifact, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        artifact_sha256 = hashlib.sha256(artifact_bytes).hexdigest()
+        checkpoint["artifact_sha256"] = artifact_sha256
+        cost["artifact_sha256"] = artifact_sha256
+        artifact_path.write_bytes(artifact_bytes + b"\n")
+        checkpoint_path.write_text(json.dumps(checkpoint) + "\n", encoding="utf-8")
+        costs_path.write_text(json.dumps(cost) + "\n", encoding="utf-8")
+    else:
+        (artifact_path.parent / "orphan").write_text("{}\n", encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="unreadable|corrupt|object|schema|state|role|response|orphan|unsafe",
+    ):
+        _wrapper(_Provider(), tmp_path).reconciliation_records()
+
+
+@pytest.mark.parametrize(
     ("crash_state", "initial_calls", "resume_calls", "terminal_state"),
     [
         (STATE_RESERVED, 0, 1, STATE_CONSUMED),
@@ -387,6 +476,89 @@ def test_provider_failure_is_durable_ambiguous_cost_and_blocks_retry(tmp_path: P
     assert rows[0]["call_id"] == "trial-1:0"
     assert rows[0]["outcome"] == STATE_AMBIGUOUS_COST
     assert rows[0]["cost_usd"] is None
+
+
+def _rewind_terminal_checkpoint_to_dispatched(root: Path) -> None:
+    checkpoint_path = root / "calls" / "000000.json"
+    checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    checkpoint.update(
+        {
+            "state": STATE_DISPATCHED,
+            "response": None,
+            "response_sha256": None,
+            "cost_usd": None,
+            "artifact_path": None,
+            "artifact_sha256": None,
+        }
+    )
+    checkpoint_path.write_text(
+        json.dumps(checkpoint, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_dispatched_checkpoint_recovers_settled_artifact_without_redispatch(
+    tmp_path: Path,
+) -> None:
+    """A crash after artifact settlement replays the durable response exactly once."""
+
+    first = _Provider()
+    expected = _sample(_wrapper(first, tmp_path))
+    artifact_path = tmp_path / "artifacts" / "000000.json"
+    costs_path = tmp_path / "costs.jsonl"
+    artifact_bytes = artifact_path.read_bytes()
+    cost_bytes = costs_path.read_bytes()
+    _rewind_terminal_checkpoint_to_dispatched(tmp_path)
+
+    resumed = _Provider()
+    actual = _sample(_wrapper(resumed, tmp_path))
+
+    assert actual == expected
+    assert first.calls == 1
+    assert resumed.calls == 0
+    checkpoint = json.loads(
+        (tmp_path / "calls" / "000000.json").read_text(encoding="utf-8")
+    )
+    assert checkpoint["state"] == STATE_CONSUMED
+    assert checkpoint["response"] == {
+        "text": expected.text,
+        "input_tokens": expected.input_tokens,
+        "output_tokens": expected.output_tokens,
+    }
+    assert artifact_path.read_bytes() == artifact_bytes
+    assert costs_path.read_bytes() == cost_bytes
+    assert len(costs_path.read_text(encoding="utf-8").splitlines()) == 1
+
+
+def test_dispatched_checkpoint_recovers_ambiguous_artifact_without_redispatch(
+    tmp_path: Path,
+) -> None:
+    """A durable ambiguous artifact remains terminal after checkpoint-write loss."""
+
+    first = _Provider(fail=True)
+    with pytest.raises(TimeoutError, match="outcome unknown"):
+        _sample(_wrapper(first, tmp_path))
+    artifact_path = tmp_path / "artifacts" / "000000.json"
+    costs_path = tmp_path / "costs.jsonl"
+    artifact_bytes = artifact_path.read_bytes()
+    cost_bytes = costs_path.read_bytes()
+    _rewind_terminal_checkpoint_to_dispatched(tmp_path)
+
+    resumed = _Provider()
+    with pytest.raises(AmbiguousCostError, match="ambiguous_cost"):
+        _sample(_wrapper(resumed, tmp_path))
+
+    assert first.calls == 1
+    assert resumed.calls == 0
+    checkpoint = json.loads(
+        (tmp_path / "calls" / "000000.json").read_text(encoding="utf-8")
+    )
+    assert checkpoint["state"] == STATE_AMBIGUOUS_COST
+    assert checkpoint["response"] is None
+    assert checkpoint["cost_usd"] is None
+    assert artifact_path.read_bytes() == artifact_bytes
+    assert costs_path.read_bytes() == cost_bytes
+    assert len(costs_path.read_text(encoding="utf-8").splitlines()) == 1
 
 
 def test_old_checkpoint_schema_fails_with_actionable_version_message(tmp_path: Path) -> None:

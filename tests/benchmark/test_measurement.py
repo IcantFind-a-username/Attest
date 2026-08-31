@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import threading
 from dataclasses import replace
 from pathlib import Path
@@ -1102,6 +1103,692 @@ def _comparison_launch(
         run_identity=run_identity,
         comparison_sha256=comparison.sha256,
     )
+
+
+def _complete_unsealed_comparison_fixture(tmp_path: Path):
+    from attest.benchmark.outcomes import predeclare_comparison_outcomes
+
+    outcome = predeclare_comparison_outcomes(
+        tmp_path / "outcomes",
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    _write_complete_comparison_outcomes(outcome)
+    checkpoint_root = tmp_path / "checkpoint"
+    checkpoint_root.mkdir()
+    authority_root = tmp_path / "owner"
+    launch = _comparison_launch(
+        outcome,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+        run_identity="1" * 64,
+    )
+    return outcome, checkpoint_root, authority_root, launch
+
+
+def _finalized_comparison_receipt_fixture(tmp_path: Path):
+    from attest.benchmark.outcomes import finalize_comparison_outcomes
+
+    outcome, checkpoint_root, authority_root, launch = (
+        _complete_unsealed_comparison_fixture(tmp_path)
+    )
+    final = finalize_comparison_outcomes(
+        outcome,
+        launch,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+    )
+    return outcome, checkpoint_root, authority_root, launch, final
+
+
+def _decoded_launch_with(launch, **changes):
+    from attest.benchmark.outcomes import ComparisonLaunchReceipt
+
+    payload = launch.to_json_dict()
+    payload.update(changes)
+    return ComparisonLaunchReceipt.from_json_dict(payload)
+
+
+def _decoded_final_with(final, *, launch=None, **changes):
+    from attest.benchmark.outcomes import ComparisonFinalReceipt
+
+    payload = final.to_json_dict()
+    if launch is not None:
+        payload["launch"] = launch.to_json_dict()
+        payload["launch_sha256"] = launch.digest_sha256
+    payload.update(changes)
+    return ComparisonFinalReceipt.from_json_dict(payload)
+
+
+@pytest.mark.parametrize(
+    ("receipt_kind", "mutation", "expected_message"),
+    (
+        ("launch", "extra", "comparison launch receipt has an invalid field set"),
+        ("launch", "missing", "comparison launch receipt has an invalid field set"),
+        (
+            "launch",
+            "version",
+            "comparison launch receipt protocol is unsupported",
+        ),
+        (
+            "launch",
+            "protocol",
+            "comparison launch receipt protocol is unsupported",
+        ),
+        (
+            "launch",
+            "non_string",
+            "comparison launch receipt digests must be exact strings",
+        ),
+        (
+            "launch",
+            "invalid_digest",
+            "comparison manifest must be a lowercase SHA-256 digest",
+        ),
+        ("final", "extra", "comparison final receipt has an invalid field set"),
+        ("final", "missing", "comparison final receipt has an invalid field set"),
+        (
+            "final",
+            "version",
+            "comparison final receipt protocol or digests are invalid",
+        ),
+        (
+            "final",
+            "protocol",
+            "comparison final receipt protocol or digests are invalid",
+        ),
+        (
+            "final",
+            "non_string",
+            "comparison final receipt protocol or digests are invalid",
+        ),
+        (
+            "final",
+            "nested_launch",
+            "comparison launch receipt has an invalid field set",
+        ),
+        (
+            "final",
+            "launch_digest",
+            "comparison final receipt launch digest mismatch",
+        ),
+        (
+            "final",
+            "invalid_digest",
+            "comparison final outcome tree must be a lowercase SHA-256 digest",
+        ),
+    ),
+)
+def test_comparison_receipt_decoders_reject_typed_authority_mutations(
+    tmp_path: Path, receipt_kind: str, mutation: str, expected_message: str
+) -> None:
+    """Malformed owner receipts cannot become comparison publication authority."""
+
+    from attest.benchmark.outcomes import (
+        ComparisonFinalReceipt,
+        ComparisonLaunchReceipt,
+        finalize_comparison_outcomes,
+        predeclare_comparison_outcomes,
+    )
+
+    outcome = predeclare_comparison_outcomes(
+        tmp_path / "outcomes",
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    _write_complete_comparison_outcomes(outcome)
+    checkpoint_root = tmp_path / "checkpoint"
+    checkpoint_root.mkdir()
+    authority_root = tmp_path / "owner"
+    launch = _comparison_launch(
+        outcome,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+        run_identity="1" * 64,
+    )
+    final = finalize_comparison_outcomes(
+        outcome,
+        launch,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+    )
+    payload = (
+        launch.to_json_dict()
+        if receipt_kind == "launch"
+        else final.to_json_dict()
+    )
+    if mutation == "extra":
+        payload["future"] = True
+    elif mutation == "missing":
+        payload.pop("protocol")
+    elif mutation == "version":
+        payload["schema_version"] = 999
+    elif mutation == "protocol":
+        payload["protocol"] = "attest.comparison.evil"
+    elif mutation == "non_string":
+        field = "run_identity" if receipt_kind == "launch" else "seal_sha256"
+        payload[field] = 1
+    elif mutation == "nested_launch":
+        nested = dict(payload["launch"])
+        nested["future"] = True
+        payload["launch"] = nested
+    elif mutation == "launch_digest":
+        payload["launch_sha256"] = "f" * 64
+    else:
+        field = "manifest_sha256" if receipt_kind == "launch" else "outcomes_sha256"
+        payload[field] = "not-a-digest"
+
+    decoder = (
+        ComparisonLaunchReceipt.from_json_dict
+        if receipt_kind == "launch"
+        else ComparisonFinalReceipt.from_json_dict
+    )
+    with pytest.raises(ValueError, match=re.escape(expected_message)):
+        decoder(payload)
+
+
+@pytest.mark.parametrize(
+    ("drift", "expected_message"),
+    (
+        ("checkpoint_root", "comparison publication roots differ from final receipt"),
+        ("outcome_root", "comparison publication roots differ from final receipt"),
+        (
+            "final",
+            "comparison publication final receipt differs from owner state",
+        ),
+    ),
+)
+def test_comparison_publication_authority_rejects_external_binding_drift(
+    tmp_path: Path, drift: str, expected_message: str
+) -> None:
+    from attest.benchmark.outcomes import (
+        create_comparison_publication_authority,
+        finalize_comparison_outcomes,
+        predeclare_comparison_outcomes,
+        write_comparison_final_receipt_once,
+        write_comparison_launch_receipt_once,
+    )
+
+    outcome = predeclare_comparison_outcomes(
+        tmp_path / "outcomes",
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    _write_complete_comparison_outcomes(outcome)
+    checkpoint_root = tmp_path / "checkpoint"
+    checkpoint_root.mkdir()
+    authority_root = tmp_path / "owner"
+    launch = _comparison_launch(
+        outcome,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+        run_identity="1" * 64,
+    )
+    write_comparison_launch_receipt_once(authority_root, launch)
+    final = finalize_comparison_outcomes(
+        outcome,
+        launch,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+    )
+    write_comparison_final_receipt_once(
+        authority_root,
+        final,
+        checkpoint_root=checkpoint_root,
+        outcome_root=outcome.root,
+    )
+    supplied_checkpoint = checkpoint_root
+    supplied_outcome = outcome.root
+    supplied_final = final
+    if drift == "checkpoint_root":
+        supplied_checkpoint = tmp_path / "other-checkpoint"
+        supplied_checkpoint.mkdir()
+    elif drift == "outcome_root":
+        supplied_outcome = tmp_path / "other-outcome"
+        supplied_outcome.mkdir()
+    else:
+        supplied_final = _decoded_final_with(
+            final,
+            outcomes_sha256="f" * 64,
+        )
+
+    with pytest.raises(ValueError, match=re.escape(expected_message)):
+        create_comparison_publication_authority(
+            checkpoint_root=supplied_checkpoint,
+            outcome_root=supplied_outcome,
+            authority_root=authority_root,
+            final_receipt=supplied_final,
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_message"),
+    (
+        ("issue_digest", "comparison launch digest differs from comparison.json"),
+        (
+            "write_launch_type",
+            "comparison launch receipt must be an exact typed receipt",
+        ),
+        (
+            "write_launch_root",
+            "comparison launch receipt binds another authority root",
+        ),
+    ),
+)
+def test_comparison_launch_boundaries_fail_before_external_side_effects(
+    tmp_path: Path, mutation: str, expected_message: str
+) -> None:
+    from attest.benchmark.outcomes import (
+        COMPARISON_FINAL_RECEIPT_PATH,
+        COMPARISON_LAUNCH_RECEIPT_PATH,
+        COMPARISON_OUTCOME_SEAL_PATH,
+        issue_comparison_launch_receipt,
+        write_comparison_launch_receipt_once,
+    )
+
+    outcome, checkpoint_root, authority_root, launch = (
+        _complete_unsealed_comparison_fixture(tmp_path)
+    )
+    receipt_root = authority_root
+    if mutation == "write_launch_root":
+        receipt_root = tmp_path / "other-owner"
+        receipt_root.mkdir()
+
+    with pytest.raises(ValueError, match=re.escape(expected_message)):
+        if mutation == "issue_digest":
+            issue_comparison_launch_receipt(
+                outcome,
+                checkpoint_root=checkpoint_root,
+                authority_root=authority_root,
+                run_identity=launch.run_identity,
+                comparison_sha256="f" * 64,
+            )
+        elif mutation == "write_launch_type":
+            write_comparison_launch_receipt_once(authority_root, object())
+        else:
+            write_comparison_launch_receipt_once(receipt_root, launch)
+
+    assert not (outcome.root / COMPARISON_OUTCOME_SEAL_PATH).exists()
+    assert not (authority_root / COMPARISON_LAUNCH_RECEIPT_PATH).exists()
+    assert not (authority_root / COMPARISON_FINAL_RECEIPT_PATH).exists()
+    assert not (receipt_root / COMPARISON_LAUNCH_RECEIPT_PATH).exists()
+
+
+def test_comparison_launch_reader_rejects_authority_root_identity_drift(
+    tmp_path: Path,
+) -> None:
+    from attest.benchmark.outcomes import (
+        COMPARISON_FINAL_RECEIPT_PATH,
+        COMPARISON_LAUNCH_RECEIPT_PATH,
+        COMPARISON_OUTCOME_SEAL_PATH,
+        canonical_json_bytes,
+        read_comparison_launch_receipt,
+    )
+
+    outcome, _checkpoint_root, authority_root, launch = (
+        _complete_unsealed_comparison_fixture(tmp_path)
+    )
+    other_root = tmp_path / "other-owner"
+    other_root.mkdir()
+    receipt_path = other_root / COMPARISON_LAUNCH_RECEIPT_PATH
+    receipt_bytes = canonical_json_bytes(launch.to_json_dict())
+    receipt_path.write_bytes(receipt_bytes)
+
+    with pytest.raises(
+        ValueError,
+        match="comparison launch receipt authority-root identity drifted",
+    ):
+        read_comparison_launch_receipt(other_root)
+
+    assert receipt_path.read_bytes() == receipt_bytes
+    assert not (outcome.root / COMPARISON_OUTCOME_SEAL_PATH).exists()
+    assert not (authority_root / COMPARISON_LAUNCH_RECEIPT_PATH).exists()
+    assert not (authority_root / COMPARISON_FINAL_RECEIPT_PATH).exists()
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_message"),
+    (
+        (
+            "write_final_type",
+            "comparison final receipt must be an exact typed receipt",
+        ),
+        (
+            "write_final_launch",
+            "comparison final receipt does not match persisted launch",
+        ),
+        (
+            "write_final_outcome_root",
+            "comparison final receipt outcome-root identity drifted",
+        ),
+    ),
+)
+def test_comparison_final_write_rejects_external_authority_drift_without_receipt(
+    tmp_path: Path, mutation: str, expected_message: str
+) -> None:
+    from attest.benchmark.outcomes import (
+        COMPARISON_FINAL_RECEIPT_PATH,
+        COMPARISON_LAUNCH_RECEIPT_PATH,
+        COMPARISON_OUTCOME_SEAL_PATH,
+        write_comparison_final_receipt_once,
+        write_comparison_launch_receipt_once,
+    )
+
+    outcome, checkpoint_root, authority_root, launch, final = (
+        _finalized_comparison_receipt_fixture(tmp_path)
+    )
+    seal_path = outcome.root / COMPARISON_OUTCOME_SEAL_PATH
+    seal_bytes = seal_path.read_bytes()
+    write_comparison_launch_receipt_once(authority_root, launch)
+    launch_path = authority_root / COMPARISON_LAUNCH_RECEIPT_PATH
+    launch_bytes = launch_path.read_bytes()
+    supplied_final = final
+    supplied_outcome_root = outcome.root
+    if mutation == "write_final_launch":
+        other_launch = _decoded_launch_with(launch, run_identity="2" * 64)
+        supplied_final = _decoded_final_with(final, launch=other_launch)
+    elif mutation == "write_final_outcome_root":
+        supplied_outcome_root = tmp_path / "other-outcomes"
+        supplied_outcome_root.mkdir()
+
+    with pytest.raises(ValueError, match=re.escape(expected_message)):
+        write_comparison_final_receipt_once(
+            authority_root,
+            object() if mutation == "write_final_type" else supplied_final,
+            checkpoint_root=checkpoint_root,
+            outcome_root=supplied_outcome_root,
+        )
+
+    assert not (authority_root / COMPARISON_FINAL_RECEIPT_PATH).exists()
+    assert launch_path.read_bytes() == launch_bytes
+    assert seal_path.read_bytes() == seal_bytes
+
+
+def test_comparison_final_reader_rejects_persisted_launch_mismatch(
+    tmp_path: Path,
+) -> None:
+    from attest.benchmark.outcomes import (
+        COMPARISON_FINAL_RECEIPT_PATH,
+        canonical_json_bytes,
+        read_comparison_final_receipt,
+        write_comparison_launch_receipt_once,
+    )
+
+    _outcome, _checkpoint_root, authority_root, launch, final = (
+        _finalized_comparison_receipt_fixture(tmp_path)
+    )
+    write_comparison_launch_receipt_once(authority_root, launch)
+    other_launch = _decoded_launch_with(launch, run_identity="2" * 64)
+    other_final = _decoded_final_with(final, launch=other_launch)
+    final_path = authority_root / COMPARISON_FINAL_RECEIPT_PATH
+    final_bytes = canonical_json_bytes(other_final.to_json_dict())
+    final_path.write_bytes(final_bytes)
+
+    with pytest.raises(
+        ValueError,
+        match="comparison final receipt differs from persisted launch",
+    ):
+        read_comparison_final_receipt(authority_root)
+
+    assert final_path.read_bytes() == final_bytes
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_message"),
+    (
+        (
+            "final_type",
+            "comparison verification requires an exact external final receipt",
+        ),
+        (
+            "comparison_digest",
+            "comparison final receipt binds another comparison predeclaration",
+        ),
+    ),
+)
+def test_comparison_verifier_rejects_external_receipt_mismatch_without_mutation(
+    tmp_path: Path, mutation: str, expected_message: str
+) -> None:
+    from attest.benchmark.outcomes import (
+        COMPARISON_FINAL_RECEIPT_PATH,
+        COMPARISON_LAUNCH_RECEIPT_PATH,
+        COMPARISON_OUTCOME_SEAL_PATH,
+        verify_comparison_outcomes,
+    )
+
+    outcome, _checkpoint_root, authority_root, launch, final = (
+        _finalized_comparison_receipt_fixture(tmp_path)
+    )
+    seal_path = outcome.root / COMPARISON_OUTCOME_SEAL_PATH
+    seal_bytes = seal_path.read_bytes()
+
+    with pytest.raises(ValueError, match=re.escape(expected_message)):
+        verify_comparison_outcomes(
+            outcome.root,
+            expected_final_receipt=object() if mutation == "final_type" else final,
+            expected_comparison_sha256=(
+                "f" * 64
+                if mutation == "comparison_digest"
+                else launch.comparison_sha256
+            ),
+        )
+
+    assert seal_path.read_bytes() == seal_bytes
+    assert not (authority_root / COMPARISON_LAUNCH_RECEIPT_PATH).exists()
+    assert not (authority_root / COMPARISON_FINAL_RECEIPT_PATH).exists()
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_message"),
+    (
+        (
+            "launch_type",
+            "comparison finalization requires an exact launch receipt",
+        ),
+        (
+            "other_authority",
+            "comparison launch receipt does not match outcome authority",
+        ),
+    ),
+)
+def test_comparison_finalization_rejects_launch_drift_before_seal(
+    tmp_path: Path, mutation: str, expected_message: str
+) -> None:
+    from attest.benchmark.outcomes import (
+        COMPARISON_FINAL_RECEIPT_PATH,
+        COMPARISON_LAUNCH_RECEIPT_PATH,
+        COMPARISON_OUTCOME_SEAL_PATH,
+        finalize_comparison_outcomes,
+        predeclare_comparison_outcomes,
+    )
+
+    outcome, checkpoint_root, authority_root, launch = (
+        _complete_unsealed_comparison_fixture(tmp_path)
+    )
+    target = outcome
+    supplied_launch = launch
+    if mutation == "other_authority":
+        target = predeclare_comparison_outcomes(
+            tmp_path / "other-outcomes",
+            authority_id="e" * 64,
+            manifest_sha256=outcome.manifest_sha256,
+            case_bindings={"case-1": "b" * 64},
+            repeats=1,
+        )
+        _write_complete_comparison_outcomes(target)
+    else:
+        supplied_launch = object()
+
+    with pytest.raises(ValueError, match=re.escape(expected_message)):
+        finalize_comparison_outcomes(
+            target,
+            supplied_launch,
+            checkpoint_root=checkpoint_root,
+            authority_root=authority_root,
+        )
+
+    assert not (target.root / COMPARISON_OUTCOME_SEAL_PATH).exists()
+    assert not (authority_root / COMPARISON_LAUNCH_RECEIPT_PATH).exists()
+    assert not (authority_root / COMPARISON_FINAL_RECEIPT_PATH).exists()
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_message"),
+    (
+        ("seal_fields", "comparison outcome seal has an invalid field set"),
+        ("seal_binding", "comparison outcome seal external binding mismatch"),
+        (
+            "seal_slot_count",
+            "comparison outcome seal does not exactly cover its slots",
+        ),
+        (
+            "extra_outcome",
+            "comparison outcome tree does not exactly match its seal",
+        ),
+        (
+            "seal_row_fields",
+            "comparison outcome seal contains an invalid slot row",
+        ),
+        ("seal_row_swap", "comparison outcome seal swaps slot rows"),
+        (
+            "seal_row_size",
+            "comparison outcome seal size must be an exact positive integer",
+        ),
+        ("seal_row_digest", "comparison outcome differs from its seal"),
+        (
+            "tree_digest",
+            "comparison outcome tree differs from its external final receipt",
+        ),
+        ("staging_type", "comparison outcome root entry has an unsafe type"),
+        (
+            "staging_nonempty",
+            "comparison outcome staging is not empty at verification",
+        ),
+    ),
+)
+def test_comparison_verifier_rejects_seal_tree_and_staging_mutations(
+    tmp_path: Path, mutation: str, expected_message: str
+) -> None:
+    """A final receipt authorizes one exact seal, outcome tree, and empty staging area."""
+
+    from attest.benchmark.outcomes import (
+        COMPARISON_OUTCOME_SEAL_PATH,
+        canonical_json_bytes,
+        verify_comparison_outcomes,
+    )
+
+    outcome, _checkpoint_root, _authority_root, launch, final = (
+        _finalized_comparison_receipt_fixture(tmp_path)
+    )
+    supplied_final = final
+    seal_path = outcome.root / COMPARISON_OUTCOME_SEAL_PATH
+    if mutation.startswith("seal_"):
+        seal = json.loads(seal_path.read_bytes())
+        if mutation == "seal_fields":
+            seal["future"] = True
+        elif mutation == "seal_binding":
+            seal["manifest_sha256"] = "f" * 64
+        elif mutation == "seal_slot_count":
+            seal["slots"].pop()
+        elif mutation == "seal_row_fields":
+            seal["slots"][0]["future"] = True
+        elif mutation == "seal_row_swap":
+            seal["slots"][0], seal["slots"][1] = (
+                seal["slots"][1],
+                seal["slots"][0],
+            )
+        elif mutation == "seal_row_size":
+            seal["slots"][0]["size"] = 1.0
+        else:
+            seal["slots"][0]["sha256"] = "f" * 64
+        seal_bytes = canonical_json_bytes(seal)
+        seal_path.write_bytes(seal_bytes)
+        supplied_final = _decoded_final_with(
+            final,
+            seal_sha256=hashlib.sha256(seal_bytes).hexdigest(),
+        )
+    elif mutation == "extra_outcome":
+        (outcome.root / "comparison-outcomes" / "999999.json").write_bytes(
+            canonical_json_bytes({"unpredeclared": True})
+        )
+    elif mutation == "tree_digest":
+        supplied_final = _decoded_final_with(
+            final,
+            outcomes_sha256="f" * 64,
+        )
+    elif mutation == "staging_type":
+        staging = outcome.root / ".outcome-staging"
+        staging.rmdir()
+        staging.write_text("unsafe\n", encoding="utf-8")
+    else:
+        (outcome.root / ".outcome-staging" / "leftover").write_text(
+            "unsafe\n", encoding="utf-8"
+        )
+
+    with pytest.raises(ValueError, match=re.escape(expected_message)):
+        verify_comparison_outcomes(
+            outcome.root,
+            expected_final_receipt=supplied_final,
+            expected_comparison_sha256=launch.comparison_sha256,
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_message"),
+    (
+        (
+            "foreign_slot",
+            "comparison outcome slot is absent from frozen predeclaration",
+        ),
+        (
+            "extra_slot",
+            "comparison outcome tree contains an unpredeclared slot",
+        ),
+    ),
+)
+def test_comparison_outcome_reader_rejects_unpredeclared_slots(
+    tmp_path: Path, mutation: str, expected_message: str
+) -> None:
+    from attest.benchmark.outcomes import (
+        ComparisonOutcomeSlot,
+        predeclare_comparison_outcomes,
+        read_comparison_arm_outcome_if_present,
+        write_canonical_json_once,
+    )
+
+    outcome = predeclare_comparison_outcomes(
+        tmp_path / "outcomes",
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    slot = outcome.slots[0]
+    if mutation == "foreign_slot":
+        slot = ComparisonOutcomeSlot.create(
+            ordinal=slot.ordinal,
+            authority_id="e" * 64,
+            manifest_sha256=slot.manifest_sha256,
+            case_id=slot.case_id,
+            arm=slot.arm,
+            repeat=slot.repeat,
+            bindings_sha256=slot.bindings_sha256,
+        )
+    else:
+        write_canonical_json_once(
+            outcome.root,
+            "comparison-outcomes/999999.json",
+            {"unpredeclared": True},
+        )
+
+    with pytest.raises(ValueError, match=re.escape(expected_message)):
+        read_comparison_arm_outcome_if_present(outcome, slot)
 
 
 def test_comparison_final_receipt_rejects_a_resealed_ruff_outcome_rewrite(

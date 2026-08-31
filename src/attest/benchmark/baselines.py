@@ -449,6 +449,122 @@ class _MeteredProvider:
         return result
 
 
+class _LateBoundComparisonProvider:
+    """A provider delegate bound only after the durable fresh trial exists."""
+
+    def __init__(self) -> None:
+        self._delegate: Provider | None = None
+
+    def bind(self, delegate: Provider) -> None:
+        if self._delegate is not None:
+            raise ComparisonEvidenceError(
+                "comparison paid provider delegate was already bound"
+            )
+        self._delegate = delegate
+
+    def sample(
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
+    ) -> ProviderResult:
+        if self._delegate is None:
+            raise ComparisonEvidenceError(
+                "comparison paid provider delegate is not bound"
+            )
+        return self._delegate.sample(
+            system, prompt, schema, max_tokens, timeout_s=timeout_s
+        )
+
+
+_DirectoryIdentity = tuple[int, int, int]
+
+
+def _directory_identity(descriptor: int) -> _DirectoryIdentity:
+    opened = os.fstat(descriptor)
+    if not stat.S_ISDIR(opened.st_mode):
+        raise OSError("paid checkpoint component is not a directory")
+    return opened.st_dev, opened.st_ino, opened.st_mode
+
+
+def _open_absolute_directory(path: Path) -> int:
+    """Open *path* one component at a time without following symlinks."""
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+    absolute = Path(os.path.abspath(path))
+    descriptor = os.open(absolute.anchor, flags)
+    try:
+        for component in absolute.parts[1:]:
+            child = os.open(component, flags, dir_fd=descriptor)
+            previous, descriptor = descriptor, child
+            os.close(previous)
+    except BaseException:
+        with suppress(OSError):
+            os.close(descriptor)
+        raise
+    return descriptor
+
+
+def _open_paid_checkpoint_directory_chain(
+    checkpoint_root: Path, *, arm: str, case_id: str
+) -> tuple[tuple[int, ...], tuple[_DirectoryIdentity, ...]]:
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+    descriptors: list[int] = []
+    try:
+        descriptors.append(_open_absolute_directory(checkpoint_root))
+        for component in (arm, case_id):
+            descriptors.append(os.open(component, flags, dir_fd=descriptors[-1]))
+        case_descriptor = descriptors[-1]
+        for component in ("calls", "artifacts"):
+            descriptors.append(os.open(component, flags, dir_fd=case_descriptor))
+        identities = tuple(_directory_identity(item) for item in descriptors)
+    except BaseException:
+        for descriptor in reversed(descriptors):
+            with suppress(OSError):
+                os.close(descriptor)
+        raise
+    return tuple(descriptors), identities
+
+
+class _PaidCheckpointDirectoryLease:
+    """Hold and later re-resolve the exact paid checkpoint directory chain."""
+
+    def __init__(self, checkpoint_root: Path, *, arm: str, case_id: str) -> None:
+        self._checkpoint_root = checkpoint_root
+        self._arm = arm
+        self._case_id = case_id
+        self._descriptors, self._identities = _open_paid_checkpoint_directory_chain(
+            checkpoint_root, arm=arm, case_id=case_id
+        )
+
+    def is_unchanged(self) -> bool:
+        reopened: tuple[int, ...] = ()
+        try:
+            held_identities = tuple(
+                _directory_identity(item) for item in self._descriptors
+            )
+            reopened, path_identities = _open_paid_checkpoint_directory_chain(
+                self._checkpoint_root,
+                arm=self._arm,
+                case_id=self._case_id,
+            )
+            return held_identities == self._identities == path_identities
+        except OSError:
+            return False
+        finally:
+            for descriptor in reversed(reopened):
+                with suppress(OSError):
+                    os.close(descriptor)
+
+    def close(self) -> None:
+        descriptors, self._descriptors = self._descriptors, ()
+        for descriptor in reversed(descriptors):
+            with suppress(OSError):
+                os.close(descriptor)
+
+
 class _FailClosedCheckpointProvider:
     """Do not let an arm translate checkpoint-integrity failure into DEFER."""
 
@@ -1569,9 +1685,12 @@ def _checkpointed_comparison_provider(
     case_id: str,
     model_id: str,
     binding_sha256: str,
+    prepared_reconciliation: tuple[Path, dict[str, object], bool] | None = None,
 ) -> tuple[CheckpointedProvider, Path, dict[str, object]]:
-    path, stored, fresh = _prepare_comparison_reconciliation(
-        checkpoint_root, arm, case_id
+    path, stored, fresh = (
+        _prepare_comparison_reconciliation(checkpoint_root, arm, case_id)
+        if prepared_reconciliation is None
+        else prepared_reconciliation
     )
     try:
         checkpointed = CheckpointedProvider(
@@ -1590,6 +1709,176 @@ def _checkpointed_comparison_provider(
         stored, fresh=fresh, checkpointed=checkpointed
     )
     return checkpointed, path, stored
+
+
+def _fresh_checkpointed_comparison_provider(
+    factory: Callable[[], Provider],
+    *,
+    checkpoint_root: Path,
+    arm: str,
+    case_id: str,
+    model_id: str,
+    binding_sha256: str,
+) -> tuple[CheckpointedProvider, Path, dict[str, object]]:
+    """Persist and revalidate a fresh trial marker around provider construction."""
+    prepared = _prepare_comparison_reconciliation(checkpoint_root, arm, case_id)
+    path, stored, fresh = prepared
+    if not fresh:
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} reconciliation marker appeared before "
+            "provider factory"
+        )
+    try:
+        before = read_canonical_json(
+            checkpoint_root, path.relative_to(checkpoint_root)
+        )
+    except ValueError as exc:
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} reconciliation marker is unreadable "
+            "before provider factory"
+        ) from exc
+    if before.value != stored:
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} reconciliation marker identity is invalid "
+            "before provider factory"
+        )
+
+    holder = _LateBoundComparisonProvider()
+    reconciliation = _checkpointed_comparison_provider(
+        holder,
+        checkpoint_root=checkpoint_root,
+        arm=arm,
+        case_id=case_id,
+        model_id=model_id,
+        binding_sha256=binding_sha256,
+        prepared_reconciliation=prepared,
+    )
+    try:
+        directory_lease = _PaidCheckpointDirectoryLease(
+            checkpoint_root, arm=arm, case_id=case_id
+        )
+    except OSError as exc:
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} paid checkpoint directory is unsafe "
+            "before provider factory"
+        ) from exc
+
+    marker_flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK
+    try:
+        marker_descriptor = os.open(path, marker_flags)
+    except OSError as exc:
+        directory_lease.close()
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} reconciliation marker is unsafe before "
+            "provider factory"
+        ) from exc
+    try:
+        marker_status = os.fstat(marker_descriptor)
+    except OSError as exc:
+        with suppress(OSError):
+            os.close(marker_descriptor)
+        directory_lease.close()
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} reconciliation marker is unsafe before "
+            "provider factory"
+        ) from exc
+    if (
+        not stat.S_ISREG(marker_status.st_mode)
+        or marker_status.st_nlink != 1
+        or marker_status.st_size != before.size
+    ):
+        with suppress(OSError):
+            os.close(marker_descriptor)
+        directory_lease.close()
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} reconciliation marker is unsafe before "
+            "provider factory"
+        )
+    marker_identity = (
+        marker_status.st_dev,
+        marker_status.st_ino,
+        marker_status.st_mode,
+        marker_status.st_nlink,
+        marker_status.st_size,
+        marker_status.st_mtime_ns,
+        marker_status.st_ctime_ns,
+    )
+
+    def marker_is_unchanged() -> bool:
+        try:
+            document = read_canonical_json(
+                checkpoint_root, path.relative_to(checkpoint_root)
+            )
+            current_descriptor = os.open(path, marker_flags)
+            try:
+                original_status = os.fstat(marker_descriptor)
+                current_status = os.fstat(current_descriptor)
+            finally:
+                os.close(current_descriptor)
+        except (OSError, ValueError):
+            return False
+        original_identity = (
+            original_status.st_dev,
+            original_status.st_ino,
+            original_status.st_mode,
+            original_status.st_nlink,
+            original_status.st_size,
+            original_status.st_mtime_ns,
+            original_status.st_ctime_ns,
+        )
+        current_identity = (
+            current_status.st_dev,
+            current_status.st_ino,
+            current_status.st_mode,
+            current_status.st_nlink,
+            current_status.st_size,
+            current_status.st_mtime_ns,
+            current_status.st_ctime_ns,
+        )
+        return (
+            original_identity == marker_identity
+            and current_identity == marker_identity
+            and document.data == before.data
+            and document.value == before.value
+        )
+
+    try:
+        try:
+            inner = factory()
+        except BaseException as exc:
+            if not marker_is_unchanged():
+                raise ComparisonEvidenceError(
+                    f"comparison {arm}/{case_id} reconciliation marker changed during "
+                    "failed provider factory"
+                ) from exc
+            if not directory_lease.is_unchanged():
+                raise ComparisonEvidenceError(
+                    f"comparison {arm}/{case_id} paid checkpoint directory changed "
+                    "during failed provider factory"
+                ) from exc
+            raise
+
+        if not marker_is_unchanged():
+            raise ComparisonEvidenceError(
+                f"comparison {arm}/{case_id} reconciliation marker changed during "
+                "provider factory"
+            )
+        if not directory_lease.is_unchanged():
+            raise ComparisonEvidenceError(
+                f"comparison {arm}/{case_id} paid checkpoint directory changed during "
+                "provider factory"
+            )
+        if _call_evidence_exists(checkpoint_root / arm / case_id):
+            raise ComparisonEvidenceError(
+                f"comparison {arm}/{case_id} paid evidence appeared during provider "
+                "factory"
+            )
+        holder.bind(inner)
+    finally:
+        with suppress(OSError):
+            os.close(marker_descriptor)
+        directory_lease.close()
+    return reconciliation
 
 
 def _settled_checkpoint_recovery(
@@ -2635,17 +2924,19 @@ def _product_arm(
             binding_sha256=binding_sha256,
         )
     if reconciliation is None:
-        inner = provider_factory(request)
-        if checkpoint_root is not None:
+        if checkpoint_root is None:
+            inner = provider_factory(request)
+        else:
             assert binding_sha256 is not None
-            reconciliation = _checkpointed_comparison_provider(
-                inner,
+            reconciliation = _fresh_checkpointed_comparison_provider(
+                lambda: provider_factory(request),
                 checkpoint_root=checkpoint_root,
                 arm=ARM_PRODUCT,
                 case_id=request.case_id,
                 model_id=request.config.model,
                 binding_sha256=binding_sha256,
             )
+            inner = _VerificationOnlyComparisonProvider()
     else:
         inner = _VerificationOnlyComparisonProvider()
     meter = _MeteredProvider(
@@ -2795,17 +3086,19 @@ def _baseline_arms(
         if bare is None:
             reconciliation = bare_recovery
             if reconciliation is None:
-                inner = bare_provider_factory(request.case_id)
-                if checkpoint_root is not None:
+                if checkpoint_root is None:
+                    inner = bare_provider_factory(request.case_id)
+                else:
                     assert binding_sha256 is not None
-                    reconciliation = _checkpointed_comparison_provider(
-                        inner,
+                    reconciliation = _fresh_checkpointed_comparison_provider(
+                        lambda: bare_provider_factory(request.case_id),
                         checkpoint_root=checkpoint_root,
                         arm=ARM_BARE_PROMPT,
                         case_id=request.case_id,
                         model_id=request.config.model,
                         binding_sha256=binding_sha256,
                     )
+                    inner = _VerificationOnlyComparisonProvider()
             else:
                 inner = _VerificationOnlyComparisonProvider()
             bare = BarePromptBaseline(

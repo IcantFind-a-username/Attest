@@ -1,5 +1,6 @@
 """End-to-end CLI test on a real temp git repo with a mock provider."""
 
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -336,9 +337,13 @@ def test_ci_rejects_malformed_pull_request_event(
 def test_ci_mock_provider_routes_offline_and_prints_one_json_result(
     repo: Path, tmp_path: Path, capsys, monkeypatch
 ) -> None:
-    from attest.github.client import GitHubClient
+    from attest.github.client import GitHubClient, PreparedGitHubWrite
+    from attest.review import ci as ci_module
 
     event_path = _event_path(repo, tmp_path)
+    event_payload = json.loads(event_path.read_text(encoding="utf-8"))
+    expected_head_sha = event_payload["pull_request"]["head"]["sha"]
+    expected_task_id = "cli-e2e-task"
     empty_payload = tmp_path / "empty.json"
     empty_payload.write_text(_payload(), encoding="utf-8")
     monkeypatch.setenv("GITHUB_TOKEN", "local-token")
@@ -347,14 +352,25 @@ def test_ci_mock_provider_routes_offline_and_prints_one_json_result(
     def unexpected_client(*args, **kwargs):  # noqa: ANN002, ANN003
         raise AssertionError("offline --mock must not construct a paid API client")
 
-    def record_status(self, repository, number, marker, body):  # noqa: ANN001
+    def prepare_status(
+        self, repository, number, marker, body  # noqa: ANN001
+    ) -> PreparedGitHubWrite:
+        return PreparedGitHubWrite(
+            method="POST",
+            path=f"/repos/{repository}/issues/{number}/comments",
+            payload={"body": f"{marker}\n{body}"},
+        )
+
+    def execute_status(self, request):  # noqa: ANN001
         return {"id": 1}
 
     def unexpected_review(self, repository, number, commit_id, comments):  # noqa: ANN001
         raise AssertionError("negative control must not post an inline review")
 
     monkeypatch.setattr(anthropic, "Anthropic", unexpected_client)
-    monkeypatch.setattr(GitHubClient, "upsert_issue_comment", record_status)
+    monkeypatch.setattr(ci_module, "make_task_id", lambda _seed: expected_task_id)
+    monkeypatch.setattr(GitHubClient, "prepare_issue_comment", prepare_status)
+    monkeypatch.setattr(GitHubClient, "execute_prepared_write", execute_status)
     monkeypatch.setattr(GitHubClient, "create_review", unexpected_review)
 
     rc = main(
@@ -388,10 +404,81 @@ def test_ci_mock_provider_routes_offline_and_prints_one_json_result(
         "deferred_reason",
         "spend_usd",
         "elapsed_s",
+        "publication_events",
+        "task_delivery_events",
+        "delivery_transcript",
     }
     assert result["candidate_count"] == 0
     assert result["surfaced_count"] == 0
     assert result["deferred_reason"] is None
+    assert result["task_id"] == expected_task_id
+    assert result["publication_events"] == []
+
+    task_events = result["task_delivery_events"]
+    assert type(task_events) is list and len(task_events) == 1
+    event = task_events[0]
+    assert set(event) == {
+        "event_id",
+        "attempt_id",
+        "attempt_ordinal",
+        "repository",
+        "pull_request_number",
+        "head_sha",
+        "channel",
+        "members",
+        "terminal_status",
+        "body_sha256",
+        "request_sha256",
+        "outcome",
+        "remote_response_id",
+        "delivered_at_s",
+        "deadline_s",
+    }
+    assert event["attempt_ordinal"] == 0
+    assert event["repository"] == "octo/widgets"
+    assert event["pull_request_number"] == 9
+    assert event["channel"] == "status_summary"
+    assert event["members"] == []
+    assert event["terminal_status"] == "completed"
+    assert event["outcome"] == "succeeded"
+    assert event["remote_response_id"] == "1"
+    assert type(event["delivered_at_s"]) is float
+    assert event["delivered_at_s"] >= 0.0
+    assert event["deadline_s"] is None
+    assert event["head_sha"] == expected_head_sha
+    for key in ("body_sha256", "request_sha256"):
+        assert type(event[key]) is str
+        assert len(event[key]) == 64
+        assert set(event[key]) <= set("0123456789abcdef")
+    expected_attempt_id = hashlib.sha256(
+        f"{expected_task_id}:0:{event['request_sha256']}".encode()
+    ).hexdigest()
+    assert event["attempt_id"] == expected_attempt_id
+    assert event["event_id"] == hashlib.sha256(
+        f"{expected_attempt_id}:task_delivery".encode()
+    ).hexdigest()
+
+    transcript = result["delivery_transcript"]
+    assert type(transcript) is dict
+    assert set(transcript) == {
+        "schema_version",
+        "protocol",
+        "task_id",
+        "expected_attempt_count",
+        "last_attempt_ordinal",
+        "transcript_sha256",
+    }
+    assert type(transcript["schema_version"]) is int
+    assert transcript["schema_version"] == 1
+    assert transcript["protocol"] == "attest.delivery-transcript.v1"
+    assert transcript["task_id"] == expected_task_id
+    assert type(transcript["expected_attempt_count"]) is int
+    assert transcript["expected_attempt_count"] == 1
+    assert type(transcript["last_attempt_ordinal"]) is int
+    assert transcript["last_attempt_ordinal"] == 0
+    assert type(transcript["transcript_sha256"]) is str
+    assert len(transcript["transcript_sha256"]) == 64
+    assert set(transcript["transcript_sha256"]) <= set("0123456789abcdef")
 
 
 def test_ci_mock_without_files_is_rejected(repo: Path, tmp_path: Path) -> None:
