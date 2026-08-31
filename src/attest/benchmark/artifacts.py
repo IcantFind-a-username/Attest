@@ -665,6 +665,11 @@ def canonical_json_bytes(value: object) -> bytes:
     ).encode("utf-8")
 
 
+def write_canonical_json(path: Path, value: object) -> None:
+    """Atomically replace ``path`` with one canonical JSON record."""
+    _atomic_write(path.parent, path.name, canonical_json_bytes(value))
+
+
 def sha256_bytes(payload: bytes) -> str:
     """Return the lowercase SHA-256 digest of exact bytes."""
 

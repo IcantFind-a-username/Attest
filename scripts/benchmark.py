@@ -18,7 +18,7 @@ from attest.benchmark.api import (
     evaluate_projects,
     manifest_project_truth,
 )
-from attest.benchmark.artifacts import ArtifactStore, process_secrets
+from attest.benchmark.artifacts import ArtifactStore, process_secrets, write_canonical_json
 from attest.benchmark.baselines import ComparisonPlan, compare_arms
 from attest.benchmark.corpus import (
     MAX_VALIDATION_DOCUMENT_BYTES,
@@ -823,8 +823,8 @@ def _validate(args: argparse.Namespace) -> dict[str, object]:
         ):
             args.receipt_out.parent.mkdir(parents=True, exist_ok=True)
             args.validation_results_out.parent.mkdir(parents=True, exist_ok=True)
-            _write_canonical_json(args.receipt_out, receipt)
-            _write_canonical_json(
+            write_canonical_json(args.receipt_out, receipt)
+            write_canonical_json(
                 args.validation_results_out, results["validation_results"]
             )
     results.update({"offline": True, "import_exclusions": import_exclusions})
@@ -849,7 +849,7 @@ def _experiment(args: argparse.Namespace) -> dict[str, object]:
     )
     payload = report.to_json_dict()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    _write_canonical_json(args.output, payload)
+    write_canonical_json(args.output, payload)
     return {
         "status": "ok",
         "offline": True,
@@ -1494,7 +1494,7 @@ def _experiment_evalue(args: argparse.Namespace) -> dict[str, object]:
     )
     payload = report.to_json_dict()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    _write_canonical_json(args.output, payload)
+    write_canonical_json(args.output, payload)
     derived = report.derived
     assert isinstance(derived, dict)
     return {
@@ -1529,7 +1529,7 @@ def _experiment_nullgrid(args: argparse.Namespace) -> dict[str, object]:
     )
     payload = report.to_json_dict()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    _write_canonical_json(args.output, payload)
+    write_canonical_json(args.output, payload)
     derived = report.derived
     return {
         "status": "ok",
@@ -1567,7 +1567,7 @@ def _experiment_monitor(args: argparse.Namespace) -> dict[str, object]:
     )
     payload = report.to_json_dict()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    _write_canonical_json(args.output, payload)
+    write_canonical_json(args.output, payload)
     derived = report.derived
     return {
         "status": "ok",
@@ -1620,7 +1620,7 @@ def _experiment_twoledger(args: argparse.Namespace) -> dict[str, object]:
     report = run_two_ledger_experiment(**kwargs)
     payload = report.to_json_dict()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    _write_canonical_json(args.output, payload)
+    write_canonical_json(args.output, payload)
     derived = report.derived
     return {
         "status": "ok",
@@ -1683,13 +1683,6 @@ def _read_object(path: Path) -> dict[str, Any]:
 
 def _emit(value: object, *, stream: Any) -> None:
     stream.write(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
-
-
-def _write_canonical_json(path: Path, value: object) -> None:
-    path.write_text(
-        json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
-    )
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -11,8 +12,10 @@ from attest.benchmark.artifacts import (
     ARTIFACT_KINDS,
     ArtifactError,
     ArtifactStore,
+    canonical_json_bytes,
     sha256_bytes,
     verify_artifacts,
+    write_canonical_json,
 )
 
 
@@ -42,11 +45,29 @@ def test_artifact_store_requires_total_limit_to_cover_bounded_limit(
 
 def test_canonical_json_is_one_stable_utf8_record() -> None:
     """Changing key order or whitespace must not change a signed receipt payload."""
-    from attest.benchmark.artifacts import canonical_json_bytes
-
     assert canonical_json_bytes({"z": "é", "a": [2, 1]}) == (
         b'{"a":[2,1],"z":"\\u00e9"}\n'
     )
+
+
+def test_canonical_json_write_preserves_target_after_partial_temporary_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "receipt.json"
+    target.write_text('{"status":"old"}\n', encoding="utf-8")
+    original_write = os.write
+
+    def fail_after_partial_write(descriptor: int, payload: bytes) -> int:
+        original_write(descriptor, payload[:8])
+        raise OSError("injected temporary-write failure")
+
+    monkeypatch.setattr(os, "write", fail_after_partial_write)
+
+    with pytest.raises(ArtifactError, match="artifact write"):
+        write_canonical_json(target, {"status": "new", "pairs": ["pair-1"]})
+
+    assert target.read_text(encoding="utf-8") == '{"status":"old"}\n'
+    assert list(tmp_path.iterdir()) == [target]
 
 
 def test_sha256_bytes_hashes_only_exact_bytes() -> None:

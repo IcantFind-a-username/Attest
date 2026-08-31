@@ -1390,10 +1390,3 @@ def _scored(placement: object) -> bool:
         return is_scored_placement(Placement(placement))
     except ValueError:
         return False
-
-
-def surfaced_predictions(predictions: Sequence[Prediction]) -> tuple[Prediction, ...]:
-    """Predictions the pull-request author could actually see."""
-    return tuple(
-        prediction for prediction in predictions if is_scored_placement(prediction.placement)
-    )
