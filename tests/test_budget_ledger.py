@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -121,6 +122,42 @@ def test_surfaced_precision_and_tighten(tmp_path) -> None:
     assert led.current_alpha(0.1) == 0.05
 
 
+def test_ci_surface_order_is_anchored_to_successful_settlement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    led = Ledger(tmp_path)
+    ci_ids = tuple(f"ci-{index}" for index in range(6))
+    led.record_ci_final(task_id="ci", decisions=[], spend_usd=0.0)
+    for index in range(50):
+        finding_id = f"legacy-{index}"
+        led.record_review("legacy", finding_id, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(finding_id, "good")
+    led.append(
+        {
+            "kind": "delivery_attempt_settlement",
+            "task_id": "ci",
+            "attempt_id": "ci-attempt",
+            "outcome": "succeeded",
+        }
+    )
+    for finding_id in ci_ids:
+        led.record_feedback(finding_id, "wrong")
+    event = SimpleNamespace(
+        attempt_id="ci-attempt",
+        outcome="succeeded",
+        members=tuple((finding_id, "inline") for finding_id in ci_ids),
+    )
+    monkeypatch.setattr(
+        "attest.review.ci.reconcile_delivery_rows",
+        lambda _entries, task_id: ((event,), ()) if task_id == "ci" else ((), ()),
+    )
+
+    assert led.surfaced_finding_ids()[-6:] == ci_ids
+    assert led.surfaced_precision() == (pytest.approx(0.88), 50)
+    alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
+    assert alpha == 0.05 and note is not None
+
+
 def test_wontfix_labels_do_not_tighten_alpha(tmp_path) -> None:
     """wontfix means the finding was CORRECT but not acted on: it must count
     as a true label for precision, not as a false positive."""
@@ -178,6 +215,14 @@ def test_tighten_watermark_blocks_stale_rehalving(tmp_path) -> None:
         led.record_feedback(fid, "wrong")
     alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
     assert alpha == 0.05 and note is not None
+    led.append(
+        {
+            "kind": "alpha_tightened",
+            "from": 0.1,
+            "to": 0.05,
+            "note": "legacy row without label_count",
+        }
+    )
     # same stale window: no further tightening, run after run
     for _ in range(4):
         alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)

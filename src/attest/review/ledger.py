@@ -48,12 +48,6 @@ def _label_polarity(entry: dict[str, Any]) -> str:
     return _LABEL_POLARITY.get(str(entry.get("feedback", "")), _AMBIGUOUS_POLARITY)
 
 
-def _watermark(tighten_entry: dict[str, Any]) -> int:
-    """The label count an alpha_tightened row was recorded at."""
-    value = tighten_entry.get("label_count")
-    return value if isinstance(value, int) else 0
-
-
 def _surfaced_finding_ids(entries: list[dict[str, Any]]) -> tuple[str, ...]:
     """Return the ordered, de-duplicated author-visible finding population."""
 
@@ -82,21 +76,20 @@ def _surfaced_finding_ids(entries: list[dict[str, Any]]) -> tuple[str, ...]:
         and isinstance(entry.get("task_id"), str)
     }
     ci_tasks = final_tasks | delivery_tasks | comment_tasks
-    delivered_by_task = {
-        task_id: tuple(
+    delivered_by_attempt = {
+        event.attempt_id: tuple(
             finding_id
-            for event in reconcile_delivery_rows(entries, task_id)[0]
-            if event.outcome == "succeeded"
             for finding_id, _placement in event.members
         )
         for task_id in final_tasks & delivery_tasks
+        for event in reconcile_delivery_rows(entries, task_id)[0]
+        if event.outcome == "succeeded"
     }
     surfaced_ids: list[str] = []
     for entry in entries:
         finding_ids: tuple[str, ...] = ()
-        if entry.get("kind") == "ci_final":
-            task_id = str(entry.get("task_id", ""))
-            finding_ids = delivered_by_task.get(task_id, ())
+        if entry.get("kind") == "delivery_attempt_settlement":
+            finding_ids = delivered_by_attempt.get(str(entry.get("attempt_id", "")), ())
         elif (
             entry.get("kind") == "review"
             and str(entry.get("action", "")).endswith("surface")
@@ -109,6 +102,45 @@ def _surfaced_finding_ids(entries: list[dict[str, Any]]) -> tuple[str, ...]:
             if finding_id:
                 surfaced_ids.append(finding_id)
     return tuple(surfaced_ids)
+
+
+def _labeled_surfaced(
+    entries: list[dict[str, Any]],
+    surfaced_ids: tuple[str, ...],
+    *,
+    window: int | None = None,
+) -> tuple[tuple[str, str], ...]:
+    """Project latest precision-bearing labels over one surfaced population."""
+
+    polarities = {
+        str(entry.get("finding_id", "")): _label_polarity(entry)
+        for entry in entries
+        if entry.get("kind") == "feedback"
+    }
+    population = surfaced_ids if window is None else surfaced_ids[-window:]
+    return tuple(
+        (finding_id, polarities[finding_id])
+        for finding_id in population
+        if finding_id in polarities
+        and polarities[finding_id] != _AMBIGUOUS_POLARITY
+    )
+
+
+def _watermark(entries: list[dict[str, Any]], tighten_index: int) -> int | None:
+    """Read or reconstruct the label count at one historical tightening."""
+
+    tighten_entry = entries[tighten_index]
+    value = tighten_entry.get("label_count")
+    if type(value) is int and value >= 0:
+        return value
+    if "label_count" in tighten_entry:
+        return None
+    prefix = entries[:tighten_index]
+    try:
+        surfaced_ids = _surfaced_finding_ids(prefix)
+    except ValueError:
+        return None
+    return len(_labeled_surfaced(prefix, surfaced_ids))
 
 
 def _known_secrets() -> tuple[str, ...]:
@@ -520,18 +552,10 @@ class Ledger:
         surfaced_ids = (
             _surfaced_finding_ids(entries) if surfaced_ids is None else surfaced_ids
         )
-        polarities: dict[str, str] = {}
-        for e in entries:
-            if e.get("kind") == "feedback":
-                polarities[e["finding_id"]] = _label_polarity(e)
         # ambiguous labels (legacy 'dismiss') are excluded from BOTH the
         # numerator and the denominator -- never silently counted as either
         # a true or a false label.
-        labeled = [
-            (fid, polarities[fid])
-            for fid in surfaced_ids[-window:]
-            if fid in polarities and polarities[fid] != _AMBIGUOUS_POLARITY
-        ]
+        labeled = _labeled_surfaced(entries, surfaced_ids, window=window)
         if not labeled:
             return None, 0
         precision = sum(1 for _, polarity in labeled if polarity == "true") / len(labeled)
@@ -553,24 +577,20 @@ class Ledger:
             return alpha, None
         entries = self.entries()
         surfaced_ids = _surfaced_finding_ids(entries)
-        surfaced_population = set(surfaced_ids)
         # Only labels that can MOVE surfaced precision count toward the
         # watermark. Ambiguous (legacy 'dismiss') labels are excluded from the
         # precision ratio, so counting them here advanced the watermark while
         # leaving the precision figure untouched -- which re-opened the gate on
         # a stale window and let alpha be halved again, once per dismissal, all
         # the way to the floor.
-        polarities = {
-            str(e.get("finding_id", "")): _label_polarity(e)
-            for e in entries
-            if e.get("kind") == "feedback"
-            and str(e.get("finding_id", "")) in surfaced_population
-        }
-        n_labels = sum(
-            polarity != _AMBIGUOUS_POLARITY for polarity in polarities.values()
-        )
-        last_tighten = next(
-            (e for e in reversed(entries) if e.get("kind") == "alpha_tightened"), None
+        n_labels = len(_labeled_surfaced(entries, surfaced_ids))
+        last_tighten_index = next(
+            (
+                index
+                for index in range(len(entries) - 1, -1, -1)
+                if entries[index].get("kind") == "alpha_tightened"
+            ),
+            None,
         )
         # watermark: never re-halve on the same stale label window — a new
         # tightening needs at least one precision-bearing label recorded since
@@ -578,8 +598,10 @@ class Ledger:
         # written before this count excluded ambiguous labels (whose recorded
         # count was every feedback row, hence never smaller) still block rather
         # than admit a stale re-halving.
-        if last_tighten is not None and n_labels <= _watermark(last_tighten):
-            return alpha, None
+        if last_tighten_index is not None:
+            watermark = _watermark(entries, last_tighten_index)
+            if watermark is None or n_labels <= watermark:
+                return alpha, None
         precision, n = self.surfaced_precision(
             entries=entries, surfaced_ids=surfaced_ids
         )
