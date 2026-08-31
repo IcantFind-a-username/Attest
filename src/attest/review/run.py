@@ -16,6 +16,11 @@ from attest.review.channels import gate_feasibility
 from attest.review.config import ReviewConfig
 from attest.review.diffs import git_diff
 from attest.review.gate import GateOutcome, GateResult, apply_gate, evaluate_finding
+from attest.review.history import (
+    HISTORY_LOOKBACK_COMMITS,
+    HISTORY_SIGNAL_SCHEMA_VERSION,
+    inspect_history_signal,
+)
 from attest.review.ledger import Ledger
 from attest.review.proposer import Provider, propose
 from attest.review.tier0 import collect_signals, signals_near, unresolved_identifiers
@@ -246,6 +251,26 @@ def run_review(
                         "unresolved": unresolved,
                     }
                 )
+        # F is observation-only: a separate versioned row with no purchase,
+        # wealth mutation, ordering effect, or publication path.
+        phase = "history_observation"
+        for candidate in proposal.candidates:
+            history = inspect_history_signal(repo, candidate)
+            ledger.append(
+                {
+                    "kind": "history_signal",
+                    "schema_version": HISTORY_SIGNAL_SCHEMA_VERSION,
+                    "task_id": task_id,
+                    "finding_id": candidate.finding_id,
+                    "file": candidate.file,
+                    "line": candidate.line,
+                    "lookback_commits": HISTORY_LOOKBACK_COMMITS,
+                    "triggered": history.triggered,
+                    "commit_sha": history.commit_sha,
+                    "commit_message": history.commit_message,
+                    "priced": False,
+                }
+            )
         phase = "static_analysis"
         signals = (
             []
