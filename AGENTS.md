@@ -276,9 +276,27 @@ Settled design points (do not re-derive):
 
 ## Working style
 
-- Continuous small increments; run an independent self-review pass before
+- Continuous small increments; run **one** independent self-review pass before
   merging each phase branch (list concrete defects with file:line, fix the
-  confirmed ones, log the pattern in DECISIONS.md).
+  confirmed ones, log the pattern in DECISIONS.md). **The pass is bounded and
+  the bound is the point** (D-039): a defect earns a fix only if you can
+  reproduce it. Anything you cannot — "this could in principle leak, race, or
+  overflow" — becomes one line in `docs/backlog.md`, not a commit, and so does
+  every finding from a second review round. This is the product's own gate
+  turned on its own development: a candidate without reproduction evidence
+  waits in the drawer instead of speaking.
+- **Stop signals. Any one of them ends the task — you report, you do not
+  continue.** (a) Three consecutive commits to the same file where additions
+  exceed deletions: that is accretion, not convergence. (b) Eight commits or
+  three hours on one task, whichever comes first. (c) The task's stated
+  measurement is in hand. "One more fix" is not a reason to pass any of them;
+  report what is done and what is left in the backlog.
+- **A task is done when a stated measurement is in hand**, never when a state
+  feels reached — "report the oracle pass rate on the pilot corpus", not
+  "finish Task 4". Plans under `docs/superpowers/plans/` are background and
+  architecture, not a definition of done: exhausting their checkboxes is not
+  completion, and a plan's own "implement this plan task-by-task" instruction
+  does not override the stop signals above. This guide outranks the plans.
 - MVP-first bias: build the smallest thing that can be tested for real, test
   it against reality, then decide the next step from evidence.
 - Windows dev box: `.venv\Scripts\python -m pytest` / `ruff check` / `mypy`;
