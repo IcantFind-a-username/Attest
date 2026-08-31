@@ -939,8 +939,9 @@ def compare_arms(
 ) -> ComparisonExecution:
     """Run all three arms over every planned case and aggregate per arm.
 
-    One case's failure under one arm becomes that run's DEFER; it never aborts
-    the comparison and never hides the runs that completed.
+    Only a safely classified terminal arm outcome may become that arm's DEFER.
+    Authority, evidence, baseline-materialization, and post-publication boundary
+    exceptions propagate and prevent any final receipt; they never become DEFER.
     """
     if type(line_slack) is not int or line_slack < 0:
         raise ValueError("line_slack must be an exact non-negative integer")

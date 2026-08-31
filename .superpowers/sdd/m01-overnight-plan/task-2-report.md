@@ -10,8 +10,10 @@ Status: implementation checkpoint complete; M-01 and Task 3 are not complete.
 - Prior live-route checkpoint: `0cde430146ee3664aeaeeb40c02f8a336564cf6e`
 - Settlement-recovery hardening: `0b5d75ed7309f4fcfa8721be6e9ab1d4ce9fc350`
 - Branch: `feature/m01-authoritative-outcomes`
-- Scope: twelve tracked implementation/test files; no protocol fixture, lock, action,
-  historical evidence, or factory-statistics change.
+- Scope: thirteen tracked implementation/test files: twelve substantive files plus the
+  whitespace-only `src/attest/review/ci.py`; this report is a separate tracked historical
+  evidence file. No protocol fixture, lock, action, historical evidence, or
+  factory-statistics change.
 
 ## Contract implemented
 
@@ -179,3 +181,45 @@ here. The terminated `184e7fc` Gate logs remain invalidated.
   rewrite of every predeclaration, paid, outcome, and owner root.
 - No paid call, provider network call, remote write, constant/pricing change, or historical
   artifact rewrite occurred.
+
+## Fix round 1 — evidence and wording remediation
+
+### Original-evidence audit and replay boundary
+
+- The core authority/outcome implementation and its tests first appear together in
+  `184e7fc1379c54fa417b64f0bab2141a8fdd609a`. Git history and the retained
+  `/private/tmp/m01-task2-*` diagnostics provide later hardening RED/GREEN evidence, but
+  no independently verifiable, contemporaneous core-authority RED log. This report does
+  **not** represent one as existing.
+- To make the gap independently reproducible without falsifying its chronology, the bundle
+  contains a clearly labeled **replayed RED (not original time log)**: a recoverable patch
+  adds only `test_comparison_rejects_checkpoint_owned_authority_before_provider` to the
+  pre-GREEN production tree `b9ff227` / `3b97cbd53c6e3e4b240b5fa58b656764125ded4a`.
+  With CPython 3.12.8 and `PYTHONPATH=<tree>/src`, the exact-node pytest command exits 1
+  because `compare_arms()` lacks `authority_root`. The same patch and selection on detached
+  GREEN `eddfee6` / `cd55929f4a1495126a7d94cc8fb84f8366e47635` exits 0. The RED/Green
+  logs, exit markers, and test patch are checksummed; this establishes a reproducible
+  behavioral delta, not historical TDD timing.
+
+### Exact-tree Python 3.12 Gate
+
+- A clean detached `eddfee6` repository tree (`cd55929f4a1495126a7d94cc8fb84f8366e47635`)
+  ran under CPython 3.12.8 with lock digest
+  `76908dd8dc527b59e95ab856cf67656946a4c1bf8eecbb0d95430a2161341c11`.
+  Full `pytest -p no:cacheprovider -q` exited 0; the full coverage invocation exited 0
+  at 90.04% total, and `attest.core` was 428/429 (99.77%, `--fail-under=99`) with exit 0.
+  Ruff, Mypy (49 source files), `pip check`, `git diff --check` plus clean status, and all
+  three frozen v1 artifact digests exited 0.
+- Bundle: `/private/tmp/attest-m01-task2-fix1-replay.HKWSud/acceptance`.
+  `ARTIFACTS.sha256` digest:
+  `e7c9176a73896ce2efd3debe8ecf43aef332ee56f51f06c59446af1202e5e724`; it
+  contains command descriptions, interpreter/SHA/tree provenance, raw output, and every
+  exit marker. The invalid, terminated `python312-full.exit=143` duplicate attempt is
+  deliberately excluded; the included full-Gate log is the subsequent single PTY run with
+  exit 0.
+
+### Scope correction
+
+- `compare_arms` now documents the actual boundary: only safely classified terminal arm
+  outcomes can become DEFER; authority, evidence, materialization, and post-publication
+  exceptions propagate and prevent a final receipt. This is a documentation-only change.
