@@ -3193,19 +3193,35 @@ def test_product_run_matches_are_an_exact_measurement_projection() -> None:
         )
 
 
-def test_comparison_authoritative_silent_defer_is_never_a_clean_control() -> None:
-    measurement = _measurement_record(
-        stop="task_defer",
+@pytest.mark.parametrize(
+    ("truth", "role", "stop", "status", "with_completed", "deferred", "failures"),
+    (
+        ("null", "developer_fix_control", "task_defer", "fully_deferred", False, 1, 0),
+        ("positive", "historical_bug_replay", "task_defer", "fully_deferred", True, 1, 0),
+        ("positive", "historical_bug_replay", "failure", "failed", True, 0, 1),
+    ),
+)
+def test_comparison_authoritative_noncompleted_cases_never_become_silence(
+    truth: str,
+    role: str,
+    stop: str,
+    status: str,
+    with_completed: bool,
+    deferred: int,
+    failures: int,
+) -> None:
+    noncompleted = _measurement_record(
+        stop=stop,
         findings=(),
-        eligible_defect_ids=(),
-        truth_status="null",
+        eligible_defect_ids=(() if truth == "null" else ("defect-1",)),
+        truth_status=truth,
     )
     run = baselines_module.ArmRun(
         arm=ARM_PRODUCT,
-        case_id=measurement.case_id,
-        role="developer_fix_control",
-        status="fully_deferred",
-        abstain_reason="task deferred",
+        case_id=noncompleted.case_id,
+        role=role,
+        status=status,
+        abstain_reason=("task deferred" if deferred else "task failed"),
         findings=(),
         matched_defect_ids=(),
         model_calls=1,
@@ -3215,15 +3231,41 @@ def test_comparison_authoritative_silent_defer_is_never_a_clean_control() -> Non
         oracle_spend_usd=0.0,
         wall_time_s=1.0,
         tool_cost_s=None,
-        product_measurement=measurement,
+        product_measurement=noncompleted,
     )
+    completed = replace(
+        _measurement_record(eligible_defect_ids=(), truth_status="null"),
+        case_id="completed-control",
+    )
+    runs = (run,)
+    if with_completed:
+        runs = (
+            replace(
+                run,
+                case_id=completed.case_id,
+                role="developer_fix_control",
+                status="completed",
+                abstain_reason=None,
+                product_measurement=completed,
+            ),
+            run,
+        )
+    summary = _summarize_arm(ARM_PRODUCT, runs)
 
-    summary = _summarize_arm(ARM_PRODUCT, (run,))
-
-    assert summary.accuracy.decided_control_cases == 0
-    assert summary.accuracy.silent_control_cases == 0
-    assert summary.accuracy.clean_false_positive_rate is None
-    assert summary.outcome_accounting["null_pull_requests"] == 0
+    assert summary.operational.evaluated_cases == 1 + with_completed
+    assert summary.operational.deferred_cases == deferred
+    assert summary.operational.silent_cases == int(with_completed)
+    assert summary.operational.silence_rate == (
+        pytest.approx(1.0) if with_completed else None
+    )
+    assert summary.accuracy.silent_control_cases == int(with_completed)
+    assert summary.accuracy.silent_positive_cases == 0
+    assert summary.accuracy.silence_precision == (
+        pytest.approx(1.0) if with_completed else None
+    )
+    assert summary.outcome_accounting["task_status_counts"][status] == 1
+    assert summary.outcome_accounting["failures"] == failures
+    assert len(summary.abstentions) == deferred
 
 
 def _receipt_artifacts(

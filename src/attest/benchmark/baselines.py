@@ -3621,14 +3621,17 @@ def _summarize_authoritative_product(runs: tuple[ArmRun, ...]) -> ArmSummary:
         raise ComparisonEvidenceError(
             "authoritative product accuracy is withheld by its measurement record"
         )
+    completed_records = tuple(
+        record for record in records if record.task_status is TaskStatus.COMPLETED
+    )
     silent_positives = sum(
         record.truth_status is TruthStatus.POSITIVE and record.published_count == 0
-        for record in records
+        for record in completed_records
     )
     finding_total = correct + wrong
     positive_total = summary.positive_pull_requests
     control_total = summary.null_pull_requests
-    silent_cases = sum(record.published_count == 0 for record in records)
+    silent_cases = sum(record.published_count == 0 for record in completed_records)
     counts: dict[str, int] = {}
     for run in runs:
         for finding in run.findings:
@@ -3656,10 +3659,10 @@ def _summarize_authoritative_product(runs: tuple[ArmRun, ...]) -> ArmSummary:
     )
     operational = ArmOperational(
         evaluated_cases=summary.semantic_n,
-        deferred_cases=summary.semantic_n - summary.completed,
+        deferred_cases=summary.partially_deferred + summary.fully_deferred,
         surfaced_findings=published,
         silent_cases=silent_cases,
-        silence_rate=_ratio(silent_cases, summary.semantic_n),
+        silence_rate=_ratio(silent_cases, summary.completed),
         model_calls=sum(run.model_calls for run in runs),
         input_tokens=sum(run.input_tokens for run in runs),
         output_tokens=sum(run.output_tokens for run in runs),
