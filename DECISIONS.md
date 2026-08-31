@@ -468,3 +468,16 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** remove the retry or prompt constraint only with measured V-channel evidence;
   never reverse by permitting process escape or accepting malformed schema.
 - **Trace:** D-017; D-037; `src/attest/review/executor.py`; Wave 4.
+
+### D-053 — Alpha relaxation remains an owner decision
+
+- **Date/status/scope:** 2026-09-01 · pending owner decision · feedback policy only.
+- **Question:** should any future design add a bounded alpha-relaxation path to complement
+  the existing one-way `maybe_tighten_alpha` ratchet?
+- **Current rule:** no relaxation path is implemented or authorized. Work on recall must
+  add sparse evidence independent of model opinion; it must not uniformly lower the
+  publication threshold or alter protected factory constants.
+- **Why pending:** loosening alpha changes the error budget for every candidate, unlike a
+  sparse signal that applies only when independently observed evidence exists. The current
+  overnight measurements do not estimate the resulting precision/harm tradeoff.
+- **Trace:** D-038; D-048; `src/attest/review/ledger.py`; owner overnight constraints.
