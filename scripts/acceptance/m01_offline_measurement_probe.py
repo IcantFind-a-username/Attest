@@ -216,10 +216,11 @@ def _run(args: argparse.Namespace) -> int:
             mode=LIVE_MODE, manifest_sha256="6" * 64,
             preregistration_sha256="7" * 64, validation_receipt=None).to_json_dict()
         visible = tuple(item for item in result.predictions if is_scored_placement(item.placement))
+        expected_product_generators = 5 if source_sha == BASELINE else 6
         guards = (len(result.final_decisions) == 5, len(visible) == 4,
             sorted(item.placement.value for item in visible) == ["inline", "inline", "inline", "overflow"],
             result.task_id is not None, bool(result.abstain_reason and result.abstain_reason.strip()),
-            product.proposals == 2, product.generators == 5,
+            product.proposals == 2, product.generators == expected_product_generators,
             oracle.proposals == 0, oracle.generators == 4, not external_attempts)
         if not all(guards):
             raise ValueError("common product execution guard failed")
