@@ -1,4 +1,5 @@
 import math
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -8,10 +9,12 @@ from attest.review.config import ReviewConfig, load_pricing
 from attest.review.diffs import DiffInfo, parse_diff
 from attest.review.proposer import (
     PROPOSER_MAX_OUTPUT_TOKENS,
+    ApiProvider,
     MockProvider,
     ProviderResult,
     build_prompt,
     propose,
+    response_fragment,
 )
 
 DEFAULT_MODEL = str(load_pricing()["default_model"])
@@ -61,6 +64,39 @@ def test_unparseable_json_is_a_sample_error_but_spend_settles() -> None:
     assert "unparseable" in run.sample_errors[0]
     assert budget.spent_usd > 0  # the calls happened; the spend is real
     assert run.successful_samples == 0
+    assert run.sample_observations[0].stop_reason == "not_recorded"
+    assert run.sample_observations[0].output_tokens == 10
+    assert 'raw="{not json"' in run.sample_errors[0]
+
+
+def test_response_fragment_is_bounded_and_redacts_known_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    secret = "credential-value-that-must-not-be-recorded"
+    monkeypatch.setenv("ANTHROPIC_API_KEY", secret)
+
+    fragment = response_fragment(secret + "x" * 600)
+
+    assert secret not in fragment
+    assert "[REDACTED]" in fragment
+    assert "[truncated]" in fragment
+
+
+def test_api_provider_records_stop_reason_and_actual_output_tokens() -> None:
+    provider = ApiProvider("test-model")
+    response = SimpleNamespace(
+        content=[SimpleNamespace(type="text", text='{"findings": []}')],
+        usage=SimpleNamespace(input_tokens=11, output_tokens=17),
+        stop_reason="max_tokens",
+    )
+    provider.client = SimpleNamespace(
+        messages=SimpleNamespace(create=lambda **_kwargs: response)
+    )
+
+    result = provider.sample("system", "prompt", {}, 20)
+
+    assert result.stop_reason == "max_tokens"
+    assert result.output_tokens == 17
 
 
 def test_non_list_findings_tolerated() -> None:

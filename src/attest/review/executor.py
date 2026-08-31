@@ -22,7 +22,7 @@ from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.gate import GateResult, apply_verification
 from attest.review.ledger import Ledger
-from attest.review.proposer import Provider
+from attest.review.proposer import Provider, response_fragment
 from attest.review.security import is_secret_name
 
 MAX_CONTEXT_LINES = 200
@@ -306,13 +306,18 @@ def _parse_repro(text: str) -> ReproSpec:
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise ValueError("generator output is not valid JSON") from exc
+        raise ValueError(
+            f"generator output is not valid JSON; raw={response_fragment(text)}"
+        ) from exc
     if (
         not isinstance(payload, dict)
         or set(payload) != {"test_body"}
         or not isinstance(payload["test_body"], str)
     ):
-        raise ValueError("generator output does not match the reproduction schema")
+        raise ValueError(
+            "generator output does not match the reproduction schema; "
+            f"raw={response_fragment(text)}"
+        )
     return ReproSpec(test_body=payload["test_body"])
 
 

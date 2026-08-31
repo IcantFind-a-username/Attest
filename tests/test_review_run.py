@@ -68,6 +68,10 @@ def test_run_review_persists_one_task_scoped_drawer_and_elapsed_time(repo: Path)
     assert [entry["kind"] for entry in records] == ["review", "review_run"]
     assert {entry["task_id"] for entry in records} == {run.task_id}
     assert records[1]["elapsed_s"] == 1.25
+    assert records[1]["provider_samples"] == [
+        {"sample": 0, "stop_reason": "not_recorded", "output_tokens": 200}
+    ]
+    assert "provider sample 0: stop_reason=not_recorded; output_tokens=200" in run.notes
 
 
 def test_run_review_defers_before_a_model_call_when_budget_is_exceeded(repo: Path) -> None:

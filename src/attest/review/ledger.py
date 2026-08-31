@@ -410,6 +410,12 @@ def _redact(value: Any, secrets: tuple[str, ...]) -> Any:
     return value
 
 
+def redact_known_secrets(value: Any) -> Any:
+    """Redact credential values already present in this process environment."""
+
+    return _redact(value, _known_secrets())
+
+
 def _strict_object_pairs(rows: list[tuple[str, Any]]) -> dict[str, Any]:
     value: dict[str, Any] = {}
     for key, item in rows:
@@ -464,9 +470,8 @@ class Ledger:
 
     def append(self, entry: dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        entry = _redact(
-            {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **entry},
-            _known_secrets(),
+        entry = redact_known_secrets(
+            {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **entry}
         )
         with self.path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -478,9 +483,8 @@ class Ledger:
             for name in ("O_CLOEXEC", "O_DIRECTORY", "O_NOFOLLOW")
         ):
             raise ValueError("durable ledger filesystem capabilities are unavailable")
-        redacted = _redact(
-            {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **entry},
-            _known_secrets(),
+        redacted = redact_known_secrets(
+            {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **entry}
         )
         try:
             data = (

@@ -18,6 +18,7 @@ from attest.review.budget import Budget, BudgetExceeded
 from attest.review.config import ReviewConfig
 from attest.review.dedup import merge_findings
 from attest.review.diffs import DiffInfo
+from attest.review.ledger import redact_known_secrets
 from attest.review.schema import PROPOSAL_SCHEMA, Finding, validate_finding
 
 # Preregistered per-sample output-token bound for proposal sampling. It feeds
@@ -48,6 +49,7 @@ from attest.review.schema import PROPOSAL_SCHEMA, Finding, validate_finding
 # chars (5 reservations hit exactly $0.25), making --budget act as a diff-size
 # cutoff; a 44,158-char diff now reserves at ~$0.23 with headroom to spare.
 PROPOSER_MAX_OUTPUT_TOKENS = 1600
+MAX_RESPONSE_FRAGMENT_CHARS = 500
 
 SYSTEM_PROMPT = """You are a code reviewer that reports ONLY high-severity defects: crashes, \
 data loss or corruption, security vulnerabilities, and logic errors with real consequences. \
@@ -69,6 +71,25 @@ class ProviderResult:
     text: str
     input_tokens: int
     output_tokens: int
+    stop_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class SampleObservation:
+    sample: int
+    stop_reason: str
+    output_tokens: int | None
+
+
+def response_fragment(text: str) -> str:
+    """Return a bounded, one-line JSON fragment with known credentials redacted."""
+
+    redacted = str(redact_known_secrets(text))
+    suffix = "...[truncated]" if len(redacted) > MAX_RESPONSE_FRAGMENT_CHARS else ""
+    return json.dumps(
+        redacted[:MAX_RESPONSE_FRAGMENT_CHARS] + suffix,
+        ensure_ascii=False,
+    )
 
 
 class Provider(Protocol):
@@ -123,6 +144,7 @@ class ApiProvider:
             text=text,
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
+            stop_reason=response.stop_reason,
         )
 
 
@@ -155,6 +177,7 @@ class ProposalRun:
     rejected: list[str]  # human-readable rejection reasons (void findings)
     sample_errors: list[str]
     successful_samples: int
+    sample_observations: list[SampleObservation]
 
 
 def build_prompt(diff: DiffInfo) -> str:
@@ -198,22 +221,34 @@ def propose(
     rejected: list[str] = []
     errors: list[str] = []
     successful_samples = 0
+    observations: list[SampleObservation] = []
     for i, res in enumerate(results):
         if isinstance(res, Exception):
             budget.cancel(reservations[i])
             errors.append(f"sample {i}: {type(res).__name__}: {res}")
+            observations.append(
+                SampleObservation(i, f"error:{type(res).__name__}", None)
+            )
             per_sample.append([])
             continue
         budget.settle(f"sample-{i}", reservations[i], res.input_tokens, res.output_tokens)
+        observations.append(
+            SampleObservation(i, res.stop_reason or "not_recorded", res.output_tokens)
+        )
         try:
             payload = json.loads(res.text)
             raw_findings = payload.get("findings", [])
         except (json.JSONDecodeError, AttributeError):
-            errors.append(f"sample {i}: unparseable JSON")
+            errors.append(
+                f"sample {i}: unparseable JSON; raw={response_fragment(res.text)}"
+            )
             per_sample.append([])
             continue
         if not isinstance(raw_findings, list):
-            errors.append(f"sample {i}: malformed findings collection")
+            errors.append(
+                f"sample {i}: malformed findings collection; "
+                f"raw={response_fragment(res.text)}"
+            )
             per_sample.append([])
             continue
         valid: list[Finding] = []
@@ -229,7 +264,9 @@ def propose(
         if not raw_findings or valid:
             successful_samples += 1
         else:
-            errors.append(f"sample {i}: all findings malformed")
+            errors.append(
+                f"sample {i}: all findings malformed; raw={response_fragment(res.text)}"
+            )
         per_sample.append(valid)
 
     return ProposalRun(
@@ -237,4 +274,5 @@ def propose(
         rejected=rejected,
         sample_errors=errors,
         successful_samples=successful_samples,
+        sample_observations=observations,
     )

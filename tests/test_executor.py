@@ -558,6 +558,30 @@ def test_generate_rejects_malformed_output_after_settling(tmp_path: Path, payloa
     assert len(budget.calls) == 1
 
 
+def test_generate_schema_failure_includes_bounded_redacted_raw_fragment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_anchor_file(tmp_path)
+    secret = "generator-secret-that-must-not-be-recorded"
+    monkeypatch.setenv("ANTHROPIC_API_KEY", secret)
+    provider = RecordingProvider(
+        ProviderResult(text=secret + "x" * 600, input_tokens=2, output_tokens=3)
+    )
+
+    with pytest.raises(ValueError) as caught:
+        generate_repro(
+            tmp_path,
+            candidate(),
+            provider,
+            Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        )
+
+    message = str(caught.value)
+    assert secret not in message
+    assert "[REDACTED]" in message
+    assert "[truncated]" in message
+
+
 def test_execute_assertion_failure_is_reproduced_and_uses_task_path(tmp_path: Path) -> None:
 
     stored = candidate(line=1)
