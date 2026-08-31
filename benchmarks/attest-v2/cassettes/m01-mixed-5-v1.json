@@ -1,0 +1,60 @@
+{
+  "case_id": "case-333333333333",
+  "fixture": {
+    "buggy": "def value():\n    return 0\n",
+    "buggy_sha256": "4480052910accecafe6f206dbd8be95b8447320ff6d2332761858fd6399c1255",
+    "fixed": "def value():\n    return 1\n",
+    "fixed_sha256": "5d080563b57287276f589c2b2714ef499269efe7405a288b3c1474f5a92bf271",
+    "test": "from calc import value\n\ndef test_value():\n    assert value() == 1\n",
+    "test_sha256": "7df0dd2ba3a14e81bc8379625eb7fdbf58f3a900b680e78cd17726c76a59d53a"
+  },
+  "generators": [
+    {
+      "claim": "Empty batch division crashes request processing.",
+      "claim_sha256": "b3ea6f00b78543de28d9efee571f60936a5d56bcf75b08f47812ff17db8d6c69",
+      "input_tokens": 7,
+      "output_tokens": 19,
+      "response": "{\"test_body\":\"import runpy\\n\\ndef test_value_is_one():\\n    assert runpy.run_path('calc.py')['value']() == 1\\n\"}",
+      "response_sha256": "bd817de03928058e4e4a90517cce85edb477a8bf1a52bde093b0624e4b1e138a"
+    },
+    {
+      "claim": "Missing measurements abort the scheduled aggregation.",
+      "claim_sha256": "17eea0ab9ee41b92184d950021a1799e8bad37dfd8a1ffe4cec0e4a0a3ecef57",
+      "input_tokens": 7,
+      "output_tokens": 19,
+      "response": "{\"test_body\":\"import runpy\\n\\ndef test_value_is_one():\\n    assert runpy.run_path('calc.py')['value']() == 1\\n\"}",
+      "response_sha256": "bd817de03928058e4e4a90517cce85edb477a8bf1a52bde093b0624e4b1e138a"
+    },
+    {
+      "claim": "Vacant samples terminate the health calculation.",
+      "claim_sha256": "3dd784b1fcafcba1a0645e7dde7f838700f4312f37f4dbb950196a55b3a0164d",
+      "input_tokens": 7,
+      "output_tokens": 19,
+      "response": "{\"test_body\":\"import runpy\\n\\ndef test_value_is_one():\\n    assert runpy.run_path('calc.py')['value']() == 1\\n\"}",
+      "response_sha256": "bd817de03928058e4e4a90517cce85edb477a8bf1a52bde093b0624e4b1e138a"
+    },
+    {
+      "claim": "Zero observations make the reporting endpoint unavailable.",
+      "claim_sha256": "4969faf5f06bc7b303327a289e221fefe4b982553672824d7bf0b18c961a2313",
+      "input_tokens": 7,
+      "output_tokens": 19,
+      "response": "{\"test_body\":\"import runpy\\n\\ndef test_value_is_one():\\n    assert runpy.run_path('calc.py')['value']() == 1\\n\"}",
+      "response_sha256": "bd817de03928058e4e4a90517cce85edb477a8bf1a52bde093b0624e4b1e138a"
+    },
+    {
+      "claim": "Absent telemetry corrupts the archival checkpoint.",
+      "claim_sha256": "847ad5a7723332480211b25d0d1abb7737087fa8852de6fbc278d80113520c2e",
+      "input_tokens": 7,
+      "output_tokens": 1,
+      "response": "{}",
+      "response_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    }
+  ],
+  "proposal": {
+    "input_tokens": 23,
+    "output_tokens": 101,
+    "response": "{\"findings\":[{\"claim\":\"Empty batch division crashes request processing.\",\"anchor\":{\"file\":\"calc.py\",\"line\":2},\"failure_scenario\":\"A request submits an empty batch.\",\"falsification_plan\":\"Call the helper with no batch entries.\"},{\"claim\":\"Missing measurements abort the scheduled aggregation.\",\"anchor\":{\"file\":\"calc.py\",\"line\":2},\"failure_scenario\":\"A scheduled job receives no measurements.\",\"falsification_plan\":\"Run the scheduled job without measurements.\"},{\"claim\":\"Vacant samples terminate the health calculation.\",\"anchor\":{\"file\":\"calc.py\",\"line\":2},\"failure_scenario\":\"A health window contains vacant samples.\",\"falsification_plan\":\"Evaluate a health window containing no samples.\"},{\"claim\":\"Zero observations make the reporting endpoint unavailable.\",\"anchor\":{\"file\":\"calc.py\",\"line\":2},\"failure_scenario\":\"The endpoint handles a period with zero observations.\",\"falsification_plan\":\"Request a report for an observation-free period.\"},{\"claim\":\"Absent telemetry corrupts the archival checkpoint.\",\"anchor\":{\"file\":\"calc.py\",\"line\":1},\"failure_scenario\":\"An archival checkpoint receives absent telemetry.\",\"falsification_plan\":\"Inspect the private archival checkpoint path.\"}]}",
+    "response_sha256": "64f05a74d11e451ae538c1d2ec662b6c614be16db3bba003805a549a5f54d6e3"
+  },
+  "schema_version": "attest.m01-mixed-cassette.v1"
+}
