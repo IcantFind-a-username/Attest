@@ -8,7 +8,11 @@ Baseline: `main@c945788` before the evolution scaffold
 
 ## 1. Destination
 
-Build a precise, efficient LLM-driven project evaluator with this separation:
+Attest's durable product direction is governed only by the
+[Product north star](../AGENTS.md#product-north-star). This roadmap owns dependency order
+and status; it does not redefine that outcome.
+
+The delivery architecture retains this separation:
 
 ```text
 Discovery -> Evidence Scheduler/Core -> Evidence Executors
@@ -19,6 +23,12 @@ Discovery -> Evidence Scheduler/Core -> Evidence Executors
 Core is activated only as a shadow evidence scheduler and later, if measured, as an
 execution-order controller. It is never a voter or certifier. Public speech is controlled
 only by a trusted, claim-bound differential receipt and a PR-level publication policy.
+
+The north star does not change the current sequence: M-01 remains the trusted-measurement
+prerequisite, while C-01 is an evidence-safety foundation rather than the product goal.
+S-01 and all later evaluations must cover repository understanding, architecture
+decomposition, cross-cutting impact, and Top-issue prioritization. Current BugsInPy and
+local-regression metrics are bounded evidence and cannot establish that product outcome.
 
 The architecture contract is
 [`architecture/target-algorithm.md`](architecture/target-algorithm.md). Exact work orders

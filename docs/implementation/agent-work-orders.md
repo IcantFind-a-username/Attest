@@ -8,6 +8,10 @@ Order/status: [`../roadmap.md`](../roadmap.md)
 
 Acceptance: [`../acceptance/evolution-gates.md`](../acceptance/evolution-gates.md)
 
+Across work orders, candidates, ranking, evidence, corpora, and success metrics must cover
+every dimension of the [Product north star](../../AGENTS.md#product-north-star); this guide
+does not redefine that product authority.
+
 This file is deliberately detailed. A construction agent should be able to select one
 unblocked work order, find its seams, write the first failing test, and hand back an
 auditable change without reconstructing the project strategy from chat history.
@@ -1165,12 +1169,13 @@ missing or belongs to another task, cross-task reservation/budget/observation re
 before candidate, duplicate settlement, certification type imported, and serialization
 round-trip.
 
-**Implementation:** immutable/versioned records; explicit missingness; task-scoped discovery
-versus same-task candidate-scoped evidence binding; task-local reservation, remaining
-budget, observation, cost/latency, model/prompt/tool/executor version, randomized propensity,
-and delayed-label provenance. Add architectural import tests forbidding scheduler ->
-certification decision/presentation dependencies and fail-closed property tests for
-`INV-SCHED-002`.
+**Implementation:** immutable/versioned records; explicit missingness; candidate/evidence
+scope for repository understanding, architecture decomposition, and cross-cutting impact,
+plus Top-issue rank/rationale; task-scoped discovery versus same-task candidate-scoped
+evidence binding; task-local reservation, remaining budget, observation, cost/latency,
+model/prompt/tool/executor version, randomized propensity, and delayed-label provenance.
+Add architectural import tests forbidding scheduler -> certification decision/presentation
+dependencies and fail-closed property tests for `INV-SCHED-002`.
 
 **Acceptance:** all current S/T/generator/executor actions can be losslessly represented;
 shadow logging cannot alter calls; event stream reconstructs budget and outcome taxonomy.
@@ -1306,6 +1311,10 @@ traffic and any remote integration require explicit authorization.
 ---
 
 # Empirical gates
+
+Taken together, E-* corpora must include every north-star dimension, and primary metrics
+must report dimension coverage and Top-issue ranking quality; bug-local regression results
+alone are insufficient.
 
 ## E-01 — Current-code natural-null safety
 

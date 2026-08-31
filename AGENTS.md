@@ -48,11 +48,24 @@ Never initialize or scaffold a replacement repository. Do not assume an old macO
 absolute path from a report. Preserve unrelated dirty-worktree changes; they belong to the
 user or another task.
 
-## 3. Product outcome
+<a id="product-north-star"></a>
 
-Attest is an evidence-first, LLM-driven project evaluator. The target product discovers
-falsifiable defect candidates, spends model/tool/execution budget efficiently, and publishes
-only claims backed by a trusted, replayable, claim-bound certificate.
+## 3. Product north star
+
+This section is the sole repository authority for Attest's durable product north star.
+
+> “Attest 的首要目标不是普通 bug scanner。它应当学习并分析整个代码库，理解并合理拆分架构，精准定位问题，并能见微知著地指出对整个项目质量影响最大的 Top 问题；具体 bug 可以同时检测和指出，但属于这一系统级代码理解与质量诊断能力的自然副产物，而不是唯一或最高层目标。”
+
+Normatively, product success means system-level repository understanding, coherent
+architecture decomposition, cross-cutting impact analysis, and Top-issue prioritization.
+Concrete bug findings are expected natural by-products of that capability, not its sole or
+highest goal.
+
+This north star governs candidate scope, ranking, evidence and corpus design, and product
+success metrics. Attest remains an evidence-first, LLM-driven project evaluator that spends
+model/tool/execution budget efficiently and publishes only claims backed by a trusted,
+replayable, claim-bound certificate. Receipt-only certification, security/isolation, and
+honest measurement remain mandatory constraints, not substitutes for product success.
 
 The target separation is:
 
