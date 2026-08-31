@@ -1394,6 +1394,79 @@ def test_comparison_does_not_recreate_a_missing_zero_call_paid_root_before_final
     ).exists()
 
 
+def test_zero_call_settlement_recovery_refuses_a_missing_paid_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    original = plans[0]
+    plan = replace(
+        original,
+        request=replace(
+            original.request,
+            config=replace(original.request.config, budget_usd=1e-9),
+        ),
+    )
+    root = tmp_path / "missing-zero-call-recovery-root"
+    real_write = baselines_module.write_comparison_arm_outcome_once
+
+    def crash_before_bare_slot(authority, slot, outcome):
+        if slot.arm == ARM_BARE_PROMPT:
+            raise KeyboardInterrupt("crash after zero-call bare settlement")
+        return real_write(authority, slot, outcome)
+
+    monkeypatch.setattr(
+        baselines_module,
+        "write_comparison_arm_outcome_once",
+        crash_before_bare_slot,
+    )
+    with pytest.raises(KeyboardInterrupt, match="zero-call bare settlement"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    marker_path = (
+        root / "reconciliation" / ARM_BARE_PROMPT / f"{plan.case.case_id}.json"
+    )
+    marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    assert marker["status"] == "settled"
+    assert marker["call_count"] == 0
+    paid_root = root / ARM_BARE_PROMPT / plan.case.case_id
+    shutil.rmtree(paid_root)
+    monkeypatch.setattr(
+        baselines_module,
+        "write_comparison_arm_outcome_once",
+        real_write,
+    )
+
+    with pytest.raises(ComparisonEvidenceError, match="paid case root is missing"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda _request: pytest.fail(
+                "durable product slot must skip provider construction"
+            ),
+            bare_provider_factory=lambda _case_id: pytest.fail(
+                "settled bare recovery must not construct a provider"
+            ),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    assert not paid_root.exists()
+    outcomes = root / "authoritative-outcomes" / "comparison-outcomes"
+    assert not (outcomes / "000001.json").exists()
+    assert not (outcomes / "000002.json").exists()
+    assert not (
+        root.with_name(root.name + "-owner")
+        / "comparison.final.receipt.json"
+    ).exists()
+
+
 def test_comparison_propagates_post_execution_authority_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

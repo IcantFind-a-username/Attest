@@ -1607,13 +1607,33 @@ def _settled_checkpoint_recovery(
     path = _comparison_reconciliation_path(checkpoint_root, arm, case_id)
     call_root = checkpoint_root / arm / case_id
     has_marker = path.exists()
-    has_calls = _call_evidence_exists(call_root)
-    if not has_marker and not has_calls:
-        return None
-    if not has_marker:
+    try:
+        root_status = call_root.lstat()
+    except FileNotFoundError:
+        has_root = False
+    except OSError as exc:
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} paid case root is unreadable"
+        ) from exc
+    else:
+        if stat.S_ISLNK(root_status.st_mode) or not stat.S_ISDIR(
+            root_status.st_mode
+        ):
+            raise ComparisonEvidenceError(
+                f"comparison {arm}/{case_id} paid case root is unsafe"
+            )
+        has_root = True
+    if has_marker and not has_root:
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} paid case root is missing for its "
+            "reconciliation marker"
+        )
+    if has_root and not has_marker:
         raise ComparisonEvidenceError(
             f"comparison {arm}/{case_id} paid evidence has no reconciliation marker"
         )
+    if not has_marker:
+        return None
     stored = _read_comparison_reconciliation(path, arm, case_id)
     if stored.get("status") != "settled":
         raise ComparisonEvidenceError(
