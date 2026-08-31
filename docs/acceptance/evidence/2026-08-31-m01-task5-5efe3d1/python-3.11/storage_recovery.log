@@ -1,0 +1,1 @@
+Deleted only the owned ephemeral full-basetemp after ENOSPC to preserve required logs; no repository/evidence files removed.

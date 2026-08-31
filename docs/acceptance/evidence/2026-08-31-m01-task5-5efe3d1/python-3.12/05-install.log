@@ -1,0 +1,43 @@
+Looking in links: /private/tmp/attest-wheelhouse.WAGZer, /private/tmp/attest-wheelhouse.WAGZer
+Obtaining file:///private/tmp/attest-m01-final-5efe3d1-py312/checkout
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Requirement already satisfied: anthropic>=1.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from attest==0.0.1) (1.2.0)
+Requirement already satisfied: numpy>=1.26 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from attest==0.0.1) (2.5.2)
+Requirement already satisfied: pytest>=8 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from attest==0.0.1) (9.1.1)
+Requirement already satisfied: mypy==2.3.1 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from attest==0.0.1) (2.3.1)
+Requirement already satisfied: pytest-cov==7.1.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from attest==0.0.1) (7.1.0)
+Requirement already satisfied: ruff==0.16.5 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from attest==0.0.1) (0.16.5)
+Requirement already satisfied: typing_extensions>=4.6.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from mypy==2.3.1->attest==0.0.1) (4.16.0)
+Requirement already satisfied: mypy_extensions>=1.0.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from mypy==2.3.1->attest==0.0.1) (1.1.0)
+Requirement already satisfied: pathspec>=1.0.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from mypy==2.3.1->attest==0.0.1) (1.1.1)
+Requirement already satisfied: librt>=0.13.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from mypy==2.3.1->attest==0.0.1) (0.15.0)
+Requirement already satisfied: ast-serialize<1.0.0,>=0.6.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from mypy==2.3.1->attest==0.0.1) (0.8.0)
+Requirement already satisfied: iniconfig>=1.0.1 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from pytest>=8->attest==0.0.1) (2.3.0)
+Requirement already satisfied: packaging>=22 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from pytest>=8->attest==0.0.1) (26.3)
+Requirement already satisfied: pluggy<2,>=1.5 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from pytest>=8->attest==0.0.1) (1.6.0)
+Requirement already satisfied: pygments>=2.7.2 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from pytest>=8->attest==0.0.1) (2.21.0)
+Requirement already satisfied: coverage>=7.10.6 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from coverage[toml]>=7.10.6->pytest-cov==7.1.0->attest==0.0.1) (7.16.0)
+Requirement already satisfied: anyio<5,>=3.5.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from anthropic>=1.0->attest==0.0.1) (4.14.2)
+Requirement already satisfied: docstring-parser<1,>=0.15 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from anthropic>=1.0->attest==0.0.1) (0.18.0)
+Requirement already satisfied: httpx2<3,>=2.0.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from anthropic>=1.0->attest==0.0.1) (2.12.0)
+Requirement already satisfied: jiter<1,>=0.4.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from anthropic>=1.0->attest==0.0.1) (0.16.0)
+Requirement already satisfied: pydantic<3,>=1.9.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from anthropic>=1.0->attest==0.0.1) (2.13.4)
+Requirement already satisfied: sniffio<2,>=1 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from anthropic>=1.0->attest==0.0.1) (1.3.1)
+Requirement already satisfied: idna>=2.8 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from anyio<5,>=3.5.0->anthropic>=1.0->attest==0.0.1) (3.19)
+Requirement already satisfied: httpcore2==2.12.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from httpx2<3,>=2.0.0->anthropic>=1.0->attest==0.0.1) (2.12.0)
+Requirement already satisfied: truststore>=0.10 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from httpx2<3,>=2.0.0->anthropic>=1.0->attest==0.0.1) (0.10.4)
+Requirement already satisfied: h11>=0.16 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from httpcore2==2.12.0->httpx2<3,>=2.0.0->anthropic>=1.0->attest==0.0.1) (0.16.0)
+Requirement already satisfied: annotated-types>=0.6.0 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from pydantic<3,>=1.9.0->anthropic>=1.0->attest==0.0.1) (0.8.0)
+Requirement already satisfied: pydantic-core==2.46.4 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from pydantic<3,>=1.9.0->anthropic>=1.0->attest==0.0.1) (2.46.4)
+Requirement already satisfied: typing-inspection>=0.4.2 in /private/tmp/attest-m01-final-5efe3d1-py312/venv/lib/python3.12/site-packages (from pydantic<3,>=1.9.0->anthropic>=1.0->attest==0.0.1) (0.4.4)
+Building wheels for collected packages: attest
+  Building editable for attest (pyproject.toml): started
+  Building editable for attest (pyproject.toml): finished with status 'done'
+  Created wheel for attest: filename=attest-0.0.1-py3-none-any.whl size=9259 sha256=0a464a4840b8398ea9ca1add69167561cfbcf8fd5ae4a84ff78790f5b5549dc5
+  Stored in directory: /private/tmp/attest-m01-final-5efe3d1-py312/tmp/pip-ephem-wheel-cache-akxz6x6u/wheels/aa/a5/a6/28df582786470270101780f82aa43baaf6cf44090df1d9f058
+Successfully built attest
+Installing collected packages: attest
+Successfully installed attest-0.0.1

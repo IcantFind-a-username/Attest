@@ -565,13 +565,17 @@ When a work order completes:
 
 ### Progress
 
-- **2026-08-31 — M-01 bounded closeout, still open:** implementation `dd37a8e` closes
-  reproduced outer-row, strict-reader, delivery-decision join, and physical-order defects;
-  the focused ledger/CI/CLI/runner/API matrix plus Ruff and Mypy passed. D-049 then stopped
-  the task because it had exceeded the single-task commit/time/accretion bounds. The final
-  SHA has no dual-Python full Gate or independent review, so M-01, `G-MEASURE-001`, and
-  Phase 0 remain open. Task 4's 20-process measurement remains valid historical evidence;
-  see [`acceptance/2026-08-31-m01-mixed-outcome.md`](acceptance/2026-08-31-m01-mixed-outcome.md).
+- **2026-08-31 — M-01 Task 5 failed on host storage; still open:** implementation
+  `dd37a8e` closes reproduced outer-row, strict-reader, delivery-decision join, and
+  physical-order defects; final candidate `5efe3d1` closes the independent review's one
+  reproduced non-surface-delivery P1, with resolution P0=0/P1=0. The focused matrix and
+  static Gates passed. Fresh exact-SHA Python 3.11 and 3.12 environments each invoked full
+  pytest once, but the host volume returned `ENOSPC` at 97% / about 99% (RC 120) before test
+  totals or coverage existed. No retry occurred. Under D-049 this is `FAILED ENVIRONMENT`,
+  not `G-CODE-001`; M-01, `G-MEASURE-001`, and Phase 0 remain open, and C-01 must not start.
+  Task 4's 20-process measurement remains valid; raw Task 5 evidence and exact recovery
+  preflight are linked from
+  [`acceptance/2026-08-31-m01-mixed-outcome.md`](acceptance/2026-08-31-m01-mixed-outcome.md).
 
 - **2026-08-31 — M-02/M-03 integration accepted; Phase 0 remains open:** implementation
   `14a57fb` integrates M-02 receipt/raw-evidence authority with M-03 immutable paid-call

@@ -332,10 +332,16 @@ is active only when the owning architecture/acceptance document changes with it.
   versioned before/after and 20-repeat offline contract. Final `G-MEASURE-001` acceptance
   remains pending Task 5 dual-Python full Gates. Retain old artifacts with compatible
   readers; never coerce them into current scoring authority.
-- **Bounded closeout:** later implementation `dd37a8e` closes reproduced strict-reader and
-  delivery/decision authority gaps and passed the focused affected matrix plus Ruff/Mypy.
-  D-049 stopped the already-overbound repair loop before dual-Python full Gates or a
-  final-SHA independent review; therefore M-01 and `G-MEASURE-001` remain open.
+- **Bounded closeout:** implementation `dd37a8e` closes reproduced strict-reader and
+  delivery/decision authority gaps. Independent final review then reproduced one P1 in
+  benchmark publication accounting; `5efe3d1` requires `action=surface` and reuses that
+  authority in execution measurement. The same review pass confirmed the resolution with
+  P0=0/P1=0. Fresh exact-SHA Python 3.11/3.12 environments each invoked full pytest once,
+  but the host volume returned `ENOSPC` at 97% / about 99% (RC 120) before final counts or
+  coverage existed. Static, provenance, clean-tree, and frozen-v1 checks passed; no retry
+  occurred. D-049 therefore closes this task as `FAILED ENVIRONMENT`, not as a Gate pass;
+  M-01 and `G-MEASURE-001` remain open. Raw evidence is under
+  `docs/acceptance/evidence/2026-08-31-m01-task5-5efe3d1/`.
 - **Trace:** `INV-MEASURE-001`, `INV-VERSION-001`; M-01 Tasks 3–4; Task 5 pending.
 
 ### D-048 — Alpha auto-tighten constants are protected factory authority

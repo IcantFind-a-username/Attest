@@ -1,0 +1,5 @@
+source=/Users/franz/Documents/Codex/2026-08-31/m-01-0e58cd6-authoritative-outcomes-worktree
+target=/private/tmp/attest-m01-final-5efe3d1-py312/checkout
+sha=5efe3d1c046fef04d197542cc8abe3f413a92d56
+source_origin_main=1f6f73eb72f5ed45b129c4d7ff937cc23b409e5c
+Python 3.12.8

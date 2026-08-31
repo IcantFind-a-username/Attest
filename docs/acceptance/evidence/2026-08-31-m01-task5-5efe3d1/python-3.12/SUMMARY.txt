@@ -1,0 +1,32 @@
+M-01 Task 5 Python 3.12 validation summary
+counts_as_gate=true
+gate_passed=false
+implementation_sha=5efe3d1c046fef04d197542cc8abe3f413a92d56
+implementation_tree=a2909b5ef345d56ba0f95f8283a847c1309956d1
+origin_main=1f6f73eb72f5ed45b129c4d7ff937cc23b409e5c
+origin_main_ancestor=true
+head_mode=detached
+python=CPython 3.12.8
+python_executable=/private/tmp/attest-m01-final-5efe3d1-py312/venv/bin/python
+offline_wheelhouse=/private/tmp/attest-wheelhouse.WAGZer
+full_pytest_invocations=1
+full_pytest_exit=120
+full_pytest_progress_at_abort=99%
+full_pytest_count=unavailable_due_to_abrupt_ENOSPC_termination
+total_coverage=unavailable
+core_coverage=unavailable
+core_coverage_exit=1
+blocker=ENOSPC terminated pytest before its final test and coverage reports
+pytest_rerun=false
+ruff_exit=0
+mypy_exit=0
+pip_check_exit=0
+git_state_exit=0
+v1_hashes_exit=0
+git_status=clean
+git_diff_stat=empty
+receipt_sha256=e8cabb89471bb369a93ce82399a342eaddbf7ed8994d5420aef66256d013ce40
+validation_sha256=e90b2acfb9753db196cd7d2cf999dc2fa24bbd91bb84d908b476682c1b441288
+protocol_sha256=2a6019533a1c01abbf905e57b0b15017b806aeeee6028e496b0149a4a1f2246c
+non-required full-basetemp removed after termination to recover space for required evidence
+pytest_command=env -i HOME=<root>/home PATH=<root>/venv/bin:/usr/bin:/bin TMPDIR=<root>/tmp LC_ALL=C GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 PYTHONDONTWRITEBYTECODE=1 PYTHONHASHSEED=0 COVERAGE_FILE=<root>/.coverage MYPY_CACHE_DIR=<root>/cache/mypy RUFF_CACHE_DIR=<root>/cache/ruff python -m pytest -p no:cacheprovider -q --cov=src/attest --cov-report=term-missing --cov-report=json:<root>/evidence/coverage.json --cov-fail-under=90 --basetemp=<root>/full-basetemp
