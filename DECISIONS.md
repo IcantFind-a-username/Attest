@@ -314,7 +314,7 @@ is active only when the owning architecture/acceptance document changes with it.
 
 #### 2026-08-31 amendment — M-01 authoritative mixed outcomes
 
-- **Status/scope:** active version/accounting clarification after M-01 Task 3; supersedes
+- **Status/scope:** active version/accounting clarification after M-01 Task 4; supersedes
   only D-047's earlier current-version and unresolved-M-01 statements.
 - **Current versions:** comparison checkpoint v7; comparison report v4; calibration report
   v5; project evaluation binding v2; live predeclaration/case checkpoint v5; stability
@@ -326,11 +326,13 @@ is active only when the owning architecture/acceptance document changes with it.
   joined by finding ID, sealed into comparison/live/stability evidence, and included in
   final receipt/report digests. Caller-owned `ArmRun` rewrites and task-level DEFER can no
   longer erase already-published findings or rewrite product accuracy.
-- **Evidence/reversal:** implementation `c680641` (including post-review sealing fixes)
-  closes the earlier code-level authority gap. M-01 Task 4 formal acceptance and
-  `G-MEASURE-001` evidence remain pending. Retain old artifacts with compatible readers;
-  never coerce them into current scoring authority.
-- **Trace:** `INV-MEASURE-001`, `INV-VERSION-001`; M-01 Task 3; Task 4 pending acceptance.
+- **Evidence/reversal:** implementation `c680641` closes the code-level authority gap;
+  probe hardening `b6caad7` plus the SHA-bound
+  [`Task 4 acceptance`](docs/acceptance/2026-08-31-m01-mixed-outcome.md) closes the
+  versioned before/after and 20-repeat offline contract. Final `G-MEASURE-001` acceptance
+  remains pending Task 5 dual-Python full Gates. Retain old artifacts with compatible
+  readers; never coerce them into current scoring authority.
+- **Trace:** `INV-MEASURE-001`, `INV-VERSION-001`; M-01 Tasks 3–4; Task 5 pending.
 
 ### D-048 — Alpha auto-tighten constants are protected factory authority
 

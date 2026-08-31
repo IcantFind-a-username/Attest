@@ -1,8 +1,9 @@
 # Task 3 report — authoritative mixed-outcome accounting
 
 Status: complete on `feature/m01-authoritative-outcomes` from baseline
-`7138482cbfe771108ac7163b8dcf1820bb761d02`. Implementation commit:
-`c86c957fcde97d5ba6479553bc5cdea247ccf6bb`. No paid provider, network provider,
+`7138482cbfe771108ac7163b8dcf1820bb761d02`. Initial implementation commit:
+`c86c957fcde97d5ba6479553bc5cdea247ccf6bb`; final post-review sealing commit:
+`c680641d0858a186b4ee49b7e2eafadd236c0679`. No paid provider, network provider,
 remote write, factory-constant change, pricing change, Core change, or historical
 evidence rewrite occurred.
 
@@ -183,6 +184,11 @@ by this Task 3 diff. Consolidating those pre-existing implementations is an
 explicit whole-tree debt and was not mixed into this bounded change.
 
 ## Fixed-SHA closure
+
+- Final post-review sealing at `c680641` corrected silent-run versus abstention reporting,
+  bound exact stability observations into canonical evidence, rejected non-finite wealth
+  and extra nested fields, and retained exact current denominators. Full pytest, Ruff,
+  mypy (49 source files), and diff check passed; final review P0/P1/P2 = 0/0/0.
 
 - `git rev-parse c86c957^` resolves the baseline above, and
   `git cat-file -e <baseline>^{commit}` succeeds.

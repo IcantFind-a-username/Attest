@@ -20,6 +20,8 @@ gate.
   — accepted M-02/M-03 integration at `14a57fb`, including fresh Python 3.11/3.12
   `G-CODE-001`, `G-CODE-002`, `G-MEASURE-002`, and M-03 regression evidence; it preserves
   the original M-02 BLOCKED report and records M-01 as the remaining Phase 0 handoff.
+- [`2026-08-31-m01-mixed-outcome.md`](2026-08-31-m01-mixed-outcome.md) — M-01 Task 4
+  fixed-SHA before/after and 20-process offline evidence; Task 5 dual-Python closure remains.
 - [`phase-3.md`](phase-3.md) — historical planted-fixture GitHub Action integration smoke.
   It predates the complete evidence-bundle and workflow-exit requirements.
 
