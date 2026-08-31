@@ -81,14 +81,16 @@ def _guard_environment() -> tuple[list[str], bool]:
     support_src = str(Path(__file__).resolve().parents[2] / "src")
     sys.path.insert(0, support_src)
     try:
-        parts = cast(tuple[str, ...], importlib.import_module(
-            "attest.review.executor")._CREDENTIAL_NAME_PARTS)
+        is_secret_name = cast(
+            Callable[[str], bool],
+            importlib.import_module("attest.review.security").is_secret_name,
+        )
     finally:
         sys.path.remove(support_src)
         for name in tuple(sys.modules):
             if name == "attest" or name.startswith("attest."):
                 del sys.modules[name]
-    credential = any(any(part in name.upper() for part in parts) for name in unexpected)
+    credential = any(is_secret_name(name) for name in unexpected)
     raise ValueError(f"unexpected {'credential environment' if credential else 'environment'} variable name(s): {unexpected}")
 
 def _source(source: Path) -> tuple[Path, str]:
