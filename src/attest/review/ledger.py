@@ -16,7 +16,7 @@ import stat
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 ALPHA_FLOOR = 0.01
 PRECISION_TARGET = 0.90
@@ -42,10 +42,21 @@ def _label_polarity(entry: dict[str, Any]) -> str:
     """Precision polarity of one feedback row, re-deriving it for older ledger
     rows written before `label_polarity` was recorded. Unknown labels are
     treated as ambiguous: they may never be counted as true or false."""
-    recorded = entry.get("label_polarity")
-    if isinstance(recorded, str):
-        return recorded
-    return _LABEL_POLARITY.get(str(entry.get("feedback", "")), _AMBIGUOUS_POLARITY)
+    derived = _LABEL_POLARITY.get(
+        str(entry.get("feedback", "")), _AMBIGUOUS_POLARITY
+    )
+    if "label_polarity" not in entry:
+        return derived
+    recorded = entry["label_polarity"]
+    if type(recorded) is not str or recorded not in {
+        "true",
+        "false",
+        _AMBIGUOUS_POLARITY,
+    }:
+        raise ValueError("feedback label_polarity is invalid")
+    if recorded != derived:
+        raise ValueError("feedback label_polarity contradicts feedback")
+    return recorded
 
 
 def _surfaced_finding_ids(entries: list[dict[str, Any]]) -> tuple[str, ...]:
@@ -109,38 +120,56 @@ def _labeled_surfaced(
     surfaced_ids: tuple[str, ...],
     *,
     window: int | None = None,
-) -> tuple[tuple[str, str], ...]:
-    """Project latest precision-bearing labels over one surfaced population."""
+) -> tuple[tuple[tuple[str, str], ...], int]:
+    """Project latest labels and count physical precision-state revisions."""
 
-    polarities = {
-        str(entry.get("finding_id", "")): _label_polarity(entry)
-        for entry in entries
-        if entry.get("kind") == "feedback"
-    }
     population = surfaced_ids if window is None else surfaced_ids[-window:]
-    return tuple(
+    included = set(population)
+    polarities: dict[str, str] = {}
+    revisions = 0
+    for entry in entries:
+        finding_id = str(entry.get("finding_id", ""))
+        if entry.get("kind") != "feedback" or finding_id not in included:
+            continue
+        polarity = _label_polarity(entry)
+        prior = polarities.get(finding_id, _AMBIGUOUS_POLARITY)
+        if polarity != prior:
+            revisions += 1
+        polarities[finding_id] = polarity
+    labeled = tuple(
         (finding_id, polarities[finding_id])
         for finding_id in population
         if finding_id in polarities
         and polarities[finding_id] != _AMBIGUOUS_POLARITY
     )
+    return labeled, revisions
 
 
 def _watermark(entries: list[dict[str, Any]], tighten_index: int) -> int | None:
-    """Read or reconstruct the label count at one historical tightening."""
+    """Reconstruct the precision-state revision at one historical tightening."""
 
     tighten_entry = entries[tighten_index]
-    value = tighten_entry.get("label_count")
-    if type(value) is int and value >= 0:
-        return value
     if "label_count" in tighten_entry:
-        return None
+        recorded = tighten_entry["label_count"]
+        if type(recorded) is not int or recorded < 0:
+            return None
     prefix = entries[:tighten_index]
     try:
         surfaced_ids = _surfaced_finding_ids(prefix)
+        return _labeled_surfaced(prefix, surfaced_ids)[1]
     except ValueError:
         return None
-    return len(_labeled_surfaced(prefix, surfaced_ids))
+
+
+def _alpha_number(value: object, context: str) -> float:
+    """Require one exact finite alpha in the configured legal range."""
+
+    if type(value) not in {int, float}:
+        raise ValueError(f"{context} must be finite and in (0, 1)")
+    number = float(cast(int | float, value))
+    if not math.isfinite(number) or not 0 < number < 1:
+        raise ValueError(f"{context} must be finite and in (0, 1)")
+    return number
 
 
 def _known_secrets() -> tuple[str, ...]:
@@ -555,7 +584,9 @@ class Ledger:
         # ambiguous labels (legacy 'dismiss') are excluded from BOTH the
         # numerator and the denominator -- never silently counted as either
         # a true or a false label.
-        labeled = _labeled_surfaced(entries, surfaced_ids, window=window)
+        labeled, _revisions = _labeled_surfaced(
+            entries, surfaced_ids, window=window
+        )
         if not labeled:
             return None, 0
         precision = sum(1 for _, polarity in labeled if polarity == "true") / len(labeled)
@@ -571,7 +602,7 @@ class Ledger:
     def maybe_tighten_alpha(self, alpha: float, enabled: bool) -> tuple[float, str | None]:
         """MVP auto-tighten rule: rolling surfaced precision < 90% (with at
         least 10 labels) halves alpha, floored at 0.01. Recorded in the ledger
-        (`label_count` is the watermark: precision-bearing labels only);
+        (`label_count` is the precision-bearing population snapshot);
         configurable off."""
         if not enabled:
             return alpha, None
@@ -583,7 +614,7 @@ class Ledger:
         # leaving the precision figure untouched -- which re-opened the gate on
         # a stale window and let alpha be halved again, once per dismissal, all
         # the way to the floor.
-        n_labels = len(_labeled_surfaced(entries, surfaced_ids))
+        _labeled, revision = _labeled_surfaced(entries, surfaced_ids)
         last_tighten_index = next(
             (
                 index
@@ -592,15 +623,12 @@ class Ledger:
             ),
             None,
         )
-        # watermark: never re-halve on the same stale label window — a new
-        # tightening needs at least one precision-bearing label recorded since
-        # the last one. The comparison is `<=` rather than `==` so that rows
-        # written before this count excluded ambiguous labels (whose recorded
-        # count was every feedback row, hence never smaller) still block rather
-        # than admit a stale re-halving.
+        # Watermark: never re-halve on the same precision state. Reconstructing
+        # the physical revision from the historical prefix avoids trusting the
+        # legacy label_count field and detects polarity changes for one finding.
         if last_tighten_index is not None:
             watermark = _watermark(entries, last_tighten_index)
-            if watermark is None or n_labels <= watermark:
+            if watermark is None or revision <= watermark:
                 return alpha, None
         precision, n = self.surfaced_precision(
             entries=entries, surfaced_ids=surfaced_ids
@@ -608,7 +636,7 @@ class Ledger:
         if precision is None or n < 10 or precision >= PRECISION_TARGET:
             return alpha, None
         new_alpha = max(ALPHA_FLOOR, alpha / 2)
-        if new_alpha == alpha:
+        if new_alpha >= alpha:
             return alpha, None
         note = (
             f"precision {precision:.2f} over last {n} labeled surfaced findings "
@@ -619,7 +647,7 @@ class Ledger:
                 "kind": "alpha_tightened",
                 "from": alpha,
                 "to": new_alpha,
-                "label_count": n_labels,
+                "label_count": len(_labeled),
                 "note": note,
             }
         )
@@ -627,8 +655,15 @@ class Ledger:
 
     def current_alpha(self, configured: float) -> float:
         """Configured alpha, overridden by any recorded tightenings."""
-        alpha = configured
+        alpha = _alpha_number(configured, "configured alpha")
         for e in self.entries():
-            if e.get("kind") == "alpha_tightened" and e.get("from") == alpha:
-                alpha = float(e["to"])
+            if e.get("kind") != "alpha_tightened":
+                continue
+            start = _alpha_number(e.get("from"), "alpha transition from")
+            end = _alpha_number(e.get("to"), "alpha transition to")
+            expected = max(ALPHA_FLOOR, start / 2)
+            if end != expected or end >= start:
+                raise ValueError("alpha transition violates the factory tightening chain")
+            if start == alpha:
+                alpha = end
         return alpha
