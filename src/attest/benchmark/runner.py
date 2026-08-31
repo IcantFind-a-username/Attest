@@ -1055,6 +1055,10 @@ def rebuild_case_run_from_ledger(
         spend_usd=expected_authority.spend_usd,
         oracle_spend_usd=expected_authority.oracle_spend_usd,
         elapsed_s=expected_authority.elapsed_s,
+        product_evidence_classes=dict(
+            expected_authority.product_evidence_classes
+        ),
+        oracle_receipts=expected_authority.oracle_receipts,
         measurement=fresh_measurement,
     )
 

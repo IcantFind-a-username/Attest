@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import subprocess
+from collections.abc import Iterator, Mapping
 from dataclasses import replace
 from pathlib import Path
 
@@ -35,6 +36,26 @@ from attest.review.ledger import Ledger
 from attest.review.schema import Finding
 
 CASE_ID = "case-0123456789ab"
+
+
+class _SwitchingEvidenceClasses(Mapping[str, str]):
+    """Return one trusted snapshot, then a different caller-controlled snapshot."""
+
+    def __init__(self, trusted: Mapping[str, str]) -> None:
+        self._snapshots = (dict(trusted), {"forged": "caller-controlled"})
+        self._active = self._snapshots[0]
+        self._reads = 0
+
+    def __iter__(self) -> Iterator[str]:
+        self._active = self._snapshots[min(self._reads, 1)]
+        self._reads += 1
+        return iter(self._active)
+
+    def __len__(self) -> int:
+        return len(self._active)
+
+    def __getitem__(self, key: str) -> str:
+        return self._active[key]
 
 
 @pytest.mark.parametrize("field", ("spend_usd", "oracle_spend_usd", "elapsed_s"))
@@ -226,6 +247,43 @@ def test_taskless_rebuild_derives_deferred_reason_from_frozen_measurement(
     )
 
     assert rebuilt.deferred_reason == expected_reason
+
+
+def test_fresh_rebuild_replaces_stateful_caller_mappings_with_frozen_values(
+    tmp_path: Path,
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    with LoopbackGitHub() as github:
+        result = BenchmarkRunner(repeats=1).run_case(
+            repo,
+            case_id=CASE_ID,
+            base_sha=base_sha,
+            head_sha=head_sha,
+            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            provider=ReplayProvider(cassette()),
+            client=github.client(),
+        )
+    authority = ExecutionResultAuthority.from_case_run(result)
+    trusted = dict(result.product_evidence_classes)
+    caller = replace(
+        result,
+        product_evidence_classes=_SwitchingEvidenceClasses(trusted),
+    )
+
+    rebuilt = rebuild_case_run_from_ledger(
+        repo,
+        caller,
+        Ledger(repo).entries_strict(),
+        repository="local/project",
+        head_sha=head_sha,
+        pull_request_number=1,
+        deadline_s=60.0,
+        expected_authority=authority,
+    )
+
+    assert type(rebuilt.product_evidence_classes) is dict
+    assert rebuilt.product_evidence_classes == trusted
+    assert rebuilt.scored_payload()["product_evidence_classes"] == trusted
 
 
 def git(repo: Path, *args: str) -> str:

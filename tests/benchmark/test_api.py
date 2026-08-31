@@ -93,6 +93,8 @@ def test_evaluate_project_measures_a_caller_owned_repository_without_truth(
     assert result.spend_usd > 0
     assert [prediction.action for prediction in result.predictions] == ["surface"]
     assert [decision["placement"] for decision in result.final_decisions] == ["inline"]
+
+
     assert result.evidence_class_counts == {"regression_reproduced": 1}
     assert {record.kind for record in result.artifacts} >= {
         "product_ledger",
@@ -118,6 +120,41 @@ def test_evaluate_project_measures_a_caller_owned_repository_without_truth(
     assert not any((tmp_path / "workspace").iterdir())
     assert len(git(repo, "worktree", "list").splitlines()) == 1
     assert str(tmp_path / "workspace") not in git(repo, "worktree", "list")
+
+
+def test_batch_preflight_deep_snapshots_mutable_review_policy_before_factory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    request = _request(tmp_path, repo, base_sha, head_sha)
+    observed: list[tuple[int, tuple[str, ...], bool]] = []
+    real_run_case = BenchmarkRunner.run_case
+
+    def inspect_run_case(self, workspace, **kwargs):
+        config = kwargs["config"]
+        observed.append(
+            (
+                config.k_samples,
+                tuple(config.tier0_commands),
+                config is request.config,
+            )
+        )
+        return real_run_case(self, workspace, **kwargs)
+
+    def mutate_after_preflight(received: ProjectEvaluationRequest):
+        assert received is request
+        received.config.k_samples = 1
+        received.config.tier0_commands.append("caller-mutated")
+        return _provider()
+
+    monkeypatch.setattr(BenchmarkRunner, "run_case", inspect_run_case)
+
+    results = evaluate_projects((request,), provider_factory=mutate_after_preflight)
+
+    assert len(results) == 1
+    assert results[0].status == "completed"
+    assert results[0].measurement.published_count == 1
+    assert observed == [(2, (), False)]
 
 
 @pytest.mark.parametrize("persist_artifacts", (False, True))

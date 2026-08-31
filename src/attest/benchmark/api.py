@@ -451,16 +451,55 @@ class _ProjectPreflight:
     workspace: Path
 
 
+def _snapshot_project_evaluation_request(
+    request: ProjectEvaluationRequest,
+) -> ProjectEvaluationRequest:
+    """Detach every mutable policy object before exposing the caller to a factory."""
+    if type(request) is not ProjectEvaluationRequest:
+        raise ProjectEvaluationError("request must be an exact ProjectEvaluationRequest")
+    if type(request.config) is not ReviewConfig:
+        raise ProjectEvaluationError("config must be an exact ReviewConfig")
+    if type(request.limits) is not ExecutorLimits:
+        raise ProjectEvaluationError("limits must be an exact ExecutorLimits")
+    config = ReviewConfig(
+        alpha=request.config.alpha,
+        budget_usd=request.config.budget_usd,
+        model=request.config.model,
+        k_samples=request.config.k_samples,
+        max_findings=request.config.max_findings,
+        auto_tighten_alpha=request.config.auto_tighten_alpha,
+        tier0_commands=list(request.config.tier0_commands),
+    )
+    truth = request.truth
+    if truth is not None:
+        if type(truth) is not ProjectTruth or type(truth.defects) is not tuple:
+            raise ProjectEvaluationError("truth must be an exact immutable ProjectTruth")
+        truth = ProjectTruth(defects=tuple(truth.defects), fixed_ref=truth.fixed_ref)
+    snapshot = replace(
+        request,
+        config=config,
+        limits=ExecutorLimits(
+            wall_timeout_s=request.limits.wall_timeout_s,
+            cpu_timeout_s=request.limits.cpu_timeout_s,
+            memory_mb=request.limits.memory_mb,
+            output_bytes=request.limits.output_bytes,
+        ),
+        truth=truth,
+    )
+    validate_project_evaluation_request(snapshot)
+    return snapshot
+
+
 def _prepare_project_evaluation(request: ProjectEvaluationRequest) -> _ProjectPreflight:
     """Resolve refs and own the clean worktree before constructing a provider."""
 
     try:
-        validate_project_evaluation_request(request)
-        resolved = _resolve(request)
-        workspace = _own_worktree(request, resolved.head_sha)
+        snapshot = _snapshot_project_evaluation_request(request)
+        resolved = _resolve(snapshot)
+        workspace = _own_worktree(snapshot, resolved.head_sha)
     except ProjectEvaluationError as exc:
         raise ProjectEvaluationPreExecutionError(str(exc)) from exc
-    return _ProjectPreflight(request=request, resolved=resolved, workspace=workspace)
+    return _ProjectPreflight(request=snapshot, resolved=resolved, workspace=workspace)
 
 
 def evaluate_project(
