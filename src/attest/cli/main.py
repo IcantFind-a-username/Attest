@@ -204,15 +204,33 @@ def cmd_stats(args: argparse.Namespace) -> int:
     precision, n = ledger.surfaced_precision(
         entries=entries, surfaced_ids=surfaced
     )
+    surfaced_tasks = {
+        str(entry.get("task_id", ""))
+        for entry in reviews
+        if str(entry.get("finding_id", "")) in surfaced
+    }
+    run_tasks = [str(entry.get("task_id", "")) for entry in runs]
+    abstentions = sum(task_id not in surfaced_tasks for task_id in run_tasks)
+    abstention_rate = abstentions / len(run_tasks) if run_tasks else None
     spend = sum(float(e.get("spend_usd", 0)) for e in runs)
     lat = sorted(float(e["elapsed_s"]) for e in runs if "elapsed_s" in e)
     p50 = lat[len(lat) // 2] if lat else None
     print(f"runs: {len(runs)}; findings evaluated: {len(reviews)}; surfaced: {len(surfaced)}")
     print(f"total spend: ${spend:.4f}; p50 latency: {p50 if p50 is not None else 'n/a'}s")
-    print(
-        f"surfaced precision: {precision if precision is not None else 'n/a'} "
-        f"({n} labeled); alpha now: {ledger.current_alpha(config.alpha)}"
-    )
+    if precision is None:
+        print("surfaced precision: undefined (no labeled surfaced outcomes)")
+    else:
+        print(f"surfaced precision: {precision} ({n} labeled)")
+    if abstention_rate is None:
+        print("abstention rate: undefined (no review runs)")
+    else:
+        anomaly = " — ANOMALY (> 0.5)" if abstention_rate > 0.5 else ""
+        print(
+            f"abstention rate: {abstention_rate:.6f} "
+            f"({abstentions}/{len(run_tasks)} runs){anomaly}"
+        )
+    print("silence precision: undefined (no labeled silent outcomes)")
+    print(f"alpha now: {ledger.current_alpha(config.alpha)}")
     return 0
 
 

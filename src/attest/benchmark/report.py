@@ -60,6 +60,7 @@ from attest.benchmark.metrics import (
     ORACLE_INCONCLUSIVE_REASON,
     BenchmarkReport,
     aggregate,
+    silence_precision,
     wilson_interval,
 )
 from attest.benchmark.outcomes import ComparisonPublicationAuthority
@@ -74,7 +75,7 @@ from attest.benchmark.stability import StabilityReport
 
 REPLAY_MODE = "replay"
 LIVE_MODE = "live"
-REPORT_SCHEMA_VERSION = "3"
+REPORT_SCHEMA_VERSION = "4"
 JSON_NAME = "report.json"
 MARKDOWN_NAME = "report.md"
 COMPARISON_SCHEMA_VERSION = "4"
@@ -684,6 +685,7 @@ def _metrics_payload(metrics: BenchmarkReport | None) -> dict[str, object] | Non
     """Only the fields that claim the product was right or wrong about a case."""
     if metrics is None:
         return None
+    silent_precision = silence_precision(metrics.true_negatives, metrics.false_negatives)
     return {
         "true_positives": metrics.true_positives,
         "false_positives": metrics.false_positives,
@@ -695,6 +697,17 @@ def _metrics_payload(metrics: BenchmarkReport | None) -> dict[str, object] | Non
         "specificity": _number(metrics.specificity),
         "all_positive_detection": _number(metrics.all_positive_detection),
         "finding_precision": _number(metrics.finding_precision),
+        "finding_precision_status": (
+            "undefined: no scored surfaced findings"
+            if metrics.finding_precision is None
+            else "estimated"
+        ),
+        "silence_precision": _number(silent_precision),
+        "silence_precision_status": (
+            "undefined: no decided silent outcomes"
+            if silent_precision is None
+            else "estimated"
+        ),
         "conditional_recall": _number(metrics.conditional_recall),
         "all_positive_detection_interval": _interval(metrics.all_positive_detection_interval),
         "finding_precision_interval": _interval(metrics.finding_precision_interval),
@@ -723,6 +736,18 @@ def _operational_payload(
         ),
         "silent_run_rate": (
             None if measurements is None else _number(measurements.silent_run_rate)
+        ),
+        "abstention_rate": (
+            None if measurements is None else _number(measurements.abstention_rate)
+        ),
+        "abstention_rate_status": (
+            "undefined: task state unavailable"
+            if measurements is None or measurements.abstention_rate is None
+            else (
+                "anomaly: abstention_rate > 0.5"
+                if measurements.abstention_rate > 0.5
+                else "observed"
+            )
         ),
         "delivery_rate": None if measurements is None else _number(measurements.delivery_rate),
         "delivery_p50_s": (

@@ -705,10 +705,51 @@ def test_report_publishes_accuracy_for_a_receipt_bound_to_this_manifest() -> Non
     assert report.to_json_dict()["validation_authority"]["authority"] == (
         "current_scoring_authority"
     )
+    assert report.to_json_dict()["metrics"]["finding_precision_status"] == "estimated"
+    assert report.to_json_dict()["metrics"]["silence_precision"] == 1.0
+    assert report.to_json_dict()["metrics"]["silence_precision_status"] == "estimated"
+    assert report.to_json_dict()["operational"]["abstention_rate"] == 0.0
+    assert report.to_json_dict()["operational"]["abstention_rate_status"] == "observed"
     markdown = render_markdown(report)
     assert "integrity: PASS" in markdown
     assert "authorized provenance: PASS" in markdown
     assert "semantic policy: PASS" in markdown
+
+
+def test_report_explains_zero_denominator_metrics_instead_of_leaving_them_blank() -> None:
+    report = _report()
+    assert report.metrics is not None
+    no_denominators = replace(
+        report.metrics,
+        finding_true_positives=0,
+        finding_false_positives=0,
+        finding_precision=None,
+        true_negatives=0,
+        false_negatives=0,
+    )
+    payload = replace(report, measurements=no_denominators).to_json_dict()["metrics"]
+
+    assert payload["finding_precision"] is None
+    assert payload["finding_precision_status"] == (
+        "undefined: no scored surfaced findings"
+    )
+    assert payload["silence_precision"] is None
+    assert payload["silence_precision_status"] == (
+        "undefined: no decided silent outcomes"
+    )
+
+
+def test_report_marks_majority_abstention_as_anomaly() -> None:
+    report = _report()
+    assert report.measurements is not None
+
+    payload = replace(
+        report,
+        measurements=replace(report.measurements, abstention_rate=0.75),
+    ).to_json_dict()["operational"]
+
+    assert payload["abstention_rate"] == 0.75
+    assert payload["abstention_rate_status"] == "anomaly: abstention_rate > 0.5"
 
 
 def test_current_completed_without_publications_counts_as_a_silent_run() -> None:

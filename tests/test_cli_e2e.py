@@ -161,6 +161,27 @@ def test_stats_uses_the_same_deduplicated_surface_population_as_precision(
     out = capsys.readouterr().out
     assert "findings evaluated: 2; surfaced: 1\n" in out
     assert "surfaced precision: 1.0 (1 labeled)" in out
+    assert "abstention rate: undefined (no review runs)" in out
+    assert "silence precision: undefined (no labeled silent outcomes)" in out
+
+
+def test_stats_marks_majority_abstention_as_anomaly(repo: Path, capsys) -> None:
+    ledger = Ledger(repo)
+    for task_id in ("task-1", "task-2", "task-3"):
+        ledger.append(
+            {
+                "kind": "review_run",
+                "task_id": task_id,
+                "spend_usd": 0.0,
+            }
+        )
+    ledger.record_review("task-1", "finding-1", ["S"], 0.0, 12.0, "surface")
+
+    assert main(["--repo", str(repo), "stats"]) == 0
+
+    out = capsys.readouterr().out
+    assert "abstention rate: 0.666667 (2/3 runs) — ANOMALY (> 0.5)" in out
+    assert "silence precision: undefined (no labeled silent outcomes)" in out
 
 
 def test_feedback_flags_record_distinct_labels(repo: Path, capsys) -> None:
