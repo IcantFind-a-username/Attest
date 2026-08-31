@@ -298,6 +298,18 @@ def _parser() -> argparse.ArgumentParser:
     )
     compare.add_argument("--workspace", type=Path)
     compare.add_argument(
+        "--comparison-authority-root",
+        type=Path,
+        help="external owner-controlled directory for write-once launch/final "
+        "receipts; required when any case executes and must be outside OUTPUT, "
+        "the checkout, and worktrees",
+    )
+    compare.add_argument(
+        "--comparison-run-id",
+        help="owner-provided unique SHA-256 run identity; required for a non-empty "
+        "comparison and reused unchanged for crash resume",
+    )
+    compare.add_argument(
         "--validation-receipt",
         type=Path,
         help="historical V1 receipt for exclusion inspection only; execution "
@@ -1162,26 +1174,60 @@ def _compare(args: argparse.Namespace) -> dict[str, object]:
         if args.ruff_executable is not None
         else shutil.which("ruff")
     )
-    measurements = compare_arms(
+    if plans and (
+        args.comparison_authority_root is None
+        or args.comparison_run_id is None
+    ):
+        raise ValueError(
+            "non-empty comparison requires --comparison-authority-root and "
+            "--comparison-run-id before execution"
+        )
+    execution = compare_arms(
         plans,
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
         bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
         ruff_executable=ruff_executable,
         line_slack=args.line_slack,
         checkpoint_root=args.output / "state" / "comparison-calls",
+        authority_root=args.comparison_authority_root,
+        run_identity=args.comparison_run_id,
         provider_id="replay-cassette-v1",
         validation_receipt=receipt,
         manifest=manifest,
         manifest_sha256=manifest_sha256,
     )
+    if not plans:
+        measurements = execution.measurements
+        return {
+            "status": "not_executed",
+            "offline": True,
+            "mode": REPLAY_MODE,
+            "manifest": args.manifest.name,
+            "manifest_sha256": manifest_sha256,
+            "arms": len(measurements.arms),
+            "evaluated_cases": 0,
+            "excluded_cases": len(exclusions),
+            "deferred_runs": 0,
+            "metrics_status": "withheld",
+            "metrics_withheld_reason": (
+                "comparison_not_executed_no_publication_authority"
+            ),
+            "spend_usd": 0.0,
+            "oracle_spend_usd": 0.0,
+            "digest": None,
+            "report": None,
+            "report_markdown": None,
+        }
     report = build_comparison_report(
         manifest,
-        measurements,
+        execution,
         manifest_sha256=manifest_sha256,
         exclusions=exclusions,
         validation_receipt=receipt,
+        publication_authority=execution.publication_authority,
     )
     report_path, markdown_path = write_comparison_report(report, args.output)
+    measurements = execution.measurements
     evaluated = len(measurements.evaluated_case_ids)
     reported = evaluated > 0 and report.metrics_withheld_reason is None
     return {

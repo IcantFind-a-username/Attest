@@ -42,6 +42,12 @@ COMPARISON_OUTCOME_PREDECLARATION_PATH = (
 COMPARISON_OUTCOME_SEAL_SCHEMA_VERSION = "1"
 COMPARISON_OUTCOME_SEAL_PATH = "comparison-outcomes.seal.json"
 COMPARISON_OUTCOME_DIRECTORY = "comparison-outcomes"
+COMPARISON_LAUNCH_RECEIPT_SCHEMA_VERSION = "1"
+COMPARISON_LAUNCH_RECEIPT_PROTOCOL = "comparison-outcome-launch-receipt-v1"
+COMPARISON_FINAL_RECEIPT_SCHEMA_VERSION = "1"
+COMPARISON_FINAL_RECEIPT_PROTOCOL = "comparison-outcome-final-receipt-v1"
+COMPARISON_LAUNCH_RECEIPT_PATH = "comparison.launch.receipt.json"
+COMPARISON_FINAL_RECEIPT_PATH = "comparison.final.receipt.json"
 EMPTY_PAID_CALLS_SHA256 = hashlib.sha256(b"[]").hexdigest()
 _SUPPORTED_DIR_FD_NAMES = frozenset(function.__name__ for function in os.supports_dir_fd)
 _SUPPORTED_FOLLOW_SYMLINK_NAMES = frozenset(
@@ -472,6 +478,250 @@ class ComparisonOutcomeAuthority:
         return authority
 
 
+@dataclass(frozen=True, init=False)
+class ComparisonLaunchReceipt:
+    """Externally retained provider-before identity for one comparison run."""
+
+    run_identity: str
+    checkpoint_root_identity_sha256: str
+    outcome_root_identity_sha256: str
+    authority_root_identity_sha256: str
+    comparison_sha256: str
+    predeclaration_sha256: str
+    authority_id: str
+    manifest_sha256: str
+
+    @classmethod
+    def _create(
+        cls,
+        *,
+        run_identity: str,
+        checkpoint_root_identity_sha256: str,
+        outcome_root_identity_sha256: str,
+        authority_root_identity_sha256: str,
+        comparison_sha256: str,
+        predeclaration_sha256: str,
+        authority_id: str,
+        manifest_sha256: str,
+    ) -> ComparisonLaunchReceipt:
+        for value, label in (
+            (run_identity, "comparison run identity"),
+            (checkpoint_root_identity_sha256, "comparison checkpoint root identity"),
+            (outcome_root_identity_sha256, "comparison outcome root identity"),
+            (authority_root_identity_sha256, "comparison authority root identity"),
+            (comparison_sha256, "comparison predeclaration"),
+            (predeclaration_sha256, "comparison outcome predeclaration"),
+            (authority_id, "comparison outcome authority"),
+            (manifest_sha256, "comparison manifest"),
+        ):
+            _require_sha256(value, label)
+        receipt = object.__new__(cls)
+        object.__setattr__(receipt, "run_identity", run_identity)
+        object.__setattr__(
+            receipt,
+            "checkpoint_root_identity_sha256",
+            checkpoint_root_identity_sha256,
+        )
+        object.__setattr__(
+            receipt, "outcome_root_identity_sha256", outcome_root_identity_sha256
+        )
+        object.__setattr__(
+            receipt, "authority_root_identity_sha256", authority_root_identity_sha256
+        )
+        object.__setattr__(receipt, "comparison_sha256", comparison_sha256)
+        object.__setattr__(receipt, "predeclaration_sha256", predeclaration_sha256)
+        object.__setattr__(receipt, "authority_id", authority_id)
+        object.__setattr__(receipt, "manifest_sha256", manifest_sha256)
+        return receipt
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": COMPARISON_LAUNCH_RECEIPT_SCHEMA_VERSION,
+            "protocol": COMPARISON_LAUNCH_RECEIPT_PROTOCOL,
+            "run_identity": self.run_identity,
+            "checkpoint_root_identity_sha256": self.checkpoint_root_identity_sha256,
+            "outcome_root_identity_sha256": self.outcome_root_identity_sha256,
+            "authority_root_identity_sha256": self.authority_root_identity_sha256,
+            "comparison_sha256": self.comparison_sha256,
+            "predeclaration_sha256": self.predeclaration_sha256,
+            "authority_id": self.authority_id,
+            "manifest_sha256": self.manifest_sha256,
+        }
+
+    @classmethod
+    def from_json_dict(cls, value: object) -> ComparisonLaunchReceipt:
+        fields = {
+            "schema_version",
+            "protocol",
+            "run_identity",
+            "checkpoint_root_identity_sha256",
+            "outcome_root_identity_sha256",
+            "authority_root_identity_sha256",
+            "comparison_sha256",
+            "predeclaration_sha256",
+            "authority_id",
+            "manifest_sha256",
+        }
+        if type(value) is not dict or set(value) != fields:
+            raise ValueError("comparison launch receipt has an invalid field set")
+        if (
+            value["schema_version"] != COMPARISON_LAUNCH_RECEIPT_SCHEMA_VERSION
+            or value["protocol"] != COMPARISON_LAUNCH_RECEIPT_PROTOCOL
+        ):
+            raise ValueError("comparison launch receipt protocol is unsupported")
+        string_fields = fields - {"schema_version", "protocol"}
+        if any(type(value[field]) is not str for field in string_fields):
+            raise ValueError("comparison launch receipt digests must be exact strings")
+        receipt = cls._create(
+            run_identity=value["run_identity"],
+            checkpoint_root_identity_sha256=value[
+                "checkpoint_root_identity_sha256"
+            ],
+            outcome_root_identity_sha256=value["outcome_root_identity_sha256"],
+            authority_root_identity_sha256=value["authority_root_identity_sha256"],
+            comparison_sha256=value["comparison_sha256"],
+            predeclaration_sha256=value["predeclaration_sha256"],
+            authority_id=value["authority_id"],
+            manifest_sha256=value["manifest_sha256"],
+        )
+        if receipt.to_json_dict() != value:
+            raise ValueError("comparison launch receipt is not canonical")
+        return receipt
+
+    @property
+    def digest_sha256(self) -> str:
+        return hashlib.sha256(canonical_json_bytes(self.to_json_dict())).hexdigest()
+
+
+@dataclass(frozen=True, init=False)
+class ComparisonFinalReceipt:
+    """Owner-produced external authorization for exact final comparison bytes."""
+
+    launch: ComparisonLaunchReceipt
+    seal_sha256: str
+    outcomes_sha256: str
+
+    @classmethod
+    def _create(
+        cls,
+        *,
+        launch: ComparisonLaunchReceipt,
+        seal_sha256: str,
+        outcomes_sha256: str,
+    ) -> ComparisonFinalReceipt:
+        if type(launch) is not ComparisonLaunchReceipt:
+            raise ValueError("comparison final receipt requires an exact launch receipt")
+        _require_sha256(seal_sha256, "comparison final seal")
+        _require_sha256(outcomes_sha256, "comparison final outcome tree")
+        receipt = object.__new__(cls)
+        object.__setattr__(receipt, "launch", launch)
+        object.__setattr__(receipt, "seal_sha256", seal_sha256)
+        object.__setattr__(receipt, "outcomes_sha256", outcomes_sha256)
+        return receipt
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": COMPARISON_FINAL_RECEIPT_SCHEMA_VERSION,
+            "protocol": COMPARISON_FINAL_RECEIPT_PROTOCOL,
+            "launch": self.launch.to_json_dict(),
+            "launch_sha256": self.launch.digest_sha256,
+            "seal_sha256": self.seal_sha256,
+            "outcomes_sha256": self.outcomes_sha256,
+        }
+
+    @classmethod
+    def from_json_dict(cls, value: object) -> ComparisonFinalReceipt:
+        fields = {
+            "schema_version",
+            "protocol",
+            "launch",
+            "launch_sha256",
+            "seal_sha256",
+            "outcomes_sha256",
+        }
+        if type(value) is not dict or set(value) != fields:
+            raise ValueError("comparison final receipt has an invalid field set")
+        if (
+            value["schema_version"] != COMPARISON_FINAL_RECEIPT_SCHEMA_VERSION
+            or value["protocol"] != COMPARISON_FINAL_RECEIPT_PROTOCOL
+            or type(value["launch_sha256"]) is not str
+            or type(value["seal_sha256"]) is not str
+            or type(value["outcomes_sha256"]) is not str
+        ):
+            raise ValueError("comparison final receipt protocol or digests are invalid")
+        launch = ComparisonLaunchReceipt.from_json_dict(value["launch"])
+        if value["launch_sha256"] != launch.digest_sha256:
+            raise ValueError("comparison final receipt launch digest mismatch")
+        receipt = cls._create(
+            launch=launch,
+            seal_sha256=value["seal_sha256"],
+            outcomes_sha256=value["outcomes_sha256"],
+        )
+        if receipt.to_json_dict() != value:
+            raise ValueError("comparison final receipt is not canonical")
+        return receipt
+
+    @property
+    def digest_sha256(self) -> str:
+        return hashlib.sha256(canonical_json_bytes(self.to_json_dict())).hexdigest()
+
+
+@dataclass(frozen=True, init=False)
+class ComparisonPublicationAuthority:
+    """Exact external capability required to publish one sealed comparison."""
+
+    checkpoint_root: Path
+    outcome_root: Path
+    authority_root: Path
+    checkpoint_root_identity_sha256: str
+    outcome_root_identity_sha256: str
+    authority_root_identity_sha256: str
+    final_receipt: ComparisonFinalReceipt
+
+    @classmethod
+    def _create(
+        cls,
+        *,
+        checkpoint_root: Path,
+        outcome_root: Path,
+        authority_root: Path,
+        final_receipt: ComparisonFinalReceipt,
+    ) -> ComparisonPublicationAuthority:
+        if type(final_receipt) is not ComparisonFinalReceipt:
+            raise ValueError("comparison publication requires an exact final receipt")
+        launch = final_receipt.launch
+        checkpoint_identity = _comparison_root_identity_sha256(
+            checkpoint_root, domain="checkpoint-root"
+        )
+        outcome_identity = _comparison_root_identity_sha256(
+            outcome_root, domain="outcome-root"
+        )
+        authority_identity = _comparison_root_identity_sha256(
+            authority_root, domain="authority-root"
+        )
+        if (
+            checkpoint_identity != launch.checkpoint_root_identity_sha256
+            or outcome_identity != launch.outcome_root_identity_sha256
+            or authority_identity != launch.authority_root_identity_sha256
+        ):
+            raise ValueError("comparison publication roots differ from final receipt")
+        authority = object.__new__(cls)
+        object.__setattr__(authority, "checkpoint_root", checkpoint_root)
+        object.__setattr__(authority, "outcome_root", outcome_root)
+        object.__setattr__(authority, "authority_root", authority_root)
+        object.__setattr__(
+            authority, "checkpoint_root_identity_sha256", checkpoint_identity
+        )
+        object.__setattr__(
+            authority, "outcome_root_identity_sha256", outcome_identity
+        )
+        object.__setattr__(
+            authority, "authority_root_identity_sha256", authority_identity
+        )
+        object.__setattr__(authority, "final_receipt", final_receipt)
+        return authority
+
+
 @dataclass(frozen=True)
 class VerifiedComparisonOutcomes:
     """Fresh-decoded exact comparison outcomes accepted against an external anchor."""
@@ -506,6 +756,71 @@ def read_canonical_json(
     maximum_bytes: int = DEFAULT_MAX_OUTCOME_BYTES,
 ) -> CanonicalDocument:
     """Securely read one canonical file without a path check/reopen race."""
+    data, normalized = _read_authoritative_file_bytes(
+        root, relative_path, maximum_bytes=maximum_bytes
+    )
+    value = _decode_canonical_json(data)
+    return CanonicalDocument(
+        relative_path=normalized,
+        data=data,
+        sha256=hashlib.sha256(data).hexdigest(),
+        size=len(data),
+        value=value,
+    )
+
+
+def read_authoritative_bytes(
+    root: Path,
+    relative_path: str | Path,
+    *,
+    maximum_bytes: int = DEFAULT_MAX_OUTCOME_BYTES,
+) -> bytes:
+    """Read exact bytes through one no-follow directory/file descriptor chain."""
+    data, _ = _read_authoritative_file_bytes(
+        root, relative_path, maximum_bytes=maximum_bytes
+    )
+    return data
+
+
+def list_authoritative_directory(
+    root: Path,
+    relative_path: str | Path,
+    *,
+    maximum_entries: int,
+) -> tuple[str, ...]:
+    """List one no-follow directory without resolving a caller-controlled alias."""
+    _require_platform_capabilities()
+    if type(maximum_entries) is not int or maximum_entries < 0:
+        raise ValueError("maximum directory entries must be an exact non-negative integer")
+    parts = (
+        ()
+        if (relative_path == "." or relative_path == Path("."))
+        else _relative_parts(relative_path)
+    )
+    descriptors: list[int] = []
+    try:
+        current = _open_root(root)
+        descriptors.append(current)
+        for component in parts:
+            current = _open_directory_component(current, component)
+            descriptors.append(current)
+        names = os.listdir(current)
+        if len(names) > maximum_entries:
+            raise ValueError("authoritative directory exceeds its entry limit")
+        if any(type(name) is not str or not name or "/" in name for name in names):
+            raise ValueError("authoritative directory contains an invalid entry")
+        return tuple(sorted(names))
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+
+
+def _read_authoritative_file_bytes(
+    root: Path,
+    relative_path: str | Path,
+    *,
+    maximum_bytes: int,
+) -> tuple[bytes, str]:
     _require_platform_capabilities()
     if type(maximum_bytes) is not int or maximum_bytes < 1:
         raise ValueError("maximum outcome bytes must be a positive exact integer")
@@ -567,15 +882,8 @@ def read_canonical_json(
     finally:
         for descriptor in reversed(descriptors):
             os.close(descriptor)
-    value = _decode_canonical_json(data)
     normalized = PurePosixPath(*parts).as_posix()
-    return CanonicalDocument(
-        relative_path=normalized,
-        data=data,
-        sha256=hashlib.sha256(data).hexdigest(),
-        size=len(data),
-        value=value,
-    )
+    return data, normalized
 
 
 def write_canonical_json_once(
@@ -838,6 +1146,48 @@ def predeclare_comparison_outcomes(
     )
 
 
+def issue_comparison_launch_receipt(
+    authority: ComparisonOutcomeAuthority,
+    *,
+    checkpoint_root: Path,
+    authority_root: Path,
+    run_identity: str,
+    comparison_sha256: str,
+) -> ComparisonLaunchReceipt:
+    """Freeze the provider-before comparison and outcome-root identity externally."""
+    _fresh_comparison_authority_slots(authority)
+    checkpoint_descriptor = _open_root(checkpoint_root)
+    os.close(checkpoint_descriptor)
+    comparison = read_canonical_json(checkpoint_root, "comparison.json")
+    if comparison.sha256 != comparison_sha256:
+        raise ValueError("comparison launch digest differs from comparison.json")
+    if (
+        type(comparison.value) is not dict
+        or comparison.value.get("run_identity") != run_identity
+    ):
+        raise ValueError(
+            "comparison launch run identity differs from comparison.json"
+        )
+    authority_descriptor = _open_root(authority_root, create=True)
+    os.close(authority_descriptor)
+    return ComparisonLaunchReceipt._create(
+        run_identity=run_identity,
+        checkpoint_root_identity_sha256=_comparison_root_identity_sha256(
+            checkpoint_root, domain="checkpoint-root"
+        ),
+        outcome_root_identity_sha256=_comparison_root_identity_sha256(
+            authority.root, domain="outcome-root"
+        ),
+        authority_root_identity_sha256=_comparison_root_identity_sha256(
+            authority_root, domain="authority-root"
+        ),
+        comparison_sha256=comparison_sha256,
+        predeclaration_sha256=authority.predeclaration_sha256,
+        authority_id=authority.authority_id,
+        manifest_sha256=authority.manifest_sha256,
+    )
+
+
 def write_comparison_arm_outcome_once(
     authority: ComparisonOutcomeAuthority,
     slot: ComparisonOutcomeSlot,
@@ -866,6 +1216,28 @@ def write_comparison_arm_outcome_once(
     return write_canonical_json_once(
         authority.root, normalized_slot.relative_path, payload
     )
+
+
+def read_comparison_arm_outcome_if_present(
+    authority: ComparisonOutcomeAuthority,
+    slot: ComparisonOutcomeSlot,
+) -> ComparisonArmOutcome | None:
+    """Freshly read one exact slot, distinguishing only a genuinely absent file."""
+    slots = _fresh_comparison_authority_slots(authority)
+    normalized_slot = _normalize_comparison_slot(slot)
+    by_id = {candidate.slot_id: candidate for candidate in slots}
+    if by_id.get(normalized_slot.slot_id) != normalized_slot:
+        raise ValueError("comparison outcome slot is absent from frozen predeclaration")
+    actual_paths = _list_comparison_outcome_files(
+        authority.root, maximum_files=len(slots) + 1
+    )
+    expected_paths = {candidate.relative_path for candidate in slots}
+    if not actual_paths <= expected_paths:
+        raise ValueError("comparison outcome tree contains an unpredeclared slot")
+    if normalized_slot.relative_path not in actual_paths:
+        return None
+    document = read_canonical_json(authority.root, normalized_slot.relative_path)
+    return _decode_comparison_outcome_envelope(document.value, normalized_slot)
 
 
 def seal_comparison_outcomes(
@@ -908,35 +1280,163 @@ def seal_comparison_outcomes(
     )
 
 
+def finalize_comparison_outcomes(
+    authority: ComparisonOutcomeAuthority,
+    launch: ComparisonLaunchReceipt,
+    *,
+    checkpoint_root: Path,
+    authority_root: Path,
+) -> ComparisonFinalReceipt:
+    """Owner-only finalization that binds every exact outcome byte to launch."""
+    _require_launch_matches_authority(authority, launch)
+    _require_launch_root_identities(
+        launch,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+    )
+    seal = seal_comparison_outcomes(authority)
+    predeclaration = read_canonical_json(
+        authority.root, COMPARISON_OUTCOME_PREDECLARATION_PATH
+    )
+    slots = _comparison_slots_from_predeclaration(predeclaration.value)
+    documents = tuple(
+        read_canonical_json(authority.root, slot.relative_path) for slot in slots
+    )
+    return ComparisonFinalReceipt._create(
+        launch=launch,
+        seal_sha256=seal.sha256,
+        outcomes_sha256=_comparison_outcome_tree_sha256(
+            predeclaration, documents, seal
+        ),
+    )
+
+
+def write_comparison_launch_receipt_once(
+    authority_root: Path,
+    launch: ComparisonLaunchReceipt,
+) -> CanonicalDocument:
+    """Persist one exact launch receipt outside the comparison checkpoint tree."""
+    if type(launch) is not ComparisonLaunchReceipt:
+        raise ValueError("comparison launch receipt must be an exact typed receipt")
+    if (
+        _comparison_root_identity_sha256(authority_root, domain="authority-root")
+        != launch.authority_root_identity_sha256
+    ):
+        raise ValueError("comparison launch receipt binds another authority root")
+    return write_canonical_json_once(
+        authority_root, COMPARISON_LAUNCH_RECEIPT_PATH, launch.to_json_dict()
+    )
+
+
+def read_comparison_launch_receipt(
+    authority_root: Path,
+) -> ComparisonLaunchReceipt:
+    """Freshly read one strict canonical externally persisted launch receipt."""
+    document = read_canonical_json(authority_root, COMPARISON_LAUNCH_RECEIPT_PATH)
+    launch = ComparisonLaunchReceipt.from_json_dict(document.value)
+    if (
+        _comparison_root_identity_sha256(authority_root, domain="authority-root")
+        != launch.authority_root_identity_sha256
+    ):
+        raise ValueError("comparison launch receipt authority-root identity drifted")
+    return launch
+
+
+def write_comparison_final_receipt_once(
+    authority_root: Path,
+    final: ComparisonFinalReceipt,
+    *,
+    checkpoint_root: Path,
+    outcome_root: Path,
+) -> CanonicalDocument:
+    """Persist the owner-produced final receipt exactly once outside checkpoint state."""
+    if type(final) is not ComparisonFinalReceipt:
+        raise ValueError("comparison final receipt must be an exact typed receipt")
+    launch = read_comparison_launch_receipt(authority_root)
+    if launch != final.launch:
+        raise ValueError("comparison final receipt does not match persisted launch")
+    _require_launch_root_identities(
+        launch,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+    )
+    if (
+        _comparison_root_identity_sha256(outcome_root, domain="outcome-root")
+        != launch.outcome_root_identity_sha256
+    ):
+        raise ValueError("comparison final receipt outcome-root identity drifted")
+    verify_comparison_outcomes(
+        outcome_root,
+        expected_final_receipt=final,
+        expected_comparison_sha256=launch.comparison_sha256,
+    )
+    return write_canonical_json_once(
+        authority_root, COMPARISON_FINAL_RECEIPT_PATH, final.to_json_dict()
+    )
+
+
+def read_comparison_final_receipt(authority_root: Path) -> ComparisonFinalReceipt:
+    """Freshly read one strict canonical externally persisted final receipt."""
+    launch = read_comparison_launch_receipt(authority_root)
+    document = read_canonical_json(authority_root, COMPARISON_FINAL_RECEIPT_PATH)
+    final = ComparisonFinalReceipt.from_json_dict(document.value)
+    if final.launch != launch:
+        raise ValueError("comparison final receipt differs from persisted launch")
+    return final
+
+
+def create_comparison_publication_authority(
+    *,
+    checkpoint_root: Path,
+    outcome_root: Path,
+    authority_root: Path,
+    final_receipt: ComparisonFinalReceipt,
+) -> ComparisonPublicationAuthority:
+    """Create the exact publication capability from fresh external owner state."""
+    persisted = read_comparison_final_receipt(authority_root)
+    if persisted != final_receipt:
+        raise ValueError("comparison publication final receipt differs from owner state")
+    return ComparisonPublicationAuthority._create(
+        checkpoint_root=checkpoint_root,
+        outcome_root=outcome_root,
+        authority_root=authority_root,
+        final_receipt=final_receipt,
+    )
+
+
 def verify_comparison_outcomes(
     root: Path,
     *,
-    expected_predeclaration_sha256: str,
-    expected_authority_id: str,
-    expected_manifest_sha256: str,
-    expected_domain: str = COMPARISON_OUTCOME_PROTOCOL,
+    expected_final_receipt: ComparisonFinalReceipt,
+    expected_comparison_sha256: str,
 ) -> VerifiedComparisonOutcomes:
     """Verify and fresh-decode a comparison set against external frozen anchors."""
-    for expected_value, label in (
-        (expected_predeclaration_sha256, "expected comparison predeclaration"),
-        (expected_authority_id, "expected comparison authority_id"),
-        (expected_manifest_sha256, "expected comparison manifest_sha256"),
+    if type(expected_final_receipt) is not ComparisonFinalReceipt:
+        raise ValueError("comparison verification requires an exact external final receipt")
+    _require_sha256(expected_comparison_sha256, "expected comparison predeclaration")
+    launch = expected_final_receipt.launch
+    if launch.comparison_sha256 != expected_comparison_sha256:
+        raise ValueError("comparison final receipt binds another comparison predeclaration")
+    if (
+        _comparison_root_identity_sha256(root, domain="outcome-root")
+        != launch.outcome_root_identity_sha256
     ):
-        _require_sha256(expected_value, label)
-    if type(expected_domain) is not str or expected_domain != COMPARISON_OUTCOME_PROTOCOL:
-        raise ValueError("comparison outcome authority domain is unsupported")
+        raise ValueError("comparison final receipt binds another canonical outcome root")
+    _require_exact_comparison_root_entries(root)
     predeclaration = read_canonical_json(root, COMPARISON_OUTCOME_PREDECLARATION_PATH)
-    if predeclaration.sha256 != expected_predeclaration_sha256:
+    if predeclaration.sha256 != launch.predeclaration_sha256:
         raise ValueError("comparison outcome predeclaration differs from its frozen digest")
     slots = _comparison_slots_from_predeclaration(predeclaration.value)
     value = predeclaration.value
     assert isinstance(value, dict)
     if (
-        value["authority_id"] != expected_authority_id
-        or value["manifest_sha256"] != expected_manifest_sha256
+        value["authority_id"] != launch.authority_id
+        or value["manifest_sha256"] != launch.manifest_sha256
     ):
         raise ValueError("comparison outcome predeclaration external binding mismatch")
     seal = read_canonical_json(root, COMPARISON_OUTCOME_SEAL_PATH)
+    if seal.sha256 != expected_final_receipt.seal_sha256:
+        raise ValueError("comparison outcome seal differs from its external final receipt")
     seal_value = seal.value
     seal_fields = {
         "schema_version",
@@ -950,10 +1450,10 @@ def verify_comparison_outcomes(
         raise ValueError("comparison outcome seal has an invalid field set")
     if (
         seal_value["schema_version"] != COMPARISON_OUTCOME_SEAL_SCHEMA_VERSION
-        or seal_value["protocol"] != expected_domain
-        or seal_value["authority_id"] != expected_authority_id
-        or seal_value["manifest_sha256"] != expected_manifest_sha256
-        or seal_value["predeclaration_sha256"] != expected_predeclaration_sha256
+        or seal_value["protocol"] != COMPARISON_OUTCOME_PROTOCOL
+        or seal_value["authority_id"] != launch.authority_id
+        or seal_value["manifest_sha256"] != launch.manifest_sha256
+        or seal_value["predeclaration_sha256"] != launch.predeclaration_sha256
         or type(seal_value["slots"]) is not list
     ):
         raise ValueError("comparison outcome seal external binding mismatch")
@@ -980,14 +1480,132 @@ def verify_comparison_outcomes(
         outcome = _decode_comparison_outcome_envelope(document.value, slot)
         documents.append(document)
         outcomes.append(outcome)
+    if (
+        _comparison_outcome_tree_sha256(
+            predeclaration, tuple(documents), seal
+        )
+        != expected_final_receipt.outcomes_sha256
+    ):
+        raise ValueError("comparison outcome tree differs from its external final receipt")
     return VerifiedComparisonOutcomes(
-        predeclaration_sha256=expected_predeclaration_sha256,
-        authority_id=expected_authority_id,
-        manifest_sha256=expected_manifest_sha256,
+        predeclaration_sha256=launch.predeclaration_sha256,
+        authority_id=launch.authority_id,
+        manifest_sha256=launch.manifest_sha256,
         slots=slots,
         outcomes=tuple(outcomes),
         documents=tuple(documents),
     )
+
+
+def _require_launch_matches_authority(
+    authority: ComparisonOutcomeAuthority,
+    launch: ComparisonLaunchReceipt,
+) -> None:
+    if type(launch) is not ComparisonLaunchReceipt:
+        raise ValueError("comparison finalization requires an exact launch receipt")
+    _fresh_comparison_authority_slots(authority)
+    if (
+        launch.outcome_root_identity_sha256
+        != _comparison_root_identity_sha256(authority.root, domain="outcome-root")
+        or launch.predeclaration_sha256 != authority.predeclaration_sha256
+        or launch.authority_id != authority.authority_id
+        or launch.manifest_sha256 != authority.manifest_sha256
+    ):
+        raise ValueError("comparison launch receipt does not match outcome authority")
+
+
+def _require_launch_root_identities(
+    launch: ComparisonLaunchReceipt,
+    *,
+    checkpoint_root: Path,
+    authority_root: Path,
+) -> None:
+    if (
+        _comparison_root_identity_sha256(checkpoint_root, domain="checkpoint-root")
+        != launch.checkpoint_root_identity_sha256
+        or _comparison_root_identity_sha256(authority_root, domain="authority-root")
+        != launch.authority_root_identity_sha256
+    ):
+        raise ValueError("comparison launch root identity drifted")
+    comparison = read_canonical_json(checkpoint_root, "comparison.json")
+    if comparison.sha256 != launch.comparison_sha256:
+        raise ValueError("comparison.json differs from its launch digest")
+    if (
+        type(comparison.value) is not dict
+        or comparison.value.get("run_identity") != launch.run_identity
+    ):
+        raise ValueError("comparison run identity differs from its launch receipt")
+
+
+def _comparison_root_identity_sha256(root: Path, *, domain: str) -> str:
+    """Bind one canonical path and opened directory inode without following aliases."""
+    descriptor = _open_root(root)
+    try:
+        opened = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    identity = {
+        "domain": f"{COMPARISON_OUTCOME_PROTOCOL}:{domain}",
+        "path": Path(os.path.abspath(root)).as_posix(),
+        "device": opened.st_dev,
+        "inode": opened.st_ino,
+    }
+    return hashlib.sha256(canonical_json_bytes(identity)).hexdigest()
+
+
+def _require_exact_comparison_root_entries(root: Path) -> None:
+    descriptor = _open_root(root)
+    try:
+        names = set(os.listdir(descriptor))
+        expected = {
+            ".outcome-staging",
+            COMPARISON_OUTCOME_PREDECLARATION_PATH,
+            COMPARISON_OUTCOME_DIRECTORY,
+            COMPARISON_OUTCOME_SEAL_PATH,
+        }
+        if names != expected:
+            raise ValueError("comparison outcome root contains an unrecognized entry")
+        for name in names:
+            metadata = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
+            expected_directory = name in {
+                ".outcome-staging",
+                COMPARISON_OUTCOME_DIRECTORY,
+            }
+            if stat.S_ISLNK(metadata.st_mode) or (
+                stat.S_ISDIR(metadata.st_mode) != expected_directory
+            ):
+                raise ValueError("comparison outcome root entry has an unsafe type")
+    finally:
+        os.close(descriptor)
+    if list_authoritative_directory(
+        root, ".outcome-staging", maximum_entries=1
+    ):
+        raise ValueError("comparison outcome staging is not empty at verification")
+
+
+def _comparison_outcome_tree_sha256(
+    predeclaration: CanonicalDocument,
+    outcomes: tuple[CanonicalDocument, ...],
+    seal: CanonicalDocument,
+) -> str:
+    rows = (
+        predeclaration,
+        *outcomes,
+        seal,
+    )
+    payload = {
+        "schema_version": "1",
+        "protocol": "comparison-outcome-tree-v1",
+        "members": [
+            {
+                "path": document.relative_path,
+                "sha256": document.sha256,
+                "size": document.size,
+            }
+            for document in rows
+        ],
+    }
+    return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
 
 
 def _fresh_comparison_authority_slots(

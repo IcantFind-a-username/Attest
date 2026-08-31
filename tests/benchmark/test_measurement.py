@@ -41,7 +41,7 @@ from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits
 from attest.review.proposer import ProviderResult
 
-from .test_baselines import _plans, _ruff_executable
+from .test_baselines import _comparison_authority, _plans, _ruff_executable
 from .test_corpus import _oracle_fixture
 
 
@@ -955,6 +955,7 @@ def test_outcome_seal_rejects_coordinated_whole_root_rewrite_against_frozen_dige
         COMPARISON_OUTCOME_PREDECLARATION_PATH,
         COMPARISON_OUTCOME_SEAL_PATH,
         ComparisonArmOutcome,
+        finalize_comparison_outcomes,
         predeclare_comparison_outcomes,
         seal_comparison_outcomes,
         verify_comparison_outcomes,
@@ -1005,7 +1006,22 @@ def test_outcome_seal_rejects_coordinated_whole_root_rewrite_against_frozen_dige
                     tool_cost_s=None,
                 ),
             )
-        seal_comparison_outcomes(authority)
+    checkpoint_root = tmp_path / "original-checkpoint"
+    checkpoint_root.mkdir()
+    authority_root = tmp_path / "original-owner"
+    launch = _comparison_launch(
+        original,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+        run_identity="1" * 64,
+    )
+    final = finalize_comparison_outcomes(
+        original,
+        launch,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+    )
+    seal_comparison_outcomes(replacement)
 
     for relative_path in (
         COMPARISON_OUTCOME_PREDECLARATION_PATH,
@@ -1019,10 +1035,424 @@ def test_outcome_seal_rejects_coordinated_whole_root_rewrite_against_frozen_dige
     with pytest.raises(ValueError, match="predeclaration|frozen|digest"):
         verify_comparison_outcomes(
             original_root,
-            expected_predeclaration_sha256=original.predeclaration_sha256,
-            expected_authority_id=original.authority_id,
-            expected_manifest_sha256=original.manifest_sha256,
+            expected_final_receipt=final,
+            expected_comparison_sha256=launch.comparison_sha256,
         )
+
+
+def _write_complete_comparison_outcomes(authority, *, ruff_wall_time_s: float = 1.0):
+    from attest.benchmark.measurement import TaskStatus
+    from attest.benchmark.outcomes import (
+        ComparisonArmOutcome,
+        write_comparison_arm_outcome_once,
+    )
+
+    for slot in authority.slots:
+        write_comparison_arm_outcome_once(
+            authority,
+            slot,
+            ComparisonArmOutcome(
+                task_status=TaskStatus.COMPLETED,
+                abstain_reason=None,
+                surfaced_findings=(),
+                product_measurement=(
+                    replace(
+                        _measurement_record(
+                            findings=(),
+                            eligible_defect_ids=(),
+                            truth_status="unadjudicated",
+                        ),
+                        case_id=slot.case_id,
+                        arm=slot.arm,
+                        repeat=slot.repeat,
+                    )
+                    if slot.arm == ARM_PRODUCT
+                    else None
+                ),
+                paid_calls_sha256=hashlib.sha256(b"[]").hexdigest(),
+                wall_time_s=(
+                    ruff_wall_time_s if slot.arm == ARM_RUFF else 1.0
+                ),
+                tool_cost_s=None,
+            ),
+        )
+
+
+def _comparison_launch(
+    authority,
+    *,
+    checkpoint_root: Path,
+    authority_root: Path,
+    run_identity: str,
+):
+    from attest.benchmark.outcomes import (
+        issue_comparison_launch_receipt,
+        write_canonical_json_once,
+    )
+
+    comparison = write_canonical_json_once(
+        checkpoint_root,
+        "comparison.json",
+        {"run_identity": run_identity},
+    )
+    return issue_comparison_launch_receipt(
+        authority,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+        run_identity=run_identity,
+        comparison_sha256=comparison.sha256,
+    )
+
+
+def test_comparison_final_receipt_rejects_a_resealed_ruff_outcome_rewrite(
+    tmp_path: Path,
+) -> None:
+    """An original owner receipt, not a self-consistent seal, authorizes bytes."""
+    from attest.benchmark.outcomes import (
+        COMPARISON_OUTCOME_SEAL_PATH,
+        finalize_comparison_outcomes,
+        predeclare_comparison_outcomes,
+        read_comparison_final_receipt,
+        read_comparison_launch_receipt,
+        seal_comparison_outcomes,
+        verify_comparison_outcomes,
+        write_comparison_final_receipt_once,
+        write_comparison_launch_receipt_once,
+    )
+
+    original_root = tmp_path / "original"
+    forged_root = tmp_path / "forged"
+    checkpoint_root = tmp_path / "checkpoint"
+    authority_root = tmp_path / "owner-receipts"
+    checkpoint_root.mkdir()
+    original = predeclare_comparison_outcomes(
+        original_root,
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    forged = predeclare_comparison_outcomes(
+        forged_root,
+        authority_id=original.authority_id,
+        manifest_sha256=original.manifest_sha256,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    assert forged.predeclaration_sha256 == original.predeclaration_sha256
+    _write_complete_comparison_outcomes(original)
+    _write_complete_comparison_outcomes(forged, ruff_wall_time_s=9.0)
+    launch = _comparison_launch(
+        original,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+        run_identity="1" * 64,
+    )
+    write_comparison_launch_receipt_once(authority_root, launch)
+    assert read_comparison_launch_receipt(authority_root) == launch
+    final = finalize_comparison_outcomes(
+        original,
+        launch,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+    )
+    write_comparison_final_receipt_once(
+        authority_root,
+        final,
+        checkpoint_root=checkpoint_root,
+        outcome_root=original.root,
+    )
+    assert read_comparison_final_receipt(authority_root) == final
+    seal_comparison_outcomes(forged)
+    ruff_slot = next(slot for slot in original.slots if slot.arm == ARM_RUFF)
+    (original_root / ruff_slot.relative_path).write_bytes(
+        (forged_root / ruff_slot.relative_path).read_bytes()
+    )
+    (original_root / COMPARISON_OUTCOME_SEAL_PATH).write_bytes(
+        (forged_root / COMPARISON_OUTCOME_SEAL_PATH).read_bytes()
+    )
+
+    with pytest.raises(
+        ValueError, match="seal differs from its external final receipt|outcome tree"
+    ):
+        verify_comparison_outcomes(
+            original_root,
+            expected_final_receipt=final,
+            expected_comparison_sha256=launch.comparison_sha256,
+        )
+
+
+def test_comparison_run_receipts_are_not_interchangeable_between_roots(
+    tmp_path: Path,
+) -> None:
+    """Two legal runs of one plan have different launch/final authority."""
+    from attest.benchmark.outcomes import (
+        finalize_comparison_outcomes,
+        predeclare_comparison_outcomes,
+        verify_comparison_outcomes,
+    )
+
+    authorities = tuple(
+        predeclare_comparison_outcomes(
+            tmp_path / name,
+            authority_id=authority_id,
+            manifest_sha256="a" * 64,
+            case_bindings={"case-1": "b" * 64},
+            repeats=1,
+        )
+        for name, authority_id in (("run-a", "d" * 64), ("run-b", "e" * 64))
+    )
+    finals = []
+    for ordinal, authority in enumerate(authorities, start=1):
+        _write_complete_comparison_outcomes(authority)
+        checkpoint_root = tmp_path / f"checkpoint-{ordinal}"
+        checkpoint_root.mkdir()
+        authority_root = tmp_path / f"owner-{ordinal}"
+        launch = _comparison_launch(
+            authority,
+            checkpoint_root=checkpoint_root,
+            authority_root=authority_root,
+            run_identity=str(ordinal) * 64,
+        )
+        finals.append(
+            finalize_comparison_outcomes(
+                authority,
+                launch,
+                checkpoint_root=checkpoint_root,
+                authority_root=authority_root,
+            )
+        )
+
+    assert finals[0].digest_sha256 != finals[1].digest_sha256
+    with pytest.raises(ValueError, match="final|receipt|root|authority"):
+        verify_comparison_outcomes(
+            authorities[1].root,
+            expected_final_receipt=finals[0],
+            expected_comparison_sha256=finals[0].launch.comparison_sha256,
+        )
+
+
+@pytest.mark.parametrize("swapped_root", ("checkpoint", "authority"))
+def test_comparison_finalization_revalidates_every_launch_root_before_seal(
+    tmp_path: Path, swapped_root: str
+) -> None:
+    from attest.benchmark.outcomes import (
+        COMPARISON_OUTCOME_SEAL_PATH,
+        finalize_comparison_outcomes,
+        predeclare_comparison_outcomes,
+    )
+
+    outcome = predeclare_comparison_outcomes(
+        tmp_path / "outcomes",
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    _write_complete_comparison_outcomes(outcome)
+    checkpoint_root = tmp_path / "checkpoint"
+    authority_root = tmp_path / "owner"
+    checkpoint_root.mkdir()
+    launch = _comparison_launch(
+        outcome,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+        run_identity="1" * 64,
+    )
+    target = checkpoint_root if swapped_root == "checkpoint" else authority_root
+    moved = target.with_name(target.name + "-original")
+    target.rename(moved)
+    target.mkdir()
+
+    with pytest.raises(ValueError, match="root.*(identity|launch)|launch.*root"):
+        finalize_comparison_outcomes(
+            outcome,
+            launch,
+            checkpoint_root=checkpoint_root,
+            authority_root=authority_root,
+        )
+
+    assert not (outcome.root / COMPARISON_OUTCOME_SEAL_PATH).exists()
+
+
+def test_comparison_launch_rejects_run_identity_that_differs_from_comparison(
+    tmp_path: Path,
+) -> None:
+    from attest.benchmark.outcomes import (
+        issue_comparison_launch_receipt,
+        predeclare_comparison_outcomes,
+        write_canonical_json_once,
+    )
+
+    outcome = predeclare_comparison_outcomes(
+        tmp_path / "outcomes",
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    checkpoint_root = tmp_path / "checkpoint"
+    checkpoint_root.mkdir()
+    comparison = write_canonical_json_once(
+        checkpoint_root,
+        "comparison.json",
+        {"run_identity": "1" * 64},
+    )
+
+    with pytest.raises(ValueError, match="run identity"):
+        issue_comparison_launch_receipt(
+            outcome,
+            checkpoint_root=checkpoint_root,
+            authority_root=tmp_path / "owner",
+            run_identity="2" * 64,
+            comparison_sha256=comparison.sha256,
+        )
+
+
+def test_comparison_finalization_rejects_fresh_comparison_document_drift(
+    tmp_path: Path,
+) -> None:
+    from attest.benchmark.outcomes import (
+        COMPARISON_OUTCOME_SEAL_PATH,
+        canonical_json_bytes,
+        finalize_comparison_outcomes,
+        predeclare_comparison_outcomes,
+    )
+
+    outcome = predeclare_comparison_outcomes(
+        tmp_path / "outcomes",
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    _write_complete_comparison_outcomes(outcome)
+    checkpoint_root = tmp_path / "checkpoint"
+    authority_root = tmp_path / "owner"
+    checkpoint_root.mkdir()
+    launch = _comparison_launch(
+        outcome,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+        run_identity="1" * 64,
+    )
+    (checkpoint_root / "comparison.json").write_bytes(
+        canonical_json_bytes({"run_identity": "2" * 64})
+    )
+
+    with pytest.raises(ValueError, match="comparison.json|comparison.*(digest|identity)"):
+        finalize_comparison_outcomes(
+            outcome,
+            launch,
+            checkpoint_root=checkpoint_root,
+            authority_root=authority_root,
+        )
+
+    assert not (outcome.root / COMPARISON_OUTCOME_SEAL_PATH).exists()
+
+
+@pytest.mark.parametrize("rogue_kind", ("file", "directory"))
+def test_comparison_verifier_rejects_rogue_top_level_outcome_entry(
+    tmp_path: Path, rogue_kind: str
+) -> None:
+    from attest.benchmark.outcomes import (
+        finalize_comparison_outcomes,
+        predeclare_comparison_outcomes,
+        verify_comparison_outcomes,
+    )
+
+    outcome = predeclare_comparison_outcomes(
+        tmp_path / "outcomes",
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    _write_complete_comparison_outcomes(outcome)
+    checkpoint_root = tmp_path / "checkpoint"
+    authority_root = tmp_path / "owner"
+    checkpoint_root.mkdir()
+    launch = _comparison_launch(
+        outcome,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+        run_identity="1" * 64,
+    )
+    final = finalize_comparison_outcomes(
+        outcome,
+        launch,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+    )
+    rogue = outcome.root / "rogue"
+    if rogue_kind == "file":
+        rogue.write_text("unbound\n", encoding="utf-8")
+    else:
+        rogue.mkdir()
+
+    with pytest.raises(ValueError, match="rogue|unrecognized|outcome root"):
+        verify_comparison_outcomes(
+            outcome.root,
+            expected_final_receipt=final,
+            expected_comparison_sha256=launch.comparison_sha256,
+        )
+
+
+def test_comparison_final_receipt_write_rejects_stale_outcome_bytes(
+    tmp_path: Path,
+) -> None:
+    from attest.benchmark.outcomes import (
+        COMPARISON_FINAL_RECEIPT_PATH,
+        COMPARISON_OUTCOME_SEAL_PATH,
+        canonical_json_bytes,
+        finalize_comparison_outcomes,
+        predeclare_comparison_outcomes,
+        seal_comparison_outcomes,
+        write_comparison_final_receipt_once,
+        write_comparison_launch_receipt_once,
+    )
+
+    outcome = predeclare_comparison_outcomes(
+        tmp_path / "outcomes",
+        authority_id="d" * 64,
+        manifest_sha256="a" * 64,
+        case_bindings={"case-1": "b" * 64},
+        repeats=1,
+    )
+    _write_complete_comparison_outcomes(outcome)
+    checkpoint_root = tmp_path / "checkpoint"
+    authority_root = tmp_path / "owner"
+    checkpoint_root.mkdir()
+    launch = _comparison_launch(
+        outcome,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+        run_identity="1" * 64,
+    )
+    write_comparison_launch_receipt_once(authority_root, launch)
+    final = finalize_comparison_outcomes(
+        outcome,
+        launch,
+        checkpoint_root=checkpoint_root,
+        authority_root=authority_root,
+    )
+    ruff_slot = next(slot for slot in outcome.slots if slot.arm == ARM_RUFF)
+    ruff_path = outcome.root / ruff_slot.relative_path
+    rewritten = json.loads(ruff_path.read_bytes())
+    rewritten["outcome"]["wall_time_s"] = 9.0
+    ruff_path.write_bytes(canonical_json_bytes(rewritten))
+    (outcome.root / COMPARISON_OUTCOME_SEAL_PATH).unlink()
+    seal_comparison_outcomes(outcome)
+
+    with pytest.raises(ValueError, match="seal|outcome tree|final receipt"):
+        write_comparison_final_receipt_once(
+            authority_root,
+            final,
+            checkpoint_root=checkpoint_root,
+            outcome_root=outcome.root,
+        )
+
+    assert not (authority_root / COMPARISON_FINAL_RECEIPT_PATH).exists()
 
 
 def _finding(
@@ -2201,13 +2631,15 @@ def test_comparison_publication_rejects_coordinated_outcome_rewrite(
     rebuilding them from a durable canonical outcome artifact.
     """
     plans, cassettes, manifest_path = _plans(tmp_path)
-    measurements = compare_arms(
+    execution = compare_arms(
         plans,
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
         bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
         ruff_executable=_ruff_executable(),
         checkpoint_root=tmp_path / "comparison-state",
+        **_comparison_authority(tmp_path / "comparison-state"),
     )
+    measurements = execution.measurements
     original_product = next(summary for summary in measurements.arms if summary.arm == ARM_PRODUCT)
     assert original_product.accuracy.detection_rate == 1.0
     assert any(run.findings for run in measurements.runs if run.arm == ARM_PRODUCT)
@@ -2238,6 +2670,7 @@ def test_comparison_publication_rejects_coordinated_outcome_rewrite(
             rewritten,
             manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
             validation_receipt=None,
+            publication_authority=execution.publication_authority,
         )
 
 

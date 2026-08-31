@@ -34,6 +34,7 @@ from pathlib import Path
 from attest.benchmark.api import ABSENT_BINDING_SHA256
 from attest.benchmark.baselines import (
     ArmRun,
+    ComparisonExecution,
     ComparisonMeasurements,
     validate_comparison_measurements,
 )
@@ -50,6 +51,7 @@ from attest.benchmark.metrics import (
     BenchmarkReport,
     aggregate,
 )
+from attest.benchmark.outcomes import ComparisonPublicationAuthority
 from attest.benchmark.schema import (
     BenchmarkCase,
     BenchmarkManifest,
@@ -758,7 +760,7 @@ def _arm_run_payload(run: ArmRun, authorized: bool) -> dict[str, object]:
 
 def build_comparison_report(
     manifest: BenchmarkManifest,
-    measurements: ComparisonMeasurements,
+    measurements: ComparisonMeasurements | ComparisonExecution,
     *,
     manifest_sha256: str,
     mode: str = REPLAY_MODE,
@@ -766,6 +768,7 @@ def build_comparison_report(
     validation_receipt: (
         ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None
     ) = None,
+    publication_authority: ComparisonPublicationAuthority | None,
 ) -> ComparisonRunReport:
     """Attach provenance limitations and apply the receipt gate to a comparison.
 
@@ -775,6 +778,18 @@ def build_comparison_report(
     """
     if mode not in (REPLAY_MODE, LIVE_MODE):
         raise ValueError("mode must be replay or live")
+    if type(measurements) is ComparisonExecution:
+        if type(measurements.measurements) is not ComparisonMeasurements:
+            raise ValueError(
+                "comparison execution requires exact ComparisonMeasurements"
+            )
+        if measurements.publication_authority != publication_authority:
+            raise ValueError(
+                "comparison execution and explicit publication authority differ"
+            )
+        measurements = measurements.measurements
+    elif type(measurements) is not ComparisonMeasurements:
+        raise ValueError("comparison report requires exact measurements or execution")
     manifest = require_manifest_binding(manifest, manifest_sha256)
     receipt_sha256 = _validation_receipt_sha256(validation_receipt)
     predeclaration_sha256, measurements = validate_comparison_measurements(
@@ -782,6 +797,7 @@ def build_comparison_report(
         receipt_sha256,
         manifest,
         manifest_sha256,
+        publication_authority,
     )
     authority = _validation_authority(validation_receipt)
     manifest = _require_current_manifest_authority(

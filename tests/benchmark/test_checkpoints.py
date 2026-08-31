@@ -111,6 +111,57 @@ def test_completed_call_reconciles_trial_spend_and_artifact_one_to_one(
     assert len(str(records[0]["artifact_sha256"])) == 64
 
 
+def test_reconciliation_snapshot_freshly_joins_response_tokens_to_cost_rows(
+    tmp_path: Path,
+) -> None:
+    provider = _wrapper(_Provider(), tmp_path)
+    _sample(provider)
+
+    snapshot = provider.reconciliation_snapshot()
+
+    assert snapshot.records == provider.reconciliation_records()
+    assert snapshot.input_tokens == 100
+    assert snapshot.output_tokens == 20
+    assert snapshot.call_count == 1
+
+
+def test_reconciliation_snapshot_rejects_artifact_response_hash_self_claim(
+    tmp_path: Path,
+) -> None:
+    provider = _wrapper(_Provider(), tmp_path)
+    _sample(provider)
+    checkpoint_path = tmp_path / "calls" / "000000.json"
+    artifact_path = tmp_path / "artifacts" / "000000.json"
+    costs_path = tmp_path / "costs.jsonl"
+    checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    cost = json.loads(costs_path.read_text(encoding="utf-8"))
+
+    artifact["response"] = {
+        "text": "forged response",
+        "input_tokens": 999,
+        "output_tokens": 888,
+    }
+    artifact_bytes = json.dumps(
+        artifact, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    artifact_sha256 = hashlib.sha256(artifact_bytes).hexdigest()
+    checkpoint["artifact_sha256"] = artifact_sha256
+    cost["artifact_sha256"] = artifact_sha256
+    artifact_path.write_bytes(artifact_bytes + b"\n")
+    checkpoint_path.write_text(
+        json.dumps(checkpoint, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+    costs_path.write_text(
+        json.dumps(cost, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="response.*(digest|binding|checkpoint)"):
+        _wrapper(_Provider(), tmp_path).reconciliation_snapshot()
+
+
 def test_paid_call_roles_are_immutable_and_costs_are_disjoint(tmp_path: Path) -> None:
     provider = _wrapper(_Provider(), tmp_path)
     _sample(provider)

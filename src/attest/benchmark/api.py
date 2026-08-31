@@ -92,6 +92,10 @@ class ProjectEvaluationPreExecutionError(ProjectEvaluationError):
     """A typed refusal known to occur before project execution/publication."""
 
 
+class ProjectEvaluationAuthorityError(ProjectEvaluationError):
+    """Fresh post-execution authority failed after publication may have occurred."""
+
+
 @dataclass(frozen=True)
 class ProjectEvaluationBinding:
     """Immutable inputs that make a paid evaluation one reproducible stratum."""
@@ -584,31 +588,36 @@ def _evaluate_prepared_project(
                 execution_result_sink=freeze_execution_result,
             )
             summary = github.status_bodies[-1] if github.status_bodies else ""
-        if len(frozen_authorities) != 1:
-            raise ValueError("project execution did not freeze one expected authority")
-        ledger_rows = Ledger(workspace).entries_strict()
-        run = rebuild_case_run_from_ledger(
-            workspace,
-            run,
-            ledger_rows,
-            repository=request.repository,
-            head_sha=resolved.head_sha,
-            pull_request_number=request.pull_request_number,
-            deadline_s=request.deadline_s,
-            expected_authority=frozen_authorities[0],
-        )
-        decisions = tuple(
-            ci_final_decisions_from_rows(ledger_rows, run.task_id)
-            if run.task_id
-            else ()
-        )
-        records = _persist(
-            artifact_store,
-            request,
-            run,
-            ledger_rows,
-            summary,
-        )
+        try:
+            if len(frozen_authorities) != 1:
+                raise ValueError(
+                    "project execution did not freeze one expected authority"
+                )
+            ledger_rows = Ledger(workspace).entries_strict()
+            run = rebuild_case_run_from_ledger(
+                workspace,
+                run,
+                ledger_rows,
+                repository=request.repository,
+                head_sha=resolved.head_sha,
+                pull_request_number=request.pull_request_number,
+                deadline_s=request.deadline_s,
+                expected_authority=frozen_authorities[0],
+            )
+            decisions = tuple(
+                ci_final_decisions_from_rows(ledger_rows, run.task_id)
+                if run.task_id
+                else ()
+            )
+            records = _persist(
+                artifact_store,
+                request,
+                run,
+                ledger_rows,
+                summary,
+            )
+        except (OSError, ValueError) as exc:
+            raise ProjectEvaluationAuthorityError(str(exc)) from exc
     finally:
         _release_worktree(request.repo, workspace)
     return _result(

@@ -18,6 +18,10 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
+from attest.benchmark.outcomes import (
+    list_authoritative_directory,
+    read_authoritative_bytes,
+)
 from attest.review.budget import CHARS_PER_TOKEN
 from attest.review.config import load_pricing
 from attest.review.proposer import Provider, ProviderResult
@@ -59,6 +63,19 @@ class PaidCallTotals:
     @property
     def total_usd(self) -> float:
         return self.product_usd + self.oracle_usd
+
+
+@dataclass(frozen=True)
+class PaidCallReconciliationSnapshot:
+    """Fresh checkpoint/artifact/cost join without changing persisted v4 rows."""
+
+    records: tuple[dict[str, object], ...]
+    input_tokens: int
+    output_tokens: int
+
+    @property
+    def call_count(self) -> int:
+        return len(self.records)
 
 
 def paid_call_totals(records: Sequence[Mapping[str, object]]) -> PaidCallTotals:
@@ -125,7 +142,7 @@ class CheckpointedProvider:
         self._index_lock = Lock()
         self._ledger_lock = Lock()
         self._ambiguous_call_ids: set[str] = set()
-        paths = sorted(self._calls_dir.glob("*.json"))
+        paths = self._checkpoint_paths()
         checkpoints: list[dict[str, object]] = []
         for path in paths:
             checkpoint = self._load(path)
@@ -272,7 +289,7 @@ class CheckpointedProvider:
         records: list[dict[str, object]] = []
         ambiguous: list[str] = []
         checkpoints: list[dict[str, object]] = []
-        for path in sorted(self._calls_dir.glob("*.json")):
+        for path in self._checkpoint_paths():
             checkpoint = self._load(path)
             state = checkpoint["state"]
             if state == STATE_DISPATCHED:
@@ -300,6 +317,34 @@ class CheckpointedProvider:
                 f"ambiguous_cost provider call(s) {call_ids}; claims remain withheld"
             )
         return tuple(records)
+
+    def reconciliation_snapshot(self) -> PaidCallReconciliationSnapshot:
+        """Freshly join immutable cost rows to verified response token evidence."""
+        records = self.reconciliation_records()
+        by_call_id = {str(record["call_id"]): record for record in records}
+        input_tokens = 0
+        output_tokens = 0
+        seen: set[str] = set()
+        for path in self._checkpoint_paths():
+            checkpoint = self._load(path)
+            self._assert_terminal_reconciliation(checkpoint, path)
+            call_id = str(checkpoint["call_id"])
+            record = by_call_id.get(call_id)
+            if record is None or record != self._expected_cost_row(checkpoint):
+                raise ValueError(
+                    f"call {call_id} response evidence has no exact spend-row join"
+                )
+            response = self._response(checkpoint, path)
+            input_tokens += response.input_tokens
+            output_tokens += response.output_tokens
+            seen.add(call_id)
+        if seen != set(by_call_id):
+            raise ValueError("paid-call response evidence does not exactly cover spend rows")
+        return PaidCallReconciliationSnapshot(
+            records=records,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
 
     def _consume(
         self, path: Path, checkpoint: dict[str, object]
@@ -422,8 +467,12 @@ class CheckpointedProvider:
         self, path: Path, checkpoint: Mapping[str, object]
     ) -> dict[str, object]:
         try:
-            artifact = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
+            artifact = json.loads(
+                read_authoritative_bytes(
+                    self._root, path.relative_to(self._root)
+                )
+            )
+        except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
             raise ValueError(
                 f"call artifact {path.name} is missing, unreadable, or corrupt"
             ) from exc
@@ -475,7 +524,28 @@ class CheckpointedProvider:
             raise ValueError(f"call artifact {relative} hash mismatch")
         if artifact.get("cost_usd") != checkpoint.get("cost_usd"):
             raise ValueError(f"call artifact {relative} cost binding mismatch")
-        if artifact.get("response_sha256") != checkpoint.get("response_sha256"):
+        artifact_response = artifact.get("response")
+        checkpoint_response = checkpoint.get("response")
+        if artifact_response is None or checkpoint_response is None:
+            if artifact_response is not None or checkpoint_response is not None:
+                raise ValueError(
+                    f"call artifact {relative} response differs from its checkpoint"
+                )
+            expected_response_sha256 = None
+        elif type(artifact_response) is dict and type(checkpoint_response) is dict:
+            if artifact_response != checkpoint_response:
+                raise ValueError(
+                    f"call artifact {relative} response differs from its checkpoint"
+                )
+            expected_response_sha256 = _digest(artifact_response)
+        else:
+            raise ValueError(
+                f"call artifact {relative} response binding has an invalid type"
+            )
+        if (
+            artifact.get("response_sha256") != expected_response_sha256
+            or checkpoint.get("response_sha256") != expected_response_sha256
+        ):
             raise ValueError(f"call artifact {relative} response binding mismatch")
         return artifact
 
@@ -513,7 +583,7 @@ class CheckpointedProvider:
     ) -> None:
         expected = self._expected_cost_row(checkpoint, outcome=outcome)
         with self._ledger_lock:
-            rows = _cost_rows(self._costs_path)
+            rows = _cost_rows(self._root, self._costs_path)
             matches = [row for row in rows if row.get("call_id") == checkpoint["call_id"]]
             if len(matches) > 1:
                 raise ValueError(
@@ -535,7 +605,7 @@ class CheckpointedProvider:
         self, checkpoint: Mapping[str, object], path: Path
     ) -> None:
         self._verify_artifact(checkpoint)
-        rows = _cost_rows(self._costs_path)
+        rows = _cost_rows(self._root, self._costs_path)
         matches = [row for row in rows if row.get("call_id") == checkpoint["call_id"]]
         if not matches:
             raise ValueError(f"call {checkpoint['call_id']} has no spend row")
@@ -554,7 +624,7 @@ class CheckpointedProvider:
         by_call_id = {str(row["call_id"]): row for row in checkpoints}
         by_ordinal = {_ordinal(row): row for row in checkpoints}
         seen_spend: set[str] = set()
-        for row in _cost_rows(self._costs_path):
+        for row in _cost_rows(self._root, self._costs_path):
             call_id = row.get("call_id")
             if not isinstance(call_id, str) or call_id not in by_call_id:
                 raise ValueError(f"orphan spend row {call_id!r} has no call checkpoint")
@@ -581,7 +651,7 @@ class CheckpointedProvider:
                 or row.get("reserved_usd") != artifact.get("reserved_usd")
             ):
                 raise ValueError(f"call {call_id} spend row identity or binding mismatch")
-        for artifact_path in sorted(self._artifacts_dir.glob("*.json")):
+        for artifact_path in self._artifact_paths():
             try:
                 ordinal = int(artifact_path.stem)
             except ValueError:
@@ -603,8 +673,12 @@ class CheckpointedProvider:
         self, path: Path, *, expected_role: str | None = None
     ) -> dict[str, object]:
         try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
+            raw = json.loads(
+                read_authoritative_bytes(
+                    self._root, path.relative_to(self._root)
+                )
+            )
+        except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
             raise ValueError(f"call checkpoint {path.name} is unreadable or corrupt") from exc
         if not isinstance(raw, dict):
             raise ValueError(f"call checkpoint {path.name} must contain an object")
@@ -713,6 +787,28 @@ class CheckpointedProvider:
                 )
         return raw
 
+    def _checkpoint_paths(self) -> tuple[Path, ...]:
+        try:
+            names = list_authoritative_directory(
+                self._root, "calls", maximum_entries=100_000
+            )
+        except ValueError as exc:
+            raise ValueError("call checkpoint directory is unreadable or unsafe") from exc
+        if any(not name.endswith(".json") or name == ".json" for name in names):
+            raise ValueError("call checkpoint directory contains an orphan entry")
+        return tuple(self._calls_dir / name for name in names)
+
+    def _artifact_paths(self) -> tuple[Path, ...]:
+        try:
+            names = list_authoritative_directory(
+                self._root, "artifacts", maximum_entries=100_000
+            )
+        except ValueError as exc:
+            raise ValueError("call artifact directory is unreadable or unsafe") from exc
+        if any(re.fullmatch(r"[0-9]{6}\.json", name) is None for name in names):
+            raise ValueError("call artifact directory contains an orphan entry")
+        return tuple(self._artifacts_dir / name for name in names)
+
     def _response(self, checkpoint: Mapping[str, object], path: Path) -> ProviderResult:
         response = checkpoint.get("response")
         digest = checkpoint.get("response_sha256")
@@ -766,12 +862,22 @@ def _ordinal(checkpoint: Mapping[str, object]) -> int:
     return value
 
 
-def _cost_rows(path: Path) -> list[dict[str, object]]:
-    if not path.exists():
+def _cost_rows(root: Path, path: Path) -> list[dict[str, object]]:
+    try:
+        data = read_authoritative_bytes(
+            root,
+            path.relative_to(root),
+            maximum_bytes=64 * 1024 * 1024,
+        )
+    except ValueError as exc:
+        if not path.exists():
+            return []
+        raise ValueError("paid-call spend rows are unreadable or unsafe") from exc
+    if not data:
         return []
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
+        lines = data.decode("utf-8").splitlines()
+    except UnicodeDecodeError as exc:
         raise ValueError("paid-call spend rows are unreadable") from exc
     rows: list[dict[str, object]] = []
     for line in lines:

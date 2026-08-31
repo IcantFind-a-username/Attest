@@ -13,10 +13,16 @@ from typing import Any
 
 import pytest
 
+import attest.benchmark.baselines as baselines_module
 from attest.benchmark.api import (
+    ProjectEvaluationAuthorityError,
     ProjectEvaluationRequest,
+    ProjectEvaluationResult,
     ProjectTruth,
     project_truth_sha256,
+)
+from attest.benchmark.api import (
+    evaluate_project as real_evaluate_project,
 )
 from attest.benchmark.baselines import (
     ARM_BARE_PROMPT,
@@ -26,10 +32,15 @@ from attest.benchmark.baselines import (
     EVIDENCE_STATIC_DIAGNOSTIC,
     EVIDENCE_UNVERIFIED_CLAIM,
     BarePromptBaseline,
+    ComparisonEvidenceError,
+    ComparisonExecution,
+    ComparisonMeasurements,
     ComparisonPlan,
     RuffBaseline,
     _summarize_arm,
-    compare_arms,
+)
+from attest.benchmark.baselines import (
+    compare_arms as _compare_arms,
 )
 from attest.benchmark.checkpoints import (
     CALL_ROLE_BENCHMARK_ORACLE,
@@ -43,8 +54,10 @@ from attest.benchmark.corpus import (
 from attest.benchmark.report import (
     RECEIPT_HISTORICAL,
     RECEIPT_MISSING,
-    build_comparison_report,
     render_comparison_markdown,
+)
+from attest.benchmark.report import (
+    build_comparison_report as _build_comparison_report,
 )
 from attest.benchmark.runner import Cassette, ReplayProvider
 from attest.benchmark.schema import TruthDefect, load_manifest, normalize_unified_diff_bytes
@@ -114,6 +127,38 @@ def _ruff_executable() -> str:
     if found is None:
         pytest.skip("requires a local ruff executable")
     return found
+
+
+def _comparison_authority(root: Path) -> dict[str, object]:
+    """External owner inputs used consistently across one test run/resume."""
+    return {
+        "authority_root": root.with_name(root.name + "-owner"),
+        "run_identity": hashlib.sha256(str(root).encode("utf-8")).hexdigest(),
+    }
+
+
+def compare_arms(plans, **kwargs):
+    """Give every checkpointed test an explicit external owner identity."""
+    root = kwargs.get("checkpoint_root")
+    if root is not None and plans and "authority_root" not in kwargs:
+        kwargs.update(_comparison_authority(root))
+    return _compare_arms(plans, **kwargs)
+
+
+def build_comparison_report(manifest, measurements, **kwargs):
+    """Pass the execution bundle's external capability explicitly to production."""
+    if "publication_authority" not in kwargs:
+        kwargs["publication_authority"] = measurements.publication_authority
+    return _build_comparison_report(manifest, measurements, **kwargs)
+
+
+def _replace_execution_measurements(
+    execution: ComparisonExecution, **changes: object
+) -> ComparisonExecution:
+    return ComparisonExecution(
+        measurements=replace(execution.measurements, **changes),
+        publication_authority=execution.publication_authority,
+    )
 
 
 class _RecordingProvider:
@@ -534,6 +579,41 @@ def test_compare_arms_no_longer_accepts_an_opaque_receipt_digest(
     assert not checkpoint_root.exists()
 
 
+@pytest.mark.parametrize("alias_kind", ("same", "descendant", "symlink"))
+def test_comparison_rejects_authority_root_alias_before_provider(
+    tmp_path: Path, alias_kind: str
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    checkpoint_root = tmp_path / "calls"
+    if alias_kind == "same":
+        authority_root = checkpoint_root
+    elif alias_kind == "descendant":
+        authority_root = checkpoint_root / "owner"
+    else:
+        checkpoint_root.mkdir()
+        authority_root = tmp_path / "owner-alias"
+        authority_root.symlink_to(checkpoint_root, target_is_directory=True)
+    provider_calls: list[str] = []
+
+    with pytest.raises(ValueError, match="authority root must be external"):
+        compare_arms(
+            plans,
+            provider_factory=lambda request: (
+                provider_calls.append(request.case_id)
+                or ReplayProvider(cassettes[request.case_id])
+            ),
+            bare_provider_factory=lambda case_id: pytest.fail(
+                "authority alias must fail before bare provider"
+            ),
+            ruff_executable=None,
+            checkpoint_root=checkpoint_root,
+            authority_root=authority_root,
+            run_identity="1" * 64,
+        )
+
+    assert provider_calls == []
+
+
 @pytest.mark.parametrize("line_slack", (-1, True))
 def test_compare_arms_rejects_invalid_line_slack_before_side_effects(
     tmp_path: Path, line_slack: object
@@ -642,15 +722,18 @@ def test_compare_arms_measures_all_three_arms_with_honest_evidence(tmp_path: Pat
     """Every arm sees identical blinded diff bytes; findings match on
     preregistered location truth; evidence classes never claim a verification
     that was not purchased."""
-    plans, cassettes, _ = _plans(tmp_path)
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    root = tmp_path / "comparison-calls"
 
-    measurements = compare_arms(
+    execution = compare_arms(
         plans,
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
         bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
         ruff_executable=_ruff_executable(),
-        checkpoint_root=tmp_path / "comparison-calls",
+        checkpoint_root=root,
+        **_comparison_authority(root),
     )
+    measurements = execution.measurements
 
     assert [arm.arm for arm in measurements.arms] == [ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF]
     by_arm = {arm.arm: arm for arm in measurements.arms}
@@ -718,6 +801,15 @@ def test_compare_arms_measures_all_three_arms_with_honest_evidence(tmp_path: Pat
     assert sorted(measurements.evaluated_case_ids) == sorted(
         {plan.case.case_id for plan in plans}
     )
+    report = build_comparison_report(
+        load_manifest(manifest_path),
+        measurements,
+        manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        validation_receipt=None,
+        publication_authority=execution.publication_authority,
+    )
+    assert sum(run.input_tokens for run in report.measurements.runs) > 0
+    assert sum(run.output_tokens for run in report.measurements.runs) > 0
 
 
 def test_comparison_checkpoint_root_replays_every_model_subcall(tmp_path: Path) -> None:
@@ -741,6 +833,7 @@ def test_comparison_checkpoint_root_replays_every_model_subcall(tmp_path: Path) 
         bare_provider_factory=bare_factory,
         ruff_executable=None,
         checkpoint_root=tmp_path / "calls",
+        **_comparison_authority(tmp_path / "calls"),
     )
     assert sum(p.proposal_calls + p.generator_calls for p in first_product) > 0
     assert sum(p.proposal_calls + p.generator_calls for p in first_bare) > 0
@@ -764,15 +857,213 @@ def test_comparison_checkpoint_root_replays_every_model_subcall(tmp_path: Path) 
         bare_provider_factory=resumed_bare_factory,
         ruff_executable=None,
         checkpoint_root=tmp_path / "calls",
+        **_comparison_authority(tmp_path / "calls"),
     )
     assert sum(p.proposal_calls + p.generator_calls for p in resumed_product) == 0
     assert sum(p.proposal_calls + p.generator_calls for p in resumed_bare) == 0
 
 
-def test_comparison_defer_after_settled_response_preserves_paid_call_evidence(
+def test_completed_comparison_resume_loads_slots_without_provider_factories(
+    tmp_path: Path,
+) -> None:
+    """A sealed resume reconstructs exact outcomes without constructing providers."""
+    plans, cassettes, _ = _plans(tmp_path)
+    root = tmp_path / "calls"
+    first = compare_arms(
+        plans,
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=_ruff_executable(),
+        checkpoint_root=root,
+        **_comparison_authority(root),
+    )
+
+    def product_factory(_request: ProjectEvaluationRequest):
+        raise AssertionError("sealed product slot must not construct a provider")
+
+    def bare_factory(_case_id: str):
+        raise AssertionError("sealed bare slot must not construct a provider")
+
+    resumed = compare_arms(
+        plans,
+        provider_factory=product_factory,
+        bare_provider_factory=bare_factory,
+        ruff_executable=_ruff_executable(),
+        checkpoint_root=root,
+        **_comparison_authority(root),
+    )
+
+    assert resumed == first
+
+
+def test_bare_outcome_is_durable_before_ruff_and_resume_skips_paid_dispatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    plans, cassettes, manifest_path = _plans(tmp_path)
+    """A crash entering Ruff cannot erase or replay an already-settled bare arm."""
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / "calls"
+    real_ruff_evaluate = RuffBaseline.evaluate
+
+    def crash_before_ruff(self, **kwargs):
+        raise KeyboardInterrupt("simulated crash before Ruff")
+
+    monkeypatch.setattr(RuffBaseline, "evaluate", crash_before_ruff)
+    with pytest.raises(KeyboardInterrupt, match="before Ruff"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=_ruff_executable(),
+            checkpoint_root=root,
+            **_comparison_authority(root),
+        )
+
+    bare_slot = (
+        root
+        / "authoritative-outcomes"
+        / "comparison-outcomes"
+        / "000001.json"
+    )
+    assert bare_slot.is_file()
+
+    monkeypatch.setattr(RuffBaseline, "evaluate", real_ruff_evaluate)
+
+    def product_factory(_request: ProjectEvaluationRequest):
+        raise AssertionError("durable product slot must skip provider construction")
+
+    def bare_factory(_case_id: str):
+        raise AssertionError("durable bare slot must skip provider construction")
+
+    resumed = compare_arms(
+        [plan],
+        provider_factory=product_factory,
+        bare_provider_factory=bare_factory,
+        ruff_executable=_ruff_executable(),
+        checkpoint_root=root,
+        **_comparison_authority(root),
+    )
+
+    assert {run.arm for run in resumed.measurements.runs} == {
+        ARM_PRODUCT,
+        ARM_BARE_PROMPT,
+        ARM_RUFF,
+    }
+
+
+def test_product_settlement_before_slot_crash_resumes_without_provider_factory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / "product-slot-crash"
+    real_write = baselines_module.write_comparison_arm_outcome_once
+
+    def crash_before_product_slot(authority, slot, outcome):
+        if slot.arm == ARM_PRODUCT:
+            raise KeyboardInterrupt("crash after product settlement")
+        return real_write(authority, slot, outcome)
+
+    monkeypatch.setattr(
+        baselines_module,
+        "write_comparison_arm_outcome_once",
+        crash_before_product_slot,
+    )
+    with pytest.raises(KeyboardInterrupt, match="product settlement"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+    costs = root / ARM_PRODUCT / plan.case.case_id / "costs.jsonl"
+    before = costs.read_bytes()
+    marker = json.loads(
+        (root / "reconciliation" / ARM_PRODUCT / f"{plan.case.case_id}.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert marker["status"] == "settled"
+
+    monkeypatch.setattr(
+        baselines_module, "write_comparison_arm_outcome_once", real_write
+    )
+    resumed = compare_arms(
+        [plan],
+        provider_factory=lambda request: pytest.fail(
+            "settled product recovery must not construct a provider"
+        ),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=root,
+    )
+
+    assert costs.read_bytes() == before
+    assert next(run for run in resumed.runs if run.arm == ARM_PRODUCT)
+
+
+def test_bare_settlement_before_slot_crash_resumes_without_any_paid_factory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / "bare-slot-crash"
+    real_write = baselines_module.write_comparison_arm_outcome_once
+
+    def crash_before_bare_slot(authority, slot, outcome):
+        if slot.arm == ARM_BARE_PROMPT:
+            raise KeyboardInterrupt("crash after bare settlement")
+        return real_write(authority, slot, outcome)
+
+    monkeypatch.setattr(
+        baselines_module,
+        "write_comparison_arm_outcome_once",
+        crash_before_bare_slot,
+    )
+    with pytest.raises(KeyboardInterrupt, match="bare settlement"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+    product_costs = root / ARM_PRODUCT / plan.case.case_id / "costs.jsonl"
+    bare_costs = root / ARM_BARE_PROMPT / plan.case.case_id / "costs.jsonl"
+    before = (product_costs.read_bytes(), bare_costs.read_bytes())
+
+    monkeypatch.setattr(
+        baselines_module, "write_comparison_arm_outcome_once", real_write
+    )
+    resumed = compare_arms(
+        [plan],
+        provider_factory=lambda request: pytest.fail(
+            "present product slot must not construct a provider"
+        ),
+        bare_provider_factory=lambda case_id: pytest.fail(
+            "settled bare recovery must not construct a provider"
+        ),
+        ruff_executable=None,
+        checkpoint_root=root,
+    )
+
+    assert (product_costs.read_bytes(), bare_costs.read_bytes()) == before
+    assert {run.arm for run in resumed.runs} == {
+        ARM_PRODUCT,
+        ARM_BARE_PROMPT,
+        ARM_RUFF,
+    }
+
+
+def test_comparison_post_response_failure_preserves_paid_evidence_and_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
     plan = plans[0]
 
     def fail_after_response(
@@ -783,64 +1074,115 @@ def test_comparison_defer_after_settled_response_preserves_paid_call_evidence(
         clock: object,
     ) -> object:
         provider.sample("system", "prompt", {"type": "object"}, 20)
-        raise RuntimeError("failure after provider settlement")
+        raise RuntimeError("failure after response before a trusted outcome")
 
     monkeypatch.setattr(
         "attest.benchmark.baselines.evaluate_project", fail_after_response
     )
-    measurements = compare_arms(
-        [plan],
-        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
-        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
-        ruff_executable=None,
-        checkpoint_root=tmp_path / "calls",
-    )
+    root = tmp_path / "calls"
+    with pytest.raises(RuntimeError, match="trusted outcome"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+    costs = root / ARM_PRODUCT / plan.case.case_id / "costs.jsonl"
+    rows = [json.loads(line) for line in costs.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) == 1
+    assert rows[0]["cost_usd"] > 0
+    assert not (root.with_name(root.name + "-owner") / "final.json").exists()
+    assert not (root / "authoritative-outcomes" / "outcomes" / "000000.json").exists()
 
-    product = next(run for run in measurements.runs if run.arm == ARM_PRODUCT)
-    assert product.status == "deferred"
-    assert product.spend_usd > 0
-    assert len(product.paid_calls) == 1
-    assert product.spend_usd == pytest.approx(
-        sum(float(row["cost_usd"]) for row in product.paid_calls)
-    )
-    assert product.paid_calls_sha256 == hashlib.sha256(
-        json.dumps(
-            product.paid_calls, sort_keys=True, separators=(",", ":")
-        ).encode("utf-8")
-    ).hexdigest()
 
-    report = build_comparison_report(
-        load_manifest(manifest_path),
-        measurements,
-        manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
-        validation_receipt=None,
-    ).to_json_dict()
-    assert report["schema_version"] == "4"
-    assert "validation_authority" in report
-    product_payload = next(run for run in report["runs"] if run["arm"] == ARM_PRODUCT)
-    assert product_payload["paid_calls"] == list(product.paid_calls)
-    assert product_payload["paid_calls_sha256"] == product.paid_calls_sha256
-    assert product_payload["total_spend_usd"] == pytest.approx(
-        product.spend_usd + product.oracle_spend_usd
-    )
+def test_comparison_propagates_post_execution_authority_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / "authority-failure"
 
-    corrupted = replace(
-        measurements,
-        runs=(
-            replace(product, paid_calls_sha256="0" * 64),
-            *(run for run in measurements.runs if run is not product),
-        ),
+    def fail_authority_after_response(
+        request: ProjectEvaluationRequest,
+        *,
+        provider: object,
+        oracle_provider: object,
+        clock: object,
+    ) -> object:
+        provider.sample("system", "prompt", {"type": "object"}, 20)
+        raise ProjectEvaluationAuthorityError("fresh publication authority failed")
+
+    monkeypatch.setattr(
+        "attest.benchmark.baselines.evaluate_project",
+        fail_authority_after_response,
     )
-    with pytest.raises(ValueError, match="reconciliation|paid.call"):
-        build_comparison_report(
-            load_manifest(manifest_path),
-            corrupted,
-            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
-            validation_receipt=None,
+    with pytest.raises(
+        ProjectEvaluationAuthorityError, match="publication authority"
+    ):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=root,
         )
 
+    assert not (root.with_name(root.name + "-owner") / "final.json").exists()
+    assert not (root / "authoritative-outcomes" / "outcomes" / "000000.json").exists()
 
-def test_settled_comparison_replay_rejects_new_ordinal_before_provider_dispatch(
+
+def test_comparison_post_publication_failure_fails_closed_without_empty_outcome(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plans, cassettes, _ = _plans(tmp_path)
+    plan = plans[0]
+    root = tmp_path / "post-publication-failure"
+
+    published_results: list[ProjectEvaluationResult] = []
+
+    def crash_after_publication(
+        request: ProjectEvaluationRequest,
+        *,
+        provider: object,
+        oracle_provider: object,
+        clock: object,
+    ) -> ProjectEvaluationResult:
+        result = real_evaluate_project(
+            request,
+            provider=provider,
+            oracle_provider=oracle_provider,
+            clock=clock,
+        )
+        assert result.predictions
+        published_results.append(result)
+        raise RuntimeError("crash after visible publication")
+
+    monkeypatch.setattr(
+        "attest.benchmark.baselines.evaluate_project", crash_after_publication
+    )
+    with pytest.raises(RuntimeError, match="visible publication"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
+
+    assert published_results
+    assert published_results[0].predictions
+    assert not (root.with_name(root.name + "-owner") / "final.json").exists()
+    assert not (root / "authoritative-outcomes" / "outcomes" / "000000.json").exists()
+
+
+def test_interrupted_unsettled_comparison_resume_rejects_before_factory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     plans, cassettes, _ = _plans(tmp_path)
@@ -860,44 +1202,35 @@ def test_settled_comparison_replay_rejects_new_ordinal_before_provider_dispatch(
     monkeypatch.setattr(
         "attest.benchmark.baselines.evaluate_project", one_response_then_fail
     )
-    compare_arms(
-        [plan],
-        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
-        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
-        ruff_executable=None,
-        checkpoint_root=checkpoint_root,
-    )
-    costs = checkpoint_root / ARM_PRODUCT / plan.case.case_id / "costs.jsonl"
-    settled_costs = costs.read_bytes()
-
-    def replay_then_request_new_ordinal(
-        request: ProjectEvaluationRequest,
-        *,
-        provider: object,
-        oracle_provider: object,
-        clock: object,
-    ) -> object:
-        provider.sample("system", "prompt", {"type": "object"}, 20)
-        provider.sample("second", "new ordinal", {"type": "object"}, 20)
-        raise AssertionError("the settled replay bound must reject first")
-
-    monkeypatch.setattr(
-        "attest.benchmark.baselines.evaluate_project", replay_then_request_new_ordinal
-    )
-    resumed = ReplayProvider(cassettes[plan.case.case_id])
-    with pytest.raises(ValueError, match="reconciliation|settled|ordinal"):
+    with pytest.raises(RuntimeError, match="settle one call"):
         compare_arms(
             [plan],
-            provider_factory=lambda request: resumed,
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
             bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
             ruff_executable=None,
             checkpoint_root=checkpoint_root,
         )
-    assert resumed.proposal_calls == 0
+    costs = checkpoint_root / ARM_PRODUCT / plan.case.case_id / "costs.jsonl"
+    settled_costs = costs.read_bytes()
+
+    with pytest.raises(ValueError, match="not safe|reconciliation|interrupted"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: pytest.fail(
+                "unsettled resume must not construct product provider"
+            ),
+            bare_provider_factory=lambda case_id: pytest.fail(
+                "unsettled resume must not construct bare provider"
+            ),
+            ruff_executable=None,
+            checkpoint_root=checkpoint_root,
+        )
     assert costs.read_bytes() == settled_costs
 
 
-def test_comparison_defer_after_settled_oracle_response_preserves_oracle_spend(
+def test_comparison_failed_after_settled_oracle_response_preserves_oracle_spend(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     plans, cassettes, _ = _plans(tmp_path)
@@ -911,26 +1244,30 @@ def test_comparison_defer_after_settled_oracle_response_preserves_oracle_spend(
         clock: object,
     ) -> object:
         oracle_provider.sample("oracle", "prompt", {"type": "object"}, 20)
-        raise RuntimeError("failure after oracle settlement")
+        raise RuntimeError("failure after oracle settlement before publication")
 
     monkeypatch.setattr(
         "attest.benchmark.baselines.evaluate_project", fail_after_oracle_response
     )
-    measurements = compare_arms(
-        [plan],
-        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
-        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
-        ruff_executable=None,
-        checkpoint_root=tmp_path / "oracle-calls",
-    )
+    root = tmp_path / "oracle-calls"
+    with pytest.raises(RuntimeError, match="oracle settlement"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=root,
+        )
 
-    product = next(run for run in measurements.runs if run.arm == ARM_PRODUCT)
-    assert product.status == "deferred"
-    assert product.spend_usd == 0.0
-    assert product.oracle_spend_usd > 0
-    assert {row["role"] for row in product.paid_calls} == {
-        CALL_ROLE_BENCHMARK_ORACLE
-    }
+    costs = root / ARM_PRODUCT / plan.case.case_id / "costs.jsonl"
+    rows = [json.loads(line) for line in costs.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) == 1
+    assert rows[0]["role"] == CALL_ROLE_BENCHMARK_ORACLE
+    assert rows[0]["cost_usd"] > 0
+    assert not (root.with_name(root.name + "-owner") / "final.json").exists()
+    assert not (root / "authoritative-outcomes" / "outcomes" / "000000.json").exists()
 
 
 def test_comparison_report_rejects_oracle_spend_field_tampering(
@@ -944,7 +1281,7 @@ def test_comparison_report_rejects_oracle_spend_field_tampering(
         ruff_executable=None,
         checkpoint_root=tmp_path / "tamper-calls",
     )
-    tampered = replace(
+    tampered = _replace_execution_measurements(
         measurements,
         runs=tuple(
             replace(run, oracle_spend_usd=run.oracle_spend_usd + 1.0)
@@ -997,7 +1334,7 @@ def test_comparison_report_rejects_coordinated_role_reclassification(
         spend_usd=product_spend,
         oracle_spend_usd=oracle_spend,
     )
-    tampered = replace(
+    tampered = _replace_execution_measurements(
         measurements,
         runs=tuple(
             tampered_product if run is product else run
@@ -1051,7 +1388,7 @@ def test_comparison_report_rejects_fabricated_ruff_paid_calls(
     runs = tuple(
         tampered_ruff if run is ruff else run for run in measurements.runs
     )
-    tampered = replace(
+    tampered = _replace_execution_measurements(
         measurements,
         runs=runs,
         arms=tuple(
@@ -1070,25 +1407,12 @@ def test_comparison_report_rejects_fabricated_ruff_paid_calls(
 
 
 def test_comparison_report_rechecks_authoritative_artifacts_at_publication(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
 ) -> None:
     plans, cassettes, manifest_path = _plans(tmp_path)
     plan = plans[0]
     checkpoint_root = tmp_path / "calls"
 
-    def fail_after_response(
-        request: ProjectEvaluationRequest,
-        *,
-        provider: object,
-        oracle_provider: object,
-        clock: object,
-    ) -> object:
-        provider.sample("system", "prompt", {"type": "object"}, 20)
-        raise RuntimeError("failure after provider settlement")
-
-    monkeypatch.setattr(
-        "attest.benchmark.baselines.evaluate_project", fail_after_response
-    )
     measurements = compare_arms(
         [plan],
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
@@ -1114,24 +1438,11 @@ def test_comparison_report_rechecks_authoritative_artifacts_at_publication(
 
 
 def test_comparison_report_rejects_model_drift_from_frozen_predeclaration(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
 ) -> None:
     plans, cassettes, manifest_path = _plans(tmp_path)
     plan = plans[0]
 
-    def fail_after_response(
-        request: ProjectEvaluationRequest,
-        *,
-        provider: object,
-        oracle_provider: object,
-        clock: object,
-    ) -> object:
-        provider.sample("system", "prompt", {"type": "object"}, 20)
-        raise RuntimeError("failure after provider settlement")
-
-    monkeypatch.setattr(
-        "attest.benchmark.baselines.evaluate_project", fail_after_response
-    )
     measurements = compare_arms(
         [plan],
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
@@ -1139,7 +1450,7 @@ def test_comparison_report_rejects_model_drift_from_frozen_predeclaration(
         ruff_executable=None,
         checkpoint_root=tmp_path / "calls",
     )
-    tampered = replace(
+    tampered = _replace_execution_measurements(
         measurements,
         runs=tuple(
             replace(run, model_id="claude-opus-5")
@@ -1159,24 +1470,11 @@ def test_comparison_report_rejects_model_drift_from_frozen_predeclaration(
 
 
 def test_comparison_report_rejects_omitted_authoritative_paid_trial(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
 ) -> None:
     plans, cassettes, manifest_path = _plans(tmp_path)
     plan = plans[0]
 
-    def fail_after_response(
-        request: ProjectEvaluationRequest,
-        *,
-        provider: object,
-        oracle_provider: object,
-        clock: object,
-    ) -> object:
-        provider.sample("system", "prompt", {"type": "object"}, 20)
-        raise RuntimeError("failure after provider settlement")
-
-    monkeypatch.setattr(
-        "attest.benchmark.baselines.evaluate_project", fail_after_response
-    )
     measurements = compare_arms(
         [plan],
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
@@ -1184,7 +1482,7 @@ def test_comparison_report_rejects_omitted_authoritative_paid_trial(
         ruff_executable=None,
         checkpoint_root=tmp_path / "calls",
     )
-    omitted = replace(
+    omitted = _replace_execution_measurements(
         measurements,
         runs=tuple(run for run in measurements.runs if run.arm != ARM_BARE_PROMPT),
     )
@@ -1215,7 +1513,7 @@ def test_comparison_report_rejects_unbound_evaluated_cases_and_arm_summary(
     with pytest.raises(ValueError, match="evaluated|case|run"):
         build_comparison_report(
             manifest,
-            replace(measurements, evaluated_case_ids=()),
+            _replace_execution_measurements(measurements, evaluated_case_ids=()),
             manifest_sha256=manifest_sha256,
             validation_receipt=None,
         )
@@ -1228,7 +1526,7 @@ def test_comparison_report_rejects_unbound_evaluated_cases_and_arm_summary(
     with pytest.raises(ValueError, match="summary|arm|run"):
         build_comparison_report(
             manifest,
-            replace(
+            _replace_execution_measurements(
                 measurements,
                 arms=tuple(
                     corrupted_product if summary is product else summary
@@ -1260,9 +1558,13 @@ def test_comparison_report_rejects_self_consistent_empty_measurements(
         manifest=load_manifest(manifest_path),
         manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
     )
-    assert any((measurements.checkpoint_root or tmp_path).rglob("*.json"))
+    assert any(
+        (measurements.measurements.checkpoint_root or tmp_path).rglob("*.json")
+    )
 
-    with pytest.raises(ValueError, match="checkpoint|authoritative|paid|evidence"):
+    with pytest.raises(
+        ValueError, match="checkpoint|authoritative|authority|paid|evidence"
+    ):
         build_comparison_report(
             load_manifest(manifest_path),
             erased,
@@ -1289,7 +1591,7 @@ def test_comparison_report_rejects_paid_trial_model_divergence_from_binding(
         if row["arm"] == ARM_PRODUCT:
             row["model_id"] = "claude-opus-5"
     declaration_path.write_text(json.dumps(declaration) + "\n", encoding="utf-8")
-    tampered = replace(
+    tampered = _replace_execution_measurements(
         measurements,
         runs=tuple(
             replace(run, model_id="claude-opus-5")
@@ -1356,7 +1658,7 @@ def test_comparison_report_rejects_coordinated_model_identity_rewrite(
     for row in declaration["paid_trials"]:
         row["model_id"] = "claude-opus-5"
     declaration_path.write_text(json.dumps(declaration) + "\n", encoding="utf-8")
-    tampered = replace(
+    tampered = _replace_execution_measurements(
         measurements,
         runs=tuple(
             replace(run, model_id="claude-opus-5")
@@ -1367,7 +1669,8 @@ def test_comparison_report_rejects_coordinated_model_identity_rewrite(
     )
 
     with pytest.raises(
-        ValueError, match="binding|model|checkpoint|evidence|authority|reconciliation"
+        ValueError,
+        match="binding|model|checkpoint|evidence|authority|reconciliation|predeclaration",
     ):
         build_comparison_report(
             load_manifest(manifest_path),
@@ -1382,7 +1685,7 @@ def test_comparison_report_rejects_orphan_paid_call_roots(
 ) -> None:
     plans, cassettes, manifest_path = _plans(tmp_path)
     checkpoint_root = tmp_path / "calls"
-    compare_arms(
+    original_execution = compare_arms(
         [plans[0]],
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
         bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
@@ -1395,20 +1698,25 @@ def test_comparison_report_rejects_orphan_paid_call_roots(
     declaration_path.write_text(json.dumps(declaration) + "\n", encoding="utf-8")
     for marker in (checkpoint_root / "reconciliation").rglob("*.json"):
         marker.unlink()
-    erased = replace(
-        compare_arms(
-            [],
-            provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
-            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
-            ruff_executable=None,
-            checkpoint_root=None,
-            manifest=load_manifest(manifest_path),
-            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+    empty_execution = compare_arms(
+        [],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=None,
+        manifest=load_manifest(manifest_path),
+        manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+    )
+    erased = ComparisonExecution(
+        measurements=replace(
+            empty_execution.measurements, checkpoint_root=checkpoint_root
         ),
-        checkpoint_root=checkpoint_root,
+        publication_authority=original_execution.publication_authority,
     )
 
-    with pytest.raises(ValueError, match="orphan|checkpoint|binding|paid|evidence"):
+    with pytest.raises(
+        ValueError, match="orphan|checkpoint|binding|paid|evidence|predeclaration"
+    ):
         build_comparison_report(
             load_manifest(manifest_path),
             erased,
@@ -1417,7 +1725,7 @@ def test_comparison_report_rejects_orphan_paid_call_roots(
         )
 
 
-def test_comparison_report_allows_predeclared_empty_plan(
+def test_comparison_report_rejects_predeclared_empty_plan_without_authority(
     tmp_path: Path,
 ) -> None:
     _, _, manifest_path = _plans(tmp_path)
@@ -1431,15 +1739,62 @@ def test_comparison_report_allows_predeclared_empty_plan(
         manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
     )
 
-    payload = build_comparison_report(
-        load_manifest(manifest_path),
-        measurements,
-        manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
-        validation_receipt=None,
-    ).to_json_dict()
+    with pytest.raises(
+        ComparisonEvidenceError,
+        match="external final authority|not-executed diagnostic",
+    ):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            measurements,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
 
-    assert payload["runs"] == []
-    assert len(payload["arms"]) == 3
+
+def test_comparison_execution_rejects_a_measurement_subclass() -> None:
+    class ForgedMeasurements(ComparisonMeasurements):
+        pass
+
+    forged = ForgedMeasurements(
+        line_slack=0,
+        budget_ceiling_usd=0.0,
+        manifest_sha256="a" * 64,
+        arms=(),
+        runs=(),
+        evaluated_case_ids=(),
+    )
+
+    with pytest.raises(ValueError, match="exact ComparisonMeasurements"):
+        ComparisonExecution(measurements=forged, publication_authority=None)
+
+
+def test_comparison_publication_rejects_symlinked_paid_checkpoint_descendant(
+    tmp_path: Path,
+) -> None:
+    plans, cassettes, manifest_path = _plans(tmp_path)
+    root = tmp_path / "calls"
+    execution = compare_arms(
+        [plans[0]],
+        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+        ruff_executable=None,
+        checkpoint_root=root,
+    )
+    calls = root / ARM_PRODUCT / plans[0].case.case_id / "calls"
+    moved = calls.with_name("calls-original")
+    calls.rename(moved)
+    calls.symlink_to(moved, target_is_directory=True)
+
+    with pytest.raises(
+        ComparisonEvidenceError,
+        match="symlink|unsafe|paid-call checkpoint",
+    ):
+        build_comparison_report(
+            load_manifest(manifest_path),
+            execution,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=None,
+        )
 
 
 @pytest.mark.parametrize(
@@ -1460,25 +1815,30 @@ def test_comparison_resume_rejects_incomplete_or_mismatched_paid_evidence(
     plan = plans[0]
     checkpoint_root = tmp_path / "calls"
 
-    def fail_after_response(
-        request: ProjectEvaluationRequest,
-        *,
-        provider: object,
-        oracle_provider: object,
-        clock: object,
-    ) -> object:
-        provider.sample("system", "prompt", {"type": "object"}, 20)
-        raise RuntimeError("failure after provider settlement")
+    real_write = baselines_module.write_comparison_arm_outcome_once
+
+    def crash_before_product_slot(authority, slot, outcome):
+        if slot.arm == ARM_PRODUCT:
+            raise KeyboardInterrupt("crash after settled product reconciliation")
+        return real_write(authority, slot, outcome)
 
     monkeypatch.setattr(
-        "attest.benchmark.baselines.evaluate_project", fail_after_response
+        baselines_module,
+        "write_comparison_arm_outcome_once",
+        crash_before_product_slot,
     )
-    compare_arms(
-        [plan],
-        provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
-        bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
-        ruff_executable=None,
-        checkpoint_root=checkpoint_root,
+    with pytest.raises(KeyboardInterrupt, match="settled product"):
+        compare_arms(
+            [plan],
+            provider_factory=lambda request: ReplayProvider(
+                cassettes[request.case_id]
+            ),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=None,
+            checkpoint_root=checkpoint_root,
+        )
+    monkeypatch.setattr(
+        baselines_module, "write_comparison_arm_outcome_once", real_write
     )
 
     product_root = checkpoint_root / ARM_PRODUCT / plan.case.case_id
@@ -1496,9 +1856,13 @@ def test_comparison_resume_rejects_incomplete_or_mismatched_paid_evidence(
             stream.write('{"call_id":"orphan"}\n')
     elif corruption == "mismatched_spend":
         spend = product_root / "costs.jsonl"
-        row = json.loads(spend.read_text(encoding="utf-8"))
+        lines = spend.read_text(encoding="utf-8").splitlines()
+        row = json.loads(lines[0])
         row["trial_id"] = "comparison:wrong-trial"
-        spend.write_text(json.dumps(row) + "\n", encoding="utf-8")
+        spend.write_text(
+            "\n".join((json.dumps(row), *lines[1:])) + "\n",
+            encoding="utf-8",
+        )
     elif corruption == "missing_artifact":
         (product_root / "artifacts" / "000000.json").unlink()
     else:
@@ -1888,7 +2252,7 @@ def test_comparison_report_rejects_coordinated_manifest_role_rewrite(
         )
         for run in measurements.runs
     )
-    rewritten = replace(
+    rewritten = _replace_execution_measurements(
         measurements,
         runs=rewritten_runs,
         arms=tuple(
@@ -1937,7 +2301,7 @@ def test_comparison_report_rejects_role_subclass_equality_bypass(
         else "historical_bug_replay"
     )
     rewritten_runs = (replace(original, role=deceptive_role), *measurements.runs[1:])
-    rewritten = replace(
+    rewritten = _replace_execution_measurements(
         measurements,
         runs=rewritten_runs,
         arms=tuple(
@@ -1975,7 +2339,7 @@ def test_comparison_report_rejects_coordinated_match_and_summary_rewrite(
         replace(run, matched_defect_ids=(None,) * len(run.findings))
         for run in measurements.runs
     )
-    rewritten = replace(
+    rewritten = _replace_execution_measurements(
         measurements,
         runs=rewritten_runs,
         arms=tuple(
@@ -1996,20 +2360,24 @@ def test_comparison_report_rejects_coordinated_match_and_summary_rewrite(
         )
 
 
-def test_comparison_checkpoint_v5_is_retained_and_rejected_without_replay(
+def test_comparison_checkpoint_v6_is_retained_and_rejected_without_replay(
     tmp_path: Path,
 ) -> None:
-    """The v6 receipt freeze must never rewrite an existing v5 paid state."""
-    assert COMPARISON_CHECKPOINT_SCHEMA_VERSION == "6"
+    """The v7 outcome authority must never rewrite accepted v6 paid state."""
+    assert COMPARISON_CHECKPOINT_SCHEMA_VERSION == "7"
     plans, cassettes, _ = _plans(tmp_path)
-    checkpoint_root = tmp_path / "legacy-v5-comparison"
+    checkpoint_root = tmp_path / "legacy-v6-comparison"
     checkpoint_root.mkdir()
     legacy_path = checkpoint_root / "comparison.json"
-    legacy_path.write_text(json.dumps({"schema_version": "5"}), encoding="utf-8")
+    legacy_path.write_text(
+        json.dumps({"schema_version": "6"}, sort_keys=True, separators=(",", ":"))
+        + "\n",
+        encoding="utf-8",
+    )
     before = legacy_path.read_bytes()
     provider_calls: list[str] = []
 
-    with pytest.raises(ValueError, match="version.*6|supported.*6"):
+    with pytest.raises(ValueError, match="version.*7|supported.*7|predeclaration"):
         compare_arms(
             plans,
             provider_factory=lambda request: (
@@ -2021,6 +2389,7 @@ def test_comparison_checkpoint_v5_is_retained_and_rejected_without_replay(
         )
     assert provider_calls == []
     assert legacy_path.read_bytes() == before
+    assert tuple(path.name for path in checkpoint_root.iterdir()) == ("comparison.json",)
 
 
 def test_compare_cli_runs_three_arms_offline_end_to_end(tmp_path: Path) -> None:
@@ -2088,13 +2457,13 @@ def test_compare_cli_runs_three_arms_offline_end_to_end(tmp_path: Path) -> None:
     assert summary["arms"] == 3
     assert summary["evaluated_cases"] == 0
     assert summary["metrics_status"] == "withheld"
-    report = json.loads((output / "comparison.json").read_text(encoding="utf-8"))
-    assert [arm["arm"] for arm in report["arms"]] == [ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF]
-    for arm in report["arms"]:
-        assert arm["accuracy"]["detection_rate"] is None
-    assert report["validation_authority"]["authority"] == "historical_integrity_only"
-    assert (output / "comparison.md").is_file()
-    assert report["digest"]
+    assert summary["metrics_withheld_reason"] == (
+        "comparison_not_executed_no_publication_authority"
+    )
+    assert summary["report"] is None
+    assert summary["report_markdown"] is None
+    assert not (output / "comparison.json").exists()
+    assert not (output / "comparison.md").exists()
     state_root = output / "state" / "comparison-calls"
     predeclaration = json.loads(
         (state_root / "comparison.json").read_text(encoding="utf-8")

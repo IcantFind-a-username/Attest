@@ -35,6 +35,7 @@ import hashlib
 import json
 import math
 import os
+import stat
 import subprocess
 import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -47,6 +48,7 @@ from typing import Any
 from attest.benchmark.api import (
     ABSENT_BINDING_SHA256,
     EVALUATION_BINDING_SCHEMA_VERSION,
+    ProjectEvaluationAuthorityError,
     ProjectEvaluationRequest,
     ProjectTruth,
     build_evaluation_binding,
@@ -75,15 +77,31 @@ from attest.benchmark.corpus import (
 from attest.benchmark.measurement import ARM_ATTEST_PRODUCT, MeasurementRecord, TaskStatus
 from attest.benchmark.metrics import silence_precision, wilson_interval
 from attest.benchmark.outcomes import (
+    COMPARISON_FINAL_RECEIPT_PATH,
+    COMPARISON_LAUNCH_RECEIPT_PATH,
     COMPARISON_OUTCOME_PROTOCOL,
+    CanonicalDocument,
     ComparisonArmOutcome,
     ComparisonOutcomeAuthority,
+    ComparisonOutcomeSlot,
+    ComparisonPublicationAuthority,
     ComparisonSurfacedFinding,
     VerifiedComparisonOutcomes,
+    create_comparison_publication_authority,
+    finalize_comparison_outcomes,
+    issue_comparison_launch_receipt,
+    list_authoritative_directory,
     predeclare_comparison_outcomes,
-    seal_comparison_outcomes,
+    read_authoritative_bytes,
+    read_canonical_json,
+    read_comparison_arm_outcome_if_present,
+    read_comparison_final_receipt,
+    read_comparison_launch_receipt,
     verify_comparison_outcomes,
+    write_canonical_json_once,
     write_comparison_arm_outcome_once,
+    write_comparison_final_receipt_once,
+    write_comparison_launch_receipt_once,
 )
 from attest.benchmark.schema import (
     BenchmarkCase,
@@ -328,6 +346,54 @@ class ComparisonMeasurements:
     checkpoint_root: Path | None = None
     outcome_predeclaration_sha256: str | None = None
     outcome_authority_id: str | None = None
+
+
+@dataclass(frozen=True)
+class ComparisonExecution:
+    """One measurement payload plus its separate owner publication capability."""
+
+    measurements: ComparisonMeasurements
+    publication_authority: ComparisonPublicationAuthority | None
+
+    def __post_init__(self) -> None:
+        if type(self.measurements) is not ComparisonMeasurements:
+            raise ValueError(
+                "comparison execution requires exact ComparisonMeasurements"
+            )
+        if self.publication_authority is not None and type(
+            self.publication_authority
+        ) is not ComparisonPublicationAuthority:
+            raise ValueError(
+                "comparison execution publication authority must be exact or null"
+            )
+
+    @property
+    def line_slack(self) -> int:
+        return self.measurements.line_slack
+
+    @property
+    def budget_ceiling_usd(self) -> float:
+        return self.measurements.budget_ceiling_usd
+
+    @property
+    def manifest_sha256(self) -> str:
+        return self.measurements.manifest_sha256
+
+    @property
+    def arms(self) -> tuple[ArmSummary, ...]:
+        return self.measurements.arms
+
+    @property
+    def runs(self) -> tuple[ArmRun, ...]:
+        return self.measurements.runs
+
+    @property
+    def evaluated_case_ids(self) -> tuple[str, ...]:
+        return self.measurements.evaluated_case_ids
+
+    @property
+    def checkpoint_root(self) -> Path | None:
+        return self.measurements.checkpoint_root
 
 
 class _MeteredProvider:
@@ -746,13 +812,15 @@ def compare_arms(
     line_slack: int = 0,
     clock: Callable[[], float] = time.monotonic,
     checkpoint_root: Path | None = None,
+    authority_root: Path | None = None,
+    run_identity: str | None = None,
     provider_id: str = "comparison-provider-v1",
     validation_receipt: (
         ValidationReceipt | ValidationReceiptV2 | ValidationVerification | None
     ) = None,
     manifest: BenchmarkManifest | None = None,
     manifest_sha256: str | None = None,
-) -> ComparisonMeasurements:
+) -> ComparisonExecution:
     """Run all three arms over every planned case and aggregate per arm.
 
     One case's failure under one arm becomes that run's DEFER; it never aborts
@@ -767,6 +835,19 @@ def compare_arms(
         )
     if validation_receipt is not None and type(validation_receipt) is not ValidationReceipt:
         raise ValueError("comparison execution accepts only a historical V1 receipt")
+    if checkpoint_root is not None and plans:
+        if not isinstance(authority_root, Path):
+            raise ValueError(
+                "comparison execution requires an explicit external authority_root"
+            )
+        if type(run_identity) is not str or not _is_sha256(run_identity):
+            raise ValueError(
+                "comparison execution requires an explicit unique SHA-256 run_identity"
+            )
+    elif authority_root is not None or run_identity is not None:
+        raise ValueError(
+            "comparison authority_root/run_identity require a non-empty checkpointed run"
+        )
     receipt_sha256 = (
         ABSENT_BINDING_SHA256
         if validation_receipt is None
@@ -796,7 +877,33 @@ def compare_arms(
         )
     comparison_binding_sha256: str | None = None
     outcome_authority: ComparisonOutcomeAuthority | None = None
+    launch_receipt = None
+    comparison_document: CanonicalDocument | None = None
+    publication_authority: ComparisonPublicationAuthority | None = None
     if checkpoint_root is not None:
+        checkpoint_had_evidence = _comparison_checkpoint_has_evidence(checkpoint_root)
+        comparison_path = checkpoint_root / "comparison.json"
+        if comparison_path.exists():
+            try:
+                stored_comparison = read_canonical_json(
+                    checkpoint_root, "comparison.json"
+                ).value
+            except ValueError as exc:
+                raise ValueError(
+                    "comparison predeclaration is unreadable before resume"
+                ) from exc
+            stored_version = (
+                stored_comparison.get("schema_version")
+                if type(stored_comparison) is dict
+                else None
+            )
+            if stored_version != COMPARISON_CHECKPOINT_SCHEMA_VERSION:
+                raise ValueError(
+                    f"unsupported comparison checkpoint schema version "
+                    f"{stored_version!r}; supported version is "
+                    f"{COMPARISON_CHECKPOINT_SCHEMA_VERSION}. Retain old state and "
+                    "use its historical reader; never replay it as current."
+                )
         runtime = current_runtime_identity()
         bindings = [
             build_evaluation_binding(
@@ -813,6 +920,9 @@ def compare_arms(
         ]
         predeclaration_basis = {
             "schema_version": COMPARISON_CHECKPOINT_SCHEMA_VERSION,
+            "run_identity": (
+                run_identity if plans else ABSENT_BINDING_SHA256
+            ),
             "manifest_sha256": bound_manifest_sha256,
             "receipt_sha256": receipt_sha256,
             "line_slack": line_slack,
@@ -843,6 +953,7 @@ def compare_arms(
             ],
         }
         if plans:
+            assert authority_root is not None and run_identity is not None
             outcome_authority_id = _json_mapping_sha256(
                 {
                     "authority_protocol": COMPARISON_OUTCOME_PROTOCOL,
@@ -851,16 +962,36 @@ def compare_arms(
             )
             outcome_root = checkpoint_root / "authoritative-outcomes"
             _require_separate_outcome_root(outcome_root, plans)
-            outcome_authority = predeclare_comparison_outcomes(
-                outcome_root,
-                authority_id=outcome_authority_id,
-                manifest_sha256=bound_manifest_sha256,
-                case_bindings={
-                    plan.case.case_id: _json_mapping_sha256(binding.to_json_dict())
-                    for plan, binding in zip(plans, bindings, strict=True)
-                },
-                repeats=1,
+            _require_separate_authority_root(
+                authority_root,
+                checkpoint_root=checkpoint_root,
+                outcome_root=outcome_root,
+                plans=plans,
             )
+            if checkpoint_had_evidence and not (
+                authority_root / COMPARISON_LAUNCH_RECEIPT_PATH
+            ).is_file():
+                raise ComparisonEvidenceError(
+                    "existing comparison evidence has no original external launch receipt"
+                )
+            try:
+                outcome_authority = predeclare_comparison_outcomes(
+                    outcome_root,
+                    authority_id=outcome_authority_id,
+                    manifest_sha256=bound_manifest_sha256,
+                    case_bindings={
+                        plan.case.case_id: _json_mapping_sha256(
+                            binding.to_json_dict()
+                        )
+                        for plan, binding in zip(plans, bindings, strict=True)
+                    },
+                    repeats=1,
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    "comparison outcome predeclaration drift is refused before "
+                    "provider execution"
+                ) from exc
         predeclaration = {
             **predeclaration_basis,
             "outcome_authority": (
@@ -874,8 +1005,28 @@ def compare_arms(
                 }
             ),
         }
-        _require_comparison_predeclaration(checkpoint_root, predeclaration)
+        comparison_document = _require_comparison_predeclaration(
+            checkpoint_root, predeclaration
+        )
         comparison_binding_sha256 = _json_mapping_sha256(predeclaration)
+        if outcome_authority is not None:
+            assert authority_root is not None and run_identity is not None
+            expected_launch = issue_comparison_launch_receipt(
+                outcome_authority,
+                checkpoint_root=checkpoint_root,
+                authority_root=authority_root,
+                run_identity=run_identity,
+                comparison_sha256=comparison_document.sha256,
+            )
+            if (authority_root / COMPARISON_LAUNCH_RECEIPT_PATH).is_file():
+                launch_receipt = read_comparison_launch_receipt(authority_root)
+                if launch_receipt != expected_launch:
+                    raise ComparisonEvidenceError(
+                        "external comparison launch receipt differs from frozen state"
+                    )
+            else:
+                write_comparison_launch_receipt_once(authority_root, expected_launch)
+                launch_receipt = read_comparison_launch_receipt(authority_root)
         plans = tuple(
             replace(
                 plan,
@@ -883,6 +1034,41 @@ def compare_arms(
             )
             for plan, binding in zip(plans, bindings, strict=True)
         )
+        if outcome_authority is not None:
+            assert (
+                authority_root is not None
+                and comparison_document is not None
+                and comparison_binding_sha256 is not None
+            )
+            if (authority_root / COMPARISON_FINAL_RECEIPT_PATH).is_file():
+                final_receipt = read_comparison_final_receipt(authority_root)
+                publication_authority = create_comparison_publication_authority(
+                    checkpoint_root=checkpoint_root,
+                    outcome_root=outcome_authority.root,
+                    authority_root=authority_root,
+                    final_receipt=final_receipt,
+                )
+                verified = verify_comparison_outcomes(
+                    outcome_authority.root,
+                    expected_final_receipt=final_receipt,
+                    expected_comparison_sha256=comparison_document.sha256,
+                )
+                measurements = _comparison_measurements_from_verified(
+                    verified,
+                    checkpoint_root=checkpoint_root,
+                    paid_trials=_paid_trials_from_plans(plans),
+                    binding_sha256=comparison_binding_sha256,
+                    manifest=bound_manifest,
+                    line_slack=line_slack,
+                    budget_ceiling_usd=(
+                        next(iter(ceilings)) if ceilings else 0.0
+                    ),
+                    manifest_sha256=bound_manifest_sha256,
+                )
+                return ComparisonExecution(
+                    measurements=measurements,
+                    publication_authority=publication_authority,
+                )
     runs: list[ArmRun] = []
     for plan in plans:
         defects = () if plan.request.truth is None else plan.request.truth.defects
@@ -893,6 +1079,8 @@ def compare_arms(
             checkpoint_root,
             comparison_binding_sha256,
             outcome_authority,
+            bound_manifest,
+            line_slack,
         )
         runs.append(_with_matches(product_run, defects, line_slack))
         bare_run, ruff_run = _baseline_arms(
@@ -903,71 +1091,107 @@ def compare_arms(
             checkpoint_root,
             comparison_binding_sha256,
             outcome_authority,
+            bound_manifest,
+            line_slack,
         )
         runs.append(_with_matches(bare_run, defects, line_slack))
         runs.append(_with_matches(ruff_run, defects, line_slack))
 
     if outcome_authority is not None:
-        seal_comparison_outcomes(outcome_authority)
-        verify_comparison_outcomes(
-            outcome_authority.root,
-            expected_predeclaration_sha256=outcome_authority.predeclaration_sha256,
-            expected_authority_id=outcome_authority.authority_id,
-            expected_manifest_sha256=outcome_authority.manifest_sha256,
+        assert (
+            launch_receipt is not None
+            and authority_root is not None
+            and comparison_document is not None
+            and comparison_binding_sha256 is not None
+            and checkpoint_root is not None
         )
-    arms = tuple(
-        _summarize_arm(arm, tuple(run for run in runs if run.arm == arm))
-        for arm in (ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF)
-    )
-    evaluated = tuple(
-        sorted({run.case_id for run in runs if run.status == "completed"})
-    )
-    return ComparisonMeasurements(
-        line_slack=line_slack,
-        budget_ceiling_usd=next(iter(ceilings)) if ceilings else 0.0,
-        manifest_sha256=bound_manifest_sha256,
-        arms=arms,
-        runs=tuple(runs),
-        evaluated_case_ids=evaluated,
-        checkpoint_root=checkpoint_root,
-        outcome_predeclaration_sha256=(
-            None
-            if outcome_authority is None
-            else outcome_authority.predeclaration_sha256
-        ),
-        outcome_authority_id=(
-            None if outcome_authority is None else outcome_authority.authority_id
-        ),
+        final_receipt = finalize_comparison_outcomes(
+            outcome_authority,
+            launch_receipt,
+            checkpoint_root=checkpoint_root,
+            authority_root=authority_root,
+        )
+        write_comparison_final_receipt_once(
+            authority_root,
+            final_receipt,
+            checkpoint_root=checkpoint_root,
+            outcome_root=outcome_authority.root,
+        )
+        final_receipt = read_comparison_final_receipt(authority_root)
+        publication_authority = create_comparison_publication_authority(
+            checkpoint_root=checkpoint_root,
+            outcome_root=outcome_authority.root,
+            authority_root=authority_root,
+            final_receipt=final_receipt,
+        )
+        verified = verify_comparison_outcomes(
+            outcome_authority.root,
+            expected_final_receipt=final_receipt,
+            expected_comparison_sha256=comparison_document.sha256,
+        )
+        measurements = _comparison_measurements_from_verified(
+            verified,
+            checkpoint_root=checkpoint_root,
+            paid_trials=_paid_trials_from_plans(plans),
+            binding_sha256=comparison_binding_sha256,
+            manifest=bound_manifest,
+            line_slack=line_slack,
+            budget_ceiling_usd=(next(iter(ceilings)) if ceilings else 0.0),
+            manifest_sha256=bound_manifest_sha256,
+        )
+    else:
+        arms = tuple(
+            _summarize_arm(arm, tuple(run for run in runs if run.arm == arm))
+            for arm in (ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF)
+        )
+        evaluated = tuple(
+            sorted({run.case_id for run in runs if run.status == "completed"})
+        )
+        measurements = ComparisonMeasurements(
+            line_slack=line_slack,
+            budget_ceiling_usd=next(iter(ceilings)) if ceilings else 0.0,
+            manifest_sha256=bound_manifest_sha256,
+            arms=arms,
+            runs=tuple(runs),
+            evaluated_case_ids=evaluated,
+            checkpoint_root=checkpoint_root,
+        )
+    return ComparisonExecution(
+        measurements=measurements,
+        publication_authority=publication_authority,
     )
 
 
 def _require_comparison_predeclaration(
     root: Path, expected: Mapping[str, object]
-) -> None:
-    root.mkdir(parents=True, exist_ok=True)
-    path = root / "comparison.json"
-    if path.exists():
+) -> CanonicalDocument:
+    try:
+        document = write_canonical_json_once(root, "comparison.json", dict(expected))
+    except ValueError as exc:
+        path = root / "comparison.json"
+        if not path.exists():
+            raise
         try:
-            stored = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ValueError("comparison predeclaration is unreadable") from exc
-        version = stored.get("schema_version") if isinstance(stored, dict) else None
+            stored = read_canonical_json(root, "comparison.json")
+        except ValueError as read_exc:
+            raise ValueError("comparison predeclaration is unreadable") from read_exc
+        value = stored.value
+        version = value.get("schema_version") if isinstance(value, dict) else None
         if version != COMPARISON_CHECKPOINT_SCHEMA_VERSION:
             raise ValueError(
                 f"unsupported comparison checkpoint schema version {version!r}; supported "
                 f"version is {COMPARISON_CHECKPOINT_SCHEMA_VERSION}. Use the compatible "
                 "reader and retain call state; never coerce old rows."
-            )
-        if stored != expected:
+            ) from exc
+        if value != dict(expected):
             raise ValueError(
                 "comparison predeclaration does not match this configuration; drift is "
                 "refused before provider execution"
-            )
-        return
-    encoded = json.dumps(expected, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    temporary = path.with_name(path.name + ".tmp")
-    temporary.write_bytes(encoded + b"\n")
-    os.replace(temporary, path)
+            ) from exc
+        document = stored
+    if document.value != dict(expected):
+        raise ValueError("comparison predeclaration canonical bytes differ")
+    return document
 
 
 def _require_separate_outcome_root(
@@ -993,6 +1217,132 @@ def _require_separate_outcome_root(
         )
 
 
+def _require_separate_authority_root(
+    authority_root: Path,
+    *,
+    checkpoint_root: Path,
+    outcome_root: Path,
+    plans: Sequence[ComparisonPlan],
+) -> None:
+    try:
+        authority = authority_root.resolve(strict=False)
+        forbidden = (
+            checkpoint_root.resolve(strict=False),
+            outcome_root.resolve(strict=False),
+            *(
+                path.resolve(strict=False)
+                for plan in plans
+                for path in (plan.request.repo, plan.request.workspace_root)
+            ),
+        )
+    except OSError as exc:
+        raise ValueError("comparison authority root identity is unreadable") from exc
+    if any(
+        authority == path
+        or authority.is_relative_to(path)
+        or path.is_relative_to(authority)
+        for path in forbidden
+    ):
+        raise ValueError(
+            "comparison authority root must be external to checkpoint, outcome, "
+            "repository, and worktree roots"
+        )
+
+
+def _comparison_checkpoint_has_evidence(root: Path) -> bool:
+    try:
+        return root.exists() and any(root.iterdir())
+    except OSError as exc:
+        raise ValueError("comparison checkpoint root is unreadable") from exc
+
+
+def _require_no_symlink_paid_checkpoint_tree(
+    checkpoint_root: Path, *, arm: str, case_id: str
+) -> None:
+    """Reject paid evidence reached through aliases before legacy Path readers run."""
+
+    def existing_lstat(path: Path) -> os.stat_result | None:
+        try:
+            return path.lstat()
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise ComparisonEvidenceError(
+                "comparison paid-call checkpoint path is unreadable"
+            ) from exc
+
+    absolute_root = Path(os.path.abspath(checkpoint_root))
+    current = Path(absolute_root.anchor)
+    for part in absolute_root.parts[1:]:
+        current /= part
+        status = existing_lstat(current)
+        if status is None:
+            break
+        if stat.S_ISLNK(status.st_mode):
+            raise ComparisonEvidenceError(
+                "comparison paid-call checkpoint ancestor is a symlink"
+            )
+        if not stat.S_ISDIR(status.st_mode):
+            raise ComparisonEvidenceError(
+                "comparison paid-call checkpoint ancestor is not a directory"
+            )
+
+    trial_root = checkpoint_root / arm / case_id
+    directories = (
+        checkpoint_root / "reconciliation",
+        checkpoint_root / "reconciliation" / arm,
+        trial_root,
+        trial_root / "calls",
+        trial_root / "artifacts",
+    )
+    for directory in directories:
+        status = existing_lstat(directory)
+        if status is None:
+            continue
+        if stat.S_ISLNK(status.st_mode) or not stat.S_ISDIR(status.st_mode):
+            raise ComparisonEvidenceError(
+                "comparison paid-call checkpoint directory is a symlink or unsafe"
+            )
+
+    files = [
+        _comparison_reconciliation_path(checkpoint_root, arm, case_id),
+        trial_root / "costs.jsonl",
+    ]
+    for directory in (trial_root / "calls", trial_root / "artifacts"):
+        if existing_lstat(directory) is None:
+            continue
+        try:
+            files.extend(directory.iterdir())
+        except OSError as exc:
+            raise ComparisonEvidenceError(
+                "comparison paid-call checkpoint directory is unreadable"
+            ) from exc
+    if existing_lstat(trial_root) is not None:
+        try:
+            children = tuple(trial_root.iterdir())
+        except OSError as exc:
+            raise ComparisonEvidenceError(
+                "comparison paid-call checkpoint trial is unreadable"
+            ) from exc
+        allowed = {"calls", "artifacts", "costs.jsonl"}
+        if any(child.name not in allowed for child in children):
+            raise ComparisonEvidenceError(
+                "comparison paid-call checkpoint trial contains an unsafe entry"
+            )
+    for path in files:
+        status = existing_lstat(path)
+        if status is None:
+            continue
+        if (
+            stat.S_ISLNK(status.st_mode)
+            or not stat.S_ISREG(status.st_mode)
+            or status.st_nlink != 1
+        ):
+            raise ComparisonEvidenceError(
+                "comparison paid-call checkpoint file is a symlink or unsafe"
+            )
+
+
 def _executable_digest(executable: str | None) -> str | None:
     if executable is None:
         return None
@@ -1007,12 +1357,48 @@ def _comparison_reconciliation_path(root: Path, arm: str, case_id: str) -> Path:
 
 
 def _call_evidence_exists(root: Path) -> bool:
-    costs = root / "costs.jsonl"
-    return (
-        any((root / "calls").glob("*.json"))
-        or any((root / "artifacts").glob("*.json"))
-        or (costs.is_file() and costs.stat().st_size > 0)
-    )
+    try:
+        status = root.lstat()
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        raise ComparisonEvidenceError(
+            "comparison paid-call root is unreadable"
+        ) from exc
+    if stat.S_ISLNK(status.st_mode) or not stat.S_ISDIR(status.st_mode):
+        raise ComparisonEvidenceError("comparison paid-call root is unsafe")
+    try:
+        names = set(list_authoritative_directory(root, ".", maximum_entries=4))
+        if names - {"calls", "artifacts", "costs.jsonl"}:
+            raise ComparisonEvidenceError(
+                "comparison paid-call root contains an unsafe entry"
+            )
+        call_names = (
+            list_authoritative_directory(root, "calls", maximum_entries=100_000)
+            if "calls" in names
+            else ()
+        )
+        artifact_names = (
+            list_authoritative_directory(
+                root, "artifacts", maximum_entries=100_000
+            )
+            if "artifacts" in names
+            else ()
+        )
+        costs = (
+            read_authoritative_bytes(
+                root, "costs.jsonl", maximum_bytes=64 * 1024 * 1024
+            )
+            if "costs.jsonl" in names
+            else b""
+        )
+    except ValueError as exc:
+        if isinstance(exc, ComparisonEvidenceError):
+            raise
+        raise ComparisonEvidenceError(
+            "comparison paid-call evidence is unreadable or unsafe"
+        ) from exc
+    return bool(call_names or artifact_names or costs)
 
 
 def _prepare_comparison_reconciliation(
@@ -1040,9 +1426,12 @@ def _prepare_comparison_reconciliation(
 def _read_comparison_reconciliation(
     path: Path, arm: str, case_id: str
 ) -> dict[str, object]:
+    checkpoint_root = path.parents[2]
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        raw = read_canonical_json(
+            checkpoint_root, path.relative_to(checkpoint_root)
+        ).value
+    except ValueError as exc:
         raise ComparisonEvidenceError(
             f"comparison {arm}/{case_id} reconciliation is unreadable"
         ) from exc
@@ -1101,8 +1490,23 @@ def _settled_reconciliation_payload(
 def _verified_checkpoint_records(
     checkpointed: CheckpointedProvider,
 ) -> tuple[tuple[dict[str, object], ...], str, PaidCallTotals]:
+    records, digest, totals, _, _ = _verified_checkpoint_snapshot(checkpointed)
+    return records, digest, totals
+
+
+def _verified_checkpoint_snapshot(
+    checkpointed: CheckpointedProvider,
+) -> tuple[tuple[dict[str, object], ...], str, PaidCallTotals, int, int]:
     try:
-        return _paid_call_binding(checkpointed.reconciliation_records())
+        snapshot = checkpointed.reconciliation_snapshot()
+        records, digest, totals = _paid_call_binding(snapshot.records)
+        return (
+            records,
+            digest,
+            totals,
+            snapshot.input_tokens,
+            snapshot.output_tokens,
+        )
     except AmbiguousCostError:
         raise
     except ValueError as exc:
@@ -1165,6 +1569,44 @@ def _checkpointed_comparison_provider(
         stored, fresh=fresh, checkpointed=checkpointed
     )
     return checkpointed, path, stored
+
+
+def _settled_checkpoint_recovery(
+    *,
+    checkpoint_root: Path,
+    arm: str,
+    case_id: str,
+    model_id: str,
+    binding_sha256: str,
+) -> tuple[CheckpointedProvider, Path, dict[str, object]] | None:
+    """Return a verification-only replay when paid state predates its outcome slot."""
+    _require_no_symlink_paid_checkpoint_tree(
+        checkpoint_root, arm=arm, case_id=case_id
+    )
+    path = _comparison_reconciliation_path(checkpoint_root, arm, case_id)
+    call_root = checkpoint_root / arm / case_id
+    has_marker = path.exists()
+    has_calls = _call_evidence_exists(call_root)
+    if not has_marker and not has_calls:
+        return None
+    if not has_marker:
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} paid evidence has no reconciliation marker"
+        )
+    stored = _read_comparison_reconciliation(path, arm, case_id)
+    if stored.get("status") != "settled":
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} interrupted reconciliation is not "
+            "safe for factory-less resume"
+        )
+    return _checkpointed_comparison_provider(
+        _VerificationOnlyComparisonProvider(),
+        checkpoint_root=checkpoint_root,
+        arm=arm,
+        case_id=case_id,
+        model_id=model_id,
+        binding_sha256=binding_sha256,
+    )
 
 
 def _attach_comparison_reconciliation(
@@ -1274,9 +1716,28 @@ def validate_comparison_measurements(
     receipt_sha256: str,
     manifest: BenchmarkManifest,
     manifest_sha256: str,
+    publication_authority: ComparisonPublicationAuthority | None,
 ) -> tuple[str, ComparisonMeasurements]:
     """Re-read authoritative call/spend/artifact joins immediately before publication."""
     manifest = require_manifest_binding(manifest, manifest_sha256)
+    if type(publication_authority) is not ComparisonPublicationAuthority:
+        raise ComparisonEvidenceError(
+            "comparison publication requires an exact external final authority; "
+            "an empty run is only a not-executed diagnostic"
+        )
+    try:
+        fresh_publication_authority = create_comparison_publication_authority(
+            checkpoint_root=publication_authority.checkpoint_root,
+            outcome_root=publication_authority.outcome_root,
+            authority_root=publication_authority.authority_root,
+            final_receipt=publication_authority.final_receipt,
+        )
+    except ValueError as exc:
+        raise ComparisonEvidenceError(
+            "comparison external publication authority is not fresh or exact"
+        ) from exc
+    if fresh_publication_authority != publication_authority:
+        raise ComparisonEvidenceError("comparison publication authority was mutated")
     if (
         type(measurements.manifest_sha256) is not str
         or measurements.manifest_sha256 != manifest_sha256
@@ -1285,9 +1746,12 @@ def validate_comparison_measurements(
             "comparison measurements do not match the bound manifest digest"
         )
     paid_runs = tuple(run for run in measurements.runs if run.arm != ARM_RUFF)
-    if measurements.checkpoint_root is None:
+    if (
+        measurements.checkpoint_root is None
+        or measurements.checkpoint_root != publication_authority.checkpoint_root
+    ):
         raise ComparisonEvidenceError(
-            "comparison report has no authoritative checkpoint root"
+            "comparison report does not match its external checkpoint authority"
         )
     (
         paid_trials,
@@ -1298,7 +1762,15 @@ def validate_comparison_measurements(
         declared_manifest_sha256,
         frozen_bindings,
         outcome_anchor,
-    ) = _comparison_predeclared_paid_trials(measurements.checkpoint_root)
+        declared_run_identity,
+    ) = _comparison_predeclared_paid_trials(publication_authority.checkpoint_root)
+    if (
+        declared_run_identity
+        != publication_authority.final_receipt.launch.run_identity
+    ):
+        raise ComparisonEvidenceError(
+            "comparison run identity differs from its external launch receipt"
+        )
     if declared_manifest_sha256 != manifest_sha256:
         raise ComparisonEvidenceError(
             "comparison predeclaration does not match the report manifest digest"
@@ -1415,6 +1887,11 @@ def validate_comparison_measurements(
         validate_arm_run_reconciliation(run)
         if run.arm == ARM_RUFF:
             continue
+        _require_no_symlink_paid_checkpoint_tree(
+            publication_authority.checkpoint_root,
+            arm=run.arm,
+            case_id=run.case_id,
+        )
         expected_trial, expected_model = paid_trials[(run.case_id, run.arm)]
         if run.model_id != expected_model or not isinstance(expected_model, str):
             raise ComparisonEvidenceError(
@@ -1422,7 +1899,7 @@ def validate_comparison_measurements(
                 "predeclaration binding"
             )
         path = _comparison_reconciliation_path(
-            measurements.checkpoint_root, run.arm, run.case_id
+            publication_authority.checkpoint_root, run.arm, run.case_id
         )
         stored = _read_comparison_reconciliation(path, run.arm, run.case_id)
         if stored.get("status") != "settled":
@@ -1432,7 +1909,7 @@ def validate_comparison_measurements(
         try:
             checkpointed = CheckpointedProvider(
                 _VerificationOnlyComparisonProvider(),
-                root=measurements.checkpoint_root / run.arm / run.case_id,
+                root=publication_authority.checkpoint_root / run.arm / run.case_id,
                 trial_id=expected_trial,
                 model_id=expected_model,
                 binding_sha256=binding_sha256,
@@ -1470,15 +1947,35 @@ def validate_comparison_measurements(
     outcome_root_name, outcome_authority_id, outcome_predeclaration_sha256 = (
         outcome_anchor
     )
+    launch = publication_authority.final_receipt.launch
+    try:
+        comparison_document = read_canonical_json(
+            publication_authority.checkpoint_root, "comparison.json"
+        )
+    except ValueError as exc:
+        raise ComparisonEvidenceError(
+            "comparison predeclaration is not a fresh canonical artifact"
+        ) from exc
+    if (
+        outcome_root_name != "authoritative-outcomes"
+        or publication_authority.outcome_root
+        != publication_authority.checkpoint_root / outcome_root_name
+        or outcome_authority_id != launch.authority_id
+        or outcome_predeclaration_sha256 != launch.predeclaration_sha256
+        or launch.manifest_sha256 != manifest_sha256
+        or comparison_document.sha256 != launch.comparison_sha256
+    ):
+        raise ComparisonEvidenceError(
+            "comparison external final receipt differs from frozen comparison state"
+        )
     verified_outcomes = verify_comparison_outcomes(
-        measurements.checkpoint_root / outcome_root_name,
-        expected_predeclaration_sha256=outcome_predeclaration_sha256,
-        expected_authority_id=outcome_authority_id,
-        expected_manifest_sha256=manifest_sha256,
+        publication_authority.outcome_root,
+        expected_final_receipt=publication_authority.final_receipt,
+        expected_comparison_sha256=comparison_document.sha256,
     )
     fresh_runs = _rebuild_runs_from_verified_comparison_outcomes(
         verified_outcomes,
-        checkpoint_root=measurements.checkpoint_root,
+        checkpoint_root=publication_authority.checkpoint_root,
         paid_trials=paid_trials,
         binding_sha256=binding_sha256,
         manifest=manifest,
@@ -1515,6 +2012,58 @@ def validate_comparison_measurements(
     return binding_sha256, fresh_measurements
 
 
+def _paid_trials_from_plans(
+    plans: Sequence[ComparisonPlan],
+) -> dict[tuple[str, str], tuple[str, str]]:
+    return {
+        (plan.case.case_id, arm): (
+            f"comparison:{arm}:{plan.case.case_id}",
+            plan.request.config.model,
+        )
+        for plan in plans
+        for arm in (ARM_PRODUCT, ARM_BARE_PROMPT)
+    }
+
+
+def _comparison_measurements_from_verified(
+    verified: VerifiedComparisonOutcomes,
+    *,
+    checkpoint_root: Path,
+    paid_trials: Mapping[tuple[str, str], tuple[str, str]],
+    binding_sha256: str,
+    manifest: BenchmarkManifest,
+    line_slack: int,
+    budget_ceiling_usd: float,
+    manifest_sha256: str,
+) -> ComparisonMeasurements:
+    runs = _rebuild_runs_from_verified_comparison_outcomes(
+        verified,
+        checkpoint_root=checkpoint_root,
+        paid_trials=paid_trials,
+        binding_sha256=binding_sha256,
+        manifest=manifest,
+        line_slack=line_slack,
+    )
+    arms = tuple(
+        _summarize_arm(arm, tuple(run for run in runs if run.arm == arm))
+        for arm in (ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF)
+    )
+    evaluated = tuple(
+        sorted({run.case_id for run in runs if run.status == "completed"})
+    )
+    return ComparisonMeasurements(
+        line_slack=line_slack,
+        budget_ceiling_usd=budget_ceiling_usd,
+        manifest_sha256=manifest_sha256,
+        arms=arms,
+        runs=runs,
+        evaluated_case_ids=evaluated,
+        checkpoint_root=checkpoint_root,
+        outcome_predeclaration_sha256=verified.predeclaration_sha256,
+        outcome_authority_id=verified.authority_id,
+    )
+
+
 def _rebuild_runs_from_verified_comparison_outcomes(
     verified: VerifiedComparisonOutcomes,
     *,
@@ -1532,101 +2081,125 @@ def _rebuild_runs_from_verified_comparison_outcomes(
             raise ComparisonEvidenceError(
                 "comparison outcome case is absent from the bound manifest"
             )
-        findings = tuple(
-            BaselineFinding(
-                file=finding.file,
-                line=finding.line,
-                evidence_class=finding.evidence_class,
-                finding_id=finding.finding_id,
-            )
-            for finding in outcome.surfaced_findings
-        )
-        if slot.arm == ARM_RUFF:
-            records: tuple[dict[str, object], ...] = ()
-            digest = _EMPTY_PAID_CALLS_SHA256
-            totals = PaidCallTotals(product_usd=0.0, oracle_usd=0.0)
-            model_id = None
-        else:
-            expected_trial, model_id = paid_trials[(slot.case_id, slot.arm)]
-            stored = _read_comparison_reconciliation(
-                _comparison_reconciliation_path(
-                    checkpoint_root, slot.arm, slot.case_id
-                ),
-                slot.arm,
-                slot.case_id,
-            )
-            if stored.get("status") != "settled":
-                raise ComparisonEvidenceError(
-                    f"comparison {slot.arm}/{slot.case_id} reconciliation is not settled"
-                )
-            try:
-                checkpointed = CheckpointedProvider(
-                    _VerificationOnlyComparisonProvider(),
-                    root=checkpoint_root / slot.arm / slot.case_id,
-                    trial_id=expected_trial,
-                    model_id=model_id,
-                    binding_sha256=binding_sha256,
-                    role=CALL_ROLE_PRODUCT,
-                )
-            except ValueError as exc:
-                raise ComparisonEvidenceError(
-                    "comparison outcome paid evidence reconciliation failed"
-                ) from exc
-            records, digest, totals = _verified_checkpoint_records(checkpointed)
-            if dict(stored) != _settled_reconciliation_payload(
-                slot.arm, slot.case_id, records, digest
-            ):
-                raise ComparisonEvidenceError(
-                    "comparison outcome paid reconciliation marker differs"
-                )
-        if digest != outcome.paid_calls_sha256:
-            raise ComparisonEvidenceError(
-                f"comparison {slot.arm}/{slot.case_id} paid evidence digest differs "
-                "from its authoritative outcome"
-            )
-        input_tokens = sum(_paid_record_token(row, "input_tokens") for row in records)
-        output_tokens = sum(_paid_record_token(row, "output_tokens") for row in records)
-        run = ArmRun(
-            arm=slot.arm,
-            case_id=slot.case_id,
-            role=case.role,
-            status=outcome.task_status.value,
-            abstain_reason=outcome.abstain_reason,
-            findings=findings,
-            matched_defect_ids=(),
-            model_calls=len(records),
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            spend_usd=totals.product_usd,
-            oracle_spend_usd=totals.oracle_usd,
-            wall_time_s=outcome.wall_time_s,
-            tool_cost_s=outcome.tool_cost_s,
-            paid_calls=records,
-            paid_calls_sha256=digest,
-            model_id=model_id,
-        )
-        truth = _manifest_truth(manifest, slot.case_id)
-        defects = () if truth is None else truth.defects
         runs.append(
-            replace(
-                run,
-                matched_defect_ids=(
-                    _match_locations(defects, findings, line_slack)
-                    if findings
-                    else ()
-                ),
+            _rebuild_comparison_run_from_outcome(
+                slot,
+                outcome,
+                checkpoint_root=checkpoint_root,
+                paid_trials=paid_trials,
+                binding_sha256=binding_sha256,
+                manifest=manifest,
+                line_slack=line_slack,
             )
         )
     return tuple(runs)
 
 
-def _paid_record_token(record: Mapping[str, object], field: str) -> int:
-    value = record.get(field)
-    if type(value) is not int or value < 0:
+def _rebuild_comparison_run_from_outcome(
+    slot: ComparisonOutcomeSlot,
+    outcome: ComparisonArmOutcome,
+    *,
+    checkpoint_root: Path,
+    paid_trials: Mapping[tuple[str, str], tuple[str, str]],
+    binding_sha256: str,
+    manifest: BenchmarkManifest,
+    line_slack: int,
+) -> ArmRun:
+    case = next((case for case in manifest.cases if case.case_id == slot.case_id), None)
+    if case is None:
         raise ComparisonEvidenceError(
-            f"comparison paid evidence {field} is not an exact non-negative integer"
+            "comparison outcome case is absent from the bound manifest"
         )
-    return value
+    findings = tuple(
+        BaselineFinding(
+            file=finding.file,
+            line=finding.line,
+            evidence_class=finding.evidence_class,
+            finding_id=finding.finding_id,
+        )
+        for finding in outcome.surfaced_findings
+    )
+    if slot.arm == ARM_RUFF:
+        records: tuple[dict[str, object], ...] = ()
+        digest = _EMPTY_PAID_CALLS_SHA256
+        totals = PaidCallTotals(product_usd=0.0, oracle_usd=0.0)
+        model_id = None
+        input_tokens = 0
+        output_tokens = 0
+    else:
+        _require_no_symlink_paid_checkpoint_tree(
+            checkpoint_root, arm=slot.arm, case_id=slot.case_id
+        )
+        expected_trial, model_id = paid_trials[(slot.case_id, slot.arm)]
+        stored = _read_comparison_reconciliation(
+            _comparison_reconciliation_path(
+                checkpoint_root, slot.arm, slot.case_id
+            ),
+            slot.arm,
+            slot.case_id,
+        )
+        if stored.get("status") != "settled":
+            raise ComparisonEvidenceError(
+                f"comparison {slot.arm}/{slot.case_id} reconciliation is not settled"
+            )
+        try:
+            checkpointed = CheckpointedProvider(
+                _VerificationOnlyComparisonProvider(),
+                root=checkpoint_root / slot.arm / slot.case_id,
+                trial_id=expected_trial,
+                model_id=model_id,
+                binding_sha256=binding_sha256,
+                role=CALL_ROLE_PRODUCT,
+            )
+        except ValueError as exc:
+            raise ComparisonEvidenceError(
+                "comparison outcome paid evidence reconciliation failed"
+            ) from exc
+        (
+            records,
+            digest,
+            totals,
+            input_tokens,
+            output_tokens,
+        ) = _verified_checkpoint_snapshot(checkpointed)
+        if dict(stored) != _settled_reconciliation_payload(
+            slot.arm, slot.case_id, records, digest
+        ):
+            raise ComparisonEvidenceError(
+                "comparison outcome paid reconciliation marker differs"
+            )
+    if digest != outcome.paid_calls_sha256:
+        raise ComparisonEvidenceError(
+            f"comparison {slot.arm}/{slot.case_id} paid evidence digest differs "
+            "from its authoritative outcome"
+        )
+    run = ArmRun(
+        arm=slot.arm,
+        case_id=slot.case_id,
+        role=case.role,
+        status=outcome.task_status.value,
+        abstain_reason=outcome.abstain_reason,
+        findings=findings,
+        matched_defect_ids=(),
+        model_calls=len(records),
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        spend_usd=totals.product_usd,
+        oracle_spend_usd=totals.oracle_usd,
+        wall_time_s=outcome.wall_time_s,
+        tool_cost_s=outcome.tool_cost_s,
+        paid_calls=records,
+        paid_calls_sha256=digest,
+        model_id=model_id,
+    )
+    truth = _manifest_truth(manifest, slot.case_id)
+    defects = () if truth is None else truth.defects
+    return replace(
+        run,
+        matched_defect_ids=(
+            _match_locations(defects, findings, line_slack) if findings else ()
+        ),
+    )
 
 
 def _comparison_predeclared_paid_trials(
@@ -1640,23 +2213,28 @@ def _comparison_predeclared_paid_trials(
     str,
     dict[str, dict[str, object]],
     tuple[str, str, str] | None,
+    str,
 ]:
-    path = root / "comparison.json"
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        raw = read_canonical_json(root, "comparison.json").value
+    except ValueError as exc:
         raise ComparisonEvidenceError(
             "comparison predeclaration is unreadable at report publication"
         ) from exc
-    version = raw.get("schema_version") if isinstance(raw, dict) else None
-    trials = raw.get("paid_trials") if isinstance(raw, dict) else None
-    bindings = raw.get("bindings") if isinstance(raw, dict) else None
-    line_slack = raw.get("line_slack") if isinstance(raw, dict) else None
-    provider_id = raw.get("provider_id") if isinstance(raw, dict) else None
-    paid_call_roles = raw.get("paid_call_roles") if isinstance(raw, dict) else None
-    receipt_sha256 = raw.get("receipt_sha256") if isinstance(raw, dict) else None
-    manifest_sha256 = raw.get("manifest_sha256") if isinstance(raw, dict) else None
-    outcome_authority = raw.get("outcome_authority") if isinstance(raw, dict) else None
+    if type(raw) is not dict:
+        raise ComparisonEvidenceError(
+            "comparison predeclaration must be an exact JSON object"
+        )
+    version = raw.get("schema_version")
+    trials = raw.get("paid_trials")
+    bindings = raw.get("bindings")
+    line_slack = raw.get("line_slack")
+    provider_id = raw.get("provider_id")
+    paid_call_roles = raw.get("paid_call_roles")
+    receipt_sha256 = raw.get("receipt_sha256")
+    manifest_sha256 = raw.get("manifest_sha256")
+    outcome_authority = raw.get("outcome_authority")
+    run_identity = raw.get("run_identity")
     if (
         version != COMPARISON_CHECKPOINT_SCHEMA_VERSION
         or not isinstance(trials, list)
@@ -1669,8 +2247,10 @@ def _comparison_predeclared_paid_trials(
         or paid_call_roles != sorted(CALL_ROLES)
         or not _is_sha256(receipt_sha256)
         or not _is_sha256(manifest_sha256)
+        or not _is_sha256(run_identity)
         or set(raw) != {
             "schema_version",
+            "run_identity",
             "manifest_sha256",
             "receipt_sha256",
             "line_slack",
@@ -1792,6 +2372,7 @@ def _comparison_predeclared_paid_trials(
         raise ComparisonEvidenceError(
             "empty comparison cannot claim an outcome authority"
         )
+    assert isinstance(run_identity, str)
     return (
         normalized,
         line_slack,
@@ -1801,6 +2382,7 @@ def _comparison_predeclared_paid_trials(
         manifest_sha256,
         frozen_bindings,
         outcome_anchor,
+        run_identity,
     )
 
 
@@ -1868,61 +2450,83 @@ def _comparison_reconciliation_keys(root: Path) -> set[tuple[str, str]]:
     reconciliation_root = root / "reconciliation"
     if not reconciliation_root.exists():
         return set()
-    if not reconciliation_root.is_dir():
-        raise ComparisonEvidenceError(
-            "comparison reconciliation marker path is not a directory"
-        )
     keys: set[tuple[str, str]] = set()
-    for path in reconciliation_root.rglob("*"):
-        if path.is_dir():
-            continue
-        relative = path.relative_to(reconciliation_root)
-        if (
-            len(relative.parts) != 2
-            or path.suffix != ".json"
-            or relative.parts[0] not in (ARM_PRODUCT, ARM_BARE_PROMPT)
-            or not path.stem
-        ):
+    try:
+        arms = list_authoritative_directory(
+            root, "reconciliation", maximum_entries=3
+        )
+        if set(arms) - {ARM_PRODUCT, ARM_BARE_PROMPT}:
             raise ComparisonEvidenceError(
                 "comparison reconciliation contains an orphan marker"
             )
-        key = (path.stem, relative.parts[0])
-        if key in keys:
-            raise ComparisonEvidenceError(
-                "comparison reconciliation contains a duplicate marker"
+        for arm in arms:
+            names = list_authoritative_directory(
+                root, Path("reconciliation") / arm, maximum_entries=10_000
             )
-        keys.add(key)
+            for name in names:
+                path = Path(name)
+                if path.suffix != ".json" or not path.stem:
+                    raise ComparisonEvidenceError(
+                        "comparison reconciliation contains an orphan marker"
+                    )
+                key = (path.stem, arm)
+                if key in keys:
+                    raise ComparisonEvidenceError(
+                        "comparison reconciliation contains a duplicate marker"
+                    )
+                keys.add(key)
+    except ValueError as exc:
+        if isinstance(exc, ComparisonEvidenceError):
+            raise
+        raise ComparisonEvidenceError(
+            "comparison reconciliation marker path is unsafe"
+        ) from exc
     return keys
 
 
 def _comparison_paid_call_root_keys(root: Path) -> set[tuple[str, str]]:
     allowed = {
+        ".outcome-staging",
         "comparison.json",
         "reconciliation",
         "authoritative-outcomes",
         ARM_PRODUCT,
         ARM_BARE_PROMPT,
     }
-    for path in root.iterdir():
-        if path.name not in allowed:
+    try:
+        root_names = list_authoritative_directory(
+            root, ".", maximum_entries=10_000
+        )
+    except ValueError as exc:
+        raise ComparisonEvidenceError(
+            "comparison checkpoint root is unsafe"
+        ) from exc
+    for name in root_names:
+        if name not in allowed:
             raise ComparisonEvidenceError(
                 "comparison checkpoint root contains orphan paid-call evidence"
             )
     keys: set[tuple[str, str]] = set()
     for arm in (ARM_PRODUCT, ARM_BARE_PROMPT):
         arm_root = root / arm
-        if not arm_root.exists():
+        try:
+            arm_root.lstat()
+        except FileNotFoundError:
             continue
-        if not arm_root.is_dir():
-            raise ComparisonEvidenceError(
-                "comparison paid-call arm root is not a directory"
+        try:
+            case_ids = list_authoritative_directory(
+                root, arm, maximum_entries=10_000
             )
-        for case_root in arm_root.iterdir():
-            if not case_root.is_dir() or not case_root.name:
+        except (OSError, ValueError) as exc:
+            raise ComparisonEvidenceError(
+                "comparison paid-call arm root is unsafe"
+            ) from exc
+        for case_id in case_ids:
+            if not case_id:
                 raise ComparisonEvidenceError(
                     "comparison paid-call arm contains orphan evidence"
                 )
-            keys.add((case_root.name, arm))
+            keys.add((case_id, arm))
     return keys
 
 
@@ -1943,20 +2547,56 @@ def _product_arm(
     checkpoint_root: Path | None,
     binding_sha256: str | None,
     outcome_authority: ComparisonOutcomeAuthority | None,
+    manifest: BenchmarkManifest,
+    line_slack: int,
 ) -> ArmRun:
     request = plan.request
-    inner = provider_factory(request)
+    slot = _comparison_outcome_slot(
+        outcome_authority,
+        case_id=request.case_id,
+        arm=ARM_PRODUCT,
+        repeat=request.repeat,
+    )
+    if outcome_authority is not None and slot is not None:
+        existing = read_comparison_arm_outcome_if_present(outcome_authority, slot)
+        if existing is not None:
+            if checkpoint_root is None or binding_sha256 is None:
+                raise ComparisonEvidenceError(
+                    "authoritative product outcome lacks paid checkpoint binding"
+                )
+            return _rebuild_comparison_run_from_outcome(
+                slot,
+                existing,
+                checkpoint_root=checkpoint_root,
+                paid_trials=_paid_trials_from_plans((plan,)),
+                binding_sha256=binding_sha256,
+                manifest=manifest,
+                line_slack=line_slack,
+            )
     reconciliation: tuple[CheckpointedProvider, Path, dict[str, object]] | None = None
     if checkpoint_root is not None:
         assert binding_sha256 is not None
-        reconciliation = _checkpointed_comparison_provider(
-            inner,
+        reconciliation = _settled_checkpoint_recovery(
             checkpoint_root=checkpoint_root,
             arm=ARM_PRODUCT,
             case_id=request.case_id,
             model_id=request.config.model,
             binding_sha256=binding_sha256,
         )
+    if reconciliation is None:
+        inner = provider_factory(request)
+        if checkpoint_root is not None:
+            assert binding_sha256 is not None
+            reconciliation = _checkpointed_comparison_provider(
+                inner,
+                checkpoint_root=checkpoint_root,
+                arm=ARM_PRODUCT,
+                case_id=request.case_id,
+                model_id=request.config.model,
+                binding_sha256=binding_sha256,
+            )
+    else:
+        inner = _VerificationOnlyComparisonProvider()
     meter = _MeteredProvider(
         inner
         if reconciliation is None
@@ -1978,6 +2618,8 @@ def _product_arm(
             clock=clock,
         )
     except (AmbiguousCostError, ComparisonEvidenceError):
+        raise
+    except ProjectEvaluationAuthorityError:
         raise
     findings = tuple(
         BaselineFinding(
@@ -2025,61 +2667,132 @@ def _baseline_arms(
     checkpoint_root: Path | None,
     binding_sha256: str | None,
     outcome_authority: ComparisonOutcomeAuthority | None,
+    manifest: BenchmarkManifest,
+    line_slack: int,
 ) -> tuple[ArmRun, ArmRun]:
     request = plan.request
     role = plan.case.role
+    bare_slot = _comparison_outcome_slot(
+        outcome_authority,
+        case_id=request.case_id,
+        arm=ARM_BARE_PROMPT,
+        repeat=request.repeat,
+    )
+    ruff_slot = _comparison_outcome_slot(
+        outcome_authority,
+        case_id=request.case_id,
+        arm=ARM_RUFF,
+        repeat=request.repeat,
+    )
+    bare_outcome = (
+        None
+        if outcome_authority is None or bare_slot is None
+        else read_comparison_arm_outcome_if_present(outcome_authority, bare_slot)
+    )
+    ruff_outcome = (
+        None
+        if outcome_authority is None or ruff_slot is None
+        else read_comparison_arm_outcome_if_present(outcome_authority, ruff_slot)
+    )
+    if ruff_outcome is not None and bare_outcome is None:
+        raise ComparisonEvidenceError(
+            "comparison Ruff outcome exists before its predeclared bare predecessor"
+        )
+    paid_trials = _paid_trials_from_plans((plan,))
     bare: ArmRun | None = None
+    if bare_outcome is not None:
+        if checkpoint_root is None or binding_sha256 is None or bare_slot is None:
+            raise ComparisonEvidenceError(
+                "authoritative bare outcome lacks paid checkpoint binding"
+            )
+        bare = _rebuild_comparison_run_from_outcome(
+            bare_slot,
+            bare_outcome,
+            checkpoint_root=checkpoint_root,
+            paid_trials=paid_trials,
+            binding_sha256=binding_sha256,
+            manifest=manifest,
+            line_slack=line_slack,
+        )
+    if ruff_outcome is not None:
+        if ruff_slot is None or checkpoint_root is None or binding_sha256 is None:
+            raise ComparisonEvidenceError(
+                "authoritative Ruff outcome lacks comparison binding"
+            )
+        ruff = _rebuild_comparison_run_from_outcome(
+            ruff_slot,
+            ruff_outcome,
+            checkpoint_root=checkpoint_root,
+            paid_trials=paid_trials,
+            binding_sha256=binding_sha256,
+            manifest=manifest,
+            line_slack=line_slack,
+        )
+        if bare is not None:
+            return bare, ruff
+    bare_recovery: tuple[CheckpointedProvider, Path, dict[str, object]] | None = None
+    if bare is None and checkpoint_root is not None:
+        assert binding_sha256 is not None
+        bare_recovery = _settled_checkpoint_recovery(
+            checkpoint_root=checkpoint_root,
+            arm=ARM_BARE_PROMPT,
+            case_id=request.case_id,
+            model_id=request.config.model,
+            binding_sha256=binding_sha256,
+        )
     try:
         with _materialized_diff(request) as (worktree, diff):
-            inner = bare_provider_factory(request.case_id)
-            reconciliation: tuple[
-                CheckpointedProvider, Path, dict[str, object]
-            ] | None = None
-            if checkpoint_root is not None:
-                assert binding_sha256 is not None
-                reconciliation = _checkpointed_comparison_provider(
-                    inner,
-                    checkpoint_root=checkpoint_root,
-                    arm=ARM_BARE_PROMPT,
+            if bare is None:
+                reconciliation = bare_recovery
+                if reconciliation is None:
+                    inner = bare_provider_factory(request.case_id)
+                    if checkpoint_root is not None:
+                        assert binding_sha256 is not None
+                        reconciliation = _checkpointed_comparison_provider(
+                            inner,
+                            checkpoint_root=checkpoint_root,
+                            arm=ARM_BARE_PROMPT,
+                            case_id=request.case_id,
+                            model_id=request.config.model,
+                            binding_sha256=binding_sha256,
+                        )
+                else:
+                    inner = _VerificationOnlyComparisonProvider()
+                bare = BarePromptBaseline(
+                    inner
+                    if reconciliation is None
+                    else _FailClosedCheckpointProvider(
+                        reconciliation[0],
+                        maximum_calls=_settled_replay_limit(reconciliation[2]),
+                    ),
+                    clock=clock,
+                ).evaluate(
                     case_id=request.case_id,
-                    model_id=request.config.model,
-                    binding_sha256=binding_sha256,
+                    role=role,
+                    diff=diff,
+                    config=request.config,
                 )
-            bare = BarePromptBaseline(
-                inner
-                if reconciliation is None
-                else _FailClosedCheckpointProvider(
-                    reconciliation[0],
-                    maximum_calls=_settled_replay_limit(reconciliation[2]),
-                ),
-                clock=clock,
-            ).evaluate(
-                case_id=request.case_id,
-                role=role,
-                diff=diff,
-                config=request.config,
-            )
-            bare = replace(bare, model_id=request.config.model)
-            if reconciliation is not None:
-                bare = _attach_comparison_reconciliation(bare, *reconciliation)
+                bare = replace(bare, model_id=request.config.model)
+                if reconciliation is not None:
+                    bare = _attach_comparison_reconciliation(bare, *reconciliation)
+                _write_comparison_run_outcome(
+                    outcome_authority,
+                    bare,
+                    repeat=request.repeat,
+                    product_measurement=None,
+                )
             ruff = RuffBaseline(ruff_executable, clock=clock).evaluate(
                 case_id=request.case_id,
                 role=role,
                 diff=diff,
                 worktree=worktree,
             )
-        _write_comparison_run_outcome(
-            outcome_authority,
-            bare,
-            repeat=request.repeat,
-            product_measurement=None,
-        )
-        _write_comparison_run_outcome(
-            outcome_authority,
-            ruff,
-            repeat=request.repeat,
-            product_measurement=None,
-        )
+            _write_comparison_run_outcome(
+                outcome_authority,
+                ruff,
+                repeat=request.repeat,
+                product_measurement=None,
+            )
         return bare, ruff
     except (AmbiguousCostError, ComparisonEvidenceError):
         raise
@@ -2196,6 +2909,27 @@ def _write_comparison_run_outcome(
         matching[0],
         _comparison_arm_outcome(run, product_measurement=product_measurement),
     )
+
+
+def _comparison_outcome_slot(
+    authority: ComparisonOutcomeAuthority | None,
+    *,
+    case_id: str,
+    arm: str,
+    repeat: int,
+) -> ComparisonOutcomeSlot | None:
+    if authority is None:
+        return None
+    matching = tuple(
+        slot
+        for slot in authority.slots
+        if slot.case_id == case_id and slot.arm == arm and slot.repeat == repeat
+    )
+    if len(matching) != 1:
+        raise ComparisonEvidenceError(
+            f"comparison {arm}/{case_id} has no exact authoritative outcome slot"
+        )
+    return matching[0]
 
 
 @contextmanager
