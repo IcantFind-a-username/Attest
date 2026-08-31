@@ -1,0 +1,14 @@
+Looking in links: /private/tmp/attest-wheelhouse.WAGZer, /private/tmp/attest-wheelhouse.WAGZer
+Obtaining file:///private/tmp/attest-m01-task5-recovery-5efe3d1-py312/checkout
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: attest
+  Building editable for attest (pyproject.toml): started
+  Building editable for attest (pyproject.toml): finished with status 'done'
+  Created wheel for attest: filename=attest-0.0.1-py3-none-any.whl size=9265 sha256=f17921dc0caf1fd77bbb9f8d2de3edf2a87d0e1d013ee260b41a8ebbca482d49
+  Stored in directory: /private/tmp/attest-m01-task5-recovery-5efe3d1-py312/tmp/pip-ephem-wheel-cache-9qhcd4id/wheels/4a/6e/e5/de1fa31a47239c3730ec33d6cbed3b17ab6095eebaba6e8ad6
+Successfully built attest
+Installing collected packages: attest
+Successfully installed attest-0.0.1

@@ -24,8 +24,9 @@ Core is activated only as a shadow evidence scheduler and later, if measured, as
 execution-order controller. It is never a voter or certifier. Public speech is controlled
 only by a trusted, claim-bound differential receipt and a PR-level publication policy.
 
-The north star does not change the current sequence: M-01 remains the trusted-measurement
-prerequisite, while C-01 is an evidence-safety foundation rather than the product goal.
+The north star does not change the current sequence: Phase 0's trusted-measurement
+prerequisite is complete, while C-01 is the current evidence-safety foundation rather than
+the product goal.
 S-01 and all later evaluations must cover repository understanding, architecture
 decomposition, cross-cutting impact, and Top-issue prioritization. Current BugsInPy and
 local-regression metrics are bounded evidence and cannot establish that product outcome.
@@ -74,11 +75,8 @@ These are P0 even though many happy-path tests pass:
    values;
 2. head configuration may relax policy;
 3. manual reproduction can share the automated V accounting path;
-4. mixed author-visible surface plus DEFER can disappear from benchmark accuracy;
-5. receipts lack sufficient execution and semantic provenance;
-6. the configured inline limit is not a hard cap across every author-visible surface;
-7. fresh full-suite output is time-sensitive because an acceptance test hard-codes a date,
-   and developer tool versions are not fully locked.
+4. receipts lack sufficient execution and semantic provenance;
+5. the configured inline limit is not a hard cap across every author-visible surface.
 
 ## 3. Program rules
 
@@ -103,13 +101,13 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | M-01 | it is the remaining Phase 0 blocker: authoritative outcome accounting must precede any comparison-quality claim |
-| **NEXT** | after M-01 acceptance, C-01; then the remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
+| **NOW** | C-01 | Phase 0 is complete; the next boundary is a versioned certification domain with no direct presentation authority |
+| **NEXT** | C-02 and V-01 after C-01; then remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
 
-The first unblocked code work is M-01. C-01 starts only after M-01 acceptance; Core is not
-the next direct production switch.
+The first unblocked code work is C-01; it has not started. Core is not the next direct
+production switch.
 
 ## 4. Dependency graph
 
@@ -163,14 +161,19 @@ a file set until handoff.
 Goal: make repository instructions and measurements impossible to misread before behavior
 changes.
 
+Status: **complete** — F-00 and M-01 through M-03 have their required evidence and Gates.
+
 ### Work orders
 
 - [x] **F-00 — evolution scaffold.** Target architecture, roadmap, work orders, Gates,
   current-truth boundary, and decisions passed `G-DOC-001`; evidence is recorded in
   [`acceptance/2026-08-30-evolution-scaffold.md`](acceptance/2026-08-30-evolution-scaffold.md).
-- [ ] **M-01 — author-visible outcome accounting.** Score every public finding even when
-  another candidate or the task DEFERs. Separate task status, finding accuracy, PR harm,
-  and delivery.
+- [x] **M-01 — author-visible outcome accounting.** Final implementation `5efe3d1`
+  separates task status, finding accuracy, PR harm, and delivery so every public finding
+  remains scored beside DEFER. The fixed-SHA 20-process measurement, final P0=0/P1=0
+  review, and fresh Python 3.11/3.12 `G-MEASURE-001` / `G-CODE-001` recovery Gates are
+  bound by the
+  [`2026-08-31 recovery acceptance`](acceptance/2026-08-31-m01-task5-recovery.md).
 - [x] **M-02 — receipt authority and raw validation evidence.** Reject incomplete/manual
   validation rows, retain bounded fixed/buggy run evidence, and distinguish integrity,
   provenance, and semantic authority. Integrated implementation `14a57fb` passed fresh
@@ -564,6 +567,19 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-08-31 — M-01 Task 5 recovery accepted; Phase 0 complete:** final implementation
+  `5efe3d1` retains Task 4's versioned before/after and 20-process mixed-outcome result and
+  closes independent review at P0=0/P1=0. After preserving the original `ENOSPC` attempts
+  as failed-environment history and safely reclaiming reconstructible temporary space,
+  fresh detached exact-SHA Python 3.11.5 and 3.12.8 environments each invoked full pytest
+  once and passed 1543/1543 tests, total coverage 12373/13728 (90.129662%), core coverage
+  428/429 (99.766900%), Ruff, Mypy, `pip check`, provenance, clean/diff, and frozen-v1
+  hashes. M-01, `G-MEASURE-001`, and `G-CODE-001` pass; with M-02/M-03 already accepted,
+  Phase 0 is complete and C-01 is unblocked but not started. The superseding
+  [`acceptance report`](acceptance/2026-08-31-m01-task5-recovery.md) binds the raw bundle;
+  root manifest SHA-256 is
+  `d98c510ba5ba8860a27bed57e3d08d86a90b2c4cb758ec1b252ae1ae2956e89b`.
 
 - **2026-08-31 — M-01 Task 5 failed on host storage; still open:** implementation
   `dd37a8e` closes reproduced outer-row, strict-reader, delivery-decision join, and

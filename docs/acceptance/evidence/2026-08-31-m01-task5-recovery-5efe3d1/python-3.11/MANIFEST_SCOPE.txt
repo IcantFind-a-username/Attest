@@ -1,0 +1,1 @@
+Manifest scope: every regular file under this evidence directory except ARTIFACTS.sha256 itself. Verification outputs are written in the parent recovery root after manifest creation to avoid circularity.

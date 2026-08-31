@@ -285,8 +285,7 @@ denominator, or relax a receipt check to make the suite pass.
 
 ## 13. Portable verification
 
-Use the environment/lock specified by the current branch. Before M-03 lands, typical
-commands are:
+Use the environment/lock specified by the current branch. Typical portable commands are:
 
 ```bash
 python -m pytest

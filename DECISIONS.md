@@ -344,6 +344,29 @@ is active only when the owning architecture/acceptance document changes with it.
   `docs/acceptance/evidence/2026-08-31-m01-task5-5efe3d1/`.
 - **Trace:** `INV-MEASURE-001`, `INV-VERSION-001`; M-01 Tasks 3–4; Task 5 pending.
 
+#### 2026-08-31 amendment — M-01 Task 5 recovery acceptance
+
+- **Status/scope:** accepted supersession of only the current “Task 5 pending / M-01 open”
+  conclusion above. The original `ENOSPC` observation and raw bundle remain immutable
+  failed-environment history; neither invocation is relabelled as a pass.
+- **Evidence:** final implementation `5efe3d1` (tree `a2909b5`) retains Task 4's
+  versioned before/after and 20-process mixed-outcome result and closes independent review
+  at P0=0/P1=0. Fresh detached exact-SHA Python 3.11.5 and 3.12.8 recovery environments
+  each invoked full pytest once and passed 1543/1543 tests, total coverage 12373/13728
+  (90.129662%), core coverage 428/429 (99.766900%), Ruff, Mypy, `pip check`, provenance,
+  clean/diff, and frozen-v1 hashes. The superseding
+  [`acceptance report`](docs/acceptance/2026-08-31-m01-task5-recovery.md) binds the raw
+  dual-Python manifests; root manifest SHA-256 is
+  `d98c510ba5ba8860a27bed57e3d08d86a90b2c4cb758ec1b252ae1ae2956e89b`.
+- **Consequences:** M-01, `G-MEASURE-001`, and `G-CODE-001` pass. With M-02 and M-03
+  already accepted, Phase 0 is complete and C-01 is unblocked but not started. This creates
+  no natural/public-data quality claim and does not authorize C-02, Core, a release, or a
+  factory-statistics/pricing change.
+- **Reversal:** retain both recovery and failed-environment bundles. A later failure starts
+  a new versioned observation; never rewrite either historical result.
+- **Trace:** `INV-MEASURE-001`, `INV-VERSION-001`; `G-MEASURE-001`, `G-CODE-001`;
+  M-01 Tasks 3–5.
+
 ### D-048 — Alpha auto-tighten constants are protected factory authority
 
 - **Date/status/scope:** 2026-08-31 · accepted guard clarification · review ledger and

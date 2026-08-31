@@ -19,11 +19,17 @@ gate.
 - [`2026-08-31-m02-m03-integration-revalidation.md`](2026-08-31-m02-m03-integration-revalidation.md)
   — accepted M-02/M-03 integration at `14a57fb`, including fresh Python 3.11/3.12
   `G-CODE-001`, `G-CODE-002`, `G-MEASURE-002`, and M-03 regression evidence; it preserves
-  the original M-02 BLOCKED report and records M-01 as the remaining Phase 0 handoff.
+  the original M-02 BLOCKED report and, at that observation, records M-01 as the remaining
+  Phase 0 handoff.
 - [`2026-08-31-m01-mixed-outcome.md`](2026-08-31-m01-mixed-outcome.md) — M-01 Task 4
   fixed-SHA before/after and 20-process offline evidence; final candidate `5efe3d1` has
   independent-review P0=0/P1=0, but Task 5's one full-pytest attempt on each supported
-  Python was terminated by host `ENOSPC`, so dual-Python closure remains open.
+  Python was terminated by host `ENOSPC`, so dual-Python closure remained open at that
+  observation.
+- [`2026-08-31-m01-task5-recovery.md`](2026-08-31-m01-task5-recovery.md) — superseding
+  M-01 / `G-MEASURE-001` / `G-CODE-001` PASS at final candidate `5efe3d1`, binding fresh
+  exact-SHA Python 3.11/3.12 recovery evidence while preserving the earlier `ENOSPC`
+  attempts as immutable failed-environment history.
 - [`phase-3.md`](phase-3.md) — historical planted-fixture GitHub Action integration smoke.
   It predates the complete evidence-bundle and workflow-exit requirements.
 
