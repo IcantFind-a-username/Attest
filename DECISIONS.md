@@ -447,3 +447,24 @@ is active only when the owning architecture/acceptance document changes with it.
   budget by under-reserving the enforced provider cap.
 - **Trace:** Wave 3 run `wave3-observe2-20260901`; `src/attest/review/proposer.py`;
   `DEVSPEND.md`.
+
+### D-052 — Reproduction recovery stays bounded and in-process
+
+- **Date/status/scope:** 2026-09-01 · accepted implementation constraint · V-channel
+  reproduction generation.
+- **Decision:** tolerate only an otherwise complete JSON response wrapped in one Markdown
+  JSON fence, and retry a schema-invalid generation at most once. Reserve both possible
+  calls before the first dispatch, settle only calls made, and cancel every unused
+  reservation. Ask generated reproductions to call project functions directly and use an
+  existing synchronous executor seam rather than a CLI, subprocess, or process pool.
+- **Why:** Wave 3 produced three schema-valid reproduction bodies out of four candidates;
+  the fourth stopped at `max_tokens` with `{}`. D-037 also identified shell-out-shaped tests
+  as incompatible with the unchanged evidence container. One bounded recovery attempt and
+  an in-process test idiom address those observed failures without weakening the schema or
+  execution boundary.
+- **Consequences:** there is no unbounded paid retry and no under-reserved dispatch. Network,
+  process, thread, capability, and secret isolation remain unchanged. Arbitrary prose around
+  JSON is still rejected, and a second schema failure remains DEFER.
+- **Reversal:** remove the retry or prompt constraint only with measured V-channel evidence;
+  never reverse by permitting process escape or accepting malformed schema.
+- **Trace:** D-017; D-037; `src/attest/review/executor.py`; Wave 4.

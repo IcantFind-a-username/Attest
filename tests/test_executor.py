@@ -417,6 +417,8 @@ def test_generate_uses_literal_schema_and_candidate_details(tmp_path: Path) -> N
     assert "Passing -1 reaches the unsafe branch." in prompt
     assert "Call validate(-1) and assert that it is rejected." in prompt
     assert "pkg/example.py:150" in prompt
+    assert "call project functions" in provider.requests[0][0]
+    assert "instead of invoking a CLI, subprocess, or process pool" in provider.requests[0][0]
     assert budget.calls == [
         {
             "label": f"verify-{candidate().finding.finding_id}-attempt-1",
