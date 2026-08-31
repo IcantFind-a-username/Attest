@@ -299,6 +299,9 @@ reproduced pre-existing failure. Do not quote an old test count as a current gat
 
 ## 14. Decision and document updates
 
+- Before assigning a decision ID, scan all of `DECISIONS.md`, take the highest existing
+  `D-NNN`, and use the next number. Entries are not stored strictly in numeric order; never
+  trust a cached number or only the last line.
 - Every material trade-off gets a dated `DECISIONS.md` entry with status, scope, evidence,
   consequences, reversal conditions, superseded entries, affected invariants/Gates, and
   affected files/tests.
@@ -332,7 +335,9 @@ reruns gates. “Reviewed” without findings/resolution is not evidence.
 
 Stop the affected path and request an owner decision before:
 
-- factory alpha, LR, channel cap, default hard-publication cap, or statistical family policy;
+- factory alpha, LR, channel cap, default hard-publication cap, or statistical family policy,
+  including the alpha auto-tighten trio protected by D-048: `PRECISION_TARGET`,
+  `PRECISION_WINDOW`, and `ALPHA_FLOOR`;
 - new-code or any new evidence-class pricing/certification contract;
 - production isolation backend/platform commitment or controlled-subprocess profile /
   allowlist policy;

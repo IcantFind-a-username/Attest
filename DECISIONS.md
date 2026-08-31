@@ -2,10 +2,11 @@
 
 Historical D-001 through D-037 use the original compact format. New decisions use dated,
 structured entries with scope, consequences, reversal conditions, and affected invariant/
-Gate IDs. Historical entries remain evidence; a new decision that changes a normative
-contract is active only when the owning architecture/acceptance document changes with it.
+Gate IDs. Event/correction records use `Reverse: n/a`; they are evidence, not trade-offs to
+reopen. Historical entries remain evidence; a new decision that changes a normative contract
+is active only when the owning architecture/acceptance document changes with it.
 
-- **D-001 toolchain**: hatchling + src layout, dist/import name `attest`, Python >=3.11 (dev machine 3.14), numpy as the only runtime dep for core. Why: handoff spec; smallest surface. Reverse: anytime before publishing.
+- **D-001 toolchain**: hatchling + src layout, dist/import name `attest`, Python >=3.11 (dev machine 3.14), numpy as the only runtime dep for core (**amended by D-006**: the CLI adds the anthropic SDK, so numpy-only scopes to `attest.core`). Why: handoff spec; smallest surface. Reverse: anytime before publishing.
 - **D-002 forbidden-token policy**: commit-msg hook rejects any case-insensitive AI-assistant name in commit messages; branch names and comments keep the same rule. Model identifiers (e.g. the default proposer model id) are product data mandated by the spec and live in config/data files, not in commit messages or branch names. Why: owner's git discipline + the spec itself fixes the default model id. Reverse: owner call.
 - **D-003 exploration "relevant cells" (revised after independent review)**: the eps=0.10 -> 0.02 drop triggers when every MARGINAL cell (theta x verdict per judge) has >= 30 samples. Pairwise and triple cells are excluded: review verified empirically that under near-deterministic cloning (gamma=0.99) the rarest pair cell needs ~340k tasks to reach 30, pinning exploration hot forever and making the spec-mandated 0.02 phase unreachable; thin pair/triple cells are guarded by the tau=0.05 floor instead (RESULTS §5). Reverse: one predicate.
 - **D-004 winner's-curse monitor defaults**: rolling window 200 purchases; alarm when a judge's mean(realized log-e minus estimated log-e) < -0.15 nats with n>=30 in window, or when any judge's spend share in the recent half-window drifts > 0.15 absolute vs the prior half. Alarms are appended to the ledger only; no automatic intervention (spec). Why: spec fixes the mechanism but not the constants; these are conservative first guesses. Reverse: constants are config; recalibrate after dogfood.
@@ -15,10 +16,10 @@ contract is active only when the owning architecture/acceptance document changes
 - **D-009 alpha auto-tighten bookkeeping**: tightenings are recorded as ledger events (kind=alpha_tightened) in the reviewed repo, not by writing to that repo's files; `attest stats` and reports surface them. Requires >=10 labeled surfaced findings before acting. Why: a tool must not edit user documents; the ledger is the audit trail. Reverse: config auto_tighten_alpha=false.
 - **D-010 per-finding spend attribution**: the K-sample proposal cost is shared; ledger review rows split it evenly across candidates (spend = total/n). Why: spec wants spend per row; even split is the only defensible cold-start allocation. Reverse: cost model later.
 - **D-011 po_adaptive is experimental, with a known directional-pooling bias**: independent review confirmed the pooled pair table mixes both purchase directions while inclusion depends on the first verdict, so the reverse-direction conditional read is biased under heterogeneous purchase orders. Matches the seed prototype's engine_po semantics (RESULTS §6 documents its residual pathologies); documented rather than redesigned because the variant is a comparison flag, not the default. Reverse: split pair tables by direction if the variant is ever promoted.
-- **D-012 monitor estimates are SIGNED expected log-e** (fix from independent review): the winner's-curse monitor originally compared the nonnegative allocation value (symmetric KL) to the signed realized log LR, which alarms permanently on healthy judges (expected gap -2(1-p)KL(q0||q1), several times the threshold). Now the recorded estimate is p*KL(q1||q0) - (1-p)*KL(q0||q1), the model expectation of the realized quantity: healthy gap ~0, real optimism goes negative. Allocation still uses the symmetric value (correct decision value).
+- **D-012 monitor estimates are SIGNED expected log-e** (fix from independent review): the winner's-curse monitor originally compared the nonnegative allocation value (symmetric KL) to the signed realized log LR, which alarms permanently on healthy judges (expected gap -2(1-p)KL(q0||q1), several times the threshold). Now the recorded estimate is p*KL(q1||q0) - (1-p)*KL(q0||q1), the model expectation of the realized quantity: healthy gap ~0, real optimism goes negative. Allocation still uses the symmetric value (correct decision value). Reverse: n/a — correction/validation record.
 - **D-013 dogfood sampling path**: no ANTHROPIC_API_KEY exists on this machine (checked process/user/machine env and the vendor CLI), so dogfood samples are generated by K parallel harness subagents running the EXACT system+user prompt and schema the product would send (same model family as the configured default), then replayed through `attest review --mock`. Everything downstream of sampling — validation, dedup, votes, channels, gate, ledger, verify, feedback — is the real product path. Consequences: p50 latency of the model call and live ApiProvider are NOT validated (deferred to owner with a key); token spend billed to the session, not the $10 API cap (recorded in DEVSPEND.md). Dedup thresholds were calibrated on the first dogfood run (graded by anchor agreement: exact line 0.15, near line 0.35, over claim+failure tokens). Reverse: rerun dogfood with ApiProvider once a key exists.
-- **D-014 phase-1 independent review yielded 8 confirmed defects, all fixed**: path normalization ate dotfile prefixes (lstrip -> proper prefix strip); diff content could spoof file headers (header state machine added); `--mock` with zero files fell through to the real API (nargs='+' + MockProvider guard); sentence counter inflated on code spans/abbreviations/decimals (code-span strip + boundary regex + abbreviation list); tier-0 path match lacked component boundary (tests/utils.py corroborated utils.py); alpha auto-tighten re-halved on stale label windows (label-count watermark) and ignored the config-off flag for replay; cap-overflow findings were excluded from the precision loop (action renamed overflow_surface) and re-verification double-counted (dedupe by finding id); CLI overrides bypassed config validation (dataclasses.replace + error exit).
-- **D-015 live-API validation supersedes D-013's deferral**: owner supplied ANTHROPIC_API_KEY (user-level env var; long-lived processes must re-read it from the User scope); live runs on 2026-08-29 validated the real ApiProvider path (schema 400 found+fixed @71db3f4, then 11.1s surfaced review + negative control, $0.1526 total, DEVSPEND.md). D-013's mock pipeline remains the keyless fallback. AGENTS.md added as the standing guide for coding agents.
+- **D-014 phase-1 independent review yielded 8 confirmed defects, all fixed**: path normalization ate dotfile prefixes (lstrip -> proper prefix strip); diff content could spoof file headers (header state machine added); `--mock` with zero files fell through to the real API (nargs='+' + MockProvider guard); sentence counter inflated on code spans/abbreviations/decimals (code-span strip + boundary regex + abbreviation list); tier-0 path match lacked component boundary (tests/utils.py corroborated utils.py); alpha auto-tighten re-halved on stale label windows (label-count watermark) and ignored the config-off flag for replay; cap-overflow findings were excluded from the precision loop (action renamed overflow_surface) and re-verification double-counted (dedupe by finding id); CLI overrides bypassed config validation (dataclasses.replace + error exit). Reverse: n/a — correction/validation record.
+- **D-015 live-API validation supersedes D-013's deferral**: owner supplied ANTHROPIC_API_KEY (user-level env var; long-lived processes must re-read it from the User scope); live runs on 2026-08-29 validated the real ApiProvider path (schema 400 found+fixed @71db3f4, then 11.1s surfaced review + negative control, $0.1526 total, DEVSPEND.md). D-013's mock pipeline remains the keyless fallback. AGENTS.md added as the standing guide for coding agents. Reverse: n/a — validation event.
 - **D-016 automated acceptance with private remotes (owner directive 2026-08-29)**: phases end with agent-run end-to-end acceptance, not owner handoff. Private GitHub repos (attest mirror + scratch) authorized for testing only; secret set via gh piped from env; public release still owner-gated. Precondition: gh auth or GH_TOKEN (the one allowed stop-and-ask). Reverse: owner call.
 - **D-017 evidence-process containment**: POSIX reproduction pytest lowers `RLIMIT_NPROC` soft+hard to zero before exec, fails closed where the limit is absent or privilege can bypass it, and uses startup/audit markers so ordinary process attempts (plus Python thread attempts, because Linux counts threads) are DEFERRED; descendant polling and retained PIDs are forbidden, while Windows keeps its bounded process-tree fallback. Why: post-spawn ancestry sampling can miss exit-race children and reused PIDs can target unrelated processes. Reverse: replace with a scoped kernel container/job primitive that is available without runner privileges on every supported host.
 - **D-018 Phase-3 acceptance boundary**: scratch-repository acceptance is a policy service over injected subprocess/filesystem adapters, with a separate opt-in live executor; local tests use fakes and the executor passes the model key only through command stdin. Acceptance preserves the executor's ternary verification semantics (reproduced / not-reproduced / deferred), treats its Python network guard as best-effort rather than global isolation, and requires the uploaded JSONL ledger artifact to persist and account for review, verification, and GitHub-comment events. Why: deterministic local policy tests must not need remote authority, secrets, or paid calls, while a retained artifact and URLs make the eventual live result independently inspectable. Reverse: replace the adapters if GitHub supplies a first-class test harness; replace best-effort isolation only with a cross-platform scoped kernel primitive; replace artifact persistence only when an equally durable auditable store accounts for every event.
@@ -310,3 +311,40 @@ contract is active only when the owning architecture/acceptance document changes
 - **Trace:** `INV-SEC-001`, `INV-TRUTH-001`, `INV-VERSION-001`, `G-CODE-002`,
   `G-MEASURE-001`, `G-MEASURE-002`, `G-MEASURE-003`; work orders M-01, M-02, M-03,
   X-01, and V-03.
+
+#### 2026-08-31 amendment — M-01 authoritative mixed outcomes
+
+- **Status/scope:** active version/accounting clarification after M-01 Task 3; supersedes
+  only D-047's earlier current-version and unresolved-M-01 statements.
+- **Current versions:** comparison checkpoint v7; comparison report v4; calibration report
+  v5; project evaluation binding v2; live predeclaration/case checkpoint v5; stability
+  predeclaration/report/observation v5; paid-call checkpoint v5; paid-call artifact/cost v4;
+  comparison reconciliation v2. `MeasurementRecord` remains v2 with
+  `mixed_outcome_v3` reducer semantics; outcome predeclaration/seal/final-receipt schemas
+  begin at v1. Unknown or older current-authority state fails closed and remains historical.
+- **Authority closure:** product outcomes are persisted as exact adjudicated measurements,
+  joined by finding ID, sealed into comparison/live/stability evidence, and included in
+  final receipt/report digests. Caller-owned `ArmRun` rewrites and task-level DEFER can no
+  longer erase already-published findings or rewrite product accuracy.
+- **Evidence/reversal:** implementation `c680641` (including post-review sealing fixes)
+  closes the earlier code-level authority gap. M-01 Task 4 formal acceptance and
+  `G-MEASURE-001` evidence remain pending. Retain old artifacts with compatible readers;
+  never coerce them into current scoring authority.
+- **Trace:** `INV-MEASURE-001`, `INV-VERSION-001`; M-01 Task 3; Task 4 pending acceptance.
+
+### D-048 — Alpha auto-tighten constants are protected factory authority
+
+- **Date/status/scope:** 2026-08-31 · accepted guard clarification · review ledger and
+  factory statistical policy. Renumbered from main's colliding D-038 when merged after
+  evolution decisions D-038 through D-047.
+- **Decision:** `PRECISION_TARGET = 0.90`, `PRECISION_WINDOW = 50`, and
+  `ALPHA_FLOOR = 0.01` are factory statistical constants. Changing any of them requires
+  the same owner stop-and-ask as changing alpha, LR schedules, or channel caps.
+- **Why:** these values let observed feedback move the gate itself. An unnamed constant
+  cannot reliably receive the red-line protection already required for factory statistics.
+- **Consequences:** `auto_tighten_alpha = false` remains the supported opt-out and changes
+  none of the constants. Decision IDs are allocated by scanning the complete log; merge
+  collisions are renumbered rather than overwriting accepted history.
+- **Reversal:** owner call with preregistered calibration and downstream Gate evidence.
+- **Trace:** `src/attest/review/ledger.py`; `AGENTS.md` §§14/16; factory-statistics
+  stop-and-ask boundary.
