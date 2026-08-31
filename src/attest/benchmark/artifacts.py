@@ -19,7 +19,7 @@ import json
 import os
 import re
 import stat
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -720,8 +720,3 @@ def _is_dependency_failure(output: bytes) -> bool:
             "collected 0",
         )
     )
-
-
-def bounded_records(records: Iterable[ArtifactRecord]) -> tuple[ArtifactRecord, ...]:
-    """Artifacts whose content was truncated to its bound."""
-    return tuple(record for record in records if record.truncated)
