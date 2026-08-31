@@ -23,6 +23,7 @@ from attest.review.candidates import StoredCandidate
 from attest.review.gate import GateResult, apply_verification
 from attest.review.ledger import Ledger
 from attest.review.proposer import Provider
+from attest.review.security import is_secret_name
 
 MAX_CONTEXT_LINES = 200
 MAX_REPRO_TOKENS = 2_000
@@ -34,7 +35,6 @@ CAP_SYS_RESOURCE = 24
 # where the reproduction is executed from inside the tree under test; it is
 # disposable, because the tree is a throwaway worktree removed after the run
 RUN_DIR_NAME = ".attest-repro"
-_CREDENTIAL_NAME_PARTS = ("TOKEN", "SECRET", "PASSWORD", "API_KEY", "CREDENTIAL")
 
 REPRO_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -514,7 +514,7 @@ def _reproduction_environment(site_dir: Path, tree: Path | None = None) -> dict[
     env = {
         name: value
         for name, value in os.environ.items()
-        if not any(part in name.upper() for part in _CREDENTIAL_NAME_PARTS)
+        if not is_secret_name(name)
     }
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     env["PYTHONSAFEPATH"] = "1"

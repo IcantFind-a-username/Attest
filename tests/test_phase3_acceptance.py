@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -22,6 +23,7 @@ from scripts.acceptance.phase3 import (  # noqa: E402
     AcceptanceResult,
     AcceptanceService,
     CommandResult,
+    CommandTimeoutError,
     CommentClassification,
     LedgerArtifact,
     PreflightError,
@@ -141,7 +143,13 @@ def test_preflight_accepts_authenticated_cli_with_required_scopes() -> None:
 
 
 def test_subprocess_adapter_uses_only_its_sanitized_environment() -> None:
-    result = SubprocessRunner({"ATTEST_ACCEPTANCE_SAFE": "yes"}).run(("/usr/bin/env",))
+    result = SubprocessRunner(
+        {
+            "ATTEST_ACCEPTANCE_SAFE": "yes",
+            "GH_TOKEN": "github-token-must-not-leak",
+            "OTHER_API_KEY": "other-key-must-not-leak",
+        }
+    ).run(("/usr/bin/env",))
 
     assert result.returncode == 0
     assert set(result.stdout.splitlines()) == {
@@ -149,6 +157,22 @@ def test_subprocess_adapter_uses_only_its_sanitized_environment() -> None:
         "GIT_TERMINAL_PROMPT=0",
     }
     assert MODEL_KEY_ENV not in result.stdout
+
+
+def test_subprocess_adapter_turns_timeout_into_named_acceptance_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def time_out(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert kwargs["timeout"] == 0.25
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=0.25)
+
+    monkeypatch.setattr(subprocess, "run", time_out)
+
+    with pytest.raises(CommandTimeoutError) as caught:
+        SubprocessRunner({}, timeout_s=0.25).run(("gh", "auth", "status"))
+
+    assert caught.value.command == ("gh", "auth", "status")
+    assert caught.value.timeout_s == 0.25
 
 
 def test_private_repo_command_is_owner_scoped_and_explicitly_private() -> None:

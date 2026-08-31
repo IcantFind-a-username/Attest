@@ -31,7 +31,20 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
-STATUS_MARKER = "<!-- attest:status -->"
+from attest.review.acceptance import (
+    CONTROL_COMMENT_PHASES,
+    NEW_CODE_COMMENT_PHASES,
+    NEW_CODE_EVIDENCE_CLASS,
+    REGRESSION_COMMENT_PHASES,
+    REGRESSION_EVIDENCE_CLASS,
+    AcceptanceError,
+    CommentClassification,
+    LedgerArtifact,
+    classify_comments,
+    parse_ledger,
+)
+from attest.review.security import is_secret_name
+
 SPEND_CAP_USD = 10.0
 MODEL_KEY_ENV = "ANTHROPIC_API_KEY"
 SOURCE_TOKEN_SECRET = "ATTEST_SOURCE_TOKEN"
@@ -41,17 +54,7 @@ SCRATCH_PREFIX = "attest-phase3-"
 SOURCE_REPOSITORY = "IcantFind-a-username/Attest"
 STICKY_LIMIT_SECONDS = 60.0
 RESERVED_SPEND_USD = 0.50
-REGRESSION_COMMENT_PHASES = ("running", "candidate_count", "review", "complete")
-# tests/test_ci_flow.py imports this tuple under its former name for its own
-# surfaced-finding run; both names describe the same phase sequence.
-BUG_COMMENT_PHASES = REGRESSION_COMMENT_PHASES
-CONTROL_COMMENT_PHASES = ("running", "candidate_count", "complete")
-# The new-code arm never reaches "complete": its candidate is recognised, recorded
-# and then deliberately left unpriced, which the CI flow reports as a DEFER status.
-NEW_CODE_COMMENT_PHASES = ("running", "candidate_count", "defer")
-REGRESSION_EVIDENCE_CLASS = "regression_reproduced"
-NEW_CODE_EVIDENCE_CLASS = "new_code_candidate"
-DEFERRED_OUTCOME = "deferred"
+DEFAULT_COMMAND_TIMEOUT_S = 20 * 60.0
 
 # Base tree: `average` is correct here, and the seeded suite covers the guarded
 # empty case, so the reviewed diffs below are a deletion and an addition of code
@@ -116,12 +119,19 @@ NEW_CODE_STATS_SOURCE = SEED_STATS_SOURCE + (
 )
 
 
-class AcceptanceError(RuntimeError):
-    """A sanitized local or remote acceptance failure."""
-
-
 class PreflightError(AcceptanceError):
     """A sanitized missing-prerequisite failure."""
+
+
+class CommandTimeoutError(AcceptanceError):
+    """A subprocess exceeded its configured wall-clock timeout."""
+
+    def __init__(self, command: tuple[str, ...], timeout_s: float) -> None:
+        self.command = command
+        self.timeout_s = timeout_s
+        super().__init__(
+            f"command timed out after {timeout_s:g}s: {' '.join(command[:3])}"
+        )
 
 
 @dataclass(frozen=True)
@@ -154,9 +164,20 @@ class FileSystem(Protocol):
 class SubprocessRunner:
     """Subprocess adapter that never invokes a shell or logs command input."""
 
-    def __init__(self, environ: Mapping[str, str] | None = None) -> None:
-        self._environ = dict(os.environ if environ is None else environ)
+    def __init__(
+        self,
+        environ: Mapping[str, str] | None = None,
+        *,
+        timeout_s: float = DEFAULT_COMMAND_TIMEOUT_S,
+    ) -> None:
+        if not math.isfinite(timeout_s) or timeout_s <= 0:
+            raise ValueError("command timeout must be finite and greater than zero")
+        source = os.environ if environ is None else environ
+        self._environ = {
+            name: value for name, value in source.items() if not is_secret_name(name)
+        }
         self._environ["GIT_TERMINAL_PROMPT"] = "0"
+        self._timeout_s = timeout_s
 
     def run(
         self,
@@ -165,15 +186,19 @@ class SubprocessRunner:
         input_text: str | None = None,
         cwd: Path | None = None,
     ) -> CommandResult:
-        completed = subprocess.run(
-            list(args),
-            cwd=cwd,
-            input=input_text,
-            text=True,
-            capture_output=True,
-            check=False,
-            env=self._environ,
-        )
+        try:
+            completed = subprocess.run(
+                list(args),
+                cwd=cwd,
+                input=input_text,
+                text=True,
+                capture_output=True,
+                check=False,
+                env=self._environ,
+                timeout=self._timeout_s,
+            )
+        except subprocess.TimeoutExpired:
+            raise CommandTimeoutError(args, self._timeout_s) from None
         return CommandResult(completed.returncode, completed.stdout, completed.stderr)
 
 
@@ -204,135 +229,6 @@ class AcceptanceResult:
     queue_seconds: dict[int, float]
     spend_usd: float
     run_urls: dict[int, str] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class CommentClassification:
-    sticky: tuple[dict[str, Any], ...]
-    findings: tuple[dict[str, Any], ...]
-    finding_ids: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class LedgerArtifact:
-    rows: tuple[dict[str, Any], ...]
-
-    @property
-    def task_ids(self) -> frozenset[str]:
-        return frozenset(
-            str(row["task_id"])
-            for row in self.rows
-            if isinstance(row.get("task_id"), str) and row["task_id"]
-        )
-
-    @property
-    def spend_usd(self) -> float:
-        final_runs = [
-            float(row["spend_usd"])
-            for row in self.rows
-            if row.get("kind") == "ci_final" and _is_number(row.get("spend_usd"))
-        ]
-        if final_runs:
-            return round(final_runs[-1], 6)
-        review_runs = [
-            float(row["spend_usd"])
-            for row in self.rows
-            if row.get("kind") == "review_run" and _is_number(row.get("spend_usd"))
-        ]
-        if review_runs:
-            return round(sum(review_runs), 6)
-        return round(
-            sum(
-                float(row["spend"])
-                for row in self.rows
-                if row.get("kind") == "review" and _is_number(row.get("spend"))
-            ),
-            6,
-        )
-
-    def assert_event_coverage(
-        self,
-        *,
-        expected_comment_phases: tuple[str, ...],
-        inline_finding_ids: Sequence[str],
-    ) -> None:
-        review_rows = [row for row in self.rows if row.get("kind") == "review"]
-        verification_rows = [row for row in self.rows if row.get("kind") == "verification"]
-        comment_rows = [row for row in self.rows if row.get("kind") == "github_comment"]
-        if any(row.get("outcome") != "posted" for row in comment_rows):
-            raise AcceptanceError("ledger requires successful GitHub comment rows")
-        phases = tuple(str(row["phase"]) for row in comment_rows)
-        if phases != expected_comment_phases:
-            raise AcceptanceError(
-                f"ledger comment phases {phases!r} do not match {expected_comment_phases!r}"
-            )
-
-        reviewed_ids = {str(row["finding_id"]) for row in review_rows}
-        reproduced_ids = {
-            str(row["finding_id"])
-            for row in verification_rows
-            if row.get("outcome") == "reproduced"
-        }
-        if not reproduced_ids.issubset(reviewed_ids):
-            raise AcceptanceError("ledger verification references an unreviewed candidate")
-
-        inline_ids = tuple(inline_finding_ids)
-        inline_set = set(inline_ids)
-        if len(inline_ids) != len(inline_set) or not inline_set.issubset(reproduced_ids):
-            raise AcceptanceError(
-                "inline finding identities do not match reproduced ledger rows"
-            )
-        final_rows = [row for row in self.rows if row.get("kind") == "ci_final"]
-        if final_rows:
-            decisions = final_rows[-1].get("decisions", [])
-            surfaced_ids = {
-                str(decision.get("finding_id"))
-                for decision in decisions
-                if isinstance(decision, dict) and decision.get("action") == "surface"
-            }
-            if not inline_set.issubset(surfaced_ids):
-                raise AcceptanceError("inline finding identities are not final surfaced decisions")
-
-    def evidence_class_of(self, finding_id: str) -> str | None:
-        """The last differential evidence class recorded for one candidate."""
-        classes = [
-            str(row["evidence_class"])
-            for row in self.rows
-            if row.get("kind") == "verification"
-            and row.get("finding_id") == finding_id
-            and isinstance(row.get("evidence_class"), str)
-        ]
-        return classes[-1] if classes else None
-
-    def assert_regression_evidence(self, inline_finding_ids: Sequence[str]) -> None:
-        """Every inline finding must be bought by head-fail/base-pass evidence:
-        a regression on existing code is the only certifiable pattern."""
-        for finding_id in inline_finding_ids:
-            recorded = self.evidence_class_of(finding_id)
-            if recorded != REGRESSION_EVIDENCE_CLASS:
-                raise AcceptanceError(
-                    f"inline finding {finding_id} recorded evidence class {recorded!r}, "
-                    f"expected {REGRESSION_EVIDENCE_CLASS!r}"
-                )
-
-    def assert_new_code_recorded(self) -> None:
-        """A defect in newly added code must be recognised and written down as an
-        unpriced deferral, never silently missed."""
-        rows = [
-            row
-            for row in self.rows
-            if row.get("kind") == "verification"
-            and row.get("evidence_class") == NEW_CODE_EVIDENCE_CLASS
-        ]
-        if not rows:
-            raise AcceptanceError(
-                f"ledger has no {NEW_CODE_EVIDENCE_CLASS} verification row: the new-code "
-                "defect was missed rather than deliberately left unpriced"
-            )
-        if any(row.get("outcome") != DEFERRED_OUTCOME for row in rows):
-            raise AcceptanceError(
-                f"{NEW_CODE_EVIDENCE_CLASS} verification rows must stay deferred and unpriced"
-            )
 
 
 @dataclass(frozen=True)
@@ -843,55 +739,6 @@ def sticky_seconds(job_started_at: str, comment_created_at: str) -> float:
     return elapsed
 
 
-def classify_comments(
-    issue_comments: Sequence[object], review_comments: Sequence[object]
-) -> CommentClassification:
-    sticky: list[dict[str, Any]] = []
-    findings: list[dict[str, Any]] = []
-    finding_ids: list[str] = []
-    for raw in issue_comments:
-        comment = _comment_object(raw, "issue comment")
-        if STATUS_MARKER in comment["body"]:
-            if not isinstance(comment.get("created_at"), str):
-                raise AcceptanceError("issue comment has invalid created_at")
-            sticky.append(comment)
-    for raw in review_comments:
-        comment = _comment_object(raw, "review comment")
-        body = comment["body"]
-        if "Evidence purchases:" in body and re.search(r"\bV\s+x20(?:\.0+)?\b", body):
-            if not isinstance(comment.get("path"), str) or not isinstance(
-                comment.get("line"), int
-            ):
-                raise AcceptanceError("finding review comment has invalid anchor")
-            match = re.search(r"(?:^|\n)Finding ID: ([0-9a-f]{10})(?:\n|$)", body)
-            if match is None:
-                raise AcceptanceError("verified review comment is missing a stable finding ID")
-            findings.append(comment)
-            finding_ids.append(match.group(1))
-    return CommentClassification(tuple(sticky), tuple(findings), tuple(finding_ids))
-
-
-def parse_ledger(text: str) -> LedgerArtifact:
-    rows: list[dict[str, Any]] = []
-    for number, line in enumerate(text.splitlines(), start=1):
-        if not line.strip():
-            continue
-        try:
-            raw = json.loads(line)
-        except json.JSONDecodeError:
-            raise AcceptanceError(f"ledger line {number} is invalid JSON") from None
-        if not isinstance(raw, dict):
-            raise AcceptanceError(f"ledger line {number} is not a JSON object")
-        _validate_ledger_row(raw, number)
-        rows.append(raw)
-    if not rows:
-        raise AcceptanceError("ledger artifact is empty")
-    artifact = LedgerArtifact(tuple(rows))
-    if len(artifact.task_ids) != 1:
-        raise AcceptanceError("ledger rows must share one common nonempty task_id")
-    return artifact
-
-
 def render_report(result: AcceptanceResult) -> str:
     lines = [
         "# Phase 3 acceptance",
@@ -972,50 +819,6 @@ def _parse_timestamp(value: str) -> datetime:
     if parsed.tzinfo is None:
         raise AcceptanceError("GitHub API timestamp must include a timezone")
     return parsed.astimezone(UTC)
-
-
-def _comment_object(raw: object, description: str) -> dict[str, Any]:
-    if not isinstance(raw, dict) or not isinstance(raw.get("id"), int) or not isinstance(
-        raw.get("body"), str
-    ):
-        raise AcceptanceError(f"{description} payload is malformed")
-    return raw
-
-
-def _validate_ledger_row(row: dict[str, Any], number: int) -> None:
-    kind = row.get("kind")
-    if not isinstance(kind, str) or not kind:
-        raise AcceptanceError(f"ledger line {number} is missing kind")
-    event_required = {
-        "review": ("task_id", "finding_id", "action"),
-        "review_run": ("task_id", "spend_usd"),
-        "verification": ("task_id", "finding_id", "outcome"),
-        "github_comment": ("task_id", "phase", "outcome"),
-        "ci_final": ("task_id", "decisions", "spend_usd"),
-    }
-    for field_name in event_required.get(kind, ("task_id",)):
-        if field_name not in row or row[field_name] in (None, ""):
-            raise AcceptanceError(f"ledger line {number} is missing {field_name}")
-    if kind == "verification" and "evidence_class" in row:
-        evidence_class = row["evidence_class"]
-        if not isinstance(evidence_class, str) or not evidence_class:
-            raise AcceptanceError(f"ledger line {number} has invalid evidence_class")
-    if kind == "review" and "spend" in row and not _is_number(row["spend"]):
-        raise AcceptanceError(f"ledger line {number} has invalid spend")
-    if kind == "review_run" and not _is_number(row["spend_usd"]):
-        raise AcceptanceError(f"ledger line {number} has invalid spend_usd")
-    if kind == "ci_final" and (
-        not isinstance(row["decisions"], list) or not _is_number(row["spend_usd"])
-    ):
-        raise AcceptanceError(f"ledger line {number} has invalid final accounting")
-
-
-def _is_number(value: object) -> bool:
-    return (
-        isinstance(value, (int, float))
-        and not isinstance(value, bool)
-        and math.isfinite(float(value))
-    )
 
 
 def _spend_total_match(text: str) -> re.Match[str]:
