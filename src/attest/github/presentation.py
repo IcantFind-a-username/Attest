@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from attest.review.gate import GateResult
 
+FINDING_ID_MARKER_PREFIX = "<!-- attest:finding-id:"
+
 
 def render_running(candidate_count: int | None = None) -> str:
     """Render a status update without identifying any unverified candidate."""
@@ -48,7 +50,11 @@ def _sorted_surfaced(results: list[GateResult]) -> list[GateResult]:
 
 def _summary_line(result: GateResult) -> str:
     finding = result.finding
-    return f"- {finding.file}:{finding.line} — {finding.claim} (wealth {result.wealth:.1f})"
+    return (
+        f"- {_finding_id_marker(finding.finding_id)} Finding ID: {finding.finding_id}; "
+        f"{finding.file}:{finding.line} — "
+        f"{_one_line(finding.claim)} (wealth {result.wealth:.1f})"
+    )
 
 
 def _inline_comment(result: GateResult) -> dict[str, object]:
@@ -59,6 +65,7 @@ def _inline_comment(result: GateResult) -> dict[str, object]:
     )
     body = "\n".join(
         [
+            _finding_id_marker(finding.finding_id),
             finding.claim,
             f"Finding ID: {finding.finding_id}",
             f"Failure scenario: {finding.failure_scenario}",
@@ -68,3 +75,11 @@ def _inline_comment(result: GateResult) -> dict[str, object]:
         ]
     )
     return {"path": finding.file, "line": finding.line, "side": "RIGHT", "body": body}
+
+
+def _finding_id_marker(finding_id: str) -> str:
+    return f"{FINDING_ID_MARKER_PREFIX}{finding_id} -->"
+
+
+def _one_line(value: str) -> str:
+    return " ".join(value.splitlines())

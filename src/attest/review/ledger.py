@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,8 @@ ALPHA_FLOOR = 0.01
 PRECISION_TARGET = 0.90
 PRECISION_WINDOW = 50
 _SECRET_NAME_PARTS = ("TOKEN", "SECRET", "PASSWORD", "API_KEY", "CREDENTIAL")
+_MAX_DURABLE_LEDGER_BYTES = 64 * 1024 * 1024
+_MAX_DURABLE_LEDGER_ROW_BYTES = 1024 * 1024
 
 # feedback label -> precision polarity. "ambiguous" labels are excluded from
 # both the numerator and denominator of surfaced_precision (see
@@ -86,6 +89,84 @@ class Ledger:
         )
         with self.path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+    def append_durable(self, entry: dict[str, Any]) -> None:
+        """Durably append one security-critical row under a single-writer contract."""
+        if not all(
+            hasattr(os, name) and type(getattr(os, name)) is int
+            for name in ("O_CLOEXEC", "O_DIRECTORY", "O_NOFOLLOW")
+        ):
+            raise ValueError("durable ledger filesystem capabilities are unavailable")
+        redacted = _redact(
+            {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **entry},
+            _known_secrets(),
+        )
+        try:
+            data = (
+                json.dumps(redacted, ensure_ascii=False, allow_nan=False) + "\n"
+            ).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            raise ValueError("durable ledger row is not finite JSON") from exc
+        if not 1 <= len(data) <= _MAX_DURABLE_LEDGER_ROW_BYTES:
+            raise ValueError("durable ledger row exceeds the size limit")
+
+        root_descriptor: int | None = None
+        parent_descriptor: int | None = None
+        file_descriptor: int | None = None
+        try:
+            directory_flags = (
+                os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+            )
+            root_descriptor = os.open(self.root, directory_flags)
+            created_parent = False
+            try:
+                os.mkdir(".attest", mode=0o700, dir_fd=root_descriptor)
+                created_parent = True
+            except FileExistsError:
+                pass
+            parent_descriptor = os.open(
+                ".attest", directory_flags, dir_fd=root_descriptor
+            )
+            if created_parent:
+                os.fsync(root_descriptor)
+
+            append_flags = os.O_WRONLY | os.O_APPEND | os.O_CLOEXEC | os.O_NOFOLLOW
+            created_file = False
+            try:
+                file_descriptor = os.open(
+                    "ledger.jsonl", append_flags, dir_fd=parent_descriptor
+                )
+            except FileNotFoundError:
+                file_descriptor = os.open(
+                    "ledger.jsonl",
+                    append_flags | os.O_CREAT | os.O_EXCL,
+                    0o600,
+                    dir_fd=parent_descriptor,
+                )
+                created_file = True
+            metadata = os.fstat(file_descriptor)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_nlink != 1
+                or metadata.st_size < 0
+                or metadata.st_size + len(data) > _MAX_DURABLE_LEDGER_BYTES
+            ):
+                raise ValueError(
+                    "durable ledger must be a bounded single-link regular file"
+                )
+            remaining = memoryview(data)
+            while remaining:
+                written = os.write(file_descriptor, remaining)
+                if written <= 0:
+                    raise OSError("short durable ledger write")
+                remaining = remaining[written:]
+            os.fsync(file_descriptor)
+            if created_file:
+                os.fsync(parent_descriptor)
+        finally:
+            for descriptor in (file_descriptor, parent_descriptor, root_descriptor):
+                if descriptor is not None:
+                    os.close(descriptor)
 
     def entries(self) -> list[dict[str, Any]]:
         if not self.path.is_file():

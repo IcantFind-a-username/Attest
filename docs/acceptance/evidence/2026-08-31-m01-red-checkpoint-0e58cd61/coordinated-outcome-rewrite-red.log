@@ -1,0 +1,54 @@
+$ PYTHONDONTWRITEBYTECODE=1 /private/tmp/attest-m01-0e58cd6-venv/bin/python -m pytest -p no:cacheprovider -q tests/benchmark/test_measurement.py::test_comparison_publication_rejects_coordinated_outcome_rewrite
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_comparison_publication_rejects_coordinated_outcome_rewrite ________
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-1052/test_comparison_publication_re0')
+
+    def test_comparison_publication_rejects_coordinated_outcome_rewrite(
+        tmp_path: Path,
+    ) -> None:
+        """Removing findings and recomputing every caller aggregate cannot alter publication.
+    
+        Production mutation caught: publishing caller-owned ``ArmRun`` values instead of
+        rebuilding them from a durable canonical outcome artifact.
+        """
+        plans, cassettes, manifest_path = _plans(tmp_path)
+        measurements = compare_arms(
+            plans,
+            provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
+            bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
+            ruff_executable=_ruff_executable(),
+            checkpoint_root=tmp_path / "comparison-state",
+        )
+        original_product = next(summary for summary in measurements.arms if summary.arm == ARM_PRODUCT)
+        assert original_product.accuracy.detection_rate == 1.0
+        assert any(run.findings for run in measurements.runs if run.arm == ARM_PRODUCT)
+    
+        rewritten_runs = tuple(
+            replace(run, findings=(), matched_defect_ids=())
+            if run.arm == ARM_PRODUCT
+            else run
+            for run in measurements.runs
+        )
+        rewritten = replace(
+            measurements,
+            runs=rewritten_runs,
+            arms=tuple(
+                _summarize_arm(
+                    arm,
+                    tuple(run for run in rewritten_runs if run.arm == arm),
+                )
+                for arm in (ARM_PRODUCT, ARM_BARE_PROMPT, ARM_RUFF)
+            ),
+        )
+        rewritten_product = next(summary for summary in rewritten.arms if summary.arm == ARM_PRODUCT)
+        assert rewritten_product.accuracy.detection_rate == 0.0
+    
+>       with pytest.raises(ValueError, match="authoritative.*outcome|outcome.*artifact"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/benchmark/test_measurement.py:83: Failed
+=========================== short test summary info ============================
+FAILED tests/benchmark/test_measurement.py::test_comparison_publication_rejects_coordinated_outcome_rewrite

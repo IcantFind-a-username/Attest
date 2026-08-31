@@ -1,0 +1,99 @@
+$ PYTHONDONTWRITEBYTECODE=1 /private/tmp/attest-m01-0e58cd6-venv/bin/python -m pytest -p no:cacheprovider -q tests/benchmark/test_measurement.py::test_real_mixed_publications_remain_scored_when_one_candidate_defers
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_real_mixed_publications_remain_scored_when_one_candidate_defers _____
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-1054/test_real_mixed_publications_r0')
+
+    def test_real_mixed_publications_remain_scored_when_one_candidate_defers(
+        tmp_path: Path,
+    ) -> None:
+        """Four real publications survive one unresolved candidate in calibration scoring.
+    
+        Production mutation caught: filtering an entire case from scoring whenever its
+        top-level result also carries a DEFER reason.
+        """
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        replay = next(case for case in manifest.cases if case.role == "historical_bug_replay")
+        surfaced = (
+            {
+                "claim": "value() returns 0 instead of the documented 1.",
+                "anchor": {"file": "calc.py", "line": 2},
+                "failure_scenario": "A caller receives zero instead of one.",
+                "falsification_plan": "Call value() and require one.",
+            },
+            {
+                "claim": "value() violates the public nonzero result contract.",
+                "anchor": {"file": "calc.py", "line": 2},
+                "failure_scenario": "Downstream division receives a zero denominator.",
+                "falsification_plan": "Evaluate value() and reject zero.",
+            },
+            {
+                "claim": "value() breaks callers that require the fixed sentinel.",
+                "anchor": {"file": "calc.py", "line": 2},
+                "failure_scenario": "A sentinel comparison observes zero.",
+                "falsification_plan": "Compare value() with the fixed sentinel one.",
+            },
+            {
+                "claim": "value() returns the historical buggy branch result.",
+                "anchor": {"file": "calc.py", "line": 2},
+                "failure_scenario": "The historical zero result reaches an author.",
+                "falsification_plan": "Execute value() and require the fixed result.",
+            },
+        )
+        deferred = {
+            "claim": "A private candidate cannot yet name a reproduction.",
+            "anchor": {"file": "calc.py", "line": 1},
+            "failure_scenario": "An unresolved private path remains under investigation.",
+            "falsification_plan": "No bounded reproduction is available yet.",
+        }
+        proposal = json.dumps({"findings": [*surfaced, deferred]})
+        repro = json.dumps(
+            {
+                "test_body": "import runpy\n\n"
+                "def test_value_is_one():\n"
+                "    assert runpy.run_path('calc.py')['value']() == 1\n"
+            }
+        )
+    
+        class MixedProvider:
+            def sample(
+                self,
+                system: str,
+                prompt: str,
+                schema: dict[str, Any],
+                max_tokens: int,
+                *,
+                timeout_s: float | None = None,
+            ) -> ProviderResult:
+                if "focused pytest reproduction" not in system:
+                    return ProviderResult(text=proposal, input_tokens=10, output_tokens=10)
+                text = "{}" if deferred["claim"] in prompt else repro
+                return ProviderResult(text=text, input_tokens=10, output_tokens=10)
+    
+        with LoopbackGitHub() as github:
+            result = BenchmarkRunner(
+                limits=ExecutorLimits(wall_timeout_s=30.0),
+                repeats=1,
+            ).run_case(
+                root / source_id / replay.pair_id / "replay",
+                case_id=replay.case_id,
+                base_sha=replay.fixed_commit,
+                head_sha=replay.buggy_commit,
+                fixed_sha=replay.fixed_commit,
+                config=ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[]),
+                provider=MixedProvider(),
+                oracle_provider=MixedProvider(),
+                client=github.client(),
+            )
+            inline_events = tuple(github.review_comments)
+            final_summary = github.status_bodies[-1]
+    
+>       assert result.candidate_count == 5
+E       AssertionError: assert 3 == 5
+E        +  where 3 = CaseRunResult(case_id='case-333333333333', task_id='20260831-071017-2c06b73d', run=RunRecord(run_id='20260831-071017-2..._fail_fixed_pass', reason='head FAIL 1/1, base PASS 1/1', buggy_runs=('reproduced',), fixed_runs=('not_reproduced',)))).candidate_count
+
+tests/benchmark/test_measurement.py:170: AssertionError
+=========================== short test summary info ============================
+FAILED tests/benchmark/test_measurement.py::test_real_mixed_publications_remain_scored_when_one_candidate_defers

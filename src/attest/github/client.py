@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
@@ -15,6 +16,19 @@ _NEXT_LINK_RE = re.compile(r'<([^>]+)>;\s*rel="next"')
 class GitHubApiError(RuntimeError):
     """An API failure whose message deliberately excludes request secrets."""
 
+    def __init__(self, message: str, *, definitive_rejection: bool = False) -> None:
+        super().__init__(message)
+        self.definitive_rejection = definitive_rejection
+
+
+@dataclass(frozen=True)
+class PreparedGitHubWrite:
+    """One exact mutation selected after any read-only discovery request."""
+
+    method: str
+    path: str
+    payload: dict[str, object]
+
 
 class GitHubClient:
     def __init__(self, token: str, api_url: str = "https://api.github.com") -> None:
@@ -23,20 +37,32 @@ class GitHubClient:
 
     def upsert_issue_comment(self, repository: str, number: int, marker: str, body: str) -> dict:
         """Update the first bot marker comment, or create a fresh sticky comment."""
+        return self.execute_prepared_write(
+            self.prepare_issue_comment(repository, number, marker, body)
+        )
+
+    def prepare_issue_comment(
+        self, repository: str, number: int, marker: str, body: str
+    ) -> PreparedGitHubWrite:
+        """Resolve POST versus PATCH without issuing the author-visible mutation."""
         comment_body = f"{marker}\n{body}"
         existing = self._find_marker_comment(repository, number, marker)
         if existing is None:
-            response, _ = self._request(
-                "POST",
-                f"/repos/{repository}/issues/{number}/comments",
-                {"body": comment_body},
+            return PreparedGitHubWrite(
+                method="POST",
+                path=f"/repos/{repository}/issues/{number}/comments",
+                payload={"body": comment_body},
             )
-        else:
-            response, _ = self._request(
-                "PATCH",
-                f"/repos/{repository}/issues/comments/{existing}",
-                {"body": comment_body},
-            )
+        return PreparedGitHubWrite(
+            method="PATCH",
+            path=f"/repos/{repository}/issues/comments/{existing}",
+            payload={"body": comment_body},
+        )
+
+    def execute_prepared_write(self, request: PreparedGitHubWrite) -> dict:
+        if type(request) is not PreparedGitHubWrite:
+            raise GitHubApiError("GitHub write request is not an exact prepared request")
+        response, _ = self._request(request.method, request.path, request.payload)
         return _object_response(response)
 
     def create_review(
@@ -95,7 +121,10 @@ class GitHubClient:
                 decoded = json.loads(response.read().decode("utf-8"))
                 return decoded, dict(response.headers.items())
         except HTTPError as exc:
-            raise GitHubApiError(f"GitHub API request failed with HTTP {exc.code}") from None
+            raise GitHubApiError(
+                f"GitHub API request failed with HTTP {exc.code}",
+                definitive_rejection=400 <= exc.code < 500,
+            ) from None
         except (URLError, OSError):
             raise GitHubApiError("GitHub API request failed") from None
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -106,11 +135,12 @@ def _is_bot_marker(comment: object, marker: str) -> bool:
     if not isinstance(comment, dict):
         return False
     user = comment.get("user")
+    body = comment.get("body")
     return (
         isinstance(user, dict)
         and user.get("type") == "Bot"
-        and isinstance(comment.get("body"), str)
-        and marker in comment["body"]
+        and isinstance(body, str)
+        and (body == marker or body.startswith(f"{marker}\n"))
         and isinstance(comment.get("id"), int)
     )
 

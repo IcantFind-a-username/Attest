@@ -127,7 +127,7 @@ def test_upsert_issue_comment_updates_first_bot_marker_across_pages(
             {"id": 18, "body": STATUS_MARKER, "user": {"type": "Bot"}},
         ],
     )
-    github_server.reply("PATCH", "/repos/octo/widgets/issues/comments/17", {"id": 17})
+    github_server.reply("PATCH", "/repos/octo/widgets/issues/comments/18", {"id": 18})
 
     GitHubClient("token", github_server.url).upsert_issue_comment(
         "octo/widgets", 9, STATUS_MARKER, "Review complete."
@@ -136,7 +136,7 @@ def test_upsert_issue_comment_updates_first_bot_marker_across_pages(
     assert [request["path"] for request in github_server.requests] == [
         first_page,
         second_page,
-        "/repos/octo/widgets/issues/comments/17",
+        "/repos/octo/widgets/issues/comments/18",
     ]
     assert github_server.requests[-1]["body"] == {
         "body": "<!-- attest:status -->\nReview complete."

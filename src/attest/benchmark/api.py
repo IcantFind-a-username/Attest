@@ -35,6 +35,7 @@ from typing import Any
 
 from attest.benchmark.artifacts import ArtifactRecord, ArtifactStore
 from attest.benchmark.matcher import MatchResult, match_findings
+from attest.benchmark.measurement import MeasurementRecord
 from attest.benchmark.runner import (
     BenchmarkRunner,
     CaseRunResult,
@@ -380,6 +381,7 @@ class ProjectEvaluationResult:
     oracle_receipts: tuple[ReproReceipt, ...]
     run: RunRecord
     score: ProjectEvaluationScore | None
+    measurement: MeasurementRecord | None
 
     @property
     def total_spend_usd(self) -> float:
@@ -418,6 +420,9 @@ class ProjectEvaluationResult:
             "deadline_s": self.run.deadline_s,
             "repeat": self.run.repeat,
             "score": None if self.score is None else self.score.to_json_dict(),
+            "measurement": (
+                None if self.measurement is None else self.measurement.to_json_dict()
+            ),
         }
 
 
@@ -868,6 +873,7 @@ def _result(
         oracle_receipts=run.oracle_receipts,
         run=run.run,
         score=_score(request, run.run.predictions),
+        measurement=run.measurement,
     )
 
 
@@ -918,4 +924,5 @@ def _deferred(request: ProjectEvaluationRequest, reason: str) -> ProjectEvaluati
         oracle_receipts=(),
         run=run,
         score=None,
+        measurement=None,
     )

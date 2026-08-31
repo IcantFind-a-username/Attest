@@ -72,6 +72,12 @@ from attest.benchmark.corpus import (
     validation_receipt_binding_bytes,
 )
 from attest.benchmark.matcher import match_findings
+from attest.benchmark.measurement import (
+    MeasurementRecord,
+    MeasurementSummary,
+    decode_measurement_record,
+    reduce_measurements,
+)
 from attest.benchmark.metrics import wilson_interval
 from attest.benchmark.report import (
     LIVE_MODE,
@@ -93,7 +99,7 @@ from attest.benchmark.schema import (
 from attest.review.proposer import Provider, ProviderResult
 
 LIVE_SCHEMA_VERSION = "5"
-CALIBRATION_SCHEMA_VERSION = "4"
+CALIBRATION_SCHEMA_VERSION = "5"
 CALIBRATION_JSON_NAME = "calibration.json"
 CALIBRATION_MARKDOWN_NAME = "calibration.md"
 
@@ -1268,6 +1274,7 @@ class CalibrationReport:
     latency: Mapping[str, object]
     cost: Mapping[str, object]
     paid_calls: tuple[Mapping[str, object], ...]
+    outcome_accounting: Mapping[str, object]
     sample_sufficiency: Mapping[str, object]
     limitations: tuple[str, ...]
     digest: str = ""
@@ -1306,6 +1313,7 @@ class CalibrationReport:
             "latency": dict(self.latency),
             "cost": dict(self.cost),
             "paid_calls": [dict(row) for row in self.paid_calls],
+            "outcome_accounting": dict(self.outcome_accounting),
             "sample_sufficiency": dict(self.sample_sufficiency),
             "limitations": list(self.limitations),
         }
@@ -1345,13 +1353,25 @@ def build_calibration_report(
     ):
         manifest = require_manifest_binding(manifest, manifest_sha256)
     scored: list[Mapping[str, object]] = []
+    measurement_records: list[MeasurementRecord] = []
     abstentions: list[ReportAbstention] = []
     excluded: list[ReportExclusion] = list(exclusions)
     for payload in payloads:
         case_id = str(payload.get("case_id"))
         reason = payload.get("abstain_reason")
+        measurement_payload = payload.get("measurement")
+        measurement = (
+            decode_measurement_record(measurement_payload)
+            if type(measurement_payload) is dict
+            else None
+        )
         if payload.get("task_id") is None:
             excluded.append(ReportExclusion(case_id, str(reason or "not_executed")))
+        elif measurement is not None:
+            if measurement.case_id != case_id:
+                raise ValueError("case payload measurement case_id mismatch")
+            measurement_records.append(measurement)
+            scored.append(payload)
         elif reason is not None:
             abstentions.append(ReportAbstention(case_id, str(reason)))
         else:
@@ -1402,6 +1422,11 @@ def build_calibration_report(
         latency=_latency(scored),
         cost=_cost(payloads, reserved_total_usd, mode=mode),
         paid_calls=_report_paid_calls(payloads, mode=mode),
+        outcome_accounting=_outcome_accounting(
+            reduce_measurements(tuple(measurement_records))
+            if measurement_records
+            else None
+        ),
         sample_sufficiency=sufficiency,
         limitations=_calibration_limitations(
             mode, labels, accuracy_withheld, len(abstentions)
@@ -1409,6 +1434,41 @@ def build_calibration_report(
     )
     encoded = json.dumps(report._payload(), sort_keys=True, separators=(",", ":"))
     return replace(report, digest=hashlib.sha256(encoded.encode("utf-8")).hexdigest())
+
+
+def _outcome_accounting(summary: MeasurementSummary | None) -> dict[str, object]:
+    if summary is None:
+        return {
+            "scoring_semantics": "legacy_v1_scoring",
+            "task_status_counts": {
+                "completed": 0,
+                "partially_deferred": 0,
+                "fully_deferred": 0,
+                "failed": 0,
+            },
+            "published": None,
+            "unresolved": 0,
+            "task_delivered": None,
+            "finding_precision": None,
+        }
+    return {
+        "scoring_semantics": "author_visible_v2",
+        "task_status_counts": {
+            "completed": summary.completed,
+            "partially_deferred": summary.partially_deferred,
+            "fully_deferred": summary.fully_deferred,
+            "failed": summary.failed,
+        },
+        "published": summary.published,
+        "unresolved": summary.unresolved,
+        "task_delivered": summary.task_delivered,
+        "finding_precision": summary.finding_precision,
+        "metrics_withheld_reason": summary.metrics_withheld_reason,
+        "delivery_withheld_reason": summary.delivery_withheld_reason,
+        "task_delivery_withheld_reason": summary.task_delivery_withheld_reason,
+        "operational_repeats": summary.operational_repeats,
+        "semantic_n": summary.semantic_n,
+    }
 
 
 def _labeled_findings(underlying: BenchmarkRunReport, authorized: bool) -> int:

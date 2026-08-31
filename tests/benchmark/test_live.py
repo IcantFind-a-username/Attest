@@ -336,6 +336,7 @@ def _completed_result(
         oracle_receipts=receipts,
         run=run,
         score=None,
+        measurement=None,
     )
 
 
