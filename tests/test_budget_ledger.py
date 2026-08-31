@@ -260,6 +260,42 @@ def test_ci_surface_order_is_anchored_to_successful_settlement(
     assert alpha == 0.05 and note is not None
 
 
+def test_ci_surface_attempt_is_bound_to_its_task(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    led = Ledger(tmp_path)
+    led.record_ci_final(task_id="task-a", decisions=[], spend_usd=0.0)
+    led.append(
+        {
+            "kind": "delivery_attempt_settlement",
+            "task_id": "task-b",
+            "attempt_id": "shared",
+            "outcome": "succeeded",
+        }
+    )
+    led.record_feedback("finding-a", "wrong")
+    led.append(
+        {
+            "kind": "delivery_attempt_settlement",
+            "task_id": "task-a",
+            "attempt_id": "shared",
+            "outcome": "succeeded",
+        }
+    )
+    event = SimpleNamespace(
+        attempt_id="shared",
+        outcome="succeeded",
+        members=(("finding-a", "inline"),),
+    )
+    monkeypatch.setattr(
+        "attest.review.ci.reconcile_delivery_rows",
+        lambda _entries, task_id: ((event,), ()) if task_id == "task-a" else ((), ()),
+    )
+
+    assert led.surfaced_finding_ids() == ("finding-a",)
+    assert led.surfaced_precision() == (None, 0)
+
+
 def test_wontfix_labels_do_not_tighten_alpha(tmp_path) -> None:
     """wontfix means the finding was CORRECT but not acted on: it must count
     as a true label for precision, not as a false positive."""
@@ -353,7 +389,7 @@ def test_tighten_watermark_blocks_stale_rehalving(tmp_path) -> None:
 
 
 @pytest.mark.parametrize("bad_count", (True, -1, "12"))
-def test_malformed_historical_label_count_fails_closed(
+def test_any_malformed_historical_label_count_fails_closed(
     tmp_path: Path, bad_count: object
 ) -> None:
     led = Ledger(tmp_path)
@@ -369,10 +405,18 @@ def test_malformed_historical_label_count_fails_closed(
             "label_count": bad_count,
         }
     )
+    led.append(
+        {
+            "kind": "alpha_tightened",
+            "from": 0.05,
+            "to": 0.025,
+            "label_count": 12,
+        }
+    )
     led.record_review("t", "fresh", ["S"], 0.0, 12.0, "surface")
     led.record_feedback("fresh", "wrong")
 
-    assert led.maybe_tighten_alpha(0.05, enabled=True) == (0.05, None)
+    assert led.maybe_tighten_alpha(0.025, enabled=True) == (0.025, None)
 
 
 def test_ambiguous_labels_do_not_advance_the_tighten_watermark(tmp_path) -> None:
@@ -538,6 +582,25 @@ def test_only_current_ci_review_surface_requires_delivery_authority(
 
     assert led.surfaced_finding_ids() == surfaced_ids
     assert led.surfaced_precision() == precision
+
+
+def test_surfaced_precision_discards_an_equal_tuple_subclass(tmp_path: Path) -> None:
+    class ForgedPopulation(tuple[str, ...]):
+        def __getitem__(self, key: object) -> object:
+            if isinstance(key, slice):
+                return ("f9",) * 10
+            return super().__getitem__(key)  # type: ignore[index]
+
+    led = Ledger(tmp_path)
+    for index in range(10):
+        finding_id = f"f{index}"
+        led.record_review("t", finding_id, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(finding_id, "wrong" if index == 9 else "good")
+    canonical = led.surfaced_finding_ids()
+    forged = ForgedPopulation(canonical)
+    assert forged == canonical
+
+    assert led.surfaced_precision(surfaced_ids=forged) == (pytest.approx(0.9), 10)
 
 
 @pytest.mark.parametrize("bad_to", (True, -1.0, float("nan")))

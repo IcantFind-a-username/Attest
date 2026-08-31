@@ -90,7 +90,7 @@ def _surfaced_projection(
     }
     ci_tasks = final_tasks | delivery_tasks | comment_tasks
     delivered_by_attempt = {
-        event.attempt_id: tuple(
+        (task_id, event.attempt_id): tuple(
             finding_id
             for finding_id, _placement in event.members
         )
@@ -103,7 +103,13 @@ def _surfaced_projection(
     for index, entry in enumerate(entries):
         finding_ids: tuple[str, ...] = ()
         if entry.get("kind") == "delivery_attempt_settlement":
-            finding_ids = delivered_by_attempt.get(str(entry.get("attempt_id", "")), ())
+            finding_ids = delivered_by_attempt.get(
+                (
+                    str(entry.get("task_id", "")),
+                    str(entry.get("attempt_id", "")),
+                ),
+                (),
+            )
         elif (
             entry.get("kind") == "review"
             and str(entry.get("action", "")).endswith("surface")
@@ -159,11 +165,13 @@ def _watermark(
 ) -> tuple[tuple[str, str], ...] | None:
     """Reconstruct the rolling precision population at one tightening."""
 
-    tighten_entry = entries[tighten_index]
-    if "label_count" in tighten_entry:
-        recorded = tighten_entry["label_count"]
-        if type(recorded) is not int or recorded < 0:
-            return None
+    for tighten_entry in entries[: tighten_index + 1]:
+        if tighten_entry.get("kind") != "alpha_tightened":
+            continue
+        if "label_count" in tighten_entry:
+            recorded = tighten_entry["label_count"]
+            if type(recorded) is not int or recorded < 0:
+                return None
     prefix = entries[:tighten_index]
     try:
         surfaced_ids, first_surface = _surfaced_projection(prefix)
@@ -600,6 +608,8 @@ class Ledger:
             surfaced_ids = canonical_ids
         elif surfaced_ids != canonical_ids:
             raise ValueError("surfaced finding population does not match ledger evidence")
+        else:
+            surfaced_ids = canonical_ids
         # ambiguous labels (legacy 'dismiss') are excluded from BOTH the
         # numerator and the denominator -- never silently counted as either
         # a true or a false label.
