@@ -9,19 +9,37 @@ import sys
 import time
 import tracemalloc
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+import attest.review.executor as executor
 from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.channels import ChannelPurchase
 from attest.review.config import load_pricing
+from attest.review.executor import (
+    EvidenceClass,
+    ExecutionOutcome,
+    ExecutionResult,
+    ExecutorLimits,
+    FailureSignature,
+    ReproSpec,
+    VerificationRun,
+    classify_failure_signature,
+    execute_differential,
+    execute_repro,
+    generate_repro,
+    verify_candidate,
+)
 from attest.review.gate import GateResult
 from attest.review.ledger import Ledger
 from attest.review.proposer import ProviderResult
 from attest.review.schema import Finding
+
+VerifyWithDefaults = Callable[..., VerificationRun]
 
 DEFAULT_MODEL = str(load_pricing()["default_model"])
 GOOD_MODULE = "def add(a, b):\n    return a + b\n"
@@ -177,6 +195,22 @@ FIXTURE_BODY = (
     "def test_repro(sample_items):\n"
     "    assert mypkg.calc.total(sample_items) == 6\n"
 )
+
+
+@dataclass(frozen=True)
+class DifferentialExpectation:
+    head_outcomes: tuple[str, ...]
+    head_signature: str | None
+    base_outcomes: tuple[str, ...]
+    base_signature: str | None
+    evidence_class: str
+    outcome: str
+    reason: str
+    wealth: float
+    channels: tuple[str, ...]
+    purchase_detail: str | None = None
+    required_reason_fragments: tuple[str, ...] = ()
+    forbidden_reason_fragment: str | None = None
 
 
 class RecordingProvider:
@@ -357,7 +391,6 @@ def assert_worktrees_cleaned(repo: Path, stored: StoredCandidate) -> None:
 
 
 def test_generate_uses_literal_schema_and_candidate_details(tmp_path: Path) -> None:
-    from attest.review.executor import generate_repro
 
     write_anchor_file(tmp_path)
     provider = RecordingProvider(
@@ -395,7 +428,6 @@ def test_generate_uses_literal_schema_and_candidate_details(tmp_path: Path) -> N
 
 
 def test_verify_passes_remaining_shared_deadline_to_repro_provider(tmp_path: Path) -> None:
-    from attest.review.executor import ExecutorLimits, verify_candidate
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     provider = RecordingProvider(
@@ -423,7 +455,6 @@ def test_verify_passes_remaining_shared_deadline_to_repro_provider(tmp_path: Pat
 
 
 def test_generate_limits_source_context_to_200_lines_around_anchor(tmp_path: Path) -> None:
-    from attest.review.executor import generate_repro
 
     write_anchor_file(tmp_path)
     provider = RecordingProvider(
@@ -449,7 +480,6 @@ def test_generate_limits_source_context_to_200_lines_around_anchor(tmp_path: Pat
 
 
 def test_generate_does_not_read_anchor_context_outside_repo(tmp_path: Path) -> None:
-    from attest.review.executor import generate_repro
 
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -471,7 +501,6 @@ def test_generate_does_not_read_anchor_context_outside_repo(tmp_path: Path) -> N
 
 
 def test_generate_reserves_budget_before_provider_and_settles_afterward(tmp_path: Path) -> None:
-    from attest.review.executor import generate_repro
 
     write_anchor_file(tmp_path)
     budget = Budget(limit_usd=1.0, model=DEFAULT_MODEL)
@@ -492,7 +521,6 @@ def test_generate_reserves_budget_before_provider_and_settles_afterward(tmp_path
 
 
 def test_generate_cancels_reservation_when_provider_raises(tmp_path: Path) -> None:
-    from attest.review.executor import generate_repro
 
     write_anchor_file(tmp_path)
     budget = Budget(limit_usd=1.0, model=DEFAULT_MODEL)
@@ -515,10 +543,7 @@ def test_generate_cancels_reservation_when_provider_raises(tmp_path: Path) -> No
         ["def test_repro(): pass"],
     ],
 )
-def test_generate_rejects_malformed_output_after_settling(
-    tmp_path: Path, payload: object
-) -> None:
-    from attest.review.executor import generate_repro
+def test_generate_rejects_malformed_output_after_settling(tmp_path: Path, payload: object) -> None:
 
     write_anchor_file(tmp_path)
     budget = Budget(limit_usd=1.0, model=DEFAULT_MODEL)
@@ -534,12 +559,6 @@ def test_generate_rejects_malformed_output_after_settling(
 
 
 def test_execute_assertion_failure_is_reproduced_and_uses_task_path(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     stored = candidate(line=1)
     result = execute_repro(
@@ -566,12 +585,6 @@ def test_execute_assertion_failure_is_reproduced_and_uses_task_path(tmp_path: Pa
 
 
 def test_execute_passing_test_is_not_reproduced(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     result = execute_repro(
         tmp_path,
@@ -595,12 +608,6 @@ def test_execute_passing_test_is_not_reproduced(tmp_path: Path) -> None:
 def test_execute_collection_failures_are_deferred(
     tmp_path: Path, test_body: str, reason_fragment: str
 ) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     result = execute_repro(
         tmp_path,
@@ -615,12 +622,6 @@ def test_execute_collection_failures_are_deferred(
 
 
 def test_execute_timeout_is_deferred(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     result = execute_repro(
         tmp_path,
@@ -637,12 +638,6 @@ def test_execute_timeout_is_deferred(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(os.name != "posix", reason="kernel process limit is POSIX-only")
 def test_execute_defers_atexit_spawn_attempt_without_starting_child(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     child_started = tmp_path / "atexit-child-started"
     result = execute_repro(
@@ -678,12 +673,6 @@ def test_execute_defers_atexit_spawn_attempt_without_starting_child(tmp_path: Pa
 
 @pytest.mark.skipif(os.name != "posix", reason="exec replacement is POSIX-only")
 def test_execute_defers_atexit_exec_attempt_without_replacing_pytest(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     replacement_started = tmp_path / "exec-replacement-started"
     result = execute_repro(
@@ -715,12 +704,6 @@ def test_execute_defers_atexit_exec_attempt_without_replacing_pytest(tmp_path: P
 def test_execute_kernel_limit_defers_native_fork_without_starting_child(
     tmp_path: Path,
 ) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     child_started = tmp_path / "native-fork-child-started"
     result = execute_repro(
@@ -752,12 +735,6 @@ def test_execute_kernel_limit_defers_native_fork_without_starting_child(
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX process containment limits tasks")
 def test_execute_defers_python_thread_attempt_without_starting_thread(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     thread_started = tmp_path / "thread-started"
     result = execute_repro(
@@ -782,7 +759,6 @@ def test_execute_defers_python_thread_attempt_without_starting_thread(tmp_path: 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX process containment limits tasks")
 def test_generated_guard_blocks_joinable_thread_entrypoint(tmp_path: Path) -> None:
-    import attest.review.executor as executor
 
     escaped_thread = tmp_path / "joinable-thread-escaped"
     guard_path = tmp_path / "generated_sitecustomize.py"
@@ -837,7 +813,6 @@ def test_generated_guard_blocks_joinable_thread_entrypoint(tmp_path: Path) -> No
 def test_execute_privileged_posix_user_defers_before_running_generated_code(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import attest.review.executor as executor
 
     monkeypatch.setattr(executor.os, "getuid", lambda: 0)
 
@@ -873,7 +848,6 @@ def test_execute_linux_privilege_state_fails_closed_before_generated_code(
     capability_state: bool | None,
     reason: str,
 ) -> None:
-    import attest.review.executor as executor
 
     monkeypatch.setattr(executor.sys, "platform", "linux")
     monkeypatch.setattr(
@@ -896,12 +870,6 @@ def test_execute_linux_privilege_state_fails_closed_before_generated_code(
 
 @pytest.mark.skipif(os.name != "posix", reason="kernel process limit is POSIX-only")
 def test_execute_defers_subprocess_attempt_without_starting_child(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     child_started = tmp_path / "subprocess-child-started"
     result = execute_repro(
@@ -935,7 +903,6 @@ def test_execute_defers_subprocess_attempt_without_starting_child(tmp_path: Path
 def test_execute_post_spawn_failure_cleans_up_owned_process(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import attest.review.executor as executor
 
     real_popen = subprocess.Popen
     spawned_pids: list[int] = []
@@ -971,7 +938,6 @@ def test_execute_post_spawn_failure_cleans_up_owned_process(
 def test_execute_owner_constructor_failure_cleans_up_raw_process(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import attest.review.executor as executor
 
     real_popen = subprocess.Popen
     spawned_pids: list[int] = []
@@ -1004,12 +970,6 @@ def test_execute_owner_constructor_failure_cleans_up_raw_process(
 
 
 def test_execute_non_python_anchor_is_deferred_without_artifacts(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     result = execute_repro(
         tmp_path,
@@ -1025,12 +985,6 @@ def test_execute_non_python_anchor_is_deferred_without_artifacts(tmp_path: Path)
 
 
 def test_execute_unsafe_task_identity_is_deferred_without_path_escape(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     result = execute_repro(
         tmp_path,
@@ -1047,12 +1001,6 @@ def test_execute_unsafe_task_identity_is_deferred_without_path_escape(tmp_path: 
 def test_execute_resolves_relative_repository_before_building_paths(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     repo = tmp_path / "relative-repo"
     repo.mkdir()
@@ -1068,24 +1016,18 @@ def test_execute_resolves_relative_repository_before_building_paths(
 
     assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
     assert (
-        repo
-        / ".attest"
-        / "repro"
-        / stored.task_id
-        / stored.finding.finding_id
-        / "test_repro.py"
+        repo / ".attest" / "repro" / stored.task_id / stored.finding.finding_id / "test_repro.py"
     ).is_file()
 
 
 def test_execute_can_use_reviewed_project_python_seam(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from attest.review.executor import ExecutionOutcome, ExecutorLimits, ReproSpec, execute_repro
 
     marker = tmp_path / "project-python-used"
     wrapper = tmp_path / "project-python"
     wrapper.write_text(
-        f"#!/bin/sh\nprintf used > {str(marker)!r}\nexec {sys.executable!r} \"$@\"\n",
+        f'#!/bin/sh\nprintf used > {str(marker)!r}\nexec {sys.executable!r} "$@"\n',
         encoding="utf-8",
     )
     wrapper.chmod(0o755)
@@ -1103,7 +1045,6 @@ def test_execute_can_use_reviewed_project_python_seam(
 
 
 def test_execute_truncates_each_output_stream_to_last_bytes(tmp_path: Path) -> None:
-    from attest.review.executor import ExecutorLimits, ReproSpec, execute_repro
 
     result = execute_repro(
         tmp_path,
@@ -1126,7 +1067,6 @@ def test_execute_truncates_each_output_stream_to_last_bytes(tmp_path: Path) -> N
 def test_verification_subprocess_drops_credentials_and_redacts_ledger(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from attest.review.executor import ExecutorLimits, verify_candidate
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     secret = "credential-that-must-never-reach-artifacts"
@@ -1170,12 +1110,6 @@ def test_verification_subprocess_drops_credentials_and_redacts_ledger(
 
 
 def test_execute_high_volume_output_uses_bounded_parent_memory(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     tracemalloc.start()
     tracemalloc.reset_peak()
@@ -1204,12 +1138,6 @@ def test_execute_high_volume_output_uses_bounded_parent_memory(tmp_path: Path) -
 
 
 def test_execute_blocks_socket_connections_with_sitecustomize(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     result = execute_repro(
         tmp_path,
@@ -1232,12 +1160,6 @@ def test_execute_blocks_socket_connections_with_sitecustomize(tmp_path: Path) ->
 
 
 def test_execute_blocks_socket_connections_after_socket_reload(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
@@ -1267,12 +1189,6 @@ def test_execute_blocks_socket_connections_after_socket_reload(tmp_path: Path) -
 
 
 def test_execute_repository_sitecustomize_cannot_shadow_network_guard(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     (tmp_path / "sitecustomize.py").write_text(
         "import socket\nsocket.create_connection = lambda *args, **kwargs: None\n",
@@ -1298,12 +1214,6 @@ def test_execute_repository_sitecustomize_cannot_shadow_network_guard(tmp_path: 
 
 
 def test_execute_reports_network_unblocked_when_process_never_starts(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     repo_file = tmp_path / "not-a-repository"
     repo_file.write_text("not a directory", encoding="utf-8")
@@ -1354,6 +1264,7 @@ def test_execute_reports_network_unblocked_when_process_never_starts(tmp_path: P
 )
 def test_verify_candidate_applies_only_conclusive_evidence_and_records_it(
     tmp_path: Path,
+    verify_with_defaults: VerifyWithDefaults,
     test_body: str,
     outcome: str,
     reason: str,
@@ -1363,24 +1274,19 @@ def test_verify_candidate_applies_only_conclusive_evidence_and_records_it(
     base_run_outcomes: list[str],
     evidence_class: str,
 ) -> None:
-    from attest.review.executor import ExecutorLimits, verify_candidate
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     stored = candidate(line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
-        ProviderResult(
-            text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3
-        )
+        ProviderResult(text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3)
     )
 
-    verification = verify_candidate(
+    verification = verify_with_defaults(
         repo,
         stored,
         gate,
         provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -1434,7 +1340,6 @@ def test_verify_candidate_defers_failures_without_buying_v_evidence(
     provider_result: ProviderResult | Exception,
     reason_fragment: str,
 ) -> None:
-    from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     gate = original_gate(stored)
@@ -1465,12 +1370,6 @@ def test_execute_repro_imports_code_from_the_given_tree(tmp_path: Path) -> None:
     """Provenance, asserted directly: the reproduction must import the revision
     under test even when the reviewed project carries a root-level conftest.py
     whose directory pytest prepends to sys.path."""
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     repo = tmp_path / "repo"
     write_layout(repo, provenance_layout("repo-root"))
@@ -1509,12 +1408,6 @@ def test_execute_repro_src_layout_with_root_conftest_imports_from_the_given_tree
 ) -> None:
     """src/ layout whose root conftest.py puts its own src/ on sys.path: the
     tree's conftest must win, not the one sitting in the repository root."""
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     repo = tmp_path / "repo"
     decoy = {
@@ -1552,12 +1445,6 @@ def test_execute_repro_honours_the_conftest_fixtures_of_the_tree_under_test(
     """Projects legitimately need their own conftest fixtures, so the tree's
     conftest.py must still be loaded -- and it must be the tree's, not the
     repository working tree's."""
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_repro,
-    )
 
     repo = tmp_path / "repo"
     write_layout(
@@ -1599,13 +1486,6 @@ def test_execute_differential_root_conftest_does_not_leak_head_code_into_base(
     pytest prepend the repository root to sys.path, so the BASE run imported the
     head checkout in the working tree. A genuine regression then failed on both
     sides and was written off as unfaithful -- attest never spoke about it."""
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_differential,
-    )
 
     def project(calc: str) -> dict[str, str]:
         return {
@@ -1639,12 +1519,6 @@ def test_execute_differential_root_conftest_does_not_leak_head_code_into_base(
 
 
 def test_execute_differential_syntax_error_defers_and_cleans_worktrees(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_differential,
-    )
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     stored = candidate(line=1)
@@ -1668,12 +1542,6 @@ def test_execute_differential_syntax_error_defers_and_cleans_worktrees(tmp_path:
 
 
 def test_execute_differential_expired_deadline_defers_before_any_run(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_differential,
-    )
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     stored = candidate(line=1)
@@ -1699,12 +1567,6 @@ def test_execute_differential_expired_deadline_defers_before_any_run(tmp_path: P
 def test_execute_differential_runs_one_test_source_with_one_interpreter(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_differential,
-    )
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     stored = candidate(line=1)
@@ -1737,13 +1599,9 @@ def test_execute_differential_runs_one_test_source_with_one_interpreter(
     assert_worktrees_cleaned(repo, stored)
 
 
-def test_verify_candidate_unfaithful_test_failing_on_base_is_deferred(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        verify_candidate,
-    )
+def test_verify_candidate_unfaithful_test_failing_on_base_is_deferred(
+    tmp_path: Path, verify_with_defaults: VerifyWithDefaults
+) -> None:
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     stored = candidate(line=1)
@@ -1756,13 +1614,11 @@ def test_verify_candidate_unfaithful_test_failing_on_base_is_deferred(tmp_path: 
         )
     )
 
-    verification = verify_candidate(
+    verification = verify_with_defaults(
         repo,
         stored,
         gate,
         provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -1785,8 +1641,8 @@ def test_verify_candidate_unfaithful_test_failing_on_base_is_deferred(tmp_path: 
 
 def test_verify_candidate_flaky_head_reproduction_defers_without_buying_v(
     tmp_path: Path,
+    verify_with_defaults: VerifyWithDefaults,
 ) -> None:
-    from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     counter = tmp_path / "flaky-counter"
@@ -1804,13 +1660,11 @@ def test_verify_candidate_flaky_head_reproduction_defers_without_buying_v(
         ProviderResult(text=json.dumps({"test_body": body}), input_tokens=2, output_tokens=3)
     )
 
-    verification = verify_candidate(
+    verification = verify_with_defaults(
         repo,
         stored,
         gate,
         provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -1830,7 +1684,6 @@ def test_verify_candidate_flaky_head_reproduction_defers_without_buying_v(
 def test_verify_candidate_deadline_expiring_after_generation_defers_differential(
     tmp_path: Path,
 ) -> None:
-    from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     stored = candidate(line=1)
@@ -1882,7 +1735,6 @@ def test_verify_candidate_validates_revisions_before_calling_provider(
     violation: str,
     reason: str,
 ) -> None:
-    from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     requested_base, requested_head = base_sha, head_sha
@@ -2080,11 +1932,6 @@ E       NameError: name 'totally_absent_symbol' is not defined
     ],
 )
 def test_classify_failure_signature_reads_the_failure_lines(stdout: str, signature: str) -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutionResult,
-        classify_failure_signature,
-    )
 
     result = ExecutionResult(
         outcome=ExecutionOutcome.REPRODUCED,
@@ -2100,11 +1947,6 @@ def test_classify_failure_signature_reads_the_failure_lines(stdout: str, signatu
 
 
 def test_classify_failure_signature_reads_raw_stderr_tracebacks() -> None:
-    from attest.review.executor import (
-        ExecutionOutcome,
-        ExecutionResult,
-        classify_failure_signature,
-    )
 
     result = ExecutionResult(
         outcome=ExecutionOutcome.DEFERRED,
@@ -2124,15 +1966,11 @@ def test_classify_failure_signature_reads_raw_stderr_tracebacks() -> None:
     assert classify_failure_signature(result).value == "symbol_absent"
 
 
-def test_verify_candidate_new_function_on_head_is_a_new_code_candidate(tmp_path: Path) -> None:
+def test_verify_candidate_new_function_on_head_is_a_new_code_candidate(
+    tmp_path: Path, verify_with_defaults: VerifyWithDefaults
+) -> None:
     """The reviewed diff ADDS parse(): the reproduction fails by assertion on
     head while the symbol is absent on base. Signal only -- no V is purchased."""
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        verify_candidate,
-    )
 
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path, {"mod.py": GOOD_MODULE}, {"mod.py": NEW_FUNCTION_MODULE}
@@ -2145,13 +1983,11 @@ def test_verify_candidate_new_function_on_head_is_a_new_code_candidate(tmp_path:
         )
     )
 
-    verification = verify_candidate(
+    verification = verify_with_defaults(
         repo,
         stored,
         gate,
         provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -2173,15 +2009,11 @@ def test_verify_candidate_new_function_on_head_is_a_new_code_candidate(tmp_path:
     assert_worktrees_cleaned(repo, stored)
 
 
-def test_verify_candidate_new_module_on_head_is_a_new_code_candidate(tmp_path: Path) -> None:
+def test_verify_candidate_new_module_on_head_is_a_new_code_candidate(
+    tmp_path: Path, verify_with_defaults: VerifyWithDefaults
+) -> None:
     """Same evidence class when the added symbol lives in a file absent from
     base entirely: the base run is a ModuleNotFoundError collection error."""
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        verify_candidate,
-    )
 
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path,
@@ -2196,13 +2028,11 @@ def test_verify_candidate_new_module_on_head_is_a_new_code_candidate(tmp_path: P
         )
     )
 
-    verification = verify_candidate(
+    verification = verify_with_defaults(
         repo,
         stored,
         gate,
         provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -2217,76 +2047,6 @@ def test_verify_candidate_new_module_on_head_is_a_new_code_candidate(tmp_path: P
     assert_worktrees_cleaned(repo, stored)
 
 
-def test_verify_candidate_crashing_reproduction_on_added_function_is_a_new_code_candidate(
-    tmp_path: Path,
-) -> None:
-    """The live acceptance case. The reviewed diff ADDS `average(items)` with no
-    empty-input guard; the generated reproduction calls `average([])` and lets
-    ZeroDivisionError propagate -- a genuine crash, not an assertion -- while
-    base fails symbol-absent because `average` does not exist there. Most real
-    bug reproductions crash rather than assert, so this is the common case, and
-    the DEFER copy that reaches the pull request must not call it unfaithful."""
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        FailureSignature,
-        classify_failure_signature,
-        verify_candidate,
-    )
-
-    repo, base_sha, head_sha = two_commit_repo(
-        tmp_path, {"mod.py": TOTAL_ONLY_MODULE}, {"mod.py": AVERAGE_MODULE}
-    )
-    stored = candidate(line=1)
-    gate = original_gate(stored)
-    provider = RecordingProvider(
-        ProviderResult(
-            text=json.dumps({"test_body": AVERAGE_CRASH_BODY}), input_tokens=2, output_tokens=3
-        )
-    )
-
-    verification = verify_candidate(
-        repo,
-        stored,
-        gate,
-        provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
-        base_sha=base_sha,
-        head_sha=head_sha,
-    )
-
-    # the head crash is genuinely not assertion-class: that is what used to
-    # push this run into UNFAITHFUL
-    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
-    assert all(
-        classify_failure_signature(run) is FailureSignature.OTHER
-        for run in verification.execution.head_runs
-    )
-    assert (
-        classify_failure_signature(verification.execution.base_runs[0])
-        is FailureSignature.SYMBOL_ABSENT
-    )
-    assert verification.execution.evidence_class is EvidenceClass.NEW_CODE_CANDIDATE
-    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
-    assert verification.execution.reason == (
-        "new-code candidate: reproduction fails on head and the symbol is absent "
-        "on base; not priced"
-    )
-    assert "new-code" in verification.execution.reason
-    assert "unfaithful" not in verification.execution.reason
-    # buys nothing: the caller's gate result comes back untouched
-    assert verification.gate_result is gate
-    assert verification.gate_result.wealth == stored.wealth
-    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
-    row = Ledger(repo).entries()[-1]
-    assert row["outcome"] == "deferred"
-    assert row["evidence_class"] == "new_code_candidate"
-    assert "unfaithful" not in row["reason"]
-    assert_worktrees_cleaned(repo, stored)
-
-
 @pytest.mark.parametrize(
     ("head_module", "test_body"),
     [
@@ -2297,17 +2057,14 @@ def test_verify_candidate_crashing_reproduction_on_added_function_is_a_new_code_
     ids=["zero_division", "type_error", "index_error"],
 )
 def test_verify_candidate_any_genuine_crash_on_added_code_is_a_new_code_candidate(
-    tmp_path: Path, head_module: str, test_body: str
+    tmp_path: Path,
+    verify_with_defaults: VerifyWithDefaults,
+    head_module: str,
+    test_body: str,
 ) -> None:
     """ZeroDivisionError, TypeError and IndexError are all *the code
     misbehaved*, not *the symbol was never there*; each pairs with a
     symbol-absent base into the same unpriced class."""
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        verify_candidate,
-    )
 
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path, {"mod.py": TOTAL_ONLY_MODULE}, {"mod.py": head_module}
@@ -2315,18 +2072,14 @@ def test_verify_candidate_any_genuine_crash_on_added_code_is_a_new_code_candidat
     stored = candidate(line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
-        ProviderResult(
-            text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3
-        )
+        ProviderResult(text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3)
     )
 
-    verification = verify_candidate(
+    verification = verify_with_defaults(
         repo,
         stored,
         gate,
         provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -2342,15 +2095,10 @@ def test_verify_candidate_any_genuine_crash_on_added_code_is_a_new_code_candidat
 
 def test_verify_candidate_false_assertion_on_both_trees_is_still_unfaithful(
     tmp_path: Path,
+    verify_with_defaults: VerifyWithDefaults,
 ) -> None:
     """`add` exists on head and base alike and the assertion is false on both:
     widening the head-side condition must not let this buy the new-code class."""
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        verify_candidate,
-    )
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     stored = candidate(line=1)
@@ -2363,13 +2111,11 @@ def test_verify_candidate_false_assertion_on_both_trees_is_still_unfaithful(
         )
     )
 
-    verification = verify_candidate(
+    verification = verify_with_defaults(
         repo,
         stored,
         gate,
         provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -2384,17 +2130,10 @@ def test_verify_candidate_false_assertion_on_both_trees_is_still_unfaithful(
 
 def test_verify_candidate_fabricated_symbol_can_never_be_a_new_code_candidate(
     tmp_path: Path,
+    verify_with_defaults: VerifyWithDefaults,
 ) -> None:
     """Fabrication guard: a test naming a symbol that exists on neither tree
     fails symbol-absent on HEAD, which the new-code rule excludes outright."""
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        FailureSignature,
-        classify_failure_signature,
-        verify_candidate,
-    )
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     stored = candidate(line=1)
@@ -2405,13 +2144,11 @@ def test_verify_candidate_fabricated_symbol_can_never_be_a_new_code_candidate(
         )
     )
 
-    verification = verify_candidate(
+    verification = verify_with_defaults(
         repo,
         stored,
         gate,
         provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -2436,13 +2173,6 @@ def test_verify_candidate_fabricated_symbol_can_never_be_a_new_code_candidate(
 
 
 def test_execute_differential_flaky_head_is_indeterminate(tmp_path: Path) -> None:
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        ReproSpec,
-        execute_differential,
-    )
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
     counter = tmp_path / "flaky-counter"
@@ -2471,132 +2201,167 @@ def test_execute_differential_flaky_head_is_indeterminate(tmp_path: Path) -> Non
 
 
 @pytest.mark.parametrize(
-    (
-        "base_files",
-        "head_files",
-        "test_body",
-        "head_signature",
-        "evidence_class",
-        "outcome",
-        "wealth",
-        "channels",
-        "reason_fragment",
-    ),
+    ("base_files", "head_files", "test_body", "expected"),
     [
         pytest.param(
             {"mypkg/__init__.py": "", "mypkg/calc.py": RENAMED_BASE_MODULE},
             {"mypkg/__init__.py": "", "mypkg/calc.py": RENAMED_HEAD_MODULE},
             STALE_RENAME_BODY,
-            "symbol_absent",
-            "unfaithful",
-            "deferred",
-            8.0,
-            ["S"],
-            "absent from head",
+            DifferentialExpectation(
+                head_outcomes=("reproduced",) * 3,
+                head_signature="symbol_absent",
+                base_outcomes=("not_reproduced",) * 3,
+                base_signature=None,
+                evidence_class="unfaithful",
+                outcome="deferred",
+                reason=(
+                    "unfaithful generated test: it references a symbol absent from head, "
+                    "so its head failure is a stale reference rather than a defect"
+                ),
+                wealth=8.0,
+                channels=("S",),
+                required_reason_fragments=("absent from head", "unfaithful"),
+            ),
             id="head_symbol_absent__base_pass__unfaithful",
         ),
         pytest.param(
             {"mod.py": GOOD_MODULE},
             {"mod.py": BUGGY_MODULE},
             DIFFERENTIAL_BODY,
-            "assertion",
-            "regression_reproduced",
-            "reproduced",
-            160.0,
-            ["S", "V"],
-            "head FAIL 3/3, base PASS 3/3",
+            DifferentialExpectation(
+                head_outcomes=("reproduced",) * 3,
+                head_signature="assertion",
+                base_outcomes=("not_reproduced",) * 3,
+                base_signature=None,
+                evidence_class="regression_reproduced",
+                outcome="reproduced",
+                reason="head FAIL 3/3, base PASS 3/3",
+                wealth=160.0,
+                channels=("S", "V"),
+                purchase_detail="reproduced",
+            ),
             id="head_assertion__base_pass__certifies",
         ),
         pytest.param(
             {"mod.py": GUARDED_MEAN_MODULE},
             {"mod.py": UNGUARDED_MEAN_MODULE},
             MEAN_CRASH_BODY,
-            "other",
-            "regression_reproduced",
-            "reproduced",
-            160.0,
-            ["S", "V"],
-            "head FAIL 3/3, base PASS 3/3",
+            DifferentialExpectation(
+                head_outcomes=("reproduced",) * 3,
+                head_signature="other",
+                base_outcomes=("not_reproduced",) * 3,
+                base_signature=None,
+                evidence_class="regression_reproduced",
+                outcome="reproduced",
+                reason="head FAIL 3/3, base PASS 3/3",
+                wealth=160.0,
+                channels=("S", "V"),
+                purchase_detail="reproduced",
+            ),
             id="head_crash__base_pass__certifies",
         ),
+        # Live-acceptance shape: the added average() crashes on head while its
+        # symbol is absent from base. This is signal, but remains unpriced.
         pytest.param(
             {"mod.py": TOTAL_ONLY_MODULE},
             {"mod.py": AVERAGE_MODULE},
             AVERAGE_CRASH_BODY,
-            "other",
-            "new_code_candidate",
-            "deferred",
-            8.0,
-            ["S"],
-            "new-code candidate",
+            DifferentialExpectation(
+                head_outcomes=("reproduced",) * 3,
+                head_signature="other",
+                base_outcomes=("reproduced",),
+                base_signature="symbol_absent",
+                evidence_class="new_code_candidate",
+                outcome="deferred",
+                reason=(
+                    "new-code candidate: reproduction fails on head and the symbol is absent "
+                    "on base; not priced"
+                ),
+                wealth=8.0,
+                channels=("S",),
+                required_reason_fragments=("new-code",),
+                forbidden_reason_fragment="unfaithful",
+            ),
             id="head_crash__base_symbol_absent__new_code",
         ),
         pytest.param(
             {"mod.py": GOOD_MODULE},
             {"mod.py": GOOD_MODULE + "# head touches nothing the test names\n"},
             FABRICATED_BODY,
-            "symbol_absent",
-            "unfaithful",
-            "deferred",
-            8.0,
-            ["S"],
-            "fails on base as well",
+            DifferentialExpectation(
+                head_outcomes=("reproduced",) * 3,
+                head_signature="symbol_absent",
+                base_outcomes=("reproduced",),
+                base_signature="symbol_absent",
+                evidence_class="unfaithful",
+                outcome="deferred",
+                reason="unfaithful generated test: fails on base as well",
+                wealth=8.0,
+                channels=("S",),
+            ),
             id="head_symbol_absent__base_symbol_absent__unfaithful",
         ),
     ],
 )
 def test_differential_certification_requires_the_head_code_to_misbehave(
     tmp_path: Path,
+    verify_with_defaults: VerifyWithDefaults,
     base_files: dict[str, str],
     head_files: dict[str, str],
     test_body: str,
-    head_signature: str,
-    evidence_class: str,
-    outcome: str,
-    wealth: float,
-    channels: list[str],
-    reason_fragment: str,
+    expected: DifferentialExpectation,
 ) -> None:
     """The full head-signature x base-outcome table. One invariant runs through
     every row: the head runs must show the code MISBEHAVING before anything is
     bought. A head that merely reports the symbol absent never certifies, no
     matter how cleanly base passes."""
-    from attest.review.executor import (
-        ExecutorLimits,
-        classify_failure_signature,
-        verify_candidate,
-    )
 
     repo, base_sha, head_sha = two_commit_repo(tmp_path, base_files, head_files)
     stored = candidate(line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
-        ProviderResult(
-            text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3
-        )
+        ProviderResult(text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3)
     )
 
-    verification = verify_candidate(
+    verification = verify_with_defaults(
         repo,
         stored,
         gate,
         provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
     )
 
-    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
-    assert {
-        classify_failure_signature(run).value for run in verification.execution.head_runs
-    } == {head_signature}
-    assert verification.execution.evidence_class.value == evidence_class
-    assert verification.execution.outcome.value == outcome
-    assert reason_fragment in verification.execution.reason
-    assert verification.gate_result.wealth == wealth
-    assert [purchase.channel for purchase in verification.gate_result.purchases] == channels
-    if outcome == "deferred":
+    assert tuple(run.outcome.value for run in verification.execution.head_runs) == (
+        expected.head_outcomes
+    )
+    if expected.head_signature is not None:
+        assert {
+            classify_failure_signature(run).value for run in verification.execution.head_runs
+        } == {expected.head_signature}
+    assert tuple(run.outcome.value for run in verification.execution.base_runs) == (
+        expected.base_outcomes
+    )
+    if expected.base_signature is not None:
+        assert {
+            classify_failure_signature(run).value for run in verification.execution.base_runs
+        } == {expected.base_signature}
+    assert verification.execution.evidence_class is EvidenceClass(expected.evidence_class)
+    assert verification.execution.outcome is ExecutionOutcome(expected.outcome)
+    assert verification.execution.reason == expected.reason
+    assert all(
+        fragment in verification.execution.reason for fragment in expected.required_reason_fragments
+    )
+    if expected.forbidden_reason_fragment is not None:
+        assert expected.forbidden_reason_fragment not in verification.execution.reason
+    assert verification.gate_result.wealth == expected.wealth
+    assert (
+        tuple(purchase.channel for purchase in verification.gate_result.purchases)
+        == expected.channels
+    )
+    if expected.purchase_detail is not None:
+        assert verification.gate_result.purchases[-1].detail == expected.purchase_detail
+    if expected.outcome == "deferred":
         # buys nothing at all: the caller's own gate result comes straight back,
         # so neither V nor V_FAILED can have been applied
         assert verification.gate_result is gate
@@ -2604,72 +2369,11 @@ def test_differential_certification_requires_the_head_code_to_misbehave(
         assert verification.gate_result is not gate
     row = Ledger(repo).entries()[-1]
     assert row["kind"] == "verification"
-    assert row["outcome"] == outcome
-    assert row["evidence_class"] == evidence_class
-    assert_worktrees_cleaned(repo, stored)
-
-
-def test_verify_candidate_rename_refactor_never_buys_evidence(tmp_path: Path) -> None:
-    """The reproduced defect. Base and head differ only by renaming the private
-    helper `_validate` to `_is_nonempty`; behaviour is identical. A reproduction
-    still naming `_validate` raises AttributeError on head (3/3, symbol absent)
-    and passes on base (3/3), which used to certify REGRESSION_REPRODUCED and
-    buy V=20 on a pull request that changed no behaviour."""
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        FailureSignature,
-        classify_failure_signature,
-        verify_candidate,
-    )
-
-    repo, base_sha, head_sha = two_commit_repo(
-        tmp_path,
-        {"mypkg/__init__.py": "", "mypkg/calc.py": RENAMED_BASE_MODULE},
-        {"mypkg/__init__.py": "", "mypkg/calc.py": RENAMED_HEAD_MODULE},
-    )
-    stored = candidate(line=1)
-    gate = original_gate(stored)
-    provider = RecordingProvider(
-        ProviderResult(
-            text=json.dumps({"test_body": STALE_RENAME_BODY}), input_tokens=2, output_tokens=3
-        )
-    )
-
-    verification = verify_candidate(
-        repo,
-        stored,
-        gate,
-        provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
-        base_sha=base_sha,
-        head_sha=head_sha,
-    )
-
-    # the head/base pattern that used to look exactly like a regression
-    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
-    assert all(
-        classify_failure_signature(run) is FailureSignature.SYMBOL_ABSENT
-        for run in verification.execution.head_runs
-    )
-    assert [run.outcome.value for run in verification.execution.base_runs] == [
-        "not_reproduced"
-    ] * 3
-
-    assert verification.execution.evidence_class is EvidenceClass.UNFAITHFUL
-    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
-    assert "absent from head" in verification.execution.reason
-    assert "unfaithful" in verification.execution.reason
-    # the gate result comes back by identity: no V, no V_FAILED
-    assert verification.gate_result is gate
-    assert verification.gate_result.wealth == stored.wealth
-    assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
-    row = Ledger(repo).entries()[-1]
-    assert row["outcome"] == "deferred"
-    assert row["evidence_class"] == "unfaithful"
-    assert "absent from head" in row["reason"]
+    assert row["outcome"] == expected.outcome
+    assert row["evidence_class"] == expected.evidence_class
+    assert row["reason"] == expected.reason
+    if expected.forbidden_reason_fragment is not None:
+        assert expected.forbidden_reason_fragment not in row["reason"]
     assert_worktrees_cleaned(repo, stored)
 
 
@@ -2682,21 +2386,17 @@ def test_verify_candidate_rename_refactor_never_buys_evidence(tmp_path: Path) ->
     ids=["raised_inside_the_code_under_test", "raised_at_the_reproduction_assertion"],
 )
 def test_verify_candidate_key_error_regression_certifies(
-    tmp_path: Path, base_module: str, head_module: str, test_body: str
+    tmp_path: Path,
+    verify_with_defaults: VerifyWithDefaults,
+    base_module: str,
+    head_module: str,
+    test_body: str,
 ) -> None:
     """The reproduced defect. A genuine regression whose reproduction fails with
     KeyError: the symbol is present on BOTH trees, base honours the default and
     head genuinely misbehaves. Reading the exception NAME called this a missing
     symbol, and since certification now requires the head code to misbehave,
     that silently blocked a true finding from buying any evidence at all."""
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        FailureSignature,
-        classify_failure_signature,
-        verify_candidate,
-    )
 
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path, {"mod.py": base_module}, {"mod.py": head_module}
@@ -2704,18 +2404,14 @@ def test_verify_candidate_key_error_regression_certifies(
     stored = candidate(line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
-        ProviderResult(
-            text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3
-        )
+        ProviderResult(text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3)
     )
 
-    verification = verify_candidate(
+    verification = verify_with_defaults(
         repo,
         stored,
         gate,
         provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -2727,9 +2423,7 @@ def test_verify_candidate_key_error_regression_certifies(
         for run in verification.execution.head_runs
     )
     assert "KeyError" in verification.execution.head_runs[0].stdout
-    assert [run.outcome.value for run in verification.execution.base_runs] == [
-        "not_reproduced"
-    ] * 3
+    assert [run.outcome.value for run in verification.execution.base_runs] == ["not_reproduced"] * 3
 
     assert verification.execution.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
     assert verification.execution.outcome is ExecutionOutcome.REPRODUCED
@@ -2746,19 +2440,12 @@ def test_verify_candidate_key_error_regression_certifies(
 
 def test_verify_candidate_symbol_that_exists_nowhere_still_buys_nothing(
     tmp_path: Path,
+    verify_with_defaults: VerifyWithDefaults,
 ) -> None:
     """Fabrication guard, stated against the loosened classifier: a reproduction
     naming a symbol present on NEITHER tree must still be classified
     symbol-absent on head, and must still buy nothing. Discriminating KeyError
     and data-shaped AttributeErrors must not touch this path."""
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        FailureSignature,
-        classify_failure_signature,
-        verify_candidate,
-    )
 
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path,
@@ -2773,13 +2460,11 @@ def test_verify_candidate_symbol_that_exists_nowhere_still_buys_nothing(
         )
     )
 
-    verification = verify_candidate(
+    verification = verify_with_defaults(
         repo,
         stored,
         gate,
         provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -2803,20 +2488,14 @@ def test_verify_candidate_symbol_that_exists_nowhere_still_buys_nothing(
     assert_worktrees_cleaned(repo, stored)
 
 
-def test_verify_candidate_renamed_method_never_buys_evidence(tmp_path: Path) -> None:
+def test_verify_candidate_renamed_method_never_buys_evidence(
+    tmp_path: Path, verify_with_defaults: VerifyWithDefaults
+) -> None:
     """Rename guard, extended to the instance case. D-029(a) reached head
     through a module-level helper; the same refactor on a METHOD produces
     `'Calculator' object has no attribute '_validate'`, which is still a name
     the reviewed revision does not have. Base passes 3/3, so anything short of
     symbol-absent on head certifies a behaviour-preserving refactor."""
-    from attest.review.executor import (
-        EvidenceClass,
-        ExecutionOutcome,
-        ExecutorLimits,
-        FailureSignature,
-        classify_failure_signature,
-        verify_candidate,
-    )
 
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path,
@@ -2833,13 +2512,11 @@ def test_verify_candidate_renamed_method_never_buys_evidence(tmp_path: Path) -> 
         )
     )
 
-    verification = verify_candidate(
+    verification = verify_with_defaults(
         repo,
         stored,
         gate,
         provider,
-        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
-        ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
     )
@@ -2849,9 +2526,7 @@ def test_verify_candidate_renamed_method_never_buys_evidence(tmp_path: Path) -> 
         classify_failure_signature(run) is FailureSignature.SYMBOL_ABSENT
         for run in verification.execution.head_runs
     )
-    assert [run.outcome.value for run in verification.execution.base_runs] == [
-        "not_reproduced"
-    ] * 3
+    assert [run.outcome.value for run in verification.execution.base_runs] == ["not_reproduced"] * 3
     assert verification.execution.evidence_class is EvidenceClass.UNFAITHFUL
     assert verification.execution.outcome is ExecutionOutcome.DEFERRED
     assert "absent from head" in verification.execution.reason
