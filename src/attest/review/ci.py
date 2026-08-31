@@ -33,7 +33,6 @@ from attest.review.ledger import Ledger
 from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
 
-
 DELIVERY_TRANSCRIPT_SCHEMA_VERSION = 1
 DELIVERY_TRANSCRIPT_PROTOCOL = "attest.delivery-transcript.v1"
 
