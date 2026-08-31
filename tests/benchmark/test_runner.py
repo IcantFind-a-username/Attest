@@ -35,10 +35,11 @@ from attest.benchmark.runner import (
 )
 from attest.benchmark.schema import Placement, TruthDefect
 from attest.github.client import GitHubApiError, PreparedGitHubWrite
-from attest.review.candidates import StoredCandidate
+from attest.review.candidates import CandidateStore, StoredCandidate
 from attest.review.ci import CiPublicationEvent, reconcile_delivery_rows
 from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits, ReproSpec
+from attest.review.gate import GateResult
 from attest.review.ledger import Ledger, ci_final_decisions_from_rows
 from attest.review.schema import Finding
 
@@ -556,9 +557,6 @@ def test_predictions_join_candidate_rows_to_the_authoritative_ci_final(
     tmp_path: Path,
 ) -> None:
     """Placement comes from ci_final, anchors come from the candidate store."""
-    from attest.review.candidates import CandidateStore
-    from attest.review.gate import GateResult
-
     repo = tmp_path / "project"
     repo.mkdir()
     candidate = stored_candidate("task-1")
@@ -631,9 +629,6 @@ def test_prediction_join_rejects_unknown_or_duplicate_ci_final_ids(
     tmp_path: Path, mutation: str
 ) -> None:
     """A caller cannot hide malformed final decisions behind a partial join."""
-    from attest.review.candidates import CandidateStore
-    from attest.review.gate import GateResult
-
     repo = tmp_path / "project"
     repo.mkdir()
     candidate = stored_candidate("task-1")
@@ -659,6 +654,53 @@ def test_prediction_join_rejects_unknown_or_duplicate_ci_final_ids(
 
     with pytest.raises(ValueError, match="unknown|duplicate"):
         extract_predictions(repo, task_id="task-1", case_id=CASE_ID)
+
+
+def test_prediction_join_rejects_a_delivered_non_surface_decision(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "project"
+    repo.mkdir()
+    candidate = stored_candidate("task-1")
+    CandidateStore(repo).append(
+        "task-1", 0.1, [GateResult(finding=candidate.finding, wealth=3.0, decision=None)]
+    )
+    Ledger(repo).record_ci_final(
+        task_id="task-1",
+        decisions=[
+            {
+                "finding_id": candidate.finding.finding_id,
+                "action": "drawer",
+                "wealth_final": 3.0,
+                "placement": "drawer",
+            }
+        ],
+        spend_usd=0.01,
+    )
+    publication = CiPublicationEvent(
+        event_id="e" * 64,
+        attempt_id="a" * 64,
+        attempt_ordinal=0,
+        repository="local/project",
+        pull_request_number=1,
+        head_sha="1" * 40,
+        channel="status_summary",
+        members=((candidate.finding.finding_id, "drawer"),),
+        body_sha256="b" * 64,
+        request_sha256="c" * 64,
+        outcome="succeeded",
+        remote_response_id="101",
+        delivered_at_s=1.0,
+        deadline_s=60.0,
+    )
+
+    with pytest.raises(ValueError, match="surface decision"):
+        extract_predictions(
+            repo,
+            task_id="task-1",
+            case_id=CASE_ID,
+            publication_events=(publication,),
+        )
 
 
 @pytest.mark.parametrize(

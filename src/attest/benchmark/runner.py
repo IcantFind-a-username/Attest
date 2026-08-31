@@ -496,6 +496,8 @@ def _published_finding_ids(
             decision = decisions_by_id.get(finding_id)
             if decision is None:
                 raise ValueError("publication event references an unknown finding_id")
+            if decision.get("action") != "surface":
+                raise ValueError("publication event member is not a ci_final surface decision")
             if placement_value != decision["placement"]:
                 raise ValueError("publication event placement does not match ci_final")
             if event.channel == "inline_review" and placement_value != "inline":
@@ -555,6 +557,17 @@ def _execution_measurement(
     if decisions and set(decisions_by_id) != set(candidate_ids):
         raise ValueError("ci_final candidate join is incomplete")
     prediction_ids = {prediction.finding_id for prediction in predictions}
+    if (
+        _published_finding_ids(
+            decisions,
+            publication_events,
+            repository=repository,
+            pull_request_number=pull_request_number,
+            head_sha=head_sha,
+        )
+        != prediction_ids
+    ):
+        raise ValueError("predictions do not equal authorized publication event members")
 
     typed_events: list[PublicationEvent] = []
     successful_events_by_finding: dict[str, list[PublicationEvent]] = {}
@@ -604,9 +617,6 @@ def _execution_measurement(
                 ambiguous_events_by_finding.setdefault(member.finding_id, []).append(
                     typed
                 )
-    if set(successful_events_by_finding) != prediction_ids:
-        raise ValueError("predictions do not equal successful publication event members")
-
     findings: list[FindingOutcome] = []
     for candidate in candidates:
         finding_id = candidate.finding.finding_id
