@@ -5,8 +5,8 @@ Status: implementation checkpoint complete; M-01 and Task 3 are not complete.
 ## Binding
 
 - Baseline: `b9ff22733daee9e78c8302ed3ad190978d9cc85a`
-- Implementation: `184e7fc1379c54fa417b64f0bab2141a8fdd609a`
-- Tree: `e6cbc879f5d1da4576b0c5793e3198a67613046f`
+- Implementation: `9efa0455353deb3722450c7ce3fe89d145a4a738`
+- Tree: `35cd321a75a8c0c6343fcb9f3fa8aead303831d5`
 - Branch: `feature/m01-authoritative-outcomes`
 - Scope: nine tracked implementation/test files; no protocol fixture, lock, action,
   historical evidence, or factory-statistics change.
@@ -33,6 +33,14 @@ Status: implementation checkpoint complete; M-01 and Task 3 are not complete.
 - An exception after a possible publication boundary is not converted into an empty
   terminal outcome. Lacking an independent trusted post-publication reconstruction seam in
   Task 2, the comparison fails closed and produces no final receipt.
+- A bare-prompt exception after a durable response likewise propagates before any bare/Ruff
+  outcome or final receipt is written. Baseline worktree materialization failures are
+  conservative hard failures: neither fresh nor settled-recovery state is converted into
+  an outcome with an empty or invented paid-evidence digest.
+- Before any provider-backed fresh reconstruction or final-receipt write, the issuance and
+  report paths share one exact-set check: reconciliation-marker keys and paid arm/case roots
+  must both equal the frozen product/bare trial set. Orphan roots/markers and a missing
+  zero-call paid root fail closed without being recreated.
 
 ## TDD evidence
 
@@ -47,6 +55,13 @@ Focused REDs were observed before the corresponding GREEN, including:
 - stale outcome/seal bytes could be written under an earlier final candidate;
 - six settled-before-slot corruptions (missing reconciliation, duplicate/orphan/mismatched
   spend, missing artifact, wrong reconciliation digest) lacked factoryless exact recovery.
+- a bare response followed by an ordinary exception was rewritten as two DEFER outcomes,
+  after which an external final receipt was occupied before paid reconstruction failed;
+- fresh and settled-recovery materialization failures could occupy bare/Ruff write-once
+  slots with an empty paid digest;
+- orphan paid roots, orphan reconciliation markers, and deletion of a legitimate zero-call
+  paid root were accepted until after final issuance (the deleted root was silently
+  recreated by reconstruction).
 
 The new attacks now fail at their named authority boundary. The existing coordinated
 caller rewrite, in-place Ruff outcome plus seal rewrite, A/B root substitution, legacy
@@ -54,21 +69,26 @@ checkpoint rejection, full completed resume, and bare-before-Ruff crash tests al
 
 ## Verification at implementation SHA
 
-- `/private/tmp/attest-m01-0e58cd6-venv/bin/python -m pytest -p no:cacheprovider
-  tests/benchmark/test_measurement.py tests/benchmark/test_checkpoints.py
-  tests/benchmark/test_baselines.py tests/benchmark/test_api.py
-  tests/benchmark/test_runner.py -q` — **334 passed**, exit 0.
-- Changed-file `ruff check` over the nine files — **pass**, exit 0.
+- Sixteen targeted tests spanning normal three-arm execution, full resume, product/bare
+  settled-before-slot recovery, post-response/publication failures, fresh/recovery
+  materialization refusal, orphan marker/root refusal, zero-call-root deletion, and oracle
+  spend preservation — **16 passed**, exit 0.
+- Changed-file `ruff check` over the two files changed after the earlier checkpoint —
+  **pass**, exit 0.
 - `python -m mypy src/attest` — **Success: no issues found in 49 source files**, exit 0.
 - `git diff --check` — **pass**, exit 0.
+- The five-file matrix reached **337 passed**, exit 0, immediately before the final
+  exact-set hardening. Because those production/tests bytes subsequently changed, that run
+  is recorded only as an intermediate regression and is not claimed as the final-SHA Gate.
 - Full `ruff check .` — exit 1 solely for `I001` in unchanged
   `src/attest/review/ci.py`. Exact baseline reproduction:
   `git show b9ff227:src/attest/review/ci.py | python -m ruff check
   --stdin-filename src/attest/review/ci.py -` — the same sole `I001`, exit 1. This
   checkpoint intentionally does not modify that accepted-base file.
 
-Full-repository/coverage, dual-Python clean gates, and independent delta review follow this
-checkpoint and are not claimed by this report yet.
+Full-repository/coverage, dual-Python clean gates, and independent delta re-review must run
+from `9efa0455353deb3722450c7ce3fe89d145a4a738`; the terminated `184e7fc` Gate logs are
+invalidated and are not claimed by this report.
 
 ## Remaining scope and limits
 
