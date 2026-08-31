@@ -320,3 +320,30 @@ def test_ci_final_without_delivery_authority_is_not_surfaced_precision(
     led.record_feedback("finding", "good")
 
     assert led.surfaced_precision() == (None, 0)
+
+
+@pytest.mark.parametrize(
+    ("current_ci", "surfaced_ids", "precision"),
+    ((True, (), (None, 0)), (False, ("finding",), (1.0, 1))),
+)
+def test_only_current_ci_review_surface_requires_delivery_authority(
+    tmp_path: Path,
+    current_ci: bool,
+    surfaced_ids: tuple[str, ...],
+    precision: tuple[float | None, int],
+) -> None:
+    led = Ledger(tmp_path)
+    if current_ci:
+        led.append(
+            {
+                "kind": "github_comment",
+                "task_id": "task",
+                "phase": "running",
+                "outcome": "posted",
+            }
+        )
+    led.record_review("task", "finding", ["S"], 0.01, 40.0, "surface")
+    led.record_feedback("finding", "good")
+
+    assert led.surfaced_finding_ids() == surfaced_ids
+    assert led.surfaced_precision() == precision

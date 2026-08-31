@@ -75,6 +75,13 @@ def _surfaced_finding_ids(entries: list[dict[str, Any]]) -> tuple[str, ...]:
         }
         and isinstance(entry.get("task_id"), str)
     }
+    comment_tasks = {
+        str(entry["task_id"])
+        for entry in entries
+        if entry.get("kind") == "github_comment"
+        and isinstance(entry.get("task_id"), str)
+    }
+    ci_tasks = final_tasks | delivery_tasks | comment_tasks
     delivered_by_task = {
         task_id: tuple(
             finding_id
@@ -93,7 +100,7 @@ def _surfaced_finding_ids(entries: list[dict[str, Any]]) -> tuple[str, ...]:
         elif (
             entry.get("kind") == "review"
             and str(entry.get("action", "")).endswith("surface")
-            and str(entry.get("task_id", "")) not in final_tasks
+            and str(entry.get("task_id", "")) not in ci_tasks
         ):
             finding_ids = (str(entry.get("finding_id", "")),)
         for finding_id in finding_ids:

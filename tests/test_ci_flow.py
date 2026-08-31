@@ -23,6 +23,7 @@ from attest.github.client import STATUS_MARKER, GitHubClient
 from attest.github.context import PullRequestContext
 from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits
+from attest.review.ledger import Ledger
 from attest.review.proposer import ProviderResult
 
 
@@ -289,6 +290,10 @@ def test_ci_does_not_verify_an_already_terminal_surface(
             "placement": "inline",
         }
     ]
+    ledger = Ledger(repo)
+    ledger.record_feedback(str(review["finding_id"]), "good")
+    assert ledger.surfaced_finding_ids() == (review["finding_id"],)
+    assert ledger.surfaced_precision() == (1.0, 1)
 
 
 def test_planted_bug_waits_for_failing_repro_before_speaking(
