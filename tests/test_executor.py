@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 
 import attest.review.executor as executor
-from attest.review.budget import Budget
+from attest.review.budget import Budget, BudgetExceeded
 from attest.review.candidates import StoredCandidate
 from attest.review.channels import ChannelPurchase
 from attest.review.config import load_pricing
@@ -216,7 +216,7 @@ class DifferentialExpectation:
 class RecordingProvider:
     def __init__(
         self,
-        result: ProviderResult | Exception,
+        result: ProviderResult | Exception | list[ProviderResult | Exception],
         on_sample: Callable[[], None] | None = None,
     ):
         self.result = result
@@ -237,9 +237,10 @@ class RecordingProvider:
         self.timeouts.append(timeout_s)
         if self.on_sample is not None:
             self.on_sample()
-        if isinstance(self.result, Exception):
-            raise self.result
-        return self.result
+        result = self.result.pop(0) if isinstance(self.result, list) else self.result
+        if isinstance(result, Exception):
+            raise result
+        return result
 
 
 def candidate(
@@ -418,7 +419,7 @@ def test_generate_uses_literal_schema_and_candidate_details(tmp_path: Path) -> N
     assert "pkg/example.py:150" in prompt
     assert budget.calls == [
         {
-            "label": f"verify-{candidate().finding.finding_id}",
+            "label": f"verify-{candidate().finding.finding_id}-attempt-1",
             "input_tokens": 9,
             "output_tokens": 7,
             "cost_usd": pytest.approx(budget.spent_usd),
@@ -517,7 +518,7 @@ def test_generate_reserves_budget_before_provider_and_settles_afterward(tmp_path
     assert reserved_during_call[0] > 0.0
     assert budget.reserved_usd == 0.0
     assert len(budget.calls) == 1
-    assert budget.calls[0]["label"] == f"verify-{candidate().finding.finding_id}"
+    assert budget.calls[0]["label"] == f"verify-{candidate().finding.finding_id}-attempt-1"
 
 
 def test_generate_cancels_reservation_when_provider_raises(tmp_path: Path) -> None:
@@ -532,6 +533,46 @@ def test_generate_cancels_reservation_when_provider_raises(tmp_path: Path) -> No
     assert budget.reserved_usd == 0.0
     assert budget.spent_usd == 0.0
     assert budget.calls == []
+
+
+def test_generate_preflights_both_attempts_before_dispatch(tmp_path: Path) -> None:
+    write_anchor_file(tmp_path)
+    probe = Budget(limit_usd=1.0, model=DEFAULT_MODEL)
+    estimate = probe.estimate_cost(10_000, executor.MAX_REPRO_TOKENS)
+    budget = Budget(limit_usd=estimate * 1.5, model=DEFAULT_MODEL)
+    provider = RecordingProvider(
+        ProviderResult(
+            text='{"test_body":"def test_repro(): pass"}', input_tokens=1, output_tokens=1
+        )
+    )
+
+    with pytest.raises(BudgetExceeded):
+        generate_repro(tmp_path, candidate(), provider, budget)
+
+    assert provider.requests == []
+    assert budget.reserved_usd == 0.0
+
+
+def test_generate_retries_schema_failure_once_and_accepts_json_fence(tmp_path: Path) -> None:
+    write_anchor_file(tmp_path)
+    provider = RecordingProvider(
+        [
+            ProviderResult(text="{}", input_tokens=2, output_tokens=3),
+            ProviderResult(
+                text='```json\n{"test_body":"def test_repro(): pass"}\n```',
+                input_tokens=4,
+                output_tokens=5,
+            ),
+        ]
+    )
+    budget = Budget(limit_usd=1.0, model=DEFAULT_MODEL)
+
+    spec = generate_repro(tmp_path, candidate(), provider, budget)
+
+    assert spec.test_body == "def test_repro(): pass"
+    assert len(provider.requests) == executor.MAX_REPRO_ATTEMPTS
+    assert len(budget.calls) == executor.MAX_REPRO_ATTEMPTS
+    assert budget.reserved_usd == 0.0
 
 
 @pytest.mark.parametrize(
@@ -555,7 +596,7 @@ def test_generate_rejects_malformed_output_after_settling(tmp_path: Path, payloa
         generate_repro(tmp_path, candidate(), provider, budget)
 
     assert budget.reserved_usd == 0.0
-    assert len(budget.calls) == 1
+    assert len(budget.calls) == executor.MAX_REPRO_ATTEMPTS
 
 
 def test_generate_schema_failure_includes_bounded_redacted_raw_fragment(

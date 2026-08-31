@@ -27,6 +27,7 @@ from attest.review.security import is_secret_name
 
 MAX_CONTEXT_LINES = 200
 MAX_REPRO_TOKENS = 2_000
+MAX_REPRO_ATTEMPTS = 2
 CLEANUP_TIMEOUT_S = 1.0
 GIT_TIMEOUT_S = 60.0
 MAX_REASON_CHARS = 300
@@ -303,8 +304,12 @@ def _generation_prompt(repo: Path, candidate: StoredCandidate) -> str:
 
 
 def _parse_repro(text: str) -> ReproSpec:
+    stripped = text.strip()
+    fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", stripped, flags=re.DOTALL | re.IGNORECASE)
+    if fenced is not None:
+        stripped = fenced.group(1)
     try:
-        payload = json.loads(text)
+        payload = json.loads(stripped)
     except json.JSONDecodeError as exc:
         raise ValueError(
             f"generator output is not valid JSON; raw={response_fragment(text)}"
@@ -405,21 +410,52 @@ def generate_repro(
     timeout_s: float | None = None,
 ) -> ReproSpec:
     prompt = _generation_prompt(repo, candidate)
-    label = f"verify-{candidate.finding.finding_id}"
-    reservation = budget.reserve(label, len(GENERATOR_SYSTEM) + len(prompt), MAX_REPRO_TOKENS)
+    labels = [
+        f"verify-{candidate.finding.finding_id}-attempt-{attempt}"
+        for attempt in range(1, MAX_REPRO_ATTEMPTS + 1)
+    ]
+    reservations: list[float] = []
     try:
-        result = provider.sample(
-            GENERATOR_SYSTEM,
-            prompt,
-            REPRO_SCHEMA,
-            MAX_REPRO_TOKENS,
-            timeout_s=timeout_s,
-        )
+        for label in labels:
+            reservations.append(
+                budget.reserve(
+                    label,
+                    len(GENERATOR_SYSTEM) + len(prompt),
+                    MAX_REPRO_TOKENS,
+                )
+            )
     except Exception:
-        budget.cancel(reservation)
+        for reservation in reservations:
+            budget.cancel(reservation)
         raise
-    budget.settle(label, reservation, result.input_tokens, result.output_tokens)
-    return _parse_repro(result.text)
+
+    last_schema_error: ValueError | None = None
+    for index, (label, reservation) in enumerate(zip(labels, reservations, strict=True)):
+        try:
+            result = provider.sample(
+                GENERATOR_SYSTEM,
+                prompt,
+                REPRO_SCHEMA,
+                MAX_REPRO_TOKENS,
+                timeout_s=timeout_s,
+            )
+        except Exception:
+            for unused in reservations[index:]:
+                budget.cancel(unused)
+            raise
+        budget.settle(label, reservation, result.input_tokens, result.output_tokens)
+        try:
+            spec = _parse_repro(result.text)
+        except ValueError as exc:
+            last_schema_error = exc
+            continue
+        for unused in reservations[index + 1 :]:
+            budget.cancel(unused)
+        return spec
+
+    if last_schema_error is None:  # pragma: no cover - fixed positive attempt count
+        raise RuntimeError("reproduction generation made no attempts")
+    raise last_schema_error
 
 
 def _truncate_output(output: bytes | str | None, limit: int) -> str:
