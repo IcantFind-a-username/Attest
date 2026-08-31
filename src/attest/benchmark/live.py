@@ -75,6 +75,7 @@ from attest.benchmark.matcher import match_findings
 from attest.benchmark.measurement import (
     MeasurementRecord,
     MeasurementSummary,
+    TaskStatus,
     decode_measurement_record,
     reduce_measurements,
 )
@@ -1359,18 +1360,37 @@ def build_calibration_report(
     for payload in payloads:
         case_id = str(payload.get("case_id"))
         reason = payload.get("abstain_reason")
+        task_id = payload.get("task_id")
         measurement_payload = payload.get("measurement")
         measurement = (
             decode_measurement_record(measurement_payload)
             if type(measurement_payload) is dict
             else None
         )
-        if payload.get("task_id") is None:
+        if task_id is None:
             excluded.append(ReportExclusion(case_id, str(reason or "not_executed")))
-        elif measurement is not None:
+            continue
+        if measurement is not None:
             if measurement.case_id != case_id:
                 raise ValueError("case payload measurement case_id mismatch")
+            if (
+                type(task_id) is not str
+                or not task_id
+                or task_id != measurement.delivery_transcript.task_id
+            ):
+                raise ValueError(
+                    "current measurement task_id must be a non-empty exact string "
+                    "matching delivery_transcript.task_id"
+                )
             measurement_records.append(measurement)
+            if measurement.task_status is TaskStatus.FULLY_DEFERRED:
+                if type(reason) is not str or not reason.strip():
+                    raise ValueError(
+                        "fully deferred current measurement requires a non-empty "
+                        "abstain_reason"
+                    )
+                abstentions.append(ReportAbstention(case_id, reason))
+                continue
             scored.append(payload)
         elif reason is not None:
             abstentions.append(ReportAbstention(case_id, str(reason)))

@@ -39,6 +39,7 @@ from attest.benchmark.checkpoints import (
 from attest.benchmark.corpus import ValidationVerification
 from attest.benchmark.live import (
     ACCURACY_WITHHELD_REPLAY,
+    CALIBRATION_SCHEMA_VERSION,
     MINIMUM_GLOBAL_LABELS,
     REASON_API_KEY_UNAVAILABLE,
     REASON_INSUFFICIENT_HEADROOM,
@@ -58,6 +59,30 @@ from attest.benchmark.live import (
     read_devspend,
     reserved_case_budget_usd,
     run_live_local,
+)
+from attest.benchmark.measurement import (
+    ARM_ATTEST_PRODUCT,
+    CURRENT_MEASUREMENT_SCHEMA_VERSION,
+    CURRENT_MEASUREMENT_SEMANTICS,
+    DELIVERY_TRANSCRIPT_PROTOCOL,
+    DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
+    AccuracyStatus,
+    DeliveryStatus,
+    DeliveryTranscriptReceipt,
+    FindingAuthority,
+    FindingOutcome,
+    FindingStatus,
+    MeasurementRecord,
+    PublicationChannel,
+    PublicationEvent,
+    PublicationMember,
+    PublicationOutcome,
+    PublicationPlacement,
+    StopKind,
+    TaskDeliveryEvent,
+    TaskDeliveryTerminalStatus,
+    TaskStatus,
+    TruthStatus,
 )
 from attest.benchmark.report import LIVE_MODE, REPLAY_MODE
 from attest.benchmark.runner import Cassette, ReplayProvider, ReproReceipt
@@ -311,6 +336,159 @@ def _completed_result(
     receipts: tuple[ReproReceipt, ...] = (),
     abstain_reason: str | None = None,
 ) -> ProjectEvaluationResult:
+    if abstain_reason is not None and predictions:
+        raise ValueError("the fully-deferred fixture cannot publish findings")
+    task_id = f"task-{case_id}"
+    repository = "fixture/repository"
+    pull_request_number = 1
+    head_sha = "h" * 40
+    members = tuple(
+        PublicationMember(
+            finding_id=prediction.finding_id,
+            placement=PublicationPlacement(prediction.placement.value),
+        )
+        for prediction in predictions
+    )
+    publication_events: tuple[PublicationEvent, ...] = ()
+    task_delivery_events: tuple[TaskDeliveryEvent, ...] = ()
+    if abstain_reason is None:
+        attempt_id = hashlib.sha256(f"{task_id}:0:status_summary".encode()).hexdigest()
+        body = {
+            "members": [member.to_json_dict() for member in members],
+            "terminal_status": TaskDeliveryTerminalStatus.COMPLETED.value,
+        }
+        body_sha256 = hashlib.sha256(
+            json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        request = {
+            "repository": repository,
+            "pull_request_number": pull_request_number,
+            "head_sha": head_sha,
+            "channel": PublicationChannel.STATUS_SUMMARY.value,
+            "body_sha256": body_sha256,
+        }
+        request_sha256 = hashlib.sha256(
+            json.dumps(request, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        if members:
+            publication_events = (
+                PublicationEvent(
+                    event_id=hashlib.sha256(
+                        f"{attempt_id}:publication".encode()
+                    ).hexdigest(),
+                    attempt_id=attempt_id,
+                    attempt_ordinal=0,
+                    repository=repository,
+                    pull_request_number=pull_request_number,
+                    head_sha=head_sha,
+                    members=members,
+                    channel=PublicationChannel.STATUS_SUMMARY,
+                    outcome=PublicationOutcome.SUCCEEDED,
+                    body_sha256=body_sha256,
+                    request_sha256=request_sha256,
+                    remote_response_id="1",
+                    delivered_at_s=1.0,
+                    deadline_s=60.0,
+                ),
+            )
+        task_delivery_events = (
+            TaskDeliveryEvent(
+                event_id=hashlib.sha256(
+                    f"{attempt_id}:task_delivery".encode()
+                ).hexdigest(),
+                attempt_id=attempt_id,
+                attempt_ordinal=0,
+                repository=repository,
+                pull_request_number=pull_request_number,
+                head_sha=head_sha,
+                channel=PublicationChannel.STATUS_SUMMARY,
+                members=members,
+                terminal_status=TaskDeliveryTerminalStatus.COMPLETED,
+                outcome=PublicationOutcome.SUCCEEDED,
+                body_sha256=body_sha256,
+                request_sha256=request_sha256,
+                remote_response_id="1",
+                delivered_at_s=1.0,
+                deadline_s=60.0,
+            ),
+        )
+    attempts = tuple(
+        sorted(
+            {
+                (event.attempt_ordinal, event.attempt_id)
+                for event in (*publication_events, *task_delivery_events)
+            }
+        )
+    )
+    transcript_payload = {
+        "schema_version": DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
+        "protocol": DELIVERY_TRANSCRIPT_PROTOCOL,
+        "task_id": task_id,
+        "expected_attempt_count": len(attempts),
+        "last_attempt_ordinal": attempts[-1][0] if attempts else None,
+        "attempts": [
+            {"attempt_ordinal": ordinal, "attempt_id": attempt}
+            for ordinal, attempt in attempts
+        ],
+    }
+    transcript = DeliveryTranscriptReceipt(
+        schema_version=DELIVERY_TRANSCRIPT_SCHEMA_VERSION,
+        protocol=DELIVERY_TRANSCRIPT_PROTOCOL,
+        task_id=task_id,
+        expected_attempt_count=len(attempts),
+        last_attempt_ordinal=attempts[-1][0] if attempts else None,
+        transcript_sha256=hashlib.sha256(
+            json.dumps(
+                transcript_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest(),
+    )
+    findings = tuple(
+        FindingOutcome(
+            finding_id=prediction.finding_id,
+            finding_status=FindingStatus.PUBLISHED,
+            accuracy_status=AccuracyStatus.UNADJUDICATED,
+            defect_id=None,
+            publication_event_ids=(publication_events[0].event_id,),
+            authority=FindingAuthority.AUTOMATED,
+        )
+        for prediction in predictions
+    )
+    measurement = MeasurementRecord(
+        schema_version=CURRENT_MEASUREMENT_SCHEMA_VERSION,
+        scoring_semantics=CURRENT_MEASUREMENT_SEMANTICS,
+        case_id=case_id,
+        arm=ARM_ATTEST_PRODUCT,
+        repeat=0,
+        stop_kind=(
+            StopKind.TASK_DEFER if abstain_reason is not None else StopKind.NONE
+        ),
+        task_status=(
+            TaskStatus.FULLY_DEFERRED
+            if abstain_reason is not None
+            else TaskStatus.COMPLETED
+        ),
+        findings=findings,
+        eligible_defect_ids=(),
+        pull_request_number=pull_request_number,
+        truth_status=TruthStatus.UNADJUDICATED,
+        delivery_status=(
+            DeliveryStatus.PUBLISHED_ON_TIME
+            if predictions
+            else DeliveryStatus.NO_PUBLICATION
+        ),
+        candidate_count=len(findings),
+        published_count=len(findings),
+        unresolved_count=0,
+        publication_events=publication_events,
+        task_delivery_events=task_delivery_events,
+        delivery_transcript=transcript,
+        metrics_withheld_reason=None,
+        delivery_withheld_reason=None,
+        task_delivery_withheld_reason=None,
+    )
     run = RunRecord(
         run_id=f"run-{case_id}",
         case_id=case_id,
@@ -322,9 +500,9 @@ def _completed_result(
     return ProjectEvaluationResult(
         case_id=case_id,
         status="deferred" if abstain_reason else "completed",
-        task_id=f"task-{case_id}",
+        task_id=task_id,
         base_sha="b" * 40,
-        head_sha="h" * 40,
+        head_sha=head_sha,
         predictions=predictions,
         final_decisions=(),
         abstain_reason=abstain_reason,
@@ -336,7 +514,7 @@ def _completed_result(
         oracle_receipts=receipts,
         run=run,
         score=None,
-        measurement=None,
+        measurement=measurement,
     )
 
 
@@ -2099,7 +2277,7 @@ class TestCalibrationReport:
         )
         payload = report.to_json_dict()
 
-        assert payload["schema_version"] == "4"
+        assert payload["schema_version"] == CALIBRATION_SCHEMA_VERSION
         assert payload["mode"] == LIVE_MODE
         assert payload["accuracy_withheld_reason"] is None
         assert (
@@ -2289,6 +2467,117 @@ class TestCalibrationReport:
         ]
         assert payload["accuracy"]["true_negatives"] == 0
         assert payload["accuracy"]["true_positives"] == 1
+
+    def test_fully_deferred_current_measurement_requires_an_abstain_reason(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, _, _ = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        control = next(
+            case for case in manifest.cases if case.role == "developer_fix_control"
+        )
+        payload = case_payload(
+            _completed_result(
+                control.case_id, abstain_reason="budget: deferred before any call"
+            )
+        )
+        payload.pop("abstain_reason")
+
+        with pytest.raises(
+            ValueError,
+            match="fully deferred current measurement requires.*abstain_reason",
+        ):
+            build_calibration_report(
+                manifest,
+                [payload],
+                run_id="pilot-live-missing-abstain-reason",
+                mode=LIVE_MODE,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                validation_receipt=_current_validation_authority(manifest_path),
+            )
+
+    def test_taskless_current_measurement_remains_excluded_from_outcome_accounting(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, _, _ = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        control = next(
+            case for case in manifest.cases if case.role == "developer_fix_control"
+        )
+        payload = case_payload(replace(_completed_result(control.case_id), task_id=None))
+
+        report = build_calibration_report(
+            manifest,
+            [payload],
+            run_id="pilot-live-taskless-current",
+            mode=LIVE_MODE,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            preregistration_sha256="f" * 64,
+            validation_receipt=_current_validation_authority(manifest_path),
+        ).to_json_dict()
+
+        assert report["excluded_cases"] == [
+            {"case_id": control.case_id, "reason": "not_executed"}
+        ]
+        assert report["outcome_accounting"]["scoring_semantics"] == (
+            "legacy_v1_scoring"
+        )
+        assert report["outcome_accounting"]["task_status_counts"] == {
+            "completed": 0,
+            "partially_deferred": 0,
+            "fully_deferred": 0,
+            "failed": 0,
+        }
+
+    def test_taskless_payload_still_rejects_a_malformed_current_measurement(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path, _, _ = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        control = next(
+            case for case in manifest.cases if case.role == "developer_fix_control"
+        )
+        payload = case_payload(replace(_completed_result(control.case_id), task_id=None))
+        payload["measurement"] = {"schema_version": "future"}
+
+        with pytest.raises(ValueError, match="measurement record fields"):
+            build_calibration_report(
+                manifest,
+                [payload],
+                run_id="pilot-live-taskless-malformed-measurement",
+                mode=LIVE_MODE,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                validation_receipt=_current_validation_authority(manifest_path),
+            )
+
+    @pytest.mark.parametrize("task_id", ("wrong-task", "", 7))
+    def test_current_measurement_requires_the_exact_outer_task_id(
+        self, tmp_path: Path, task_id: object
+    ) -> None:
+        manifest_path, _, _ = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        control = next(
+            case for case in manifest.cases if case.role == "developer_fix_control"
+        )
+        payload = case_payload(_completed_result(control.case_id))
+        payload["task_id"] = task_id
+
+        with pytest.raises(
+            ValueError,
+            match="current measurement task_id must be a non-empty exact string "
+            "matching delivery_transcript.task_id",
+        ):
+            build_calibration_report(
+                manifest,
+                [payload],
+                run_id="pilot-live-task-id-join",
+                mode=LIVE_MODE,
+                manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                preregistration_sha256="f" * 64,
+                validation_receipt=_current_validation_authority(manifest_path),
+            )
 
 
 class TestLiveLocalCli:
