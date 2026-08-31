@@ -124,11 +124,11 @@ def test_build_prompt_contains_diff() -> None:
     assert "risky = 1 / n" in build_prompt(DIFF)
 
 
-# The representative case from the PROPOSER_MAX_OUTPUT_TOKENS derivation
-# (proposer.py): 44,158 ASCII diff chars was the DEFER boundary under the old
-# 2,000-token bound (5 reservations hit exactly $0.25); the preregistered
-# bound must clear it with headroom and push the boundary to ~50,150 chars.
-OLD_BOUNDARY_DIFF_CHARS = 44_158
+# The conservative default-budget boundary after reserving 2,400 output tokens
+# for all five calls is about 38,150 diff characters (proposer.py). Keep the
+# fixture below that bound while exercising a much larger input than the live
+# truncation case that motivated the increase.
+LARGE_DIFF_CHARS = 37_000
 
 
 class WorstCaseProvider:
@@ -160,22 +160,18 @@ def ascii_diff(total_chars: int) -> DiffInfo:
     return parse_diff(text)
 
 
-def test_default_budget_reserves_old_boundary_diff() -> None:
+def test_default_budget_reserves_documented_large_diff() -> None:
     cfg = ReviewConfig()  # factory defaults: $0.25, K=5, default-model pricing
     budget = Budget(limit_usd=cfg.budget_usd, model=cfg.model)
-    # must not raise BudgetExceeded at the old DEFER boundary
-    run = propose(ascii_diff(OLD_BOUNDARY_DIFF_CHARS), cfg, budget, WorstCaseProvider())
+    run = propose(ascii_diff(LARGE_DIFF_CHARS), cfg, budget, WorstCaseProvider())
     assert run.sample_errors == []
     assert len(budget.calls) == cfg.k_samples
-    # well past the old boundary, inside the new ~50,150-char one
-    budget2 = Budget(limit_usd=cfg.budget_usd, model=cfg.model)
-    propose(ascii_diff(48_000), cfg, budget2, WorstCaseProvider())
 
 
 def test_maximal_settled_response_stays_within_budget() -> None:
     cfg = ReviewConfig()
     budget = Budget(limit_usd=cfg.budget_usd, model=cfg.model)
-    propose(ascii_diff(OLD_BOUNDARY_DIFF_CHARS), cfg, budget, WorstCaseProvider())
+    propose(ascii_diff(LARGE_DIFF_CHARS), cfg, budget, WorstCaseProvider())
     assert budget.reserved_usd == pytest.approx(0.0)
     assert all(c["output_tokens"] == PROPOSER_MAX_OUTPUT_TOKENS for c in budget.calls)
     assert budget.spent_usd <= cfg.budget_usd

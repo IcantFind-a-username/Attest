@@ -34,21 +34,22 @@ from attest.review.schema import PROPOSAL_SCHEMA, Finding, validate_finding
 #   JSON syntax         keys/quotes/braces per finding     ~30 tokens
 #   per finding                                            ~240 tokens
 #   5 findings + {"findings": [...]} envelope (~10)      ~1,210 tokens
-# Headroom: 1,210 x 1.25 ~= 1,513, rounded UP to 1,600 (~32%) — truncation
-# destroys the JSON and voids the whole sample, so the bound must never clip
-# a legitimate maximal response. No dogfood ledger rows with recorded output
-# tokens existed at derivation time; the bound is schema-derived only.
+# Visible-schema headroom alone put the original bound at 1,600. The first
+# stop-reason-instrumented live observation then saw 4/20 proposal calls stop
+# at that bound, all on one 2,348-input-token diff, while a valid response from
+# the same case used 1,539 output tokens. The provider's adaptive reasoning
+# also consumes this allowance even when the reasoning text is not returned.
+# Add 50% measured headroom: 1,600 x 1.5 = 2,400. This remains a hard cap;
+# truncation destroys the JSON and voids the whole sample.
 #
 # Product constraint (default model per pricing.toml: $2/MTok in, $10/MTok
 # out; default $0.25 budget; K=5). The K up-front reservations cost
-#   5 x (input_chars/3 x $2e-6 + 1,600 x $1e-5)
-#     = input_chars x $3.33e-6 + $0.08
-# so input_chars may reach (0.25 - 0.08) / 3.33e-6 = 51,000 chars — a diff
-# boundary of ~50,150 chars after prompt overhead (754 system prompt + 88
-# scaffolding). The old 2,000-token bound put that boundary at 44,158 diff
-# chars (5 reservations hit exactly $0.25), making --budget act as a diff-size
-# cutoff; a 44,158-char diff now reserves at ~$0.23 with headroom to spare.
-PROPOSER_MAX_OUTPUT_TOKENS = 1600
+#   5 x (input_chars/3 x $2e-6 + 2,400 x $1e-5)
+#     = input_chars x $3.33e-6 + $0.12
+# so input_chars may reach (0.25 - 0.12) / 3.33e-6 = 39,000 chars — a diff
+# boundary of ~38,150 chars after prompt overhead. That explicit conservative
+# boundary is the cost of reserving the provider-enforced allowance up front.
+PROPOSER_MAX_OUTPUT_TOKENS = 2400
 MAX_RESPONSE_FRAGMENT_CHARS = 500
 
 SYSTEM_PROMPT = """You are a code reviewer that reports ONLY high-severity defects: crashes, \

@@ -425,3 +425,25 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** owner approval with a replacement package boundary and measured Gate-cost
   evidence; never by lowering the production threshold after a failure.
 - **Trace:** `G-CODE-001`; `AGENTS.md` §13; `pyproject.toml` coverage configuration.
+
+### D-051 — Measured proposal truncation gets bounded output headroom
+
+- **Date/status/scope:** 2026-09-01 · accepted owner-authorized default adjustment ·
+  proposal sampling only.
+- **Decision:** increase `PROPOSER_MAX_OUTPUT_TOKENS` from 1,600 to 2,400. Keep the
+  same value for both the provider hard cap and every up-front budget reservation;
+  do not change the default review budget, sample count, gate, channel prices, or
+  factory statistical constants.
+- **Why/evidence:** the first stop-reason-instrumented operational run at `50055e2`
+  observed 4/20 proposal calls ending at `max_tokens`, all four on one case; a valid
+  response for that case consumed 1,539 output tokens. Adaptive reasoning consumes
+  the same allowance even when its text is omitted. A 50% increase is the smallest
+  round bound that provides material measured headroom.
+- **Consequences:** the observed case's five-call preflight remains below its $0.25
+  budget (about $0.135 at the new bound). The conservative default-budget diff-size
+  boundary moves from about 50k to about 38k characters; larger inputs still DEFER
+  before dispatch. This is a bounded generation default, not a lowered evidence bar.
+- **Reversal:** replace only with another stop-reason-bound measurement; never recover
+  budget by under-reserving the enforced provider cap.
+- **Trace:** Wave 3 run `wave3-observe2-20260901`; `src/attest/review/proposer.py`;
+  `DEVSPEND.md`.
