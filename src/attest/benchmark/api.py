@@ -1212,7 +1212,7 @@ def _deferred(request: ProjectEvaluationRequest, reason: str) -> ProjectEvaluati
         spend_usd=0.0,
         oracle_spend_usd=0.0,
         artifacts=(),
-        evidence_class_counts={},
+        evidence_class_counts=attributed_evidence_class_counts((), ()),
         oracle_receipts=(),
         run=run,
         score=None,
