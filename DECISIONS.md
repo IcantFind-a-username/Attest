@@ -985,3 +985,89 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** owner call; F is inert and can be removed or re-scoped without touching any
   decision path.
 - **Trace:** D-022; D-059; D-063; `docs/backlog.md`; `src/attest/review/history.py`.
+
+### D-065 — F is measured at the candidate unit and does not discriminate there, and the pricing layer is blocked by S·T rather than by F
+
+- **Date/status/scope:** 2026-09-01 · owner-directed measurement · offline, no paid call ·
+  `scripts/acceptance/d065_candidate_unit_discrimination.py` and its artifact. No source
+  file, constant, threshold or contract changed.
+- **What was wrong with D-064's measurement, and what changed.** D-064 could not compare F
+  at the unit the product emits because its control arm produced 1 candidate against 25.
+  The blocker was the **measurement population**, not the signal definition, which is
+  unchanged here: the same four graded fields, the same recorded values, regrouped. The
+  population selected — and its reason, written before any number existed, in
+  `docs/2026-09-01-d065-f-discrimination-population.md` — is the 26 candidates already on
+  record, split by whether the anchor lands on the corpus's own head-side labelled defect
+  region. It is the only available population whose non-defect label is product-blind, and
+  the only one that places both groups **inside the same reviewed revision**, which is the
+  unit at which a priced F would actually decide.
+- **Why the wave-5 control arm was empty, established from the record rather than guessed.**
+  The two arms of a wave-5 pair are the same diff run in opposite directions, so their
+  manifest `changed_locations` are identical. Yield tracked direction alone: 1 candidate over
+  the nine fix-applying heads against 25 over the nine fix-reverting heads, with the largest
+  labelled diff silent in both directions and a one-line diff yielding two. The dogfood ledger
+  agrees — 617 added lines produced 0 candidates, a semantics-preserving refactor produced 0.
+  Any population built from clean, addition-shaped commits inherits that emptiness.
+- **The split, at D-062's pre-registered `line_slack = 3`:** 20 on a labelled defect region,
+  5 off it, 1 on a fix-applying head where no labelled defect exists. Stable from slack 3
+  upward (20/5 at 3, 4, 5, 10) and moving below it (10/15 at 0, 18/7 at 2).
+- **The result, at the candidate unit.**
+
+  | field | on labelled defect | off labelled defect |
+  |---|---|---|
+  | commits | n = 20 · median 2 · mean 1.50 | n = 5 · median 1 · mean 1.00 |
+  | repair_share | n = 16 · median 0.00 · mean **0.042** | n = 5 · median 0.00 · mean **0.200** |
+  | distinct_authors | n = 20 · median 1 · mean 1.15 | n = 5 · median 1 · mean 1.00 |
+  | days_since_last_change | n = 16 · median **97.5** · mean **89.6** | n = 5 · median **84** · mean **156.8** |
+
+  The two fields D-064 called directionally suggestive at the anchor-line unit do **not**
+  carry to this one: repair share inverts, and days-since-last-change disagrees with itself
+  by median and mean on a five-element sample. The two fields D-064 found flat at the line
+  unit are the two that separate here, weakly. Percentile bands against an in-repository
+  ruler do not separate the groups: every off-label candidate sits at commits Q2 and authors
+  Q3, while the on-label group straddles Q1/Q2/Q4. **No significance test was run and none
+  may be read in.**
+- **The finding that outranks the group means:** F is near-constant *inside* one review.
+  Over the seven cases with more than one candidate, `repair_share` takes one distinct value
+  in six (0.00 in five), `distinct_authors` spans ≤ 2 values, `commits` spreads ≤ 3. A priced
+  F multiplies one candidate against another on the same head; a quantity that barely moves
+  inside a head cannot re-order what one review shows.
+- **The pricing counterfactual, and the number that actually blocks it.** At an F cap of 1.2,
+  **zero** candidates cross the surfacing threshold, in every group. Crossing needs
+  `S·T ≥ 10/1.2 = 8.334`; the observed maximum `S·T` over all 26 candidates is **3.0**, with
+  `T = 1.0` on every one and `S ∈ {2.0, 2.639, 2.9485, 3.0}`. The owner's arithmetic is right
+  where it was aimed — against D-063's *reachable* ceiling of 9, `9 × 1.2 = 10.8` clears 10 —
+  but that ceiling has never been observed. Against the observed ceiling the required cap is
+  `10 / 3.0 = 3.34`. Two structural consequences: a flat cap multiplies every candidate
+  identically, so its crossing set is exactly `{S·T ≥ 10/c}`, a function of S and T that
+  carries no F information at all (which is why cap 3.34 splits 5:1 and cap 5.0 surfaces
+  everything including the candidate on a *fixed* revision); and at cap 1.2 the answer is
+  invariant to how F is graded, since any multiplier bounded by 1.2 still needs `S·T ≥ 8.334`.
+- **Judgement, stated as judgement.** The pricing layer is not activatable under foreseeable
+  evidence, and F is not the reason — `S·T` is, by a factor of 2.8 against a threshold it has
+  never approached. Separately and on its own terms, F did not discriminate at the candidate
+  unit here. Neither statement is a refutation of F: n = 5 on the non-defect side, and four
+  of those five anchor in `tests/test_black.py`, which BugsInPy cannot label at all because
+  its `bug_patch.txt` carries only source hunks. That group is **unlabelable, not verified
+  clean** — the fifth member, `black.py:610`, reads like a genuine second defect the corpus
+  does not point at, on a case D-062 already flagged for unlabelled pure-insertion hunks.
+- **Stopping here, as pre-registered.** One population, one measurement. No fifth slice of the
+  same history, no graded-map simulation, and no cap, alpha or constant moved to force a
+  crossing.
+- **Explicitly unchanged:** F stays unpriced — it buys no wealth, multiplies nothing, orders
+  nothing, vetoes nothing and reaches no publication path. No factory constant, alpha, LR,
+  channel cap, gate threshold, coverage threshold, pricing contract or product decision moved.
+  `INV-TRUTH-001` is respected: anchor overlap is used as a **grouping** variable and is never
+  reported as detection. `matcher.match_findings` was deliberately not reused — it scores
+  surfaced, differentially reproduced predictions, and none of these 26 ever purchased V, so
+  passing them through it would have required forging a placement and a repro status.
+- **Relation to D-063 and D-059:** this run makes no model call, so D-063's note that the
+  changed generation prompt makes new runs incomparable with D-059 on generation quality does
+  not apply — these are D-064's own 26 candidates, regrouped.
+- **Evidence:** `docs/acceptance/evidence/2026-09-01-d065-candidate-unit-discrimination/result.json`
+  (SHA-256 `245b35b45c564a69186c4c87a7c7ff087218d34a5acad4daa6dfe2985f68b7d9`);
+  `docs/2026-09-01-d065-f-discrimination-population.md`.
+- **Reversal:** owner call. Nothing is load-bearing; the artifact and script can be deleted
+  without touching any decision path. The result would be superseded by a corpus whose control
+  arm emits candidates, or by any change that lifts observed `S·T` toward its reachable ceiling.
+- **Trace:** D-059; D-062; D-063; D-064; `AGENTS.md` §16; `INV-TRUTH-001`; `docs/backlog.md`.
