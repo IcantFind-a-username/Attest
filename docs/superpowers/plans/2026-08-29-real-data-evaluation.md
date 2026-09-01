@@ -8,7 +8,7 @@
 > [`../../implementation/agent-work-orders.md`](../../implementation/agent-work-orders.md).
 > Checkboxes and old requirements are preserved as historical input, not live status.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Historical note:** this plan was originally executed task-by-task with checkbox tracking. It is archived. Do not execute its tasks, do not complete its checkboxes, and do not treat the sub-skill instruction it once carried as a live requirement — see `README.md` in this directory.
 
 **Goal:** Build a reproducible benchmark that evaluates Attest on traceable real Python bug/fix pairs, reports accuracy/abstention/latency/cost with confidence intervals, and produces calibration evidence without silently changing factory statistical constants.
 
