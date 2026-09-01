@@ -23,3 +23,10 @@ reproduction turns one into a real defect.
   behavior but changed several message strings; no repository caller depends on them, and
   the later-round compatibility concern is deferred under D-049 rather than opening another
   repair loop.
+- D-059 left the process-audit window opening at `pytest_runtest_call`, so an event raised
+  while the generated test module is imported is recorded but not adjudicated; widening it
+  to collection start would keep the D-057 bootstrap carve-out and still adjudicate
+  import-time reviewed code, and needs its own owner decision.
+- The D-059 wave-4 replay lost 15/23 candidates to the per-case product budget
+  (`--budget-usd 0.16`), not to any guard; a rerun with a per-case budget above ~$0.20
+  would measure how many of those reach a differential.

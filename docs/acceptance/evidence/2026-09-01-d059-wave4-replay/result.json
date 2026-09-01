@@ -1,0 +1,264 @@
+{
+ "accuracy_status": "withheld",
+ "accuracy_withheld_reason": "validation_receipt_missing (the v1 receipt is historical_integrity_only)",
+ "cases": [
+  {
+   "base_sha": "892eddacd215d685e136686b7f629ade70adca83",
+   "candidates": 4,
+   "case_id": "case-1e2261dcc6e9",
+   "evidence_classes": {
+    "indeterminate": 4
+   },
+   "head_sha": "c8ca6b2b9ff3510bee12129824cebfc2fc51e5b2",
+   "spend_usd": 0.159406,
+   "status": "deferred",
+   "surfaced": 0
+  },
+  {
+   "base_sha": "d6db1c12a8e14833fe22da377cddc2bd1f43dc14",
+   "candidates": 3,
+   "case_id": "case-2dad0cb4c5b5",
+   "evidence_classes": {
+    "indeterminate": 2,
+    "regression_reproduced": 1
+   },
+   "head_sha": "026c81b83454f176a9f9253cbfb70be2c159d822",
+   "spend_usd": 0.092228,
+   "status": "deferred",
+   "surfaced": 1
+  },
+  {
+   "base_sha": "b53cb9474348e13533ccba3735191a55ef3da6c4",
+   "candidates": 4,
+   "case_id": "case-3efff8123ae7",
+   "evidence_classes": {
+    "indeterminate": 4
+   },
+   "head_sha": "8b340e210271a8108995fd479c55dbc0a34466bd",
+   "spend_usd": 0.10209,
+   "status": "deferred",
+   "surfaced": 0
+  },
+  {
+   "base_sha": "883689366ce0f0e0ddd66d81360c61abfd19b01a",
+   "candidates": 1,
+   "case_id": "case-794b97290785",
+   "evidence_classes": {
+    "indeterminate": 1
+   },
+   "head_sha": "b719d85ccc330170e40b2617307a7e3b2a0bab14",
+   "spend_usd": 0.09081,
+   "status": "deferred",
+   "surfaced": 0
+  },
+  {
+   "base_sha": "7a14a37981862ef418f3cdb4a7e2375856f97529",
+   "candidates": 2,
+   "case_id": "case-81039ffa0c1e",
+   "evidence_classes": {
+    "indeterminate": 1,
+    "unfaithful": 1
+   },
+   "head_sha": "8126b4f6a9342290de4655e6a8a78cd288ce7daa",
+   "spend_usd": 0.089118,
+   "status": "deferred",
+   "surfaced": 0
+  },
+  {
+   "base_sha": "42a3fe53319a8c02858c2a96989ed1339f84515a",
+   "candidates": 1,
+   "case_id": "case-99a012693940",
+   "evidence_classes": {
+    "regression_reproduced": 1
+   },
+   "head_sha": "fb34c9e19589d05f92084a28940837151251ebd6",
+   "spend_usd": 0.05368,
+   "status": "completed",
+   "surfaced": 1
+  },
+  {
+   "base_sha": "00a302560b92951c22f0f4c8d618cf63de39bd57",
+   "candidates": 1,
+   "case_id": "case-a8dfb35be49f",
+   "evidence_classes": {
+    "indeterminate": 1
+   },
+   "head_sha": "dbe26161fa68632d608a440666a0960a32630902",
+   "spend_usd": 0.15858,
+   "status": "deferred",
+   "surfaced": 0
+  },
+  {
+   "base_sha": "7fc6ce990669464f5172b63fafa3724f5f308be3",
+   "candidates": 4,
+   "case_id": "case-c22190aa4fc9",
+   "evidence_classes": {
+    "indeterminate": 3,
+    "regression_reproduced": 1
+   },
+   "head_sha": "bbc09a4f013f2a584f143f3f5e3f76f6082367d4",
+   "spend_usd": 0.09036,
+   "status": "deferred",
+   "surfaced": 1
+  },
+  {
+   "base_sha": "9394de150ebf0adc426523f46dc08e8b2b2b0b63",
+   "candidates": 3,
+   "case_id": "case-c6f141a2be09",
+   "evidence_classes": {
+    "indeterminate": 1,
+    "regression_reproduced": 1,
+    "unfaithful": 1
+   },
+   "head_sha": "1bbb01b854d168d76ebe4bf78961c2152ae075d9",
+   "spend_usd": 0.097182,
+   "status": "deferred",
+   "surfaced": 1
+  }
+ ],
+ "config": {
+  "alpha": 0.1,
+  "budget_usd_per_case": 0.16,
+  "deadline_s": 60.0,
+  "differential_repeats": 3,
+  "k_samples": 5,
+  "tier0_commands": [],
+  "wall_timeout_s": 60.0
+ },
+ "corpus": "benchmarks/attest-v1 (9 receipt-validated pairs, historical_bug_replay role)",
+ "defer_reason_distribution": {
+  "generation failed: BudgetExceeded (per-case product budget)": 15,
+  "generation failed: reproduction schema invalid": 1,
+  "head FAIL 3/3, base PASS 3/3 (certified)": 4,
+  "indeterminate on head 3/3 (pytest collection/import/syntax)": 1,
+  "unfaithful generated test: fails on base as well": 2
+ },
+ "evidence_class_per_candidate": {
+  "indeterminate": 17,
+  "regression_reproduced": 4,
+  "unfaithful": 2
+ },
+ "first_certification_receipt": {
+  "anchor": {
+   "file": "black.py",
+   "line": 2949
+  },
+  "base_sha": "42a3fe53319a8c02858c2a96989ed1339f84515a",
+  "bugsinpy_bug": 16,
+  "candidate": {
+   "anchor": {
+    "file": "black.py",
+    "line": 2949
+   },
+   "claim": "Removing the try/except ValueError handling means that symlinks pointing outside the root directory (or other files whose resolved path cannot be made relative to root) will now raise an unhandled ValueError, crashing the entire directory traversal instead of being gracefully skipped.",
+   "failure_scenario": "Running black on a directory that contains a symlink pointing to a file outside the root directory (e.g., a symlink to /etc/passwd or a sibling directory) causes `child.resolve().relative_to(root)` to raise ValueError, which now propagates uncaught and crashes the file-discovery generator instead of reporting the symlink as ignored.",
+   "falsification_plan": "Create a directory with a symlink pointing outside of it, then call black.gen_python_files_in_dir on that directory and observe whether a ValueError is raised (crash) versus being caught and reported via report.path_ignored as before."
+  },
+  "case_id": "case-99a012693940",
+  "corpus_truth_matcher": {
+   "matched": 0,
+   "note": "the corpus location matcher did not bind this anchor to a labeled defect id; per INV-TRUTH-001 location overlap establishes neither correctness nor detection, and accuracy is withheld for this run",
+   "unmatched": 1
+  },
+  "decision": {
+   "action": "surface",
+   "finding_id": "b1e7f57dc2",
+   "placement": "inline",
+   "wealth_final": 58.9708
+  },
+  "evidence_class": "regression_reproduced",
+  "finding_id": "b1e7f57dc2",
+  "generated_test_body": "import os\nimport re\nimport tempfile\nfrom pathlib import Path\n\nimport black\n\n\ndef test_gen_python_files_in_dir_skips_symlink_outside_root():\n    include = re.compile(black.DEFAULT_INCLUDES)\n    exclude = re.compile(black.DEFAULT_EXCLUDES)\n\n    with tempfile.TemporaryDirectory() as outside_dir, tempfile.TemporaryDirectory() as root_dir:\n        outside_path = Path(outside_dir) / \"outside.py\"\n        outside_path.write_text(\"x = 1\\n\")\n\n        root = Path(root_dir).resolve()\n\n        # Create a normal python file inside root so we know traversal works.\n        normal_file = root / \"inside.py\"\n        normal_file.write_text(\"y = 2\\n\")\n\n        # Create a symlink inside root pointing outside root.\n        symlink_path = root / \"link.py\"\n        try:\n            symlink_path.symlink_to(outside_path)\n        except (OSError, NotImplementedError):\n            import pytest\n            pytest.skip(\"symlinks not supported on this platform\")\n\n        report = black.Report()\n\n        # This should NOT raise ValueError even though the symlink resolves\n        # outside of `root`. A correct implementation gracefully skips it\n        # (e.g. via try/except ValueError) instead of crashing the whole\n        # traversal.\n        try:\n            result = list(black.gen_python_files_in_dir(root, root, include, exclude, report))\n        except ValueError as exc:\n            raise AssertionError(\n                \"gen_python_files_in_dir raised ValueError for a symlink pointing \"\n                \"outside root instead of skipping it gracefully: \" + str(exc)\n            )\n\n        result_names = {p.name for p in result}\n        assert \"inside.py\" in result_names\n        # The symlinked file, whose target lies outside root, must not be\n        # yielded as a normal in-root python file.\n        assert \"link.py\" not in result_names\n",
+  "head_sha": "fb34c9e19589d05f92084a28940837151251ebd6",
+  "outcome": "reproduced",
+  "pair_id": "pair-8419788e183e",
+  "project": "black",
+  "reason": "head FAIL 3/3, base PASS 3/3",
+  "runs": [
+   {
+    "elapsed_s": 0.372367,
+    "exit_code": 1,
+    "network_blocked": true,
+    "outcome": "reproduced",
+    "reason": "pytest reported 1 failure(s) and 0 error(s)",
+    "repeat": 1,
+    "side": "head"
+   },
+   {
+    "elapsed_s": 0.330898,
+    "exit_code": 1,
+    "network_blocked": true,
+    "outcome": "reproduced",
+    "reason": "pytest reported 1 failure(s) and 0 error(s)",
+    "repeat": 2,
+    "side": "head"
+   },
+   {
+    "elapsed_s": 0.355609,
+    "exit_code": 1,
+    "network_blocked": true,
+    "outcome": "reproduced",
+    "reason": "pytest reported 1 failure(s) and 0 error(s)",
+    "repeat": 3,
+    "side": "head"
+   },
+   {
+    "elapsed_s": 0.272211,
+    "exit_code": 0,
+    "network_blocked": true,
+    "outcome": "not_reproduced",
+    "reason": "pytest passed",
+    "repeat": 1,
+    "side": "base"
+   },
+   {
+    "elapsed_s": 0.257004,
+    "exit_code": 0,
+    "network_blocked": true,
+    "outcome": "not_reproduced",
+    "reason": "pytest passed",
+    "repeat": 2,
+    "side": "base"
+   },
+   {
+    "elapsed_s": 0.263467,
+    "exit_code": 0,
+    "network_blocked": true,
+    "outcome": "not_reproduced",
+    "reason": "pytest passed",
+    "repeat": 3,
+    "side": "base"
+   }
+  ],
+  "wealth_decomposition": {
+   "S_votes": 3,
+   "S_votes_lr": 2.9485,
+   "T_lr": null,
+   "V_lr": 20.0,
+   "note": "T was never purchased (no tier-0 command configured); 2.9485 x 20.0 = 58.9708 identifies S at 3 votes uniquely",
+   "threshold": 10.0,
+   "wealth_final": 58.9708
+  }
+ },
+ "manifest_sha256": "8f9f90f1ff442d4639f6959faf7701d9e3d05c5863ed48ade6b02e595a8d72d9",
+ "report_digest": "674873ba548da752be68bafcc513664da344803a03282992957262e8b6027da7",
+ "run_id": "d059-wave4-replay-9b",
+ "schema_version": "attest.d059-wave4-replay.v1",
+ "stop_reason_distribution": {
+  "benchmark_oracle:end_turn": 4,
+  "proposer:end_turn": 39,
+  "proposer:max_tokens": 6,
+  "reproduction:end_turn": 7,
+  "reproduction:max_tokens": 2
+ },
+ "totals": {
+  "K_regression_reproduced": 4,
+  "M_reached_differential_execution": 6,
+  "N_candidates": 23,
+  "cases": 9,
+  "oracle_spend_usd": 0.061592,
+  "reserved_usd": 2.88,
+  "spend_usd": 0.933454,
+  "surfaced_findings": 4
+ }
+}

@@ -613,3 +613,60 @@ is active only when the owning architecture/acceptance document changes with it.
   an order that skipped one under this scope.
 - **Trace:** D-039; D-057; `docs/implementation/agent-work-orders.md`;
   `docs/superpowers/plans/README.md`.
+
+### D-059 — the process audit is scoped to the reviewed-code phase, and every repeat runs before classification
+
+- **Date/status/scope:** 2026-09-01 · owner-approved implementation of the two items D-057
+  left pending · `src/attest/review/executor.py`, the differential V funnel, and the
+  receipt-validated corpus replay.
+- **Decision:** two changes, both authorised by the owner against D-057's attribution
+  finding.
+  (a) The process-audit **adjudication window** opens when a test function starts executing
+  and never closes again. Interpreter startup and pytest's own bootstrap no longer decide a
+  candidate. Every event is still recorded in full — event, target, phase and bounded stack
+  land in a durable per-run `process-observed` file — and a run that reaches a verdict
+  without the window ever having opened is DEFERRED rather than trusted.
+  (b) Every configured repeat now runs on **both** sides before anything is classified. A
+  single indeterminate head run no longer returns immediately, and the base side is no
+  longer skipped because of the head result. Classification then reads all runs: head
+  failing every repeat with base passing every repeat is `REGRESSION_REPRODUCED`; head
+  disagreeing with itself is unstable and uncertified; head uniformly indeterminate is named
+  as such with the first run's reason; head passing every repeat is not reproduced; base
+  failing too stays unfaithful.
+- **Why:** D-057 established that the marker was interpreter-scoped — its first event in the
+  corpus environment is `uname -p`, spawned by `platform.uname()` while pytest imports
+  `py -> uuid`, before one line of reviewed code runs. It therefore fired for every candidate
+  and distinguished nothing. Repeats exist to rule out a one-off; aborting on the first
+  indeterminate run inverted that, so one hiccup denied a candidate and nothing was ever
+  compared. A new end-to-end test — a receipt-validated corpus pair plus a known-correct
+  reproduction, run through the real path — failed on the pre-change code with exactly the
+  D-057 stack and passes after (a).
+- **Consequences:** the first certified receipts this project has produced on real
+  historical defects. On 9 receipt-validated `historical_bug_replay` cases: N = 23
+  candidates, M = 6 reached differential execution, **K = 4 `regression_reproduced`**
+  (head FAIL 3/3, base PASS 3/3), 4 surfaced findings each bound to one receipt, against
+  K = 0 in all three prior rounds. Zero child-process DEFERs remained. The dominant
+  remaining DEFER is the per-case product budget (15/23), not the guard. Base now always
+  executes, so a differential costs up to twice the wall time it used to.
+- **Explicitly unchanged:** the audited event set, `RLIMIT_NPROC`, timeouts and resource
+  limits, adjudication strength while reviewed code runs, D-017/D-042 containment, and
+  `G-SEC-002`/`G-SEC-003`. No allowlist exists. Certification still requires a deterministic
+  head failure across every repeat. No factory statistical constant, alpha, LR, channel cap
+  or coverage threshold was touched.
+- **Known limit:** the window opens at the test call, so an event raised while the generated
+  test module is imported is recorded but not adjudicated. That is an attribution boundary,
+  not a containment hole — `RLIMIT_NPROC` still refuses the process either way. Widening the
+  window to collection is in `docs/backlog.md` and needs its own owner decision.
+- **Accuracy:** not estimated. The v1 receipt is `historical_integrity_only`, the run was
+  executed without scoring authority, and the report withholds accuracy. K is an operational
+  count of differential receipts; it is not precision, not recall, and no recall or precision
+  statement may be derived from it.
+- **Evidence:** `docs/2026-09-01-d059-audit-window-and-repeat-semantics.md`;
+  `docs/acceptance/evidence/2026-09-01-d059-wave4-replay/result.json`
+  (SHA-256 `d0c09ac6a1338654809123a8cc45dd333ec2a95cf0a3f99d0499994a9744bd20`);
+  `tests/test_corpus_certification_e2e.py`.
+- **Reversal:** owner call. Restore interpreter-scoped adjudication only with evidence that
+  a reviewed-code process attempt escaped attribution under the narrowed window; restore
+  early repeat abort only with evidence that running all repeats costs more than it buys.
+- **Trace:** D-017; D-020; D-037; D-042; D-049; D-057; D-058; `AGENTS.md` §4;
+  `src/attest/review/executor.py`; `docs/roadmap.md`; `docs/backlog.md`; `DEVSPEND.md`.

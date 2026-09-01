@@ -100,10 +100,10 @@ Do not confuse target contracts with current behavior:
   node, semantic-binding, fresh-state, and authenticated-provenance target receipt;
 - current language-level process/network guards are best-effort containment, not a security
   boundary for untrusted head code;
-- the current process audit covers the entire reproduction pytest interpreter, so trusted
-  runner bootstrap can set the same child-process marker as reviewed code; two retained
-  Black replays first triggered on Python 3.8 `platform.uname()` invoking `uname -p` before
-  the generated test entered `black.format_str` or Click's `CliRunner`;
+- the process audit adjudicates only from the moment a test function starts executing
+  (D-059); events during interpreter startup and pytest's own bootstrap are recorded in full
+  but decide nothing, and an event raised while the generated test module is imported is
+  likewise recorded rather than adjudicated;
 - historical real replay produced only abstentions in the reported attempts, so it did not
   estimate product precision or recall;
 - synthetic S/T scheduling savings are mechanism evidence, not production Core efficacy.

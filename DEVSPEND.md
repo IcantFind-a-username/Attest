@@ -28,6 +28,7 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-09-01 | wave 3 operational-only live observation, 2 historical V1-validated pairs / 4 cases (accuracy withheld) | $0.330626 |
 | 2026-09-01 | wave 4 bounded-generation retest, same 2 historical V1-validated pairs / 4 cases (accuracy withheld) | $0.433304 |
 | 2026-09-01 | wave 5 history counterfactual, 9 V1-historical pairs / 18 cases (accuracy withheld; F unpriced) | $1.576220 |
+| 2026-09-01 | D-059 wave 4 replay rerun after the audit-window and repeat-semantics fixes, 9 receipt-validated pairs / 9 historical-bug-replay cases (accuracy withheld) | $0.933454 |
 | 2026-08-29 | phase-3 acceptance run 33267601438 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0242 |
 | 2026-08-29 | phase-3 acceptance run 33267602736 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0115 |
 | 2026-08-29 | phase-3 acceptance run 33268274146 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182623-6ffc59) | $0.0230 |
@@ -37,7 +38,7 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-08-29 | phase-3 acceptance run 33268347262 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0132 |
 | 2026-08-29 | phase-3 acceptance run 33268350447 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0272 |
 
-**Total API spend: $5.933150 of $10.00.** (30 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $6.866604 of $10.00.** (31 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 

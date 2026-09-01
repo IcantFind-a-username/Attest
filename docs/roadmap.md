@@ -102,17 +102,21 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | C-02 or V-01 (neither started); owner decision before another paid V-funnel replay | C-01's pure domain is complete; D-057 shows the current process marker cannot distinguish pytest bootstrap from reviewed-code process attempts |
+| **NOW** | C-02 or V-01 (neither started) | C-01's pure domain is complete; D-059 narrowed the process audit to the reviewed-code phase and made every differential repeat run, and the first receipt-validated corpus rerun produced K = 4 certified differentials against K = 0 in all three prior rounds |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
 
 C-01 is complete. C-02 and V-01 are now the first unblocked code work; neither started in
 the overnight scope. The follow-on V-funnel implementation through `e0f2db0` added complete
-per-candidate run evidence and a reproduction-only 3,000-token cap. It did not change runner
-policy or measure the post-change truncation rate. D-057 blocks only another paid V-funnel
-replay or a runner-policy change pending owner direction; it does not block C-02 or V-01.
-Core is not the next direct production switch.
+per-candidate run evidence and a reproduction-only 3,000-token cap. D-059 then resolved the
+two items D-057 had left pending: the process audit is scoped to the reviewed-code phase,
+and every configured repeat runs on both sides before classification. The paid replay that
+D-057 held is done — 9 receipt-validated `historical_bug_replay` cases, N = 23 candidates,
+M = 6 reaching differential execution, K = 4 `regression_reproduced`, zero child-process
+DEFERs, $0.933454. Accuracy remains withheld: the v1 receipt is `historical_integrity_only`,
+so K is an operational count and estimates neither precision nor recall. Core is not the
+next direct production switch.
 
 ## 4. Dependency graph
 
