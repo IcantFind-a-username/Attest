@@ -36,7 +36,7 @@ from attest.review.executor import (
 )
 from attest.review.gate import GateResult
 from attest.review.ledger import Ledger
-from attest.review.proposer import ProviderResult
+from attest.review.proposer import PROPOSER_MAX_OUTPUT_TOKENS, ProviderResult
 from attest.review.schema import Finding
 
 VerifyWithDefaults = Callable[..., VerificationRun]
@@ -519,6 +519,8 @@ def test_generate_reserves_budget_before_provider_and_settles_afterward(tmp_path
     assert budget.reserved_usd == 0.0
     assert len(budget.calls) == 1
     assert budget.calls[0]["label"] == f"verify-{candidate().finding.finding_id}-attempt-1"
+    assert provider.requests[0][3] == executor.REPRO_MAX_OUTPUT_TOKENS
+    assert executor.REPRO_MAX_OUTPUT_TOKENS > PROPOSER_MAX_OUTPUT_TOKENS
 
 
 def test_generate_cancels_reservation_when_provider_raises(tmp_path: Path) -> None:
@@ -538,7 +540,7 @@ def test_generate_cancels_reservation_when_provider_raises(tmp_path: Path) -> No
 def test_generate_preflights_both_attempts_before_dispatch(tmp_path: Path) -> None:
     write_anchor_file(tmp_path)
     probe = Budget(limit_usd=1.0, model=DEFAULT_MODEL)
-    estimate = probe.estimate_cost(10_000, executor.MAX_REPRO_TOKENS)
+    estimate = probe.estimate_cost(10_000, executor.REPRO_MAX_OUTPUT_TOKENS)
     budget = Budget(limit_usd=estimate * 1.5, model=DEFAULT_MODEL)
     provider = RecordingProvider(
         ProviderResult(

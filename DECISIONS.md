@@ -534,3 +534,23 @@ is active only when the owning architecture/acceptance document changes with it.
   fall back to raw wealth, legacy two-field validation, or a presentation-side constructor.
 - **Trace:** `INV-CERT-001`, `INV-CERT-002`, `INV-VERSION-001`; C-01; C-02 not started;
   `G-CERT-001`, `G-CODE-001`, `G-CODE-002`.
+
+### D-056 — Reproduction generation has independent bounded output headroom
+
+- **Date/status/scope:** 2026-09-01 · accepted owner-authorized default adjustment ·
+  V-channel reproduction generation only.
+- **Decision:** rename the reproduction cap to `REPRO_MAX_OUTPUT_TOKENS` and increase it
+  from 2,000 to 3,000. The provider hard cap and both bounded-retry budget reservations use
+  that same reproduction-only value. The proposal cap remains independently fixed at 2,400.
+- **Why/evidence:** the retained Wave 4 artifacts record 3/7 reproduction calls ending at
+  `max_tokens` (42.9%), while writing complete executable test files. A 50% increase is the
+  smallest round adjustment consistent with D-051's measured-headroom rule and leaves the
+  reproduction allowance above the proposal allowance. This task made no paid evaluation;
+  the post-change truncation rate is therefore not measured.
+- **Consequences:** retry count, schema strictness, execution containment, gate, prices,
+  factory statistics, and generator instructions do not change. Up-front budget checks
+  remain conservative because they reserve the enforced 3,000-token cap twice.
+- **Reversal:** replace only after a stop-reason-bound reproduction measurement; never
+  recover budget by under-reserving the enforced provider cap.
+- **Trace:** D-018; D-051; D-052; `src/attest/review/executor.py`;
+  `docs/overnight-handoff.md`.

@@ -26,7 +26,7 @@ from attest.review.proposer import Provider, response_fragment
 from attest.review.security import is_secret_name
 
 MAX_CONTEXT_LINES = 200
-MAX_REPRO_TOKENS = 2_000
+REPRO_MAX_OUTPUT_TOKENS = 3_000
 MAX_REPRO_ATTEMPTS = 2
 CLEANUP_TIMEOUT_S = 1.0
 GIT_TIMEOUT_S = 60.0
@@ -438,7 +438,7 @@ def generate_repro(
                 budget.reserve(
                     label,
                     len(GENERATOR_SYSTEM) + len(prompt),
-                    MAX_REPRO_TOKENS,
+                    REPRO_MAX_OUTPUT_TOKENS,
                 )
             )
     except Exception:
@@ -453,7 +453,7 @@ def generate_repro(
                 GENERATOR_SYSTEM,
                 prompt,
                 REPRO_SCHEMA,
-                MAX_REPRO_TOKENS,
+                REPRO_MAX_OUTPUT_TOKENS,
                 timeout_s=timeout_s,
             )
         except Exception:
