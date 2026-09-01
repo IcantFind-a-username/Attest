@@ -210,3 +210,47 @@ validation receipt are unchanged. Accuracy, precision and recall remain **not es
 | `docs/acceptance/evidence/2026-09-01-d064-history-heat/result.json` | `e1f8658cf7fa7d84594141b361612e7f802d8f7bc16913cbb266dc1d941daa99` |
 
 All four are regenerable from `scripts/acceptance/`.
+
+## Gate
+
+Run on `e6efadf81d3cdd37d93d1329a4fb7f9691eb63c5`; the two later commits touch only `docs/`
+and no source file changed after this run started.
+
+| command | result |
+|---|---|
+| `python -m pytest --cov=src/attest --cov-report=term-missing` | **pass**, exit 0, 1628 tests, 1 skipped |
+| `python -m ruff check .` | **pass** |
+| `python -m mypy src/attest` | **pass**, 57 source files |
+| `git diff --check` | **pass** |
+
+**Coverage: 92.37% total, threshold 90.0% reached.** The production packages the Gate applies
+the floor to: `attest.cli` 96%, `attest.github` 91–100% per module, `attest.review` 88–100%
+per module. The two modules this task changed most in `attest.review` read
+`gate.py` **100%** and `history.py` **90%**. Nothing was papered over with filler tests
+(D-058 §3.1); every test added here pins a named contract.
+
+Environment: `.venv`, CPython 3.12.2, darwin. This is the ordinary work-order Gate on one
+supported Python; the dual-version integration Gate is not claimed.
+
+## Independent review
+
+One pass, per D-049. One defect was reproduced and fixed in this branch: a taskless
+pre-execution defer emitted a bare `{}` for its evidence-class counts, which under the new
+shape reads as a map missing its judge keys rather than as an honest empty census. Fixed in
+`e6efadf`. One unreproduced concern went to `docs/backlog.md`: the graded F observation walks
+line history with `git log -L` rather than reading one blame record; measured at ~0.1 s per
+candidate here and on the corpus checkouts, and it fails open at 15 s, so no defect exists to
+fix, but the worst case on a very large history is unmeasured.
+
+## Known limits and next unblocked work
+
+- Precision and recall remain **not estimated**, and `matched = 2/4` or `3/4` does not change
+  that. No validation receipt with scoring authority exists for `attest-v1`.
+- The next paid run is **not generation-comparable** to D-059's, because wave 2 changed the
+  shared generator prompt.
+- F cannot be evaluated at the candidate unit on this corpus: the control arm emits almost no
+  candidates. That, and a second corpus, are the prerequisites for any pricing argument.
+- D-059's dominant remaining loss is still the per-case product budget at `--budget-usd 0.16`
+  (15 of 23 candidates), an evaluation knob rather than a product guard.
+- Untouched and still owner-gated: C-02, V-01, X-01, V-03, the process-audit window widening,
+  and any pricing of F.
