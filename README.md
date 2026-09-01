@@ -37,6 +37,12 @@ It currently contains:
 Important limits:
 
 - the current product wealth is **not an e-process**: S and T only price positive evidence;
+- measurement, not design intent: the S/T/V pricing has never changed an outcome. In all 45
+  reachable channel combinations the full wealth product and the strongest single purchased
+  channel decide identically; S·T caps at 9.0 below the 1/alpha = 10.0 surfacing threshold, and
+  the 0.5 minimum wealth never reaches the alpha = 0.1 discard threshold. On 26 recorded
+  candidates S·T peaked at 3.0 with T = 1.0 throughout, so surfacing rests on V alone. This is
+  arithmetic under the factory constants, not a runtime invariant: alpha >= 1/9 removes it;
 - Core's `Engine` is not used by the production review path and has not been activated as a
   scheduler;
 - “no trusted differential receipt, no publication” is the target contract, but the current
@@ -141,6 +147,8 @@ Coding agents start with [AGENTS.md](AGENTS.md). The complete documentation map 
 - `docs/acceptance/phase-3.md` — two historical Action integration smoke runs;
 - `docs/real-data-evaluation-status.md` — the dated overnight report plus audit errata;
 - `benchmarks/attest-v1/` — frozen corpus metadata and a historical hash-bound receipt;
+- `docs/acceptance/evidence/2026-09-01-wave5-history-counterfactual/result.json` — the 26
+  recorded candidates behind the S/T/V pricing observation above;
 - `DEVSPEND.md` — development API spend ledger;
 - `DECISIONS.md` D-020 through D-037 — differential/evaluation history.
 
