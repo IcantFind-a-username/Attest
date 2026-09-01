@@ -486,3 +486,44 @@ rerun above. Not a regression, and the tamper detection behaved correctly.
   than before.
 - Accuracy on this corpus still requires a scoring-authoritative receipt; the v1 receipt
   cannot provide one.
+
+---
+
+## Erratum, 2026-09-01 (appended; nothing above is rewritten)
+
+Later work on the same branch changed two numbers this report published. Both originals
+stand as observations; the corrections and their reasons follow.
+
+**1. `differential_v.confirmed` read 3 of 4. With a working oracle reproduction it is 4 of 4.**
+This report already identified the cause — the oracle's own test opened with
+`black.Mode(line_length=88)` and fell back to `format_str(src, line_length=88)`, neither of
+which exists at that revision, so it raised on both sides. D-061 replayed the same finding
+through the product's own `execute_differential` at the pair's two SHAs, 3 repeats per side,
+zero paid calls: the probing body gives head FAIL 3/3 and base FAIL 3/3
+(`buggy_fail_fixed_fail` -> `unfaithful`); the API-correct body gives head FAIL 3/3 and base
+PASS 3/3 (`buggy_fail_fixed_pass` -> `regression_reproduced`). The justification does not
+depend on that outcome: a test that raises identically on both revisions has no
+discriminating power whichever side is right. Evidence:
+`docs/acceptance/evidence/2026-09-01-d060-oracle-api-replay/result.json`.
+
+**2. `matched = 1` was measured at `line_slack = 0`. Under the rule pre-registered in D-062
+it is 2 of 4 on these receipts, and 3 of 4 once correction 1 is applied.** The rule, its two
+outcome-independent grounds and the expected counts were written and committed at `35ecaa5`
+before `matcher.py` was touched; every declared number held. `20d686ba82` still does not
+match at any tolerance below 16, and its case carries one head-side label against two
+fix-side hunks, so it is now flagged `unlabelled_hunks_present` rather than counted as a
+plain miss. Evidence:
+`docs/acceptance/evidence/2026-09-01-d062-matcher-rescore/result.json`.
+
+**Unchanged by both corrections:** K = 4, the four manual verdicts, N = 23, M = 6, the DEFER
+distribution, the spend, and the withheld accuracy. `matched` remains a count of location
+bindings; per `INV-TRUTH-001` precision and recall stay **not estimated** and none may be
+derived from 1/4, 2/4 or 3/4.
+
+**One number this report could not have printed, added by D-060.** Its
+`evidence_class_counts` read `{regression_reproduced: 3, unfaithful: 1}` over 4 surfaced
+findings. Rebuilt from the per-candidate records with the judge named:
+product self-certification over all 23 candidates
+`{indeterminate: 17, regression_reproduced: 4, unfaithful: 2}`; benchmark oracle over its 4
+receipts `{regression_reproduced: 3, unfaithful: 1}`; `oracle_overturned_product: 1`, which
+correction 1 above then takes to 0.
