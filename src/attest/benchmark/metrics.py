@@ -183,7 +183,9 @@ def aggregate(
             excluded.append(MetricExclusion(run.case_id, ORACLE_INCONCLUSIVE_REASON))
             continue
 
-        matches = match_findings(truths, run.predictions, line_slack=line_slack)
+        matches = match_findings(
+            truths, run.predictions, line_slack=line_slack, cases=(case,)
+        )
         matched_count = sum(result.matched for result in matches)
         finding_true_positives += matched_count
         finding_false_positives += len(matches) - matched_count

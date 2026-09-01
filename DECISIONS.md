@@ -825,3 +825,44 @@ is active only when the owning architecture/acceptance document changes with it.
   distinct defects to one label.
 - **Trace:** D-019; D-059; `AGENTS.md` §16; `INV-TRUTH-001`;
   `src/attest/benchmark/matcher.py`.
+
+### D-062 amendment — applied, and the declared expectation held exactly
+
+- **Date/status:** 2026-09-01 · the pre-registered rule above is now implemented and the
+  D-059 records are re-scored. This amendment adds results; it does not edit the
+  pre-registration, which was committed at `35ecaa5` before `matcher.py` was touched.
+- **Implementation:** `matcher.DEFAULT_LINE_SLACK = 3`, used as the `scripts/benchmark.py`
+  default for both scoring entry points; `matcher.line_slack_sweep` and
+  `matcher.hunk_labelling`; `MatchResult.unlabelled_hunks_present`; and a `truth_matching`
+  block in `BenchmarkRunReport` carrying the applied tolerance, the sweep, the per-case hunk
+  labelling and the `INV-TRUTH-001` note. Truth spans were not relabelled and the frozen
+  manifest and its digest are untouched.
+- **Re-scored, no execution and no model call** (`scripts/acceptance/d062_rescore_d059.py`):
+
+  | receipts | old rule (`line_slack = 0`) | new rule (`line_slack = 3`) | declared |
+  |---|---:|---:|---:|
+  | D-059 as recorded | 1 / 4 | **2 / 4** | 2 / 4 |
+  | with D-061's corrected receipt | 1 / 4 | **3 / 4** | 3 / 4 |
+
+- **Sweep, as recorded / D-061-corrected:** slack 0 -> 1 / 1; 1 -> 2 / 2; 2 -> 2 / 3;
+  3, 4, 5, 10 -> 2 / 3; 16 -> 3 / 4. Every value in [2, 15] gives the same answer, so the
+  count does not depend on the tolerance actually chosen.
+- **Expectation versus observation: identical on every declared number.** `fdbff9370c`
+  matched at distance 0 under both rules. `b1e7f57dc2` (distance 1) and `ed1d3ea89b`
+  (distance 2, and only once D-061 corrected its `buggy_fail_fixed_fail` receipt) matched
+  under the new rule. `20d686ba82` matched at no tolerance below 16, as declared, and its
+  case `case-c22190aa4fc9` carries 1 head-side label against 2 fix-side hunks, so it is
+  flagged `unlabelled_hunks_present` exactly as predicted.
+- **One observation not declared in advance, recorded as such:** under the old rule
+  `b1e7f57dc2` was also flagged `unlabelled_hunks_present`, because `case-99a012693940`
+  likewise carries 1 head-side label against 2 fix-side hunks. The flag clears under the new
+  rule because the finding matches. This is the flag behaving as specified on a case the
+  pre-registration did not enumerate, not a rule change.
+- **Still not estimated.** `matched` is a count of location bindings. No validation receipt
+  with scoring authority exists for this corpus, and per `INV-TRUTH-001` an anchor
+  overlapping a labelled span establishes neither correctness nor detection. Precision and
+  recall remain **not estimated** and none may be derived from 1/4, 2/4 or 3/4.
+- **Evidence:** `docs/acceptance/evidence/2026-09-01-d062-matcher-rescore/result.json`
+  (SHA-256 `e2071ec565bea435c99b9d8457d1d68031742a06bf7f81de340e3f7bd6fe509b`);
+  `tests/benchmark/test_matcher.py`.
+- **Trace:** D-062; D-061; D-059; `AGENTS.md` §16.

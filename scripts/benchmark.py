@@ -71,6 +71,7 @@ from attest.benchmark.live import (
     reserved_case_budget_usd,
     run_live_local,
 )
+from attest.benchmark.matcher import DEFAULT_LINE_SLACK
 from attest.benchmark.measurement import ARM_ATTEST_PRODUCT, TaskStatus
 from attest.benchmark.report import (
     LIVE_MODE,
@@ -250,7 +251,7 @@ def _parser() -> argparse.ArgumentParser:
         "default so replayed runs stay comparable)",
     )
     replay.add_argument("--repeats", type=int, default=3)
-    replay.add_argument("--line-slack", type=int, default=0)
+    replay.add_argument("--line-slack", type=int, default=DEFAULT_LINE_SLACK)
     replay.add_argument("--deadline", type=float, default=60.0)
     replay.add_argument("--wall-timeout", type=float, default=60.0)
     replay.add_argument("--verification-timeout", type=float, default=600.0)
@@ -624,7 +625,7 @@ def _add_review_arguments(command: argparse.ArgumentParser) -> None:
         help="pytest repetitions per side of each differential verification; "
         "unrelated to the fixed ten-repeat stability design",
     )
-    command.add_argument("--line-slack", type=int, default=0)
+    command.add_argument("--line-slack", type=int, default=DEFAULT_LINE_SLACK)
     command.add_argument("--deadline", type=float, default=60.0)
     command.add_argument("--wall-timeout", type=float, default=60.0)
     command.add_argument("--verification-timeout", type=float, default=600.0)

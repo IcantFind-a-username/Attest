@@ -46,6 +46,12 @@ from attest.benchmark.corpus import (
     require_validated_pair,
     validation_receipt_binding_bytes,
 )
+from attest.benchmark.matcher import (
+    LINE_SLACK_SWEEP,
+    hunk_labelling,
+    line_slack_sweep,
+    match_findings,
+)
 from attest.benchmark.measurement import (
     ARM_ATTEST_PRODUCT,
     LEGACY_MEASUREMENT_SEMANTICS,
@@ -70,6 +76,7 @@ from attest.benchmark.schema import (
     BenchmarkCase,
     BenchmarkManifest,
     RunRecord,
+    TruthDefect,
     attributed_evidence_class_counts,
     is_scored_placement,
     require_manifest_binding,
@@ -147,6 +154,7 @@ class BenchmarkRunReport:
     metrics_withheld_reason: str | None
     validation_authority: ValidationVerification
     evidence_class_counts: Mapping[str, object]
+    truth_matching: Mapping[str, object]
     scoring_semantics: str
     outcome_accounting: Mapping[str, object] | None
     limitations: tuple[str, ...]
@@ -182,6 +190,7 @@ class BenchmarkRunReport:
             "evidence_class_counts": _evidence_class_counts_payload(
                 self.evidence_class_counts
             ),
+            "truth_matching": dict(self.truth_matching),
             "metrics": _metrics_payload(self.metrics),
             "metrics_withheld_reason": self.metrics_withheld_reason,
             "validation_authority": self.validation_authority.to_json_dict(),
@@ -195,6 +204,73 @@ class BenchmarkRunReport:
             ),
             "limitations": list(self.limitations),
         }
+
+
+LOCATION_BINDING_NOTE = (
+    "location binding only: per INV-TRUTH-001 an anchor overlapping a labelled span "
+    "establishes neither correctness nor detection, and no precision or recall "
+    "statement may be derived from these counts"
+)
+
+
+def _truth_matching(
+    manifest: BenchmarkManifest,
+    records: tuple[RunRecord, ...],
+    line_slack: int,
+) -> dict[str, object]:
+    """Location bindings at the applied tolerance, plus the sweep around it.
+
+    A single tolerance is a claim; the sweep is the evidence that the count does
+    not hinge on the value chosen (D-062). The per-case hunk labelling states
+    how much of each fix the corpus can label on the head side at all, so a
+    finding that cannot be matched by construction is named rather than folded
+    silently into the miss count.
+    """
+    cases = {case.case_id: case for case in manifest.cases}
+    truths_by_case: dict[str, list[TruthDefect]] = {}
+    for defect in manifest.truth_defects:
+        truths_by_case.setdefault(defect.case_id, []).append(defect)
+
+    matched = 0
+    scored = 0
+    unmatched_unlabelled = 0
+    sweep = {str(value): 0 for value in LINE_SLACK_SWEEP}
+    labelling: list[dict[str, object]] = []
+    seen_cases: set[str] = set()
+    for record in records:
+        if record.repeat != 0:
+            continue
+        case = cases.get(record.case_id)
+        if case is None:
+            continue
+        truths = tuple(truths_by_case.get(record.case_id, ()))
+        results = match_findings(
+            truths,
+            record.predictions,
+            line_slack=line_slack,
+            cases=(case,),
+        )
+        scored += len(results)
+        matched += sum(1 for result in results if result.matched)
+        unmatched_unlabelled += sum(
+            1 for result in results if result.unlabelled_hunks_present
+        )
+        for value, count in line_slack_sweep(truths, record.predictions).items():
+            sweep[value] += count
+        if record.case_id not in seen_cases:
+            seen_cases.add(record.case_id)
+            labelling.append(hunk_labelling(case).to_json_dict())
+    return {
+        "line_slack": line_slack,
+        "scored_predictions": scored,
+        "matched": matched,
+        "unmatched_with_unlabelled_hunks": unmatched_unlabelled,
+        "line_slack_sweep": sweep,
+        "hunk_labelling": sorted(
+            labelling, key=lambda row: str(row["case_id"])
+        ),
+        "note": LOCATION_BINDING_NOTE,
+    }
 
 
 def _evidence_class_counts_payload(
@@ -358,6 +434,7 @@ def build_report(
         metrics_withheld_reason=withheld,
         validation_authority=authority,
         evidence_class_counts=counts,
+        truth_matching=_truth_matching(manifest, records, line_slack),
         scoring_semantics=(
             current_summary.reducer_semantics
             if current_summary is not None
@@ -887,6 +964,31 @@ def render_markdown(report: BenchmarkRunReport) -> str:
         lines.extend(f"| {judge} | {name} | {count} |" for judge, name, count in rows)
     else:
         lines.append("| (none) | (none) | 0 |")
+    matching = report.truth_matching
+    sweep = matching.get("line_slack_sweep")
+    lines.extend(
+        [
+            "",
+            "## Truth matching",
+            "",
+            f"- {matching.get('note')}",
+            f"- applied line_slack: {matching.get('line_slack')}; "
+            f"matched {matching.get('matched')} of "
+            f"{matching.get('scored_predictions')} scored prediction(s)",
+            f"- unmatched findings in cases with unlabelled fix hunks: "
+            f"{matching.get('unmatched_with_unlabelled_hunks')}",
+            "",
+            "| line_slack | matched |",
+            "| --- | --- |",
+        ]
+    )
+    if isinstance(sweep, Mapping) and sweep:
+        lines.extend(
+            f"| {value} | {count} |"
+            for value, count in sorted(sweep.items(), key=lambda row: int(row[0]))
+        )
+    else:
+        lines.append("| (none) | 0 |")
     lines.extend(["", "## Abstentions", "", "| case | reason |", "| --- | --- |"])
     if report.abstained_cases:
         lines.extend(

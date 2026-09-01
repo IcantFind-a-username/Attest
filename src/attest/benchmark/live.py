@@ -1652,6 +1652,7 @@ def _channel_outcomes(
     truths: dict[str, tuple[TruthDefect, ...]] = {}
     for truth in manifest.truth_defects:
         truths[truth.case_id] = truths.get(truth.case_id, ()) + (truth,)
+    case_by_id = {case.case_id: case for case in manifest.cases}
     measurements_by_slot = {
         (measurement.case_id, measurement.repeat): measurement
         for measurement in measurements
@@ -1688,8 +1689,12 @@ def _channel_outcomes(
             elif measurements_by_slot:
                 raise ValueError("current channel outcome has no authoritative measurement")
             else:
+                case = case_by_id.get(case_id)
                 matches = match_findings(
-                    truths.get(case_id, ()), predictions, line_slack=line_slack
+                    truths.get(case_id, ()),
+                    predictions,
+                    line_slack=line_slack,
+                    cases=() if case is None else (case,),
                 )
                 matched_ids = {match.finding_id for match in matches if match.matched}
         for prediction in predictions:
