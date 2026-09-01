@@ -4,6 +4,9 @@
   attribution boundary", both approved by the owner for this task.
 - **Baseline:** `origin/main` @ `24da49d` (180 commits, clean tree).
 - **Branch:** `feature/m01-audit-window-and-repeat-semantics`. Not pushed.
+- **Final SHA:** `0e95b04cadda14e0e07aceadb751a0969095c322`.
+- **Diff against baseline:** 13 files, **+1256 / −38**, net **+1218** lines
+  (of which 380 are this report and 381 are the two evidence artifacts).
 - **Decision:** D-059 (the highest existing entry was D-058 across both `- **D-NNN` and
   `### D-NNN —` formats; 59 entries scanned).
 
@@ -345,17 +348,34 @@ not recall, and nothing about precision or recall follows from it.
 
 ## Gates
 
-Final full gate, clean tree, one supported Python:
+Final full gate at `0e95b04`, clean tree, one supported Python:
 
 ```text
-python -m pytest --cov=src/attest --cov-report=term-missing   1218 passed
-python -m ruff check .                                        All checks passed
-python -m mypy src/attest                                     Success: no issues found in 57 source files
-git diff --check                                              clean
+python -m pytest --cov=src/attest --cov-report=term-missing
+  1619 passed, 1 skipped in 786.04s (0:13:06)
+  Required test coverage of 90.0% reached. Total coverage: 92.36%
+python -m coverage report --include='src/attest/benchmark/*' --fail-under=0   89% (informational)
+python -m coverage report --include='src/attest/core/*'      --fail-under=0   99% (informational)
+python -m ruff check .        All checks passed!
+python -m mypy src/attest     Success: no issues found in 57 source files
+git diff --check              clean
 ```
 
-Coverage: see the final section below for the product-package number against the
-unchanged 90 % floor.
+The one skip is `tests/test_corpus_certification_e2e.py`, which needs
+`ATTEST_CORPUS_CACHE` to point at the prepared corpus environment; that environment is a
+read-only local input and is not in the repository. It passes when the variable is set —
+`1 passed in 13.53s` at this SHA.
+
+Product-package coverage is **92.36 %**, above the unchanged 90 % floor and in line with the
+~92 % D-058 recorded at baseline. No coverage threshold was changed and no filler test was
+written. `src/attest/review/executor.py` itself sits at 88 %.
+
+An earlier full-gate attempt reported two failures in `tests/benchmark/test_stability.py`
+(`..._rejects_observation_spend_tampering`, `..._rejects_canonical_observation_latency_tampering`).
+They were caused by this session editing `src/attest/review/executor.py` while that run was
+in flight: `_code_sha256` digests every `.py` file under the package, so the resume binding
+legitimately detected a changed code digest. Both pass in isolation and in the clean-tree
+rerun above. Not a regression, and the tamper detection behaved correctly.
 
 ## Spend
 
