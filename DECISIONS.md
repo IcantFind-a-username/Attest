@@ -685,3 +685,143 @@ is active only when the owning architecture/acceptance document changes with it.
   early repeat abort only with evidence that running all repeats costs more than it buys.
 - **Trace:** D-017; D-020; D-037; D-042; D-049; D-057; D-058; `AGENTS.md` §4;
   `src/attest/review/executor.py`; `docs/roadmap.md`; `docs/backlog.md`; `DEVSPEND.md`.
+
+### D-060 — every evidence class names its judge, and counts cover every candidate
+
+- **Date/status/scope:** 2026-09-01 · owner-directed report-layer repair · implemented ·
+  `src/attest/benchmark/{schema,runner,report,api,live,baselines}.py`, the calibration and
+  comparison report payloads, and the benchmark report schema version.
+- **Decision:** two report-layer defects are closed.
+  (a) **Attribution.** The product certifies a finding from its own differential run and the
+  benchmark oracle re-verifies it independently. `runner.py` let the oracle's class overwrite
+  the product's, and every report then printed the survivor unlabelled. `Prediction` now
+  carries `product_evidence_class` and `oracle_evidence_class` side by side, with
+  `evidence_class_authority` naming which one `evidence_class` currently reports; the merge
+  happens once, inside `extract_predictions_from_rows`, and keeps both. Reports emit counts
+  per judge plus an explicit `oracle_overturned_product` count.
+  (b) **Denominator.** `evidence_class_counts` was built from surfaced predictions only, so
+  every candidate the gate did not surface disappeared. Counts are now built from the durable
+  per-candidate verification records where they exist, and a `basis` field states which
+  denominator was actually used, so a thin report never reads like a complete census.
+- **Why:** D-059's erratum had to explain in prose that its `regression_reproduced: 3` and
+  its K = 4 were two different measurements. A report should not need a prose erratum to say
+  who judged what. Independently of any result, a count whose judge is unnamed and whose
+  denominator is unstated cannot be audited.
+- **Evidence (replayed on the committed D-059 artifact; no re-execution, no model call):**
+  run total before `{regression_reproduced: 3, unfaithful: 1}`; after, product over 23
+  candidates `{indeterminate: 17, regression_reproduced: 4, unfaithful: 2}`, oracle over its
+  4 receipts `{regression_reproduced: 3, unfaithful: 1}`, `oracle_overturned_product: 1`.
+  Per case, `case-81039ffa0c1e` moves from `{}` to `{indeterminate: 1, unfaithful: 1}` over
+  its 2 candidates, and `case-c6f141a2be09` from a bare `{unfaithful: 1}` to a product
+  `regression_reproduced` beside an oracle `unfaithful` with the disagreement counted.
+- **Explicitly unchanged:** no factory statistical constant, alpha, LR, channel cap, gate
+  threshold, coverage threshold, containment behaviour or product decision. This changes what
+  the reports say about a run, never what the product does during one.
+- **Consequences:** `REPORT_SCHEMA_VERSION` 4 -> 5. `evidence_class_counts` is now a mapping
+  of judge -> class -> count plus `basis`, `counted`, `oracle_reviewed` and
+  `oracle_overturned_product`; readers of the old flat map must be updated. Frozen artifacts
+  written under schema 4 keep their original shape and are not rewritten.
+- **Reversal:** owner call. Nothing here is load-bearing for product behaviour.
+- **Trace:** D-019; D-022; D-059; `AGENTS.md` §14; `tests/benchmark/test_report.py`.
+
+### D-061 — a reproduction that raises on both sides is not evidence, and the generator stops guessing APIs
+
+- **Date/status/scope:** 2026-09-01 · owner-directed correction with an outcome-independent
+  justification · implemented · `src/attest/review/executor.py` (`GENERATOR_SYSTEM`),
+  `scripts/acceptance/d060_oracle_api_replay.py`, and D-059's `differential_v` figure.
+- **Finding:** the single D-059 oracle receipt that refuted a product certificate did so with
+  a test that raised on both revisions. Its body opened by probing
+  `black.Mode(line_length=88)` and falling back to `format_str(src, line_length=88)`; at the
+  pair's 2019-era revision neither name exists, so both branches raised `TypeError` on head
+  and on base — exactly the `buggy_fail_fixed_fail` shape it reported as `unfaithful`.
+- **Justification, stated independently of the outcome:** a test that raises identically on
+  the defective and the fixed revision has zero discriminating power whichever side is right.
+  It is therefore not evidence about the finding in either direction, and correcting it is
+  warranted before knowing what the corrected test says. It does move a published number, so
+  both numbers are reported and neither replaces the other in the record.
+- **Both numbers.** Replayed through the product's own `execute_differential` at the pair's
+  two SHAs, 3 repeats per side, corpus Python 3.8.3, **zero paid calls**:
+  before (the probing body) head FAIL 3/3 and base FAIL 3/3 -> `buggy_fail_fixed_fail` ->
+  `unfaithful`; after (`format_str(src, mode=...)`, the API that revision defines) head FAIL
+  3/3 and base PASS 3/3 -> `buggy_fail_fixed_pass` -> `regression_reproduced`. D-059's
+  `differential_v.confirmed` therefore reads 3 of 4 as recorded and 4 of 4 with the corrected
+  reproduction; its `oracle_overturned_product` reads 1 as recorded and 0 corrected.
+- **Decision:** `GENERATOR_SYSTEM` now requires the generated test to call only names the
+  supplied source context shows the revision defining, and forbids guarding the call under
+  test with a `try`/`except` around an alternative spelling.
+- **Consequences:** this prompt is shared by the product proposer and the benchmark oracle,
+  so generation changes on both arms and the next paid run is not generation-comparable to
+  D-059's. No RED test is named: the change is a prompt string whose effect is model
+  behaviour, and the only deterministic test of it would assert a substring, which D-058 §3.1
+  forbids. The replay script is the durable check instead.
+- **Explicitly unchanged:** classification contract, evidence-class pricing, repeat
+  semantics, containment, timeouts and resource limits. A test that raises on both sides is
+  still classified `unfaithful`; this decision does not reclassify it, it stops generating it.
+- **Evidence:** `docs/acceptance/evidence/2026-09-01-d060-oracle-api-replay/result.json`
+  (SHA-256 `a78ddabd88f04436dd1daf58dcca32fa284147d5e68765134da2b66973e66d1b`).
+- **Reversal:** owner call; restore the previous prompt if the added constraint is shown to
+  suppress otherwise-valid reproductions.
+- **Trace:** D-022; D-059; D-058 §3.1; `AGENTS.md` §16.
+
+### D-062 — matcher tolerance and hunk labelling, pre-registered before application
+
+- **Date/status/scope:** 2026-09-01 · **pre-registration, written before the matcher is
+  touched** · `src/attest/benchmark/matcher.py` and the benchmark scoring reports.
+- **Why this is pre-registered.** D-059 reported K = 4 certified receipts against
+  `matched = 1` and identified anchor tolerance and hunk labelling as the cause. Changing a
+  matcher after seeing its results is the outcome-dependent measurement change `AGENTS.md`
+  §16 reserves for an owner decision. The owner approved the change and required the rule and
+  its justification to be recorded before it is applied, and the expected effect to be
+  declared before it is measured. This section is that record.
+- **Justification, established without reference to D-059's results.** Both grounds hold on
+  the construction of the corpus alone and were true before any run existed.
+  1. *A defect occupies a region, so line-exact anchoring was never a sound criterion.* An
+     anchor names the statement a proposer is talking about; a labelled truth span names the
+     lines a patch touched. A Python statement's header, its condition and its guarded call
+     routinely sit on different physical lines, so a zero-line tolerance rejects anchors that
+     name the right statement. `line_slack = 0` was a placeholder, not a measurement choice.
+  2. *A defect can span several hunks, and the corpus cannot label all of them.* The
+     manifest's truth spans are exactly the head-side (`side: "old"`) changed locations —
+     verified across all 19 `historical_bug_replay` cases of `attest-v1`, zero mismatches.
+     A fix hunk that is a pure insertion has no head-side line range at all, so the reverted
+     head carries a real defect at a position the corpus never labels. Scoring such a case
+     silently counts an unmatchable region as though it had been offered for matching.
+- **The rule, as it will be applied.**
+  1. `line_slack = 3` for benchmark scoring. Rationale: one Python statement's typical
+     physical extent. The value is not tuned to observed distances, and to keep that
+     auditable rather than merely asserted, every run reports a **sensitivity sweep** of the
+     match count at `line_slack` in {0, 1, 2, 3, 4, 5, 10} beside the chosen value.
+  2. **Truth spans are unchanged.** They already equal every head-side hunk, so no relabelling
+     is performed and the frozen manifest and its digest are not touched.
+  3. **Unlabelled hunks are named, never inferred.** Scoring reports per case the number of
+     head-side labelled hunks and the number of fix-side hunks, and marks an unmatched
+     finding `unlabelled_hunks_present` when its case has fix-side hunks with no head-side
+     label. This is a statement about the corpus's labelling, never a claim that the finding
+     is correct, and such a finding is never counted as matched.
+- **Declared expectation, before application.** On D-059's four surfaced findings, at
+  `line_slack = 3`:
+  - with D-059's receipts exactly as recorded: **2 of 4** (up from 1 of 4). `fdbff9370c`
+    (distance 0) and `b1e7f57dc2` (distance 1) match; `ed1d3ea89b` is excluded by its
+    `buggy_fail_fixed_fail` receipt regardless of tolerance; `20d686ba82` is 16 lines from
+    the only labelled span in its case.
+  - with D-061's corrected receipt for `ed1d3ea89b`: **3 of 4**. Its distance is 2.
+  - `20d686ba82` matches at no tolerance below 16. Its case, `case-c22190aa4fc9`, has 2
+    fix-side hunks against 1 head-side label, so it is expected to be flagged
+    `unlabelled_hunks_present`.
+  - Sweep expectation: slack 0 -> 1/1, slack 1 -> 2/2, slack 2 and above -> 2/3, unchanged
+    until slack 16 (recorded/corrected respectively).
+- **Limits of this pre-registration, stated plainly.** The author had already read D-059's
+  per-finding distances when choosing the value, so this is a recorded rule with a declared
+  prediction, not a blind one. The protection that does not depend on the author is the
+  sweep: any tolerance in [2, 15] yields the same counts, so the result is not sensitive to
+  the specific value chosen.
+- **What this cannot become.** `matched` remains an operational count. Precision and recall
+  stay **not estimated** — no receipt with scoring authority exists, K and `matched` are
+  counts of receipts and of location bindings, and per `INV-TRUTH-001` location overlap
+  establishes neither correctness nor detection.
+- **Explicitly unchanged:** no factory constant, alpha, LR, channel cap, gate threshold,
+  coverage threshold, corpus manifest, validation receipt or product behaviour.
+- **Reversal:** owner call; restore `line_slack = 0` if the tolerance is shown to bind
+  distinct defects to one label.
+- **Trace:** D-019; D-059; `AGENTS.md` §16; `INV-TRUTH-001`;
+  `src/attest/benchmark/matcher.py`.
