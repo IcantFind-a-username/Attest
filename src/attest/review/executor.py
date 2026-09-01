@@ -1094,6 +1094,15 @@ def _bounded_reason(reason: str) -> str:
 DEADLINE_REASON = "shared verification deadline exceeded during differential execution"
 
 
+NEW_CODE_REASON = (
+    "new-code candidate: reproduction fails on head and the symbol is absent on base; not priced"
+)
+STALE_REFERENCE_REASON = (
+    "unfaithful generated test: it references a symbol absent from head, "
+    "so its head failure is a stale reference rather than a defect"
+)
+
+
 def _unstable_head_reason(runs: list[ExecutionResult], repeats: int) -> str:
     """Head did not agree with itself across the repeats, so there is no
     deterministic failure to certify. The first indeterminate run is named
@@ -1119,13 +1128,6 @@ def _unstable_head_reason(runs: list[ExecutionResult], repeats: int) -> str:
         index, run = indeterminate[0]
         reason += f"; run {index}/{repeats}: {run.reason}"
     return reason
-NEW_CODE_REASON = (
-    "new-code candidate: reproduction fails on head and the symbol is absent on base; not priced"
-)
-STALE_REFERENCE_REASON = (
-    "unfaithful generated test: it references a symbol absent from head, "
-    "so its head failure is a stale reference rather than a defect"
-)
 
 
 def execute_differential(
