@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -11,12 +12,70 @@ from attest.benchmark.artifacts import (
     ARTIFACT_KINDS,
     ArtifactError,
     ArtifactStore,
+    canonical_json_bytes,
+    sha256_bytes,
     verify_artifacts,
+    write_canonical_json,
 )
 
 
 def _store(tmp_path: Path, **kwargs: object) -> ArtifactStore:
     return ArtifactStore(tmp_path / "artifacts", **kwargs)  # type: ignore[arg-type]
+
+
+def test_artifact_store_rejects_bound_too_small_for_validation_signature(
+    tmp_path: Path,
+) -> None:
+    """A valid store configuration cannot fail later while persisting a run attempt."""
+    with pytest.raises(ArtifactError, match="at least 64"):
+        ArtifactStore(tmp_path / "artifacts", max_bounded_bytes=32)
+
+
+def test_artifact_store_requires_total_limit_to_cover_bounded_limit(
+    tmp_path: Path,
+) -> None:
+    """Every accepted store configuration can persist its own bounded payloads."""
+    with pytest.raises(ArtifactError, match="at least max_bounded_bytes"):
+        ArtifactStore(
+            tmp_path / "artifacts",
+            max_bounded_bytes=64,
+            max_artifact_bytes=63,
+        )
+
+
+def test_canonical_json_is_one_stable_utf8_record() -> None:
+    """Changing key order or whitespace must not change a signed receipt payload."""
+    assert canonical_json_bytes({"z": "é", "a": [2, 1]}) == (
+        b'{"a":[2,1],"z":"\\u00e9"}\n'
+    )
+
+
+def test_canonical_json_write_preserves_target_after_partial_temporary_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "receipt.json"
+    target.write_text('{"status":"old"}\n', encoding="utf-8")
+    original_write = os.write
+
+    def fail_after_partial_write(descriptor: int, payload: bytes) -> int:
+        original_write(descriptor, payload[:8])
+        raise OSError("injected temporary-write failure")
+
+    monkeypatch.setattr(os, "write", fail_after_partial_write)
+
+    with pytest.raises(ArtifactError, match="artifact write"):
+        write_canonical_json(target, {"status": "new", "pairs": ["pair-1"]})
+
+    assert target.read_text(encoding="utf-8") == '{"status":"old"}\n'
+    assert list(tmp_path.iterdir()) == [target]
+
+
+def test_sha256_bytes_hashes_only_exact_bytes() -> None:
+    assert sha256_bytes(b"attest\n") == (
+        "9d202405b53afe90b936a78cd43c32475467ef4f093bdc351f0978db305e4981"
+    )
+    with pytest.raises(TypeError, match="exact bytes"):
+        sha256_bytes(bytearray(b"attest\n"))  # type: ignore[arg-type]
 
 
 def test_allowlist_covers_the_preregistered_evidence_kinds() -> None:
@@ -30,8 +89,43 @@ def test_allowlist_covers_the_preregistered_evidence_kinds() -> None:
             "junit",
             "scored_run",
             "github_summary",
+            "validation_stdout",
+            "validation_junit",
+            "validation_test",
+            "validation_command",
+            "validation_interpreter",
+            "validation_environment",
+            "validation_source",
+            "validation_executor",
         }
     ) == ARTIFACT_KINDS
+
+
+def test_validation_evidence_is_bounded_and_content_addressed(tmp_path: Path) -> None:
+    """Dropping any raw validation artifact class would leave a summary-only receipt."""
+    root = tmp_path / "artifacts"
+    store = ArtifactStore(root, max_bounded_bytes=64)
+    payloads = {
+        "validation_stdout": "x" * 512,
+        "validation_junit": "<testsuite tests='1' failures='0'>" + "x" * 512,
+        "validation_test": "python -m pytest -q test_calc.py\n",
+        "validation_command": {"argv": ["python", "-m", "pytest"]},
+        "validation_interpreter": {"sha256": "a" * 64},
+        "validation_environment": {"sha256": "b" * 64},
+        "validation_source": {"repository_sha": "c" * 40},
+        "validation_executor": {"sha256": "d" * 64},
+    }
+
+    records = {
+        kind: store.write(f"{kind}.json", kind, payload)
+        for kind, payload in payloads.items()
+    }
+    store.finalize()
+
+    verified = {record.kind: record for record in verify_artifacts(root)}
+    assert verified == records
+    assert records["validation_stdout"].truncated is True
+    assert records["validation_junit"].truncated is True
 
 
 def test_unknown_kind_is_refused_before_any_bytes_are_written(tmp_path: Path) -> None:
@@ -60,6 +154,41 @@ def test_path_traversal_and_absolute_names_are_refused(tmp_path: Path, name: str
 
     with pytest.raises(ArtifactError):
         store.write(name, "predictions", {"findings": []})
+
+
+def test_write_refuses_symlinked_parent_without_touching_outside(tmp_path: Path) -> None:
+    """Issuance containment applies before bytes are written, not only while reading."""
+    root = tmp_path / "artifacts"
+    outside = tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    (root / "runs").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ArtifactError, match="symlink|contained"):
+        ArtifactStore(root).write("runs/stdout.txt", "validation_stdout", "evidence")
+
+    assert list(outside.iterdir()) == []
+
+
+@pytest.mark.parametrize("operation", ["write", "finalize"])
+def test_atomic_write_does_not_follow_preexisting_temp_symlink(
+    tmp_path: Path, operation: str
+) -> None:
+    """A planted legacy .tmp link cannot redirect issuance outside the store."""
+    root = tmp_path / "artifacts"
+    root.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("sentinel", encoding="utf-8")
+    target = "record.json" if operation == "write" else "artifacts.json"
+    (root / f"{target}.tmp").symlink_to(outside)
+    store = ArtifactStore(root)
+
+    if operation == "write":
+        store.write(target, "predictions", {"findings": []})
+    else:
+        store.finalize()
+
+    assert outside.read_text(encoding="utf-8") == "sentinel"
 
 
 @pytest.mark.parametrize(
@@ -167,6 +296,53 @@ def test_verify_detects_tampering_and_unlisted_files(tmp_path: Path) -> None:
     )
     (root / "stowaway.txt").write_text("unknown", encoding="utf-8")
     with pytest.raises(ArtifactError, match="unknown artifact"):
+        verify_artifacts(root)
+
+
+def test_verify_rejects_forged_artifact_size_metadata(tmp_path: Path) -> None:
+    """A digest match cannot turn an empty file into non-empty run evidence."""
+    root = tmp_path / "artifacts"
+    store = ArtifactStore(root)
+    store.write("stdout.txt", "validation_stdout", b"")
+    manifest = store.finalize()
+    document = json.loads(manifest.read_text(encoding="utf-8"))
+    document["artifacts"][0]["size_bytes"] = 1
+    manifest.write_text(
+        json.dumps(document, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ArtifactError, match="size"):
+        verify_artifacts(root)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["manifest_field", "entry_field", "truncated_string", "duplicate_name"],
+)
+def test_verify_rejects_unknown_or_mistyped_manifest_fields(
+    tmp_path: Path, mutation: str
+) -> None:
+    """G-CODE-002: the artifact-manifest schema is exact, typed, and unique."""
+    root = tmp_path / "artifacts"
+    store = ArtifactStore(root)
+    store.write("stdout.txt", "validation_stdout", b"evidence\n")
+    manifest = store.finalize()
+    document = json.loads(manifest.read_bytes())
+    if mutation == "manifest_field":
+        document["unexpected"] = True
+    elif mutation == "entry_field":
+        document["artifacts"][0]["unexpected"] = True
+    elif mutation == "truncated_string":
+        document["artifacts"][0]["truncated"] = "false"
+    else:
+        document["artifacts"].append(dict(document["artifacts"][0]))
+    manifest.write_text(
+        json.dumps(document, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ArtifactError):
         verify_artifacts(root)
 
 

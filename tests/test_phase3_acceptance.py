@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -20,6 +23,7 @@ from scripts.acceptance.phase3 import (  # noqa: E402
     AcceptanceResult,
     AcceptanceService,
     CommandResult,
+    CommandTimeoutError,
     CommentClassification,
     LedgerArtifact,
     PreflightError,
@@ -78,12 +82,15 @@ def _service(
     *,
     key: str = "sk-ant-test-012345678901234567890123456789",
     files: dict[Path, str] | None = None,
+    clock: Callable[[], datetime] | None = None,
 ) -> AcceptanceService:
+    kwargs = {} if clock is None else {"clock": clock}
     return AcceptanceService(
         runner=runner,
         filesystem=MemoryFileSystem(files or {}),
         environ={"ANTHROPIC_API_KEY": key},
         workspace=Path("/workspace"),
+        **kwargs,
     )
 
 
@@ -136,7 +143,13 @@ def test_preflight_accepts_authenticated_cli_with_required_scopes() -> None:
 
 
 def test_subprocess_adapter_uses_only_its_sanitized_environment() -> None:
-    result = SubprocessRunner({"ATTEST_ACCEPTANCE_SAFE": "yes"}).run(("/usr/bin/env",))
+    result = SubprocessRunner(
+        {
+            "ATTEST_ACCEPTANCE_SAFE": "yes",
+            "GH_TOKEN": "github-token-must-not-leak",
+            "OTHER_API_KEY": "other-key-must-not-leak",
+        }
+    ).run(("/usr/bin/env",))
 
     assert result.returncode == 0
     assert set(result.stdout.splitlines()) == {
@@ -144,6 +157,22 @@ def test_subprocess_adapter_uses_only_its_sanitized_environment() -> None:
         "GIT_TERMINAL_PROMPT=0",
     }
     assert MODEL_KEY_ENV not in result.stdout
+
+
+def test_subprocess_adapter_turns_timeout_into_named_acceptance_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def time_out(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert kwargs["timeout"] == 0.25
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=0.25)
+
+    monkeypatch.setattr(subprocess, "run", time_out)
+
+    with pytest.raises(CommandTimeoutError) as caught:
+        SubprocessRunner({}, timeout_s=0.25).run(("gh", "auth", "status"))
+
+    assert caught.value.command == ("gh", "auth", "status")
+    assert caught.value.timeout_s == 0.25
 
 
 def test_private_repo_command_is_owner_scoped_and_explicitly_private() -> None:
@@ -690,7 +719,10 @@ def test_live_acceptance_requires_headroom_for_both_pr_budgets() -> None:
         service.ensure_spend_headroom(0.50)
 
 
-def test_spend_insertion_is_idempotent_by_run_id_and_updates_total() -> None:
+@pytest.mark.parametrize("event_date", ["2026-08-29", "2031-01-02"])
+def test_spend_insertion_uses_injected_event_date_and_is_idempotent(
+    event_date: str,
+) -> None:
     spend_path = Path("/workspace/DEVSPEND.md")
     files = {
         spend_path: (
@@ -702,7 +734,8 @@ def test_spend_insertion_is_idempotent_by_run_id_and_updates_total() -> None:
             "**Total API spend: $0.15 of $10.00.**\n"
         )
     }
-    service = _service(FakeRunner([]), files=files)
+    event_time = datetime.fromisoformat(event_date).replace(tzinfo=UTC)
+    service = _service(FakeRunner([]), files=files, clock=lambda: event_time)
 
     service.record_spend("98765", 0.05, "https://github.com/octocat/scratch")
     service.record_spend("98765", 0.05, "https://github.com/octocat/scratch")
@@ -710,10 +743,59 @@ def test_spend_insertion_is_idempotent_by_run_id_and_updates_total() -> None:
     updated = service.filesystem.read_text(spend_path)
     assert updated.count("phase-3 acceptance run 98765") == 1
     assert (
-        "| 2026-08-29 | phase-3 acceptance run 98765 "
+        f"| {event_date} | phase-3 acceptance run 98765 "
         "(https://github.com/octocat/scratch) | $0.0500 |"
     ) in updated
     assert "**Total API spend: $0.2000 of $10.00.**" in updated
+
+
+def test_workflow_process_failure_invalidates_parseable_acceptance_artifacts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _service(FakeRunner([CommandResult(1), CommandResult(1)]))
+    monkeypatch.setattr(
+        service,
+        "_wait_for_run",
+        lambda *args: {
+            "databaseId": 123,
+            "createdAt": "2026-08-29T00:00:00Z",
+            "url": "https://github.invalid/actions/runs/123",
+        },
+    )
+
+    with pytest.raises(AcceptanceError, match="workflow run 123 failed"):
+        service._inspect_run(
+            "octocat/scratch",
+            _PullRequest(1, "https://github.invalid/pull/1", "test-branch"),
+            Path("/artifacts"),
+        )
+
+
+def test_unsuccessful_workflow_conclusion_invalidates_acceptance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _service(FakeRunner([CommandResult(0)]))
+    monkeypatch.setattr(
+        service,
+        "_wait_for_run",
+        lambda *args: {
+            "databaseId": 123,
+            "createdAt": "2026-08-29T00:00:00Z",
+            "url": "https://github.invalid/actions/runs/123",
+        },
+    )
+    monkeypatch.setattr(
+        service,
+        "_json_command",
+        lambda *args: {"status": "completed", "conclusion": "failure"},
+    )
+
+    with pytest.raises(AcceptanceError, match="conclusion failure"):
+        service._inspect_run(
+            "octocat/scratch",
+            _PullRequest(1, "https://github.invalid/pull/1", "test-branch"),
+            Path("/artifacts"),
+        )
 
 
 def _matrix_run(

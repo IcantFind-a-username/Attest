@@ -294,3 +294,18 @@ def test_action_install_includes_the_pytest_runtime_used_by_executor() -> None:
         if step.get("name") == "Install attest from this action"
     )
     assert '"${{ github.action_path }}"' in install["run"]
+
+
+def test_action_uses_primary_python_and_the_audited_lock() -> None:
+    steps = _action_steps()
+    setup = next(step for step in steps if step.get("name") == "Set up Python")
+    assert setup["uses"] == "actions/setup-python@v6"
+    assert setup["with"] == {"python-version": "3.12.8"}
+
+    install = next(
+        step for step in steps if step.get("name") == "Install attest from this action"
+    )
+    command = install["run"]
+    assert 'requirements-toolchain.lock' in command
+    assert '--no-deps' in command
+    assert '--no-build-isolation' in command

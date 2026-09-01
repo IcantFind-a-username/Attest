@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "attest"
 version = "0.0.1"
-description = "Fast, precise, evidence-first AI code review: an e-process betting gate that only speaks when the evidence clears the bar"
+description = "Experimental evidence-first LLM code evaluation with differential reproduction"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -16,7 +16,18 @@ dependencies = ["numpy>=1.26", "anthropic>=1.0", "pytest>=8"]
 attest = "attest.cli.main:main"
 
 [project.optional-dependencies]
-dev = ["pytest-cov>=5", "ruff>=0.6", "mypy>=1.11"]
+dev = [
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.5",
+    "mypy==2.3.1",
+]
+
+[tool.attest.toolchain]
+lock = "requirements-toolchain.lock"
+minimum-python = "3.11"
+primary-python = "3.12"
+targets = ["linux-x86_64", "macos-arm64"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/attest"]
@@ -50,4 +61,9 @@ source = ["src/attest"]
 
 [tool.coverage.report]
 show_missing = true
+include = [
+    "src/attest/review/*",
+    "src/attest/cli/*",
+    "src/attest/github/*",
+]
 fail_under = 90

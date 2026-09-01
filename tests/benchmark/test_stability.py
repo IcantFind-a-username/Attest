@@ -2,17 +2,35 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
-from attest.benchmark.api import ProjectEvaluationRequest
+from attest.benchmark.api import (
+    ProjectEvaluationRequest,
+    ProjectTruth,
+    build_evaluation_binding,
+    current_runtime_identity,
+)
+from attest.benchmark.artifacts import canonical_json_bytes
+from attest.benchmark.checkpoints import (
+    CALL_ROLE_BENCHMARK_ORACLE,
+    CALL_ROLE_PRODUCT,
+    STATE_AMBIGUOUS_COST,
+    STATE_DISPATCHED,
+    STATE_RESPONSE_PERSISTED,
+    AmbiguousCostError,
+)
+from attest.benchmark.measurement import ARM_ATTEST_PRODUCT, TaskStatus
 from attest.benchmark.runner import Cassette, ReplayProvider
-from attest.benchmark.schema import ChangedLocation, load_manifest
+from attest.benchmark.schema import ChangedLocation, TruthDefect, load_manifest
 from attest.benchmark.stability import (
     STABILITY_REPEATS,
     StabilityObservation,
@@ -24,6 +42,7 @@ from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits
 from attest.review.proposer import Provider
 
+from .test_baselines import _finding, _measurement_record
 from .test_corpus import _oracle_fixture
 
 _SCRIPT = Path(__file__).parents[2] / "scripts" / "benchmark.py"
@@ -52,8 +71,9 @@ _EMPTY_PROPOSAL = json.dumps({"findings": []})
 _LOCATIONS = (ChangedLocation(path="calc.py", start_line=2, end_line=2, side="old"),)
 
 
-def _surfaced(wealth: float) -> SurfacedAnchor:
+def _surfaced(wealth: float, finding_id: str = "finding-1") -> SurfacedAnchor:
     return SurfacedAnchor(
+        finding_id=finding_id,
         file="calc.py",
         line=2,
         placement="inline",
@@ -72,17 +92,58 @@ def _observation(
     latency_s: float = 1.0,
     spend_usd: float = 0.01,
 ) -> StabilityObservation:
+    findings = tuple(
+        _finding(
+            anchor.finding_id,
+            accuracy="unadjudicated",
+            defect_id=None,
+        )
+        for anchor in surfaced
+    )
+    findings += tuple(
+        _finding(
+            f"unresolved-{repeat}-{index}",
+            status="unresolved",
+            accuracy="unadjudicated",
+            defect_id=None,
+        )
+        for index in range(candidate_count - len(findings))
+    )
+    stop = "candidate_defer" if deferred is not None and surfaced else (
+        "task_defer" if deferred is not None else "none"
+    )
+    measurement = replace(
+        _measurement_record(
+            stop=stop,
+            findings=findings,
+            repeat=repeat,
+            eligible_defect_ids=(),
+            truth_status="unadjudicated",
+        ),
+        case_id="case-333333333333",
+        arm=ARM_ATTEST_PRODUCT,
+    )
     return StabilityObservation(
         repeat=repeat,
         run_id=f"run-{repeat}",
-        status="deferred" if deferred is not None else "completed",
+        status=measurement.task_status.value,
         abstain_reason=deferred,
-        surfaced=() if deferred is not None else surfaced,
-        candidate_count=candidate_count,
+        surfaced=surfaced,
+        candidate_count=measurement.candidate_count,
+        measurement=measurement,
         latency_s=latency_s,
-        spend_usd=spend_usd,
+        product_spend_usd=spend_usd,
+        oracle_spend_usd=0.0,
+        total_spend_usd=spend_usd,
         delivery_at_s=None if deferred is not None else latency_s,
     )
+
+
+def _sealed_observation_payload(
+    observation: StabilityObservation,
+) -> dict[str, object]:
+    digest = hashlib.sha256(canonical_json_bytes(observation._payload())).hexdigest()
+    return replace(observation, digest=digest).to_json_dict()
 
 
 def _synthetic_observations() -> tuple[StabilityObservation, ...]:
@@ -108,6 +169,15 @@ def test_summarize_stability_reports_exact_agreement_and_dispersion() -> None:
     )
 
     assert report.repeats == STABILITY_REPEATS == 10
+    assert report.schema_version == "5"
+    assert report.semantic_n == 1
+    assert report.operational_repeats == 10
+    assert report.task_status_counts == {
+        "completed": 9,
+        "partially_deferred": 0,
+        "fully_deferred": 1,
+        "failed": 0,
+    }
     assert len(report.run_ids) == 10
     assert report.outcomes == (
         "surfaced",
@@ -149,10 +219,59 @@ def test_summarize_stability_reports_exact_agreement_and_dispersion() -> None:
     assert report.digest
 
 
+def test_stability_partial_defer_retains_author_visible_surface() -> None:
+    observations = (
+        *(_observation(repeat) for repeat in range(9)),
+        _observation(
+            9,
+            deferred="candidate evidence remained unresolved",
+            surfaced=(_surfaced(12.0),),
+            candidate_count=2,
+        ),
+    )
+
+    report = summarize_stability(
+        case_id="case-333333333333",
+        manifest_sha256="ab" * 32,
+        observations=observations,
+        locations=_LOCATIONS,
+    )
+
+    assert report.outcomes[-1] == "surfaced_deferred"
+    assert [(row.repeat, row.reason) for row in report.deferred_runs] == [
+        (9, "candidate evidence remained unresolved")
+    ]
+    assert report.clusters[0].decisions[-1] == "inline"
+    assert report.clusters[0].runs_present == 1
+
+
+def test_stability_report_digest_binds_each_repeat_reconciliation() -> None:
+    observations = _synthetic_observations()
+    original = summarize_stability(
+        case_id="case-333333333333",
+        manifest_sha256="ab" * 32,
+        observations=observations,
+        locations=_LOCATIONS,
+    )
+    changed = summarize_stability(
+        case_id="case-333333333333",
+        manifest_sha256="ab" * 32,
+        observations=(
+            replace(observations[0], call_evidence_sha256="b" * 64),
+            *observations[1:],
+        ),
+        locations=_LOCATIONS,
+    )
+
+    assert changed.digest != original.digest
+    assert changed.paid_call_reconciliation_sha256[0] == "b" * 64
+
+
 def test_summarize_stability_gives_off_location_anchors_singleton_clusters() -> None:
     """An anchor outside every preregistered location clusters by its own
     canonical file and line, never by claim prose."""
     stray = SurfacedAnchor(
+        finding_id="finding-stray",
         file="calc.py",
         line=40,
         placement="overflow",
@@ -199,6 +318,49 @@ def test_summarize_stability_requires_exactly_ten_distinct_repeats() -> None:
             observations=duplicated,
             locations=_LOCATIONS,
         )
+
+
+def test_stability_observation_rejects_status_and_surface_authority_drift() -> None:
+    observation = _observation(0, surfaced=(_surfaced(10.0),), candidate_count=1)
+
+    with pytest.raises(ValueError, match="status.*measurement"):
+        replace(observation, status=TaskStatus.FAILED.value)
+    with pytest.raises(ValueError, match="published finding"):
+        replace(
+            observation,
+            surfaced=(replace(observation.surfaced[0], finding_id="injected"),),
+        )
+
+
+@pytest.mark.parametrize("mutation", ["extra-field", "non-finite-wealth"])
+def test_stability_observation_rejects_unsealed_anchor_data(mutation: str) -> None:
+    payload = _sealed_observation_payload(
+        _observation(0, surfaced=(_surfaced(10.0),), candidate_count=1)
+    )
+    surfaced = payload["surfaced"]
+    assert isinstance(surfaced, list)
+    anchor = surfaced[0]
+    assert isinstance(anchor, dict)
+    if mutation == "extra-field":
+        anchor["unsigned_extra"] = "injected"
+    else:
+        anchor["wealth_final"] = float("nan")
+        unsealed = dict(payload)
+        unsealed.pop("digest")
+        payload["digest"] = hashlib.sha256(
+            canonical_json_bytes(unsealed)
+        ).hexdigest()
+
+    with pytest.raises(ValueError, match="field set|finite"):
+        StabilityObservation.from_json_dict(payload)
+
+
+def test_retained_stability_v4_observation_is_not_reinterpreted() -> None:
+    payload = _observation(0).to_json_dict()
+    payload["schema_version"] = "4"
+
+    with pytest.raises(ValueError, match="unsupported observation schema version '4'"):
+        StabilityObservation.from_json_dict(payload)
 
 
 def test_stability_report_is_operational_only() -> None:
@@ -348,6 +510,249 @@ def test_run_stability_study_resumes_without_repeating_a_paid_run(tmp_path: Path
     assert list(result.report.run_ids[:5]) == first_run_ids
 
 
+def test_stability_resume_replays_durable_subcall_response_without_redispatch(
+    tmp_path: Path,
+) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+    first = ReplayProvider(
+        Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+    )
+    crashed = False
+
+    def interrupt(repeat: int, _call_id: str, state: str) -> None:
+        nonlocal crashed
+        if repeat == 0 and state == STATE_RESPONSE_PERSISTED and not crashed:
+            crashed = True
+            raise KeyboardInterrupt(state)
+
+    with pytest.raises(KeyboardInterrupt, match=STATE_RESPONSE_PERSISTED):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: first,
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+            on_call_transition=interrupt,
+        )
+    assert first.proposal_calls == 1
+    assert not (state_dir / "repeat-0.json").exists()
+
+    resumed = ReplayProvider(
+        Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+    )
+    result = run_stability_study(
+        request,
+        provider_factory=lambda _repeat: resumed,
+        state_dir=state_dir,
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+
+    assert result.report.repeats == STABILITY_REPEATS
+    assert resumed.proposal_calls == STABILITY_REPEATS - 1
+
+
+@pytest.mark.parametrize(
+    ("settled_role", "expected_product", "expected_oracle"),
+    (
+        (CALL_ROLE_PRODUCT, True, False),
+        (CALL_ROLE_BENCHMARK_ORACLE, False, True),
+    ),
+)
+def test_post_settlement_exception_preserves_authoritative_role_spend(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    settled_role: str,
+    expected_product: bool,
+    expected_oracle: bool,
+) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+
+    def settle_then_fail(
+        prepared: ProjectEvaluationRequest,
+        *,
+        provider: Provider,
+        oracle_provider: Provider,
+        clock: object,
+    ) -> object:
+        selected = provider if settled_role == CALL_ROLE_PRODUCT else oracle_provider
+        selected.sample("system", "prompt", {"type": "object"}, 20)
+        raise RuntimeError("evaluation failed after settlement")
+
+    monkeypatch.setattr(
+        "attest.benchmark.stability.evaluate_project", settle_then_fail
+    )
+    with pytest.raises(RuntimeError, match="evaluation failed after settlement"):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: ReplayProvider(
+                Cassette(proposal="{}", repro="{}", input_tokens=100, output_tokens=20)
+            ),
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+
+    assert not (state_dir / "repeat-0.json").exists()
+    cost_rows = [
+        json.loads(line)
+        for line in (state_dir / "repeat-0-calls" / "costs.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert len(cost_rows) == 1
+    assert cost_rows[0]["role"] == settled_role
+    assert cost_rows[0]["cost_usd"] > 0
+    assert (settled_role == CALL_ROLE_PRODUCT) is expected_product
+    assert (settled_role == CALL_ROLE_BENCHMARK_ORACLE) is expected_oracle
+
+
+def test_stability_resume_rejects_observation_spend_tampering(
+    tmp_path: Path,
+) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+    run_stability_study(
+        request,
+        provider_factory=lambda _repeat: ReplayProvider(
+            Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+        ),
+        state_dir=state_dir,
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+    path = state_dir / "repeat-0.json"
+    observation = json.loads(path.read_text(encoding="utf-8"))
+    observation["product_spend_usd"] += 1.0
+    observation["total_spend_usd"] += 1.0
+    unsealed = dict(observation)
+    unsealed.pop("digest")
+    observation["digest"] = hashlib.sha256(canonical_json_bytes(unsealed)).hexdigest()
+    path.write_bytes(canonical_json_bytes(observation))
+
+    with pytest.raises(ValueError, match="spend|evidence binding|authoritative"):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: pytest.fail("tamper path dispatched"),
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+
+
+def test_stability_resume_rejects_canonical_observation_latency_tampering(
+    tmp_path: Path,
+) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+    run_stability_study(
+        request,
+        provider_factory=lambda _repeat: ReplayProvider(
+            Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+        ),
+        state_dir=state_dir,
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+    path = state_dir / "repeat-0.json"
+    observation = json.loads(path.read_bytes())
+    observation["latency_s"] += 1.0
+    path.write_bytes(canonical_json_bytes(observation))
+
+    with pytest.raises(ValueError, match="repeat-0.*corrupt"):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: pytest.fail("tamper path dispatched"),
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+
+
+def test_stability_dispatched_without_response_withholds_report_and_blocks_retry(
+    tmp_path: Path,
+) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+    first = ReplayProvider(Cassette(proposal=_EMPTY_PROPOSAL, repro=""))
+
+    def interrupt(repeat: int, _call_id: str, state: str) -> None:
+        if repeat == 0 and state == STATE_DISPATCHED:
+            raise KeyboardInterrupt(state)
+
+    with pytest.raises(KeyboardInterrupt, match=STATE_DISPATCHED):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: first,
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+            on_call_transition=interrupt,
+        )
+    assert first.proposal_calls == 0
+
+    resumed = ReplayProvider(Cassette(proposal=_EMPTY_PROPOSAL, repro=""))
+    with pytest.raises(AmbiguousCostError, match=STATE_AMBIGUOUS_COST):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: resumed,
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+    assert resumed.proposal_calls == 0
+    assert not (state_dir / "repeat-0.json").exists()
+
+
+@pytest.mark.parametrize("missing", ["spend", "artifact", "directory"])
+def test_stability_resume_reconciles_completed_repeat_paid_call_evidence(
+    tmp_path: Path, missing: str
+) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+    run_stability_study(
+        request,
+        provider_factory=lambda _repeat: ReplayProvider(
+            Cassette(proposal=_EMPTY_PROPOSAL, repro="", input_tokens=10, output_tokens=10)
+        ),
+        state_dir=state_dir,
+        locations=_LOCATIONS,
+        manifest_sha256="cd" * 32,
+        provider_label="injected_fake",
+    )
+    call_root = state_dir / "repeat-0-calls"
+    if missing == "spend":
+        (call_root / "costs.jsonl").write_text("", encoding="utf-8")
+    elif missing == "artifact":
+        next((call_root / "artifacts").glob("*.json")).unlink()
+    else:
+        shutil.rmtree(call_root)
+    resumed = ReplayProvider(Cassette(proposal=_EMPTY_PROPOSAL, repro=""))
+
+    with pytest.raises(ValueError, match="spend row|artifact.*missing|evidence binding"):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: resumed,
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+
+    assert resumed.proposal_calls == 0
+
+
 def test_run_stability_study_fails_closed_on_drift_truth_or_corrupt_state(
     tmp_path: Path,
 ) -> None:
@@ -370,8 +775,6 @@ def test_run_stability_study_fails_closed_on_drift_truth_or_corrupt_state(
         provider_label="injected_fake",
     )
 
-    from dataclasses import replace
-
     drifted = replace(
         request,
         config=ReviewConfig(
@@ -387,9 +790,6 @@ def test_run_stability_study_fails_closed_on_drift_truth_or_corrupt_state(
             manifest_sha256="cd" * 32,
             provider_label="injected_fake",
         )
-
-    from attest.benchmark.api import ProjectTruth
-    from attest.benchmark.schema import TruthDefect
 
     with_truth = ProjectEvaluationRequest(
         case_id=request.case_id,
@@ -432,6 +832,105 @@ def test_run_stability_study_fails_closed_on_drift_truth_or_corrupt_state(
             manifest_sha256="cd" * 32,
             provider_label="injected_fake",
         )
+
+
+def test_old_study_predeclaration_reports_supported_version(tmp_path: Path) -> None:
+    request = _study_request(tmp_path)
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    (state_dir / "study.json").write_text(
+        json.dumps({"schema_version": "0"}), encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="unsupported.*schema version.*0.*supported"):
+        run_stability_study(
+            request,
+            provider_factory=lambda _repeat: ReplayProvider(
+                Cassette(proposal=_EMPTY_PROPOSAL, repro="")
+            ),
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+
+
+def test_retained_stability_v4_predeclaration_is_not_reinterpreted(
+    tmp_path: Path,
+) -> None:
+    """The former v4 study shape fails as a version, before paid-state mutation."""
+    request = _study_request(tmp_path)
+    runtime = current_runtime_identity()
+    binding_v1 = build_evaluation_binding(
+        request,
+        provider_id="injected_fake",
+        interpreter_id=runtime.interpreter_id,
+        environment_sha256=runtime.environment_sha256,
+        code_sha256=runtime.code_sha256,
+    ).to_json_dict()
+    binding_v1["schema_version"] = "1"
+    config = request.config
+    old_v4 = {
+        "schema_version": "4",
+        "paid_call_roles": ["benchmark_oracle", "product"],
+        "case_id": request.case_id,
+        "manifest_sha256": "cd" * 32,
+        "repeats": 10,
+        "base_ref": request.base_ref,
+        "head_ref": request.head_ref,
+        "line_slack": 0,
+        "provider_label": "injected_fake",
+        "evaluation_binding": binding_v1,
+        "seeds": None,
+        "configuration": {
+            "alpha": config.alpha,
+            "budget_usd": config.budget_usd,
+            "model": config.model,
+            "k_samples": config.k_samples,
+            "max_findings": config.max_findings,
+            "auto_tighten_alpha": config.auto_tighten_alpha,
+            "tier0_commands": list(config.tier0_commands),
+            "differential_repeats": request.repeats,
+            "deadline_s": request.deadline_s,
+            "verification_timeout_s": request.verification_timeout_s,
+            "wall_timeout_s": request.limits.wall_timeout_s,
+        },
+    }
+    state_dir = tmp_path / "retained-v4-state"
+    state_dir.mkdir()
+    (state_dir / "study.json").write_text(
+        json.dumps(old_v4, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    (state_dir / "retained-paid-state.bin").write_bytes(b"old-v4-paid-state")
+    before = {
+        path.name: path.read_bytes() for path in state_dir.iterdir() if path.is_file()
+    }
+    provider_calls: list[int] = []
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "unsupported stability predeclaration schema version '4'.*"
+            "supported version is 5"
+        ),
+    ):
+        run_stability_study(
+            request,
+            provider_factory=lambda repeat: (
+                provider_calls.append(repeat)
+                or ReplayProvider(Cassette(proposal=_EMPTY_PROPOSAL, repro=""))
+            ),
+            state_dir=state_dir,
+            locations=_LOCATIONS,
+            manifest_sha256="cd" * 32,
+            provider_label="injected_fake",
+        )
+    after = {
+        path.name: path.read_bytes() for path in state_dir.iterdir() if path.is_file()
+    }
+    assert after == before
+    assert provider_calls == []
 
 
 def _run_cli(*args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:

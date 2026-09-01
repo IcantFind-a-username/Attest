@@ -1,0 +1,48 @@
+{
+  "date": "2026-08-31",
+  "implementation_sha": "14a57fb3eeaf7c38f136a5e82151f8d3c738af5b",
+  "parent_sha": "856aba3f55ae26db15a9ded9da5f52b3bf1d3bf0",
+  "tree_sha": "1253ba9ae9918a875c6d0ea5653191396ff244d4",
+  "implementation_binary_diff_sha256": "ac27c811c1e49ed9669032b75b1d2299a7215ef6448d012dfa5f840e50dd39de",
+  "implementation_changed_files": 21,
+  "implementation_dirty_before": false,
+  "implementation_dirty_after": false,
+  "lock_file": "requirements-toolchain.lock",
+  "lock_sha256": "76908dd8dc527b59e95ab856cf67656946a4c1bf8eecbb0d95430a2161341c11",
+  "wheelhouse_inventory_sha256": "65e07106d4b90c72b204012a1bbec7cf78f6866c815312cbb9db620a3131c325",
+  "platform": "macOS 26.5.2 (build 25F84) / Darwin 25.5.0 / arm64",
+  "install_mode": "fresh detached checkout and venv; offline --no-index local wheelhouse; locked dependencies; editable project with --no-deps --no-build-isolation",
+  "environments": [
+    {
+      "label": "python311",
+      "interpreter_id": "cpython-3.11.5-darwin-arm64",
+      "requested_interpreter": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11",
+      "resolved_sys_executable": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11",
+      "environment_sha256": "a2db048e977ee7846607d282992c9e67a2e549a444f29d94c276ab96bc84c565",
+      "code_sha256": "509bfc122a585d37d56180c40425178de941680b2ff7c27d5aa9c37541c3e7b2",
+      "install_log_sha256": "bd4a9958c620366159214c745657cf33e51b2bd03ab1aa4efe671c069a5b7ad2",
+      "freeze_log_sha256": "933d072cd8c5e1cf7809e17a59ca15e049890c87b9e5e1425f45e03c390201ce",
+      "runtime_log_sha256": "27d62eb1ec624a903ac490907f48600413b741eefc769a035a034e74c2329d58",
+      "full_log_sha256": "10474c0ecacd9093f19ccd18be246363b37ea9a6922c54e5dd4d97b1cc515aa5",
+      "coverage_log_sha256": "5cc121328a628be44f66d03538129b551fe5d825627cd822d45ba28108533af8",
+      "include_system_site_packages": false
+    },
+    {
+      "label": "python312",
+      "interpreter_id": "cpython-3.12.8-darwin-arm64",
+      "requested_interpreter": "/opt/homebrew/Cellar/python@3.12/3.12.8/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+      "resolved_sys_executable": "/opt/homebrew/opt/python@3.12/bin/python3.12",
+      "environment_sha256": "b505be2eaf33a0b45c6986bd6fecd167ffc806a62bcb566567a9b97a1bb42bf9",
+      "code_sha256": "509bfc122a585d37d56180c40425178de941680b2ff7c27d5aa9c37541c3e7b2",
+      "install_log_sha256": "92f39a6cc9205aa5bedfd4b0cbc24c0ffd79745e399591467f37b5abfc0ccfcd",
+      "freeze_log_sha256": "c499d1a44879c1e0ee88bfcc6c622a1be37b2615dab30c968498f76e6e598091",
+      "runtime_log_sha256": "7d408a95db5b233349c534df254ef53f68f38931073b7208a91b73bc02b17825",
+      "full_log_sha256": "546b98b52f3ea1d2b4f640e79e74be8984f8b60998c45310b36cc83d25174d4d",
+      "coverage_log_sha256": "bd4b46bd82084462a87fb970cd374d75a51829cd7426ad92035e63a5aa43aabf",
+      "include_system_site_packages": false
+    }
+  ],
+  "paid_actions": "none",
+  "remote_mutations": "none",
+  "provider_network_calls": "none"
+}

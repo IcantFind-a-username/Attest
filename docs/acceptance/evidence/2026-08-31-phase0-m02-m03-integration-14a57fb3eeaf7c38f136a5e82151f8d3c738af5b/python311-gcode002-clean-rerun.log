@@ -1,0 +1,2 @@
+$ pytest G-CODE-002 clean rerun with isolated basetemp
+.............................                                            [100%]

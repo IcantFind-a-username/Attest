@@ -1,0 +1,14 @@
+PATH=/private/tmp/attest-m01-final-5efe3d1-py311/venv/bin:/usr/bin:/bin
+PYTHONDONTWRITEBYTECODE=1
+PYTHONHASHSEED=0
+TMPDIR=/private/tmp/attest-m01-final-5efe3d1-py311/tmp
+LC_ALL=C
+GIT_CONFIG_GLOBAL=/dev/null
+GIT_CONFIG_NOSYSTEM=1
+PIP_NO_INDEX=1
+PIP_DISABLE_PIP_VERSION_CHECK=1
+PIP_CACHE_DIR=/private/tmp/attest-m01-final-5efe3d1-py311/pip-cache
+XDG_CACHE_HOME=/private/tmp/attest-m01-final-5efe3d1-py311/cache
+COVERAGE_FILE=/private/tmp/attest-m01-final-5efe3d1-py311/.coverage
+MYPY_CACHE_DIR=/private/tmp/attest-m01-final-5efe3d1-py311/mypy-cache
+RUFF_CACHE_DIR=/private/tmp/attest-m01-final-5efe3d1-py311/ruff-cache

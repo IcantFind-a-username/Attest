@@ -1,0 +1,2 @@
+$ PYTHONDONTWRITEBYTECODE=1 /private/tmp/attest-m01-0e58cd6-venv/bin/python -m pytest -p no:cacheprovider -q tests/benchmark/test_measurement.py::test_real_mixed_publications_remain_scored_when_one_candidate_defers
+.                                                                        [100%]

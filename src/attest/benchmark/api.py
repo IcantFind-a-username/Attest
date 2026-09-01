@@ -17,34 +17,64 @@ Two rules shape the whole module:
 
 from __future__ import annotations
 
+import hashlib
+import importlib.metadata
+import json
+import math
+import platform
+import re
 import shutil
 import subprocess
+import sys
 import time
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 from attest.benchmark.artifacts import ArtifactRecord, ArtifactStore
 from attest.benchmark.matcher import MatchResult, match_findings
+from attest.benchmark.measurement import (
+    ARM_ATTEST_PRODUCT,
+    CURRENT_MEASUREMENT_SCHEMA_VERSION,
+    CURRENT_MEASUREMENT_SEMANTICS,
+    AccuracyStatus,
+    DeliveryStatus,
+    FindingAuthority,
+    MeasurementRecord,
+    StopKind,
+    TaskStatus,
+    TruthStatus,
+    empty_delivery_transcript_receipt,
+    reduce_measurements,
+)
 from attest.benchmark.runner import (
     BenchmarkRunner,
     CaseRunResult,
+    ExecutionResultAuthority,
     LoopbackGitHub,
     ReproReceipt,
-    ci_final_decisions,
+    ci_final_decisions_from_rows,
+    product_candidate_evidence_from_rows,
+    rebuild_case_run_from_ledger,
 )
 from attest.benchmark.schema import (
+    BenchmarkCase,
+    BenchmarkManifest,
     Prediction,
     RunRecord,
     TruthDefect,
-    is_scored_placement,
 )
-from attest.review.config import ReviewConfig
-from attest.review.executor import ExecutorLimits
+from attest.review.config import ReviewConfig, validate_review_config
+from attest.review.executor import (
+    GENERATOR_SYSTEM,
+    REPRO_SCHEMA,
+    ExecutorLimits,
+)
 from attest.review.ledger import Ledger
-from attest.review.proposer import Provider
+from attest.review.proposer import SYSTEM_PROMPT, Provider
+from attest.review.schema import PROPOSAL_SCHEMA
 
 GIT_TIMEOUT_S = 60.0
 OPAQUE_CASE_PREFIX = "case-"
@@ -52,10 +82,121 @@ _OPAQUE_BODY_LENGTH = 12
 _HEX_DIGITS = frozenset("0123456789abcdef")
 #: Words that would leak the hidden role of a case to the reviewed product.
 _LEAKING_TERMS = ("bug", "clean", "fix", "defect", "broken", "buggy", "control", "truth")
+_DIGEST_PATTERN = re.compile(r"[0-9a-f]{64}")
+ABSENT_BINDING_SHA256 = hashlib.sha256(b"absent").hexdigest()
+EVALUATION_BINDING_SCHEMA_VERSION = "2"
 
 
 class ProjectEvaluationError(ValueError):
     """A request was refused before any model, GitHub, or head-code execution."""
+
+
+class ProjectEvaluationPreExecutionError(ProjectEvaluationError):
+    """A typed refusal known to occur before project execution/publication."""
+
+
+class ProjectEvaluationAuthorityError(ProjectEvaluationError):
+    """Fresh post-execution authority failed after publication may have occurred."""
+
+
+@dataclass(frozen=True)
+class ProjectEvaluationBinding:
+    """Immutable inputs that make a paid evaluation one reproducible stratum."""
+
+    repository: str
+    base_sha: str
+    head_sha: str
+    fixed_sha: str | None
+    diff_sha256: str
+    truth_sha256: str
+    receipt_sha256: str
+    policy_sha256: str
+    provider_id: str
+    model_id: str
+    prompt_sha256: str
+    schema_sha256: str
+    interpreter_id: str
+    environment_sha256: str
+    code_sha256: str
+    budget_usd: float
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": EVALUATION_BINDING_SCHEMA_VERSION,
+            "repository": self.repository,
+            "base_sha": self.base_sha,
+            "head_sha": self.head_sha,
+            "fixed_sha": self.fixed_sha,
+            "diff_sha256": self.diff_sha256,
+            "truth_sha256": self.truth_sha256,
+            "receipt_sha256": self.receipt_sha256,
+            "policy_sha256": self.policy_sha256,
+            "provider_id": self.provider_id,
+            "model_id": self.model_id,
+            "prompt_sha256": self.prompt_sha256,
+            "schema_sha256": self.schema_sha256,
+            "interpreter_id": self.interpreter_id,
+            "environment_sha256": self.environment_sha256,
+            "code_sha256": self.code_sha256,
+            "budget_usd": self.budget_usd,
+        }
+
+
+@dataclass(frozen=True)
+class RuntimeIdentity:
+    """Version identity for the controller interpreter, environment, and code."""
+
+    interpreter_id: str
+    environment_sha256: str
+    code_sha256: str
+
+
+def current_runtime_identity() -> RuntimeIdentity:
+    """Return stable digests that change when the supported runtime strata change."""
+    interpreter_id = (
+        f"{sys.implementation.name}-{sys.version_info.major}.{sys.version_info.minor}."
+        f"{sys.version_info.micro}-{platform.system().lower()}-{platform.machine().lower()}"
+    )
+    distributions = sorted(
+        (
+            str(distribution.metadata["Name"]).lower(),
+            distribution.version,
+        )
+        for distribution in importlib.metadata.distributions()
+    )
+    package_root = Path(__file__).resolve().parents[1]
+    repository_root = Path(__file__).resolve().parents[3]
+    return RuntimeIdentity(
+        interpreter_id=interpreter_id,
+        environment_sha256=_json_digest(distributions),
+        code_sha256=_code_sha256(package_root, repository_root),
+    )
+
+
+def _code_sha256(package_root: Path, repository_root: Path) -> str:
+    """Digest package behavior, data, and the paid-study controller entrypoints."""
+    code_rows = []
+    package_paths = (
+        candidate
+        for candidate in package_root.rglob("*")
+        if candidate.is_file() and candidate.suffix in {".json", ".py", ".toml"}
+    )
+    controller_paths = (
+        repository_root / "scripts" / "benchmark.py",
+        repository_root / "scripts" / "acceptance" / "phase3.py",
+    )
+    for path in sorted((*package_paths, *(path for path in controller_paths if path.is_file()))):
+        code_rows.append(
+            {
+                "path": (
+                    path.relative_to(repository_root).as_posix()
+                    if path.is_relative_to(repository_root)
+                    else path.relative_to(package_root).as_posix()
+                ),
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+        )
+    return _json_digest(code_rows)
 
 
 @dataclass(frozen=True)
@@ -64,6 +205,88 @@ class ProjectTruth:
 
     defects: tuple[TruthDefect, ...]
     fixed_ref: str | None = None
+
+
+def project_truth_sha256(truth: ProjectTruth | None) -> str:
+    """Canonical digest for the exact hidden truth frozen into an evaluation."""
+    if truth is None:
+        return ABSENT_BINDING_SHA256
+    return _json_digest(
+        {
+            "fixed_sha": truth.fixed_ref,
+            "defects": [
+                asdict(defect)
+                for defect in sorted(truth.defects, key=lambda item: item.defect_id)
+            ],
+        }
+    )
+
+
+def manifest_project_truth(
+    manifest: BenchmarkManifest, case_id: str
+) -> ProjectTruth | None:
+    """Derive the only scoring truth allowed for one manifest case."""
+    case = next(case for case in manifest.cases if case.case_id == case_id)
+    defects = tuple(
+        defect for defect in manifest.truth_defects if defect.case_id == case_id
+    )
+    if case.role == "developer_fix_control":
+        return ProjectTruth(defects=())
+    if not defects:
+        return None
+    return ProjectTruth(defects=defects, fixed_ref=case.fixed_commit)
+
+
+def require_manifest_evaluation_request(
+    manifest: BenchmarkManifest,
+    request: ProjectEvaluationRequest,
+    *,
+    source_id: str,
+) -> BenchmarkCase:
+    """Join one execution request to its exact immutable manifest identity."""
+    validate_project_evaluation_request(request)
+    cases = {case.case_id: case for case in manifest.cases}
+    case = cases.get(request.case_id)
+    if case is None:
+        raise ProjectEvaluationError("evaluation case is absent from the bound manifest")
+    if source_id != case.source_id:
+        raise ProjectEvaluationError("evaluation source does not match the bound manifest")
+    expected_base = (
+        case.fixed_commit
+        if case.role == "historical_bug_replay"
+        else case.buggy_commit
+    )
+    expected_head = (
+        case.buggy_commit
+        if case.role == "historical_bug_replay"
+        else case.fixed_commit
+    )
+    if request.base_ref != expected_base or request.head_ref != expected_head:
+        raise ProjectEvaluationError(
+            "evaluation request commits do not match the bound manifest"
+        )
+    if request.truth != manifest_project_truth(manifest, case.case_id):
+        raise ProjectEvaluationError(
+            "evaluation request truth does not match the bound manifest"
+        )
+    sources = {source.source_id: source for source in manifest.sources}
+    source = sources.get(source_id)
+    if source is not None and request.repository != source.project_url:
+        raise ProjectEvaluationError(
+            "evaluation repository identity does not match manifest provenance"
+        )
+    if not request.repository.strip():
+        raise ProjectEvaluationError("repository must be a non-empty identity")
+    if _commit(request.repo, request.base_ref, "base_ref") != expected_base:
+        raise ProjectEvaluationError("evaluation repository base does not match manifest")
+    if _commit(request.repo, request.head_ref, "head_ref") != expected_head:
+        raise ProjectEvaluationError("evaluation repository head does not match manifest")
+    if request.truth is not None and request.truth.defects and (
+        _commit(request.repo, request.truth.fixed_ref or "", "fixed_ref")
+        != case.fixed_commit
+    ):
+        raise ProjectEvaluationError("evaluation repository truth does not match manifest")
+    return case
 
 
 @dataclass(frozen=True)
@@ -85,6 +308,57 @@ class ProjectEvaluationRequest:
     repository: str = "local/project"
     pull_request_number: int = 1
     repeat: int = 0
+
+
+def validate_project_evaluation_request(request: ProjectEvaluationRequest) -> None:
+    """Validate every mutable/scalar policy field before evaluation side effects."""
+    if type(request) is not ProjectEvaluationRequest:
+        raise ProjectEvaluationError("request must be an exact ProjectEvaluationRequest")
+    try:
+        validate_review_config(request.config)
+    except ValueError as exc:
+        raise ProjectEvaluationError(str(exc)) from exc
+    if type(request.config.model) is not str or not request.config.model:
+        raise ProjectEvaluationError("model must be a non-empty string")
+    limits = request.limits
+    if (
+        isinstance(limits.wall_timeout_s, bool)
+        or not isinstance(limits.wall_timeout_s, (int, float))
+        or not math.isfinite(limits.wall_timeout_s)
+        or limits.wall_timeout_s <= 0
+    ):
+        raise ProjectEvaluationError("wall_timeout_s must be a finite positive number")
+    for name, value in (
+        ("cpu_timeout_s", limits.cpu_timeout_s),
+        ("memory_mb", limits.memory_mb),
+        ("output_bytes", limits.output_bytes),
+    ):
+        if type(value) is not int or value <= 0:
+            raise ProjectEvaluationError(f"{name} must be a positive integer")
+    if (
+        isinstance(request.verification_timeout_s, bool)
+        or not isinstance(request.verification_timeout_s, (int, float))
+        or not math.isfinite(request.verification_timeout_s)
+        or request.verification_timeout_s <= 0
+    ):
+        raise ProjectEvaluationError(
+            "verification_timeout_s must be a finite positive number"
+        )
+    if type(request.repeats) is not int or request.repeats < 1:
+        raise ProjectEvaluationError("repeats must be an integer >= 1")
+    if (
+        isinstance(request.deadline_s, bool)
+        or not isinstance(request.deadline_s, (int, float))
+        or not math.isfinite(request.deadline_s)
+        or request.deadline_s < 0
+    ):
+        raise ProjectEvaluationError("deadline_s must be a finite non-negative number")
+    if type(request.line_slack) is not int or request.line_slack < 0:
+        raise ProjectEvaluationError("line_slack must be a non-negative integer")
+    if type(request.pull_request_number) is not int or request.pull_request_number < 1:
+        raise ProjectEvaluationError("pull_request_number must be a positive integer")
+    if type(request.repeat) is not int or request.repeat < 0:
+        raise ProjectEvaluationError("repeat must be a non-negative integer")
 
 
 @dataclass(frozen=True)
@@ -132,6 +406,34 @@ class ProjectEvaluationResult:
     oracle_receipts: tuple[ReproReceipt, ...]
     run: RunRecord
     score: ProjectEvaluationScore | None
+    measurement: MeasurementRecord
+    candidate_evidence: tuple[Mapping[str, Any], ...] = ()
+
+    def __post_init__(self) -> None:
+        if type(self.measurement) is not MeasurementRecord:
+            raise ValueError("project evaluation requires an exact current measurement")
+        expected_status = (
+            "completed"
+            if self.measurement.task_status is TaskStatus.COMPLETED
+            else "deferred"
+        )
+        if self.status != expected_status:
+            raise ValueError(
+                "project evaluation status does not match measurement task_status"
+            )
+        if self.measurement.task_status is TaskStatus.COMPLETED:
+            if self.abstain_reason is not None:
+                raise ValueError(
+                    "completed project evaluation cannot carry abstain_reason"
+                )
+        elif type(self.abstain_reason) is not str or not self.abstain_reason.strip():
+            raise ValueError(
+                "non-completed project evaluation requires an abstain_reason"
+            )
+
+    @property
+    def total_spend_usd(self) -> float:
+        return self.spend_usd + self.oracle_spend_usd
 
     def to_json_dict(self) -> dict[str, object]:
         """Deterministic mapping suitable for direct JSON serialization."""
@@ -154,10 +456,12 @@ class ProjectEvaluationResult:
                 for prediction in self.predictions
             ],
             "final_decisions": [dict(decision) for decision in self.final_decisions],
+            "candidate_evidence": [dict(row) for row in self.candidate_evidence],
             "abstain_reason": self.abstain_reason,
             "latency_s": round(self.latency_s, 6),
             "spend_usd": round(self.spend_usd, 6),
             "oracle_spend_usd": round(self.oracle_spend_usd, 6),
+            "total_spend_usd": round(self.total_spend_usd, 6),
             "artifacts": [record.to_json_dict() for record in self.artifacts],
             "evidence_class_counts": dict(sorted(self.evidence_class_counts.items())),
             "oracle_receipts": [receipt.to_json_dict() for receipt in self.oracle_receipts],
@@ -165,22 +469,127 @@ class ProjectEvaluationResult:
             "deadline_s": self.run.deadline_s,
             "repeat": self.run.repeat,
             "score": None if self.score is None else self.score.to_json_dict(),
+            "measurement": self.measurement.to_json_dict(),
         }
+
+
+@dataclass(frozen=True)
+class _ProjectPreflight:
+    request: ProjectEvaluationRequest
+    resolved: _Resolved
+    workspace: Path
+
+
+def _snapshot_project_evaluation_request(
+    request: ProjectEvaluationRequest,
+) -> ProjectEvaluationRequest:
+    """Detach every mutable policy object before exposing the caller to a factory."""
+    if type(request) is not ProjectEvaluationRequest:
+        raise ProjectEvaluationError("request must be an exact ProjectEvaluationRequest")
+    if type(request.config) is not ReviewConfig:
+        raise ProjectEvaluationError("config must be an exact ReviewConfig")
+    if type(request.limits) is not ExecutorLimits:
+        raise ProjectEvaluationError("limits must be an exact ExecutorLimits")
+    config = ReviewConfig(
+        alpha=request.config.alpha,
+        budget_usd=request.config.budget_usd,
+        model=request.config.model,
+        k_samples=request.config.k_samples,
+        max_findings=request.config.max_findings,
+        auto_tighten_alpha=request.config.auto_tighten_alpha,
+        tier0_commands=list(request.config.tier0_commands),
+    )
+    truth = request.truth
+    if truth is not None:
+        if type(truth) is not ProjectTruth or type(truth.defects) is not tuple:
+            raise ProjectEvaluationError("truth must be an exact immutable ProjectTruth")
+        defects: list[TruthDefect] = []
+        for defect in truth.defects:
+            if type(defect) is not TruthDefect:
+                raise ProjectEvaluationError(
+                    "truth defects must be exact TruthDefect values"
+                )
+            defects.append(
+                TruthDefect(
+                    defect_id=defect.defect_id,
+                    case_id=defect.case_id,
+                    file=defect.file,
+                    start_line=defect.start_line,
+                    end_line=defect.end_line,
+                )
+            )
+        truth = ProjectTruth(defects=tuple(defects), fixed_ref=truth.fixed_ref)
+    snapshot = replace(
+        request,
+        config=config,
+        limits=ExecutorLimits(
+            wall_timeout_s=request.limits.wall_timeout_s,
+            cpu_timeout_s=request.limits.cpu_timeout_s,
+            memory_mb=request.limits.memory_mb,
+            output_bytes=request.limits.output_bytes,
+        ),
+        truth=truth,
+    )
+    validate_project_evaluation_request(snapshot)
+    return snapshot
+
+
+def _prepare_project_evaluation(request: ProjectEvaluationRequest) -> _ProjectPreflight:
+    """Resolve refs and own the clean worktree before constructing a provider."""
+
+    try:
+        snapshot = _snapshot_project_evaluation_request(request)
+        resolved = _resolve(snapshot)
+        workspace = _own_worktree(snapshot, resolved.head_sha)
+    except ProjectEvaluationError as exc:
+        raise ProjectEvaluationPreExecutionError(str(exc)) from exc
+    return _ProjectPreflight(request=snapshot, resolved=resolved, workspace=workspace)
 
 
 def evaluate_project(
     request: ProjectEvaluationRequest,
     *,
     provider: Provider,
+    oracle_provider: Provider | None = None,
     artifact_store: ArtifactStore | None = None,
     clock: Callable[[], float] = time.monotonic,
 ) -> ProjectEvaluationResult:
     """Evaluate one immutable base/head pair and return frozen, typed results."""
-    resolved = _resolve(request)
+    preflight = _prepare_project_evaluation(request)
+    return _evaluate_prepared_project(
+        preflight,
+        provider=provider,
+        oracle_provider=oracle_provider,
+        artifact_store=artifact_store,
+        clock=clock,
+    )
+
+
+def _evaluate_prepared_project(
+    preflight: _ProjectPreflight,
+    *,
+    provider: Provider,
+    oracle_provider: Provider | None,
+    artifact_store: ArtifactStore | None,
+    clock: Callable[[], float],
+) -> ProjectEvaluationResult:
+    """Execute one exact preflight token without resolving mutable refs again."""
+
+    if type(preflight) is not _ProjectPreflight:
+        raise ValueError("project evaluation requires an exact preflight token")
+    request = preflight.request
+    resolved = preflight.resolved
+    workspace = preflight.workspace
     started = clock()
-    workspace = _own_worktree(request, resolved.head_sha)
     try:
         with LoopbackGitHub() as github:
+            frozen_authorities: list[ExecutionResultAuthority] = []
+
+            def freeze_execution_result(authority: ExecutionResultAuthority) -> None:
+                if frozen_authorities:
+                    raise ValueError("project execution produced duplicate authorities")
+                frozen_authorities.append(authority)
+
             runner = BenchmarkRunner(
                 limits=request.limits,
                 verification_timeout_s=request.verification_timeout_s,
@@ -194,18 +603,57 @@ def evaluate_project(
                 head_sha=resolved.head_sha,
                 config=request.config,
                 provider=provider,
+                oracle_provider=oracle_provider,
                 client=github.client(),
                 fixed_sha=resolved.fixed_sha,
                 repository=request.repository,
                 pull_request_number=request.pull_request_number,
                 deadline_s=request.deadline_s,
                 repeat=request.repeat,
+                execution_result_sink=freeze_execution_result,
             )
             summary = github.status_bodies[-1] if github.status_bodies else ""
-        decisions = tuple(
-            ci_final_decisions(workspace, run.task_id) if run.task_id else ()
-        )
-        records = _persist(artifact_store, request, run, workspace, summary)
+        try:
+            if len(frozen_authorities) != 1:
+                raise ValueError(
+                    "project execution did not freeze one expected authority"
+                )
+            ledger_rows = Ledger(workspace).entries_strict()
+            run = rebuild_case_run_from_ledger(
+                workspace,
+                run,
+                ledger_rows,
+                repository=request.repository,
+                head_sha=resolved.head_sha,
+                pull_request_number=request.pull_request_number,
+                deadline_s=request.deadline_s,
+                expected_authority=frozen_authorities[0],
+            )
+            run = replace(
+                run,
+                measurement=_adjudicate_measurement(
+                    request, run.measurement, run.run.predictions
+                ),
+            )
+            decisions = tuple(
+                ci_final_decisions_from_rows(ledger_rows, run.task_id)
+                if run.task_id
+                else ()
+            )
+            candidate_evidence = (
+                product_candidate_evidence_from_rows(ledger_rows, run.task_id)
+                if run.task_id
+                else ()
+            )
+            records = _persist(
+                artifact_store,
+                request,
+                run,
+                ledger_rows,
+                summary,
+            )
+        except (OSError, ValueError) as exc:
+            raise ProjectEvaluationAuthorityError(str(exc)) from exc
     finally:
         _release_worktree(request.repo, workspace)
     return _result(
@@ -213,6 +661,7 @@ def evaluate_project(
         resolved=resolved,
         run=run,
         decisions=decisions,
+        candidate_evidence=candidate_evidence,
         records=records,
         latency_s=clock() - started,
     )
@@ -225,24 +674,34 @@ def evaluate_projects(
     artifact_store: ArtifactStore | None = None,
     clock: Callable[[], float] = time.monotonic,
 ) -> tuple[ProjectEvaluationResult, ...]:
-    """Evaluate many projects in input order, isolating each case's failure.
+    """Evaluate projects in order, excluding only pre-execution refusals.
 
-    One case's refusal or crash becomes that case's explicit DEFER. It never
-    aborts the batch and never hides the cases that already completed.
+    Provider construction and typed preflight failures become taskless
+    presentation DEFERs. Once execution starts, authority failures propagate so
+    a possibly published finding cannot disappear from current accounting.
     """
     results: list[ProjectEvaluationResult] = []
     for request in requests:
         try:
-            results.append(
-                evaluate_project(
-                    request,
-                    provider=provider_factory(request),
-                    artifact_store=artifact_store,
-                    clock=clock,
-                )
-            )
-        except Exception as exc:  # noqa: BLE001 - a per-case failure is a DEFER
+            preflight = _prepare_project_evaluation(request)
+        except ProjectEvaluationPreExecutionError as exc:
             results.append(_deferred(request, f"{type(exc).__name__}: {exc}"))
+            continue
+        try:
+            provider = provider_factory(request)
+        except Exception as exc:  # noqa: BLE001 - no execution has started
+            _release_worktree(request.repo, preflight.workspace)
+            results.append(_deferred(request, f"{type(exc).__name__}: {exc}"))
+            continue
+        results.append(
+            _evaluate_prepared_project(
+                preflight,
+                provider=provider,
+                oracle_provider=None,
+                artifact_store=artifact_store,
+                clock=clock,
+            )
+        )
     return tuple(results)
 
 
@@ -251,6 +710,166 @@ class _Resolved:
     base_sha: str
     head_sha: str
     fixed_sha: str | None
+
+
+def build_evaluation_binding(
+    request: ProjectEvaluationRequest,
+    *,
+    provider_id: str,
+    interpreter_id: str,
+    environment_sha256: str,
+    code_sha256: str,
+    receipt_sha256: str | None = None,
+) -> ProjectEvaluationBinding:
+    """Resolve and bind every input that may change a paid-study outcome.
+
+    This runs before a provider is constructed. A caller that cannot name its
+    provider, interpreter, environment, or exact code is not allowed to create
+    a resumable paid-study predeclaration.
+    """
+    validate_project_evaluation_request(request)
+    if not request.repository.strip():
+        raise ProjectEvaluationError("repository must be a non-empty identity")
+    for label, value in (
+        ("provider_id", provider_id),
+        ("interpreter_id", interpreter_id),
+    ):
+        if not value:
+            raise ProjectEvaluationError(f"{label} must be a non-empty versioned identifier")
+    for label, value in (
+        ("environment_sha256", environment_sha256),
+        ("code_sha256", code_sha256),
+    ):
+        _require_digest(value, label)
+    if receipt_sha256 is not None:
+        _require_digest(receipt_sha256, "receipt_sha256")
+
+    resolved = _resolve(request)
+    diff = _git_bytes(
+        request.repo,
+        "diff",
+        "--binary",
+        "--no-ext-diff",
+        resolved.base_sha,
+        resolved.head_sha,
+        "--",
+    )
+    if diff is None:
+        raise ProjectEvaluationError("could not digest the resolved base/head diff")
+    resolved_truth = (
+        None
+        if request.truth is None
+        else replace(request.truth, fixed_ref=resolved.fixed_sha)
+    )
+    config = request.config
+    return ProjectEvaluationBinding(
+        repository=request.repository,
+        base_sha=resolved.base_sha,
+        head_sha=resolved.head_sha,
+        fixed_sha=resolved.fixed_sha,
+        diff_sha256=hashlib.sha256(diff).hexdigest(),
+        truth_sha256=project_truth_sha256(resolved_truth),
+        receipt_sha256=receipt_sha256 or ABSENT_BINDING_SHA256,
+        policy_sha256=_json_digest(_evaluation_policy_payload(request)),
+        provider_id=provider_id,
+        model_id=config.model,
+        prompt_sha256=_current_prompt_sha256(),
+        schema_sha256=_current_schema_sha256(),
+        interpreter_id=interpreter_id,
+        environment_sha256=environment_sha256,
+        code_sha256=code_sha256,
+        budget_usd=config.budget_usd,
+    )
+
+
+def freeze_evaluation_request(
+    request: ProjectEvaluationRequest, binding: ProjectEvaluationBinding
+) -> ProjectEvaluationRequest:
+    """Replace movable refs with the SHAs already sealed by a predeclaration."""
+    validate_project_evaluation_request(request)
+    if binding.repository != request.repository:
+        raise ProjectEvaluationError("binding repository does not match the request")
+    if binding.model_id != request.config.model or binding.budget_usd != request.config.budget_usd:
+        raise ProjectEvaluationError("binding model or budget does not match the request")
+    if binding.policy_sha256 != _json_digest(_evaluation_policy_payload(request)):
+        raise ProjectEvaluationError("binding policy does not match the request")
+    if binding.prompt_sha256 != _current_prompt_sha256():
+        raise ProjectEvaluationError("binding prompt does not match the current evaluator")
+    if binding.schema_sha256 != _current_schema_sha256():
+        raise ProjectEvaluationError("binding schema does not match the current evaluator")
+    truth = request.truth
+    frozen_truth = (
+        None
+        if truth is None
+        else replace(truth, fixed_ref=binding.fixed_sha)
+    )
+    if binding.truth_sha256 != project_truth_sha256(frozen_truth):
+        raise ProjectEvaluationError("binding truth does not match the request")
+    return replace(
+        request,
+        base_ref=binding.base_sha,
+        head_ref=binding.head_sha,
+        truth=frozen_truth,
+    )
+
+
+def require_prebuilt_evaluation_binding(
+    request: ProjectEvaluationRequest,
+    binding: ProjectEvaluationBinding,
+    *,
+    provider_id: str,
+) -> ProjectEvaluationRequest:
+    """Validate a trusted synthetic binding without binding a local checkout path."""
+    validate_project_evaluation_request(request)
+    expected_fixed = None if request.truth is None else request.truth.fixed_ref
+    if (
+        binding.base_sha != request.base_ref
+        or binding.head_sha != request.head_ref
+        or binding.fixed_sha != expected_fixed
+    ):
+        raise ProjectEvaluationError(
+            "prebuilt binding commits do not match the manifest-checked request"
+        )
+    if binding.provider_id != provider_id:
+        raise ProjectEvaluationError(
+            "prebuilt binding provider does not match the live provider"
+        )
+    diff = _git_bytes(
+        request.repo,
+        "diff",
+        "--binary",
+        "--no-ext-diff",
+        request.base_ref,
+        request.head_ref,
+        "--",
+    )
+    if diff is None or binding.diff_sha256 != hashlib.sha256(diff).hexdigest():
+        raise ProjectEvaluationError(
+            "prebuilt binding diff does not match the manifest-checked request"
+        )
+    return freeze_evaluation_request(request, binding)
+
+
+def _evaluation_policy_payload(request: ProjectEvaluationRequest) -> dict[str, object]:
+    """Canonical execution/scoring policy sealed into every evaluation binding."""
+    return {
+        "config": asdict(request.config),
+        "limits": asdict(request.limits),
+        "verification_timeout_s": request.verification_timeout_s,
+        "repeats": request.repeats,
+        "deadline_s": request.deadline_s,
+        "line_slack": request.line_slack,
+        "pull_request_number": request.pull_request_number,
+        "repeat": request.repeat,
+    }
+
+
+def _current_prompt_sha256() -> str:
+    return _json_digest({"proposal": SYSTEM_PROMPT, "generator": GENERATOR_SYSTEM})
+
+
+def _current_schema_sha256() -> str:
+    return _json_digest({"proposal": PROPOSAL_SCHEMA, "generator": REPRO_SCHEMA})
 
 
 def _resolve(request: ProjectEvaluationRequest) -> _Resolved:
@@ -272,7 +891,9 @@ def _resolve(request: ProjectEvaluationRequest) -> _Resolved:
     truth = request.truth
     if truth is not None:
         if not truth.defects:
-            raise ProjectEvaluationError("truth must contain at least one defect")
+            if truth.fixed_ref is not None:
+                raise ProjectEvaluationError("null truth cannot carry a fixed reference")
+            return _Resolved(base_sha=base_sha, head_sha=head_sha, fixed_sha=None)
         if not truth.fixed_ref:
             raise ProjectEvaluationError(
                 "truth requires a fixed reference to score differential evidence against"
@@ -325,6 +946,29 @@ def _git(repo: Path, *args: str) -> str | None:
     return completed.stdout if completed.returncode == 0 else None
 
 
+def _git_bytes(repo: Path, *args: str) -> bytes | None:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(repo), *args],
+            capture_output=True,
+            check=False,
+            timeout=GIT_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return completed.stdout if completed.returncode == 0 else None
+
+
+def _require_digest(value: str, label: str) -> None:
+    if _DIGEST_PATTERN.fullmatch(value) is None:
+        raise ProjectEvaluationError(f"{label} must be a lowercase SHA-256 digest")
+
+
+def _json_digest(value: object) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _own_worktree(request: ProjectEvaluationRequest, head_sha: str) -> Path:
     """Materialize an isolated worktree the service exclusively owns."""
     workspace = request.workspace_root / request.case_id
@@ -349,22 +993,21 @@ def _persist(
     store: ArtifactStore | None,
     request: ProjectEvaluationRequest,
     run: CaseRunResult,
-    workspace: Path,
+    ledger_rows: Sequence[Mapping[str, Any]],
     summary: str,
 ) -> tuple[ArtifactRecord, ...]:
     """Write this case's evidence into its own namespace inside the store.
 
     An artifact refusal is never swallowed: a payload that still looks like a
-    secret, or a name that escapes the store, is a security event. It
-    propagates, and ``evaluate_projects`` turns it into an explicit per-case
-    DEFER rather than a quietly incomplete evidence set.
+    secret, or a name that escapes the store, is a post-execution authority
+    failure and propagates rather than producing incomplete evidence.
     """
     if store is None or run.task_id is None:
         return ()
     prefix = f"cases/{request.case_id}/repeat-{request.repeat}"
-    ledger_rows = [row for row in Ledger(workspace).entries() if row.get("task_id")]
+    task_rows = [row for row in ledger_rows if row.get("task_id")]
     records: list[ArtifactRecord] = [
-        store.write(f"{prefix}/ledger.jsonl", "product_ledger", ledger_rows)
+        store.write(f"{prefix}/ledger.jsonl", "product_ledger", task_rows)
     ]
     records.append(
         store.write(
@@ -389,7 +1032,7 @@ def _persist(
     )
     repro_output = "\n".join(
         f"{row.get('finding_id')}: {row.get('evidence', '')}"
-        for row in ledger_rows
+        for row in task_rows
         if row.get("kind") == "verification"
     )
     if repro_output:
@@ -405,21 +1048,28 @@ def _result(
     resolved: _Resolved,
     run: CaseRunResult,
     decisions: tuple[Mapping[str, Any], ...],
+    candidate_evidence: tuple[Mapping[str, Any], ...],
     records: tuple[ArtifactRecord, ...],
     latency_s: float,
 ) -> ProjectEvaluationResult:
     counts: dict[str, int] = {}
     for prediction in run.run.predictions:
         counts[prediction.evidence_class] = counts.get(prediction.evidence_class, 0) + 1
+    measurement = run.measurement
+    completed = measurement.task_status is TaskStatus.COMPLETED
+    abstain_reason = run.deferred_reason
+    if not completed and not abstain_reason:
+        abstain_reason = f"measurement task status was {measurement.task_status.value}"
     return ProjectEvaluationResult(
         case_id=request.case_id,
-        status="deferred" if run.deferred_reason is not None else "completed",
+        status="completed" if completed else "deferred",
         task_id=run.task_id,
         base_sha=resolved.base_sha,
         head_sha=resolved.head_sha,
         predictions=run.run.predictions,
         final_decisions=decisions,
-        abstain_reason=run.deferred_reason,
+        candidate_evidence=candidate_evidence,
+        abstain_reason=abstain_reason,
         latency_s=latency_s,
         spend_usd=run.spend_usd,
         oracle_spend_usd=run.oracle_spend_usd,
@@ -427,24 +1077,94 @@ def _result(
         evidence_class_counts=counts,
         oracle_receipts=run.oracle_receipts,
         run=run.run,
-        score=_score(request, run.run.predictions),
+        score=_score(measurement),
+        measurement=measurement,
     )
 
 
-def _score(
-    request: ProjectEvaluationRequest, predictions: tuple[Prediction, ...]
-) -> ProjectEvaluationScore | None:
-    """Score only when the caller supplied truth; silence is not a negative label."""
+def _adjudicate_measurement(
+    request: ProjectEvaluationRequest,
+    measurement: MeasurementRecord,
+    predictions: tuple[Prediction, ...],
+) -> MeasurementRecord:
+    """Bind frozen truth to the freshly verified execution measurement."""
+
     truth = request.truth
     if truth is None:
-        return None
+        return measurement
     matches = match_findings(truth.defects, predictions, line_slack=request.line_slack)
-    matched = sum(match.matched for match in matches)
-    surfaced = sum(
-        1 for prediction in predictions if is_scored_placement(prediction.placement)
+    matches_by_id = {match.finding_id: match for match in matches}
+    visible_ids = {
+        finding.finding_id
+        for finding in measurement.findings
+        if finding.author_visible
+        and finding.authority is FindingAuthority.AUTOMATED
+    }
+    if set(matches_by_id) != visible_ids:
+        raise ValueError("truth matching does not cover the authoritative publication set")
+    findings = tuple(
+        replace(
+            finding,
+            accuracy_status=(
+                AccuracyStatus.CORRECT
+                if matches_by_id[finding.finding_id].matched
+                else AccuracyStatus.WRONG
+            ),
+            defect_id=matches_by_id[finding.finding_id].defect_id,
+        )
+        if finding.finding_id in matches_by_id
+        else finding
+        for finding in measurement.findings
     )
+    return replace(
+        measurement,
+        findings=findings,
+        eligible_defect_ids=tuple(defect.defect_id for defect in truth.defects),
+        truth_status=(TruthStatus.POSITIVE if truth.defects else TruthStatus.NULL),
+    )
+
+
+def _score(measurement: MeasurementRecord) -> ProjectEvaluationScore | None:
+    """Project the presentation score from the authoritative measurement only."""
+
+    if measurement.repeat != 0:
+        return None
+    summary = reduce_measurements((measurement,))
+    if (
+        measurement.truth_status is TruthStatus.UNADJUDICATED
+        or summary.metrics_withheld_reason is not None
+        or summary.unadjudicated
+    ):
+        return None
+    visible = tuple(
+        finding
+        for finding in measurement.findings
+        if finding.author_visible
+        and finding.authority is FindingAuthority.AUTOMATED
+    )
+    if (
+        summary.automated_published is None
+        or summary.correct is None
+        or summary.wrong is None
+    ):
+        return None
+    matches = tuple(
+        MatchResult(
+            finding_id=finding.finding_id,
+            defect_id=finding.defect_id,
+            matched=finding.accuracy_status is AccuracyStatus.CORRECT,
+        )
+        for finding in visible
+    )
+    matched = sum(match.matched for match in matches)
+    if (
+        len(visible) != summary.automated_published
+        or matched != summary.correct
+        or len(matches) - matched != summary.wrong
+    ):
+        raise ValueError("score projection does not match authoritative measurement")
     return ProjectEvaluationScore(
-        surfaced=surfaced,
+        surfaced=len(visible),
         matched=matched,
         unmatched=len(matches) - matched,
         matches=matches,
@@ -452,7 +1172,7 @@ def _score(
 
 
 def _deferred(request: ProjectEvaluationRequest, reason: str) -> ProjectEvaluationResult:
-    """An explicit per-case DEFER that hides nothing and invents no label."""
+    """Represent a taskless pre-execution exclusion without inventing a label."""
     run = RunRecord(
         run_id=f"{request.case_id}-deferred",
         case_id=request.case_id,
@@ -478,4 +1198,27 @@ def _deferred(request: ProjectEvaluationRequest, reason: str) -> ProjectEvaluati
         oracle_receipts=(),
         run=run,
         score=None,
+        measurement=MeasurementRecord(
+            schema_version=CURRENT_MEASUREMENT_SCHEMA_VERSION,
+            scoring_semantics=CURRENT_MEASUREMENT_SEMANTICS,
+            case_id=request.case_id,
+            arm=ARM_ATTEST_PRODUCT,
+            repeat=request.repeat,
+            stop_kind=StopKind.FAILURE,
+            task_status=TaskStatus.FAILED,
+            findings=(),
+            eligible_defect_ids=(),
+            pull_request_number=request.pull_request_number,
+            truth_status=TruthStatus.UNADJUDICATED,
+            delivery_status=DeliveryStatus.NO_PUBLICATION,
+            candidate_count=0,
+            published_count=0,
+            unresolved_count=0,
+            publication_events=(),
+            task_delivery_events=(),
+            delivery_transcript=empty_delivery_transcript_receipt(),
+            metrics_withheld_reason=None,
+            delivery_withheld_reason=None,
+            task_delivery_withheld_reason=None,
+        ),
     )

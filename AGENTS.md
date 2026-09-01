@@ -1,312 +1,436 @@
-# AGENTS.md — development guide for coding agents
+# AGENTS.md — standing construction guide
 
-This file is the standing instruction set for any coding agent working in this
-repository. It is self-contained: everything needed to continue development is
-here or in files referenced by relative path. Follow it exactly; do not re-open
-settled decisions (they live in DECISIONS.md with reversal conditions).
+This file is the mandatory entry point for any coding agent working in this repository.
+It owns durable operating rules, not transient branch names, test counts, spend totals, or
+nightly status. Dynamic phase status lives only in `docs/roadmap.md`.
 
-## Where this project lives (read first)
+## 1. Instruction and document authority
 
-- **Working directory: the checkout containing this file.** The owner's
-  primary checkout is `/Users/franz/Documents/Attest` (macOS); earlier work
-  happened in `C:\Users\user\Desktop\attest` (Windows) and in dated agent
-  sandboxes. The path is machine-dependent — the invariant is that there is
-  exactly one working checkout per machine, tracking the `origin` below.
-  **Never create a second attest project elsewhere**; never scaffold from
-  scratch. If you find yourself running `git init` or `mkdir attest`, stop:
-  you are in the wrong place.
-- **Remote: `origin` → https://github.com/IcantFind-a-username/Attest.git**,
-  already configured, `main` pushed and tracking. Push feature work here;
-  the no-public-release rule (ground rule 3) still governs PyPI/Marketplace.
+Follow, in order:
 
-## What this project is
+1. the current owner/user instruction;
+2. this file for repository authority, safety, and work protocol;
+3. `docs/architecture/target-algorithm.md` for target product contracts;
+4. `docs/acceptance/evolution-gates.md` for definitions of done and quantitative gates;
+5. `docs/roadmap.md` for dependency order and current status;
+6. the selected task in `docs/implementation/agent-work-orders.md` for implementation
+   method;
+7. active decisions in `DECISIONS.md` for narrow trade-offs and reversal conditions;
+8. code/tests for current behavior;
+9. dated acceptance reports and old plans as historical evidence only.
 
-**attest** — fast, precise, evidence-first AI code review
-(超快、超准、有证据). It says at most 3 things per PR, in under 60 seconds,
-each with evidence you can click and re-run — and says nothing rather than
-something wrong. True positives outrank everything; we do not compete on
-coverage, style advice, or comment volume.
+Authority is by domain, not “newest prose wins.” A decision that changes an architecture
+invariant or acceptance gate must update the owning normative document in the same change.
+If normative documents conflict, stop the affected implementation and repair the conflict;
+do not choose the easiest interpretation.
 
-The statistical core is a sequential betting engine (e-process): each candidate
-finding is a wager, evidence purchases multiply a wealth process, and **only the
-wealth threshold decides who speaks** — surface at wealth ≥ 1/alpha, discard at
-≤ alpha, drawer otherwise. No vote counting, no self-reported confidence scores.
+Read `docs/README.md` for the complete documentation map and anti-drift rules.
 
-## Current state (2026-08-29 continuation handoff)
+## 2. Locate and inspect the repository
 
-- Active development branch: `feature/real-data-evaluation`. The reviewed code
-  baseline is `0e2172d`; do not restart from `main` or recreate the benchmark.
-  Read `docs/real-data-evaluation-status.md` and
-  `docs/superpowers/plans/2026-08-29-real-data-evaluation.md` before changing
-  code.
-- Phases 0–3 are implemented locally. Phase-3 local gates and independent
-  review passed, but the private-remote live acceptance was not run from this
-  process because no model API key was available. Never turn that missing run
-  into a success claim.
-- Real-data evaluation Tasks 1–3 are complete and independently reviewed:
-  terminal CI decisions are preserved; strict benchmark schema/matching/metrics
-  exist; and a metadata-only BugsInPy adapter plus fail-closed corpus validator
-  are committed. The frozen pilot contains 20 pairs / 40 cases / 4 projects,
-  with 38 eligible pairs and 463 recorded exclusions.
-- The pilot has **no real validation receipt yet**: upstream environments have
-  not been materialized and the 3x fixed-PASS / 3x buggy-FAIL oracle has not run.
-  Therefore there is no defensible product precision/recall result yet. Tasks
-  4–8 remain; Task 4 (differential product V) is the next implementation task.
-- The fresh handoff gate at the reviewed code baseline is 390 tests with
-  92.18% total coverage; the focused core gate is 60 tests with 99.77%
-  coverage; ruff and mypy (38 source files) are clean. Re-run the gates locally
-  before making a later completion claim.
-- The earlier core live-API record remains in `DEVSPEND.md` ($0.1526 total).
-  This real-data branch made no paid model call, remote mutation, or third-party
-  write.
+The checkout path is machine-dependent. Work from the Git root containing this file:
 
-## Ground rules (non-negotiable)
-
-1. **Git discipline**: conventional commits (`feat:`/`fix:`/`chore:`/`docs:`/`test:`);
-   feature/fix work goes through `feature/*` / `fix/*` branches merged after
-   self-review (small docs/chore commits directly on main are acceptable —
-   existing history has both). **The rule: no AI-assistant or vendor-agent
-   names — including your own — in commit messages, branch names, code, or
-   comments.** A `commit-msg` hook backstops part of this (it greps a couple of
-   name patterns); the hook is a backstop, not the definition — the rule covers
-   every assistant name whether or not the hook catches it. Never bypass the
-   hook (`--no-verify` forbidden), never weaken it. Model identifiers needed as
-   product data live only in `src/attest/data/pricing.toml` (D-002); when a
-   commit touches them, phrase the message as "default model id", never the
-   name itself.
-2. **Read-only paths**: `C:\Users\user\Desktop\Corum` and
-   `C:\Users\user\Desktop\attest-seed` are research archives. Never modify,
-   never commit there, never "fix" anything in them. (They may be absent in a
-   sandboxed environment; they are not needed to build.)
-3. **Remotes: `origin` plus private test repos allowed; public release
-   forbidden.** `origin` (above) is the owner's own repository — push branches
-   and `main` there normally. Owner has also authorized (2026-08-29) creating
-   **private** GitHub repos under the owner's account for automated acceptance
-   testing (scratch repos), pushing to them, and setting the
-   `ANTHROPIC_API_KEY` secret via `gh secret set` piped from the environment
-   (never echo the value). Still forbidden without a new owner instruction:
-   publishing to PyPI or the Actions Marketplace, changing `origin`'s
-   visibility, and any interaction with repositories the owner does not own.
-4. **Spend**: development API budget is **$10 total**; log every call in
-   `DEVSPEND.md` (failed $0 calls noted as such). Never print or echo API keys;
-   verify presence by length/prefix only. The product's per-PR budget knob is
-   not your development budget.
-5. **Third-party repos**: dogfood targets are local clones for read-only
-   analysis. **Never** post comments, PRs, or issues to repositories you do not
-   own.
-6. **Green gate per phase**: `pytest`, `ruff check`, `mypy` all clean;
-   coverage gate is on the TOTAL for `src/attest`: ≥ 90% overall and ≥ 99% for
-   `attest.core` (current: 98% total, core 99–100% per file). First chore of
-   Phase 3: add `fail_under = 90` to `[tool.coverage.report]` so the gate is
-   enforced, not honor-system.
-7. **Decision log**: every non-trivial tradeoff gets one line in `DECISIONS.md`
-   (what / why / when reversible). **Numbering: read `DECISIONS.md`, take the
-   highest `D-NNN` in it, and continue from the next one — never trust a
-   number cached in this guide.** Entries are not stored in numeric order and
-   the sequence has gaps, so scan the whole file rather than reading its last
-   line; a number cached here once went stale for twenty-three consecutive
-   entries. The independent-review-before-merge pattern (D-014 caught 8 real
-   defects) is expected for every phase.
-8. **Stop and ask the owner** before: changing any factory statistical constant
-   (default alpha, channel caps, LR schedules, and the alpha auto-tighten trio
-   named in D-038 — `PRECISION_TARGET`, `PRECISION_WINDOW`, `ALPHA_FLOOR`),
-   anything that touches a red
-   line below, any remote/publish action, or exceeding the spend cap.
-
-## Continuation priorities
-
-1. Implement Task 4 with strict TDD: positive `VERIFIED` requires the same
-   generated test to fail on immutable head and pass on immutable base. A test
-   that fails on both sides is unfaithful and DEFERs; it buys no V evidence.
-2. Then expose the generic project evaluation API in Task 5. Corpus-specific
-   adapters must remain outside the evaluator core, and scoring must require a
-   manifest-digest-bound validation receipt.
-3. Task 6 measures one preregistered real diff ten times and compares three
-   arms (Attest, same-provider bare prompt, local Ruff baseline). Report
-   precision, silence precision, silence rate, decision stability, wealth
-   variance, latency, and spend; repeats do not enlarge accuracy denominators.
-4. Rewrite the README positioning only after differential V is implemented:
-   lead with “no differential reproduction, no published finding”; keep the
-   betting engine as an implementation detail and do not claim unmeasured
-   accuracy or stability.
-5. S/T-as-ranking with V-only certification, T neutralization, thin-cell LR
-   shrinkage, and monitor intervention remain experiment-only proposals. They
-   touch factory statistics/red lines and require an explicit owner decision;
-   fewer than 500 global labels cannot justify a production recalibration.
-
-## Architecture red lines (audit-derived; violating one = rework)
-
-1. **No quorum or vote-count gates, ever.** Only the continuous wealth
-   threshold decides speech. The 3-findings cap governs *placement* (top-3 by
-   wealth surface; the rest stay visible in the drawer), never suppression.
-2. **Repeated samples from one model are a correlated panel.** Independence
-   assumptions fabricate confidence. The S-channel diminishing schedule
-   (D-007: 2.00/2.64/2.95/3.00/3.00, cap 3) exists for this — do not
-   "simplify" it into independent multiplication.
-3. **VERIFIED is a strong feature and a surface-brake, never an unconditional
-   pass.** Generated repro tests can encode the model's misreading; treat them
-   skeptically.
-4. **Any new threshold must be shown achievable before adoption**
-   (oracle-feasibility; D-008 is the worked example: with factory caps
-   S·T = 9 < 10 = 1/alpha, so the gate is *intentionally* unreachable without
-   verification, and the CLI discloses this every run).
-5. **No recalibration below 500 ledger labels; at ≥500, global only, never
-   per-repo.** (Corum ports for the recalibration milestone are scoped in
-   D-005 — do not port earlier.)
-6. **Fork PRs: never execute head code in a privileged context** (secrets or a
-   write token present). See Phase 3 notes.
-
-## Code map
-
-```
-src/attest/core    betting engine library (numpy-only): tables, betting,
-                   allocation, exploration, monitor, engine, stream;
-                   demo_compat pins the seed experiment record
-src/attest/review  product pipeline: diffs → proposer → schema → dedup →
-                   channels (S/T/V) → gate → report; plus budget, ledger,
-                   config, tier0
-src/attest/cli     entry points: review / verify / feedback / stats
-src/attest/data    pricing.toml (model pricing + default model id)
-tests/             128 tests incl. regression pins to the seed experiment —
-                   never weaken a pin to make a change pass
+```bash
+git rev-parse --show-toplevel
+git status --short --branch
+git remote -v
+git rev-parse HEAD
+git log -5 --oneline
 ```
 
-Key invariants already implemented (do not regress):
+Expected origin:
 
-- **Finding schema, four mandatory parts**: `claim`, `anchor` (file+line, must
-  fall inside the diff hunks — validated), `failure_scenario`,
-  `falsification_plan`. Missing any ⇒ candidate discarded.
-- **Budget pre-charge** before every call; exceed ⇒ explicit DEFER with reason.
-- **Ledger** `.attest/ledger.jsonl` (gitignored) records reviews, spend,
-  verify/feedback labels, alpha_tightened events. Alpha auto-tighten needs ≥10
-  labeled surfaced findings and a label-count watermark (D-009, D-014).
-- Factory channels: S ≤ 3 (schedule), T ≤ 3, V = 20 reproduced / 0.5 failed.
-  Default alpha 0.1.
+```text
+https://github.com/IcantFind-a-username/Attest.git
+```
 
-## Roadmap (owner-approved order; finish a phase → green gate → stop-check → next)
+Never initialize or scaffold a replacement repository. Do not assume an old macOS/Windows
+absolute path from a report. Preserve unrelated dirty-worktree changes; they belong to the
+user or another task.
 
-### Phase 3 — GitHub Action shell + CI auto-verify (built together)
+<a id="product-north-star"></a>
 
-Rationale: D-008 means the bot cannot autonomously surface anything without a
-V channel; in CI the repo is checked out, so the `falsification_plan` can
-actually run. Shipping the Action without the executor would ship a bot that
-can never speak.
+## 3. Product north star
 
-Settled design points (do not re-derive):
+This section is the sole repository authority for Attest's durable product north star.
 
-- **Layout**: `action.yml` (composite) at the repo root, so the repo itself is
-  consumable as `uses: <owner>/attest@<ref>` once a remote exists. Workflow
-  templates go in `examples/`.
-- **Install path**: the action installs the package **from its own checkout**
-  (`uv pip install "${{ github.action_path }}"` into a uv-managed venv via
-  `astral-sh/setup-uv`). No PyPI involved — this resolves the no-publishing
-  rule; `uvx`-from-PyPI is a post-publish optimization, not Phase 3.
-- **Two-stage comment, red-line-1-safe semantics**: the fast (<60s) post is a
-  **status-only sticky summary** ("review running, N candidates under
-  verification") — it names NO findings. Findings appear only after the gate
-  passes (wealth ≥ 1/alpha, i.e. after verification), as batched inline
-  comments + summary update-in-place. If verification exceeds its time box
-  (default 10 min), the summary reports DEFER with reason. Only the wealth
-  threshold ever decides speech.
-- Permissions `contents: read`, `pull-requests: write`; one `concurrency`
-  group per PR with cancel-in-progress to stop duplicate spend.
-- **Evidence executor lite**: generate a focused repro test from
-  `falsification_plan` (Python targets first), run time-boxed and
-  resource-limited in the runner; block network for the test process where the
-  platform allows (document the limitation on hosted runners — there is no
-  global network-off switch). VERIFIED only on a genuine failing run (red
-  line 3 applies to generated tests).
-- **CI credentials/spend**: model key = `ANTHROPIC_API_KEY` repo secret;
-  default model comes from `pricing.toml`. During development and acceptance,
-  CI spend counts against the $10 dev cap and gets logged in DEVSPEND.md.
-- Fork PRs in v1: skip with a clear note (no secrets, no execution of head
-  code); document the unprivileged-job + `workflow_run` two-workflow pattern
-  for later.
-- **Automated acceptance — agent-run, end-to-end, no owner in the loop**
-  (owner directive 2026-08-29: "开发完下一阶段立刻自动测试,不用交给我人工跑"):
-  1. *Precondition check (the only allowed stop)*: GitHub CLI authenticated —
-     `gh auth status` passes or `GH_TOKEN` is set with `repo` scope. `gh` is
-     NOT currently installed on this machine: install it yourself
-     (`winget install GitHub.cli`), but the login itself needs the owner once;
-     if neither auth path exists, stop and ask for exactly that.
-  2. Build locally first: unit + integration tests with a mocked GitHub API
-     all green.
-  3. Create a **private scratch repo** under the owner's account, seeded with
-     a small real Python project. (No mirror needed — `origin` already exists.)
-  4. In the scratch workflow, obtain the action by `actions/checkout` of
-     `origin` (`repository: IcantFind-a-username/Attest` + token) into a
-     subdirectory, then `uses: ./<subdir>` — this works regardless of
-     `origin`'s visibility. Set `ANTHROPIC_API_KEY` as a scratch-repo secret
-     via `gh secret set` (piped from env, never printed).
-  5. Drive the test matrix programmatically: PR #1 planted real bug
-     (reintroduce a fixed crash), PR #2 negative control (clean refactor).
-     Poll with `gh run watch`; assert via API.
-  6. *Acceptance criteria (asserted by script, timestamps from the GitHub
-     API)*: status-only sticky comment ≤ 60s after the workflow **job start**
-     (runner queue time excluded, but report it); planted-bug PR ends with a
-     verified finding posted inline; negative-control PR has **zero** finding
-     comments; ledger rows exist for every event; total CI spend logged in
-     DEVSPEND.md and within the $10 cap.
-  7. On failure: diagnose, fix, rerun — iterating autonomously is the point.
-     When all criteria pass, write the acceptance report (URLs, timings,
-     spend) into `docs/acceptance/phase-3.md`, commit, and only then proceed
-     to Phase 4.
-  8. Keep the scratch repo (private) for owner inspection; report its URL in
-     the acceptance report.
+> “Attest 的首要目标不是普通 bug scanner。它应当学习并分析整个代码库，理解并合理拆分架构，精准定位问题，并能见微知著地指出对整个项目质量影响最大的 Top 问题；具体 bug 可以同时检测和指出，但属于这一系统级代码理解与质量诊断能力的自然副产物，而不是唯一或最高层目标。”
 
-### Phase 4 — feedback flywheel
+Normatively, product success means system-level repository understanding, coherent
+architecture decomposition, cross-cutting impact analysis, and Top-issue prioritization.
+Concrete bug findings are expected natural by-products of that capability, not its sole or
+highest goal.
 
-- Read emoji reactions on our own past comments on the next run; `/attest`
-  slash commands (`dismiss`, `verify`) gated to OWNER/MEMBER/COLLABORATOR.
-- Ledger on an orphan branch `attest/ledger` (append-only JSONL;
-  fetch → append → push with bounded jittered retry; `GITHUB_TOKEN` pushes do
-  not retrigger workflows).
-- `attest stats` merges local + branch ledgers; precision SLA (≥90% on
-  surfaced findings) computed and reported from real labels.
-- Acceptance is likewise agent-automated in the scratch repo: add reactions to
-  the bot's own comments via the API, post `/attest` commands, assert the next
-  run picks both up into the ledger and that alpha-tightening bookkeeping
-  behaves; write `docs/acceptance/phase-4.md`.
+This north star governs candidate scope, ranking, evidence and corpus design, and product
+success metrics. Attest remains an evidence-first, LLM-driven project evaluator that spends
+model/tool/execution budget efficiently and publishes only claims backed by a trusted,
+replayable, claim-bound certificate. Receipt-only certification, security/isolation, and
+honest measurement remain mandatory constraints, not substitutes for product success.
 
-### Phase 5 — hardening for first external users
+The target separation is:
 
-- `.attest.toml` reference docs, README quickstart ≤ 5 lines, error-message
-  pass, cross-platform sanity (Linux CI runner is the Action's reality).
-- **STOP before any publish** — owner decision.
+```text
+Candidate Discovery
+      -> Evidence Scheduler/Core (chooses what to buy next; no speech authority)
+      -> Evidence Executors (models, tools, generated tests, isolated runs)
+      -> Certification Kernel (only authority that can create CertifiedFinding)
+      -> PR Publication Policy (family control, dedup, hard public cap)
+      -> Presentation
+```
 
-## Working style
+Multi-model work is useful as heterogeneous roles and marginal-value actions: proposer,
+skeptic, test designer, repairer, causal checker. Model agreement is correlated ranking
+information. It is never a vote, quorum, independent likelihood product, or certificate.
 
-- Continuous small increments; run **one** independent self-review pass before
-  merging each phase branch (list concrete defects with file:line, fix the
-  confirmed ones, log the pattern in DECISIONS.md). **The pass is bounded and
-  the bound is the point** (D-039): a defect earns a fix only if you can
-  reproduce it. Anything you cannot — "this could in principle leak, race, or
-  overflow" — becomes one line in `docs/backlog.md`, not a commit, and so does
-  every finding from a second review round. This is the product's own gate
-  turned on its own development: a candidate without reproduction evidence
-  waits in the drawer instead of speaking.
-- **Stop signals. Any one of them ends the task — you report, you do not
-  continue.** (a) Three consecutive commits to the same file where additions
-  exceed deletions: that is accretion, not convergence. (b) Eight commits or
-  three hours on one task, whichever comes first. (c) The task's stated
-  measurement is in hand. "One more fix" is not a reason to pass any of them;
-  report what is done and what is left in the backlog.
-- **A task is done when a stated measurement is in hand**, never when a state
-  feels reached — "report the oracle pass rate on the pilot corpus", not
-  "finish Task 4". Plans under `docs/superpowers/plans/` are background and
-  architecture, not a definition of done: exhausting their checkboxes is not
-  completion, and a plan's own "implement this plan task-by-task" instruction
-  does not override the stop signals above. This guide outranks the plans.
-- MVP-first bias: build the smallest thing that can be tested for real, test
-  it against reality, then decide the next step from evidence.
-- Windows dev box: `.venv\Scripts\python -m pytest` / `ruff check` / `mypy`;
-  Python 3.14 works. The Action targets Linux runners — keep code
-  cross-platform (pathlib, no shell-isms).
+## 4. Current implementation warning
 
-## External references (context, not required to build)
+Do not confuse target contracts with current behavior:
 
-- `C:\Users\user\Desktop\ATTEST-HANDOFF.md` — original owner handoff (v2)
-- `C:\Users\user\Desktop\attest-seed\bettingdemo\RESULTS.md` — seed experiment
-  record the regression pins trace to (read-only)
-- The Corum repository — the research ancestor; its preregistered negative
-  result is why the red lines above exist
+- production review is a fixed S/T/V pipeline in `src/attest/review`;
+- `src/attest/core.Engine` is research/simulation code and is not in the product path;
+  production currently reuses only the generic `core.betting.decide` helper;
+- S/T price only positive evidence, so current product wealth is **not an e-process**;
+- at factory alpha, cap arithmetic normally forces positive differential V before speech,
+  but this is not a runtime invariant for all configurations;
+- current CI can skip verification for an already-terminal S/T surface when alpha is
+  relaxed, and head configuration can influence policy;
+- manual `attest verify --reproduced` is not a trusted differential receipt;
+- `max_findings` currently limits inline placement, not all author-visible findings;
+- current head/base execution proves a behavioral difference but lacks the complete exact-
+  node, semantic-binding, fresh-state, and authenticated-provenance target receipt;
+- current language-level process/network guards are best-effort containment, not a security
+  boundary for untrusted head code;
+- the current process audit covers the entire reproduction pytest interpreter, so trusted
+  runner bootstrap can set the same child-process marker as reviewed code; two retained
+  Black replays first triggered on Python 3.8 `platform.uname()` invoking `uname -p` before
+  the generated test entered `black.format_str` or Click's `CliRunner`;
+- historical real replay produced only abstentions in the reported attempts, so it did not
+  estimate product precision or recall;
+- synthetic S/T scheduling savings are mechanism evidence, not production Core efficacy.
+
+These gaps are work-order inputs. Never rewrite the architecture to bless a current bypass.
+
+## 5. Shortest safe reading path
+
+For ordinary implementation:
+
+1. this file;
+2. `docs/roadmap.md` to find the first unblocked work order;
+3. the exact work-order section;
+4. only the linked architecture sections and Gate IDs;
+5. the affected code and tests;
+6. active narrow decision entries referenced by the task.
+
+Read historical plans/reports only to investigate provenance. In particular,
+`docs/superpowers/plans/2026-08-29-*.md` are completed archives and contain requirements
+that the evolution roadmap intentionally reverses.
+
+## 6. Non-negotiable product invariants
+
+Stable IDs are defined in the architecture and acceptance documents.
+
+1. **Receipt-only publication (`INV-CERT-001`).** Every author-visible finding must map to
+   exactly one accepted current-task `CertificationReceipt`. Scheduler/S/T/wealth/manual
+   state can never substitute.
+2. **Trusted task and policy.** Review the immutable head against its resolved merge-base;
+   safety policy is base-owned/protected and receipt-bound. Head content cannot relax it.
+3. **Correlated model evidence.** Never multiply or count panel agreement as independent
+   evidence. Use it only for discovery/ranking until a separately valid observation exists.
+4. **Kernel independence.** Certification imports no model SDK, scheduler, GitHub API,
+   repository config loader, or subprocess runner. Presentation accepts certified outputs,
+   not raw gate results.
+5. **Manual separation.** Human/self-reported reproduction is labeled separately and never
+   enters autonomous certification or automated precision/FPR denominators.
+6. **PR-level safety and hard public cap.** Per-candidate thresholds plus cosmetic top-N
+   are insufficient. Public inline+summary claims obey the base-owned family policy and
+   hard cap.
+7. **Mixed outcomes remain scored.** A task/candidate DEFER cannot erase another finding
+   already shown to an author.
+8. **DEFER is abstention.** It is not a true negative, correct silence, refutation, or proof
+   of precision. No surfaced finding means precision is undefined.
+9. **Exact, fresh, claim-bound execution.** Accepted receipts bind task, SHAs, policy,
+   candidate/claim/hunk, exact test/node, environment/executor, fresh per-run artifacts, and
+   causal/semantic policy.
+10. **Secretless untrusted execution.** Project/head code runs only in the supported
+    secretless OS boundary. Missing security capability fails closed.
+11. **Scheduler has no speech authority.** Core may rank the next action only. It starts
+    shadow, advances through real within-PR evaluation, and always leaves certification
+    unchanged. Online state, candidates, reservations, budget, and observations remain
+    task/PR-local; discovery does not invent a candidate ID and evidence actions cannot bind
+    a candidate from another task.
+12. **New-code evidence is class-specific.** `new_code_candidate` remains unpriced and
+    unpublished until a separate counterfactual contract and empirical gate are approved.
+13. **No outcome-aware retry.** Schema/collection repair is precommitted and completes
+    before behavioral outcomes. Trying tests until one passes the gate invalidates the
+    trial.
+14. **Product-blind semantic truth (`INV-TRUTH-001`).** Location overlap, unresolved cases,
+    product-dependent review, or selective omission cannot establish correctness or
+    detection.
+15. **No unmeasured claim.** Synthetic, fixture, corpus, shadow, and production results are
+    named at their actual evidence level with numerator, denominator, interval, abstention,
+    and version.
+
+Violating one is rework, not a small regression.
+
+## 7. Repository and git discipline
+
+- Use conventional commit subjects: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`,
+  `chore:`.
+- Feature/fix work uses a focused `feature/*` or `fix/*` branch. Small docs/chore work may
+  be direct only when the current task permits it.
+- Never put an AI-assistant or vendor-agent name, including your own, in branch names,
+  commit messages, code comments, or generated documentation. The commit hook is only a
+  partial backstop. Never use `--no-verify` or weaken the hook.
+- Model IDs that are necessary product data stay in the designated versioned data/config
+  files; do not repeat them in commit subjects.
+- Keep commits small and single-purpose. One work order may use several commits; one commit
+  must not smuggle in an unrelated work order.
+- Never use destructive commands such as hard reset/checkout over user changes. Never
+  rewrite historical benchmark/ledger/receipt artifacts in place.
+- A managed worktree is allowed for isolated feature work. One writer owns a file set in a
+  worktree. Read-only reviewers may share the checkout; concurrent writers must not edit
+  overlapping files.
+- Do not push, open a PR, create/delete a remote, or merge unless the current owner request
+  or an explicitly approved acceptance work order requires it. Local implementation does
+  not imply remote mutation authority.
+
+## 8. Remote, release, third-party, and secret rules
+
+- `origin` is the owner's repository. Public package/Marketplace release, visibility
+  changes, and third-party repository interaction require a new explicit owner action.
+- Historical authorization for private scratch acceptance does not make every task a remote
+  task. Follow the selected work order and current instruction.
+- Third-party repositories/corpora are read-only inputs. Never post comments, issues, PRs,
+  reactions, or writes to a repository the owner does not own.
+- Never print, echo, log, commit, or include API/GitHub credentials in artifacts. Verify
+  credential presence only through safe metadata when a paid/remote task is authorized.
+- The privileged controller may hold credentials; the untrusted executor never receives
+  them. Environment-name filtering is not sufficient isolation.
+- Public/user artifacts must be bounded and redacted. Hidden truth and private source stay
+  access-controlled; committed manifests contain safe metadata and digests.
+
+## 9. Spend and authority
+
+- `DEVSPEND.md` is the sole owner of the approved development cap, settled total, and
+  remaining headroom. Read it at task start; never copy, exceed, or raise its cap without
+  explicit owner authorization.
+- Every paid call requires an approved work-order protocol, explicit paid opt-in, precharge,
+  durable per-call checkpoint, and ledger row. Failed/ambiguous calls are recorded.
+- Product per-PR budget is not development budget.
+- Do not start a paid study that cannot reach its preregistered minimum n within the approved
+  remaining cap.
+- Stop and ask before increasing the total cap, changing any factory alpha/LR/channel cap,
+  selecting a PR-level statistical policy, pricing a new evidence class, promoting a learned
+  scheduler, selecting a production isolation backend when not already decided, or enabling
+  public release.
+
+## 10. Work-order selection
+
+`docs/roadmap.md` is the only owner of status and dependency order.
+
+Before editing:
+
+1. choose exactly one first-unblocked work order;
+2. verify its dependency Gate IDs and artifacts, not only checkbox state;
+3. record baseline SHA, claimed files, task scope, and whether it is paid/security/remote;
+4. run its focused pre-change test;
+5. if dependencies or owner gates are missing, work only on an explicitly independent
+   task or prepare a decision package.
+
+Do not start a later recall/scheduler task to avoid a difficult certification/security
+dependency. Do not port research code just because it exists.
+
+## 11. Implementation protocol
+
+Follow the detailed template in `docs/implementation/agent-work-orders.md`.
+
+For every behavior change:
+
+1. write one focused failing test and observe the relevant RED;
+2. implement the smallest typed boundary/behavior that makes it GREEN;
+3. run the tests covering the changed modules immediately, adjacent tests once the change
+   settles;
+4. add adversarial/fail-closed cases for trust, persistence, or statistics boundaries;
+5. run the full portable gates once at the end of the work order, not after every change;
+6. inspect the entire diff for authority bypass, compatibility, secret, denominator, and
+   overclaim problems;
+7. request independent review before completion;
+8. fix confirmed findings and rerun affected gates;
+9. update roadmap/decision/evidence links only after the gate exists.
+
+Orders that only diagnose, measure, instrument, or report change no behavior: they carry no
+RED step and this sequence does not apply to them — their deliverable is the number or the
+finding. Never write a test whose only assertion is that an object constructs or a call does
+not raise, one written to move a coverage number, or one whose only failure mode is a typo
+mypy already catches. If coverage dips while staying above the product-package floor because
+an order legitimately needed no test, report the number rather than adding a filler test.
+See `docs/implementation/agent-work-orders.md` §3.1 and D-058.
+
+The review/repair loop is bounded by D-049:
+
+- run exactly one independent review pass per work-order branch;
+- fix only defects reproduced in that pass; unreproduced concerns and every finding from a
+  second review round go to `docs/backlog.md`, one line each, rather than another code commit;
+- any one stop signal ends the task in a handoff report: three consecutive commits to the
+  same file where additions exceed deletions, eight commits or three hours on one task
+  (whichever comes first), or the task's stated measurement is in hand;
+- a task is complete only when its stated measurement exists. Plans and checkbox exhaustion
+  are background, not authority to overrun these bounds.
+
+Do not weaken a regression pin, skip/xfail a failing security test, lower the product-package
+coverage threshold, change a denominator, or relax a receipt check to make the suite pass.
+
+## 12. Change-impact matrix
+
+| If you touch | You must inspect/run |
+|---|---|
+| certification types/kernel/policy | all `tests/certification`, boundary import tests, receipt mutation/adversarial tests, CI publication properties |
+| diff/task/config/Git refs | merge-base, shallow/drift, base-owned-policy, action-entrypoint and real temporary-repo tests |
+| executor/reproduction/JUnit | executor + certification receipt + containment/security + fresh-state + benchmark receipt tests |
+| presentation/GitHub/CLI | receipt-only publication, hard-cap, mixed-DEFER, sanitized-copy, API-failure tests |
+| ledger/checkpoint/artifact schema | legacy readers, crash injection at every transition, drift binding, cost reconciliation, tamper tests |
+| benchmark metrics/report/matcher | mixed outcomes, undefined denominators, semantic blind truth, repeats/clustering, deterministic goldens |
+| scheduler/Core adapter | import authority, shadow equivalence, propensity/overlap, within-PR ordering, outage fallback |
+| model/prompt/schema | version/digest bindings, budget, checkpoints, no truth leakage, new study stratum |
+| action/sandbox scripts | fork/same-repo trust, secretless boundary, kernel capability probes, target-runner integration |
+| factory statistics/evidence class | owner decision, decision log, preregistered calibration and all downstream gates |
+| normative docs | G-DOC-001 links, IDs, domain authority, historical banners, claim language |
+
+## 13. Portable verification
+
+Use the environment/lock specified by the current branch. Typical portable commands are:
+
+```bash
+python -m pytest --cov=src/attest --cov-report=term-missing
+python -m coverage report --include='src/attest/benchmark/*' --fail-under=0
+python -m coverage report --include='src/attest/core/*' --fail-under=0
+python -m ruff check .
+python -m mypy src/attest
+git diff --check
+```
+
+Inside an existing POSIX venv, replace `python` with `.venv/bin/python`; on Windows use the
+venv interpreter under `.venv\Scripts`. Never assume a platform-specific path in code.
+
+The coverage Gate applies `fail_under = 90` only to the production packages
+`attest.review`, `attest.cli`, and `attest.github`. The same run prints separate
+informational coverage reports for `attest.benchmark` and `attest.core` with no threshold.
+Benchmark is a frozen measurement tool whose correctness is established on known inputs;
+Core is research-only and frozen. Core code must not grow without explicit owner approval.
+Ordinary work-order/wave Gates use one supported Python; the final integration Gate uses
+both the locked minimum and primary Python versions.
+
+Repository gates:
+
+- satisfy the commands, quality/coverage thresholds, determinism conditions, and
+  integration rules canonically defined by `G-CODE-001` and `G-CODE-002`;
+- no skipped security integration may be claimed as a pass.
+
+Report the command, code SHA, environment/lock digest, pass/fail summary, and any exactly
+reproduced pre-existing failure. Do not quote an old test count as a current gate.
+
+## 14. Decision and document updates
+
+- Before assigning a decision ID, scan all of `DECISIONS.md`, take the highest existing
+  `D-NNN` **across both entry formats — the historical `- **D-NNN` bullets and the newer
+  `### D-NNN —` headings** — and use the next number. Scanning only one format silently
+  misses every entry in the other. Entries are not stored strictly in numeric order; never
+  trust a cached number or only the last line.
+- Every material trade-off gets a dated `DECISIONS.md` entry with status, scope, evidence,
+  consequences, reversal conditions, superseded entries, affected invariants/Gates, and
+  affected files/tests.
+- Preserve old decisions as history. Add amendments; do not silently edit their evidence.
+- If a decision changes target behavior or thresholds, update architecture/acceptance in
+  the same commit. A dangling decision is not active authority.
+- Phase status changes only in `docs/roadmap.md` and only after Gate evidence and independent
+  review.
+- Historical acceptance reports are append-only evidence; corrections use a visible
+  erratum, not a rewrite that erases the original observation.
+
+## 15. Independent review
+
+Every work order receives a review by an agent/person who did not author the implementation.
+Review against:
+
+- the selected work-order scope;
+- linked architecture invariant IDs;
+- linked Gate IDs;
+- actual diff and tests;
+- authority bypasses and fail-open fallbacks;
+- measurement units/denominators and claim wording;
+- backward compatibility and artifact migration;
+- secrets, remote effects, spend, and rollback.
+
+The reviewer lists concrete findings by severity and file/line. The implementer verifies
+each finding on actual code, fixes confirmed ones, records rejected ones with evidence, and
+reruns gates. “Reviewed” without findings/resolution is not evidence.
+
+## 16. Stop-and-ask conditions
+
+Stop the affected path and request an owner decision before:
+
+- factory alpha, LR, channel cap, default hard-publication cap, or statistical family policy,
+  including the alpha auto-tighten trio protected by D-048: `PRECISION_TARGET`,
+  `PRECISION_WINDOW`, and `ALPHA_FLOOR`;
+- new-code or any new evidence-class pricing/certification contract;
+- production isolation backend/platform commitment or controlled-subprocess profile /
+  allowlist policy;
+- paid work beyond approved protocol/cap;
+- learned scheduler promotion from shadow to control;
+- monitor intervention/quarantine;
+- remote/public release, marketplace/package publishing, repository visibility, or writes
+  to third-party systems;
+- changing an architecture red line because current code cannot satisfy it;
+- outcome-dependent sample/exclusion/retry changes;
+- destructive handling of user/other-agent work.
+
+Failing a quantitative gate does not itself require permission to diagnose or prepare an
+experiment; it does require permission to lower/change the gate or broaden scope.
+
+## 17. Handoff evidence
+
+Every implementation handoff states:
+
+```text
+Work-order ID and dependency gates
+Baseline and final SHA/branch
+Files owned/changed
+Behavioral contract and RED observed
+Implementation and compatibility/migration
+Focused, adjacent, full, security/empirical gate results
+Artifact paths and digests
+Paid/remote actions and exact cost, or explicit none
+Independent review findings and resolutions
+Known limits, rollback, and next unblocked work orders
+```
+
+If incomplete, say which Gate is missing and preserve structured DEFER/silent behavior. Do
+not call a safe abstention a completed quality result.
+
+## 18. Code map
+
+```text
+src/attest/review       current discovery, fixed S/T/V review flow, executor and ledger
+src/attest/core         research binary-judge engine; generic decide helper reused today
+src/attest/benchmark    corpus, receipts, replay/live/stability/experiments/reporting
+src/attest/github       GitHub context, API client and presentation
+src/attest/cli          local entry points
+src/attest/data         product pricing/model configuration
+src/attest/certification target package introduced by C-01
+src/attest/scheduler     target package introduced by S-01
+src/attest/execution     target package introduced by X-01
+tests/                  deterministic unit/integration/adversarial tests
+benchmarks/             frozen, versioned protocols/manifests/evidence
+docs/                   normative map plus dated historical evidence
+```
+
+## 19. Historical references
+
+- `docs/real-data-evaluation-status.md` — dated overnight report with audit errata;
+- `docs/acceptance/phase-3.md` — historical Action integration smoke;
+- `docs/superpowers/plans/` — completed archived implementation plans;
+- `DECISIONS.md` D-020 through D-037 — historical differential/evaluation work;
+- `DEVSPEND.md` — sole development API spend ledger.
+
+They explain how the repository arrived here. They do not override the active target,
+roadmap, or acceptance gates.

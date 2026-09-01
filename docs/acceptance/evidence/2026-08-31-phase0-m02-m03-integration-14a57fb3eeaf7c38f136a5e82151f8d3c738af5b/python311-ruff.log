@@ -1,0 +1,6 @@
+label=python311
+step=ruff
+checkout=/private/tmp/attest-phase0-14a57fb.xmEskE/python311-checkout
+callable=ruff_step
+$ ruff check .
+All checks passed!

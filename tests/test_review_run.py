@@ -64,10 +64,22 @@ def test_run_review_persists_one_task_scoped_drawer_and_elapsed_time(repo: Path)
     entries = [
         json.loads(line) for line in (repo / ".attest" / "ledger.jsonl").read_text().splitlines()
     ]
+    history = [entry for entry in entries if entry["kind"] == "history_signal"]
     records = [entry for entry in entries if entry["kind"] in {"review", "review_run"}]
+    assert len(history) == 1
+    assert history[0]["schema_version"] == "attest.history-signal.v1"
+    assert history[0]["priced"] is False
+    assert history[0]["finding_id"] == run.results[0].finding.finding_id
+    assert run.results[0].wealth == 2.0
+    assert [purchase.channel for purchase in run.results[0].purchases] == ["S"]
     assert [entry["kind"] for entry in records] == ["review", "review_run"]
+    assert records[0]["channels_bought"] == ["S"]
     assert {entry["task_id"] for entry in records} == {run.task_id}
     assert records[1]["elapsed_s"] == 1.25
+    assert records[1]["provider_samples"] == [
+        {"sample": 0, "stop_reason": "not_recorded", "output_tokens": 200}
+    ]
+    assert "provider sample 0: stop_reason=not_recorded; output_tokens=200" in run.notes
 
 
 def test_run_review_defers_before_a_model_call_when_budget_is_exceeded(repo: Path) -> None:

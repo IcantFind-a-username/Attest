@@ -6,7 +6,7 @@ import hashlib
 import time
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import NoReturn
 
@@ -16,6 +16,11 @@ from attest.review.channels import gate_feasibility
 from attest.review.config import ReviewConfig
 from attest.review.diffs import git_diff
 from attest.review.gate import GateOutcome, GateResult, apply_gate, evaluate_finding
+from attest.review.history import (
+    HISTORY_LOOKBACK_COMMITS,
+    HISTORY_SIGNAL_SCHEMA_VERSION,
+    inspect_history_signal,
+)
 from attest.review.ledger import Ledger
 from attest.review.proposer import Provider, propose
 from attest.review.tier0 import collect_signals, signals_near, unresolved_identifiers
@@ -74,6 +79,7 @@ def _review_run_entry(
     alpha: float,
     files: int,
     phase: str | None = None,
+    provider_samples: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     entry: dict[str, object] = {
         "kind": "review_run",
@@ -87,6 +93,8 @@ def _review_run_entry(
     if phase is not None:
         entry["phase"] = phase
         entry["outcome"] = "deferred"
+    if provider_samples is not None:
+        entry["provider_samples"] = provider_samples
     return entry
 
 
@@ -102,6 +110,7 @@ def _raise_execution_error(
     alpha: float,
     files: int,
     candidate_count: int,
+    provider_samples: list[dict[str, object]],
 ) -> NoReturn:
     reason = f"review execution failed during {phase.replace('_', ' ')}"
     with suppress(OSError, RuntimeError):
@@ -123,6 +132,7 @@ def _raise_execution_error(
                 alpha=alpha,
                 files=files,
                 phase=phase,
+                provider_samples=provider_samples,
             )
         )
     raise ReviewExecutionError(
@@ -207,9 +217,21 @@ def run_review(
     results: list[GateResult] = []
     outcome = _empty_outcome()
     deferred_reason = None
+    provider_samples: list[dict[str, object]] = []
     phase = "proposal"
     try:
         proposal = propose(diff, config, budget, provider)
+        provider_samples = [asdict(sample) for sample in proposal.sample_observations]
+        notes.extend(
+            "provider sample "
+            f"{sample.sample}: stop_reason={sample.stop_reason}; "
+            + (
+                f"output_tokens={sample.output_tokens}"
+                if sample.output_tokens is not None
+                else "output_tokens=unknown"
+            )
+            for sample in proposal.sample_observations
+        )
         if proposal.successful_samples == 0:
             deferred_reason = "all provider samples failed or were malformed"
             ledger.append({"kind": "defer", "task_id": task_id, "reason": deferred_reason})
@@ -229,6 +251,26 @@ def run_review(
                         "unresolved": unresolved,
                     }
                 )
+        # F is observation-only: a separate versioned row with no purchase,
+        # wealth mutation, ordering effect, or publication path.
+        phase = "history_observation"
+        for candidate in proposal.candidates:
+            history = inspect_history_signal(repo, candidate)
+            ledger.append(
+                {
+                    "kind": "history_signal",
+                    "schema_version": HISTORY_SIGNAL_SCHEMA_VERSION,
+                    "task_id": task_id,
+                    "finding_id": candidate.finding_id,
+                    "file": candidate.file,
+                    "line": candidate.line,
+                    "lookback_commits": HISTORY_LOOKBACK_COMMITS,
+                    "triggered": history.triggered,
+                    "commit_sha": history.commit_sha,
+                    "commit_message": history.commit_message,
+                    "priced": False,
+                }
+            )
         phase = "static_analysis"
         signals = (
             []
@@ -283,6 +325,7 @@ def run_review(
             alpha=alpha,
             files=len(diff.files),
             candidate_count=len(results),
+            provider_samples=provider_samples,
         )
 
     elapsed = clock() - started
@@ -295,6 +338,7 @@ def run_review(
                 config=config,
                 alpha=alpha,
                 files=len(diff.files),
+                provider_samples=provider_samples,
             )
         )
     except (OSError, RuntimeError) as exc:
@@ -309,6 +353,7 @@ def run_review(
             alpha=alpha,
             files=len(diff.files),
             candidate_count=len(results),
+            provider_samples=provider_samples,
         )
     return ReviewRun(
         task_id=task_id,

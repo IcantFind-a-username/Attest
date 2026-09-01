@@ -15,19 +15,23 @@ from typing import Any
 from attest.benchmark.api import (
     ProjectEvaluationRequest,
     ProjectEvaluationResult,
-    ProjectTruth,
     evaluate_projects,
+    manifest_project_truth,
 )
-from attest.benchmark.artifacts import ArtifactStore, process_secrets
+from attest.benchmark.artifacts import ArtifactStore, process_secrets, write_canonical_json
 from attest.benchmark.baselines import ComparisonPlan, compare_arms
 from attest.benchmark.corpus import (
+    MAX_VALIDATION_DOCUMENT_BYTES,
     IsolationAdapter,
     SubprocessCorpusRunner,
+    ValidationAuthorityCheck,
     ValidationReceipt,
     import_bugsinpy,
     load_validation_receipt,
+    load_validation_receipt_v2,
     require_validated_pair,
     validate_corpus,
+    validation_receipt_binding_bytes,
 )
 from attest.benchmark.experiments import (
     DEFAULT_ALARM_POLL_EVERY,
@@ -67,6 +71,7 @@ from attest.benchmark.live import (
     reserved_case_budget_usd,
     run_live_local,
 )
+from attest.benchmark.measurement import ARM_ATTEST_PRODUCT, TaskStatus
 from attest.benchmark.report import (
     LIVE_MODE,
     REPLAY_MODE,
@@ -86,6 +91,30 @@ from attest.review.executor import ExecutorLimits
 from attest.review.proposer import ApiProvider
 
 
+def _add_validation_verification_arguments(
+    command: argparse.ArgumentParser, *, required: bool = False
+) -> None:
+    command.add_argument(
+        "--validation-artifacts",
+        type=Path,
+        required=required,
+        help="content-addressed artifacts for pure V2 verification; execution "
+        "commands reject this option before loading project code",
+    )
+    command.add_argument(
+        "--validation-provenance-key-id",
+        required=required,
+        help="authorized local provenance key id for pure V2 verification",
+    )
+    command.add_argument(
+        "--validation-provenance-key-file",
+        type=Path,
+        required=required,
+        help="raw local provenance key bytes for pure V2 verification; never "
+        "decoded, stripped, or printed",
+    )
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -97,7 +126,12 @@ def _parser() -> argparse.ArgumentParser:
     importer.add_argument("--limit", type=int, required=True)
     importer.add_argument("--seed", type=int, required=True)
 
-    validator = commands.add_parser("validate")
+    validator = commands.add_parser(
+        "validate",
+        help="produce unsigned, hash-bound validation evidence without issuing authority",
+        description="Run local corpus diagnostics and produce unsigned, hash-bound "
+        "evidence. This command never issues a receipt or current scoring authority.",
+    )
     validator.add_argument("--manifest", type=Path, required=True)
     validator.add_argument("--offline", action="store_true", required=True)
     validator.add_argument("--root", type=Path)
@@ -117,10 +151,46 @@ def _parser() -> argparse.ArgumentParser:
         metavar="SOURCE_ID:TOOL=EXECUTABLE",
         help="explicit executable for a non-Python typed tool",
     )
-    validator.add_argument("--receipt-out", type=Path)
-    validator.add_argument("--validation-results-out", type=Path)
+    validator.add_argument(
+        "--receipt-out",
+        type=Path,
+        help="legacy compatibility path only; validate never writes a receipt or "
+        "current scoring authority",
+    )
+    validator.add_argument(
+        "--validation-results-out",
+        type=Path,
+        help="legacy compatibility path only; validate reports unsigned evidence "
+        "without writing an authority bundle",
+    )
+    validator.add_argument(
+        "--validation-artifacts",
+        type=Path,
+        help="V2 authority input is refused by validate before project execution; "
+        "use verify-validation to inspect an existing V2 bundle",
+    )
+    validator.add_argument(
+        "--validation-provenance-key-id",
+        help="V2 provenance input is refused by validate; only verify-validation "
+        "accepts it",
+    )
+    validator.add_argument(
+        "--validation-provenance-key-file",
+        type=Path,
+        help="V2 secret input is refused by validate before it is read; only "
+        "verify-validation accepts it",
+    )
     validator.add_argument("--timeout", type=float, default=60)
     validator.add_argument("--max-output-bytes", type=int, default=65_536)
+
+    verifier = commands.add_parser(
+        "verify-validation",
+        help="verify an existing V2 validation bundle without executing project code",
+    )
+    verifier.add_argument("--manifest", type=Path, required=True)
+    verifier.add_argument("--validation-receipt", type=Path, required=True)
+    verifier.add_argument("--validation-results", type=Path, required=True)
+    _add_validation_verification_arguments(verifier, required=True)
 
     experiment = commands.add_parser(
         "experiment-rho",
@@ -159,14 +229,15 @@ def _parser() -> argparse.ArgumentParser:
     replay.add_argument(
         "--validation-receipt",
         type=Path,
-        help="validation receipt bound to this manifest digest; without it the "
-        "report withholds every accuracy metric and says so",
+        help="historical V1 receipt for exclusion inspection only; execution "
+        "reports always withhold accuracy, and V2 is verify-validation only",
     )
     replay.add_argument(
         "--validation-results",
         type=Path,
         help="the exact validation-results artifact the receipt was issued over",
     )
+    _add_validation_verification_arguments(replay)
     replay.add_argument("--alpha", type=float, default=0.1)
     replay.add_argument("--budget-usd", type=float, default=0.25)
     replay.add_argument("--k-samples", type=int, default=5)
@@ -214,8 +285,9 @@ def _parser() -> argparse.ArgumentParser:
         help="offline three-arm comparison over identical blinded diff bytes: the "
         "real product path, one bare schema-constrained model call, and a local "
         "deterministic static analyzer (never described as an AI reviewer); "
-        "model responses come from recorded cassettes only, and accuracy is "
-        "published solely under a manifest-bound validation receipt",
+        "model responses come from recorded cassettes only; Phase0 execution "
+        "reports withhold accuracy and accept V1 receipts only for historical "
+        "exclusion inspection",
     )
     compare.add_argument("--manifest", type=Path, required=True)
     compare.add_argument("--cassette-root", type=Path, required=True)
@@ -227,16 +299,29 @@ def _parser() -> argparse.ArgumentParser:
     )
     compare.add_argument("--workspace", type=Path)
     compare.add_argument(
+        "--comparison-authority-root",
+        type=Path,
+        help="external owner-controlled directory for write-once launch/final "
+        "receipts; required when any case executes and must be outside OUTPUT, "
+        "the checkout, and worktrees",
+    )
+    compare.add_argument(
+        "--comparison-run-id",
+        help="owner-provided unique SHA-256 run identity; required for a non-empty "
+        "comparison and reused unchanged for crash resume",
+    )
+    compare.add_argument(
         "--validation-receipt",
         type=Path,
-        help="validation receipt bound to this manifest digest; without it the "
-        "report withholds every accuracy metric and says so",
+        help="historical V1 receipt for exclusion inspection only; execution "
+        "reports always withhold accuracy, and V2 is verify-validation only",
     )
     compare.add_argument(
         "--validation-results",
         type=Path,
         help="the exact validation-results artifact the receipt was issued over",
     )
+    _add_validation_verification_arguments(compare)
     compare.add_argument(
         "--ruff-executable",
         type=Path,
@@ -292,14 +377,15 @@ def _parser() -> argparse.ArgumentParser:
     live.add_argument(
         "--validation-receipt",
         type=Path,
-        help="validation receipt bound to this manifest digest; without it the "
-        "calibration report withholds every accuracy metric and says so",
+        help="historical V1 receipt for exclusion inspection only; execution "
+        "reports always withhold accuracy, and V2 is verify-validation only",
     )
     live.add_argument(
         "--validation-results",
         type=Path,
         help="the exact validation-results artifact the receipt was issued over",
     )
+    _add_validation_verification_arguments(live)
     live.add_argument(
         "--python",
         action="append",
@@ -547,6 +633,7 @@ def _add_review_arguments(command: argparse.ArgumentParser) -> None:
 _COMMANDS = {
     "import-bugsinpy": lambda args: _import(args),
     "validate": lambda args: _validate(args),
+    "verify-validation": lambda args: _verify_validation(args),
     "experiment-rho": lambda args: _experiment(args),
     "replay": lambda args: _replay(args),
     "stability": lambda args: _stability(args),
@@ -606,7 +693,77 @@ def _import(args: argparse.Namespace) -> dict[str, object]:
     }
 
 
+_V2_EXECUTION_BOUNDARY_ERROR = (
+    "symmetric V2 validation authority is refused for commands that execute "
+    "project code; use verify-validation for pure offline verification and wait "
+    "for X-01/V-03 or a public-key protocol before execution"
+)
+
+
+def _reject_v2_execution_authority(
+    args: argparse.Namespace, *, command: str
+) -> None:
+    """Keep HMAC signing authority outside every same-UID project executor."""
+    v2_values = (
+        getattr(args, "validation_artifacts", None),
+        getattr(args, "validation_provenance_key_id", None),
+        getattr(args, "validation_provenance_key_file", None),
+    )
+    if any(value is not None for value in v2_values):
+        raise ValueError(f"{command}: {_V2_EXECUTION_BOUNDARY_ERROR}")
+    receipt = getattr(args, "validation_receipt", None)
+    if receipt is None:
+        return
+    try:
+        if receipt.stat().st_size > MAX_VALIDATION_DOCUMENT_BYTES:
+            raise ValueError("validation receipt exceeds its protocol byte limit")
+        document = json.loads(receipt.read_bytes())
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("validation receipt must be valid JSON") from exc
+    if isinstance(document, dict) and document.get("schema_version") == "2":
+        raise ValueError(f"{command}: {_V2_EXECUTION_BOUNDARY_ERROR}")
+
+
+def _verify_validation(args: argparse.Namespace) -> dict[str, object]:
+    """Verify one existing V2 bundle without loading a checkout or executor."""
+    key_id = args.validation_provenance_key_id
+    if not key_id:
+        raise ValueError("validation provenance key id must not be empty")
+    try:
+        key = args.validation_provenance_key_file.read_bytes()
+    except OSError as exc:
+        raise ValueError("validation provenance key file is unreadable") from exc
+    if not key:
+        raise ValueError("validation provenance key file must not be empty")
+    verification = load_validation_receipt_v2(
+        args.validation_receipt,
+        args.manifest,
+        args.validation_results,
+        args.validation_artifacts,
+        authorized_provenance_keys={key_id: key},
+    )
+
+    def check_payload(check: ValidationAuthorityCheck) -> dict[str, object]:
+        return {
+            "accepted": check.accepted,
+            "failure_paths": list(check.failure_paths),
+        }
+
+    return {
+        "status": "ok",
+        "offline": True,
+        "authority": verification.authority,
+        "integrity": check_payload(verification.integrity),
+        "authorized_provenance": check_payload(verification.provenance),
+        "semantic_policy": check_payload(verification.semantic_policy),
+        "binding_sha256": hashlib.sha256(
+            validation_receipt_binding_bytes(verification)
+        ).hexdigest(),
+    }
+
+
 def _validate(args: argparse.Namespace) -> dict[str, object]:
+    _reject_v2_execution_authority(args, command="validate")
     manifest = load_manifest(args.manifest)
     raw = _read_object(args.manifest)
     import_exclusions = raw.get("exclusions", [])
@@ -666,8 +823,8 @@ def _validate(args: argparse.Namespace) -> dict[str, object]:
         ):
             args.receipt_out.parent.mkdir(parents=True, exist_ok=True)
             args.validation_results_out.parent.mkdir(parents=True, exist_ok=True)
-            _write_canonical_json(args.receipt_out, receipt)
-            _write_canonical_json(
+            write_canonical_json(args.receipt_out, receipt)
+            write_canonical_json(
                 args.validation_results_out, results["validation_results"]
             )
     results.update({"offline": True, "import_exclusions": import_exclusions})
@@ -692,7 +849,7 @@ def _experiment(args: argparse.Namespace) -> dict[str, object]:
     )
     payload = report.to_json_dict()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    _write_canonical_json(args.output, payload)
+    write_canonical_json(args.output, payload)
     return {
         "status": "ok",
         "offline": True,
@@ -714,10 +871,14 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
     without a recording, without a prepared checkout, or outside the validation
     receipt's allowlist is an **exclusion**: the product path never ran. A case
     the product ran and DEFERRED is an **abstention**: attest could not decide
-    it, which is not the same as correctly staying silent, so it enters no
-    accuracy denominator. Only a completed run is **scored**, and only when a
-    receipt bound to this manifest digest authorises scoring at all (D-019).
+    it, which is not the same as correctly staying silent. Task state does not
+    erase published precision/harm, positive misses remain deployment misses,
+    and silent non-completed controls are not true negatives. Every run retains
+    operational evidence, but
+    Phase0 execution never publishes accuracy: V1 is historical inspection
+    only and V2 is accepted only by ``verify-validation``.
     """
+    _reject_v2_execution_authority(args, command="replay")
     manifest = load_manifest(args.manifest)
     manifest_sha256 = hashlib.sha256(args.manifest.read_bytes()).hexdigest()
     receipt = _replay_receipt(args)
@@ -728,15 +889,16 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
         artifact_store=store,
     )
-    scored = tuple(
-        result
-        for result in results
-        if result.task_id is not None and result.abstain_reason is None
-    )
+    measured = tuple(result for result in results if result.task_id is not None)
     abstentions: list[ReportAbstention] = []
     for result in results:
         reason = result.abstain_reason
-        if result.task_id is not None and reason is not None:
+        if (
+            result.task_id is not None
+            and result.measurement.task_status
+            in {TaskStatus.PARTIALLY_DEFERRED, TaskStatus.FULLY_DEFERRED}
+            and reason is not None
+        ):
             abstentions.append(ReportAbstention(result.case_id, reason))
     exclusions.extend(
         ReportExclusion(result.case_id, _exclusion_reason(result))
@@ -745,7 +907,7 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
     )
     report = build_report(
         manifest,
-        tuple(result.run for result in scored),
+        tuple(result.run for result in measured),
         mode=REPLAY_MODE,
         manifest_sha256=manifest_sha256,
         exclusions=exclusions,
@@ -753,6 +915,7 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
         differential_repeats=args.repeats,
         line_slack=args.line_slack,
         validation_receipt=receipt,
+        measurement_records=tuple(result.measurement for result in measured),
     )
     store.finalize()
     report_path, markdown_path = write_report(report, args.output)
@@ -767,6 +930,8 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
         "excluded_cases": len(report.excluded_cases),
         "metrics_status": "reported" if report.metrics is not None else "withheld",
         "metrics_withheld_reason": report.metrics_withheld_reason,
+        "scoring_semantics": report.scoring_semantics,
+        "outcome_accounting": report.to_json_dict()["outcome_accounting"],
         "spend_usd": round(sum(result.spend_usd for result in results), 6),
         "oracle_spend_usd": round(sum(result.oracle_spend_usd for result in results), 6),
         "digest": report.digest,
@@ -775,21 +940,40 @@ def _replay(args: argparse.Namespace) -> dict[str, object]:
     }
 
 
-def _replay_receipt(args: argparse.Namespace) -> ValidationReceipt | None:
-    """Load the corpus validator's own receipt, or record that there is none.
-
-    The receipt loader is the single gate: it verifies the manifest digest, the
-    exact validation-results bytes, and the derived allowlist. A supplied but
-    unverifiable receipt fails the command closed rather than being downgraded
-    to a run without one.
-    """
+def _replay_receipt(
+    args: argparse.Namespace,
+) -> ValidationReceipt | None:
+    """Load only historical V1 metadata for an execution command."""
     if (args.validation_receipt is None) != (args.validation_results is None):
         raise ValueError("a validation receipt requires its validation results file")
+    v2_values = (
+        args.validation_artifacts,
+        args.validation_provenance_key_id,
+        args.validation_provenance_key_file,
+    )
+    if any(value is not None for value in v2_values):
+        raise ValueError(_V2_EXECUTION_BOUNDARY_ERROR)
     if args.validation_receipt is None:
         return None
-    return load_validation_receipt(
-        args.validation_receipt, args.manifest, args.validation_results
+    try:
+        if args.validation_receipt.stat().st_size > MAX_VALIDATION_DOCUMENT_BYTES:
+            raise ValueError("validation receipt exceeds its protocol byte limit")
+        receipt_bytes = args.validation_receipt.read_bytes()
+        receipt_document = json.loads(receipt_bytes)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("validation receipt must be valid JSON") from exc
+    schema_version = (
+        receipt_document.get("schema_version")
+        if isinstance(receipt_document, dict)
+        else None
     )
+    if schema_version == "1":
+        return load_validation_receipt(
+            args.validation_receipt, args.manifest, args.validation_results
+        )
+    if schema_version == "2":
+        raise ValueError(_V2_EXECUTION_BOUNDARY_ERROR)
+    raise ValueError("unsupported validation receipt schema")
 
 
 def _replay_plan(
@@ -809,9 +993,7 @@ def _replay_plan(
     limits = ExecutorLimits(wall_timeout_s=args.wall_timeout)
     workspace_root = args.workspace or (args.output / "workspace")
     runtimes = {row.case_id: row for row in manifest.runtime}
-    truths: dict[str, tuple[Any, ...]] = {}
-    for truth in manifest.truth_defects:
-        truths[truth.case_id] = (*truths.get(truth.case_id, ()), truth)
+    sources = {row.source_id: row for row in manifest.sources}
     requests: list[ProjectEvaluationRequest] = []
     cassettes: dict[str, Cassette] = {}
     exclusions: list[ReportExclusion] = []
@@ -848,11 +1030,8 @@ def _replay_plan(
                 repeats=args.repeats,
                 deadline_s=args.deadline,
                 line_slack=args.line_slack,
-                truth=(
-                    ProjectTruth(fixed_ref=case.fixed_commit, defects=truths[case.case_id])
-                    if case.case_id in truths
-                    else None
-                ),
+                truth=manifest_project_truth(manifest, case.case_id),
+                repository=_repository_identity(sources, case.source_id, repo),
             )
         )
     return requests, cassettes, exclusions
@@ -865,6 +1044,16 @@ def _base_ref(case: BenchmarkCase) -> str:
 
 def _head_ref(case: BenchmarkCase) -> str:
     return case.buggy_commit if case.role == "historical_bug_replay" else case.fixed_commit
+
+
+def _repository_identity(
+    sources: dict[str, Any], source_id: str, repo: Path
+) -> str:
+    """Use manifest provenance when present, otherwise bind the prepared checkout."""
+    source = sources.get(source_id)
+    if source is not None:
+        return str(source.project_url)
+    return f"local:{repo.resolve()}"
 
 
 def _exclusion_reason(result: ProjectEvaluationResult) -> str:
@@ -917,6 +1106,11 @@ def _stability(args: argparse.Namespace) -> dict[str, object]:
         deadline_s=args.deadline,
         line_slack=args.line_slack,
         truth=None,
+        repository=_repository_identity(
+            {source.source_id: source for source in manifest.sources},
+            case.source_id,
+            repo,
+        ),
     )
     state_dir = args.state_dir or (args.output / "state")
     result = run_stability_study(
@@ -939,7 +1133,11 @@ def _stability(args: argparse.Namespace) -> dict[str, object]:
         "repeats": result.report.repeats,
         "executed_repeats": result.executed_repeats,
         "resumed_repeats": result.resumed_repeats,
+        "semantic_n": result.report.semantic_n,
+        "operational_repeats": result.report.operational_repeats,
+        "task_status_counts": result.report.task_status_counts,
         "deferred_repeats": len(result.report.deferred_runs),
+        "failed_repeats": len(result.report.failed_runs),
         "spend_usd": round(result.report.spend_total_usd, 6),
         "digest": result.report.digest,
         "report": str(report_path),
@@ -954,18 +1152,25 @@ def _compare(args: argparse.Namespace) -> dict[str, object]:
     Arm A replays the real product path, arm B makes the one recorded bare
     call, and arm C runs the local deterministic analyzer; nothing here can
     construct a provider client or read a credential. Accuracy follows the
-    replay receipt discipline: without a manifest-bound validation receipt the
-    written report withholds every accuracy metric and says so, while the
-    operational accounting -- calls, tokens, spend, wall time, tool cost -- is
-    always published, losing arms and deferred runs included.
+    historical V1 receipt discipline: a receipt may exclude cases from the
+    execution plan but never authorizes scoring.  The written report therefore
+    withholds every accuracy metric, while operational accounting -- calls,
+    tokens, spend, wall time, tool cost -- is always published, losing arms and
+    deferred runs included.  V2 is accepted only by ``verify-validation``.
     """
+    _reject_v2_execution_authority(args, command="compare")
     manifest = load_manifest(args.manifest)
     manifest_sha256 = hashlib.sha256(args.manifest.read_bytes()).hexdigest()
     receipt = _replay_receipt(args)
     requests, cassettes, exclusions = _replay_plan(manifest, args, receipt)
     cases_by_id = {case.case_id: case for case in manifest.cases}
     plans = [
-        ComparisonPlan(case=cases_by_id[request.case_id], request=request)
+        ComparisonPlan(
+            manifest=manifest,
+            manifest_sha256=manifest_sha256,
+            case=cases_by_id[request.case_id],
+            request=request,
+        )
         for request in requests
     ]
     ruff_executable = (
@@ -973,23 +1178,79 @@ def _compare(args: argparse.Namespace) -> dict[str, object]:
         if args.ruff_executable is not None
         else shutil.which("ruff")
     )
-    measurements = compare_arms(
+    if plans and (
+        args.comparison_authority_root is None
+        or args.comparison_run_id is None
+    ):
+        raise ValueError(
+            "non-empty comparison requires --comparison-authority-root and "
+            "--comparison-run-id before execution"
+        )
+    execution = compare_arms(
         plans,
         provider_factory=lambda request: ReplayProvider(cassettes[request.case_id]),
         bare_provider_factory=lambda case_id: ReplayProvider(cassettes[case_id]),
         ruff_executable=ruff_executable,
         line_slack=args.line_slack,
+        checkpoint_root=args.output / "state" / "comparison-calls",
+        authority_root=args.comparison_authority_root,
+        run_identity=args.comparison_run_id,
+        provider_id="replay-cassette-v1",
+        validation_receipt=receipt,
+        manifest=manifest,
+        manifest_sha256=manifest_sha256,
     )
+    if not plans:
+        measurements = execution.measurements
+        return {
+            "status": "not_executed",
+            "offline": True,
+            "mode": REPLAY_MODE,
+            "manifest": args.manifest.name,
+            "manifest_sha256": manifest_sha256,
+            "arms": len(measurements.arms),
+            "evaluated_cases": 0,
+            "excluded_cases": len(exclusions),
+            "deferred_runs": 0,
+            "metrics_status": "withheld",
+            "metrics_withheld_reason": (
+                "comparison_not_executed_no_publication_authority"
+            ),
+            "outcome_accounting": None,
+            "spend_usd": 0.0,
+            "oracle_spend_usd": 0.0,
+            "digest": None,
+            "report": None,
+            "report_markdown": None,
+        }
     report = build_comparison_report(
         manifest,
-        measurements,
+        execution,
         manifest_sha256=manifest_sha256,
         exclusions=exclusions,
         validation_receipt=receipt,
+        publication_authority=execution.publication_authority,
     )
     report_path, markdown_path = write_comparison_report(report, args.output)
+    measurements = report.measurements
     evaluated = len(measurements.evaluated_case_ids)
     reported = evaluated > 0 and report.metrics_withheld_reason is None
+    report_payload = report.to_json_dict()
+    arms_payload = report_payload.get("arms")
+    if not isinstance(arms_payload, list):
+        raise ValueError("comparison report arms payload is malformed")
+    product_payload = next(
+        (
+            arm
+            for arm in arms_payload
+            if isinstance(arm, dict) and arm.get("arm") == ARM_ATTEST_PRODUCT
+        ),
+        None,
+    )
+    if not isinstance(product_payload, dict) or not isinstance(
+        product_payload.get("outcome_accounting"), dict
+    ):
+        raise ValueError("comparison report lacks current product outcome accounting")
     return {
         "status": "ok" if evaluated else "not_executed",
         "offline": True,
@@ -1000,10 +1261,11 @@ def _compare(args: argparse.Namespace) -> dict[str, object]:
         "evaluated_cases": evaluated,
         "excluded_cases": len(report.excluded_cases),
         "deferred_runs": sum(
-            1 for run in measurements.runs if run.status != "completed"
+            len(summary.abstentions) for summary in measurements.arms
         ),
         "metrics_status": "reported" if reported else "withheld",
         "metrics_withheld_reason": report.metrics_withheld_reason,
+        "outcome_accounting": product_payload["outcome_accounting"],
         "spend_usd": round(sum(run.spend_usd for run in measurements.runs), 6),
         "oracle_spend_usd": round(
             sum(run.oracle_spend_usd for run in measurements.runs), 6
@@ -1038,6 +1300,7 @@ def _live(args: argparse.Namespace) -> dict[str, object]:
             "Refused before the manifest is read or any provider client is "
             "constructed.",
         )
+    _reject_v2_execution_authority(args, command="live-local")
     if (args.run_id is None) == (args.resume is None):
         raise ValueError(
             "exactly one of --run-id (a new run) or --resume RUN_ID is required"
@@ -1137,9 +1400,7 @@ def _live_plan(
     limits = ExecutorLimits(wall_timeout_s=args.wall_timeout)
     workspace_root = args.workspace or (args.output / "workspace")
     runtimes = {row.case_id: row for row in manifest.runtime}
-    truths: dict[str, tuple[Any, ...]] = {}
-    for truth in manifest.truth_defects:
-        truths[truth.case_id] = (*truths.get(truth.case_id, ()), truth)
+    sources = {row.source_id: row for row in manifest.sources}
     selected = set(args.case)
     unknown = selected - {case.case_id for case in manifest.cases}
     if unknown:
@@ -1181,13 +1442,8 @@ def _live_plan(
                     repeats=args.repeats,
                     deadline_s=args.deadline,
                     line_slack=args.line_slack,
-                    truth=(
-                        ProjectTruth(
-                            fixed_ref=case.fixed_commit, defects=truths[case.case_id]
-                        )
-                        if case.case_id in truths
-                        else None
-                    ),
+                    truth=manifest_project_truth(manifest, case.case_id),
+                    repository=_repository_identity(sources, case.source_id, repo),
                 ),
                 source_id=case.source_id,
             )
@@ -1238,7 +1494,7 @@ def _experiment_evalue(args: argparse.Namespace) -> dict[str, object]:
     )
     payload = report.to_json_dict()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    _write_canonical_json(args.output, payload)
+    write_canonical_json(args.output, payload)
     derived = report.derived
     assert isinstance(derived, dict)
     return {
@@ -1273,7 +1529,7 @@ def _experiment_nullgrid(args: argparse.Namespace) -> dict[str, object]:
     )
     payload = report.to_json_dict()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    _write_canonical_json(args.output, payload)
+    write_canonical_json(args.output, payload)
     derived = report.derived
     return {
         "status": "ok",
@@ -1311,7 +1567,7 @@ def _experiment_monitor(args: argparse.Namespace) -> dict[str, object]:
     )
     payload = report.to_json_dict()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    _write_canonical_json(args.output, payload)
+    write_canonical_json(args.output, payload)
     derived = report.derived
     return {
         "status": "ok",
@@ -1364,7 +1620,7 @@ def _experiment_twoledger(args: argparse.Namespace) -> dict[str, object]:
     report = run_two_ledger_experiment(**kwargs)
     payload = report.to_json_dict()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    _write_canonical_json(args.output, payload)
+    write_canonical_json(args.output, payload)
     derived = report.derived
     return {
         "status": "ok",
@@ -1427,13 +1683,6 @@ def _read_object(path: Path) -> dict[str, Any]:
 
 def _emit(value: object, *, stream: Any) -> None:
     stream.write(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
-
-
-def _write_canonical_json(path: Path, value: object) -> None:
-    path.write_text(
-        json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
-    )
 
 
 if __name__ == "__main__":

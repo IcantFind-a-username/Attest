@@ -1,0 +1,6 @@
+label=python311
+step=mypy
+checkout=/private/tmp/attest-phase0-14a57fb.xmEskE/python311-checkout
+callable=mypy_step
+$ mypy src/attest
+Success: no issues found in 47 source files

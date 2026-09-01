@@ -1,0 +1,4 @@
+$ git status --porcelain=v1 --untracked-files=all
+status_output=<empty>
+head=14a57fb3eeaf7c38f136a5e82151f8d3c738af5b
+detached=true

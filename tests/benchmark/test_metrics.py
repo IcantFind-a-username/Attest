@@ -151,7 +151,8 @@ def test_aggregate_scores_paired_roles_and_finding_outcomes_and_delivery() -> No
     assert report.all_positive_detection == 0.5
     assert report.finding_precision == pytest.approx(1 / 3)
     assert report.conditional_recall == 0.5
-    assert report.abstention_rate == 0.25
+    assert report.abstention_rate is None
+    assert report.silent_run_rate == 0.25
     assert report.delivery_rate == 0.75
     assert report.deadline_censored == 1
     assert (report.delivery_p50_s, report.delivery_p95_s) == (3.0, 5.0)

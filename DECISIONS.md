@@ -1,10 +1,12 @@
 # Decision log
 
-One line per non-trivial tradeoff: what, why, when it can be reversed. Entries
-that record an event rather than a tradeoff (a defect sweep, a validation run, a
-correction) say `Reverse: n/a` and are not decisions to reopen.
+Historical D-001 through D-037 use the original compact format. New decisions use dated,
+structured entries with scope, consequences, reversal conditions, and affected invariant/
+Gate IDs. Event/correction records use `Reverse: n/a`; they are evidence, not trade-offs to
+reopen. Historical entries remain evidence; a new decision that changes a normative contract
+is active only when the owning architecture/acceptance document changes with it.
 
-- **D-001 toolchain**: hatchling + src layout, dist/import name `attest`, Python >=3.11 (dev machine 3.14), numpy as the only runtime dep for core (**amended by D-006**: the CLI adds the anthropic SDK, so numpy-only now scopes to `attest.core`). Why: handoff spec; smallest surface. Reverse: anytime before publishing.
+- **D-001 toolchain**: hatchling + src layout, dist/import name `attest`, Python >=3.11 (dev machine 3.14), numpy as the only runtime dep for core (**amended by D-006**: the CLI adds the anthropic SDK, so numpy-only scopes to `attest.core`). Why: handoff spec; smallest surface. Reverse: anytime before publishing.
 - **D-002 forbidden-token policy**: commit-msg hook rejects any case-insensitive AI-assistant name in commit messages; branch names and comments keep the same rule. Model identifiers (e.g. the default proposer model id) are product data mandated by the spec and live in config/data files, not in commit messages or branch names. Why: owner's git discipline + the spec itself fixes the default model id. Reverse: owner call.
 - **D-003 exploration "relevant cells" (revised after independent review)**: the eps=0.10 -> 0.02 drop triggers when every MARGINAL cell (theta x verdict per judge) has >= 30 samples. Pairwise and triple cells are excluded: review verified empirically that under near-deterministic cloning (gamma=0.99) the rarest pair cell needs ~340k tasks to reach 30, pinning exploration hot forever and making the spec-mandated 0.02 phase unreachable; thin pair/triple cells are guarded by the tau=0.05 floor instead (RESULTS §5). Reverse: one predicate.
 - **D-004 winner's-curse monitor defaults**: rolling window 200 purchases; alarm when a judge's mean(realized log-e minus estimated log-e) < -0.15 nats with n>=30 in window, or when any judge's spend share in the recent half-window drifts > 0.15 absolute vs the prior half. Alarms are appended to the ledger only; no automatic intervention (spec). Why: spec fixes the mechanism but not the constants; these are conservative first guesses. Reverse: constants are config; recalibrate after dogfood.
@@ -14,10 +16,10 @@ correction) say `Reverse: n/a` and are not decisions to reopen.
 - **D-009 alpha auto-tighten bookkeeping**: tightenings are recorded as ledger events (kind=alpha_tightened) in the reviewed repo, not by writing to that repo's files; `attest stats` and reports surface them. Requires >=10 labeled surfaced findings before acting. Why: a tool must not edit user documents; the ledger is the audit trail. Reverse: config auto_tighten_alpha=false.
 - **D-010 per-finding spend attribution**: the K-sample proposal cost is shared; ledger review rows split it evenly across candidates (spend = total/n). Why: spec wants spend per row; even split is the only defensible cold-start allocation. Reverse: cost model later.
 - **D-011 po_adaptive is experimental, with a known directional-pooling bias**: independent review confirmed the pooled pair table mixes both purchase directions while inclusion depends on the first verdict, so the reverse-direction conditional read is biased under heterogeneous purchase orders. Matches the seed prototype's engine_po semantics (RESULTS §6 documents its residual pathologies); documented rather than redesigned because the variant is a comparison flag, not the default. Reverse: split pair tables by direction if the variant is ever promoted.
-- **D-012 monitor estimates are SIGNED expected log-e** (fix from independent review): the winner's-curse monitor originally compared the nonnegative allocation value (symmetric KL) to the signed realized log LR, which alarms permanently on healthy judges (expected gap -2(1-p)KL(q0||q1), several times the threshold). Now the recorded estimate is p*KL(q1||q0) - (1-p)*KL(q0||q1), the model expectation of the realized quantity: healthy gap ~0, real optimism goes negative. Allocation still uses the symmetric value (correct decision value). Reverse: n/a — record of a correction/validation, not a tradeoff.
+- **D-012 monitor estimates are SIGNED expected log-e** (fix from independent review): the winner's-curse monitor originally compared the nonnegative allocation value (symmetric KL) to the signed realized log LR, which alarms permanently on healthy judges (expected gap -2(1-p)KL(q0||q1), several times the threshold). Now the recorded estimate is p*KL(q1||q0) - (1-p)*KL(q0||q1), the model expectation of the realized quantity: healthy gap ~0, real optimism goes negative. Allocation still uses the symmetric value (correct decision value). Reverse: n/a — correction/validation record.
 - **D-013 dogfood sampling path**: no ANTHROPIC_API_KEY exists on this machine (checked process/user/machine env and the vendor CLI), so dogfood samples are generated by K parallel harness subagents running the EXACT system+user prompt and schema the product would send (same model family as the configured default), then replayed through `attest review --mock`. Everything downstream of sampling — validation, dedup, votes, channels, gate, ledger, verify, feedback — is the real product path. Consequences: p50 latency of the model call and live ApiProvider are NOT validated (deferred to owner with a key); token spend billed to the session, not the $10 API cap (recorded in DEVSPEND.md). Dedup thresholds were calibrated on the first dogfood run (graded by anchor agreement: exact line 0.15, near line 0.35, over claim+failure tokens). Reverse: rerun dogfood with ApiProvider once a key exists.
-- **D-014 phase-1 independent review yielded 8 confirmed defects, all fixed**: path normalization ate dotfile prefixes (lstrip -> proper prefix strip); diff content could spoof file headers (header state machine added); `--mock` with zero files fell through to the real API (nargs='+' + MockProvider guard); sentence counter inflated on code spans/abbreviations/decimals (code-span strip + boundary regex + abbreviation list); tier-0 path match lacked component boundary (tests/utils.py corroborated utils.py); alpha auto-tighten re-halved on stale label windows (label-count watermark) and ignored the config-off flag for replay; cap-overflow findings were excluded from the precision loop (action renamed overflow_surface) and re-verification double-counted (dedupe by finding id); CLI overrides bypassed config validation (dataclasses.replace + error exit). Reverse: n/a — record of a correction/validation, not a tradeoff.
-- **D-015 live-API validation supersedes D-013's deferral**: owner supplied ANTHROPIC_API_KEY (user-level env var; long-lived processes must re-read it from the User scope); live runs on 2026-08-29 validated the real ApiProvider path (schema 400 found+fixed @71db3f4, then 11.1s surfaced review + negative control, $0.1526 total, DEVSPEND.md). D-013's mock pipeline remains the keyless fallback. AGENTS.md added as the standing guide for coding agents. Reverse: n/a — record of a correction/validation, not a tradeoff.
+- **D-014 phase-1 independent review yielded 8 confirmed defects, all fixed**: path normalization ate dotfile prefixes (lstrip -> proper prefix strip); diff content could spoof file headers (header state machine added); `--mock` with zero files fell through to the real API (nargs='+' + MockProvider guard); sentence counter inflated on code spans/abbreviations/decimals (code-span strip + boundary regex + abbreviation list); tier-0 path match lacked component boundary (tests/utils.py corroborated utils.py); alpha auto-tighten re-halved on stale label windows (label-count watermark) and ignored the config-off flag for replay; cap-overflow findings were excluded from the precision loop (action renamed overflow_surface) and re-verification double-counted (dedupe by finding id); CLI overrides bypassed config validation (dataclasses.replace + error exit). Reverse: n/a — correction/validation record.
+- **D-015 live-API validation supersedes D-013's deferral**: owner supplied ANTHROPIC_API_KEY (user-level env var; long-lived processes must re-read it from the User scope); live runs on 2026-08-29 validated the real ApiProvider path (schema 400 found+fixed @71db3f4, then 11.1s surfaced review + negative control, $0.1526 total, DEVSPEND.md). D-013's mock pipeline remains the keyless fallback. AGENTS.md added as the standing guide for coding agents. Reverse: n/a — validation event.
 - **D-016 automated acceptance with private remotes (owner directive 2026-08-29)**: phases end with agent-run end-to-end acceptance, not owner handoff. Private GitHub repos (attest mirror + scratch) authorized for testing only; secret set via gh piped from env; public release still owner-gated. Precondition: gh auth or GH_TOKEN (the one allowed stop-and-ask). Reverse: owner call.
 - **D-017 evidence-process containment**: POSIX reproduction pytest lowers `RLIMIT_NPROC` soft+hard to zero before exec, fails closed where the limit is absent or privilege can bypass it, and uses startup/audit markers so ordinary process attempts (plus Python thread attempts, because Linux counts threads) are DEFERRED; descendant polling and retained PIDs are forbidden, while Windows keeps its bounded process-tree fallback. Why: post-spawn ancestry sampling can miss exit-race children and reused PIDs can target unrelated processes. Reverse: replace with a scoped kernel container/job primitive that is available without runner privileges on every supported host.
 - **D-018 Phase-3 acceptance boundary**: scratch-repository acceptance is a policy service over injected subprocess/filesystem adapters, with a separate opt-in live executor; local tests use fakes and the executor passes the model key only through command stdin. Acceptance preserves the executor's ternary verification semantics (reproduced / not-reproduced / deferred), treats its Python network guard as best-effort rather than global isolation, and requires the uploaded JSONL ledger artifact to persist and account for review, verification, and GitHub-comment events. Why: deterministic local policy tests must not need remote authority, secrets, or paid calls, while a retained artifact and URLs make the eventual live result independently inspectable. Reverse: replace the adapters if GitHub supplies a first-class test harness; replace best-effort isolation only with a cross-platform scoped kernel primitive; replace artifact persistence only when an equally durable auditable store accounts for every event.
@@ -40,6 +42,574 @@ correction) say `Reverse: n/a` and are not decisions to reopen.
 - **D-035 ten live repeats of one diff: the betting layer absorbs the sampling variance**: ten independent K=5 reviews of the same preregistered regression diff, fresh working copy and empty ledger each time, real provider. Every run proposed at least one candidate and every candidate anchored the deleted guard (calc.py:3-4, one location cluster, pairwise cluster Jaccard 1.0); every run made the identical decision - drawer, because no verification evidence had been purchased - so run-level outcome stability is 10/10 with zero decisions flipping across repeats. What varied underneath: candidate count (1 vs 2, the model sometimes splitting the two lines into separate findings), vote counts (wealth 2.64/2.95/3.0), and claim prose. Mean latency 6.9s, total cost $0.2841. This is the first direct measurement of the product's core mechanism - K-sample divergence entering, a stable decision leaving - and it is one diff, one model, one night: a distribution, not a proof. The Task 6 stability CLI measures the same thing reproducibly from cassettes; this run is the live sanity check that the number it will compute is not fiction. Reverse: superseded by preregistered Task 6 runs over more cases.
 - **D-036 the corpus has its first validation receipt: 9 of 20 pairs scorable, with a structural caveat that must gate any accuracy claim**: the frozen BugsInPy pilot was materialized in full - all 20 pairs, all four projects, three exact interpreter pins (3.8.3/3.8.1/3.6.9) built as x86_64 under Rosetta, per-pair virtualenvs, and an interpreter-level network-deny wrapper that passed the validator's live socket probe in every run. The oracle validated 9 pairs (all black: 3x fixed-PASS + 3x buggy-FAIL, stable signatures), excluded 9 for dependency_or_setup_failure and 2 as flaky, and issued a manifest-bound receipt (manifest 8f9f90f1..., receipt e8cabb89...) that round-trips the fail-closed loader. **The caveat**: all nine validated buggy-FAIL signatures are unittest "has no attribute" errors, because BugsInPy introduces the regression test with the fix and its own harness transplants fixed-commit test files into the buggy tree - which our clean-checkout integrity rule forbids. So the oracle certifies "the fixed tree passes its tests and the buggy tree cannot run them", not "the bug demonstrably manifests"; the bug's existence rests on BugsInPy metadata, not on an independent reproduction. Product evaluation over these pairs is still meaningful - the product generates its own reproductions and never sees the corpus test - but any published accuracy number must carry this caveat, and the owner should decide whether to tighten the validator (treating unittest's no-attribute as a missing-test marker would exclude all nine, leaving zero validated pairs - honest but empty) or to permit declared test-file materialization as BugsInPy's own harness does. Reverse: rerun validation under whichever rule the owner picks; the receipt mechanism itself is agnostic.
 - **D-037 first live evaluation on the validated corpus: precision held, recall was zero, and the failure list is the roadmap**: ten case-runs over two receipt-validated black pairs (both roles, three rounds as the harness was corrected). The developer-fix controls were silent in all four runs - zero candidates, zero false positives on real history. The bug-reintroduction replays surfaced nothing in five attempts, every one a safe DEFER, in three distinct modes: (a) on the large real diff the generator repeatedly returned output that failed the reproduction schema, so no test was ever executed - a model-side robustness gap that bigger anchors and real-world context expose and constructed repos never did; (b) the first round ran without the corpus project environment (ATTEST_PROJECT_PYTHON unset), which the orchestration now passes - an evaluation-harness lesson, not a product defect; (c) with the environment fixed, a generated reproduction attempted to spawn a child process - black's own test idiom - and the D-017 containment correctly refused it, exposing a real tension between containment and how mature projects write tests. Reading: on real historical bugs the product currently keeps its precision promise by staying entirely silent; the recall path is blocked by reproduction-generation robustness, not by the gate. That ranks the next engineering work: schema-tolerant repro parsing/retry, and a containment-compatible reproduction idiom for projects whose tests shell out. Cost $1.06, all safe-direction outcomes. Reverse: superseded by full Task 7 runs once the generation gaps close.
-- **D-038 alpha auto-tighten constants are named and red-line-8 protected**: the three values that let the system move its own gate — `PRECISION_TARGET = 0.90` (rolling surfaced precision below which alpha halves), `PRECISION_WINDOW = 50` (how many labelled surfaced findings that precision reads), `ALPHA_FLOOR = 0.01` (how far halving may go) — live in `review/ledger.py` and were never logged. Why: red line 8 demands a stop-and-ask before changing any factory statistical constant, but no agent can honour that for constants no decision names; these three move alpha itself, i.e. the gate position, making them the most consequential unlogged values in the tree. Naming them closes that gap; `auto_tighten_alpha = false` stays the supported opt-out that touches none of them. Reverse: owner call through the red line 8 stop-and-ask, like any other factory constant.
-- **D-039 the self-review loop is bounded and unreproduced findings go to the backlog**: one review pass per phase branch; a defect earns a fix only if it can be reproduced, and everything else — second-round findings, "could in principle" hardening — becomes one line in `docs/backlog.md`. Three stop signals end a task outright: three consecutive same-file commits where additions exceed deletions, eight commits or three hours on one task, or the task's stated measurement in hand. A task's completion is that stated measurement, and plans under `docs/superpowers/plans/` are background rather than a checklist to exhaust — their own task-by-task instruction does not outrank this guide. Why: the unbounded pattern this replaces produced 28 `fix:` commits against 17 `feat:`, and reworked `review/executor.py` thirteen times across nine and a half hours for +1521/-251 lines — additions six times deletions, which is accretion rather than convergence. Adversarial review of subprocess, timeout and cleanup code can always name one more guard worth adding, so the loop had no reachable end; requiring a reproduction is the product's own gate applied to its own development. Reverse: owner call — raise the commit and hour bounds from evidence once a task is observed to genuinely need more.
+- **D-037 ERRATUM (D-041, 2026-08-30)**: the phrases “precision held” and “recall was zero”
+  above are withdrawn. With no surfaced finding and all replay attempts DEFERred, finding
+  precision and repository-scored recall were not estimated. The defensible result is
+  surfaced delivery 0/5 with the recorded abstention modes. The observed upstream blockers
+  do not prove that the gate would cease to block after they are fixed.
 - **D-005 Corum ports deferred**: recon of Corum calibration.py/dependence.py found the hierarchical-shrinkage prior, pair-calibration tables with min-count gates, and correlation shrinkage + PSD projection all worth porting — but only at the >=500-label global recalibration milestone, which MVP explicitly excludes. Nothing ported now (no unverified code). Reverse: port when recalibration work starts.
+
+## Evolution decisions
+
+| ID | Status | Scope | Primary normative owner |
+|---|---|---|---|
+| D-038 | accepted | scheduler/certifier authority split | target architecture §3/§6/§8 |
+| D-039 | accepted | receipt-only task/policy/publication contract | target architecture §4/§8 |
+| D-040 | accepted, shadow first | Core and multi-model scheduling | target architecture §6; scheduler gates |
+| D-041 | accepted | measurement units, DEFER, semantic truth | acceptance gates §2–§4 |
+| D-042 | accepted target | secretless OS execution boundary | target architecture §7; security gates |
+| D-043 | accepted abstention | new-code evidence class | target architecture §8.3 |
+| D-044 | accepted | documentation and agent authority | `AGENTS.md`, `docs/README.md` |
+
+### D-038 — Separate scheduling from certification
+
+- **Date/status/scope:** 2026-08-30 · accepted target architecture · product-wide.
+- **Decision:** candidate search and evidence scheduling may use adaptive, correlated,
+  heuristic signals, but only an independent deterministic Certification Kernel may create
+  a `CertifiedFinding`. Scheduler/S/T/Core/wealth are absent from certification authority.
+- **Why:** D-026 established that current S/T wealth is not an e-process; current safety is
+  carried by factory reachability and differential execution. Mixing ranking and truth
+  authority makes configuration and calibration errors publication errors.
+- **Consequences:** add `attest.certification`; presentation consumes certified types;
+  scheduler failure can only fall back or abstain. Existing gate experiments remain
+  historical/mechanism tests.
+- **Supersedes/amends:** supersedes old agent/README language calling product wealth the
+  final statistical authority; preserves D-008/D-026 as history of current factory math.
+- **Reversal:** only an owner-approved replacement with a formal conditional-validity
+  argument, adversarial implementation tests, and the full empirical gates; never by tuning
+  a constant.
+- **Trace:** `INV-CERT-001`, `INV-CERT-002`, `INV-SCHED-001`; `G-CERT-001`,
+  `G-SCHED-001`, `G-SCHED-002`; work orders C-01/C-02/S-01 through S-04.
+
+### D-039 — Receipt-only, task-bound publication is the target safety contract
+
+- **Date/status/scope:** 2026-08-30 · accepted target contract · CI, CLI, GitHub,
+  certification and publication policy.
+- **Decision:** every author-visible finding requires an accepted receipt bound to the
+  current repository, merge-base, head, diff, candidate/claim/hunk, exact test/execution,
+  environment/executor, authenticated provenance, and base-owned policy. Receipt acceptance
+  makes a finding eligible; PR-level family/dedup/hard-cap policy may still suppress it.
+  Manual reproduction is `self_reported`, not automated V. Head configuration cannot relax
+  safety.
+- **Why:** current alpha can allow S/T direct surface; CI skips already-terminal candidates;
+  manual `--reproduced` can buy legacy V; current top-three is layout-only; per-candidate
+  alpha does not control PR-any-error exposure.
+- **Consequences:** the alpha=.15 direct-surface test must be reversed as a security
+  regression; merge-base/base policy, manual migration, receipt v2, and family policy are
+  P0/P1 work. Compatibility never restores bypass.
+- **Reversal:** only by replacing the receipt/family contract with an owner-approved policy
+  that passes the same or stronger safety gates.
+- **Trace:** `INV-TASK-001`, `INV-POLICY-001`, `INV-EVIDENCE-001`, `INV-RECEIPT-001`,
+  `INV-FAMILY-001`, `INV-PRESENT-001`; `G-CERT-001` through `G-CERT-004`,
+  `G-SEM-001` through `G-SEM-003`; work orders C-01 through C-05 and V-01 through V-03.
+
+### D-040 — Core and multiple models are evidence schedulers, not voters
+
+- **Date/status/scope:** 2026-08-30 · accepted direction, shadow first · scheduler/Core.
+- **Decision:** evolve Core through a new arbitrary-action scheduler interface. Models/tools
+  take heterogeneous roles and are treated as correlated actions. The objective is marginal
+  probability of a decisive trusted receipt per cost/time under a PR-local budget. Core
+  starts in shadow, cannot affect certification, and advances only through a real within-PR
+  comparison with propensity/version logging and repo-clustered inference.
+- **Why:** `attest.core.Engine` currently assumes two/three binary judges, immediate truth,
+  fixed prior, and stationary plug-in cells; it is not in the review path. Agreement does
+  not establish independent evidence. D-034 pooled synthetic candidates across tasks and
+  assumed V outcomes/costs, while real CI can only reorder candidates inside one PR.
+- **Consequences:** historical 11.5–33% savings remains simulation-only. First ship typed
+  events and deterministic FCFS/S/T/feasibility shadow baselines, then a learned policy with
+  cross-fitting, propensities, delayed labels, and version/drift handling.
+- **Reversal:** Core may remain research-only or deterministic priority may win. Core may
+  control order only after `G-SCHED-002`; it may never certify under this decision.
+- **Trace:** `INV-SCHED-001`, `INV-SCHED-002`, `INV-ORDER-001`; `G-SCHED-001`, `G-SCHED-002`,
+  `G-SCHED-003`, `G-MODEL-001`; work orders S-01 through S-04 and E-05.
+
+### D-041 — Author harm and semantic opportunity define evaluation
+
+- **Date/status/scope:** 2026-08-30 · accepted measurement contract · benchmark and claims.
+- **Decision:** every author-visible finding is scored even in mixed surface+DEFER tasks;
+  DEFER is abstention; no surfaces means precision undefined; eligible positives that
+  abstain are deployment misses; repeats are operational and do not enlarge semantic n;
+  location overlap is not semantic truth; primary inference clusters by PR/repository and
+  follows a frozen sample/stop rule. Receipts must carry trial-level evidence and authority.
+- **Why:** current live calibration can drop a whole case when any abstain reason exists,
+  hiding published findings. Historical 0/5 all-DEFER, 10 repeats of one diff, 9 pairs from
+  one project, and location-only matching cannot support broad precision/recall/stability.
+- **Consequences:** M-01 through M-03 precede new quality claims. D-037 is interpreted as
+  surfaced delivery 0 in the reported attempts with explicit blockers, not “precision held
+  at zero recall.” D-035 is one-case operational consistency, not independent general
+  stability.
+- **Reversal:** only through a preregistered measurement amendment applied prospectively;
+  never after observing outcomes.
+- **Trace:** `INV-MEASURE-001`, `INV-TRUTH-001`, `INV-COST-001`; `G-MEASURE-001` through
+  `G-MEASURE-004`,
+  `G-NULL-001`, `G-CORPUS-001`, `G-STAB-001`, `G-SHADOW-001`; work orders M-01 through
+  M-03 and E-01 through E-04.
+
+### D-042 — Untrusted execution requires a secretless OS boundary
+
+- **Date/status/scope:** 2026-08-30 · accepted security target · Action/executor.
+- **Decision:** split the privileged controller from a credential-free content-addressed
+  executor. Production execution requires default-deny kernel/OS network and filesystem
+  isolation, bounded resources/processes, read-only source, authenticated results, and
+  versioned profiles. Same-repository head is untrusted. Legitimate subprocess support is a
+  digest/argv/profile allowlist inside the same boundary.
+- **Why:** environment filtering, Python audit/socket hooks, and same-user worktrees cannot
+  prevent native access to host files, parent secrets, checkout credentials, or network.
+  D-017 is useful best-effort containment, not a production trust boundary.
+- **Consequences:** current runner is labeled development/best-effort; missing platform
+  capabilities DEFER. Backend selection remains an owner decision; security tests use
+  canary secrets only.
+- **Reversal:** another backend may replace the implementation if it passes equal/stronger
+  `G-SEC-001` through `G-SEC-003`; production may not fall back to language-level guards.
+- **Trace:** `INV-SEC-001`, `INV-RECEIPT-001`; `G-SEC-001`, `G-SEC-002`,
+  `G-SEC-003`; work orders X-01 through X-03.
+
+### D-043 — New-code findings remain a separate unpriced class
+
+- **Date/status/scope:** 2026-08-30 · accepted abstention · evidence classes.
+- **Decision:** do not “turn on” `new_code_candidate` by choosing one LR constant. Define a
+  class-specific counterfactual/certificate (for example specification oracle, mutation or
+  patch ablation) and calibrate it on hidden semantic data before publication.
+- **Why:** base symbol absence makes the regression head-fail/base-pass contract
+  inapplicable; one planted live example and a discriminator guard do not estimate semantic
+  false-confirmation or PR harm.
+- **Consequences:** ledger/ranking may retain new-code candidates; they remain abstentions
+  in public paths. The roadmap may improve their discovery and collect shadow labels without
+  pricing them.
+- **Supersedes/amends:** amends D-020/D-022 language suggesting the remaining owner choice
+  was merely a new LR after 500 labels.
+- **Reversal:** owner approves a concrete evidence contract after its own semantic/null/
+  prospective gates.
+- **Trace:** `INV-CERT-001`, `INV-EVIDENCE-001`; `G-CERT-001`, `G-CORPUS-001`,
+  `G-SHADOW-001`, `G-NEWCODE-001`; N-01 prepares the owner decision without pricing, and a
+  separately scoped post-selection N-series work order (ID assigned only after the owner
+  selects a contract) is required.
+
+### D-044 — Normative construction scaffold replaces completed plans as agent authority
+
+- **Date/status/scope:** 2026-08-30 · accepted repository process · documentation/agents.
+- **Decision:** `AGENTS.md` owns durable work rules; target architecture owns invariants;
+  acceptance gates own thresholds; roadmap owns status/dependencies; work orders own method;
+  decisions own narrow trade-offs; dated reports and 2026-08-29 plans are historical
+  evidence. One fact has one owner and other documents link to it.
+- **Why:** the previous AGENTS file still named an old branch, D-014, 390 tests, missing
+  receipt and unfinished Tasks 4–8 after all had changed, making it unsafe as a continuation
+  guide.
+- **Consequences:** old plans receive archive banners rather than rewritten checkboxes;
+  dynamic head/test/spend facts do not live in AGENTS; a decision that changes a normative
+  contract updates that document atomically.
+- **Reversal:** document layout may split as it grows, but domain ownership, stable IDs, and
+  no-silent-conflict rule remain unless an equally checkable replacement is approved.
+- **Trace:** `G-DOC-001`; F-00 and every later work-order handoff.
+
+### D-045 — Paid-call evidence is process-crash durable and reconciled bidirectionally
+
+- **Date/status/scope:** 2026-08-30 · accepted measurement contract · M-03 paid studies.
+- **Decision:** bind every paid subcall to one trial/call ID, one authoritative spend row,
+  and one content-addressed artifact. Persist call transitions with same-directory atomic
+  replacement; treat dispatched-without-response as `ambiguous_cost`; validate both from
+  checkpoint to evidence and from evidence back to checkpoint. Enclosing observations and
+  reports bind the verified joins rather than accepting a self-consistent empty directory.
+- **Why:** case-level cost alone cannot prove which paid dispatch produced which artifact,
+  and process interruption between dispatch, response, settlement, and report publication
+  otherwise permits duplicate calls or erased cost.
+- **Consequences:** missing, duplicate, mismatched, orphaned, or wholly absent call evidence
+  withholds claims. The complete build/runtime/Gate closure is exactly pinned and accepted
+  under both Python 3.11 and 3.12 before a measurement implementation is marked complete.
+- **Boundary:** durability covers controller/process crashes on one local filesystem. It
+  does not claim distributed transactions or power-loss persistence, and it never permits
+  automatic replay of an uncertain dispatch.
+- **Reversal:** retain all paid-call artifacts and use the last compatible reader; mark
+  unresolved calls ambiguous and withhold metrics. A lock change must pass both declared
+  interpreter Gates before replacing the accepted lock.
+- **Trace:** `INV-COST-001`, `G-CODE-001`, `G-MEASURE-003`; work order M-03.
+
+### D-046 — The composite Action consumes the audited primary environment
+
+- **Date/status/scope:** 2026-08-30 · accepted measurement environment · M-03 Action
+  bootstrap.
+- **Decision:** the composite Action selects CPython 3.12.8, installs the complete exact
+  `requirements-toolchain.lock`, installs Attest with dependency resolution and build
+  isolation disabled, and runs `pip check` before execution.
+- **Why:** M-03 explicitly owns the project lock and CI setup, while `G-CODE-001` requires
+  the locked supported toolchain. Selecting a floating `uv` runtime and resolving ranged
+  project metadata made the Action contradict the environment that the acceptance claim
+  audited. Narrowing the claim would leave a shipped M-03 execution path outside the
+  reproducibility contract.
+- **Consequences:** Action bootstrap may download exact locked distributions on a fresh
+  runner, but cannot select newer transitive versions. The minimum Python 3.11 environment
+  remains a clean-install Gate; the Action itself uses the declared primary Python.
+- **Reversal:** changing the primary interpreter or lock requires a reviewed lock update
+  and fresh minimum/primary full Gates bound to the replacement implementation SHA.
+- **Trace:** `G-CODE-001`; work order M-03; `action.yml`; `[tool.attest.toolchain]`.
+
+### D-047 — Paid-call roles are immutable accounting authority
+
+- **Date/status/scope:** 2026-08-30 · accepted measurement contract · M-03 paid studies.
+- **Decision:** every paid dispatch is explicitly scoped as `product` or
+  `benchmark_oracle` before the call. The role is bound through the request digest,
+  predeclaration, checkpoint, artifact, spend row, reconciliation record, and report
+  digest. Product, oracle, and total spend are derived only from these rows; the two role
+  totals never overlap, and call order or separately populated result/report fields have
+  no classification authority.
+- **Why:** call identity and cost integrity alone still allowed oracle calls to be counted
+  as product cost, settled cost to be erased after an evaluation exception, and a report
+  to accept totals inconsistent with its paid-call rows.
+- **Consequences:** paid-call checkpoint schema v5, artifact/cost schema v4, live schema
+  v4, stability predeclaration/report schema v4 with observation schema v3, comparison
+  checkpoint schema v5, and comparison reconciliation schema v2 and comparison report
+  schema v3 fail explicitly on older state. Stability, live, and comparison use one
+  role-aware reconciliation reducer; the local Ruff arm must carry zero provider calls,
+  model tokens, and paid spend while retaining its separately measured tool time;
+  legitimate zero-call trials carry an explicit empty row set, while missing evidence
+  fails closed.
+- **Reversal:** retain old artifacts with their compatible reader and start a new declared
+  study; never invent roles for old state or migrate it into current scoring authority.
+- **Trace:** `INV-COST-001`, `INV-VERSION-001`, `G-MEASURE-003`; work order M-03;
+  `src/attest/benchmark/checkpoints.py` and its stability/live/comparison consumers.
+
+#### 2026-08-31 amendment — integrated receipt, input, and execution authority
+
+- **Status/scope:** active clarification for the M-02/M-03 integration. This amendment
+  supersedes only D-047's current-version statements; the 2026-08-30 text and its accepted
+  `bce13f0` observation remain immutable history.
+- **Version contract:** the current comparison checkpoint is schema v6, the comparison
+  report is schema v4, the calibration report is schema v4, and the project evaluation
+  binding is schema v2. The live predeclaration and per-case checkpoint are schema v5;
+  the stability predeclaration is schema v5 while the unchanged stability report remains
+  schema v4 and its observation remains schema v3. The v6 comparison checkpoint combines
+  receipt binding with exact manifest/truth/input-policy binding in the single migration
+  from the externally accepted v5 format. Existing comparison checkpoint v5, live
+  predeclaration/checkpoint v4, stability predeclaration v4, and comparison/calibration
+  report v3 artifacts are retained only as history; they are not upgraded, replayed, or
+  reinterpreted as current authority. Unknown versions fail closed. Paid-call checkpoint
+  v5, artifact/cost v4, stability report v4, observation v3, and comparison reconciliation
+  v2 are unchanged by this amendment.
+- **Symmetric-authority boundary:** Phase 0 has no supported current-V2 production
+  execution workflow. Public corpus validation executes project code only to create
+  unsigned, content-addressed evidence and never accepts a signing key or emits current
+  scoring authority. `verify-validation` is the sole production CLI path for V2 and is a
+  pure offline verifier that never loads a checkout, runner, evaluator, or provider.
+  Execution APIs and the `replay`, `compare`, and `live-local` commands accept only no
+  receipt or an exact historical V1 receipt for exclusion inspection; V1 always remains
+  `historical_integrity_only` and every execution report withholds accuracy. Raw V2 or a
+  current `ValidationVerification` fails before runtime, state, output, checkpoint,
+  provider, or evaluator effects. HMAC-backed current execution remains blocked pending
+  X-01/V-03 or an approved public-key protocol that keeps signing authority unavailable to
+  untrusted code.
+- **Synthetic/reducer boundary:** a prebuilt evaluation binding is a trusted synthetic,
+  non-authorizing seam. Pure report reducers may validate already-existing trusted
+  evidence, but neither an opaque receipt digest nor an in-process V2 verifier capability
+  authorizes execution. This amendment makes no comparison-accuracy quality claim: the
+  inherited ability to coordinate-rewrite caller-supplied `ArmRun` outcomes while retaining
+  paid-call evidence is owned by M-01/G-MEASURE-001 and must be closed with the versioned
+  authoritative outcome artifact there, not with a partial Phase 0 adapter.
+- **Compatibility/reversal:** preserve the original M-02 BLOCKED report, M-03 acceptance,
+  INVALIDATED bundles, v1 receipt/results/protocol bytes, and every old state blob. Roll
+  back by withholding current metrics and reading historical artifacts only; never coerce
+  v1/v3/v4/v5 material into current scoring authority.
+- **Trace:** `INV-SEC-001`, `INV-TRUTH-001`, `INV-VERSION-001`, `G-CODE-002`,
+  `G-MEASURE-001`, `G-MEASURE-002`, `G-MEASURE-003`; work orders M-01, M-02, M-03,
+  X-01, and V-03.
+
+#### 2026-08-31 amendment — M-01 authoritative mixed outcomes
+
+- **Status/scope:** active version/accounting clarification after M-01 Task 4; supersedes
+  only D-047's earlier current-version and unresolved-M-01 statements.
+- **Current versions:** comparison checkpoint v7; comparison report v4; calibration report
+  v5; project evaluation binding v2; live predeclaration/case checkpoint v5; stability
+  predeclaration/report/observation v5; paid-call checkpoint v5; paid-call artifact/cost v4;
+  comparison reconciliation v2. `MeasurementRecord` remains v2 with
+  `mixed_outcome_v3` reducer semantics; outcome predeclaration/seal/final-receipt schemas
+  begin at v1. Unknown or older current-authority state fails closed and remains historical.
+- **Authority closure:** product outcomes are persisted as exact adjudicated measurements,
+  joined by finding ID, sealed into comparison/live/stability evidence, and included in
+  final receipt/report digests. Caller-owned `ArmRun` rewrites and task-level DEFER can no
+  longer erase already-published findings or rewrite product accuracy.
+- **Evidence/reversal:** implementation `c680641` closes the code-level authority gap;
+  probe hardening `b6caad7` plus the SHA-bound
+  [`Task 4 acceptance`](docs/acceptance/2026-08-31-m01-mixed-outcome.md) closes the
+  versioned before/after and 20-repeat offline contract. Final `G-MEASURE-001` acceptance
+  remains pending Task 5 dual-Python full Gates. Retain old artifacts with compatible
+  readers; never coerce them into current scoring authority.
+- **Bounded closeout:** implementation `dd37a8e` closes reproduced strict-reader and
+  delivery/decision authority gaps. Independent final review then reproduced one P1 in
+  benchmark publication accounting; `5efe3d1` requires `action=surface` and reuses that
+  authority in execution measurement. The same review pass confirmed the resolution with
+  P0=0/P1=0. Fresh exact-SHA Python 3.11/3.12 environments each invoked full pytest once,
+  but the host volume returned `ENOSPC` at 97% / about 99% (RC 120) before final counts or
+  coverage existed. Static, provenance, clean-tree, and frozen-v1 checks passed; no retry
+  occurred. D-049 therefore closes this task as `FAILED ENVIRONMENT`, not as a Gate pass;
+  M-01 and `G-MEASURE-001` remain open. Raw evidence is under
+  `docs/acceptance/evidence/2026-08-31-m01-task5-5efe3d1/`.
+- **Trace:** `INV-MEASURE-001`, `INV-VERSION-001`; M-01 Tasks 3–4; Task 5 pending.
+
+#### 2026-08-31 amendment — M-01 Task 5 recovery acceptance
+
+- **Status/scope:** accepted supersession of only the current “Task 5 pending / M-01 open”
+  conclusion above. The original `ENOSPC` observation and raw bundle remain immutable
+  failed-environment history; neither invocation is relabelled as a pass.
+- **Evidence:** final implementation `5efe3d1` (tree `a2909b5`) retains Task 4's
+  versioned before/after and 20-process mixed-outcome result and closes independent review
+  at P0=0/P1=0. Fresh detached exact-SHA Python 3.11.5 and 3.12.8 recovery environments
+  each invoked full pytest once and passed 1543/1543 tests, total coverage 12373/13728
+  (90.129662%), core coverage 428/429 (99.766900%), Ruff, Mypy, `pip check`, provenance,
+  clean/diff, and frozen-v1 hashes. The superseding
+  [`acceptance report`](docs/acceptance/2026-08-31-m01-task5-recovery.md) binds the raw
+  dual-Python manifests; root manifest SHA-256 is
+  `d98c510ba5ba8860a27bed57e3d08d86a90b2c4cb758ec1b252ae1ae2956e89b`.
+- **Consequences:** M-01, `G-MEASURE-001`, and `G-CODE-001` pass. With M-02 and M-03
+  already accepted, Phase 0 is complete and C-01 is unblocked but not started. This creates
+  no natural/public-data quality claim and does not authorize C-02, Core, a release, or a
+  factory-statistics/pricing change.
+- **Reversal:** retain both recovery and failed-environment bundles. A later failure starts
+  a new versioned observation; never rewrite either historical result.
+- **Trace:** `INV-MEASURE-001`, `INV-VERSION-001`; `G-MEASURE-001`, `G-CODE-001`;
+  M-01 Tasks 3–5.
+
+### D-048 — Alpha auto-tighten constants are protected factory authority
+
+- **Date/status/scope:** 2026-08-31 · accepted guard clarification · review ledger and
+  factory statistical policy. Renumbered from main's colliding D-038 when merged after
+  evolution decisions D-038 through D-047.
+- **Decision:** `PRECISION_TARGET = 0.90`, `PRECISION_WINDOW = 50`, and
+  `ALPHA_FLOOR = 0.01` are factory statistical constants. Changing any of them requires
+  the same owner stop-and-ask as changing alpha, LR schedules, or channel caps.
+- **Why:** these values let observed feedback move the gate itself. An unnamed constant
+  cannot reliably receive the red-line protection already required for factory statistics.
+- **Consequences:** `auto_tighten_alpha = false` remains the supported opt-out and changes
+  none of the constants. Decision IDs are allocated by scanning the complete log; merge
+  collisions are renumbered rather than overwriting accepted history.
+- **Reversal:** owner call with preregistered calibration and downstream Gate evidence.
+- **Trace:** `src/attest/review/ledger.py`; `AGENTS.md` §§14/16; factory-statistics
+  stop-and-ask boundary.
+
+### D-049 — Self-review and single-task effort are bounded
+
+- **Date/status/scope:** 2026-08-31 · owner-merged process rule · all work orders.
+  Renumbered from `origin/main`'s colliding D-039 because the evolution log already owns
+  D-039.
+- **Decision:** run one independent review pass per work-order branch. Fix only defects
+  reproduced in that pass; unreproduced concerns and every later-round finding go to
+  `docs/backlog.md`. End the task in a handoff report when any one condition holds: three
+  consecutive commits to the same file have more additions than deletions; the task reaches
+  eight commits or three hours; or its stated measurement is in hand.
+- **Why:** an unbounded repair loop had produced more guards and code without a terminating
+  product measurement. The same evidence threshold used for product findings now governs
+  development findings.
+- **Consequences:** a stop signal does not convert a missing Gate into PASS. It freezes the
+  honest state, names the missing Gate, and returns prioritization to the owner or next
+  explicitly scoped task. Plans and checklist exhaustion cannot override the bound.
+- **Reversal:** owner call, supported by observed tasks that need a different bound.
+- **Trace:** `AGENTS.md` §11; `docs/backlog.md`; all roadmap work orders.
+
+### D-050 — Coverage authority follows the production package boundary
+
+- **Date/status/scope:** 2026-09-01 · owner-approved Gate amendment · `G-CODE-001`.
+- **Decision:** retain a hard 90% combined coverage threshold for `attest.review`,
+  `attest.cli`, and `attest.github`. Report `attest.benchmark` and `attest.core` coverage
+  separately without thresholds. Freeze both against feature growth; `attest.core` may not
+  gain code without explicit owner approval. Run one supported Python at ordinary
+  work-order/wave Gates and both locked Python versions at the final integration Gate.
+- **Why:** benchmark source plus its tests are the majority of repository measurement
+  apparatus and are not production authority. Requiring every product change to maintain
+  line coverage for frozen benchmark and research-only Core conflated tool maintenance with
+  product protection. Product coverage remains unchanged at 90%; known-input correctness
+  and the feature freeze protect the measurement and research packages.
+- **Evidence:** the pre-amendment Gate at `53f4641` passed 1543 tests with 90.13% total and
+  99.77% Core coverage in 736.62 wall-clock seconds. The SHA-bound post-amendment timing and
+  all three package reports are recorded in `docs/overnight-handoff.md`.
+- **Consequences:** the default coverage report is the production Gate; benchmark and Core
+  reports use `--fail-under=0`. This changes Gate scope, not the production threshold, test
+  expectations, security standard, or any product behavior.
+- **Reversal:** owner approval with a replacement package boundary and measured Gate-cost
+  evidence; never by lowering the production threshold after a failure.
+- **Trace:** `G-CODE-001`; `AGENTS.md` §13; `pyproject.toml` coverage configuration.
+
+### D-051 — Measured proposal truncation gets bounded output headroom
+
+- **Date/status/scope:** 2026-09-01 · accepted owner-authorized default adjustment ·
+  proposal sampling only.
+- **Decision:** increase `PROPOSER_MAX_OUTPUT_TOKENS` from 1,600 to 2,400. Keep the
+  same value for both the provider hard cap and every up-front budget reservation;
+  do not change the default review budget, sample count, gate, channel prices, or
+  factory statistical constants.
+- **Why/evidence:** the first stop-reason-instrumented operational run at `50055e2`
+  observed 4/20 proposal calls ending at `max_tokens`, all four on one case; a valid
+  response for that case consumed 1,539 output tokens. Adaptive reasoning consumes
+  the same allowance even when its text is omitted. A 50% increase is the smallest
+  round bound that provides material measured headroom.
+- **Consequences:** the observed case's five-call preflight remains below its $0.25
+  budget (about $0.135 at the new bound). The conservative default-budget diff-size
+  boundary moves from about 50k to about 38k characters; larger inputs still DEFER
+  before dispatch. This is a bounded generation default, not a lowered evidence bar.
+- **Reversal:** replace only with another stop-reason-bound measurement; never recover
+  budget by under-reserving the enforced provider cap.
+- **Trace:** Wave 3 run `wave3-observe2-20260901`; `src/attest/review/proposer.py`;
+  `DEVSPEND.md`.
+
+### D-052 — Reproduction schema recovery stays bounded
+
+- **Date/status/scope:** 2026-09-01 · accepted implementation constraint · V-channel
+  reproduction generation.
+- **Decision:** tolerate only an otherwise complete JSON response wrapped in one Markdown
+  JSON fence, and retry a schema-invalid generation at most once. Reserve both possible
+  calls before the first dispatch, settle only calls made, and cancel every unused
+  reservation.
+- **Why:** Wave 3 produced three schema-valid reproduction bodies out of four candidates;
+  the fourth stopped at `max_tokens` with `{}`. One bounded recovery attempt addresses that
+  observed D-037(a) failure without weakening the schema or execution boundary. D-037(c) is
+  a separate runner-policy question and remains explicitly out of scope.
+- **Consequences:** there is no unbounded paid retry and no under-reserved dispatch. Network,
+  process, thread, capability, and secret isolation remain unchanged. Arbitrary prose around
+  JSON is still rejected, and a second schema failure remains DEFER. No generation prompt or
+  runner process/resource policy change is retained for D-037(c).
+- **Reversal:** remove the retry only with measured V-channel evidence; never reverse by
+  permitting process escape or accepting malformed schema.
+- **Trace:** D-017; D-037; `src/attest/review/executor.py`; Wave 4.
+
+### D-053 — Alpha relaxation remains an owner decision
+
+- **Date/status/scope:** 2026-09-01 · pending owner decision · feedback policy only.
+- **Question:** should any future design add a bounded alpha-relaxation path to complement
+  the existing one-way `maybe_tighten_alpha` ratchet?
+- **Current rule:** no relaxation path is implemented or authorized. Work on recall must
+  add sparse evidence independent of model opinion; it must not uniformly lower the
+  publication threshold or alter protected factory constants.
+- **Why pending:** loosening alpha changes the error budget for every candidate, unlike a
+  sparse signal that applies only when independently observed evidence exists. The current
+  overnight measurements do not estimate the resulting precision/harm tradeoff.
+- **Trace:** D-038; D-048; `src/attest/review/ledger.py`; owner overnight constraints.
+
+### D-054 — Repair-history evidence is recorded unpriced
+
+- **Date/status/scope:** 2026-09-01 · accepted shadow instrumentation · review candidate
+  history and offline counterfactual measurement only.
+- **Decision:** define the first F slice as true only when `git blame` maps the current
+  anchor line to a commit within 50 commits of `HEAD` whose full commit message contains
+  the word `revert` or `hotfix`. Persist that observation as
+  `attest.history-signal.v1` with `priced=false`; it must not create a purchase, enter
+  product wealth, write a surfaced ledger row, or affect publication. Call-graph
+  reachability and test-blind-spot slices remain backlog items.
+- **Counterfactual evidence:** the SHA-bound Wave 5 probe covered all nine historical-V1
+  receipt pairs in both historical-bug and developer-fix-control roles (18 cases). Its one
+  paid observation produced 26 candidates and F triggered for 0/26. Pure offline replay at
+  hypothetical multipliers 1.25, 1.5, 2, and 3 produced no threshold crossings in either
+  role; therefore no control candidate was falsely triggered. Actual spend was $1.576220
+  against a $2.70 up-front bound.
+- **Limits:** the receipt proves historical integrity only. Accuracy, precision, recall,
+  and silence precision remain not estimated; the run is not evidence that the signal can
+  improve recall. The zero trigger rate is a measurement of this exact sparse definition
+  and sample, not authority to broaden or price it.
+- **Reversal:** remove the shadow row without migrating wealth or publication state. Any
+  change to the slice, lookback, or pricing requires a new owner-approved preregistration
+  and control measurement.
+- **Trace:** D-022; `src/attest/review/history.py`;
+  `scripts/history_counterfactual.py`;
+  `docs/acceptance/evidence/2026-09-01-wave5-history-counterfactual/result.json`.
+
+### D-055 — C-01 owns a pure versioned regression-receipt domain
+
+- **Date/status/scope:** 2026-09-01 · accepted C-01 boundary · pure certification types
+  and validation only.
+- **Decision:** establish task schema `attest.certification-task.v1`, base-policy schema
+  `attest.certification-policy.v1`, and strict regression receipt schema
+  `attest.certification-receipt.v2`. The pure validator compares current task, repository,
+  revisions, diff, candidate, normalized claim, test node/digest, base policy,
+  environment, interpreter, executor, exact run evidence, result/evidence class, and
+  provenance. Ordinary invalid evidence returns exhaustive typed rejection codes; unknown
+  versions/classes fail closed. Only the validator can construct `AcceptedReceipt`, and
+  `CertifiedFinding` requires that accepted value.
+- **Authority boundary:** the package imports no review, benchmark, Core, provider,
+  subprocess, ledger, CLI, or GitHub code. It performs no JSON/file/network/process work,
+  has no product caller, and contains no wealth/ranking input. The C-05 selection seam is
+  a Protocol with no implementation. C-02, V-01, presentation, execution authority, PR
+  family policy, and every factory statistic remain unchanged and unstarted.
+- **Evidence:** implementation `e955f29`; 59 focused tests; executable certification logic
+  at 100% informational line coverage (the four uncovered statements are the deliberately
+  unimplemented selection Protocol); field-by-field mutation guards; adjacent gate/executor
+  regressions; Wave 6 `G-CODE-001` at 1615 passed with product coverage 92.39%; one bounded
+  self-review finished P0=0/P1=0.
+- **Reversal:** leave the types readable but reject v2 receipts and return typed DEFER. Never
+  fall back to raw wealth, legacy two-field validation, or a presentation-side constructor.
+- **Trace:** `INV-CERT-001`, `INV-CERT-002`, `INV-VERSION-001`; C-01; C-02 not started;
+  `G-CERT-001`, `G-CODE-001`, `G-CODE-002`.
+
+### D-056 — Reproduction generation has independent bounded output headroom
+
+- **Date/status/scope:** 2026-09-01 · accepted owner-authorized default adjustment ·
+  V-channel reproduction generation only.
+- **Decision:** rename the reproduction cap to `REPRO_MAX_OUTPUT_TOKENS` and increase it
+  from 2,000 to 3,000. The provider hard cap and both bounded-retry budget reservations use
+  that same reproduction-only value. The proposal cap remains independently fixed at 2,400.
+- **Why/evidence:** the retained Wave 4 artifacts record 3/7 reproduction calls ending at
+  `max_tokens` (42.9%), while writing complete executable test files. A 50% increase is the
+  smallest round adjustment consistent with D-051's measured-headroom rule and leaves the
+  reproduction allowance above the proposal allowance. This task made no paid evaluation;
+  the post-change truncation rate is therefore not measured.
+- **Consequences:** retry count, schema strictness, execution containment, gate, prices,
+  factory statistics, and generator instructions do not change. Up-front budget checks
+  remain conservative because they reserve the enforced 3,000-token cap twice.
+- **Reversal:** replace only after a stop-reason-bound reproduction measurement; never
+  recover budget by under-reserving the enforced provider cap.
+- **Trace:** D-018; D-051; D-052; `src/attest/review/executor.py`;
+  `docs/overnight-handoff.md`.
+
+### D-057 — D-037(c) was runner-bootstrap attribution, not Black shelling evidence
+
+- **Date/status/scope:** 2026-09-01 · evidence correction/owner decision required ·
+  D-037(c), local-development process audit, and the next paid V-funnel replay.
+- **Correction:** withdraw D-037's claim that the observed child-process DEFER came from
+  “black's own test idiom” or shell-out-style generated tests. All four retained generated
+  bodies were in-process. The old case artifacts individually bound the process reason to
+  only two candidates. Exact zero-paid replays of those two (`01dd26db09`, direct
+  `black.format_str`; `ffe9efc79f`, Click `CliRunner`) recorded the same first event:
+  `subprocess.Popen`, target `uname`, from pytest importing `py -> uuid -> platform.uname`
+  under the corpus Python 3.8 environment. The first DEFER stopped repeats at head 1/3 and
+  prevented every base run.
+- **Consequences:** the current process marker is interpreter-scoped, not attributable to
+  reviewed code. This is still a real abstention/runner-compatibility defect, but it is not
+  evidence that the two tested Black paths attempted a child process. No allowlist,
+  guard-activation timing change, containment relaxation, or paid rerun is authorized here.
+  Another paid V-funnel replay waits for owner direction on the runner/guard attribution
+  boundary; independent C-02 or V-01 work remains unblocked.
+- **Evidence:** `5a684fb` retains bounded event/target/stack diagnostics;
+  `e0f2db0` is the final gated implementation/test SHA; the exact stacks and per-candidate
+  outputs are in `docs/overnight-handoff.md`.
+- **Reversal:** n/a — this corrects attribution. A future runner policy requires its own
+  owner-approved decision and must preserve D-017/D-042 containment plus `G-SEC-002` and
+  `G-SEC-003`; X-02/X-03 remain the owning work orders.
+- **Trace:** D-017; D-037; D-041; D-042; D-049; `G-DOC-001`;
+  `src/attest/review/executor.py`; `docs/roadmap.md`; `docs/backlog.md`.
+
+### D-058 — the RED-test discipline is scoped to behavior changes, and ceremony tests are forbidden
+
+- **Date/status/scope:** 2026-09-01 · owner-directed process amendment ·
+  `docs/implementation/agent-work-orders.md` §1 and §3.1, the archived plans under
+  `docs/superpowers/plans/`, and the removed `.superpowers/sdd/` leftovers.
+- **Decision:** a named RED test is required only for orders that change behavior.
+  Diagnostic, observational and reporting orders have none — their deliverable is the number
+  or the finding — and §3.1 does not apply to them. Adjacent tests and the repository gates
+  run once at the end of an order, not after every small change. §3.1 now forbids three
+  kinds of test outright: one asserting an object can be constructed or a call does not
+  raise, one written to move a coverage number, and one whose only failure mode is a typo
+  the type checker already catches. A coverage number that falls because an order
+  legitimately needed no test is reported, never papered over with a filler test.
+- **Why:** 1615 tests at 92% coverage, about twelve minutes per gate, did not catch that the
+  process marker rejected every candidate in the corpus environment — D-057 traced the first
+  event to `uname -p`, spawned by `platform.uname()` during pytest's own bootstrap, before
+  any reviewed code ran. No amount of unit coverage could have caught that; one end-to-end
+  assertion would have. §3.1 therefore names the end-to-end shape as the highest-value test
+  in this repository — given a real defect and a correct reproduction, the verification path
+  produces a certified receipt — and asks for one of those over ten plumbing tests.
+- **Consequences:** the archived plans still carried a live "REQUIRED SUB-SKILL … implement
+  this plan task-by-task" line contradicting their own README; it is now a historical note.
+  `.superpowers/sdd/m01-overnight-plan/` reports are deleted as spent workflow scratch. No
+  gate threshold, factory statistical constant, containment behavior, or security invariant
+  changes here; this amends how orders are worked, not what the product guarantees.
+- **Evidence:** `docs/implementation/agent-work-orders.md` §1 steps 5 and 7, §3.1 "Scope and
+  cost"; both files under `docs/superpowers/plans/`; D-057 for the traced root cause.
+- **Reversal:** owner call — restore the per-order RED requirement if a defect is traced to
+  an order that skipped one under this scope.
+- **Trace:** D-039; D-057; `docs/implementation/agent-work-orders.md`;
+  `docs/superpowers/plans/README.md`.

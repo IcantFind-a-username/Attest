@@ -26,6 +26,34 @@ def test_config_validation() -> None:
         ReviewConfig(k_samples=0)
 
 
+@pytest.mark.parametrize("budget", (float("nan"), float("inf"), float("-inf"), True))
+def test_review_config_rejects_nonfinite_or_boolean_budget(budget: object) -> None:
+    with pytest.raises(ValueError, match="budget"):
+        ReviewConfig(budget_usd=budget)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("alpha", (float("nan"), float("inf"), True))
+def test_review_config_rejects_nonfinite_or_boolean_alpha(alpha: object) -> None:
+    with pytest.raises(ValueError, match="alpha"):
+        ReviewConfig(alpha=alpha)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    (
+        {"k_samples": True},
+        {"max_findings": True},
+        {"max_findings": 0},
+        {"auto_tighten_alpha": 1},
+        {"tier0_commands": ("ruff",)},
+        {"tier0_commands": [1]},
+    ),
+)
+def test_review_config_rejects_ambiguous_policy_types(kwargs: object) -> None:
+    with pytest.raises(ValueError):
+        ReviewConfig(**kwargs)  # type: ignore[arg-type]
+
+
 def test_load_config_merges_toml(tmp_path: Path) -> None:
     (tmp_path / ".attest.toml").write_text(
         'alpha = 0.05\nbudget_usd = 0.5\nunknown_key = "ignored"\n', encoding="utf-8"

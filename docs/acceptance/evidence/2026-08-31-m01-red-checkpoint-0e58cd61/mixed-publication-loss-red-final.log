@@ -1,0 +1,167 @@
+$ PYTHONDONTWRITEBYTECODE=1 /private/tmp/attest-m01-0e58cd6-venv/bin/python -m pytest -p no:cacheprovider -q tests/benchmark/test_measurement.py::test_real_mixed_publications_remain_scored_when_one_candidate_defers
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_real_mixed_publications_remain_scored_when_one_candidate_defers _____
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-1056/test_real_mixed_publications_r0')
+
+    def test_real_mixed_publications_remain_scored_when_one_candidate_defers(
+        tmp_path: Path,
+    ) -> None:
+        """Four real publications survive one unresolved candidate in calibration scoring.
+    
+        Production mutation caught: filtering an entire case from scoring whenever its
+        top-level result also carries a DEFER reason.
+        """
+        manifest_path, root, source_id = _oracle_fixture(tmp_path)
+        manifest = load_manifest(manifest_path)
+        replay = next(case for case in manifest.cases if case.role == "historical_bug_replay")
+        surfaced = (
+            {
+                "claim": "Empty batch division crashes request processing.",
+                "anchor": {"file": "calc.py", "line": 2},
+                "failure_scenario": "A request submits an empty batch.",
+                "falsification_plan": "Call the helper with no batch entries.",
+            },
+            {
+                "claim": "Missing measurements abort the scheduled aggregation.",
+                "anchor": {"file": "calc.py", "line": 2},
+                "failure_scenario": "A scheduled job receives no measurements.",
+                "falsification_plan": "Run the scheduled job without measurements.",
+            },
+            {
+                "claim": "Vacant samples terminate the health calculation.",
+                "anchor": {"file": "calc.py", "line": 2},
+                "failure_scenario": "A health window contains vacant samples.",
+                "falsification_plan": "Evaluate a health window containing no samples.",
+            },
+            {
+                "claim": "Zero observations make the reporting endpoint unavailable.",
+                "anchor": {"file": "calc.py", "line": 2},
+                "failure_scenario": "The endpoint handles a period with zero observations.",
+                "falsification_plan": "Request a report for an observation-free period.",
+            },
+        )
+        deferred = {
+            "claim": "Absent telemetry corrupts the archival checkpoint.",
+            "anchor": {"file": "calc.py", "line": 1},
+            "failure_scenario": "An archival checkpoint receives absent telemetry.",
+            "falsification_plan": "Inspect the private archival checkpoint path.",
+        }
+        proposal = json.dumps({"findings": [*surfaced, deferred]})
+        repro = json.dumps(
+            {
+                "test_body": "import runpy\n\n"
+                "def test_value_is_one():\n"
+                "    assert runpy.run_path('calc.py')['value']() == 1\n"
+            }
+        )
+    
+        class MixedProvider:
+            def sample(
+                self,
+                system: str,
+                prompt: str,
+                schema: dict[str, Any],
+                max_tokens: int,
+                *,
+                timeout_s: float | None = None,
+            ) -> ProviderResult:
+                if "focused pytest reproduction" not in system:
+                    return ProviderResult(text=proposal, input_tokens=10, output_tokens=10)
+                text = "{}" if deferred["claim"] in prompt else repro
+                return ProviderResult(text=text, input_tokens=10, output_tokens=10)
+    
+        with LoopbackGitHub() as github:
+            result = BenchmarkRunner(
+                limits=ExecutorLimits(wall_timeout_s=30.0),
+                repeats=1,
+            ).run_case(
+                root / source_id / replay.pair_id / "replay",
+                case_id=replay.case_id,
+                base_sha=replay.fixed_commit,
+                head_sha=replay.buggy_commit,
+                fixed_sha=replay.fixed_commit,
+                config=ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[]),
+                provider=MixedProvider(),
+                oracle_provider=MixedProvider(),
+                client=github.client(),
+            )
+            inline_events = tuple(github.review_comments)
+            final_summary = github.status_bodies[-1]
+    
+        assert result.candidate_count == 5
+        assert result.surfaced_count == 4
+        assert result.deferred_reason is not None
+        assert len(inline_events) == 3
+        assert all(str(finding["claim"]) in final_summary for finding in surfaced)
+        scored_predictions = tuple(
+            prediction
+            for prediction in result.run.predictions
+            if is_scored_placement(prediction.placement)
+        )
+        assert len(scored_predictions) == 4
+    
+        request = ProjectEvaluationRequest(
+            case_id=replay.case_id,
+            repo=root / source_id / replay.pair_id / "replay",
+            base_ref=replay.fixed_commit,
+            head_ref=replay.buggy_commit,
+            workspace_root=tmp_path / "api-workspace",
+            config=ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[]),
+            limits=ExecutorLimits(wall_timeout_s=30.0),
+            repeats=1,
+            truth=ProjectTruth(
+                fixed_ref=replay.fixed_commit,
+                defects=tuple(
+                    defect for defect in manifest.truth_defects if defect.case_id == replay.case_id
+                ),
+            ),
+        )
+        evaluated = evaluate_project(
+            request,
+            provider=MixedProvider(),
+            oracle_provider=MixedProvider(),
+            artifact_store=ArtifactStore(tmp_path / "artifacts"),
+        )
+        assert evaluated.abstain_reason is not None
+        assert evaluated.score is not None
+        assert (
+            evaluated.score.surfaced,
+            evaluated.score.matched,
+            evaluated.score.unmatched,
+        ) == (4, 1, 3)
+    
+        payload = case_payload(evaluated)
+        payload["paid_calls"] = [
+            {
+                "trial_id": f"measurement:{replay.case_id}",
+                "call_id": f"measurement:{replay.case_id}:product",
+                "ordinal": 0,
+                "role": CALL_ROLE_PRODUCT,
+                "cost_usd": evaluated.spend_usd,
+            },
+            {
+                "trial_id": f"measurement:{replay.case_id}",
+                "call_id": f"measurement:{replay.case_id}:oracle",
+                "ordinal": 1,
+                "role": CALL_ROLE_BENCHMARK_ORACLE,
+                "cost_usd": evaluated.oracle_spend_usd,
+            },
+        ]
+        report = build_calibration_report(
+            manifest,
+            [payload],
+            run_id="mixed-red",
+            mode=LIVE_MODE,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            preregistration_sha256="f" * 64,
+            validation_receipt=_current_validation_authority(manifest_path),
+        ).to_json_dict()
+    
+>       assert report["evaluated_cases"] == 1
+E       assert 0 == 1
+
+tests/benchmark/test_measurement.py:251: AssertionError
+=========================== short test summary info ============================
+FAILED tests/benchmark/test_measurement.py::test_real_mixed_publications_remain_scored_when_one_candidate_defers

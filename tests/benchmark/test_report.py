@@ -2,10 +2,22 @@
 
 from __future__ import annotations
 
+import copy
+import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
-from attest.benchmark.corpus import ValidationReceipt
+import pytest
+
+from attest.benchmark.corpus import (
+    ValidationAuthorityCheck,
+    ValidationProvenanceEnvelope,
+    ValidationReceipt,
+    ValidationReceiptV2,
+    ValidationVerification,
+)
+from attest.benchmark.measurement import ARM_ATTEST_PRODUCT, MeasurementRecord
 from attest.benchmark.report import (
     LIVE_MODE,
     REPLAY_MODE,
@@ -25,22 +37,55 @@ from attest.benchmark.schema import (
     RunRecord,
     TestDescriptor,
     TruthDefect,
+    load_manifest,
 )
+
+from ._validation_v2 import verified_validation_authority
+from .test_baselines import _finding, _measurement_record
 
 REPLAY_CASE = "case-aaaaaaaaaaaa"
 CONTROL_CASE = "case-bbbbbbbbbbbb"
 UNRUN_CASE = "case-cccccccccccc"
 UNRUN_CONTROL = "case-dddddddddddd"
 MANIFEST_SHA = "e" * 64
+_TEST_BYTES = b"{python} -m pytest -q test_calc.py\n"
+_DEFAULT_AUTHORITY = object()
 
 
-def _receipt(manifest_sha256: str = MANIFEST_SHA) -> ValidationReceipt:
-    """A receipt bound to one manifest digest, as the corpus validator issues it."""
+def _historical_receipt(manifest_sha256: str = MANIFEST_SHA) -> ValidationReceipt:
+    """A frozen v1 receipt has inspectable integrity but no current authority."""
     return ValidationReceipt(
         schema_version="1",
         manifest_sha256=manifest_sha256,
         validated_pair_ids=("pair-111111111111", "pair-222222222222"),
         validation_results_sha256="a" * 64,
+    )
+
+
+def _verified_receipt(manifest_sha256: str = MANIFEST_SHA) -> ValidationVerification:
+    """A report consumes the separated result of offline v2 verification."""
+    accepted = ValidationAuthorityCheck(True)
+    receipt = ValidationReceiptV2(
+        schema_version="2",
+        protocol_version="attest-validation-v2",
+        manifest_sha256=manifest_sha256,
+        validated_pair_ids=("pair-111111111111", "pair-222222222222"),
+        validation_results_sha256="a" * 64,
+        artifact_manifest_sha256="b" * 64,
+        provenance_envelope=ValidationProvenanceEnvelope(
+            envelope_version="1",
+            algorithm="hmac-sha256",
+            key_id="local-test-authority",
+            payload_sha256="c" * 64,
+            authentication_tag="d" * 64,
+        ),
+    )
+    return ValidationVerification(
+        integrity=accepted,
+        provenance=accepted,
+        semantic_policy=accepted,
+        _authority="current_scoring_authority",
+        receipt=receipt,
     )
 
 
@@ -55,7 +100,11 @@ def _case(case_id: str, pair_id: str, role: str) -> BenchmarkCase:
         buggy_commit="a" * 40,
         fixed_commit="b" * 40,
         patch=PatchDescriptor("artifacts/fix.patch", "c" * 64, "unified_diff"),
-        tests=TestDescriptor("artifacts/test.argv", "d" * 64, "normalized_text"),
+        tests=TestDescriptor(
+            "artifacts/test.argv",
+            hashlib.sha256(_TEST_BYTES).hexdigest(),
+            "normalized_text",
+        ),
         changed_locations=(ChangedLocation("app.py", 1, 2),),
         split="test",
     )
@@ -141,28 +190,159 @@ def _runs() -> tuple[RunRecord, ...]:
     )
 
 
-_VALID_RECEIPT = _receipt()
+def _current_measurements(
+    runs: tuple[RunRecord, ...],
+) -> tuple[MeasurementRecord, ...]:
+    records = []
+    for run in runs:
+        positive = run.case_id in {REPLAY_CASE, UNRUN_CASE}
+        findings = tuple(
+            _finding(
+                prediction.finding_id,
+                accuracy=("correct" if prediction.finding_id == "f-hit" else "wrong"),
+                defect_id=("defect-1" if prediction.finding_id == "f-hit" else None),
+            )
+            for prediction in run.predictions
+        )
+        records.append(
+            replace(
+                _measurement_record(
+                    findings=findings,
+                    repeat=run.repeat,
+                    eligible_defect_ids=(("defect-1",) if positive else ()),
+                    truth_status=("positive" if positive else "null"),
+                ),
+                case_id=run.case_id,
+                arm=ARM_ATTEST_PRODUCT,
+            )
+        )
+    return tuple(records)
+
+
+_VALID_RECEIPT: ValidationVerification = _verified_receipt()
+_BOUND_MANIFEST: BenchmarkManifest = _manifest()
+
+
+def _write_report_manifest(tmp_path: Path) -> tuple[Path, Path]:
+    root = tmp_path / "corpus"
+    (root / "artifacts").mkdir(parents=True)
+    (root / "artifacts/test.argv").write_bytes(_TEST_BYTES)
+    manifest = _manifest()
+    document = {
+        "schema_version": "1",
+        "protocol_version": "1",
+        "corpus_commit": "f" * 64,
+        "cases": [
+            {
+                "case_id": case.case_id,
+                "pair_id": case.pair_id,
+                "source_id": case.source_id,
+                "role": case.role,
+                "provenance_kind": case.provenance_kind,
+                "source_license": case.source_license,
+                "buggy_commit": case.buggy_commit,
+                "fixed_commit": case.fixed_commit,
+                "patch": {
+                    "relative_path": case.patch.relative_path,
+                    "sha256": case.patch.sha256,
+                    "normalization": case.patch.normalization,
+                },
+                "tests": {
+                    "relative_path": case.tests.relative_path,
+                    "sha256": case.tests.sha256,
+                    "normalization": case.tests.normalization,
+                },
+                "changed_locations": [
+                    {
+                        "path": location.path,
+                        "start_line": location.start_line,
+                        "end_line": location.end_line,
+                        "side": location.side,
+                    }
+                    for location in case.changed_locations
+                ],
+                "split": case.split,
+            }
+            for case in manifest.cases
+        ],
+        "truth_defects": [
+            {
+                "defect_id": defect.defect_id,
+                "case_id": defect.case_id,
+                "file": defect.file,
+                "start_line": defect.start_line,
+                "end_line": defect.end_line,
+            }
+            for defect in manifest.truth_defects
+        ],
+        "runtime": [
+            {
+                "case_id": case.case_id,
+                "cwd": f"{case.source_id}/{case.pair_id}/"
+                + ("replay" if case.role == "historical_bug_replay" else "control"),
+                "command": {
+                    "tool": "python",
+                    "args": ["-m", "pytest", "-q", "test_calc.py"],
+                },
+            }
+            for case in manifest.cases
+        ],
+    }
+    path = tmp_path / "report-manifest.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    return path, root
+
+
+@pytest.fixture(autouse=True)
+def _install_verified_default_authority(tmp_path: Path):
+    global MANIFEST_SHA, _BOUND_MANIFEST, _VALID_RECEIPT
+    original_sha = MANIFEST_SHA
+    original_manifest = _BOUND_MANIFEST
+    original_receipt = _VALID_RECEIPT
+    manifest_path, root = _write_report_manifest(tmp_path)
+    MANIFEST_SHA = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    _BOUND_MANIFEST = load_manifest(manifest_path)
+    _VALID_RECEIPT = verified_validation_authority(
+        tmp_path / "report-authority", manifest_path, root
+    )
+    assert _VALID_RECEIPT.authority == "current_scoring_authority"
+    yield
+    MANIFEST_SHA = original_sha
+    _BOUND_MANIFEST = original_manifest
+    _VALID_RECEIPT = original_receipt
 
 
 def _report(
     mode: str = REPLAY_MODE,
     *,
-    validation_receipt: ValidationReceipt | None = _VALID_RECEIPT,
+    validation_receipt: (
+        ValidationVerification | ValidationReceipt | None | object
+    ) = _DEFAULT_AUTHORITY,
     runs: tuple[RunRecord, ...] | None = None,
+    measurement_records: tuple[MeasurementRecord, ...] | None = None,
     abstentions: tuple[ReportAbstention, ...] = (),
+    manifest_sha256: str | None = None,
 ):
+    authority = _VALID_RECEIPT if validation_receipt is _DEFAULT_AUTHORITY else validation_receipt
+    selected_runs = _runs() if runs is None else runs
+    selected_measurements = (
+        _current_measurements(selected_runs)
+        if measurement_records is None
+        else measurement_records
+    )
     return build_report(
-        _manifest(),
-        _runs() if runs is None else runs,
+        _BOUND_MANIFEST,
+        selected_runs,
         mode=mode,
-        manifest_sha256=MANIFEST_SHA,
+        manifest_sha256=manifest_sha256 or MANIFEST_SHA,
         exclusions=(
             ReportExclusion(UNRUN_CASE, "prepared_environment_required"),
             ReportExclusion(UNRUN_CONTROL, "prepared_environment_required"),
         ),
         abstentions=abstentions,
         differential_repeats=3,
-        validation_receipt=validation_receipt,
+        validation_receipt=authority,  # type: ignore[arg-type]
+        measurement_records=selected_measurements,
     )
 
 
@@ -181,6 +361,161 @@ def test_report_scores_only_evaluated_cases_and_never_hides_exclusions() -> None
     assert report.metrics.true_negatives == 1
     assert report.metrics.finding_true_positives == 1
     assert report.metrics.finding_false_positives == 1
+
+
+@pytest.mark.parametrize("mutation", ["truth", "role", "commit", "runtime", "descriptor"])
+def test_current_authority_rejects_typed_manifest_detached_from_bound_bytes(
+    tmp_path: Path, mutation: str
+) -> None:
+    """A receipt for manifest A cannot score any altered typed manifest B."""
+    manifest_path, root = _write_report_manifest(tmp_path / "detached-manifest")
+    manifest = load_manifest(manifest_path)
+    authority = verified_validation_authority(
+        tmp_path / "detached-manifest-authority", manifest_path, root
+    )
+    if mutation == "truth":
+        altered = replace(
+            manifest,
+            truth_defects=tuple(
+                replace(defect, file="different.py", start_line=999, end_line=999)
+                for defect in manifest.truth_defects
+            ),
+        )
+    elif mutation == "role":
+        altered = replace(
+            manifest,
+            cases=(
+                replace(manifest.cases[0], role="developer_fix_control"),
+                *manifest.cases[1:],
+            ),
+        )
+    elif mutation == "commit":
+        altered = replace(
+            manifest,
+            cases=(
+                replace(manifest.cases[0], buggy_commit="9" * 40),
+                *manifest.cases[1:],
+            ),
+        )
+    elif mutation == "runtime":
+        altered = replace(
+            manifest,
+            runtime=(replace(manifest.runtime[0], cwd="different/root"), *manifest.runtime[1:]),
+        )
+    else:
+        altered_case = replace(
+            manifest.cases[0],
+            patch=replace(manifest.cases[0].patch, sha256="9" * 64),
+        )
+        altered = replace(manifest, cases=(altered_case, *manifest.cases[1:]))
+
+    with pytest.raises(ValueError, match="manifest.*(bytes|digest|binding)"):
+        build_report(
+            altered,
+            _runs(),
+            mode=REPLAY_MODE,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=authority,
+        )
+
+
+def test_current_authority_hard_rejects_a_different_exact_manifest(
+    tmp_path: Path,
+) -> None:
+    """A's verified capability cannot be downgraded to withholding while scoring B."""
+    manifest_a_path, root = _write_report_manifest(tmp_path / "manifest-a")
+    authority_a = verified_validation_authority(
+        tmp_path / "manifest-a-authority", manifest_a_path, root
+    )
+    document_b = json.loads(manifest_a_path.read_text(encoding="utf-8"))
+    document_b["truth_defects"][0]["file"] = "different.py"
+    manifest_b_path = tmp_path / "manifest-b.json"
+    manifest_b_path.write_text(json.dumps(document_b), encoding="utf-8")
+    manifest_b = load_manifest(manifest_b_path)
+
+    with pytest.raises(ValueError, match="current.*manifest.*digest"):
+        build_report(
+            manifest_b,
+            _runs(),
+            mode=REPLAY_MODE,
+            manifest_sha256=hashlib.sha256(manifest_b_path.read_bytes()).hexdigest(),
+            validation_receipt=authority_a,
+        )
+
+
+def test_current_authority_rejects_digest_subclass_equality_bypass(
+    tmp_path: Path,
+) -> None:
+    """Python equality overrides cannot join authority A to exact manifest B."""
+
+    class DeceptiveDigest(str):
+        def __eq__(self, other: object) -> bool:
+            return True
+
+        def __ne__(self, other: object) -> bool:
+            return False
+
+    manifest_a_path, root = _write_report_manifest(tmp_path / "digest-a")
+    authority_a = verified_validation_authority(
+        tmp_path / "digest-a-authority", manifest_a_path, root
+    )
+    document_b = json.loads(manifest_a_path.read_text(encoding="utf-8"))
+    document_b["truth_defects"][0]["file"] = "attacker-selected.py"
+    manifest_b_path = tmp_path / "digest-b.json"
+    manifest_b_path.write_text(json.dumps(document_b), encoding="utf-8")
+    manifest_b = load_manifest(manifest_b_path)
+    deceptive_digest = DeceptiveDigest(
+        hashlib.sha256(manifest_b_path.read_bytes()).hexdigest()
+    )
+
+    with pytest.raises(ValueError, match="manifest.*digest.*exact|string"):
+        build_report(
+            manifest_b,
+            _runs(),
+            mode=REPLAY_MODE,
+            manifest_sha256=deceptive_digest,
+            validation_receipt=authority_a,
+        )
+
+
+def test_current_authority_rejects_nested_truth_subclass_equality_bypass(
+    tmp_path: Path,
+) -> None:
+    """A nested record cannot lie about equality while changing scoring truth."""
+
+    class DeceptiveTruth(TruthDefect):
+        def __eq__(self, other: object) -> bool:
+            return True
+
+        def __ne__(self, other: object) -> bool:
+            return False
+
+    manifest_path, root = _write_report_manifest(tmp_path / "nested-truth")
+    manifest = load_manifest(manifest_path)
+    authority = verified_validation_authority(
+        tmp_path / "nested-truth-authority", manifest_path, root
+    )
+    original = manifest.truth_defects[0]
+    deceptive = DeceptiveTruth(
+        defect_id=original.defect_id,
+        case_id=original.case_id,
+        file="attacker-selected.py",
+        start_line=999,
+        end_line=999,
+    )
+    altered = replace(
+        manifest,
+        truth_defects=(deceptive, *manifest.truth_defects[1:]),
+    )
+
+    with pytest.raises(ValueError, match="manifest.*(canonical|typed|bytes)"):
+        build_report(
+            altered,
+            _runs(),
+            mode=REPLAY_MODE,
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            validation_receipt=authority,
+        )
 
 
 def test_headline_rates_carry_wilson_intervals() -> None:
@@ -249,8 +584,8 @@ def test_report_withholds_accuracy_without_a_receipt_but_still_reports_operation
     assert report.metrics_withheld_reason == "validation_receipt_missing"
     assert payload["metrics_withheld_reason"] == "validation_receipt_missing"
     operational = payload["operational"]
-    assert operational["delivery_rate"] == 1.0
-    assert operational["delivery_p50_s"] == 9.0
+    assert operational["delivery_rate"] == 0.0
+    assert operational["delivery_p50_s"] is None
     assert operational["deadline_censored"] == 0
     assert operational["decided_cases"] == 2
     assert report.evaluated_cases == 2
@@ -262,13 +597,101 @@ def test_report_withholds_accuracy_without_a_receipt_but_still_reports_operation
     assert "delivery_rate" in markdown
 
 
-def test_report_withholds_accuracy_for_a_receipt_bound_to_another_manifest() -> None:
-    """A receipt earned by a different corpus authorises nothing here."""
-    report = _report(validation_receipt=_receipt("b" * 64))
+def test_report_hard_rejects_current_authority_with_a_different_manifest_digest() -> None:
+    """A current capability and typed manifest may never carry detached digests."""
+    with pytest.raises(ValueError, match="manifest.*digest"):
+        _report(manifest_sha256="b" * 64)
+
+
+def test_report_rejects_hand_constructed_current_verification() -> None:
+    """Only the offline verifier may mint the capability that authorizes scoring."""
+    report = _report(validation_receipt=_verified_receipt())
 
     assert report.metrics is None
-    assert report.metrics_withheld_reason == "validation_receipt_manifest_mismatch"
-    assert "validation receipt" in " ".join(report.limitations)
+    assert report.validation_authority.authority == "none"
+    assert report.metrics_withheld_reason == "validation_receipt_provenance_unauthorized"
+
+
+def test_report_rejects_verification_subclass_authority_override() -> None:
+    """A caller-defined property override cannot impersonate the offline verifier."""
+
+    class ForgedVerification(ValidationVerification):
+        @property
+        def authority(self) -> str:
+            return "current_scoring_authority"
+
+    direct = _verified_receipt()
+    forged = ForgedVerification(
+        integrity=direct.integrity,
+        provenance=direct.provenance,
+        semantic_policy=direct.semantic_policy,
+        _authority="current_scoring_authority",
+        receipt=direct.receipt,
+    )
+
+    report = _report(validation_receipt=forged)
+
+    assert report.metrics is None
+    assert report.validation_authority.authority == "none"
+    assert report.metrics_withheld_reason == "validation_receipt_provenance_unauthorized"
+
+
+def test_report_rejects_copied_verifier_capability() -> None:
+    """Copying fields and a private seal does not copy verifier-minted object identity."""
+    assert isinstance(_VALID_RECEIPT, ValidationVerification)
+    copied = copy.copy(_VALID_RECEIPT)
+
+    report = _report(validation_receipt=copied)
+
+    assert report.metrics is None
+    assert report.validation_authority.authority == "none"
+    assert report.metrics_withheld_reason == "validation_receipt_provenance_unauthorized"
+
+
+def test_report_rejects_in_place_mutation_of_verifier_capability() -> None:
+    """Registered identity cannot authorize fields changed after offline verification."""
+    assert isinstance(_VALID_RECEIPT.receipt, ValidationReceiptV2)
+    forged_manifest_sha256 = "b" * 64
+    object.__setattr__(
+        _VALID_RECEIPT.receipt,
+        "manifest_sha256",
+        forged_manifest_sha256,
+    )
+
+    report = _report(
+        validation_receipt=_VALID_RECEIPT,
+        manifest_sha256=forged_manifest_sha256,
+    )
+
+    assert _VALID_RECEIPT.authority == "none"
+    assert report.metrics is None
+    assert report.metrics_withheld_reason == "validation_receipt_provenance_unauthorized"
+
+
+def test_report_marks_v1_as_historical_integrity_only_and_withholds_scoring() -> None:
+    """A readable legacy receipt must never be upgraded into current scoring authority."""
+    report = _report(validation_receipt=_historical_receipt())
+    payload = report.to_json_dict()
+
+    assert report.metrics is None
+    assert report.metrics_withheld_reason == "validation_receipt_historical_integrity_only"
+    assert payload["validation_authority"] == {
+        "authority": "historical_integrity_only",
+        "integrity": {"accepted": True, "failure_paths": []},
+        "authorized_provenance": {
+            "accepted": False,
+            "failure_paths": ["receipt.provenance_envelope"],
+        },
+        "semantic_policy": {
+            "accepted": False,
+            "failure_paths": ["validation_results.results[*].attempts"],
+        },
+    }
+    markdown = render_markdown(report)
+    assert "historical_integrity_only" in markdown
+    assert "integrity: PASS" in markdown
+    assert "authorized provenance: FAIL" in markdown
+    assert "semantic policy: FAIL" in markdown
 
 
 def test_report_publishes_accuracy_for_a_receipt_bound_to_this_manifest() -> None:
@@ -279,12 +702,80 @@ def test_report_publishes_accuracy_for_a_receipt_bound_to_this_manifest() -> Non
     assert report.metrics_withheld_reason is None
     assert report.to_json_dict()["metrics"]["true_positives"] == 1
     assert report.to_json_dict()["operational"]["decided_cases"] == 2
+    assert report.to_json_dict()["validation_authority"]["authority"] == (
+        "current_scoring_authority"
+    )
+    assert report.to_json_dict()["metrics"]["finding_precision_status"] == "estimated"
+    assert report.to_json_dict()["metrics"]["silence_precision"] == 1.0
+    assert report.to_json_dict()["metrics"]["silence_precision_status"] == "estimated"
+    assert report.to_json_dict()["operational"]["abstention_rate"] == 0.0
+    assert report.to_json_dict()["operational"]["abstention_rate_status"] == "observed"
+    markdown = render_markdown(report)
+    assert "integrity: PASS" in markdown
+    assert "authorized provenance: PASS" in markdown
+    assert "semantic policy: PASS" in markdown
+
+
+def test_report_explains_zero_denominator_metrics_instead_of_leaving_them_blank() -> None:
+    report = _report()
+    assert report.metrics is not None
+    no_denominators = replace(
+        report.metrics,
+        finding_true_positives=0,
+        finding_false_positives=0,
+        finding_precision=None,
+        true_negatives=0,
+        false_negatives=0,
+    )
+    payload = replace(report, measurements=no_denominators).to_json_dict()["metrics"]
+
+    assert payload["finding_precision"] is None
+    assert payload["finding_precision_status"] == (
+        "undefined: no scored surfaced findings"
+    )
+    assert payload["silence_precision"] is None
+    assert payload["silence_precision_status"] == (
+        "undefined: no decided silent outcomes"
+    )
+
+
+def test_report_marks_majority_abstention_as_anomaly() -> None:
+    report = _report()
+    assert report.measurements is not None
+
+    payload = replace(
+        report,
+        measurements=replace(report.measurements, abstention_rate=0.75),
+    ).to_json_dict()["operational"]
+
+    assert payload["abstention_rate"] == 0.75
+    assert payload["abstention_rate_status"] == "anomaly: abstention_rate > 0.5"
+
+
+def test_current_completed_without_publications_counts_as_a_silent_run() -> None:
+    """Task completion is independent from whether an author saw a finding."""
+    report = _report()
+
+    assert report.to_json_dict()["operational"]["silent_run_rate"] == 0.5
+    assert report.measurements is not None
+    assert report.measurements.abstention_rate == 0.0
 
 
 def test_report_surfaces_abstentions_with_counts_and_reasons() -> None:
     """A run attest could not decide is an abstention, never earned silence."""
+    selected_runs = (_runs()[0], _runs()[2])
+    deferred_control = replace(
+        _measurement_record(
+            stop="task_defer",
+            eligible_defect_ids=(),
+            truth_status="null",
+        ),
+        case_id=CONTROL_CASE,
+        arm=ARM_ATTEST_PRODUCT,
+    )
     report = _report(
-        runs=(_runs()[0], _runs()[2]),
+        runs=selected_runs,
+        measurement_records=(*_current_measurements(selected_runs), deferred_control),
         abstentions=(ReportAbstention(CONTROL_CASE, "budget: exhausted before review"),),
     )
     payload = report.to_json_dict()
@@ -297,6 +788,7 @@ def test_report_surfaces_abstentions_with_counts_and_reasons() -> None:
         {"case_id": CONTROL_CASE, "reason": "budget: exhausted before review"}
     ]
     assert payload["operational"]["abstained_cases"] == 1
+    assert payload["operational"]["silent_run_rate"] == 0.0
     assert report.metrics is not None
     assert report.metrics.true_negatives == 0
     assert report.metrics.specificity is None
@@ -308,8 +800,211 @@ def test_report_surfaces_abstentions_with_counts_and_reasons() -> None:
     assert f"| `{CONTROL_CASE}` | budget: exhausted before review |" in markdown
 
 
-def test_report_surfaces_an_inconclusive_oracle_exclusion_with_its_reason() -> None:
-    """An undecided oracle removes the case from scoring and says so in both reports."""
+@pytest.mark.parametrize(
+    ("case_id", "eligible_defect_ids"),
+    (
+        ("case-injected000000", ("defect-1",)),
+        (REPLAY_CASE, ("injected-defect",)),
+        (CONTROL_CASE, ("injected-defect",)),
+    ),
+)
+def test_current_measurement_report_rejects_unbound_manifest_truth(
+    case_id: str, eligible_defect_ids: tuple[str, ...]
+) -> None:
+    injected = replace(
+        _measurement_record(
+            findings=(),
+            eligible_defect_ids=eligible_defect_ids,
+        ),
+        case_id=case_id,
+        arm=ARM_ATTEST_PRODUCT,
+    )
+
+    with pytest.raises(ValueError, match="manifest|truth|eligible"):
+        build_report(
+            _BOUND_MANIFEST,
+            (),
+            mode=LIVE_MODE,
+            manifest_sha256=MANIFEST_SHA,
+            validation_receipt=_VALID_RECEIPT,
+            measurement_records=(injected,),
+        )
+
+
+def test_current_measurement_report_requires_an_explicit_slot_for_silent_defer(
+) -> None:
+    deferred = replace(
+        _measurement_record(
+            stop="task_defer",
+            findings=(
+                _finding(
+                    "unresolved",
+                    status="unresolved",
+                    accuracy="unadjudicated",
+                    defect_id=None,
+                ),
+            ),
+        ),
+        case_id=REPLAY_CASE,
+        arm=ARM_ATTEST_PRODUCT,
+    )
+
+    with pytest.raises(ValueError, match="abstention|RunRecord|slot"):
+        build_report(
+            _BOUND_MANIFEST,
+            (),
+            mode=LIVE_MODE,
+            manifest_sha256=MANIFEST_SHA,
+            validation_receipt=_VALID_RECEIPT,
+            measurement_records=(deferred,),
+        )
+
+
+def test_current_visible_unadjudicated_accuracy_is_explicit_missingness() -> None:
+    measurement = replace(
+        _measurement_record(
+            findings=(
+                _finding(
+                    "visible-unadjudicated",
+                    accuracy="unadjudicated",
+                    defect_id=None,
+                ),
+            ),
+        ),
+        case_id=REPLAY_CASE,
+        arm=ARM_ATTEST_PRODUCT,
+    )
+    run = RunRecord(
+        run_id="visible-unadjudicated",
+        case_id=REPLAY_CASE,
+        repeat=0,
+        predictions=(
+            _prediction(
+                "visible-unadjudicated",
+                1,
+                repro_status="buggy_fail_fixed_pass",
+                evidence_class="regression_reproduced",
+            ),
+        ),
+        delivery_at_s=1.0,
+        deadline_s=60.0,
+    )
+
+    payload = build_report(
+        _BOUND_MANIFEST,
+        (run,),
+        mode=LIVE_MODE,
+        manifest_sha256=MANIFEST_SHA,
+        validation_receipt=_VALID_RECEIPT,
+        measurement_records=(measurement,),
+    ).to_json_dict()
+
+    assert payload["metrics"] is None
+    assert payload["metrics_withheld_reason"] == (
+        "current_measurement_accuracy_unadjudicated"
+    )
+    assert payload["outcome_accounting"]["unadjudicated"] == 1
+    assert payload["outcome_accounting"]["deployment_misses"] is None
+
+
+def test_current_operational_full_defer_does_not_create_primary_abstention() -> None:
+    primary_run = _runs()[0]
+    primary = _current_measurements((primary_run,))[0]
+    operational_defer = replace(
+        _measurement_record(stop="task_defer", repeat=1),
+        case_id=REPLAY_CASE,
+        arm=ARM_ATTEST_PRODUCT,
+    )
+
+    payload = build_report(
+        _BOUND_MANIFEST,
+        (primary_run,),
+        mode=LIVE_MODE,
+        manifest_sha256=MANIFEST_SHA,
+        validation_receipt=_VALID_RECEIPT,
+        measurement_records=(primary, operational_defer),
+    ).to_json_dict()
+
+    assert payload["abstained_cases"] == []
+    assert payload["outcome_accounting"]["semantic_n"] == 1
+    assert payload["outcome_accounting"]["operational_repeats"] == 2
+    assert payload["outcome_accounting"]["task_status_counts"]["completed"] == 1
+
+
+def test_current_measurement_report_scores_partial_defer_visible_finding_and_retains_abstention(
+) -> None:
+
+    measurement = replace(
+        _measurement_record(
+            stop="candidate_defer",
+            findings=(
+                _finding("correct", defect_id="defect-1"),
+                _finding("wrong", accuracy="wrong", defect_id=None),
+                _finding(
+                    "unresolved",
+                    status="unresolved",
+                    accuracy="unadjudicated",
+                    defect_id=None,
+                ),
+            ),
+            eligible_defect_ids=("defect-1",),
+        ),
+        case_id=REPLAY_CASE,
+        arm=ARM_ATTEST_PRODUCT,
+    )
+    run = RunRecord(
+        run_id="mixed-run",
+        case_id=REPLAY_CASE,
+        repeat=0,
+        predictions=(
+            _prediction(
+                "correct",
+                1,
+                repro_status="buggy_fail_fixed_pass",
+                evidence_class="regression_reproduced",
+            ),
+            _prediction(
+                "wrong",
+                20,
+                repro_status="buggy_fail_fixed_pass",
+                evidence_class="regression_reproduced",
+            ),
+        ),
+        delivery_at_s=1.0,
+        deadline_s=60.0,
+    )
+
+    with pytest.raises(ValueError, match="abstentions.*exactly match"):
+        build_report(
+            _BOUND_MANIFEST,
+            (run,),
+            mode=LIVE_MODE,
+            manifest_sha256=MANIFEST_SHA,
+            validation_receipt=_VALID_RECEIPT,
+            measurement_records=(measurement,),
+        )
+
+    report = build_report(
+        _BOUND_MANIFEST,
+        (run,),
+        mode=LIVE_MODE,
+        manifest_sha256=MANIFEST_SHA,
+        abstentions=(ReportAbstention(REPLAY_CASE, "one candidate unresolved"),),
+        validation_receipt=_VALID_RECEIPT,
+        measurement_records=(measurement,),
+    ).to_json_dict()
+
+    assert report["metrics"]["finding_true_positives"] == 1
+    assert report["metrics"]["finding_false_positives"] == 1
+    assert report["metrics"]["finding_precision"] == pytest.approx(0.5)
+    assert report["metrics"]["true_positives"] == 1
+    assert report["abstained_cases"] == [
+        {"case_id": REPLAY_CASE, "reason": "one candidate unresolved"}
+    ]
+
+
+def test_current_authority_rejects_run_record_only_oracle_scoring() -> None:
+    """Current authority cannot promote a legacy RunRecord into scored evidence."""
     undecided = RunRecord(
         run_id="run-1",
         case_id=REPLAY_CASE,
@@ -325,19 +1020,11 @@ def test_report_surfaces_an_inconclusive_oracle_exclusion_with_its_reason() -> N
         delivery_at_s=12.0,
         deadline_s=60.0,
     )
-    report = _report(runs=(undecided, _runs()[1]))
-    payload = report.to_json_dict()
-
-    assert report.metrics is not None
-    assert (report.metrics.false_negatives, report.metrics.finding_false_positives) == (0, 0)
-    assert report.metrics.decided_cases == 1
-    assert {
-        (exclusion["case_id"], exclusion["reason"])
-        for exclusion in payload["excluded_cases"]
-    } >= {(REPLAY_CASE, "oracle_inconclusive")}
-    assert payload["operational"]["excluded_cases"] == 3
-    assert "oracle_inconclusive" in render_markdown(report)
-    assert "oracle_inconclusive" in " ".join(report.limitations)
+    with pytest.raises(ValueError, match="current.*MeasurementRecord|measurement"):
+        _report(
+            runs=(undecided, _runs()[1]),
+            measurement_records=(),
+        )
 
 
 def test_report_without_runs_reports_no_metrics_rather_than_zeros() -> None:

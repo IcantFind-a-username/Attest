@@ -1,0 +1,8 @@
+label=python312
+step=runtime
+checkout=/private/tmp/attest-phase0-14a57fb.xmEskE/python312-checkout
+callable=runtime_step
+$ python --version
+Python 3.12.8
+$ current_runtime_identity()
+{"executable": "/private/tmp/attest-phase0-14a57fb.xmEskE/python312-venv/bin/python", "machine": "arm64", "platform": "macOS-26.5.2-arm64-arm-64bit", "runtime_identity": {"code_sha256": "509bfc122a585d37d56180c40425178de941680b2ff7c27d5aa9c37541c3e7b2", "environment_sha256": "b505be2eaf33a0b45c6986bd6fecd167ffc806a62bcb566567a9b97a1bb42bf9", "interpreter_id": "cpython-3.12.8-darwin-arm64"}, "version": "3.12.8 (main, Dec  3 2024, 18:42:41) [Clang 16.0.0 (clang-1600.0.26.4)]"}

@@ -1,0 +1,13 @@
+label=python311
+step=gcode002
+checkout=/private/tmp/attest-phase0-14a57fb.xmEskE/python311-checkout
+callable=gcode002_step
+$ pytest G-CODE-002 mutation/guard-removal corpus
+.............................                                            [100%]
+=============================== warnings summary ===============================
+../python311-venv/lib/python3.11/site-packages/_pytest/pathlib.py:95
+  /private/tmp/attest-phase0-14a57fb.xmEskE/python311-venv/lib/python3.11/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/garbage-0b06ec8f-af77-47f1-b05d-bbf5c61036b0
+  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/garbage-0b06ec8f-af77-47f1-b05d-bbf5c61036b0'
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html

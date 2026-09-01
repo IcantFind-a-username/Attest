@@ -1,5 +1,13 @@
 # Phase 3 acceptance
 
+> **Historical integration smoke evidence.** This report records planted regression,
+> refactor-control, and new-code fixtures on two private scratch repositories. It is not an
+> independent statistical replication, a natural-PR error-rate estimate, or proof of secure
+> execution. The retained prose/URLs do not provide the complete machine-readable evidence
+> bundle required by [`evolution-gates.md`](evolution-gates.md). A later audit also found
+> that the acceptance driver called `gh run watch --exit-status` without enforcing its
+> return code; future workflow acceptance must satisfy G-MEASURE-003.
+
 Acceptance passed against a retained private scratch repository.
 
 - Repository: https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c
@@ -21,18 +29,24 @@ Acceptance passed against a retained private scratch repository.
 
 - **Regression PR**: the reviewed diff deletes an empty-input guard from a function that already exists on base, so the generated reproduction fails on head and passes on base. That is the only pattern differential evidence certifies, and it produced a verified inline finding whose verification row records evidence class `regression_reproduced`.
 - **Negative-control PR**: a semantics-preserving refactor produced zero finding comments.
-- **New-code PR**: the reviewed diff adds a defective helper that exists nowhere on base. attest posted zero finding comments and recorded a verification row with evidence class `new_code_candidate`, left deferred. The defect is recognised and written down, not missed -- and deliberately not priced, because certifying a defect in newly added code needs a likelihood ratio that has not been introduced. Silence on new code is the designed behaviour and the honest limit of what this evidence can buy.
+- **New-code PR**: the reviewed diff adds a planted defective helper that exists nowhere on
+  base. attest posted zero finding comments and recorded a verification row with evidence
+  class `new_code_candidate`, left deferred. This fixture shows that the implemented branch
+  classified one planted case; it does **not** show that semantic new-code defects are
+  generally recognised or that misses are avoided. Certification of newly added code needs
+  a class-specific evidence contract and calibration that do not yet exist. Silence and
+  typed abstention are the only supported conclusions from this arm.
 
 All three sticky comments met the 60-second job-start limit, and the downloaded ledger artifacts accounted for review, verification, and comment events on every arm. Latencies are whole seconds because the GitHub API reports timestamps at second granularity.
 
-## Independently reproduced
+## Repeated integration smoke
 
 This body was written by `render_report` for the second passing run. An earlier
 passing run against
 [attest-phase3-20260829-182623-6ffc59](https://github.com/IcantFind-a-username/attest-phase3-20260829-182623-6ffc59)
-(runs 33268274146 / 33268276734 / 33268280907, $0.0616) reached the same verdict
-independently, so the acceptance has passed twice on separate scratch
-repositories. The second run was started by a stray background invocation while
+(runs 33268274146 / 33268276734 / 33268280907, $0.0616) reached the same fixture
+verdict on a separate scratch repository. This is a repeated integration smoke, not an
+independent statistical reproduction. The second run was started by a stray background invocation while
 writing this report rather than deliberately; both are logged in DEVSPEND.md,
 and both scratch repositories are retained because the available GitHub token
 has no `delete_repo` scope, which is an owner decision to widen.
@@ -55,3 +69,6 @@ works: before it, the identical situation was published to the developer as
 `unfaithful generated test`.
 
 ## What the first attempt found
+
+The historical report ended before this section was populated. No additional result or
+root-cause claim is inferred from the empty original heading.

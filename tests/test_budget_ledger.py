@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -43,6 +44,12 @@ def test_budget_unknown_model_rejected() -> None:
         Budget(limit_usd=0.25, model="not-a-model")
 
 
+@pytest.mark.parametrize("limit", (float("nan"), float("inf"), float("-inf"), True, 0.0))
+def test_budget_rejects_nonfinite_boolean_or_nonpositive_limit(limit: object) -> None:
+    with pytest.raises(ValueError, match="limit"):
+        Budget(limit_usd=limit, model=DEFAULT_MODEL)  # type: ignore[arg-type]
+
+
 def test_ledger_roundtrip(tmp_path) -> None:
     led = Ledger(tmp_path)
     led.record_review("t1", "f1", ["S", "T"], 0.05, 5.3, "drawer")
@@ -82,6 +89,37 @@ def test_feedback_label_polarity_recorded(tmp_path) -> None:
         assert entry["label_polarity"] == polarity
 
 
+@pytest.mark.parametrize(
+    ("feedback", "recorded"), (("wrong", "true"), ("wrong", "unknown"))
+)
+def test_feedback_label_polarity_must_be_exact_and_consistent(
+    tmp_path: Path, feedback: str, recorded: str
+) -> None:
+    led = Ledger(tmp_path)
+    led.record_review("t", "f", ["S"], 0.0, 12.0, "surface")
+    led.append(
+        {
+            "kind": "feedback",
+            "finding_id": "f",
+            "feedback": feedback,
+            "label_polarity": recorded,
+        }
+    )
+
+    with pytest.raises(ValueError, match="label_polarity"):
+        led.surfaced_precision()
+
+
+def test_unknown_legacy_feedback_cannot_erase_a_false_label(tmp_path: Path) -> None:
+    led = Ledger(tmp_path)
+    led.record_review("t", "f", ["S"], 0.0, 12.0, "surface")
+    led.record_feedback("f", "wrong")
+    led.append({"kind": "feedback", "finding_id": "f", "feedback": "wron"})
+
+    with pytest.raises(ValueError, match="feedback label"):
+        led.surfaced_precision()
+
+
 def test_precision_excludes_legacy_dismiss_from_denominator(tmp_path) -> None:
     """Legacy `dismiss` rows are polarity-ambiguous and must be excluded from
     BOTH the numerator and the denominator of surfaced precision -- never
@@ -113,6 +151,310 @@ def test_surfaced_precision_and_tighten(tmp_path) -> None:
     assert note is not None
     # the tightening is recorded and current_alpha follows the chain
     assert led.current_alpha(0.1) == 0.05
+
+
+def test_precision_state_changes_but_not_duplicate_polarity_advance_watermark(
+    tmp_path: Path,
+) -> None:
+    led = Ledger(tmp_path)
+    for index in range(12):
+        finding_id = f"f{index}"
+        led.record_review("t", finding_id, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(finding_id, "good" if index < 8 else "wrong")
+    alpha, _note = led.maybe_tighten_alpha(0.1, enabled=True)
+    led.record_feedback("f0", "good")
+    assert led.maybe_tighten_alpha(alpha, enabled=True) == (0.05, None)
+
+    led.record_feedback("f0", "wrong")
+    tightened, note = led.maybe_tighten_alpha(alpha, enabled=True)
+    assert tightened == 0.025 and note is not None
+
+
+def test_wrong_ambiguous_wrong_each_changes_precision_state(tmp_path: Path) -> None:
+    led = Ledger(tmp_path)
+    for index in range(12):
+        finding_id = f"f{index}"
+        led.record_review("t", finding_id, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(finding_id, "wrong")
+    alpha, _note = led.maybe_tighten_alpha(0.1, enabled=True)
+
+    led.record_feedback("f0", "dismiss")
+    alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
+    assert alpha == 0.025 and note is not None
+    led.record_feedback("f0", "wrong")
+    alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
+    assert alpha == 0.0125 and note is not None
+
+
+def test_watermark_ignores_label_changes_outside_the_precision_window(
+    tmp_path: Path,
+) -> None:
+    led = Ledger(tmp_path)
+    for index in range(60):
+        finding_id = f"f{index}"
+        led.record_review("t", finding_id, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(finding_id, "good" if index < 50 else "wrong")
+    alpha, _note = led.maybe_tighten_alpha(0.1, enabled=True)
+    assert led.surfaced_precision() == (pytest.approx(0.8), 50)
+
+    led.record_feedback("f0", "wrong")
+
+    assert led.surfaced_precision() == (pytest.approx(0.8), 50)
+    assert led.maybe_tighten_alpha(alpha, enabled=True) == (0.05, None)
+
+
+def test_watermark_tracks_surface_changes_to_the_precision_window(
+    tmp_path: Path,
+) -> None:
+    led = Ledger(tmp_path)
+    for index in range(60):
+        finding_id = f"f{index}"
+        led.record_review("t", finding_id, ["S"], 0.0, 12.0, "surface")
+        label = "wrong" if index < 10 or index >= 50 else "good"
+        led.record_feedback(finding_id, label)
+    alpha, _note = led.maybe_tighten_alpha(0.1, enabled=True)
+    assert led.surfaced_precision() == (pytest.approx(0.8), 50)
+
+    for index in range(10):
+        led.record_review("repeat", f"f{index}", ["S"], 0.0, 12.0, "surface")
+
+    assert led.surfaced_precision() == (pytest.approx(0.6), 50)
+    tightened, note = led.maybe_tighten_alpha(alpha, enabled=True)
+    assert tightened == 0.025 and note is not None
+
+
+def test_feedback_before_first_surface_is_not_a_precision_label(tmp_path: Path) -> None:
+    led = Ledger(tmp_path)
+    for index in range(10):
+        finding_id = f"f{index}"
+        led.record_feedback(finding_id, "wrong")
+        led.record_review("t", finding_id, ["S"], 0.0, 12.0, "surface")
+
+    assert led.surfaced_precision() == (None, 0)
+    assert led.maybe_tighten_alpha(0.1, enabled=True) == (0.1, None)
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    (
+        {"kind": "review", "finding_id": "phantom", "action": "surface"},
+        {"kind": "github_comment", "task_id": "legacy"},
+        {
+            "kind": "github_comment",
+            "task_id": "task",
+            "phase": "unknown",
+            "outcome": "posted",
+        },
+        {
+            "kind": "github_comment",
+            "task_id": "task",
+            "phase": "review",
+            "outcome": "failed",
+        },
+        {
+            "kind": "github_comment",
+            "task_id": "task",
+            "phase": "review",
+            "outcome": "posted",
+            "reason": "not allowed on success",
+        },
+        {
+            "kind": "ci_final",
+            "task_id": "task",
+            "decisions": [None],
+            "spend_usd": 0.0,
+        },
+        {
+            "kind": "review",
+            "task_id": "legacy",
+            "finding_id": "phantom",
+            "channels_bought": ["X"],
+            "spend": 0.0,
+            "wealth_final": 12.0,
+            "action": "surface",
+        },
+        {
+            "kind": "review",
+            "task_id": "legacy",
+            "finding_id": "phantom",
+            "channels_bought": ["S", "S"],
+            "spend": 0.0,
+            "wealth_final": 12.0,
+            "action": "surface",
+        },
+        {
+            "kind": "review",
+            "task_id": "legacy",
+            "finding_id": "phantom",
+            "channels_bought": [],
+            "spend": 0.0,
+            "wealth_final": 12.0,
+            "action": "surface",
+        },
+    ),
+)
+def test_malformed_surface_authority_rows_fail_closed(
+    tmp_path: Path, malformed: dict[str, object]
+) -> None:
+    led = Ledger(tmp_path)
+    led.append(malformed)
+
+    with pytest.raises(ValueError):
+        led.surfaced_precision()
+
+
+@pytest.mark.parametrize("window", (0, -1, True, False, 1.0))
+def test_precision_window_must_be_an_exact_positive_integer(
+    tmp_path: Path, window: object
+) -> None:
+    with pytest.raises(ValueError, match="precision window"):
+        Ledger(tmp_path).surfaced_precision(window=window)  # type: ignore[arg-type]
+
+
+def test_current_precision_rejects_a_truncated_ledger(tmp_path: Path) -> None:
+    led = Ledger(tmp_path)
+    led.record_review("t", "f", ["S"], 0.0, 12.0, "surface")
+    with led.path.open("ab") as stream:
+        stream.write(b'{"kind":"feedback"')
+
+    with pytest.raises(ValueError, match="truncated"):
+        led.surfaced_precision()
+
+
+def test_ci_surface_order_is_anchored_to_successful_settlement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    led = Ledger(tmp_path)
+    ci_ids = tuple(f"ci-{index}" for index in range(6))
+    led.record_ci_final(
+        task_id="ci",
+        decisions=[
+            {
+                "finding_id": finding_id,
+                "action": "surface",
+                "wealth_final": 12.0,
+                "placement": "inline",
+            }
+            for finding_id in ci_ids
+        ],
+        spend_usd=0.0,
+    )
+    for index in range(50):
+        finding_id = f"legacy-{index}"
+        led.record_review("legacy", finding_id, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(finding_id, "good")
+    led.append(
+        {
+            "kind": "delivery_attempt_settlement",
+            "task_id": "ci",
+            "attempt_id": "ci-attempt",
+            "outcome": "succeeded",
+        }
+    )
+    for finding_id in ci_ids:
+        led.record_feedback(finding_id, "wrong")
+    event = SimpleNamespace(
+        attempt_id="ci-attempt",
+        outcome="succeeded",
+        members=tuple((finding_id, "inline") for finding_id in ci_ids),
+    )
+    monkeypatch.setattr(
+        "attest.review.ci.reconcile_delivery_rows",
+        lambda _entries, task_id: ((event,), ()) if task_id == "ci" else ((), ()),
+    )
+
+    assert led.surfaced_finding_ids()[-6:] == ci_ids
+    assert led.surfaced_precision() == (pytest.approx(0.88), 50)
+    alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
+    assert alpha == 0.05 and note is not None
+
+
+def test_ci_surface_attempt_is_bound_to_its_task(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    led = Ledger(tmp_path)
+    led.record_ci_final(
+        task_id="task-a",
+        decisions=[
+            {
+                "finding_id": "finding-a",
+                "action": "surface",
+                "wealth_final": 12.0,
+                "placement": "inline",
+            }
+        ],
+        spend_usd=0.0,
+    )
+    led.append(
+        {
+            "kind": "delivery_attempt_settlement",
+            "task_id": "task-b",
+            "attempt_id": "shared",
+            "outcome": "succeeded",
+        }
+    )
+    led.record_feedback("finding-a", "wrong")
+    led.append(
+        {
+            "kind": "delivery_attempt_settlement",
+            "task_id": "task-a",
+            "attempt_id": "shared",
+            "outcome": "succeeded",
+        }
+    )
+    event = SimpleNamespace(
+        attempt_id="shared",
+        outcome="succeeded",
+        members=(("finding-a", "inline"),),
+    )
+    monkeypatch.setattr(
+        "attest.review.ci.reconcile_delivery_rows",
+        lambda _entries, task_id: ((event,), ()) if task_id == "task-a" else ((), ()),
+    )
+
+    assert led.surfaced_finding_ids() == ("finding-a",)
+    assert led.surfaced_precision() == (None, 0)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("unknown_member", "wrong_placement", "duplicate_final", "late_final", "legacy_final"),
+)
+def test_delivery_must_match_one_prior_current_ci_final(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    led = Ledger(tmp_path)
+    decision: dict[str, object] = {
+        "finding_id": "expected",
+        "action": "surface",
+        "wealth_final": 12.0,
+        "placement": "inline",
+    }
+    if mutation == "legacy_final":
+        del decision["placement"]
+    if mutation == "late_final":
+        led.append({"kind": "delivery_attempt_intent", "task_id": "task"})
+    led.record_ci_final(task_id="task", decisions=[decision], spend_usd=0.0)
+    if mutation == "duplicate_final":
+        led.record_ci_final(task_id="task", decisions=[decision], spend_usd=0.0)
+    if mutation != "late_final":
+        led.append({"kind": "delivery_attempt_intent", "task_id": "task"})
+    member = (
+        "unknown" if mutation == "unknown_member" else "expected",
+        "overflow" if mutation == "wrong_placement" else "inline",
+    )
+    event = SimpleNamespace(
+        attempt_id="attempt",
+        outcome="succeeded",
+        members=(member,),
+    )
+    monkeypatch.setattr(
+        "attest.review.ci.reconcile_delivery_rows",
+        lambda _entries, task_id: ((event,), ()) if task_id == "task" else ((), ()),
+    )
+
+    with pytest.raises(ValueError, match="ci_final|delivery member"):
+        led.surfaced_finding_ids()
 
 
 def test_wontfix_labels_do_not_tighten_alpha(tmp_path) -> None:
@@ -172,10 +514,72 @@ def test_tighten_watermark_blocks_stale_rehalving(tmp_path) -> None:
         led.record_feedback(fid, "wrong")
     alpha, note = led.maybe_tighten_alpha(0.1, enabled=True)
     assert alpha == 0.05 and note is not None
+    led.append(
+        {
+            "kind": "alpha_tightened",
+            "from": 0.1,
+            "to": 0.05,
+            "label_count": 0,
+            "note": "legacy row with semantically wrong label_count",
+        }
+    )
     # same stale window: no further tightening, run after run
     for _ in range(4):
         alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
         assert alpha == 0.05 and note is None
+
+    stale = led.surfaced_precision()
+    led.append(
+        {
+            "kind": "github_comment",
+            "task_id": "current-ci",
+            "phase": "running",
+            "outcome": "posted",
+        }
+    )
+    led.record_review("current-ci", "phantom", ["S"], 0.0, 12.0, "surface")
+    led.record_feedback("phantom", "wrong")
+    alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
+    assert led.surfaced_precision() == stale
+    assert alpha == 0.05 and note is None
+
+    led.record_review("legacy", "fresh", ["S"], 0.0, 12.0, "surface")
+    led.record_feedback("fresh", "wrong")
+    alpha, note = led.maybe_tighten_alpha(alpha, enabled=True)
+    assert alpha == 0.025 and note is not None
+
+
+@pytest.mark.parametrize("bad_count", (True, -1, "12"))
+def test_any_malformed_historical_label_count_fails_closed(
+    tmp_path: Path, bad_count: object
+) -> None:
+    led = Ledger(tmp_path)
+    for index in range(12):
+        finding_id = f"f{index}"
+        led.record_review("t", finding_id, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(finding_id, "wrong")
+    led.append(
+        {
+            "kind": "alpha_tightened",
+            "from": 0.1,
+            "to": 0.05,
+            "label_count": bad_count,
+        }
+    )
+    led.append(
+        {
+            "kind": "alpha_tightened",
+            "from": 0.05,
+            "to": 0.025,
+            "label_count": 12,
+        }
+    )
+    led.record_review("t", "fresh", ["S"], 0.0, 12.0, "surface")
+    led.record_feedback("fresh", "wrong")
+
+    with pytest.raises(ValueError, match="label_count"):
+        led.current_alpha(0.1)
+    assert led.maybe_tighten_alpha(0.025, enabled=True) == (0.025, None)
 
 
 def test_ambiguous_labels_do_not_advance_the_tighten_watermark(tmp_path) -> None:
@@ -301,7 +705,9 @@ def test_record_verification_preserves_identity_and_evidence_without_changing_re
     }
 
 
-def test_final_ci_decisions_drive_surfaced_precision(tmp_path: Path) -> None:
+def test_ci_final_without_delivery_authority_is_not_surfaced_precision(
+    tmp_path: Path,
+) -> None:
     led = Ledger(tmp_path)
     led.record_review("task", "finding", [], 0.01, 4.0, "drawer")
     led.record_ci_final(
@@ -311,4 +717,88 @@ def test_final_ci_decisions_drive_surfaced_precision(tmp_path: Path) -> None:
     )
     led.record_feedback("finding", "good")
 
-    assert led.surfaced_precision() == (1.0, 1)
+    assert led.surfaced_precision() == (None, 0)
+
+
+@pytest.mark.parametrize(
+    ("current_ci", "surfaced_ids", "precision"),
+    ((True, (), (None, 0)), (False, ("finding",), (1.0, 1))),
+)
+def test_only_current_ci_review_surface_requires_delivery_authority(
+    tmp_path: Path,
+    current_ci: bool,
+    surfaced_ids: tuple[str, ...],
+    precision: tuple[float | None, int],
+) -> None:
+    led = Ledger(tmp_path)
+    if current_ci:
+        led.append(
+            {
+                "kind": "github_comment",
+                "task_id": "task",
+                "phase": "running",
+                "outcome": "posted",
+            }
+        )
+    led.record_review("task", "finding", ["S"], 0.01, 40.0, "surface")
+    led.record_feedback("finding", "good")
+
+    assert led.surfaced_finding_ids() == surfaced_ids
+    assert led.surfaced_precision() == precision
+
+
+def test_surfaced_precision_discards_an_equal_tuple_subclass(tmp_path: Path) -> None:
+    class ForgedPopulation(tuple[str, ...]):
+        def __getitem__(self, key: object) -> object:
+            if isinstance(key, slice):
+                return ("f9",) * 10
+            return super().__getitem__(key)  # type: ignore[index]
+
+    led = Ledger(tmp_path)
+    for index in range(10):
+        finding_id = f"f{index}"
+        led.record_review("t", finding_id, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(finding_id, "wrong" if index == 9 else "good")
+    canonical = led.surfaced_finding_ids()
+    forged = ForgedPopulation(canonical)
+    assert forged == canonical
+
+    assert led.surfaced_precision(surfaced_ids=forged) == (pytest.approx(0.9), 10)
+
+
+@pytest.mark.parametrize("bad_to", (True, -1.0, float("nan")))
+def test_current_alpha_rejects_malformed_transitions(
+    tmp_path: Path, bad_to: object
+) -> None:
+    led = Ledger(tmp_path)
+    led.append({"kind": "alpha_tightened", "from": 0.1, "to": bad_to})
+
+    with pytest.raises(ValueError):
+        led.current_alpha(0.1)
+
+
+def test_current_alpha_accepts_exact_factory_chain(tmp_path: Path) -> None:
+    led = Ledger(tmp_path)
+    for start, end in ((0.1, 0.05), (0.05, 0.025), (0.025, 0.0125), (0.0125, 0.01)):
+        led.append({"kind": "alpha_tightened", "from": start, "to": end})
+
+    assert led.current_alpha(0.1) == 0.01
+
+
+def test_current_alpha_ignores_a_valid_chain_for_another_configuration(
+    tmp_path: Path,
+) -> None:
+    led = Ledger(tmp_path)
+    led.append({"kind": "alpha_tightened", "from": 0.1, "to": 0.05})
+
+    assert led.current_alpha(0.2) == 0.2
+
+
+def test_auto_tighten_never_relaxes_alpha_below_the_floor(tmp_path: Path) -> None:
+    led = Ledger(tmp_path)
+    for index in range(12):
+        finding_id = f"f{index}"
+        led.record_review("t", finding_id, ["S"], 0.0, 12.0, "surface")
+        led.record_feedback(finding_id, "wrong")
+
+    assert led.maybe_tighten_alpha(0.005, enabled=True) == (0.005, None)

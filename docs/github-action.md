@@ -1,5 +1,14 @@
 # GitHub Action
 
+> **Current prototype operational guide; non-normative.** The Action is experimental and is
+> not an approved untrusted-code security boundary. Its same-repository path can execute head
+> code in a runner that also receives credentials, and current language-level network/process
+> guards are best-effort. The target controller/executor split and release gates are defined
+> in [`architecture/target-algorithm.md`](architecture/target-algorithm.md) and
+> [`acceptance/evolution-gates.md`](acceptance/evolution-gates.md). Do not infer production
+> readiness from the historical Phase-3 planted-fixture smoke. Target behavior and release
+> authority come only from the linked architecture/gates, not this usage guide.
+
 Use the composite action from a `pull_request` workflow. The included
 [`examples/pull-request.yml`](../examples/pull-request.yml) is a complete starting
 point: it grants only read access to contents and pull-request write access, cancels
@@ -33,9 +42,12 @@ entrypoint receives credentials or runs the review command against head code. Th
 keeps the trusted token and model key out of the fork path; the skip is intentional
 and records no finding.
 
-For trusted pull requests, review and generated reproduction tests run against the
-checked-out head. That code can mutate its ephemeral runner, so do not treat the
-runner as a security boundary for untrusted code.
+For the same-repository path, review and generated reproduction tests run against the
+checked-out head. That code can mutate its ephemeral runner, so this current prototype is
+safe to enable only for owner-controlled branches whose code is already trusted. A
+same-repository contributor branch is still untrusted and must not be treated as protected
+by this runner; production support requires the secretless OS boundary in the target
+architecture.
 
 The Python evidence executor blocks Python socket connections on a best-effort basis.
 This is not global network isolation: hosted runners have no general network-off

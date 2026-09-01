@@ -1,0 +1,37 @@
+{
+  "date": "2026-08-31",
+  "implementation_sha": "7dfdfab44fafaf9c5c4a90ffe1edbd9a1ed022d7",
+  "implementation_dirty_before": false,
+  "implementation_dirty_after": false,
+  "lock_file": "requirements-toolchain.lock",
+  "lock_sha256": "76908dd8dc527b59e95ab856cf67656946a4c1bf8eecbb0d95430a2161341c11",
+  "platform": "macOS 26.5.2 (build 25F84) / Darwin 25.5.0 / arm64",
+  "install_mode": "fresh detached checkout and venv; offline --no-index local wheelhouse; locked dependencies; editable project with --no-deps --no-build-isolation",
+  "wheelhouse_inventory_digest_method": "cd <wheelhouse> && shasum -a 256 * | shasum -a 256",
+  "wheelhouse_inventory_sha256": "65e07106d4b90c72b204012a1bbec7cf78f6866c815312cbb9db620a3131c325",
+  "environments": [
+    {
+      "interpreter_id": "cpython-3.11.5-darwin-arm64",
+      "interpreter_path": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11",
+      "environment_sha256": "a2db048e977ee7846607d282992c9e67a2e549a444f29d94c276ab96bc84c565",
+      "code_sha256": "66979a3b69632e20ae3fc572adf0134e674a65891a3071b4c85cb297d0a7ef1f",
+      "freeze_sha256": "ebb3d6b4f6df08a312d48ef5b588a4863b6f415f88a5b72fabe3ada5e14d1587",
+      "install_log_sha256": "8c03c92cdf523c3e799a8d22222dcfb255a14c0301434d2b5b3b8189afa61dc4",
+      "full_gate_log_sha256": "b1b4e41da85987a355c88d06ccfbe5466ec16ce048aaa8cfe1b04cd0b42596f6",
+      "include_system_site_packages": false
+    },
+    {
+      "interpreter_id": "cpython-3.12.8-darwin-arm64",
+      "interpreter_path": "/opt/homebrew/bin/python3.12",
+      "environment_sha256": "b505be2eaf33a0b45c6986bd6fecd167ffc806a62bcb566567a9b97a1bb42bf9",
+      "code_sha256": "66979a3b69632e20ae3fc572adf0134e674a65891a3071b4c85cb297d0a7ef1f",
+      "freeze_sha256": "7d1109d13bc8dea5be726364340766061ac7194ad9ce8dc66d9a28dca4d3333b",
+      "install_log_sha256": "7c02a300b833b15135533c45f1b633866f6c963b0fd9a0dc196358429ae1d4d1",
+      "full_gate_log_sha256": "ab1be95bae65ba0e862b08dd9dfb2217dc23c93e6df7ad38d474a5309b6526ba",
+      "include_system_site_packages": false
+    }
+  ],
+  "paid_actions": "none",
+  "remote_mutations": "none",
+  "provider_network_calls": "none"
+}

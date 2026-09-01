@@ -10,16 +10,21 @@ also the label source for the alpha auto-tighten rule and, eventually
 from __future__ import annotations
 
 import json
+import math
 import os
+import stat
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 ALPHA_FLOOR = 0.01
 PRECISION_TARGET = 0.90
 PRECISION_WINDOW = 50
 _SECRET_NAME_PARTS = ("TOKEN", "SECRET", "PASSWORD", "API_KEY", "CREDENTIAL")
+_MAX_DURABLE_LEDGER_BYTES = 64 * 1024 * 1024
+_MAX_DURABLE_LEDGER_ROW_BYTES = 1024 * 1024
 
 # feedback label -> precision polarity. "ambiguous" labels are excluded from
 # both the numerator and denominator of surfaced_precision (see
@@ -32,22 +37,357 @@ _LABEL_POLARITY: dict[str, str] = {
     "dismiss": "ambiguous",
 }
 _AMBIGUOUS_POLARITY = "ambiguous"
+_DELIVERY_KINDS = {
+    "delivery_attempt_intent",
+    "delivery_attempt_settlement",
+    "delivery_journal_finalization",
+}
+
+
+def _require_row_fields(
+    entry: dict[str, Any], required: set[str], optional: set[str] | None = None
+) -> None:
+    allowed = required | (set() if optional is None else optional)
+    if not required <= set(entry) <= allowed:
+        raise ValueError(f"{entry.get('kind', 'ledger')} row has an invalid field set")
+    for field in ("ts", "kind"):
+        if field in required and (type(entry[field]) is not str or not entry[field]):
+            raise ValueError(f"ledger {field} must be a non-empty exact string")
+
+
+def _required_string(entry: dict[str, Any], field: str) -> str:
+    value = entry.get(field)
+    if type(value) is not str or not value:
+        raise ValueError(f"ledger {field} must be a non-empty exact string")
+    return value
+
+
+def _require_finite_nonnegative(value: object, field: str) -> None:
+    if type(value) not in {int, float}:
+        raise ValueError(f"ledger {field} must be a finite non-negative number")
+    number = float(cast(int | float, value))
+    if not math.isfinite(number) or number < 0:
+        raise ValueError(f"ledger {field} must be a finite non-negative number")
+
+
+def _require_label_count(entry: Mapping[str, Any]) -> None:
+    if "label_count" in entry:
+        value = entry["label_count"]
+        if type(value) is not int or value < 0:
+            raise ValueError("alpha label_count must be an exact non-negative integer")
+
+
+def _parse_ci_final_decisions(
+    decisions: object, *, allow_legacy_placement: bool
+) -> tuple[dict[str, Any], ...]:
+    if type(decisions) is not list:
+        raise ValueError("ci_final decisions must be an exact list")
+    base_fields = {"finding_id", "action", "wealth_final"}
+    current_fields = base_fields | {"placement"}
+    allowed_placements = {
+        "surface": {"inline", "overflow"},
+        "drawer": {"drawer"},
+        "discard": {"discard"},
+    }
+    parsed: list[dict[str, Any]] = []
+    finding_ids: set[str] = set()
+    for decision in decisions:
+        if type(decision) is not dict or (
+            set(decision) != current_fields
+            and not (allow_legacy_placement and set(decision) == base_fields)
+        ):
+            raise ValueError("ci_final decision fields are invalid")
+        finding_id = _required_string(decision, "finding_id")
+        if finding_id in finding_ids:
+            raise ValueError("duplicate ci_final finding_id")
+        action = _required_string(decision, "action")
+        if action not in allowed_placements:
+            raise ValueError("ci_final action is invalid")
+        if "placement" in decision:
+            placement = _required_string(decision, "placement")
+            if placement not in allowed_placements[action]:
+                raise ValueError("ci_final action does not match its placement")
+        _require_finite_nonnegative(decision["wealth_final"], "ci_final wealth_final")
+        finding_ids.add(finding_id)
+        parsed.append(dict(decision))
+    return tuple(parsed)
+
+
+def _parse_ci_final_row(
+    entry: object, *, allow_legacy_placement: bool
+) -> tuple[str, tuple[dict[str, Any], ...]]:
+    if type(entry) is not dict:
+        raise ValueError("ci_final row must be an exact object")
+    row = cast(dict[str, Any], entry)
+    _require_row_fields(
+        row,
+        {"ts", "kind", "task_id", "decisions", "spend_usd"},
+        {"elapsed_s"},
+    )
+    task_id = _required_string(row, "task_id")
+    decisions = _parse_ci_final_decisions(
+        row["decisions"], allow_legacy_placement=allow_legacy_placement
+    )
+    _require_finite_nonnegative(row["spend_usd"], "spend_usd")
+    if "elapsed_s" in row:
+        _require_finite_nonnegative(row["elapsed_s"], "elapsed_s")
+    return task_id, decisions
+
+
+def ci_final_decisions_from_rows(
+    ledger_rows: Sequence[Mapping[str, Any]], task_id: str
+) -> tuple[dict[str, Any], ...]:
+    """Decode one exact current-schema ci_final row from a frozen snapshot."""
+
+    rows = [
+        row
+        for row in ledger_rows
+        if row.get("kind") == "ci_final" and row.get("task_id") == task_id
+    ]
+    if not rows:
+        return ()
+    if len(rows) != 1:
+        raise ValueError("duplicate ci_final rows for task")
+    _parsed_task_id, decisions = _parse_ci_final_row(
+        rows[0], allow_legacy_placement=False
+    )
+    return decisions
 
 
 def _label_polarity(entry: dict[str, Any]) -> str:
     """Precision polarity of one feedback row, re-deriving it for older ledger
-    rows written before `label_polarity` was recorded. Unknown labels are
-    treated as ambiguous: they may never be counted as true or false."""
-    recorded = entry.get("label_polarity")
-    if isinstance(recorded, str):
-        return recorded
-    return _LABEL_POLARITY.get(str(entry.get("feedback", "")), _AMBIGUOUS_POLARITY)
+    rows written before `label_polarity` was recorded."""
+    _require_row_fields(
+        entry,
+        {"ts", "kind", "finding_id", "feedback"},
+        {"label_polarity"},
+    )
+    _required_string(entry, "finding_id")
+    feedback = entry.get("feedback")
+    if type(feedback) is not str or feedback not in _LABEL_POLARITY:
+        raise ValueError("feedback label is invalid")
+    derived = _LABEL_POLARITY[feedback]
+    if "label_polarity" not in entry:
+        return derived
+    recorded = entry["label_polarity"]
+    if type(recorded) is not str or recorded not in {
+        "true",
+        "false",
+        _AMBIGUOUS_POLARITY,
+    }:
+        raise ValueError("feedback label_polarity is invalid")
+    if recorded != derived:
+        raise ValueError("feedback label_polarity contradicts feedback")
+    return recorded
 
 
-def _watermark(tighten_entry: dict[str, Any]) -> int:
-    """The label count an alpha_tightened row was recorded at."""
-    value = tighten_entry.get("label_count")
-    return value if isinstance(value, int) else 0
+def _surfaced_projection(
+    entries: list[dict[str, Any]],
+) -> tuple[tuple[str, ...], dict[str, int]]:
+    """Return surfaced order and each finding's first author-visible row."""
+
+    from attest.review.ci import reconcile_delivery_rows
+
+    final_rows: dict[str, tuple[int, dict[str, Any], tuple[dict[str, Any], ...]]] = {}
+    delivery_tasks: set[str] = set()
+    first_delivery_intent: dict[str, int] = {}
+    comment_tasks: set[str] = set()
+    for index, entry in enumerate(entries):
+        kind = entry.get("kind")
+        if kind == "ci_final":
+            task_id, decisions = _parse_ci_final_row(
+                entry, allow_legacy_placement=True
+            )
+            if task_id in final_rows:
+                raise ValueError("duplicate ci_final rows for task")
+            final_rows[task_id] = (index, entry, decisions)
+        elif kind == "github_comment":
+            _require_row_fields(
+                entry,
+                {"ts", "kind", "task_id", "phase", "outcome"},
+                {"reason"},
+            )
+            task_id = _required_string(entry, "task_id")
+            phase = _required_string(entry, "phase")
+            if phase not in {"running", "candidate_count", "review", "complete", "defer"}:
+                raise ValueError("github_comment phase is invalid")
+            if type(entry["outcome"]) is not str or entry["outcome"] not in {
+                "posted",
+                "failed",
+            }:
+                raise ValueError("github_comment outcome is invalid")
+            reason = entry.get("reason")
+            if entry["outcome"] == "failed":
+                if type(reason) is not str or not reason:
+                    raise ValueError("failed github_comment requires an exact reason")
+            elif "reason" in entry:
+                raise ValueError("posted github_comment cannot carry a reason")
+            comment_tasks.add(task_id)
+        elif kind in _DELIVERY_KINDS:
+            task_id = _required_string(entry, "task_id")
+            delivery_tasks.add(task_id)
+            if kind == "delivery_attempt_intent":
+                first_delivery_intent.setdefault(task_id, index)
+    ci_tasks = set(final_rows) | delivery_tasks | comment_tasks
+    delivered_by_attempt: dict[tuple[str, str], tuple[str, ...]] = {}
+    for task_id in delivery_tasks:
+        publication_events, _task_events = reconcile_delivery_rows(entries, task_id)
+        final_row = final_rows.get(task_id)
+        if final_row is not None:
+            final_index, row, _legacy_decisions = final_row
+            first_intent = first_delivery_intent.get(task_id)
+            if first_intent is not None and final_index >= first_intent:
+                raise ValueError("ci_final must precede its first delivery intent")
+            _parsed_task_id, current_decisions = _parse_ci_final_row(
+                row, allow_legacy_placement=False
+            )
+            expected_members = {
+                str(decision["finding_id"]): str(decision["placement"])
+                for decision in current_decisions
+                if decision["action"] == "surface"
+            }
+        else:
+            expected_members = {}
+        for event in publication_events:
+            for finding_id, placement in event.members:
+                if expected_members.get(finding_id) != placement:
+                    raise ValueError(
+                        "delivery member does not match its ci_final surface decision"
+                    )
+            if event.outcome == "succeeded":
+                delivered_by_attempt[(task_id, event.attempt_id)] = tuple(
+                    finding_id for finding_id, _placement in event.members
+                )
+    surfaced_ids: list[str] = []
+    first_surface: dict[str, int] = {}
+    for index, entry in enumerate(entries):
+        finding_ids: tuple[str, ...] = ()
+        if entry.get("kind") == "delivery_attempt_settlement":
+            finding_ids = delivered_by_attempt.get(
+                (
+                    str(entry.get("task_id", "")),
+                    str(entry.get("attempt_id", "")),
+                ),
+                (),
+            )
+        elif entry.get("kind") == "review":
+            _require_row_fields(
+                entry,
+                {
+                    "ts",
+                    "kind",
+                    "task_id",
+                    "finding_id",
+                    "channels_bought",
+                    "spend",
+                    "wealth_final",
+                    "action",
+                },
+            )
+            task_id = _required_string(entry, "task_id")
+            finding_id = _required_string(entry, "finding_id")
+            action = _required_string(entry, "action")
+            channels = entry["channels_bought"]
+            if (
+                type(channels) is not list
+                or any(type(item) is not str or item not in {"S", "T", "V"} for item in channels)
+                or len(set(channels)) != len(channels)
+            ):
+                raise ValueError("review channels_bought must be an exact string list")
+            _require_finite_nonnegative(entry["spend"], "spend")
+            _require_finite_nonnegative(entry["wealth_final"], "wealth_final")
+            if action not in {
+                "discard",
+                "drawer",
+                "surface",
+                "overflow_surface",
+                "verified_discard",
+                "verified_drawer",
+                "verified_surface",
+            }:
+                raise ValueError("review action is invalid")
+            if action.endswith("surface") and not channels:
+                raise ValueError("surfaced review must contain an evidence channel")
+            if action.endswith("surface") and task_id not in ci_tasks:
+                finding_ids = (finding_id,)
+        for finding_id in finding_ids:
+            if finding_id in surfaced_ids:
+                surfaced_ids.remove(finding_id)
+            if finding_id:
+                first_surface.setdefault(finding_id, index)
+                surfaced_ids.append(finding_id)
+    return tuple(surfaced_ids), first_surface
+
+
+def _surfaced_finding_ids(entries: list[dict[str, Any]]) -> tuple[str, ...]:
+    """Return the ordered, de-duplicated author-visible finding population."""
+
+    return _surfaced_projection(entries)[0]
+
+
+def _labeled_surfaced(
+    entries: list[dict[str, Any]],
+    surfaced_ids: tuple[str, ...],
+    first_surface: dict[str, int],
+    *,
+    window: int | None = None,
+) -> tuple[tuple[str, str], ...]:
+    """Project latest labels written after first author-visible delivery."""
+
+    population = surfaced_ids if window is None else surfaced_ids[-window:]
+    included = set(population)
+    polarities: dict[str, str] = {}
+    for index, entry in enumerate(entries):
+        finding_id = str(entry.get("finding_id", ""))
+        if (
+            entry.get("kind") != "feedback"
+            or finding_id not in included
+            or index <= first_surface[finding_id]
+        ):
+            continue
+        polarities[finding_id] = _label_polarity(entry)
+    return tuple(
+        (finding_id, polarities[finding_id])
+        for finding_id in population
+        if finding_id in polarities
+        and polarities[finding_id] != _AMBIGUOUS_POLARITY
+    )
+
+
+def _watermark(
+    entries: list[dict[str, Any]], tighten_index: int
+) -> tuple[tuple[str, str], ...] | None:
+    """Reconstruct the rolling precision population at one tightening."""
+
+    try:
+        for tighten_entry in entries[: tighten_index + 1]:
+            if tighten_entry.get("kind") == "alpha_tightened":
+                _require_label_count(tighten_entry)
+    except ValueError:
+        return None
+    prefix = entries[:tighten_index]
+    try:
+        surfaced_ids, first_surface = _surfaced_projection(prefix)
+        labeled = _labeled_surfaced(
+            prefix,
+            surfaced_ids,
+            first_surface,
+            window=PRECISION_WINDOW,
+        )
+        return tuple(sorted(labeled))
+    except ValueError:
+        return None
+
+
+def _alpha_number(value: object, context: str) -> float:
+    """Require one exact finite alpha in the configured legal range."""
+
+    if type(value) not in {int, float}:
+        raise ValueError(f"{context} must be finite and in (0, 1)")
+    number = float(cast(int | float, value))
+    if not math.isfinite(number) or not 0 < number < 1:
+        raise ValueError(f"{context} must be finite and in (0, 1)")
+    return number
 
 
 def _known_secrets() -> tuple[str, ...]:
@@ -70,6 +410,56 @@ def _redact(value: Any, secrets: tuple[str, ...]) -> Any:
     return value
 
 
+def redact_known_secrets(value: Any) -> Any:
+    """Redact credential values already present in this process environment."""
+
+    return _redact(value, _known_secrets())
+
+
+def _strict_object_pairs(rows: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in rows:
+        if key in value:
+            raise ValueError("duplicate JSON key")
+        value[key] = item
+    return value
+
+
+def _reject_nonfinite_constant(_: str) -> object:
+    raise ValueError("non-finite JSON number")
+
+
+def _require_finite_json(value: object) -> None:
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError("strict ledger contains a non-finite JSON number")
+    if isinstance(value, list):
+        for item in value:
+            _require_finite_json(item)
+    elif isinstance(value, dict):
+        for item in value.values():
+            _require_finite_json(item)
+
+
+def _open_directory_path(path: Path, flags: int) -> int:
+    """Open every absolute path component without following an ancestor symlink."""
+
+    absolute = path if path.is_absolute() else Path.cwd() / path
+    descriptors: list[int] = []
+    try:
+        current = os.open("/", flags)
+        descriptors.append(current)
+        for component in absolute.parts[1:]:
+            current = os.open(component, flags, dir_fd=current)
+            descriptors.append(current)
+    except OSError as exc:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+        raise ValueError("strict ledger path contains a symlink or unsafe ancestor") from exc
+    for descriptor in descriptors[:-1]:
+        os.close(descriptor)
+    return descriptors[-1]
+
+
 @dataclass
 class Ledger:
     root: Path  # repo root; entries live in root/.attest/ledger.jsonl
@@ -80,12 +470,88 @@ class Ledger:
 
     def append(self, entry: dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        entry = _redact(
-            {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **entry},
-            _known_secrets(),
+        entry = redact_known_secrets(
+            {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **entry}
         )
         with self.path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+    def append_durable(self, entry: dict[str, Any]) -> None:
+        """Durably append one security-critical row under a single-writer contract."""
+        if not all(
+            hasattr(os, name) and type(getattr(os, name)) is int
+            for name in ("O_CLOEXEC", "O_DIRECTORY", "O_NOFOLLOW")
+        ):
+            raise ValueError("durable ledger filesystem capabilities are unavailable")
+        redacted = redact_known_secrets(
+            {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), **entry}
+        )
+        try:
+            data = (
+                json.dumps(redacted, ensure_ascii=False, allow_nan=False) + "\n"
+            ).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            raise ValueError("durable ledger row is not finite JSON") from exc
+        if not 1 <= len(data) <= _MAX_DURABLE_LEDGER_ROW_BYTES:
+            raise ValueError("durable ledger row exceeds the size limit")
+
+        root_descriptor: int | None = None
+        parent_descriptor: int | None = None
+        file_descriptor: int | None = None
+        try:
+            directory_flags = (
+                os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+            )
+            root_descriptor = _open_directory_path(self.root, directory_flags)
+            created_parent = False
+            try:
+                os.mkdir(".attest", mode=0o700, dir_fd=root_descriptor)
+                created_parent = True
+            except FileExistsError:
+                pass
+            parent_descriptor = os.open(
+                ".attest", directory_flags, dir_fd=root_descriptor
+            )
+            if created_parent:
+                os.fsync(root_descriptor)
+
+            append_flags = os.O_WRONLY | os.O_APPEND | os.O_CLOEXEC | os.O_NOFOLLOW
+            created_file = False
+            try:
+                file_descriptor = os.open(
+                    "ledger.jsonl", append_flags, dir_fd=parent_descriptor
+                )
+            except FileNotFoundError:
+                file_descriptor = os.open(
+                    "ledger.jsonl",
+                    append_flags | os.O_CREAT | os.O_EXCL,
+                    0o600,
+                    dir_fd=parent_descriptor,
+                )
+                created_file = True
+            metadata = os.fstat(file_descriptor)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_nlink != 1
+                or metadata.st_size < 0
+                or metadata.st_size + len(data) > _MAX_DURABLE_LEDGER_BYTES
+            ):
+                raise ValueError(
+                    "durable ledger must be a bounded single-link regular file"
+                )
+            remaining = memoryview(data)
+            while remaining:
+                written = os.write(file_descriptor, remaining)
+                if written <= 0:
+                    raise OSError("short durable ledger write")
+                remaining = remaining[written:]
+            os.fsync(file_descriptor)
+            if created_file:
+                os.fsync(parent_descriptor)
+        finally:
+            for descriptor in (file_descriptor, parent_descriptor, root_descriptor):
+                if descriptor is not None:
+                    os.close(descriptor)
 
     def entries(self) -> list[dict[str, Any]]:
         if not self.path.is_file():
@@ -101,6 +567,115 @@ class Ledger:
                 except json.JSONDecodeError:
                     continue
         return out
+
+    def entries_strict(self) -> list[dict[str, Any]]:
+        """Fresh same-FD snapshot for current measurement authority.
+
+        Historical readers retain ``entries``.  Current outcome construction
+        rejects malformed, duplicate-key, non-finite, linked, or racing ledger
+        bytes instead of silently skipping them.
+        """
+
+        required = ("O_CLOEXEC", "O_DIRECTORY", "O_NOFOLLOW", "O_NONBLOCK")
+        if any(
+            not hasattr(os, name)
+            or type(getattr(os, name)) is not int
+            or getattr(os, name) == 0
+            for name in required
+        ):
+            raise ValueError("strict ledger filesystem capabilities are unavailable")
+        descriptors: list[int] = []
+        try:
+            directory_flags = (
+                os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+            )
+            root_descriptor = _open_directory_path(self.root, directory_flags)
+            descriptors.append(root_descriptor)
+            try:
+                parent_descriptor = os.open(
+                    ".attest", directory_flags, dir_fd=root_descriptor
+                )
+            except FileNotFoundError:
+                return []
+            descriptors.append(parent_descriptor)
+            try:
+                file_descriptor = os.open(
+                    "ledger.jsonl",
+                    os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK,
+                    dir_fd=parent_descriptor,
+                )
+            except FileNotFoundError:
+                return []
+            descriptors.append(file_descriptor)
+            before = os.fstat(file_descriptor)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_nlink != 1
+                or not 0 <= before.st_size <= _MAX_DURABLE_LEDGER_BYTES
+            ):
+                raise ValueError("strict ledger must be a bounded single-link regular file")
+            chunks: list[bytes] = []
+            remaining = before.st_size
+            while remaining:
+                chunk = os.read(file_descriptor, min(remaining, 64 * 1024))
+                if not chunk:
+                    raise ValueError("strict ledger changed while it was read")
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            if os.read(file_descriptor, 1):
+                raise ValueError("strict ledger grew while it was read")
+            after = os.fstat(file_descriptor)
+            if (
+                before.st_dev,
+                before.st_ino,
+                before.st_mode,
+                before.st_nlink,
+                before.st_size,
+                before.st_mtime_ns,
+                before.st_ctime_ns,
+            ) != (
+                after.st_dev,
+                after.st_ino,
+                after.st_mode,
+                after.st_nlink,
+                after.st_size,
+                after.st_mtime_ns,
+                after.st_ctime_ns,
+            ):
+                raise ValueError("strict ledger changed while it was read")
+            data = b"".join(chunks)
+        except OSError as exc:
+            raise ValueError("strict ledger path is missing or unsafe") from exc
+        finally:
+            for descriptor in reversed(descriptors):
+                os.close(descriptor)
+        if not data:
+            return []
+        if not data.endswith(b"\n"):
+            raise ValueError("strict ledger contains a truncated JSON row")
+        entries: list[dict[str, Any]] = []
+        for encoded_line in data.splitlines(keepends=True):
+            if len(encoded_line) > _MAX_DURABLE_LEDGER_ROW_BYTES:
+                raise ValueError("strict ledger row exceeds the size limit")
+            if encoded_line == b"\n":
+                raise ValueError("strict ledger contains an empty row")
+            try:
+                line = encoded_line[:-1].decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError("strict ledger is not UTF-8 JSON") from exc
+            try:
+                value = json.loads(
+                    line,
+                    object_pairs_hook=_strict_object_pairs,
+                    parse_constant=_reject_nonfinite_constant,
+                )
+            except (json.JSONDecodeError, ValueError) as exc:
+                raise ValueError("strict ledger contains malformed JSON") from exc
+            if type(value) is not dict:
+                raise ValueError("strict ledger row must be an exact object")
+            _require_finite_json(value)
+            entries.append(value)
+        return entries
 
     def record_review(
         self,
@@ -171,6 +746,7 @@ class Ledger:
         base_runs: list[str] | None = None,
         repeats: int | None = None,
         evidence_class: str | None = None,
+        run_evidence: list[dict[str, object]] | None = None,
     ) -> None:
         entry: dict[str, Any] = {
             "kind": "verification",
@@ -190,6 +766,7 @@ class Ledger:
             "base_runs": base_runs,
             "repeats": repeats,
             "evidence_class": evidence_class,
+            "run_evidence": run_evidence,
         }
         entry.update(
             {name: value for name, value in differential_fields.items() if value is not None}
@@ -215,84 +792,90 @@ class Ledger:
             entry["elapsed_s"] = round(elapsed_s, 2)
         self.append(entry)
 
-    def surfaced_precision(self, window: int = PRECISION_WINDOW) -> tuple[float | None, int]:
+    def surfaced_precision(
+        self,
+        window: int = PRECISION_WINDOW,
+        *,
+        entries: list[dict[str, Any]] | None = None,
+        surfaced_ids: tuple[str, ...] | None = None,
+    ) -> tuple[float | None, int]:
         """Precision over the last `window` surfaced findings that have
         feedback labels. Returns (precision or None, n_labeled)."""
-        entries = self.entries()
-        final_tasks = {
-            str(e["task_id"])
-            for e in entries
-            if e.get("kind") == "ci_final" and isinstance(e.get("task_id"), str)
-        }
-        surfaced_ids: list[str] = []
-        for e in entries:
-            if e.get("kind") == "ci_final":
-                for decision in e.get("decisions", []):
-                    if isinstance(decision, dict) and decision.get("action") == "surface":
-                        fid = str(decision.get("finding_id", ""))
-                        if fid in surfaced_ids:
-                            surfaced_ids.remove(fid)
-                        if fid:
-                            surfaced_ids.append(fid)
-            if e.get("kind") == "review" and str(e.get("action", "")).endswith("surface"):
-                if str(e.get("task_id", "")) in final_tasks:
-                    continue
-                fid = e["finding_id"]
-                if fid in surfaced_ids:  # re-verification must not double-count
-                    surfaced_ids.remove(fid)
-                surfaced_ids.append(fid)
-        polarities: dict[str, str] = {}
-        for e in entries:
-            if e.get("kind") == "feedback":
-                polarities[e["finding_id"]] = _label_polarity(e)
+        if type(window) is not int or window <= 0:
+            raise ValueError("precision window must be an exact positive integer")
+        entries = self.entries_strict() if entries is None else entries
+        canonical_ids, first_surface = _surfaced_projection(entries)
+        if surfaced_ids is None:
+            surfaced_ids = canonical_ids
+        elif surfaced_ids != canonical_ids:
+            raise ValueError("surfaced finding population does not match ledger evidence")
+        else:
+            surfaced_ids = canonical_ids
         # ambiguous labels (legacy 'dismiss') are excluded from BOTH the
         # numerator and the denominator -- never silently counted as either
         # a true or a false label.
-        labeled = [
-            (fid, polarities[fid])
-            for fid in surfaced_ids[-window:]
-            if fid in polarities and polarities[fid] != _AMBIGUOUS_POLARITY
-        ]
+        labeled = _labeled_surfaced(
+            entries, surfaced_ids, first_surface, window=window
+        )
         if not labeled:
             return None, 0
         precision = sum(1 for _, polarity in labeled if polarity == "true") / len(labeled)
         return precision, len(labeled)
 
+    def surfaced_finding_ids(
+        self, entries: list[dict[str, Any]] | None = None
+    ) -> tuple[str, ...]:
+        """Return the exact finding population used by surfaced precision."""
+
+        return _surfaced_finding_ids(
+            self.entries_strict() if entries is None else entries
+        )
+
     def maybe_tighten_alpha(self, alpha: float, enabled: bool) -> tuple[float, str | None]:
         """MVP auto-tighten rule: rolling surfaced precision < 90% (with at
         least 10 labels) halves alpha, floored at 0.01. Recorded in the ledger
-        (`label_count` is the watermark: precision-bearing labels only);
+        (`label_count` is the precision-bearing population snapshot);
         configurable off."""
         if not enabled:
             return alpha, None
-        entries = self.entries()
-        # Only labels that can MOVE surfaced precision count toward the
-        # watermark. Ambiguous (legacy 'dismiss') labels are excluded from the
-        # precision ratio, so counting them here advanced the watermark while
-        # leaving the precision figure untouched -- which re-opened the gate on
-        # a stale window and let alpha be halved again, once per dismissal, all
-        # the way to the floor.
-        n_labels = sum(
-            1
-            for e in entries
-            if e.get("kind") == "feedback" and _label_polarity(e) != _AMBIGUOUS_POLARITY
+        entries = self.entries_strict()
+        surfaced_ids, first_surface = _surfaced_projection(entries)
+        all_labeled = _labeled_surfaced(entries, surfaced_ids, first_surface)
+        rolling_labeled = _labeled_surfaced(
+            entries,
+            surfaced_ids,
+            first_surface,
+            window=PRECISION_WINDOW,
         )
-        last_tighten = next(
-            (e for e in reversed(entries) if e.get("kind") == "alpha_tightened"), None
+        precision_state = tuple(sorted(rolling_labeled))
+        last_tighten_index = next(
+            (
+                index
+                for index in range(len(entries) - 1, -1, -1)
+                if entries[index].get("kind") == "alpha_tightened"
+            ),
+            None,
         )
-        # watermark: never re-halve on the same stale label window — a new
-        # tightening needs at least one precision-bearing label recorded since
-        # the last one. The comparison is `<=` rather than `==` so that rows
-        # written before this count excluded ambiguous labels (whose recorded
-        # count was every feedback row, hence never smaller) still block rather
-        # than admit a stale re-halving.
-        if last_tighten is not None and n_labels <= _watermark(last_tighten):
-            return alpha, None
-        precision, n = self.surfaced_precision()
+        # Watermark: never re-halve on the same rolling precision population.
+        # Reconstructing it from the historical prefix avoids trusting the
+        # legacy label_count field and keeps the gate aligned with the window.
+        if last_tighten_index is not None:
+            watermark = _watermark(entries, last_tighten_index)
+            if watermark is None or precision_state == watermark:
+                return alpha, None
+        n = len(rolling_labeled)
+        precision = (
+            None
+            if not rolling_labeled
+            else sum(
+                polarity == "true" for _finding_id, polarity in rolling_labeled
+            )
+            / n
+        )
         if precision is None or n < 10 or precision >= PRECISION_TARGET:
             return alpha, None
         new_alpha = max(ALPHA_FLOOR, alpha / 2)
-        if new_alpha == alpha:
+        if new_alpha >= alpha:
             return alpha, None
         note = (
             f"precision {precision:.2f} over last {n} labeled surfaced findings "
@@ -303,7 +886,7 @@ class Ledger:
                 "kind": "alpha_tightened",
                 "from": alpha,
                 "to": new_alpha,
-                "label_count": n_labels,
+                "label_count": len(all_labeled),
                 "note": note,
             }
         )
@@ -311,8 +894,16 @@ class Ledger:
 
     def current_alpha(self, configured: float) -> float:
         """Configured alpha, overridden by any recorded tightenings."""
-        alpha = configured
-        for e in self.entries():
-            if e.get("kind") == "alpha_tightened" and e.get("from") == alpha:
-                alpha = float(e["to"])
+        alpha = _alpha_number(configured, "configured alpha")
+        for e in self.entries_strict():
+            if e.get("kind") != "alpha_tightened":
+                continue
+            _require_label_count(e)
+            start = _alpha_number(e.get("from"), "alpha transition from")
+            end = _alpha_number(e.get("to"), "alpha transition to")
+            expected = max(ALPHA_FLOOR, start / 2)
+            if end != expected or end >= start:
+                raise ValueError("alpha transition violates the factory tightening chain")
+            if start == alpha:
+                alpha = end
         return alpha

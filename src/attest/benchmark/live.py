@@ -46,12 +46,45 @@ from pathlib import Path
 from typing import Any
 
 from attest.benchmark.api import (
+    ABSENT_BINDING_SHA256,
+    ProjectEvaluationBinding,
     ProjectEvaluationRequest,
     ProjectEvaluationResult,
+    build_evaluation_binding,
+    current_runtime_identity,
     evaluate_project,
+    freeze_evaluation_request,
+    require_manifest_evaluation_request,
+    require_prebuilt_evaluation_binding,
 )
-from attest.benchmark.corpus import ValidationReceipt
+from attest.benchmark.checkpoints import (
+    CALL_ROLE_BENCHMARK_ORACLE,
+    CALL_ROLE_PRODUCT,
+    CALL_ROLES,
+    CheckpointedProvider,
+    PaidCallTotals,
+    paid_call_totals,
+)
+from attest.benchmark.corpus import (
+    ValidationReceipt,
+    ValidationReceiptV2,
+    ValidationVerification,
+    validation_receipt_binding_bytes,
+)
 from attest.benchmark.matcher import match_findings
+from attest.benchmark.measurement import (
+    ARM_ATTEST_PRODUCT,
+    AccuracyStatus,
+    FindingAuthority,
+    MeasurementRecord,
+    MeasurementSummary,
+    StopKind,
+    TaskStatus,
+    TruthStatus,
+    decode_measurement_record,
+    measurement_summary_payload,
+    reduce_measurements,
+)
 from attest.benchmark.metrics import wilson_interval
 from attest.benchmark.report import (
     LIVE_MODE,
@@ -59,6 +92,7 @@ from attest.benchmark.report import (
     BenchmarkRunReport,
     ReportAbstention,
     ReportExclusion,
+    _gated_outcome_accounting,
     build_report,
 )
 from attest.benchmark.schema import (
@@ -68,11 +102,12 @@ from attest.benchmark.schema import (
     RunRecord,
     TruthDefect,
     is_scored_placement,
+    require_manifest_binding,
 )
-from attest.review.proposer import Provider
+from attest.review.proposer import Provider, ProviderResult
 
-LIVE_SCHEMA_VERSION = "1"
-CALIBRATION_SCHEMA_VERSION = "1"
+LIVE_SCHEMA_VERSION = "5"
+CALIBRATION_SCHEMA_VERSION = "5"
 CALIBRATION_JSON_NAME = "calibration.json"
 CALIBRATION_MARKDOWN_NAME = "calibration.md"
 
@@ -170,8 +205,16 @@ def read_devspend(path: Path) -> tuple[float, float]:
             "'**Total API spend: $X of $Y.**' line; refusing to reserve paid "
             "budget without a trustworthy total"
         )
-    total, cap = matches[0]
-    return float(total), float(cap)
+    total_text, cap_text = matches[0]
+    total = float(total_text)
+    cap = float(cap_text)
+    if not math.isfinite(total) or not math.isfinite(cap):
+        raise ValueError("development spend total and cap must be finite numbers")
+    if total < 0 or cap <= 0 or total > cap:
+        raise ValueError(
+            "development spend must have total >= 0, cap > 0, and total <= cap"
+        )
+    return total, cap
 
 
 def preflight_live(
@@ -223,11 +266,20 @@ def preflight_live(
         )
     reserved_total = 0.0
     for budget in case_budgets_usd:
-        if not math.isfinite(budget) or budget < 0:
-            raise ValueError("every case budget must be a finite non-negative amount")
+        if (
+            isinstance(budget, bool)
+            or not isinstance(budget, (int, float))
+            or not math.isfinite(budget)
+            or budget <= 0
+        ):
+            raise ValueError("every case budget must be a finite positive amount")
         reserved_total += budget
+    if not math.isfinite(reserved_total):
+        raise ValueError("reserved total must remain finite")
     total, cap = read_devspend(devspend_path)
     headroom = cap - total - reserved_total
+    if not math.isfinite(headroom):
+        raise ValueError("development-cap headroom must remain finite")
     if headroom < 0:
         raise LivePreflightError(
             REASON_INSUFFICIENT_HEADROOM,
@@ -270,19 +322,32 @@ class LiveCase:
 
     request: ProjectEvaluationRequest
     source_id: str
+    binding: ProjectEvaluationBinding | None = None
 
 
 def reserved_case_budget_usd(request: ProjectEvaluationRequest) -> float:
-    """The pre-call reservation for one case: product budget, doubled when a
-    truth reference means the independent benchmark oracle will also spend."""
+    """Reserve product cost, plus oracle cost only for non-empty positive truth."""
     budget = request.config.budget_usd
-    return budget * 2.0 if request.truth is not None else budget
+    if (
+        isinstance(budget, bool)
+        or not isinstance(budget, (int, float))
+        or not math.isfinite(budget)
+        or budget <= 0
+    ):
+        raise ValueError("live case budget must be a finite positive number")
+    reserved = budget * (
+        2.0 if request.truth is not None and request.truth.defects else 1.0
+    )
+    if not math.isfinite(reserved) or reserved <= 0:
+        raise ValueError("live case reservation must be finite and positive")
+    return reserved
 
 
 def case_payload(result: ProjectEvaluationResult) -> dict[str, object]:
     """The persisted per-case evidence: the frozen result plus its run identity."""
     payload = result.to_json_dict()
     payload["run_id"] = result.run.run_id
+    payload["paid_calls"] = []
     return payload
 
 
@@ -322,12 +387,16 @@ def _load_checkpoint(path: Path, case_id: str) -> _Checkpoint:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise _corrupt(path, exc) from exc
-    if (
-        not isinstance(raw, dict)
-        or raw.get("schema_version") != LIVE_SCHEMA_VERSION
-        or raw.get("case_id") != case_id
-        or raw.get("state") not in CASE_STATES
-    ):
+    if not isinstance(raw, dict):
+        raise _corrupt(path)
+    version = raw.get("schema_version")
+    if version != LIVE_SCHEMA_VERSION:
+        raise ValueError(
+            f"unsupported live checkpoint schema version {version!r}; supported version "
+            f"is {LIVE_SCHEMA_VERSION}. Use the compatible reader and retain the paid "
+            "evidence; never coerce or replay it."
+        )
+    if raw.get("case_id") != case_id or raw.get("state") not in CASE_STATES:
         raise _corrupt(path)
     reserved = raw.get("reserved_usd")
     if isinstance(reserved, bool) or not isinstance(reserved, (int, float)):
@@ -377,7 +446,9 @@ def run_live_local(
     resume: bool = False,
     interpreters: Mapping[str, str] | None = None,
     exclusions: Iterable[ReportExclusion] = (),
-    validation_receipt: ValidationReceipt | None = None,
+    validation_receipt: (
+        ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None
+    ) = None,
     line_slack: int = 0,
     globally_labeled_findings: int | None = None,
     evaluate: (
@@ -385,6 +456,8 @@ def run_live_local(
     ) = None,
     env: MutableMapping[str, str] | None = None,
     on_transition: Callable[[str, str], None] | None = None,
+    on_call_transition: Callable[[str, str, str], None] | None = None,
+    provider_id: str = "anthropic-api-v1",
     clock: Callable[[], float] = time.monotonic,
 ) -> LiveRunResult:
     """Execute or resume one live run under the atomic checkpoint state machine.
@@ -398,21 +471,150 @@ def run_live_local(
     artifact hash and refuses -- retaining the evidence -- on any state whose
     cost cannot be known.
     """
+    manifest = require_manifest_binding(manifest, manifest_sha256)
+    if isinstance(validation_receipt, (ValidationReceiptV2, ValidationVerification)):
+        raise ValueError(
+            "symmetric current validation authority cannot authorize live execution; "
+            "wait for X-01/V-03 or a public-key protocol"
+        )
+    if validation_receipt is not None and type(validation_receipt) is not ValidationReceipt:
+        raise ValueError("live execution accepts only an exact historical V1 receipt")
     if not cases:
         raise ValueError("a live run needs at least one selected case")
+    if type(line_slack) is not int or line_slack < 0:
+        raise ValueError("line_slack must be an exact non-negative integer")
     if _RUN_ID_PATTERN.fullmatch(run_id) is None:
         raise ValueError("run_id must be a short, path-safe identifier")
     case_ids = [case.request.case_id for case in cases]
     if len(set(case_ids)) != len(case_ids):
         raise ValueError("selected cases must be unique")
+    first_request = cases[0].request
+    study_policy = (
+        first_request.config,
+        first_request.limits,
+        first_request.verification_timeout_s,
+        first_request.repeats,
+        first_request.deadline_s,
+        first_request.line_slack,
+    )
+    reserved_total = 0.0
+    for live_case in cases:
+        request = live_case.request
+        require_manifest_evaluation_request(
+            manifest, request, source_id=live_case.source_id
+        )
+        if type(request.line_slack) is not int or request.line_slack != line_slack:
+            raise ValueError(
+                "every live request line_slack must exactly match the study line_slack"
+            )
+        if type(request.repeat) is not int or request.repeat != 0:
+            raise ValueError("primary live execution requires request repeat zero")
+        if (
+            request.config,
+            request.limits,
+            request.verification_timeout_s,
+            request.repeats,
+            request.deadline_s,
+            request.line_slack,
+        ) != study_policy:
+            raise ValueError("every live case must share one exact study policy")
+        reserved_total += reserved_case_budget_usd(request)
+        if not math.isfinite(reserved_total):
+            raise ValueError("live reserved total must remain finite")
+    receipt_sha256 = (
+        None
+        if validation_receipt is None
+        else hashlib.sha256(
+            validation_receipt_binding_bytes(validation_receipt)
+        ).hexdigest()
+    )
+    prebuilt_requests: dict[str, ProjectEvaluationRequest] = {}
+    for live_case in cases:
+        if live_case.binding is None:
+            continue
+        if evaluate is None:
+            raise ValueError(
+                "prebuilt evaluation bindings are accepted only with an injected evaluator"
+            )
+        expected_receipt_sha256 = receipt_sha256 or ABSENT_BINDING_SHA256
+        if (
+            type(live_case.binding.receipt_sha256) is not str
+            or live_case.binding.receipt_sha256 != expected_receipt_sha256
+        ):
+            raise ValueError(
+                "validation receipt binding must be an exact matching digest"
+            )
+        prebuilt_requests[live_case.request.case_id] = require_prebuilt_evaluation_binding(
+            live_case.request,
+            live_case.binding,
+            provider_id=provider_id,
+        )
     environment: MutableMapping[str, str] = os.environ if env is None else env
-    evaluator = evaluate or (
-        lambda request, provider: evaluate_project(request, provider=provider, clock=clock)
-    )
+    def default_evaluator(
+        request: ProjectEvaluationRequest, provider: Provider
+    ) -> ProjectEvaluationResult:
+        if not isinstance(provider, CheckpointedProvider):
+            raise TypeError("live paid evaluator requires a role-scoped provider")
+        return evaluate_project(
+            request,
+            provider=provider,
+            oracle_provider=provider.for_role(CALL_ROLE_BENCHMARK_ORACLE),
+            clock=clock,
+        )
+
+    evaluator = evaluate or default_evaluator
     interpreter_by_source = dict(interpreters or {})
-    predeclaration = _predeclaration(
-        cases, run_id, manifest_sha256, preregistration_sha256, line_slack
+    runtime = current_runtime_identity()
+    bindings: dict[str, ProjectEvaluationBinding] = {}
+    for live_case in cases:
+        if live_case.binding is not None:
+            bindings[live_case.request.case_id] = live_case.binding
+            continue
+        interpreter = interpreter_by_source.get(live_case.source_id)
+        interpreter_id = runtime.interpreter_id
+        if interpreter is not None:
+            interpreter_id = _interpreter_identity(interpreter)
+        environment_sha256 = hashlib.sha256(
+            _canonical_bytes(
+                {
+                    "controller_environment_sha256": runtime.environment_sha256,
+                    "source_id": live_case.source_id,
+                    "project_interpreter": interpreter_id,
+                }
+            )
+        ).hexdigest()
+        bindings[live_case.request.case_id] = build_evaluation_binding(
+            live_case.request,
+            provider_id=provider_id,
+            interpreter_id=interpreter_id,
+            environment_sha256=environment_sha256,
+            code_sha256=runtime.code_sha256,
+            receipt_sha256=receipt_sha256,
+        )
+    cases = tuple(
+        replace(
+            live_case,
+            request=(
+                prebuilt_requests[live_case.request.case_id]
+                if live_case.binding is not None
+                else freeze_evaluation_request(
+                    live_case.request, bindings[live_case.request.case_id]
+                )
+            ),
+        )
+        for live_case in cases
     )
+    predeclaration = _predeclaration(
+        cases,
+        run_id,
+        manifest_sha256,
+        preregistration_sha256,
+        line_slack,
+        bindings,
+    )
+    call_binding_sha256 = hashlib.sha256(
+        _canonical_bytes(predeclaration)
+    ).hexdigest()
     run_dir = state_dir / run_id
     run_path = run_dir / "run.json"
     if resume:
@@ -425,6 +627,13 @@ def run_live_local(
             stored = json.loads(run_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ValueError(f"run {run_id} predeclaration is unreadable") from exc
+        if not isinstance(stored, dict) or stored.get("schema_version") != LIVE_SCHEMA_VERSION:
+            version = stored.get("schema_version") if isinstance(stored, dict) else None
+            raise ValueError(
+                f"unsupported live predeclaration schema version {version!r}; supported "
+                f"version is {LIVE_SCHEMA_VERSION}. Use the compatible reader; never "
+                "reinterpret an existing reservation."
+            )
         if stored != predeclaration:
             raise ValueError(
                 f"run {run_id} predeclaration does not match this configuration; "
@@ -453,7 +662,9 @@ def run_live_local(
             evaluator=evaluator,
             environment=environment,
             interpreter=interpreter_by_source.get(live_case.source_id),
+            call_binding_sha256=call_binding_sha256,
             on_transition=on_transition,
+            on_call_transition=on_call_transition,
         )
         checkpoints[checkpoint.case_id] = checkpoint
         if ran:
@@ -510,7 +721,9 @@ def _advance_case(
     evaluator: Callable[[ProjectEvaluationRequest, Provider], ProjectEvaluationResult],
     environment: MutableMapping[str, str],
     interpreter: str | None,
+    call_binding_sha256: str,
     on_transition: Callable[[str, str], None] | None,
+    on_call_transition: Callable[[str, str, str], None] | None,
 ) -> tuple[_Checkpoint, bool]:
     request = live_case.request
     case_id = request.case_id
@@ -523,10 +736,28 @@ def _advance_case(
             case_id, STATE_RESERVED, reserved_case_budget_usd(request), None, None
         )
         _commit(run_dir, checkpoint, on_transition)
+    if checkpoint.state == STATE_RESERVED:
         provider = provider_factory(request)
+        checkpointed = CheckpointedProvider(
+            provider,
+            root=run_dir / "calls" / case_id,
+            trial_id=f"{run_dir.name}:{case_id}",
+            model_id=request.config.model,
+            binding_sha256=call_binding_sha256,
+            role=CALL_ROLE_PRODUCT,
+            on_transition=(
+                None
+                if on_call_transition is None
+                else lambda call_id, state: on_call_transition(case_id, call_id, state)
+            ),
+        )
         with _project_interpreter(environment, interpreter):
-            result = evaluator(request, provider)
+            result = evaluator(request, checkpointed)
+        paid_calls = _live_paid_call_records(
+            case_id, checkpointed.reconciliation_records()
+        )
         payload = case_payload(result)
+        payload["paid_calls"] = paid_calls
         checkpoint = replace(
             checkpoint,
             state=STATE_PROVIDER_COMPLETE,
@@ -534,14 +765,8 @@ def _advance_case(
             payload_sha256=hashlib.sha256(_canonical_bytes(payload)).hexdigest(),
         )
         _commit(run_dir, checkpoint, on_transition)
+        _require_result_costs(case_id, result, paid_call_totals(paid_calls))
         ran = True
-    if checkpoint.state == STATE_RESERVED:
-        raise ValueError(
-            f"case {case_id} is checkpointed as reserved: it was interrupted "
-            "between reservation and provider completion, so the paid call may "
-            "or may not have happened. Refusing to re-call; inspect and clear "
-            "its state deliberately (the evidence is retained)."
-        )
     artifact_path = run_dir / "artifacts" / f"{case_id}.json"
     payload = _required_payload(checkpoint)
     if checkpoint.state == STATE_PROVIDER_COMPLETE:
@@ -549,11 +774,32 @@ def _advance_case(
         checkpoint = replace(checkpoint, state=STATE_ARTIFACTS_COMPLETE)
         _commit(run_dir, checkpoint, on_transition)
     _verify_artifact(artifact_path, checkpoint.payload_sha256)
+    reconciled_calls = _required_paid_calls(
+        run_dir,
+        case_id,
+        payload,
+        request.config.model,
+        call_binding_sha256,
+    )
+    totals = _known_cost(case_id, payload, reconciled_calls)
     if checkpoint.state == STATE_ARTIFACTS_COMPLETE:
-        spend, oracle_spend = _known_cost(case_id, payload)
-        _settle_once(costs_path, case_id, spend, oracle_spend)
+        _settle_once(
+            costs_path,
+            case_id,
+            totals.product_usd,
+            totals.oracle_usd,
+            reconciled_calls,
+        )
         checkpoint = replace(checkpoint, state=STATE_SETTLED)
         _commit(run_dir, checkpoint, on_transition)
+    if checkpoint.state in {STATE_SETTLED, STATE_REPORTED}:
+        _verify_case_settlement(
+            costs_path,
+            case_id,
+            totals.product_usd,
+            totals.oracle_usd,
+            reconciled_calls,
+        )
     return checkpoint, ran
 
 
@@ -587,10 +833,19 @@ def _project_interpreter(
             environment[PROJECT_PYTHON_ENV] = previous
 
 
-def _known_cost(case_id: str, payload: Mapping[str, object]) -> tuple[float, float]:
-    """The case's settled cost, or a closed failure that retains the evidence."""
-    values: list[float] = []
-    for key in ("spend_usd", "oracle_spend_usd"):
+def _known_cost(
+    case_id: str,
+    payload: Mapping[str, object],
+    paid_calls: Sequence[Mapping[str, object]],
+) -> PaidCallTotals:
+    """Derive role totals and reject independently restated case costs."""
+    totals = paid_call_totals(paid_calls)
+    expected = {
+        "spend_usd": totals.product_usd,
+        "oracle_spend_usd": totals.oracle_usd,
+        "total_spend_usd": totals.total_usd,
+    }
+    for key, authoritative in expected.items():
         value = payload.get(key)
         if (
             isinstance(value, bool)
@@ -602,11 +857,176 @@ def _known_cost(case_id: str, payload: Mapping[str, object]) -> tuple[float, flo
                 f"case {case_id} has an unknown {key} cost; refusing to settle. "
                 "The paid evidence is retained in its checkpoint."
             )
-        values.append(float(value))
-    return values[0], values[1]
+        if not math.isclose(float(value), authoritative, rel_tol=0.0, abs_tol=1e-12):
+            raise ValueError(
+                f"case {case_id} {key} does not match authoritative role reconciliation"
+            )
+    return totals
 
 
-def _settle_once(costs_path: Path, case_id: str, spend: float, oracle: float) -> None:
+def _require_result_costs(
+    case_id: str, result: ProjectEvaluationResult, totals: PaidCallTotals
+) -> None:
+    if not math.isclose(
+        result.spend_usd, totals.product_usd, rel_tol=0.0, abs_tol=1e-12
+    ) or not math.isclose(
+        result.oracle_spend_usd, totals.oracle_usd, rel_tol=0.0, abs_tol=1e-12
+    ) or not math.isclose(
+        result.total_spend_usd, totals.total_usd, rel_tol=0.0, abs_tol=1e-12
+    ):
+        raise ValueError(
+            f"case {case_id} result cost/spend does not match authoritative paid-call roles"
+        )
+
+
+def _live_paid_call_records(
+    case_id: str, records: Sequence[Mapping[str, object]]
+) -> list[dict[str, object]]:
+    prefix = f"calls/{case_id}/"
+    joined: list[dict[str, object]] = []
+    for record in records:
+        artifact_path = record.get("artifact_path")
+        if not isinstance(artifact_path, str):
+            raise ValueError(f"case {case_id} paid-call artifact path is invalid")
+        joined.append(
+            {
+                **dict(record),
+                "artifact_path": prefix + artifact_path,
+                "spend_path": prefix + "costs.jsonl",
+            }
+        )
+    return joined
+
+
+def _required_paid_calls(
+    run_dir: Path,
+    case_id: str,
+    payload: Mapping[str, object],
+    model_id: str,
+    binding_sha256: str,
+) -> tuple[dict[str, object], ...]:
+    raw = payload.get("paid_calls")
+    if not isinstance(raw, list):
+        raise ValueError(f"case {case_id} payload has no paid-call reconciliation list")
+    records: list[dict[str, object]] = []
+    seen: set[str] = set()
+    by_spend_path: dict[str, list[dict[str, object]]] = {}
+    for value in raw:
+        if not isinstance(value, dict):
+            raise ValueError(f"case {case_id} has an invalid paid-call reconciliation row")
+        record = dict(value)
+        call_id = record.get("call_id")
+        trial_id = record.get("trial_id")
+        artifact_path = record.get("artifact_path")
+        spend_path = record.get("spend_path")
+        role = record.get("role")
+        if (
+            not isinstance(call_id, str)
+            or not isinstance(trial_id, str)
+            or not call_id.startswith(trial_id + ":")
+            or not isinstance(artifact_path, str)
+            or not artifact_path.startswith(f"calls/{case_id}/artifacts/")
+            or not isinstance(spend_path, str)
+            or spend_path != f"calls/{case_id}/costs.jsonl"
+            or role not in CALL_ROLES
+        ):
+            raise ValueError(f"case {case_id} paid-call trial/artifact binding is invalid")
+        if call_id in seen:
+            raise ValueError(f"case {case_id} repeats paid call {call_id}")
+        seen.add(call_id)
+        artifact = run_dir / artifact_path
+        try:
+            artifact_payload = json.loads(artifact.read_text(encoding="utf-8"))
+            digest = hashlib.sha256(
+                json.dumps(
+                    artifact_payload, sort_keys=True, separators=(",", ":")
+                ).encode("utf-8")
+            ).hexdigest()
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(
+                f"case {case_id} paid-call artifact {artifact_path} is missing or corrupt"
+            ) from exc
+        if digest != record.get("artifact_sha256"):
+            raise ValueError(
+                f"case {case_id} paid-call artifact {artifact_path} hash binding is invalid"
+            )
+        records.append(record)
+        by_spend_path.setdefault(spend_path, []).append(record)
+    for spend_path, expected_records in by_spend_path.items():
+        authoritative = _json_rows(run_dir / spend_path, "paid-call spend rows")
+        normalized = []
+        prefix = f"calls/{case_id}/"
+        for record in expected_records:
+            normalized.append(
+                {
+                    key: value
+                    for key, value in record.items()
+                    if key != "spend_path"
+                }
+            )
+            normalized[-1]["artifact_path"] = str(record["artifact_path"])[len(prefix) :]
+        authoritative.sort(key=lambda row: str(row.get("call_id")))
+        normalized.sort(key=lambda row: str(row.get("call_id")))
+        if authoritative != normalized:
+            raise ValueError(
+                f"case {case_id} paid-call spend rows are missing, duplicated, or mismatched"
+            )
+    checkpointed = CheckpointedProvider(
+        _VerificationOnlyProvider(),
+        root=run_dir / "calls" / case_id,
+        trial_id=f"{run_dir.name}:{case_id}",
+        model_id=model_id,
+        binding_sha256=binding_sha256,
+        role=CALL_ROLE_PRODUCT,
+    )
+    authoritative_calls = tuple(
+        _live_paid_call_records(case_id, checkpointed.reconciliation_records())
+    )
+    if tuple(records) != authoritative_calls:
+        raise ValueError(
+            f"case {case_id} paid-call payload does not match its call checkpoints"
+        )
+    return tuple(records)
+
+
+class _VerificationOnlyProvider:
+    """A verifier must never turn absent checkpoint evidence into a new call."""
+
+    def sample(
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
+    ) -> ProviderResult:  # pragma: no cover - reconciliation never dispatches
+        raise AssertionError("paid-call reconciliation must not dispatch a provider call")
+
+
+def _case_cost_row(
+    case_id: str,
+    spend: float,
+    oracle: float,
+    paid_calls: Sequence[Mapping[str, object]],
+) -> dict[str, object]:
+    return {
+        "kind": "case_summary",
+        "case_id": case_id,
+        "spend_usd": _rounded(spend),
+        "oracle_spend_usd": _rounded(oracle),
+        "total_spend_usd": _rounded(spend + oracle),
+        "paid_calls": [dict(record) for record in paid_calls],
+    }
+
+
+def _settle_once(
+    costs_path: Path,
+    case_id: str,
+    spend: float,
+    oracle: float,
+    paid_calls: Sequence[Mapping[str, object]],
+) -> None:
     """Append this case's cost exactly once, whatever happened before."""
     rows = _cost_rows(costs_path)
     mine = [row for row in rows if row.get("case_id") == case_id]
@@ -616,34 +1036,62 @@ def _settle_once(costs_path: Path, case_id: str, spend: float, oracle: float) ->
             "ledger is corrupt and settlement is refused"
         )
     if mine:
+        if mine[0] != _case_cost_row(case_id, spend, oracle, paid_calls):
+            raise ValueError(
+                f"case {case_id} cost settlement does not match its paid-call artifacts"
+            )
         return
-    rows.append(
-        {
-            "case_id": case_id,
-            "spend_usd": _rounded(spend),
-            "oracle_spend_usd": _rounded(oracle),
-        }
-    )
+    rows.append(_case_cost_row(case_id, spend, oracle, paid_calls))
     _atomic_write(costs_path, b"".join(_canonical_bytes(row) for row in rows))
 
 
+def _verify_case_settlement(
+    costs_path: Path,
+    case_id: str,
+    spend: float,
+    oracle: float,
+    paid_calls: Sequence[Mapping[str, object]],
+) -> None:
+    rows = _cost_rows(costs_path)
+    mine = [row for row in rows if row.get("case_id") == case_id]
+    if not mine:
+        raise ValueError(f"case {case_id} has no cost settlement row")
+    if len(mine) > 1:
+        raise ValueError(f"case {case_id} has duplicate cost settlement rows")
+    if mine[0] != _case_cost_row(case_id, spend, oracle, paid_calls):
+        raise ValueError(
+            f"case {case_id} cost settlement paid-call binding is invalid"
+        )
+
+
 def _cost_rows(costs_path: Path) -> list[dict[str, object]]:
-    if not costs_path.exists():
+    rows = _json_rows(costs_path, "the cost ledger")
+    for row in rows:
+        if (
+            row.get("kind") != "case_summary"
+            or not isinstance(row.get("case_id"), str)
+        ):
+            raise ValueError("the cost ledger is corrupt; settlement is refused")
+    return rows
+
+
+def _json_rows(path: Path, label: str) -> list[dict[str, object]]:
+    if not path.exists():
         return []
-    rows: list[dict[str, object]] = []
     try:
-        lines = costs_path.read_text(encoding="utf-8").splitlines()
+        lines = path.read_text(encoding="utf-8").splitlines()
     except OSError as exc:
-        raise ValueError("the cost ledger could not be read") from exc
+        raise ValueError(f"{label} could not be read") from exc
+    rows: list[dict[str, object]] = []
     for line in lines:
         if not line:
             continue
         try:
             row = json.loads(line)
         except json.JSONDecodeError as exc:
-            raise ValueError("the cost ledger is corrupt; settlement is refused") from exc
-        if not isinstance(row, dict) or not isinstance(row.get("case_id"), str):
-            raise ValueError("the cost ledger is corrupt; settlement is refused")
+            raise ValueError(f"{label} is corrupt") from exc
+        if not isinstance(row, dict):
+            raise ValueError(f"{label} must contain JSON objects")
         rows.append(row)
     return rows
 
@@ -651,12 +1099,40 @@ def _cost_rows(costs_path: Path) -> list[dict[str, object]]:
 def _settled_totals(costs_path: Path) -> tuple[float, float]:
     spend = oracle = 0.0
     for row in _cost_rows(costs_path):
-        value = row.get("spend_usd")
-        oracle_value = row.get("oracle_spend_usd")
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            spend += float(value)
-        if isinstance(oracle_value, (int, float)) and not isinstance(oracle_value, bool):
-            oracle += float(oracle_value)
+        raw = row.get("paid_calls")
+        if not isinstance(raw, list) or not all(isinstance(call, dict) for call in raw):
+            raise ValueError("case cost ledger has invalid paid-call reconciliation")
+        totals = paid_call_totals(raw)
+        stated_product = row.get("spend_usd")
+        stated_oracle = row.get("oracle_spend_usd")
+        stated_total = row.get("total_spend_usd")
+        if (
+            isinstance(stated_product, bool)
+            or not isinstance(stated_product, (int, float))
+            or isinstance(stated_oracle, bool)
+            or not isinstance(stated_oracle, (int, float))
+            or isinstance(stated_total, bool)
+            or not isinstance(stated_total, (int, float))
+        ):
+            raise ValueError("case cost ledger has invalid role totals")
+        if not math.isclose(
+            float(stated_product),
+            totals.product_usd,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        ) or not math.isclose(
+            float(stated_oracle),
+            totals.oracle_usd,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        ):
+            raise ValueError("case cost ledger totals disagree with paid-call roles")
+        if not math.isclose(
+            float(stated_total), totals.total_usd, rel_tol=0.0, abs_tol=1e-12
+        ):
+            raise ValueError("case cost ledger total disagrees with paid-call roles")
+        spend += totals.product_usd
+        oracle += totals.oracle_usd
     return spend, oracle
 
 
@@ -692,6 +1168,7 @@ def _predeclaration(
     manifest_sha256: str,
     preregistration_sha256: str,
     line_slack: int,
+    bindings: Mapping[str, ProjectEvaluationBinding],
 ) -> dict[str, object]:
     """Machine-independent binding of the run design, written before any call.
 
@@ -712,6 +1189,11 @@ def _predeclaration(
                 "head_ref": request.head_ref,
                 "reserved_usd": _rounded(reserved),
                 "has_truth": request.truth is not None,
+                "line_slack": request.line_slack,
+                "pull_request_number": request.pull_request_number,
+                "repeat": request.repeat,
+                "policy_sha256": bindings[request.case_id].policy_sha256,
+                "evaluation_binding": bindings[request.case_id].to_json_dict(),
             }
         )
     config = cases[0].request.config
@@ -719,6 +1201,7 @@ def _predeclaration(
     return {
         "schema_version": LIVE_SCHEMA_VERSION,
         "mode": "live_local",
+        "paid_call_roles": sorted(CALL_ROLES),
         "run_id": run_id,
         "manifest_sha256": manifest_sha256,
         "preregistration_sha256": preregistration_sha256,
@@ -726,19 +1209,38 @@ def _predeclaration(
         "cases": rows,
         "reserved_total_usd": _rounded(reserved_total),
         "configuration": {
-            "alpha": config.alpha,
-            "budget_usd": config.budget_usd,
-            "model": config.model,
-            "k_samples": config.k_samples,
-            "max_findings": config.max_findings,
-            "auto_tighten_alpha": config.auto_tighten_alpha,
-            "tier0_commands": list(config.tier0_commands),
+            "review_config": {
+                "alpha": config.alpha,
+                "budget_usd": config.budget_usd,
+                "model": config.model,
+                "k_samples": config.k_samples,
+                "max_findings": config.max_findings,
+                "auto_tighten_alpha": config.auto_tighten_alpha,
+                "tier0_commands": list(config.tier0_commands),
+            },
+            "limits": {
+                "wall_timeout_s": request.limits.wall_timeout_s,
+                "cpu_timeout_s": request.limits.cpu_timeout_s,
+                "memory_mb": request.limits.memory_mb,
+                "output_bytes": request.limits.output_bytes,
+            },
             "differential_repeats": request.repeats,
             "deadline_s": request.deadline_s,
             "verification_timeout_s": request.verification_timeout_s,
-            "wall_timeout_s": request.limits.wall_timeout_s,
+            "line_slack": request.line_slack,
         },
     }
+
+
+def _interpreter_identity(interpreter: str) -> str:
+    path = Path(interpreter)
+    try:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError as exc:
+        raise ValueError(
+            f"project interpreter {interpreter!r} is unreadable; drift cannot be bound"
+        ) from exc
+    return f"{path.resolve()}@sha256:{digest}"
 
 
 @dataclass
@@ -747,6 +1249,7 @@ class _Channel:
     surfaced: int = 0
     withheld: int = 0
     matched: int = 0
+    accuracy_withheld: bool = False
 
 
 @dataclass
@@ -780,6 +1283,9 @@ class CalibrationReport:
     strata: tuple[Mapping[str, object], ...]
     latency: Mapping[str, object]
     cost: Mapping[str, object]
+    paid_calls: tuple[Mapping[str, object], ...]
+    outcome_accounting: Mapping[str, object]
+    authoritative_accuracy: Mapping[str, object] | None
     sample_sufficiency: Mapping[str, object]
     limitations: tuple[str, ...]
     digest: str = ""
@@ -791,6 +1297,17 @@ class CalibrationReport:
 
     def _payload(self) -> dict[str, object]:
         underlying = self.underlying.to_json_dict()
+        outcome_accounting = _gated_outcome_accounting(
+            self.outcome_accounting,
+            authorized=self.accuracy_withheld_reason is None,
+        )
+        if isinstance(outcome_accounting, dict):
+            outcome_accounting = {
+                **outcome_accounting,
+                "scoring_semantics": self.outcome_accounting.get(
+                    "scoring_semantics"
+                ),
+            }
         return {
             "schema_version": self.schema_version,
             "run_id": self.run_id,
@@ -804,8 +1321,20 @@ class CalibrationReport:
             "abstained_cases": underlying["abstained_cases"],
             "excluded_cases": underlying["excluded_cases"],
             "evidence_class_counts": underlying["evidence_class_counts"],
+            "validation_authority": underlying["validation_authority"],
             "accuracy": (
-                None if self.accuracy_withheld_reason is not None else underlying["metrics"]
+                None
+                if self.accuracy_withheld_reason is not None
+                else (
+                    dict(self.authoritative_accuracy)
+                    if self.authoritative_accuracy is not None
+                    else (
+                        underlying["metrics"]
+                        if self.outcome_accounting.get("scoring_semantics")
+                        == "legacy_v1_scoring"
+                        else None
+                    )
+                )
             ),
             "accuracy_withheld_reason": self.accuracy_withheld_reason,
             "operational": underlying["operational"],
@@ -816,6 +1345,8 @@ class CalibrationReport:
             "strata": [dict(row) for row in self.strata],
             "latency": dict(self.latency),
             "cost": dict(self.cost),
+            "paid_calls": [dict(row) for row in self.paid_calls],
+            "outcome_accounting": outcome_accounting,
             "sample_sufficiency": dict(self.sample_sufficiency),
             "limitations": list(self.limitations),
         }
@@ -830,7 +1361,9 @@ def build_calibration_report(
     manifest_sha256: str,
     preregistration_sha256: str,
     exclusions: Iterable[ReportExclusion] = (),
-    validation_receipt: ValidationReceipt | None = None,
+    validation_receipt: (
+        ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None
+    ) = None,
     differential_repeats: int = 0,
     line_slack: int = 0,
     globally_labeled_findings: int | None = None,
@@ -847,14 +1380,91 @@ def build_calibration_report(
     """
     if mode not in (REPLAY_MODE, LIVE_MODE):
         raise ValueError("mode must be replay or live")
+    if (
+        type(validation_receipt) is ValidationVerification
+        and validation_receipt.authority == "current_scoring_authority"
+    ):
+        manifest = require_manifest_binding(manifest, manifest_sha256)
     scored: list[Mapping[str, object]] = []
+    measurement_records: list[MeasurementRecord] = []
     abstentions: list[ReportAbstention] = []
     excluded: list[ReportExclusion] = list(exclusions)
     for payload in payloads:
-        case_id = str(payload.get("case_id"))
+        case_id_value = payload.get("case_id")
+        if type(case_id_value) is not str or not case_id_value:
+            raise ValueError("case payload case_id must be a non-empty exact string")
+        case_id = case_id_value
         reason = payload.get("abstain_reason")
-        if payload.get("task_id") is None:
+        task_id = payload.get("task_id")
+        measurement_payload = payload.get("measurement")
+        measurement = (
+            decode_measurement_record(measurement_payload)
+            if type(measurement_payload) is dict
+            else None
+        )
+        if measurement is not None:
+            if measurement.case_id != case_id:
+                raise ValueError("case payload measurement case_id mismatch")
+            outer_repeat = payload.get("repeat")
+            if type(outer_repeat) is not int or outer_repeat != measurement.repeat:
+                raise ValueError("current payload repeat does not match measurement repeat")
+            expected_status = (
+                "completed"
+                if measurement.task_status is TaskStatus.COMPLETED
+                else "deferred"
+            )
+            if payload.get("status") != expected_status:
+                raise ValueError(
+                    "current payload status does not match measurement task_status"
+                )
+            if measurement.task_status is TaskStatus.COMPLETED:
+                if reason is not None:
+                    raise ValueError(
+                        "completed current measurement cannot carry abstain_reason"
+                    )
+            elif type(reason) is not str or not reason.strip():
+                raise ValueError(
+                    f"{measurement.task_status.value.replace('_', ' ')} current "
+                    "measurement requires a non-empty abstain_reason"
+                )
+        if task_id is None:
+            if measurement is not None and (
+                measurement.arm != ARM_ATTEST_PRODUCT
+                or measurement.delivery_transcript.task_id is not None
+                or measurement.task_status is not TaskStatus.FAILED
+                or measurement.stop_kind is not StopKind.FAILURE
+                or measurement.truth_status is not TruthStatus.UNADJUDICATED
+                or measurement.findings
+                or measurement.publication_events
+                or measurement.task_delivery_events
+            ):
+                raise ValueError(
+                    "taskless current payload requires the exact pre-execution "
+                    "failure measurement"
+                )
             excluded.append(ReportExclusion(case_id, str(reason or "not_executed")))
+            continue
+        if measurement is not None:
+            if (
+                type(task_id) is not str
+                or not task_id
+                or task_id != measurement.delivery_transcript.task_id
+            ):
+                raise ValueError(
+                    "current measurement task_id must be a non-empty exact string "
+                    "matching delivery_transcript.task_id"
+                )
+            measurement_records.append(measurement)
+            if measurement.task_status in {
+                TaskStatus.PARTIALLY_DEFERRED,
+                TaskStatus.FULLY_DEFERRED,
+            } and measurement.repeat == 0:
+                if type(reason) is not str:  # pragma: no cover - validated above
+                    raise AssertionError("deferred measurement reason was not validated")
+                abstentions.append(ReportAbstention(case_id, reason))
+            if measurement.task_status is TaskStatus.FULLY_DEFERRED:
+                continue
+            scored.append(payload)
         elif reason is not None:
             abstentions.append(ReportAbstention(case_id, str(reason)))
         else:
@@ -870,13 +1480,19 @@ def build_calibration_report(
         differential_repeats=differential_repeats,
         line_slack=line_slack,
         validation_receipt=validation_receipt,
+        measurement_records=measurement_records,
     )
     accuracy_withheld = (
         ACCURACY_WITHHELD_REPLAY if mode == REPLAY_MODE else underlying.metrics_withheld_reason
     )
     authorized = accuracy_withheld is None and underlying.measurements is not None
     channel_outcomes = _channel_outcomes(
-        manifest, scored, authorized=authorized, line_slack=line_slack
+        manifest,
+        scored,
+        records=records,
+        measurements=tuple(measurement_records),
+        authorized=authorized,
+        line_slack=line_slack,
     )
     labels = (
         globally_labeled_findings
@@ -891,6 +1507,11 @@ def build_calibration_report(
             "prohibited" if labels < MINIMUM_GLOBAL_LABELS else "owner_decision_required"
         ),
     }
+    measurement_summary = (
+        reduce_measurements(tuple(measurement_records))
+        if measurement_records
+        else None
+    )
     report = CalibrationReport(
         schema_version=CALIBRATION_SCHEMA_VERSION,
         run_id=run_id,
@@ -903,7 +1524,15 @@ def build_calibration_report(
         differential_v=_differential_v(scored),
         strata=_strata(manifest, scored, abstentions),
         latency=_latency(scored),
-        cost=_cost(payloads, reserved_total_usd),
+        cost=_cost(payloads, reserved_total_usd, mode=mode),
+        paid_calls=_report_paid_calls(payloads, mode=mode),
+        outcome_accounting=_outcome_accounting(measurement_summary),
+        authoritative_accuracy=(
+            _authoritative_accuracy(measurement_summary)
+            if measurement_summary is not None
+            and accuracy_withheld is None
+            else None
+        ),
         sample_sufficiency=sufficiency,
         limitations=_calibration_limitations(
             mode, labels, accuracy_withheld, len(abstentions)
@@ -911,6 +1540,95 @@ def build_calibration_report(
     )
     encoded = json.dumps(report._payload(), sort_keys=True, separators=(",", ":"))
     return replace(report, digest=hashlib.sha256(encoded.encode("utf-8")).hexdigest())
+
+
+def _outcome_accounting(summary: MeasurementSummary | None) -> dict[str, object]:
+    if summary is None:
+        return {
+            "scoring_semantics": "legacy_v1_scoring",
+            "task_status_counts": {
+                "completed": 0,
+                "partially_deferred": 0,
+                "fully_deferred": 0,
+                "failed": 0,
+            },
+            "published": None,
+            "unresolved": 0,
+            "task_delivered": None,
+            "finding_precision": None,
+        }
+    payload = measurement_summary_payload(summary)
+    payload["scoring_semantics"] = summary.reducer_semantics
+    return payload
+
+
+def _authoritative_accuracy(summary: MeasurementSummary) -> dict[str, object]:
+    """Project headline accuracy from the single mixed-outcome reducer."""
+
+    true_positives = summary.detected_positive_pull_requests
+    false_negatives = summary.missed_positive_pull_requests
+    false_positives = summary.pr_false_positive_events
+    true_negatives = summary.true_negative_pull_requests
+    correct = summary.correct
+    wrong = summary.wrong
+    positive_total = summary.positive_pull_requests
+    clean_total = summary.null_pull_requests
+    finding_total = (
+        correct + wrong
+        if correct is not None and wrong is not None
+        else 0
+    )
+    return {
+        "true_positives": true_positives,
+        "false_positives": false_positives,
+        "false_negatives": false_negatives,
+        "true_negatives": true_negatives,
+        "decided_cases": positive_total + clean_total,
+        "finding_true_positives": correct,
+        "finding_false_positives": wrong,
+        "clean_false_positive_rate": summary.pr_false_positive_rate,
+        "specificity": (
+            true_negatives / clean_total
+            if true_negatives is not None and clean_total
+            else None
+        ),
+        "all_positive_detection": (
+            true_positives / positive_total
+            if true_positives is not None and positive_total
+            else None
+        ),
+        "finding_precision": summary.finding_precision,
+        "conditional_recall": None,
+        "abstention_rate": (
+            (summary.partially_deferred + summary.fully_deferred) / summary.semantic_n
+            if summary.semantic_n
+            else None
+        ),
+        "duplicate_surfaces": None,
+        "delivery_rate": (
+            summary.task_delivered / summary.semantic_n
+            if summary.task_delivered is not None and summary.semantic_n
+            else None
+        ),
+        "delivery_p50_s": None,
+        "delivery_p95_s": None,
+        "deadline_censored": None,
+        "all_positive_detection_interval": (
+            wilson_interval(true_positives, positive_total)
+            if true_positives is not None
+            else None
+        ),
+        "finding_precision_interval": (
+            wilson_interval(correct, finding_total)
+            if correct is not None
+            else None
+        ),
+        "clean_false_positive_rate_interval": (
+            wilson_interval(false_positives, clean_total)
+            if false_positives is not None
+            else None
+        ),
+    }
 
 
 def _labeled_findings(underlying: BenchmarkRunReport, authorized: bool) -> int:
@@ -924,25 +1642,59 @@ def _channel_outcomes(
     manifest: BenchmarkManifest,
     scored: Sequence[Mapping[str, object]],
     *,
+    records: tuple[RunRecord, ...],
+    measurements: tuple[MeasurementRecord, ...],
     authorized: bool,
     line_slack: int,
 ) -> dict[str, dict[str, object]]:
     truths: dict[str, tuple[TruthDefect, ...]] = {}
     for truth in manifest.truth_defects:
         truths[truth.case_id] = truths.get(truth.case_id, ()) + (truth,)
+    measurements_by_slot = {
+        (measurement.case_id, measurement.repeat): measurement
+        for measurement in measurements
+    }
+    if len(measurements_by_slot) != len(measurements):
+        raise ValueError("current channel outcomes contain a duplicate measurement slot")
     channels: dict[str, _Channel] = {}
-    for payload in scored:
+    for payload, record in zip(scored, records, strict=True):
         case_id = str(payload.get("case_id"))
         predictions = _payload_predictions(payload)
         matched_ids: set[str] = set()
+        measurement_withheld = False
         if authorized:
-            matches = match_findings(
-                truths.get(case_id, ()), predictions, line_slack=line_slack
-            )
-            matched_ids = {match.finding_id for match in matches if match.matched}
+            measurement = measurements_by_slot.get((case_id, record.repeat))
+            if measurement is not None:
+                measurement_withheld = (
+                    measurement.truth_status is TruthStatus.UNADJUDICATED
+                    or measurement.metrics_withheld_reason is not None
+                    or any(
+                        finding.author_visible
+                        and finding.authority is FindingAuthority.AUTOMATED
+                        and finding.accuracy_status
+                        is AccuracyStatus.UNADJUDICATED
+                        for finding in measurement.findings
+                    )
+                )
+                matched_ids = {
+                    finding.finding_id
+                    for finding in measurement.findings
+                    if finding.author_visible
+                    and finding.authority is FindingAuthority.AUTOMATED
+                    and finding.accuracy_status is AccuracyStatus.CORRECT
+                }
+            elif measurements_by_slot:
+                raise ValueError("current channel outcome has no authoritative measurement")
+            else:
+                matches = match_findings(
+                    truths.get(case_id, ()), predictions, line_slack=line_slack
+                )
+                matched_ids = {match.finding_id for match in matches if match.matched}
         for prediction in predictions:
             channel = channels.setdefault(prediction.evidence_class, _Channel())
             channel.predictions += 1
+            if measurement_withheld:
+                channel.accuracy_withheld = True
             if is_scored_placement(prediction.placement):
                 channel.surfaced += 1
                 if prediction.finding_id in matched_ids:
@@ -954,7 +1706,11 @@ def _channel_outcomes(
             "predictions": channel.predictions,
             "surfaced": channel.surfaced,
             "withheld": channel.withheld,
-            "matched": channel.matched if authorized else None,
+            "matched": (
+                channel.matched
+                if authorized and not channel.accuracy_withheld
+                else None
+            ),
         }
         for name, channel in sorted(channels.items())
     }
@@ -1001,7 +1757,12 @@ def _strata(
         return strata.setdefault((case.source_id, case.role), _Stratum())
 
     for payload in scored:
-        stratum = stratum_for(str(payload.get("case_id")))
+        if payload.get("repeat", 0) != 0:
+            continue
+        case_id = payload.get("case_id")
+        if type(case_id) is not str:
+            continue
+        stratum = stratum_for(case_id)
         if stratum is None:
             continue
         stratum.cases += 1
@@ -1044,29 +1805,86 @@ def _latency(scored: Sequence[Mapping[str, object]]) -> dict[str, object]:
 
 
 def _cost(
-    payloads: Sequence[Mapping[str, object]], reserved_total_usd: float | None
+    payloads: Sequence[Mapping[str, object]],
+    reserved_total_usd: float | None,
+    *,
+    mode: str,
 ) -> dict[str, object]:
     per_case: dict[str, float] = {}
     spend_total = oracle_total = 0.0
     for payload in payloads:
         case_id = str(payload.get("case_id"))
-        spend = payload.get("spend_usd")
-        oracle = payload.get("oracle_spend_usd")
-        if isinstance(spend, (int, float)) and not isinstance(spend, bool):
-            per_case[case_id] = float(spend)
-            spend_total += float(spend)
-        if isinstance(oracle, (int, float)) and not isinstance(oracle, bool):
-            oracle_total += float(oracle)
+        spend_value: object
+        oracle_value: object
+        if mode == LIVE_MODE:
+            raw = payload.get("paid_calls")
+            if not isinstance(raw, list):
+                raise ValueError(
+                    f"case {case_id} live cost has no paid-call reconciliation evidence"
+                )
+            if not all(isinstance(row, dict) for row in raw):
+                raise ValueError(f"case {case_id} live paid-call rows are invalid")
+            totals = paid_call_totals(raw)
+            spend_value = totals.product_usd
+            oracle_value = totals.oracle_usd
+            for key, authoritative in (
+                ("spend_usd", totals.product_usd),
+                ("oracle_spend_usd", totals.oracle_usd),
+                ("total_spend_usd", totals.total_usd),
+            ):
+                stated = payload.get(key)
+                if (
+                    isinstance(stated, bool)
+                    or not isinstance(stated, (int, float))
+                    or not math.isclose(
+                        float(stated), authoritative, rel_tol=0.0, abs_tol=1e-12
+                    )
+                ):
+                    raise ValueError(
+                        f"case {case_id} report {key} disagrees with paid-call rows"
+                    )
+        else:
+            spend_value = payload.get("spend_usd")
+            oracle_value = payload.get("oracle_spend_usd")
+        if isinstance(spend_value, (int, float)) and not isinstance(spend_value, bool):
+            per_case[case_id] = float(spend_value)
+            spend_total += float(spend_value)
+        if isinstance(oracle_value, (int, float)) and not isinstance(oracle_value, bool):
+            oracle_total += float(oracle_value)
     return {
         "reserved_total_usd": (
             None if reserved_total_usd is None else _rounded(reserved_total_usd)
         ),
         "spend_total_usd": _rounded(spend_total),
         "oracle_spend_total_usd": _rounded(oracle_total),
+        "total_spend_usd": _rounded(spend_total + oracle_total),
         "per_case_spend_usd": {
             case_id: _rounded(value) for case_id, value in sorted(per_case.items())
         },
     }
+
+
+def _report_paid_calls(
+    payloads: Sequence[Mapping[str, object]],
+    *,
+    mode: str,
+) -> tuple[dict[str, object], ...]:
+    rows: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for payload in payloads:
+        case_id = str(payload.get("case_id"))
+        raw = payload.get("paid_calls", [] if mode != LIVE_MODE else None)
+        if not isinstance(raw, list):
+            raise ValueError(f"case {case_id} paid-call report binding is invalid")
+        for value in raw:
+            if not isinstance(value, dict) or not isinstance(value.get("call_id"), str):
+                raise ValueError(f"case {case_id} paid-call report row is invalid")
+            call_id = str(value["call_id"])
+            if call_id in seen:
+                raise ValueError(f"paid call {call_id} appears more than once in the report")
+            seen.add(call_id)
+            rows.append({"case_id": case_id, **value})
+    return tuple(sorted(rows, key=lambda row: str(row["call_id"])))
 
 
 def _calibration_limitations(
@@ -1103,9 +1921,9 @@ def _calibration_limitations(
         )
     if abstained:
         notes.append(
-            f"abstentions: {abstained} case(s) were deferred by the tool and enter "
-            "no accuracy numerator or denominator; an abstention is never counted "
-            "as correct silence."
+            f"abstentions: {abstained} case(s) were deferred by the tool. Task state "
+            "does not erase published precision/harm, positive misses remain deployment "
+            "misses, and silent non-completed controls are not true negatives."
         )
     return tuple(notes)
 

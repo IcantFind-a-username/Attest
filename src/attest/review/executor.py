@@ -22,19 +22,21 @@ from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.gate import GateResult, apply_verification
 from attest.review.ledger import Ledger
-from attest.review.proposer import Provider
+from attest.review.proposer import Provider, response_fragment
+from attest.review.security import is_secret_name
 
 MAX_CONTEXT_LINES = 200
-MAX_REPRO_TOKENS = 2_000
+REPRO_MAX_OUTPUT_TOKENS = 3_000
+MAX_REPRO_ATTEMPTS = 2
 CLEANUP_TIMEOUT_S = 1.0
 GIT_TIMEOUT_S = 60.0
 MAX_REASON_CHARS = 300
+MAX_RUN_OUTPUT_FRAGMENT_CHARS = 2_000
 CAP_SYS_ADMIN = 21
 CAP_SYS_RESOURCE = 24
 # where the reproduction is executed from inside the tree under test; it is
 # disposable, because the tree is a throwaway worktree removed after the run
 RUN_DIR_NAME = ".attest-repro"
-_CREDENTIAL_NAME_PARTS = ("TOKEN", "SECRET", "PASSWORD", "API_KEY", "CREDENTIAL")
 
 REPRO_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -52,6 +54,7 @@ import os
 import socket
 import sys
 import threading
+import traceback
 from pathlib import Path
 
 _PROCESS_EVENTS = {
@@ -303,16 +306,25 @@ def _generation_prompt(repo: Path, candidate: StoredCandidate) -> str:
 
 
 def _parse_repro(text: str) -> ReproSpec:
+    stripped = text.strip()
+    fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", stripped, flags=re.DOTALL | re.IGNORECASE)
+    if fenced is not None:
+        stripped = fenced.group(1)
     try:
-        payload = json.loads(text)
+        payload = json.loads(stripped)
     except json.JSONDecodeError as exc:
-        raise ValueError("generator output is not valid JSON") from exc
+        raise ValueError(
+            f"generator output is not valid JSON; raw={response_fragment(text)}"
+        ) from exc
     if (
         not isinstance(payload, dict)
         or set(payload) != {"test_body"}
         or not isinstance(payload["test_body"], str)
     ):
-        raise ValueError("generator output does not match the reproduction schema")
+        raise ValueError(
+            "generator output does not match the reproduction schema; "
+            f"raw={response_fragment(text)}"
+        )
     return ReproSpec(test_body=payload["test_body"])
 
 
@@ -334,6 +346,21 @@ _process_attempt_marker = Path({str(process_attempt_marker)!r})
 _process_replacement_marker = Path({str(process_replacement_marker)!r})
 _thread_attempt_marker = Path({str(thread_attempt_marker)!r})
 _PROCESS_GUARD_PROBE = "attest.process_guard_probe"
+
+def _record_process_attempt(event, args):
+    if _process_attempt_marker.exists():
+        return
+    target = None
+    if args:
+        target = args[-1] if event in {"ctypes.dlsym", "ctypes.dlsym/handle"} else args[0]
+    frames = traceback.extract_stack(limit=16)[:-2]
+    stack = "\\n".join(
+        f"{{frame.filename}}:{{frame.lineno}}:{{frame.name}}" for frame in frames
+    )
+    _process_attempt_marker.write_text(
+        f"event={{event}}\\ntarget={{target!r}}\\nstack:\\n{{stack}}\\n",
+        encoding="utf-8",
+    )
 
 if os.name == "posix":
     import resource
@@ -364,7 +391,7 @@ def _guard_operations(event, args):
         raise PermissionError("process replacement disabled by evidence executor")
     if not process_event and not native_symbol:
         return
-    _process_attempt_marker.write_text("attempted", encoding="utf-8")
+    _record_process_attempt(event, args)
     if os.name != "posix":
         raise PermissionError("process creation disabled by evidence executor")
 
@@ -400,21 +427,52 @@ def generate_repro(
     timeout_s: float | None = None,
 ) -> ReproSpec:
     prompt = _generation_prompt(repo, candidate)
-    label = f"verify-{candidate.finding.finding_id}"
-    reservation = budget.reserve(label, len(GENERATOR_SYSTEM) + len(prompt), MAX_REPRO_TOKENS)
+    labels = [
+        f"verify-{candidate.finding.finding_id}-attempt-{attempt}"
+        for attempt in range(1, MAX_REPRO_ATTEMPTS + 1)
+    ]
+    reservations: list[float] = []
     try:
-        result = provider.sample(
-            GENERATOR_SYSTEM,
-            prompt,
-            REPRO_SCHEMA,
-            MAX_REPRO_TOKENS,
-            timeout_s=timeout_s,
-        )
+        for label in labels:
+            reservations.append(
+                budget.reserve(
+                    label,
+                    len(GENERATOR_SYSTEM) + len(prompt),
+                    REPRO_MAX_OUTPUT_TOKENS,
+                )
+            )
     except Exception:
-        budget.cancel(reservation)
+        for reservation in reservations:
+            budget.cancel(reservation)
         raise
-    budget.settle(label, reservation, result.input_tokens, result.output_tokens)
-    return _parse_repro(result.text)
+
+    last_schema_error: ValueError | None = None
+    for index, (label, reservation) in enumerate(zip(labels, reservations, strict=True)):
+        try:
+            result = provider.sample(
+                GENERATOR_SYSTEM,
+                prompt,
+                REPRO_SCHEMA,
+                REPRO_MAX_OUTPUT_TOKENS,
+                timeout_s=timeout_s,
+            )
+        except Exception:
+            for unused in reservations[index:]:
+                budget.cancel(unused)
+            raise
+        budget.settle(label, reservation, result.input_tokens, result.output_tokens)
+        try:
+            spec = _parse_repro(result.text)
+        except ValueError as exc:
+            last_schema_error = exc
+            continue
+        for unused in reservations[index + 1 :]:
+            budget.cancel(unused)
+        return spec
+
+    if last_schema_error is None:  # pragma: no cover - fixed positive attempt count
+        raise RuntimeError("reproduction generation made no attempts")
+    raise last_schema_error
 
 
 def _truncate_output(output: bytes | str | None, limit: int) -> str:
@@ -422,6 +480,14 @@ def _truncate_output(output: bytes | str | None, limit: int) -> str:
         return ""
     encoded = output.encode("utf-8", errors="replace") if isinstance(output, str) else output
     return encoded[-limit:].decode("utf-8", errors="ignore")
+
+
+def _append_guard_evidence(stderr: str, marker: Path, limit: int) -> str:
+    try:
+        evidence = marker.read_text(encoding="utf-8")
+    except OSError:
+        evidence = "process audit details were unavailable"
+    return _truncate_output(f"{stderr}\n[process audit]\n{evidence}", limit)
 
 
 class _TailBuffer:
@@ -514,7 +580,7 @@ def _reproduction_environment(site_dir: Path, tree: Path | None = None) -> dict[
     env = {
         name: value
         for name, value in os.environ.items()
-        if not any(part in name.upper() for part in _CREDENTIAL_NAME_PARTS)
+        if not is_secret_name(name)
     }
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     env["PYTHONSAFEPATH"] = "1"
@@ -855,7 +921,9 @@ def execute_repro(
             started,
             exit_code=process.returncode,
             stdout=stdout,
-            stderr=stderr,
+            stderr=_append_guard_evidence(
+                stderr, process_attempt_marker, limits.output_bytes
+            ),
             network_blocked=network_blocked,
         )
     if thread_attempt_marker.is_file():
@@ -1154,6 +1222,35 @@ def _differential_evidence(execution: DifferentialExecution) -> str:
     return "\n".join(sections)
 
 
+def _bounded_run_output(value: str) -> str:
+    if len(value) <= MAX_RUN_OUTPUT_FRAGMENT_CHARS:
+        return value
+    marker = "[...truncated...]\n"
+    return marker + value[-(MAX_RUN_OUTPUT_FRAGMENT_CHARS - len(marker)) :]
+
+
+def _differential_run_evidence(
+    execution: DifferentialExecution,
+) -> list[dict[str, object]]:
+    evidence: list[dict[str, object]] = []
+    for side, runs in (("head", execution.head_runs), ("base", execution.base_runs)):
+        for repeat, run in enumerate(runs, start=1):
+            evidence.append(
+                {
+                    "side": side,
+                    "repeat": repeat,
+                    "outcome": run.outcome.value,
+                    "reason": run.reason,
+                    "exit_code": run.exit_code,
+                    "elapsed_s": round(run.elapsed_s, 6),
+                    "network_blocked": run.network_blocked,
+                    "stdout": _bounded_run_output(run.stdout),
+                    "stderr": _bounded_run_output(run.stderr),
+                }
+            )
+    return evidence
+
+
 def verify_candidate(
     repo: Path,
     candidate: StoredCandidate,
@@ -1239,6 +1336,7 @@ def verify_candidate(
         base_runs=[run.outcome.value for run in execution.base_runs],
         repeats=execution.repeats,
         evidence_class=execution.evidence_class.value,
+        run_evidence=_differential_run_evidence(execution),
     )
     if execution.outcome is ExecutionOutcome.DEFERRED:
         return VerificationRun(execution=execution, gate_result=gate_result)

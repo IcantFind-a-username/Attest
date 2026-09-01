@@ -1,0 +1,8 @@
+label=python311
+step=focused
+checkout=/private/tmp/attest-phase0-14a57fb.xmEskE/python311-checkout
+callable=focused_step
+$ pytest focused M-02 corpus/artifact/report files
+........................................................................ [ 33%]
+........................................................................ [ 66%]
+........................................................................ [100%]

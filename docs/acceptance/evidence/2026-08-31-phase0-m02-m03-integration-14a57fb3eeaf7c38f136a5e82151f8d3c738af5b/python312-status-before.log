@@ -1,0 +1,6 @@
+label=python312
+step=status-before
+checkout=/private/tmp/attest-phase0-14a57fb.xmEskE/python312-checkout
+callable=status_before_step
+$ git diff --check
+$ git status --porcelain=v1

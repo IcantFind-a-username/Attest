@@ -1,0 +1,12 @@
+0122ca0f4f6e0099f3b6fe0d0963102f9aed1e971cdfaafc01076a5c915e6c4c  ./README.md
+85acfd2e79dd47df07d214334642196301332f72d792b52068cdfd8898755409  ./coordinated-outcome-rewrite-red.exit
+15a36860c165b770404b234387f815989ec00c5c5f54666205868d2e5f70b778  ./coordinated-outcome-rewrite-red.log
+85acfd2e79dd47df07d214334642196301332f72d792b52068cdfd8898755409  ./mixed-publication-loss-red-attempt-1.exit
+2afcaf54f16078246c5040a92518184fab98b1776ba579bb47c2557fe9ed1ecf  ./mixed-publication-loss-red-attempt-1.log
+85acfd2e79dd47df07d214334642196301332f72d792b52068cdfd8898755409  ./mixed-publication-loss-red-attempt-2.exit
+65cc9768ff3b52d5dcc4f07ede4e67160c5151468d0b1504a4507825c3eff614  ./mixed-publication-loss-red-attempt-2.log
+bde294368bfed77c2cddf8cec271d398aee9cdbab3b26e1059281bd33adb0120  ./mixed-publication-loss-red-attempt-3.exit
+cf36a0edbefcb5c4fa1cd96c62a0239e3e598fe55a601777daea6f8ab5afc2a1  ./mixed-publication-loss-red-attempt-3.log
+85acfd2e79dd47df07d214334642196301332f72d792b52068cdfd8898755409  ./mixed-publication-loss-red-final.exit
+aae0a1bd78bb4654f7a79022c19ebfffed7ce8b73fcbe54a7ce500b8273e2846  ./mixed-publication-loss-red-final.log
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./red-tests.patch

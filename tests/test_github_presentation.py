@@ -124,6 +124,8 @@ def test_complete_status_names_only_surfaced_results_and_keeps_overflow_visible(
 
     assert "Surface one." in complete
     assert "Surface two." in complete
+    assert f"Finding ID: {first.finding.finding_id}" in complete
+    assert f"Finding ID: {overflow.finding.finding_id}" in complete
     assert "Drawer claim." not in complete
     assert "secret.py" not in complete
     assert "99" not in complete

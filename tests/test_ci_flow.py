@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
 import time
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -11,18 +10,16 @@ from threading import Lock, Thread
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from scripts.acceptance.phase3 import (  # noqa: E402
+from attest.github.client import STATUS_MARKER, GitHubClient
+from attest.github.context import PullRequestContext
+from attest.review.acceptance import (
     BUG_COMMENT_PHASES,
     classify_comments,
     parse_ledger,
 )
-
-from attest.github.client import STATUS_MARKER, GitHubClient
-from attest.github.context import PullRequestContext
 from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits
+from attest.review.ledger import Ledger
 from attest.review.proposer import ProviderResult
 
 
@@ -289,6 +286,10 @@ def test_ci_does_not_verify_an_already_terminal_surface(
             "placement": "inline",
         }
     ]
+    ledger = Ledger(repo)
+    ledger.record_feedback(str(review["finding_id"]), "good")
+    assert ledger.surfaced_finding_ids() == (review["finding_id"],)
+    assert ledger.surfaced_precision() == (1.0, 1)
 
 
 def test_planted_bug_waits_for_failing_repro_before_speaking(

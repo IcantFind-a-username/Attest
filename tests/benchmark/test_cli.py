@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from ._validation_v2 import KEY, KEY_ID, build_validation_v2_bundle
 from .test_corpus import _oracle_fixture, _source
 
 _SCRIPT = Path(__file__).parents[2] / "scripts" / "benchmark.py"
@@ -154,10 +155,10 @@ def test_validate_offline_without_prepared_root_excludes_each_pair(tmp_path: Pat
     ]
 
 
-def test_validate_prepared_root_requires_verified_isolation_and_writes_bound_artifacts(
+def test_validate_prepared_root_requires_verified_isolation_and_keeps_evidence_unsigned(
     tmp_path: Path,
 ) -> None:
-    """A flag or passthrough wrapper cannot self-assert isolation and sign a receipt."""
+    """A flag or passthrough wrapper cannot turn diagnostics into scoring authority."""
     manifest, root, source_id = _oracle_fixture(tmp_path)
     receipt = tmp_path / "validation-receipt.json"
     results = tmp_path / "validation-results.json"
@@ -176,7 +177,7 @@ def test_validate_prepared_root_requires_verified_isolation_and_writes_bound_art
     assert "isolation wrapper" in json.loads(refused.stderr)["error"]
 
     passthrough = tmp_path / "passthrough"
-    passthrough.write_text("#!/bin/sh\nexec \"$@\"\n", encoding="utf-8")
+    passthrough.write_text('#!/bin/sh\nexec "$@"\n', encoding="utf-8")
     passthrough.chmod(0o755)
     unisolated = _run(
         "validate",
@@ -198,6 +199,7 @@ def test_validate_prepared_root_requires_verified_isolation_and_writes_bound_art
     assert unisolated.returncode == 4
     assert unisolated_report["command_success"] is False
     assert unisolated_report["receipt"] is None
+    assert "issued_authority" not in unisolated_report
     assert not receipt.exists()
     assert not results.exists()
 
@@ -228,8 +230,130 @@ def test_validate_prepared_root_requires_verified_isolation_and_writes_bound_art
     assert report["command_success"] is True
     assert report["corpus_valid"] is True
     assert report["validation_status"] == "valid"
-    assert json.loads(receipt.read_text()) == report["receipt"]
-    assert json.loads(results.read_text()) == report["validation_results"]
+    assert report["receipt"] is None
+    assert report["scorable"] is False
+    assert "issued_authority" not in report
+    assert not receipt.exists()
+    assert not results.exists()
+
+
+def test_validate_cli_rejects_legacy_v2_signing_before_nonempty_untrusted_runner(
+    tmp_path: Path,
+) -> None:
+    """Legacy V2 signing inputs fail before the unsigned corpus runner executes."""
+    manifest, prepared_root, source_id = _oracle_fixture(tmp_path)
+    marker = tmp_path / "untrusted-runner-invoked"
+    wrapper = tmp_path / "marker-wrapper"
+    wrapper.write_text(f"#!/bin/sh\ntouch '{marker}'\nexit 99\n", encoding="utf-8")
+    wrapper.chmod(0o755)
+    receipt = tmp_path / "issued-receipt.json"
+    results = tmp_path / "issued-results.json"
+    artifacts = tmp_path / "issued-artifacts"
+    key_file = tmp_path / "issuer.key"
+    raw_key = b"issuer-test-key-preserves-trailing-newline\n"
+    key_file.write_bytes(raw_key)
+    base = (
+        "validate",
+        "--manifest",
+        str(manifest),
+        "--offline",
+        "--root",
+        str(prepared_root),
+        "--python",
+        f"{source_id}={sys.executable}",
+        "--isolation-wrapper",
+        str(wrapper),
+    )
+    refused = _run(
+        *base,
+        "--receipt-out",
+        str(receipt),
+        "--validation-results-out",
+        str(results),
+        "--validation-artifacts",
+        str(artifacts),
+        "--validation-provenance-key-id",
+        KEY_ID,
+        "--validation-provenance-key-file",
+        str(key_file),
+    )
+    assert refused.returncode == 2
+    assert "X-01" in json.loads(refused.stderr)["error"]
+    assert not marker.exists()
+    assert not receipt.exists()
+    assert not results.exists()
+    assert not artifacts.exists()
+    assert raw_key not in (refused.stdout + refused.stderr).encode()
+
+
+def test_validate_cli_preserves_legacy_output_compatibility_without_authority(
+    tmp_path: Path,
+) -> None:
+    """Old output flags remain inert compatibility inputs for unsigned validate."""
+    manifest, _, _ = _oracle_fixture(tmp_path)
+    ignored = tmp_path / "ignored.json"
+
+    rootless_single = _run(
+        "validate",
+        "--manifest",
+        str(manifest),
+        "--offline",
+        "--receipt-out",
+        str(ignored),
+    )
+
+    assert rootless_single.returncode == 3, rootless_single.stderr
+    assert json.loads(rootless_single.stdout)["receipt"] is None
+    assert not ignored.exists()
+
+
+def test_verify_validation_cli_is_pure_offline_and_reports_exact_failures(
+    tmp_path: Path,
+) -> None:
+    """Current V2 authority is CLI-reachable only at a non-executing boundary."""
+    manifest, root, _ = _oracle_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path / "verification", manifest, root)
+    key_file = tmp_path / "verification.key"
+    key_file.write_bytes(KEY)
+    arguments = (
+        "verify-validation",
+        "--manifest",
+        str(manifest),
+        "--validation-receipt",
+        str(bundle.receipt_path),
+        "--validation-results",
+        str(bundle.results_path),
+        "--validation-artifacts",
+        str(bundle.artifact_root),
+        "--validation-provenance-key-id",
+        KEY_ID,
+        "--validation-provenance-key-file",
+        str(key_file),
+    )
+
+    verified = _run(*arguments)
+
+    assert verified.returncode == 0, verified.stderr
+    payload = json.loads(verified.stdout)
+    assert payload["authority"] == "current_scoring_authority"
+    assert payload["integrity"] == {"accepted": True, "failure_paths": []}
+    assert payload["authorized_provenance"] == {
+        "accepted": True,
+        "failure_paths": [],
+    }
+    assert payload["semantic_policy"] == {"accepted": True, "failure_paths": []}
+    assert len(payload["binding_sha256"]) == 64
+    assert KEY not in (verified.stdout + verified.stderr).encode()
+
+    artifact_manifest = json.loads(
+        (bundle.artifact_root / "artifacts.json").read_text(encoding="utf-8")
+    )
+    artifact = bundle.artifact_root / artifact_manifest["artifacts"][0]["name"]
+    artifact.write_bytes(b"tampered")
+    rejected = _run(*arguments)
+    assert rejected.returncode == 2
+    assert "artifact" in json.loads(rejected.stderr)["error"]
+    assert KEY not in (rejected.stdout + rejected.stderr).encode()
 
 
 def _cassette(root: Path, case_id: str, proposal: str, repro: str) -> None:
@@ -437,7 +561,7 @@ def test_replay_with_a_prepared_root_runs_the_real_product_path(tmp_path: Path) 
 def test_replay_scores_only_when_a_receipt_for_this_manifest_authorises_it(
     tmp_path: Path,
 ) -> None:
-    """The gate authorises; it is not a refusal that can never be satisfied."""
+    """The CLI must not upgrade a historical v1 receipt into current authority."""
     manifest, root, cassettes, _, _ = _replay_fixture(tmp_path)
     receipt, results = _receipt_artifacts(tmp_path, manifest)
     environment = dict(os.environ)
@@ -465,14 +589,82 @@ def test_replay_scores_only_when_a_receipt_for_this_manifest_authorises_it(
         env=environment,
     )
 
-    assert completed.returncode == 0, completed.stderr
-    assert json.loads(completed.stdout)["metrics_status"] == "reported"
+    assert completed.returncode == 3, completed.stderr
+    assert json.loads(completed.stdout)["metrics_status"] == "withheld"
     report = json.loads((output / "report.json").read_text(encoding="utf-8"))
-    assert report["metrics_withheld_reason"] is None
-    assert report["metrics"]["true_positives"] == 1
-    assert report["metrics"]["true_negatives"] == 1
-    assert report["metrics"]["finding_false_positives"] == 0
-    assert report["operational"]["decided_cases"] == 2
+    assert report["validation_authority"]["authority"] == "historical_integrity_only"
+    assert report["metrics"] is None
+    assert report["operational"]["decided_cases"] == 0
+
+    mixed_key = tmp_path / "mixed-v2.key"
+    mixed_key.write_bytes(KEY)
+    mixed_output = tmp_path / "mixed-v1-v2"
+    mixed = _run(
+        "replay",
+        "--manifest",
+        str(manifest),
+        "--cassette-root",
+        str(cassettes),
+        "--root",
+        str(root),
+        "--output",
+        str(mixed_output),
+        "--validation-receipt",
+        str(receipt),
+        "--validation-results",
+        str(results),
+        "--validation-artifacts",
+        str(tmp_path / "mixed-v2-artifacts"),
+        "--validation-provenance-key-id",
+        KEY_ID,
+        "--validation-provenance-key-file",
+        str(mixed_key),
+    )
+    assert mixed.returncode == 2
+    assert "X-01" in json.loads(mixed.stderr)["error"]
+    assert not mixed_output.exists()
+
+
+def test_replay_cli_rejects_v2_hmac_authority_before_project_execution(
+    tmp_path: Path,
+) -> None:
+    """Recorded providers do not make same-UID project execution secretless."""
+    manifest, root, cassettes, _, _ = _replay_fixture(tmp_path)
+    bundle = build_validation_v2_bundle(tmp_path / "replay-v2", manifest, root)
+    key_file = tmp_path / "authority.key"
+    key_file.write_bytes(KEY)
+    output = tmp_path / "replay-v2-out"
+
+    completed = _run(
+        "replay",
+        "--manifest",
+        str(manifest),
+        "--cassette-root",
+        str(cassettes),
+        "--root",
+        str(root),
+        "--validation-receipt",
+        str(bundle.receipt_path),
+        "--validation-results",
+        str(bundle.results_path),
+        "--validation-artifacts",
+        str(bundle.artifact_root),
+        "--validation-provenance-key-id",
+        KEY_ID,
+        "--validation-provenance-key-file",
+        str(key_file),
+        "--output",
+        str(output),
+        "--k-samples",
+        "2",
+        "--repeats",
+        "1",
+    )
+
+    assert completed.returncode == 2
+    assert "X-01" in json.loads(completed.stderr)["error"]
+    assert not output.exists()
+    assert KEY not in (completed.stdout + completed.stderr).encode()
 
 
 def test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence(
@@ -486,7 +678,6 @@ def test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence(
     manifest, root, cassettes, _, control_id = _replay_fixture(
         tmp_path, control_proposal="not-json-at-all"
     )
-    receipt, results = _receipt_artifacts(tmp_path, manifest)
     environment = dict(os.environ)
     environment["ANTHROPIC_API_KEY"] = "must-not-be-used"
     output = tmp_path / "out-deferred"
@@ -501,10 +692,6 @@ def test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence(
         str(root),
         "--output",
         str(output),
-        "--validation-receipt",
-        str(receipt),
-        "--validation-results",
-        str(results),
         "--k-samples",
         "2",
         "--repeats",
@@ -514,20 +701,81 @@ def test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence(
 
     assert completed.returncode == 0, completed.stderr
     summary = json.loads(completed.stdout)
-    assert summary["evaluated_cases"] == 1
+    assert summary["evaluated_cases"] == 2
     assert summary["abstained_cases"] == 1
     report = json.loads((output / "report.json").read_text(encoding="utf-8"))
     assert [row["case_id"] for row in report["abstained_cases"]] == [control_id]
     assert report["abstained_cases"][0]["reason"]
     assert control_id not in {row["case_id"] for row in report["excluded_cases"]}
-    assert report["metrics"]["true_negatives"] == 0
-    assert report["metrics"]["false_positives"] == 0
-    assert report["metrics"]["specificity"] is None
-    assert report["metrics"]["clean_false_positive_rate"] is None
-    assert report["metrics"]["true_positives"] == 1
+    assert report["metrics"] is None
+    assert report["metrics_withheld_reason"] == (
+        "validation_receipt_missing"
+    )
     assert report["operational"]["decided_cases"] == 1
     assert report["operational"]["abstained_cases"] == 1
     markdown = (output / "report.md").read_text(encoding="utf-8")
     assert "## Abstentions" in markdown
     assert f"| `{control_id}` |" in markdown
     assert "abstention" in " ".join(report["limitations"])
+
+
+def test_compare_cli_reports_authoritative_mixed_outcome_counts(
+    tmp_path: Path,
+    local_ruff_executable: Path,
+    comparison_cli_authority: tuple[Path, str],
+) -> None:
+    """Compare stdout must project the sealed product reducer, not top-level runs."""
+    manifest, root, cassettes, _, _ = _replay_fixture(
+        tmp_path, control_proposal="not-json-at-all"
+    )
+    output = tmp_path / "compare-mixed"
+    authority_root, run_identity = comparison_cli_authority
+
+    completed = _run(
+        "compare",
+        "--manifest",
+        str(manifest),
+        "--cassette-root",
+        str(cassettes),
+        "--root",
+        str(root),
+        "--output",
+        str(output),
+        "--comparison-authority-root",
+        str(authority_root),
+        "--comparison-run-id",
+        run_identity,
+        "--ruff-executable",
+        str(local_ruff_executable),
+        "--k-samples",
+        "2",
+        "--differential-repeats",
+        "1",
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    summary = json.loads(completed.stdout)
+    assert summary["outcome_accounting"] == {
+        "abstentions": 1,
+        "deployment_misses": None,
+        "failures": 0,
+        "metrics_withheld_reason": None,
+        "operational_unadjudicated": 0,
+        "operational_repeats": 2,
+        "pr_any_wrong_withheld_reason": None,
+        "published": 1,
+        "reducer_semantics": "mixed_outcome_v3",
+        "semantic_n": 2,
+        "task_status_counts": {
+            "completed": 1,
+            "failed": 0,
+            "fully_deferred": 1,
+            "partially_deferred": 0,
+        },
+        "unadjudicated": 0,
+        "unresolved": 0,
+    }
+    report = json.loads((output / "comparison.json").read_text(encoding="utf-8"))
+    product = next(arm for arm in report["arms"] if arm["arm"] == "attest_product")
+    assert product["outcome_accounting"] == summary["outcome_accounting"]
+    assert product["accuracy"] is None

@@ -26,17 +26,21 @@ runs:
       name: Classify pull request
       shell: sh
       run: sh "${{ github.action_path }}/scripts/action-gate.sh"
-    - name: Set up uv
+    - name: Set up Python
       if: ${{ steps.trust.outputs.trusted == 'true' }}
-      uses: astral-sh/setup-uv@v6
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.12.8"
     - name: Install attest from this action
       if: ${{ steps.trust.outputs.trusted == 'true' }}
       shell: sh
       env:
         ATTEST_VENV: ${{ runner.temp }}/attest-venv
       run: |
-        uv venv "$ATTEST_VENV"
-        uv pip install --python "$ATTEST_VENV/bin/python" "${{ github.action_path }}"
+        python -m venv "$ATTEST_VENV"
+        "$ATTEST_VENV/bin/python" -m pip install -r "${{ github.action_path }}/requirements-toolchain.lock"
+        "$ATTEST_VENV/bin/python" -m pip install --no-deps --no-build-isolation -e "${{ github.action_path }}"
+        "$ATTEST_VENV/bin/python" -m pip check
     - name: Run attest CI review
       if: ${{ steps.trust.outputs.trusted == 'true' }}
       shell: sh

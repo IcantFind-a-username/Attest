@@ -1,0 +1,10 @@
+root_was_absent=true
+source=/Users/franz/Documents/Codex/2026-08-31/m-01-0e58cd6-authoritative-outcomes-worktree
+target=/private/tmp/attest-m01-task5-recovery-5efe3d1-py312/checkout
+sha=5efe3d1c046fef04d197542cc8abe3f413a92d56
+source_origin_main=1f6f73eb72f5ed45b129c4d7ff937cc23b409e5c
+Filesystem   1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on
+/dev/disk3s5   482797652 429850472  11064212    98% 3924112 110642120    3%   /System/Volumes/Data
+pytest_processes=0
+wheelhouse=/private/tmp/attest-wheelhouse.WAGZer
+Python 3.12.8

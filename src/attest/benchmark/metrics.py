@@ -51,6 +51,7 @@ class BenchmarkReport:
     finding_precision: float | None
     conditional_recall: float | None
     abstention_rate: float | None
+    silent_run_rate: float | None
     duplicate_surfaces: int
     delivery_rate: float | None
     delivery_p50_s: float | None
@@ -154,7 +155,7 @@ def aggregate(
 
     true_positives = false_positives = false_negatives = true_negatives = 0
     finding_true_positives = finding_false_positives = duplicate_surfaces = 0
-    abstentions = deadline_censored = timely_deliveries = 0
+    silent_runs = deadline_censored = timely_deliveries = 0
     delivered_times: list[float] = []
     surfaced_positive_cases = 0
     excluded: list[MetricExclusion] = []
@@ -168,7 +169,7 @@ def aggregate(
             if is_scored_placement(prediction.placement)
         )
         if not surfaced:
-            abstentions += 1
+            silent_runs += 1
         duplicate_surfaces += _duplicate_count(surfaced)
 
         delivery_at_s = run.delivery_at_s
@@ -216,7 +217,10 @@ def aggregate(
         all_positive_detection=_ratio(true_positives, positive_total),
         finding_precision=_ratio(finding_true_positives, finding_total),
         conditional_recall=_ratio(true_positives, surfaced_positive_cases),
-        abstention_rate=_ratio(abstentions, len(primary_runs)),
+        # Legacy RunRecord has no authoritative task state, so it can prove
+        # silence but cannot distinguish completion from defer/failure.
+        abstention_rate=None,
+        silent_run_rate=_ratio(silent_runs, len(primary_runs)),
         duplicate_surfaces=duplicate_surfaces,
         delivery_rate=_ratio(timely_deliveries, len(primary_runs)),
         delivery_p50_s=_nearest_rank(delivered_times, 0.5),

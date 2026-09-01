@@ -6,10 +6,10 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import Any
+from typing import Any, cast
 
 _ROLES = frozenset(("historical_bug_replay", "developer_fix_control"))
 _PROVENANCE_KINDS = frozenset(("historical_fix", "bug_introducing_commit"))
@@ -21,6 +21,8 @@ _EXPOSED_ID_PATTERNS = {
     "source_id": re.compile(r"source-[0-9a-f]{12}\Z"),
 }
 _HEX_RE = re.compile(r"[0-9a-f]+", re.IGNORECASE)
+MANIFEST_SCHEMA_VERSION = "1"
+MANIFEST_PROTOCOL_VERSION = "1"
 
 
 class Placement(StrEnum):
@@ -109,6 +111,16 @@ class CorpusExclusion:
 
     upstream_case: str
     reason: str
+
+
+@dataclass(frozen=True)
+class SelectionMetadata:
+    """Exact deterministic pair-selection design carried by imported v1 corpora."""
+
+    seed: int
+    requested_pair_limit: int
+    eligible_pairs: int
+    selected_pairs: int
 
 
 @dataclass(frozen=True)
@@ -218,6 +230,8 @@ class BenchmarkManifest:
     runtime: tuple[RuntimeDescriptor, ...] = ()
     exclusions: tuple[CorpusExclusion, ...] = ()
     provenance: CorpusProvenance | None = None
+    selection: SelectionMetadata | None = None
+    _source_bytes: bytes | None = field(default=None, repr=False, compare=False)
 
 
 def verify_descriptor_bytes(
@@ -248,12 +262,110 @@ def normalize_unified_diff_bytes(contents: bytes) -> bytes:
 def load_manifest(path: Path) -> BenchmarkManifest:
     """Load one canonical JSON manifest after rejecting malformed corpus metadata."""
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        source_bytes = path.read_bytes()
+        raw = _parse_json_document(source_bytes)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError("manifest must be valid JSON") from exc
+    return _load_manifest_document(raw, source_bytes=source_bytes)
+
+
+def require_manifest_binding(
+    manifest: BenchmarkManifest, manifest_sha256: str
+) -> BenchmarkManifest:
+    """Return the canonical manifest parsed from the exact authenticated bytes."""
+    if type(manifest) is not BenchmarkManifest or manifest._source_bytes is None:
+        raise ValueError("manifest bytes binding is unavailable")
+    if type(manifest_sha256) is not str or re.fullmatch(
+        r"[0-9a-f]{64}", manifest_sha256
+    ) is None:
+        raise ValueError("manifest digest must be an exact lowercase SHA-256 string")
+    if not _manifest_tree_is_exact(manifest):
+        raise ValueError("typed manifest is not an exact canonical manifest tree")
+    if hashlib.sha256(manifest._source_bytes).hexdigest() != manifest_sha256:
+        raise ValueError("manifest digest does not match its bound bytes")
+    try:
+        bound = _load_manifest_document(
+            _parse_json_document(manifest._source_bytes),
+            source_bytes=manifest._source_bytes,
+        )
+    except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError("manifest bytes binding is invalid") from exc
+    if manifest != bound:
+        raise ValueError("typed manifest does not match its bound bytes")
+    return bound
+
+
+def manifest_binding_bytes(manifest: BenchmarkManifest) -> bytes:
+    """Return the single exact byte snapshot from which a manifest was parsed."""
+    if type(manifest) is not BenchmarkManifest or manifest._source_bytes is None:
+        raise ValueError("manifest bytes binding is unavailable")
+    payload = manifest._source_bytes
+    require_manifest_binding(manifest, hashlib.sha256(payload).hexdigest())
+    return payload
+
+
+_MANIFEST_RECORD_TYPES = frozenset(
+    {
+        BenchmarkManifest,
+        BenchmarkCase,
+        BenchmarkSource,
+        ChangedLocation,
+        CorpusExclusion,
+        CorpusProvenance,
+        PatchDescriptor,
+        RuntimeDescriptor,
+        SelectionMetadata,
+        TestDescriptor,
+        TruthDefect,
+    }
+)
+
+
+def _manifest_tree_is_exact(value: object) -> bool:
+    """Reject Python subclasses before any equality-based manifest join."""
+    value_type = type(value)
+    if value is None or value_type in {str, int, bytes}:
+        return True
+    if value_type is tuple:
+        return all(
+            _manifest_tree_is_exact(item)
+            for item in cast(tuple[object, ...], value)
+        )
+    if value_type in _MANIFEST_RECORD_TYPES:
+        record = cast(Any, value)
+        return all(
+            _manifest_tree_is_exact(getattr(record, field_name))
+            for field_name in record.__dataclass_fields__
+        )
+    return False
+
+
+def _load_manifest_document(raw: object, *, source_bytes: bytes) -> BenchmarkManifest:
     document = _object(raw, "manifest")
+    _exact_fields(
+        document,
+        "manifest",
+        required={
+            "schema_version",
+            "protocol_version",
+            "corpus_commit",
+            "cases",
+            "truth_defects",
+        },
+        optional={"sources", "runtime", "exclusions", "provenance", "selection"},
+    )
     schema_version = _nonempty_string(document, "schema_version")
     protocol_version = _nonempty_string(document, "protocol_version")
+    if schema_version != MANIFEST_SCHEMA_VERSION:
+        raise ValueError(
+            f"unsupported manifest schema_version {schema_version!r}; supported version "
+            f"is {MANIFEST_SCHEMA_VERSION}"
+        )
+    if protocol_version != MANIFEST_PROTOCOL_VERSION:
+        raise ValueError(
+            f"unsupported manifest protocol_version {protocol_version!r}; supported version "
+            f"is {MANIFEST_PROTOCOL_VERSION}"
+        )
     corpus_commit = _commit(_nonempty_string(document, "corpus_commit"), "corpus_commit")
     raw_cases = _list(document, "cases")
     raw_truth = _list(document, "truth_defects")
@@ -277,7 +389,21 @@ def load_manifest(path: Path) -> BenchmarkManifest:
         if provenance_raw is not None
         else None
     )
+    selection_raw = document.get("selection")
+    selection = (
+        _selection(_object(selection_raw, "selection"))
+        if selection_raw is not None
+        else None
+    )
     _validate_extensions(cases, sources, runtime)
+    if selection is not None:
+        pair_count = len({case.pair_id for case in cases})
+        if selection.selected_pairs != pair_count:
+            raise ValueError("selection selected_pairs must match manifest pairs")
+        if selection.selected_pairs > selection.eligible_pairs:
+            raise ValueError("selection selected_pairs exceeds eligible_pairs")
+        if selection.selected_pairs > selection.requested_pair_limit:
+            raise ValueError("selection selected_pairs exceeds requested_pair_limit")
     return BenchmarkManifest(
         schema_version=schema_version,
         protocol_version=protocol_version,
@@ -288,10 +414,18 @@ def load_manifest(path: Path) -> BenchmarkManifest:
         runtime=runtime,
         exclusions=exclusions,
         provenance=provenance,
+        selection=selection,
+        _source_bytes=source_bytes,
     )
 
 
 def _provenance(raw: dict[str, Any]) -> CorpusProvenance:
+    _exact_fields(
+        raw,
+        "provenance",
+        required={"kind", "source_url", "license_status"},
+        optional={"license", "license_file", "license_sha256"},
+    )
     license_status = _enum(
         _nonempty_string(raw, "license_status"),
         frozenset(("DETECTED", "UNSPECIFIED")),
@@ -320,6 +454,18 @@ def _provenance(raw: dict[str, Any]) -> CorpusProvenance:
 
 
 def _source(raw: dict[str, Any]) -> BenchmarkSource:
+    _exact_fields(
+        raw,
+        "source",
+        required={
+            "source_id",
+            "project_url",
+            "source_license",
+            "license_file",
+            "license_sha256",
+            "license_commits_verified",
+        },
+    )
     commits = tuple(
         _commit(_string_value(value, "license commit"), "license commit")
         for value in _list(raw, "license_commits_verified")
@@ -337,7 +483,14 @@ def _source(raw: dict[str, Any]) -> BenchmarkSource:
 
 
 def _runtime(raw: dict[str, Any]) -> RuntimeDescriptor:
+    _exact_fields(
+        raw,
+        "runtime",
+        required={"case_id", "cwd", "command"},
+        optional={"role", "python_version"},
+    )
     command = _object(raw.get("command"), "runtime command")
+    _exact_fields(command, "runtime command", required={"tool", "args"})
     tool = _enum(
         _nonempty_string(command, "tool"), frozenset(("python", "tox")), "runtime tool"
     )
@@ -356,10 +509,36 @@ def _runtime(raw: dict[str, Any]) -> RuntimeDescriptor:
 
 
 def _exclusion(raw: dict[str, Any]) -> CorpusExclusion:
+    _exact_fields(raw, "exclusion", required={"upstream_case", "reason"})
     return CorpusExclusion(
         upstream_case=_nonempty_string(raw, "upstream_case"),
         reason=_nonempty_string(raw, "reason"),
     )
+
+
+def _selection(raw: dict[str, Any]) -> SelectionMetadata:
+    _exact_fields(
+        raw,
+        "selection",
+        required={
+            "seed",
+            "requested_pair_limit",
+            "eligible_pairs",
+            "selected_pairs",
+        },
+    )
+    values: dict[str, int] = {}
+    for field_name in (
+        "seed",
+        "requested_pair_limit",
+        "eligible_pairs",
+        "selected_pairs",
+    ):
+        value = raw.get(field_name)
+        if type(value) is not int or value < 0:
+            raise ValueError(f"selection {field_name} must be a non-negative integer")
+        values[field_name] = value
+    return SelectionMetadata(**values)
 
 
 def _validate_extensions(
@@ -393,6 +572,24 @@ def _validate_extensions(
 
 
 def _case(raw: dict[str, Any]) -> BenchmarkCase:
+    _exact_fields(
+        raw,
+        "case",
+        required={
+            "case_id",
+            "pair_id",
+            "source_id",
+            "role",
+            "provenance_kind",
+            "source_license",
+            "buggy_commit",
+            "fixed_commit",
+            "patch",
+            "tests",
+            "changed_locations",
+            "split",
+        },
+    )
     case_id = _opaque_id(_nonempty_string(raw, "case_id"), "case_id")
     pair_id = _opaque_id(_nonempty_string(raw, "pair_id"), "pair_id")
     source_id = _opaque_id(_nonempty_string(raw, "source_id"), "source_id")
@@ -427,6 +624,11 @@ def _case(raw: dict[str, Any]) -> BenchmarkCase:
 
 
 def _truth(raw: dict[str, Any]) -> TruthDefect:
+    _exact_fields(
+        raw,
+        "truth defect",
+        required={"defect_id", "case_id", "file", "start_line", "end_line"},
+    )
     return TruthDefect(
         defect_id=_nonempty_string(raw, "defect_id"),
         case_id=_opaque_id(_nonempty_string(raw, "case_id"), "case_id"),
@@ -437,6 +639,12 @@ def _truth(raw: dict[str, Any]) -> TruthDefect:
 
 
 def _location(raw: dict[str, Any]) -> ChangedLocation:
+    _exact_fields(
+        raw,
+        "changed location",
+        required={"path", "start_line", "end_line"},
+        optional={"side"},
+    )
     start_line = _line(raw.get("start_line"), "start_line")
     end_line = _line(raw.get("end_line"), "end_line")
     if start_line > end_line:
@@ -512,6 +720,11 @@ def _test_descriptor(raw: dict[str, Any]) -> TestDescriptor:
 
 
 def _descriptor_parts(raw: dict[str, Any], label: str) -> tuple[str, str, str]:
+    _exact_fields(
+        raw,
+        label,
+        required={"relative_path", "sha256", "normalization"},
+    )
     relative_path = _path(_nonempty_string(raw, "relative_path"))
     sha256 = _hash(_nonempty_string(raw, "sha256"), f"{label}.sha256")
     normalization = _enum(_nonempty_string(raw, "normalization"), _NORMALIZATIONS, "normalization")
@@ -522,6 +735,37 @@ def _object(value: object, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{label} must be an object")
     return value
+
+
+def _parse_json_document(payload: bytes) -> object:
+    def reject_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate JSON field {key!r}")
+            result[key] = value
+        return result
+
+    return json.loads(payload, object_pairs_hook=reject_duplicates)
+
+
+def _exact_fields(
+    raw: Mapping[str, object],
+    label: str,
+    *,
+    required: set[str],
+    optional: set[str] | None = None,
+) -> None:
+    allowed = required | (optional or set())
+    missing = required - set(raw)
+    unknown = set(raw) - allowed
+    if missing or unknown:
+        details = []
+        if missing:
+            details.append("missing " + ", ".join(sorted(missing)))
+        if unknown:
+            details.append("unknown " + ", ".join(sorted(unknown)))
+        raise ValueError(f"{label} fields are invalid: {'; '.join(details)}")
 
 
 def _list(raw: dict[str, Any], key: str) -> list[object]:
