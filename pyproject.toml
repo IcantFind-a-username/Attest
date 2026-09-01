@@ -37,6 +37,7 @@ testpaths = ["tests"]
 addopts = "-q"
 markers = [
     "regression: pins numbers from the seed experiment record (RESULTS.md)",
+    "corpus: needs the prepared corpus cache named by ATTEST_CORPUS_CACHE",
 ]
 
 [tool.ruff]
