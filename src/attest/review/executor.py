@@ -47,7 +47,13 @@ REPRO_SCHEMA: dict[str, Any] = {
 
 GENERATOR_SYSTEM = """Write one focused pytest reproduction for the supplied finding. Return only
 the test body required by the schema. The test must distinguish the claimed defect from correct
-behavior and must not use the network."""
+behavior and must not use the network.
+
+Call only names the supplied source context shows this revision defining, with the signature it
+shows. Do not guess an API from a newer or older release of the project. Never guard the call
+under test with try/except around an alternative spelling: if both spellings are wrong the test
+raises identically on the defective and the fixed revision, and a test that fails the same way on
+both sides distinguishes nothing no matter which side is right."""
 
 SITECUSTOMIZE = """import _thread
 import os
