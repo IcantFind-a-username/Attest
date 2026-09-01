@@ -297,6 +297,8 @@ def run_review(
                 task_id=task_id,
                 finding_id=result.finding.finding_id,
                 channels_bought=[purchase.channel for purchase in result.purchases],
+                strongest_channel_lr=result.strongest_purchased_lr,
+                pricing_changed_decision=result.pricing_changed_decision,
                 spend=budget.spent_usd / n_results,
                 wealth_final=result.wealth,
                 action=(

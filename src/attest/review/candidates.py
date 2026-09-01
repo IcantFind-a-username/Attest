@@ -19,6 +19,9 @@ class StoredCandidate:
     wealth: float
     action: str
     alpha: float
+    # D-063 instrument; absent from candidates written before it existed.
+    strongest_channel_lr: float | None = None
+    pricing_changed_decision: bool | None = None
 
 
 class CandidateStore:
@@ -49,6 +52,8 @@ class CandidateStore:
                             "wealth": result.wealth,
                             "action": result.action,
                             "alpha": alpha,
+                            "strongest_channel_lr": result.strongest_purchased_lr,
+                            "pricing_changed_decision": result.pricing_changed_decision,
                         },
                         ensure_ascii=False,
                     )
@@ -93,12 +98,22 @@ class CandidateStore:
             votes=CandidateStore._integer(record, "votes"),
             sample_ids=[int(sample_id) for sample_id in sample_ids],
         )
+        changed = record.get("pricing_changed_decision")
+        strongest = record.get("strongest_channel_lr")
         return StoredCandidate(
             task_id=CandidateStore._string(record, "task_id"),
             finding=finding,
             wealth=CandidateStore._number(record, "wealth"),
             action=CandidateStore._string(record, "action"),
             alpha=CandidateStore._number(record, "alpha"),
+            strongest_channel_lr=(
+                None
+                if strongest is None
+                else CandidateStore._number(record, "strongest_channel_lr")
+            ),
+            pricing_changed_decision=(
+                changed if isinstance(changed, bool) else None
+            ),
         )
 
     @staticmethod

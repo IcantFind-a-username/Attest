@@ -1280,6 +1280,7 @@ class CalibrationReport:
     accuracy_withheld_reason: str | None
     channel_outcomes: Mapping[str, Mapping[str, object]]
     differential_v: Mapping[str, object]
+    pricing_instrument: Mapping[str, object]
     strata: tuple[Mapping[str, object], ...]
     latency: Mapping[str, object]
     cost: Mapping[str, object]
@@ -1342,6 +1343,7 @@ class CalibrationReport:
                 name: dict(entry) for name, entry in sorted(self.channel_outcomes.items())
             },
             "differential_v": dict(self.differential_v),
+            "pricing_instrument": dict(self.pricing_instrument),
             "strata": [dict(row) for row in self.strata],
             "latency": dict(self.latency),
             "cost": dict(self.cost),
@@ -1523,6 +1525,7 @@ def build_calibration_report(
         underlying=underlying,
         accuracy_withheld_reason=accuracy_withheld,
         channel_outcomes=channel_outcomes,
+        pricing_instrument=_pricing_instrument(scored),
         differential_v=_differential_v(scored),
         strata=_strata(manifest, scored, abstentions),
         latency=_latency(scored),
@@ -1720,6 +1723,53 @@ def _channel_outcomes(
             ),
         }
         for name, channel in sorted(channels.items())
+    }
+
+
+def _pricing_instrument(scored: Sequence[Mapping[str, object]]) -> dict[str, object]:
+    """How often the wealth multiplication decided something a channel did not.
+
+    Records only (D-063). Every candidate with an instrumented ``review`` row
+    contributes; rows written before the instrument existed are counted
+    separately as uninstrumented rather than assumed to be ``False``.
+    """
+    changed = 0
+    unchanged = 0
+    uninstrumented = 0
+    changed_findings: list[str] = []
+    for payload in scored:
+        if payload.get("repeat", 0) != 0:
+            continue
+        rows = payload.get("pricing_instrument")
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            verdict = row.get("pricing_changed_decision")
+            if verdict is True:
+                changed += 1
+                finding_id = row.get("finding_id")
+                if isinstance(finding_id, str):
+                    changed_findings.append(finding_id)
+            elif verdict is False:
+                unchanged += 1
+            else:
+                uninstrumented += 1
+    instrumented = changed + unchanged
+    return {
+        "instrumented_candidates": instrumented,
+        "uninstrumented_candidates": uninstrumented,
+        "pricing_changed_decision": changed,
+        "pricing_changed_decision_rate": (
+            None if not instrumented else _rounded(changed / instrumented)
+        ),
+        "changed_finding_ids": sorted(changed_findings),
+        "note": (
+            "records only: compares the decision taken on the full wealth with the "
+            "decision the strongest single purchased channel would have taken alone; "
+            "it changes nothing"
+        ),
     }
 
 
@@ -2071,6 +2121,10 @@ def render_calibration_markdown(report: CalibrationReport) -> str:
     assert isinstance(differential, dict)
     lines.extend(["", "## Differential V fidelity", ""])
     lines.extend(_table("measurement", differential))
+    pricing = payload["pricing_instrument"]
+    assert isinstance(pricing, dict)
+    lines.extend(["", "## Pricing instrument", ""])
+    lines.extend(_table("measurement", pricing))
     lines.extend(
         [
             "",

@@ -57,6 +57,7 @@ from attest.benchmark.runner import (
     ReproReceipt,
     ci_final_decisions_from_rows,
     product_candidate_evidence_from_rows,
+    product_pricing_instrument_from_rows,
     rebuild_case_run_from_ledger,
 )
 from attest.benchmark.schema import (
@@ -409,6 +410,7 @@ class ProjectEvaluationResult:
     score: ProjectEvaluationScore | None
     measurement: MeasurementRecord
     candidate_evidence: tuple[Mapping[str, Any], ...] = ()
+    pricing_instrument: tuple[Mapping[str, Any], ...] = ()
 
     def __post_init__(self) -> None:
         if type(self.measurement) is not MeasurementRecord:
@@ -461,6 +463,7 @@ class ProjectEvaluationResult:
             ],
             "final_decisions": [dict(decision) for decision in self.final_decisions],
             "candidate_evidence": [dict(row) for row in self.candidate_evidence],
+            "pricing_instrument": [dict(row) for row in self.pricing_instrument],
             "abstain_reason": self.abstain_reason,
             "latency_s": round(self.latency_s, 6),
             "spend_usd": round(self.spend_usd, 6),
@@ -652,6 +655,11 @@ def _evaluate_prepared_project(
                 if run.task_id
                 else ()
             )
+            pricing_instrument = (
+                product_pricing_instrument_from_rows(ledger_rows, run.task_id)
+                if run.task_id
+                else ()
+            )
             records = _persist(
                 artifact_store,
                 request,
@@ -669,6 +677,7 @@ def _evaluate_prepared_project(
         run=run,
         decisions=decisions,
         candidate_evidence=candidate_evidence,
+        pricing_instrument=pricing_instrument,
         records=records,
         latency_s=clock() - started,
     )
@@ -1056,6 +1065,7 @@ def _result(
     run: CaseRunResult,
     decisions: tuple[Mapping[str, Any], ...],
     candidate_evidence: tuple[Mapping[str, Any], ...],
+    pricing_instrument: tuple[Mapping[str, Any], ...],
     records: tuple[ArtifactRecord, ...],
     latency_s: float,
 ) -> ProjectEvaluationResult:
@@ -1076,6 +1086,7 @@ def _result(
         predictions=run.run.predictions,
         final_decisions=decisions,
         candidate_evidence=candidate_evidence,
+        pricing_instrument=pricing_instrument,
         abstain_reason=abstain_reason,
         latency_s=latency_s,
         spend_usd=run.spend_usd,

@@ -164,6 +164,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
         spend=0.0,
         wealth_final=result.wealth,
         action=f"verified_{result.action}",
+        strongest_channel_lr=result.strongest_purchased_lr,
+        pricing_changed_decision=result.pricing_changed_decision,
     )
     if args.evidence:
         ledger.append(
@@ -230,6 +232,22 @@ def cmd_stats(args: argparse.Namespace) -> int:
             f"({abstentions}/{len(run_tasks)} runs){anomaly}"
         )
     print("silence precision: undefined (no labeled silent outcomes)")
+    instrumented = [
+        entry for entry in reviews if "pricing_changed_decision" in entry
+    ]
+    changed = sum(bool(entry["pricing_changed_decision"]) for entry in instrumented)
+    if not instrumented:
+        print(
+            "pricing changed decision: undefined "
+            "(no instrumented review rows; D-063 records this from now on)"
+        )
+    else:
+        print(
+            f"pricing changed decision: {changed}/{len(instrumented)} "
+            f"({changed / len(instrumented):.6f}) — how often multiplying the "
+            "purchased channels decided what the strongest single channel "
+            "would not have decided alone"
+        )
     print(f"alpha now: {ledger.current_alpha(config.alpha)}")
     return 0
 

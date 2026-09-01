@@ -154,3 +154,46 @@ def test_discard_is_unreachable_under_factory_constants() -> None:
             assert r.wealth > alpha
             assert r.decision != 0
 
+
+
+def test_pricing_instrument_records_without_deciding_anything() -> None:
+    """The instrument observes the multiplication; it never feeds the gate.
+
+    D-063: compare the decision taken on the full wealth against the decision
+    the strongest single purchased channel would have taken alone. At the
+    default alpha with the frozen factory tables the two never differ, because
+    S * T tops out at 9 below the surfacing threshold of 10 and only V reaches
+    it -- and V alone already reaches it.
+    """
+    votes_only = evaluate_finding(_f(5), alpha=0.1, tier0=[])
+    assert votes_only.strongest_purchased_lr == 3.0
+    assert votes_only.pricing_changed_decision is False
+
+    at_the_ceiling = evaluate_finding(_f(5), alpha=0.1, tier0=_sig(2))
+    assert at_the_ceiling.wealth == 9.0
+    assert at_the_ceiling.strongest_purchased_lr == 3.0
+    assert at_the_ceiling.pricing_changed_decision is False
+
+    verified = apply_verification(votes_only, alpha=0.1, reproduced=True)
+    assert verified.wealth == 60.0
+    assert verified.strongest_purchased_lr == 20.0
+    assert verified.decision == 1
+    assert decide(verified.strongest_purchased_lr, 0.1) == 1
+    assert verified.pricing_changed_decision is False
+
+
+def test_pricing_instrument_reports_true_when_the_product_is_load_bearing() -> None:
+    """A live instrument has to be able to fire, or it measures nothing.
+
+    At a threshold of 8 the S * T product surfaces a finding that neither
+    channel surfaces alone. No product decision is taken at this alpha here;
+    this pins that the instrument responds to the thing it claims to watch.
+    """
+    alpha = 0.125  # threshold 1/alpha = 8
+    result = evaluate_finding(_f(5), alpha=alpha, tier0=_sig(2))
+
+    assert result.wealth == 9.0
+    assert result.decision == 1
+    assert result.strongest_purchased_lr == 3.0
+    assert decide(result.strongest_purchased_lr, alpha) is None
+    assert result.pricing_changed_decision is True

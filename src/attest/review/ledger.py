@@ -283,10 +283,20 @@ def _surfaced_projection(
                     "wealth_final",
                     "action",
                 },
+                # D-063 instrument fields; absent from every historical row.
+                {"strongest_channel_lr", "pricing_changed_decision"},
             )
             task_id = _required_string(entry, "task_id")
             finding_id = _required_string(entry, "finding_id")
             action = _required_string(entry, "action")
+            if "strongest_channel_lr" in entry:
+                _require_finite_nonnegative(
+                    entry["strongest_channel_lr"], "strongest_channel_lr"
+                )
+            if "pricing_changed_decision" in entry and type(
+                entry["pricing_changed_decision"]
+            ) is not bool:
+                raise ValueError("pricing_changed_decision must be an exact boolean")
             channels = entry["channels_bought"]
             if (
                 type(channels) is not list
@@ -685,18 +695,31 @@ class Ledger:
         spend: float,
         wealth_final: float,
         action: str,
+        *,
+        strongest_channel_lr: float | None = None,
+        pricing_changed_decision: bool | None = None,
     ) -> None:
-        self.append(
-            {
-                "kind": "review",
-                "task_id": task_id,
-                "finding_id": finding_id,
-                "channels_bought": channels_bought,
-                "spend": round(spend, 6),
-                "wealth_final": round(wealth_final, 4),
-                "action": action,
-            }
-        )
+        """Record one candidate's channel purchases and its gate outcome.
+
+        ``pricing_changed_decision`` is an instrument, not an input (D-063). It
+        records whether multiplying the purchased channels decided anything the
+        strongest single purchased channel would not have decided alone. The
+        gate never reads it.
+        """
+        entry: dict[str, Any] = {
+            "kind": "review",
+            "task_id": task_id,
+            "finding_id": finding_id,
+            "channels_bought": channels_bought,
+            "spend": round(spend, 6),
+            "wealth_final": round(wealth_final, 4),
+            "action": action,
+        }
+        if strongest_channel_lr is not None:
+            entry["strongest_channel_lr"] = round(strongest_channel_lr, 4)
+        if pricing_changed_decision is not None:
+            entry["pricing_changed_decision"] = pricing_changed_decision
+        self.append(entry)
 
     def record_feedback(self, finding_id: str, feedback: str) -> None:
         """Record a human label for a surfaced finding.

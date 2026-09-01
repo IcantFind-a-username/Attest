@@ -412,6 +412,39 @@ def product_candidate_evidence_from_rows(
     return tuple(evidence)
 
 
+def product_pricing_instrument_from_rows(
+    ledger_rows: Sequence[Mapping[str, Any]], task_id: str
+) -> tuple[dict[str, Any], ...]:
+    """Per-candidate record of whether wealth multiplication decided anything.
+
+    Reads the durable ``review`` rows (D-063). Rows written before the
+    instrument existed carry no verdict and are reported as ``None`` rather
+    than silently counted as ``False``.
+    """
+
+    rows: list[dict[str, Any]] = []
+    for row in ledger_rows:
+        if row.get("kind") != "review" or row.get("task_id") != task_id:
+            continue
+        finding_id = row.get("finding_id")
+        if not isinstance(finding_id, str):
+            raise ValueError("review row requires a finding_id")
+        changed = row.get("pricing_changed_decision")
+        rows.append(
+            {
+                "finding_id": finding_id,
+                "action": row.get("action"),
+                "channels_bought": list(row.get("channels_bought", [])),
+                "wealth_final": row.get("wealth_final"),
+                "strongest_channel_lr": row.get("strongest_channel_lr"),
+                "pricing_changed_decision": (
+                    changed if isinstance(changed, bool) else None
+                ),
+            }
+        )
+    return tuple(rows)
+
+
 def extract_predictions(
     repo: Path,
     *,

@@ -866,3 +866,52 @@ is active only when the owning architecture/acceptance document changes with it.
   (SHA-256 `e2071ec565bea435c99b9d8457d1d68031742a06bf7f81de340e3f7bd6fe509b`);
   `tests/benchmark/test_matcher.py`.
 - **Trace:** D-062; D-061; D-059; `AGENTS.md` §16.
+
+### D-063 — the pricing layer carries an instrument that reports whether it is load-bearing
+
+- **Date/status/scope:** 2026-09-01 · owner-directed instrumentation · implemented ·
+  `src/attest/review/{gate,candidates,ledger,run}.py`, `src/attest/cli/main.py`,
+  `src/attest/benchmark/{runner,api,live}.py`.
+- **Decision:** every candidate now carries one recorded field,
+  `pricing_changed_decision`: whether the decision taken on the full wealth differs from the
+  decision the **strongest single purchased channel** would have taken against the same
+  threshold. It is written to the durable per-candidate `review` ledger row and to the
+  candidate store, and surfaced by `attest stats` and by the benchmark calibration report
+  beside precision, abstention rate and silence precision.
+- **This decides nothing.** The gate never reads the field. No threshold, alpha, cap, LR,
+  purchase order or action changes. `GateResult.pricing_changed_decision` is computed after
+  the decision and is ignored by `apply_gate`.
+- **Why an instrument rather than a verdict.** Whether the wealth multiplication is
+  load-bearing is a question about many rounds, not about one. The project already treats
+  silence rate and abstention rate this way: measure continuously and let the number speak.
+  A one-off judgement would go stale the moment a constant or an alpha moved; a field
+  recorded on every candidate reports itself each round and will register the change.
+- **Backfilled over every per-candidate record held, no model call and no execution**
+  (`scripts/acceptance/d063_pricing_instrument_backfill.py`):
+
+  | source | candidates | `pricing_changed_decision` |
+  |---|---:|---:|
+  | exhaustive reachable channel grid at alpha = 0.1 | 45 combinations | **0** |
+  | 2026-09-01 history counterfactual (S, T, wealth recorded) | 26 | **0** |
+  | D-059's four surfaced findings, over every reachable S | 4 (20 rows) | **0** |
+
+  **So the wealth multiplication has changed a decision zero times to date.** The grid
+  enumeration explains why, and it is structural rather than incidental: with the frozen
+  factory tables `S * T` tops out at 9, below the surfacing threshold of 10, while the
+  smallest reachable wealth is 0.5, above the discard threshold of 0.1. Only V reaches the
+  threshold, and V = 20 alone already reaches it. Every certified receipt this project has
+  produced was decided by V on its own, exactly as the owner suspected.
+- **What this does not say.** It is not an argument to remove S, T or the multiplication, and
+  it is not an accuracy statement. It says that at this alpha, with these caps, the product
+  of the purchased channels has never crossed a threshold that its strongest single channel
+  did not already cross. Raising a cap, lowering alpha, or pricing a new channel changes the
+  enumeration and requires its own.
+- **Migration:** the two fields are optional on `review` ledger rows and on candidate-store
+  records, so every historical ledger stays valid and readable. Records written before the
+  instrument existed report `None` and are counted as uninstrumented, never as `False`.
+- **Evidence:** `docs/acceptance/evidence/2026-09-01-d063-pricing-instrument/result.json`;
+  `tests/test_gate.py::test_pricing_instrument_records_without_deciding_anything` and
+  `::test_pricing_instrument_reports_true_when_the_product_is_load_bearing`, the second of
+  which pins that the instrument fires when the product really is load-bearing.
+- **Reversal:** owner call; the field is inert and removing it changes no behaviour.
+- **Trace:** D-007; D-008; D-022; D-059; `AGENTS.md` §16; `src/attest/review/gate.py`.
