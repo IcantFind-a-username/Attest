@@ -368,3 +368,30 @@ recovery, pending alpha policy, unpriced F observation, and C-01's pure domain.
 
 C-01 is complete. C-02 and V-01 are the first unblocked work orders, but neither is started
 or authorized by this handoff. There is no named blocker to the completed overnight scope.
+
+## Follow-on V-funnel work — Wave 1 candidate autopsy (2026-09-01)
+
+This is an append-only follow-up to the overnight report. Baseline SHA was
+`2ae5fcf90af73bf618a82899761c03971caea6b7`; `git fetch origin --prune` left
+`origin/main` at `1f6f73eb72f5ed45b129c4d7ff937cc23b409e5c`, and the authoritative worktree
+was clean. This wave made no model/API call and spent $0.
+
+The four Wave 4 schema-valid reproduction responses can be mapped to candidates from the
+durable provider-call order. In `case-3efff8123ae7`, candidate 0 produced a valid body;
+candidate 1 exhausted both schema attempts at `max_tokens`; candidate 2 produced a valid
+body on its second attempt; candidates 3 and 4 reached no provider call. In
+`case-81039ffa0c1e`, both candidates produced valid bodies. Thus the four bodies belong to
+`01dd26db09`, `5edf557329`, `ffe9efc79f`, and `45896a87b1`.
+
+| Candidate | Candidate and generated-test summary | Retained evidence class / DEFER | Key retained execution line | Does the process-policy attribution hold? |
+|---|---|---|---|---|
+| `01dd26db09` (`black.py:956`) | Claim: lost bracket-depth matching breaks nested `for ... in`; body imports `black`, formats the nested-for snippet twice, checks idempotence, then calls `black.assert_equivalent`. Reproduction response: `end_turn`, 1,444 output tokens. | `indeterminate`; `head run 1/3 deferred: reproduction attempted to create a child process`. | The raw pytest stdout/stderr was not retained after the live workspace cleanup. The durable case reason contains the quoted head-run line. | **Yes, individually established.** It is candidate 0, so the case's retained first-DEFER reason binds to it. The head run started but was rejected before head/base classification. |
+| `5edf557329` (`black.py:983`) | Claim: lost lambda-depth matching mishandles inner colons; body calls `black.format_str` on a nested-lambda/slice expression and compares exact expected spacing. First generation stopped at `max_tokens`; the one bounded retry returned `end_turn`, 1,633 output tokens and a valid body. | **Not retained per candidate.** It is known to have DEFERRED, but neither its evidence class nor its reason survived in the case artifact. | No per-candidate stdout/stderr or result line survives; only the case-level first reason and the fact that all five candidates deferred were retained. | **Unproven.** It may have hit the same guard, but the durable evidence cannot distinguish that from unfaithful, not-reproduced, or another DEFER. |
+| `ffe9efc79f` (`black.py:397`) | Claim: `--config` no longer rejects a missing file cleanly; body uses Click's in-process `CliRunner` on `black.main` with one temporary source file and checks exit code 2. Reproduction response: `end_turn`, 1,429 output tokens. | `indeterminate`; `head run 1/3 deferred: reproduction attempted to create a child process`. | The raw pytest stdout/stderr was not retained. The durable case reason contains the quoted head-run line. | **Yes, individually established.** It is candidate 0, so the retained first-DEFER reason binds to it. |
+| `45896a87b1` (`tests/test_black.py:1645`) | Claim: deleting the invalid-config regression test masks the behavior change; body uses `CliRunner` with a nonexistent config and `-c`, checking exit code 2 and an error message. Reproduction response: `end_turn`, 1,095 output tokens. | **Not retained per candidate.** The case artifact proves that both candidates deferred but stores only candidate 0's reason. | No per-candidate stdout/stderr or result line survives. | **Unproven.** The aggregate `(2 candidates)` suffix is a DEFER count, not proof that both reasons were the same. |
+
+Therefore the previous statement that all four schema-valid reproductions hit the unchanged
+child-process guard was stronger than the durable evidence. The attribution is individually
+established for **2/4**, unproven for **2/4**; none reached a retained head-fail/base-pass
+receipt. The missing per-candidate execution result and stdout/stderr are a measurement-
+retention gap, not evidence for any of the alternative failure classes.
