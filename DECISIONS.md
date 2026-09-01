@@ -448,25 +448,24 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Trace:** Wave 3 run `wave3-observe2-20260901`; `src/attest/review/proposer.py`;
   `DEVSPEND.md`.
 
-### D-052 — Reproduction recovery stays bounded and in-process
+### D-052 — Reproduction schema recovery stays bounded
 
 - **Date/status/scope:** 2026-09-01 · accepted implementation constraint · V-channel
   reproduction generation.
 - **Decision:** tolerate only an otherwise complete JSON response wrapped in one Markdown
   JSON fence, and retry a schema-invalid generation at most once. Reserve both possible
   calls before the first dispatch, settle only calls made, and cancel every unused
-  reservation. Ask generated reproductions to call project functions directly and use an
-  existing synchronous executor seam rather than a CLI, subprocess, or process pool.
+  reservation.
 - **Why:** Wave 3 produced three schema-valid reproduction bodies out of four candidates;
-  the fourth stopped at `max_tokens` with `{}`. D-037 also identified shell-out-shaped tests
-  as incompatible with the unchanged evidence container. One bounded recovery attempt and
-  an in-process test idiom address those observed failures without weakening the schema or
-  execution boundary.
+  the fourth stopped at `max_tokens` with `{}`. One bounded recovery attempt addresses that
+  observed D-037(a) failure without weakening the schema or execution boundary. D-037(c) is
+  a separate runner-policy question and remains explicitly out of scope.
 - **Consequences:** there is no unbounded paid retry and no under-reserved dispatch. Network,
   process, thread, capability, and secret isolation remain unchanged. Arbitrary prose around
-  JSON is still rejected, and a second schema failure remains DEFER.
-- **Reversal:** remove the retry or prompt constraint only with measured V-channel evidence;
-  never reverse by permitting process escape or accepting malformed schema.
+  JSON is still rejected, and a second schema failure remains DEFER. No generation prompt or
+  runner process/resource policy change is retained for D-037(c).
+- **Reversal:** remove the retry only with measured V-channel evidence; never reverse by
+  permitting process escape or accepting malformed schema.
 - **Trace:** D-017; D-037; `src/attest/review/executor.py`; Wave 4.
 
 ### D-053 — Alpha relaxation remains an owner decision
@@ -481,3 +480,30 @@ is active only when the owning architecture/acceptance document changes with it.
   sparse signal that applies only when independently observed evidence exists. The current
   overnight measurements do not estimate the resulting precision/harm tradeoff.
 - **Trace:** D-038; D-048; `src/attest/review/ledger.py`; owner overnight constraints.
+
+### D-054 — Repair-history evidence is recorded unpriced
+
+- **Date/status/scope:** 2026-09-01 · accepted shadow instrumentation · review candidate
+  history and offline counterfactual measurement only.
+- **Decision:** define the first F slice as true only when `git blame` maps the current
+  anchor line to a commit within 50 commits of `HEAD` whose full commit message contains
+  the word `revert` or `hotfix`. Persist that observation as
+  `attest.history-signal.v1` with `priced=false`; it must not create a purchase, enter
+  product wealth, write a surfaced ledger row, or affect publication. Call-graph
+  reachability and test-blind-spot slices remain backlog items.
+- **Counterfactual evidence:** the SHA-bound Wave 5 probe covered all nine historical-V1
+  receipt pairs in both historical-bug and developer-fix-control roles (18 cases). Its one
+  paid observation produced 26 candidates and F triggered for 0/26. Pure offline replay at
+  hypothetical multipliers 1.25, 1.5, 2, and 3 produced no threshold crossings in either
+  role; therefore no control candidate was falsely triggered. Actual spend was $1.576220
+  against a $2.70 up-front bound.
+- **Limits:** the receipt proves historical integrity only. Accuracy, precision, recall,
+  and silence precision remain not estimated; the run is not evidence that the signal can
+  improve recall. The zero trigger rate is a measurement of this exact sparse definition
+  and sample, not authority to broaden or price it.
+- **Reversal:** remove the shadow row without migrating wealth or publication state. Any
+  change to the slice, lookback, or pricing requires a new owner-approved preregistration
+  and control measurement.
+- **Trace:** D-022; `src/attest/review/history.py`;
+  `scripts/history_counterfactual.py`;
+  `docs/acceptance/evidence/2026-09-01-wave5-history-counterfactual/result.json`.

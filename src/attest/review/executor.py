@@ -46,9 +46,7 @@ REPRO_SCHEMA: dict[str, Any] = {
 
 GENERATOR_SYSTEM = """Write one focused pytest reproduction for the supplied finding. Return only
 the test body required by the schema. The test must distinguish the claimed defect from correct
-behavior and must not use the network. Keep the reproduction in-process: call project functions
-directly instead of invoking a CLI, subprocess, or process pool. When the behavior normally uses
-concurrency, patch an existing project executor seam with a synchronous test double."""
+behavior and must not use the network."""
 
 SITECUSTOMIZE = """import _thread
 import os

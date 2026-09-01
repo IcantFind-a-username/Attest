@@ -11,11 +11,14 @@ reproduction turns one into a real defect.
 
 <!-- entries below, newest first -->
 
-- `src/attest/review/executor.py:46` — Wave 4's in-process generation instruction did
-  not solve D-037(c): all four schema-valid reproductions in the bounded retest still
-  attempted child processes under the unchanged container guard. A deterministic,
-  project-aware synchronous adapter (rather than prompt wording or weaker isolation) needs
-  an owner-approved design before another paid run.
+- `src/attest/review/history.py:1` — call-graph reachability and test-blind-spot slices were
+  intentionally excluded from the first F-channel scope; either slice needs an independently
+  preregistered owner work order before implementation or measurement.
+- `src/attest/review/executor.py:46` — D-037(c) remains reproducible: all four schema-valid
+  reproductions in the bounded Wave 4 retest attempted child processes under the unchanged
+  container guard. Runner process/resource policy and compatibility design are explicitly out
+  of scope here and require a separate owner decision; no further prompt or runner change was
+  retained.
 - `src/attest/review/ledger.py:80` — shared `ci_final` validation preserves `ValueError`
   behavior but changed several message strings; no repository caller depends on them, and
   the later-round compatibility concern is deferred under D-049 rather than opening another
