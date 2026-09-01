@@ -4,9 +4,10 @@
   attribution boundary", both approved by the owner for this task.
 - **Baseline:** `origin/main` @ `24da49d` (180 commits, clean tree).
 - **Branch:** `feature/m01-audit-window-and-repeat-semantics`. Not pushed.
-- **Final SHA:** `0e95b04cadda14e0e07aceadb751a0969095c322`.
+- **Gated SHA:** `0e95b04cadda14e0e07aceadb751a0969095c322` — the full gate below ran
+  here; the only later commit adds this report's gate section and changes no code.
 - **Diff against baseline:** 13 files, **+1256 / −38**, net **+1218** lines
-  (of which 380 are this report and 381 are the two evidence artifacts).
+  (of which this report and the two evidence artifacts are the large majority).
 - **Decision:** D-059 (the highest existing entry was D-058 across both `- **D-NNN` and
   `### D-NNN —` formats; 59 entries scanned).
 
