@@ -1029,7 +1029,7 @@ is active only when the owning architecture/acceptance document changes with it.
   may be read in.**
 - **The finding that outranks the group means:** F is near-constant *inside* one review.
   Over the seven cases with more than one candidate, `repair_share` takes one distinct value
-  in six (0.00 in five), `distinct_authors` spans ≤ 2 values, `commits` spreads ≤ 3. A priced
+  in six (0.00 in four; undefined on both candidates in a fifth), `distinct_authors` spans ≤ 2 values, `commits` spreads ≤ 3. A priced
   F multiplies one candidate against another on the same head; a quantity that barely moves
   inside a head cannot re-order what one review shows.
 - **The pricing counterfactual, and the number that actually blocks it.** At an F cap of 1.2,
@@ -1051,6 +1051,15 @@ is active only when the owning architecture/acceptance document changes with it.
   its `bug_patch.txt` carries only source hunks. That group is **unlabelable, not verified
   clean** — the fifth member, `black.py:610`, reads like a genuine second defect the corpus
   does not point at, on a case D-062 already flagged for unlabelled pure-insertion hunks.
+- **Erratum (2026-09-02, unpaid).** This entry first read "0.00 in five". Four of the
+  six single-valued cases hold `repair_share = 0.00`; the fifth, `case-1e2261dcc6e9`, has
+  it **undefined on both candidates** because no commit touched either anchor line in the
+  window. The artifact recorded that correctly as `defined: 0, distinct_values: 0`; only
+  the prose collapsed undefined into zero. The finding is unchanged — six of seven cases
+  still carry one distinct value or none. Related: the single candidate driving the
+  repair-share inversion (`00afbee573`, share 1.00) is itself one of the four off-label
+  candidates anchored in `tests/test_black.py`, the group this entry already names as
+  unlabelable; the inversion is that one point.
 - **Stopping here, as pre-registered.** One population, one measurement. No fifth slice of the
   same history, no graded-map simulation, and no cap, alpha or constant moved to force a
   crossing.

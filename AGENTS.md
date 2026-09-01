@@ -98,7 +98,7 @@ Do not confuse target contracts with current behavior:
   combinations, over every candidate on record, and over D-059's findings at every
   reachable S (D-063). Observed `S*T` has never exceeded **3.0**, with `T = 1.0` on all 26
   recorded candidates (D-065). This holds by factory arithmetic and is not a runtime
-  invariant: `alpha > 1/9` removes it, and raising a cap or pricing a new channel requires
+  invariant: `alpha >= 1/9` removes it, and raising a cap or pricing a new channel requires
   its own enumeration;
 - current CI can skip verification for an already-terminal S/T surface when alpha is
   relaxed, and head configuration can influence policy;

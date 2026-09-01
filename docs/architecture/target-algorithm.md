@@ -50,7 +50,7 @@ decisions over the reachable grid, over every candidate on record, and over D-05
 findings at every reachable S. D-065 adds the observed distribution behind that bound —
 `S×T` has never exceeded 3.0 in a real run, with `T = 1.0` on all 26 recorded candidates.
 This is a property of the frozen factory tables at this alpha, not a runtime guarantee:
-`alpha > 1/9` removes it (see the gap list below), and raising a cap or pricing a new
+`alpha >= 1/9` removes it (see the gap list below), and raising a cap or pricing a new
 channel changes the enumeration and requires its own. The S and T factors price only
 positive evidence; they are not e-values, and the product wealth is not an e-process.
 Current error control therefore rests on factory arithmetic and the reliability of
@@ -82,7 +82,7 @@ interface. It is not activated as a certifier.
 The roadmap tracks unresolved implementation gaps and recently closed gaps that remain
 regression obligations, not hypothetical polish:
 
-- `alpha > 1/9` can currently let S/T surface before differential verification, and CI
+- `alpha >= 1/9` can currently let S/T surface before differential verification, and CI
   intentionally skips verification for an already-terminal candidate.
 - pull-request head configuration can influence the gate; policy is not base-owned.
 - `attest verify --reproduced` is a self-report path that can buy the same V factor without
