@@ -661,6 +661,21 @@ is active only when the owning architecture/acceptance document changes with it.
   executed without scoring authority, and the report withholds accuracy. K is an operational
   count of differential receipts; it is not precision, not recall, and no recall or precision
   statement may be derived from it.
+- **Manual review of the four (2026-09-01, unpaid):** all four claims name the exact logic
+  the reverted patch removes, one of them by the identifier the fix introduces (`no_commas`).
+  The benchmark oracle independently corroborated three; its refutation of the fourth is a
+  false negative caused by its own reproduction calling `black.Mode`/`format_str(line_length=)`,
+  neither of which exists at that 2019-era revision, so it raised on both sides. Replayed
+  locally at both SHAs: the product's reproduction separates the revisions correctly. The
+  gap between K = 4 and the matcher's `matched = 1` is anchor tolerance (`line_slack = 0`,
+  two misses off by one and two lines) plus single-hunk truth labelling, not a proposal or
+  verification defect. Raising slack or relabelling truth after seeing these results is an
+  outcome-dependent measurement change and needs its own owner decision (§16).
+- **Erratum:** the first version of this entry and of the handoff report explained the
+  harness's `regression_reproduced: 3` as an aggregate layer keeping one class per case.
+  That was wrong. `runner.py` lets the oracle's per-finding class override the product's, so
+  3 and 4 are two different measurements — product self-certification versus independent
+  confirmation — and neither counter was truncating anything.
 - **Evidence:** `docs/2026-09-01-d059-audit-window-and-repeat-semantics.md`;
   `docs/acceptance/evidence/2026-09-01-d059-wave4-replay/result.json`
   (SHA-256 `d0c09ac6a1338654809123a8cc45dd333ec2a95cf0a3f99d0499994a9744bd20`);

@@ -169,12 +169,17 @@ rounds also ran without it and withheld accuracy. The rerun follows that convent
 | surfaced findings | 0 | 0 | 0 | **4** |
 | spend | $1.0592 | $0.330626 | $0.433304 | **$0.933454** |
 
-Every figure in the "this round" column is computed from the per-candidate durable records,
-not from aggregate counters. That distinction matters here: the harness's own
-`evidence_class_counts` and `channel_outcomes` report `regression_reproduced: 3`, because
-they record one representative class per case, while the per-candidate evidence shows 4 —
-`case-c6f141a2be09` produced both an unfaithful candidate and a certified one. The
-per-candidate records are authoritative.
+K counts the **product's own** differential certificates, read from the per-candidate
+durable records. The harness's `channel_outcomes` and `evidence_class_counts` report
+`regression_reproduced: 3, unfaithful: 1` for the same four findings, and both numbers are
+correct because they measure different things: those fields carry the **benchmark oracle's**
+independent re-verification, which `runner.py` lets override the product's class per finding.
+The oracle corroborated 3 of the 4 and refuted 1. Section "Reading the four certified
+findings" below resolves that disagreement.
+
+**Erratum.** An earlier revision of this report attributed the 3-vs-4 gap to the aggregate
+layer keeping one class per case. That was wrong. The gap is product self-certification
+versus independent oracle confirmation; no counter was truncating anything.
 
 ### DEFER / outcome reason distribution (23 candidates)
 
@@ -216,6 +221,88 @@ knob, not a product guard; it is in `docs/backlog.md`.
 Three of the four surfacing cases carry task status `deferred` with a surfaced finding —
 mixed outcomes preserved, as invariant 7 requires. A task DEFER did not erase a finding
 already shown.
+
+## Reading the four certified findings
+
+A manual review of all four surfaced findings against the corpus's own `bug_patch.txt`.
+This is human judgement on the claim text, not a metric.
+
+| # | case / pair | claim, in one line | reverted hunk it names | verdict |
+|---|---|---|---|---|
+| 1 | `case-99a012693940` / bug 16 | the `try/except ValueError` guard for symlinks resolving outside root was removed, so traversal crashes instead of skipping | `gen_python_files_in_dir`, exactly that guard | **real** |
+| 2 | `case-2dad0cb4c5b5` / bug 9 | `get_grammars` else-branch no longer returns `python_grammar_no_print_statement`, breaking Python-2 print-function parsing | `return [pygram.python_grammar]` vs the two-grammar list | **real** |
+| 3 | `case-c22190aa4fc9` / bug 17 | the `if not lines:` guard was removed from `decode_bytes`, so `lines[0]` raises IndexError on an empty file | `decode_bytes`, exactly that guard | **real** |
+| 4 | `case-c6f141a2be09` / bug 5 | the `no_commas` branch was removed, so a split single-argument `def` loses its trailing comma | `if original.is_import or no_commas:` — names the variable the fix introduces | **real** |
+
+All four name the exact logic the reverted patch removes. Finding 4 names `no_commas` by
+its identifier. This is not the certification mechanism blessing noise.
+
+### The oracle's one refutation is a false negative
+
+The benchmark oracle independently regenerated a reproduction for each surfaced finding.
+It confirmed 1, 2 and 3 (`buggy_fail_fixed_pass`, 3/3 each) and refuted 4 as
+`unfaithful` / `buggy_fail_fixed_fail`.
+
+The refutation is an artifact of the oracle's own test, not evidence about the finding. Its
+body opens with
+
+```python
+try:
+    mode = black.Mode(line_length=88)
+    formatted = black.format_str(src, mode=mode)
+except AttributeError:
+    formatted = black.format_str(src, line_length=88)
+```
+
+At this 2019-era revision `black.Mode` does not exist, and the fallback is also wrong for
+that vintage — `format_str` takes `mode=black.FileMode()`, not `line_length=`. Both branches
+raise on **both** revisions, which is exactly the `buggy_fail_fixed_fail` shape the oracle
+reported. Replayed locally at the pair's two SHAs, with no paid call:
+
+```text
+head 1bbb01b854:  TypeError: format_str() got an unexpected keyword argument 'line_length'
+base 9394de150e:  TypeError: format_str() got an unexpected keyword argument 'line_length'
+```
+
+The product's reproduction used the correct API for the revision and separates the two sides
+cleanly:
+
+```text
+head 1bbb01b854                          base 9394de150e
+def very_long_function_name_that_...(    def very_long_function_name_that_...(
+    argument_name_that_is_long               argument_name_that_is_long,
+) -> ReturnType:                         ) -> ReturnType:
+    pass                                     pass
+trailing comma present: False            trailing comma present: True
+```
+
+Finding 4 is real, and the product's certificate for it is sound.
+
+### The location matcher is what is too strict
+
+The run used `line_slack = 0`. Anchors against the labeled truth spans:
+
+| finding | anchor | labeled truth span | matched |
+|---|---|---|---|
+| `fdbff9370c` | `black.py:735` | `735–735` | **yes** |
+| `b1e7f57dc2` | `black.py:2949` | `2948–2948` | no — off by one line |
+| `ed1d3ea89b` | `black.py:2495` | `2491–2493` | no — off by two lines |
+| `20d686ba82` | `black.py:610` | `626–626` | no — names the *other* hunk of the same two-hunk fix |
+
+One of four matched. The three misses are not wrong findings: two are off-by-one/two inside
+the same edit, and the third correctly identifies `decode_bytes`, the first of bug 17's two
+hunks, while the corpus labels only the second (`lib2to3_parse`, `src_txt[-1]`).
+
+So the answer to "is the product working, or is it certifying noise?" is the first one. The
+gap between K = 4 and matched = 1 is a **measurement** problem — anchor tolerance and
+single-hunk truth labels — not a proposal-side or verification-side defect. Raising
+`--line-slack` and labelling every hunk of a fix would be the cheap correction, and both are
+measurement-only changes that touch no product behaviour. Neither is done here; both need
+their own work order, because changing a matcher after seeing its results is exactly the
+outcome-dependent move `AGENTS.md` §16 reserves for an owner decision.
+
+None of this is a precision estimate. Four findings, no developer-fix controls in this run,
+and accuracy formally withheld.
 
 ## The first certification receipt, in full
 
