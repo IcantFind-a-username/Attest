@@ -1092,6 +1092,33 @@ def _bounded_reason(reason: str) -> str:
 
 
 DEADLINE_REASON = "shared verification deadline exceeded during differential execution"
+
+
+def _unstable_head_reason(runs: list[ExecutionResult], repeats: int) -> str:
+    """Head did not agree with itself across the repeats, so there is no
+    deterministic failure to certify. The first indeterminate run is named
+    because it usually explains the whole disagreement; every run's own reason
+    stays in the per-run evidence either way."""
+    failed = sum(1 for run in runs if run.outcome is ExecutionOutcome.REPRODUCED)
+    passed = sum(1 for run in runs if run.outcome is ExecutionOutcome.NOT_REPRODUCED)
+    indeterminate = [
+        (index, run)
+        for index, run in enumerate(runs, start=1)
+        if run.outcome is ExecutionOutcome.DEFERRED
+    ]
+    if len(indeterminate) == repeats:
+        # not a disagreement: every repeat hit the same wall, and naming it
+        # "unstable" would hide the actual attribution
+        reason = f"indeterminate on head in {repeats}/{repeats} runs"
+    else:
+        reason = (
+            f"unstable reproduction on head ({failed} failed, {passed} passed, "
+            f"{len(indeterminate)} indeterminate of {repeats} runs)"
+        )
+    if indeterminate:
+        index, run = indeterminate[0]
+        reason += f"; run {index}/{repeats}: {run.reason}"
+    return reason
 NEW_CODE_REASON = (
     "new-code candidate: reproduction fails on head and the symbol is absent on base; not priced"
 )
@@ -1196,26 +1223,44 @@ def execute_differential(
                 return deferred(f"could not create {side} worktree: {added.stderr.strip()}")
             created.append(trees_dir / side)
 
+        # Every configured repeat runs on both sides before anything is
+        # classified. Repeats exist to rule out a one-off; returning on the
+        # first indeterminate run inverted that -- a single infrastructure
+        # hiccup denied the candidate, head repeats 2..N never ran, and the
+        # base side never ran at all, so nothing could be compared. Only the
+        # shared deadline still cuts the sequence short.
         for index in range(1, repeats + 1):
             run = run_once("head", index, trees_dir / "head")
             if run is None:
                 return deferred(DEADLINE_REASON)
             head_runs.append(run)
-            if run.outcome is ExecutionOutcome.DEFERRED:
-                return deferred(f"head run {index}/{repeats} deferred: {run.reason}")
+
+        base_truncated = False
+        for index in range(1, repeats + 1):
+            run = run_once("base", index, trees_dir / "base")
+            if run is None:
+                base_truncated = True
+                break
+            base_runs.append(run)
+
         head_failures = sum(
             1 for run in head_runs if run.outcome is ExecutionOutcome.REPRODUCED
         )
-        if head_failures == 0:
+        head_passes = sum(
+            1 for run in head_runs if run.outcome is ExecutionOutcome.NOT_REPRODUCED
+        )
+        if head_passes == repeats:
+            # the base side cannot change this: certification needs the head to
+            # misbehave, and it did not
             return finish(
                 ExecutionOutcome.NOT_REPRODUCED,
-                f"pytest passed on head in {repeats}/{repeats} runs; base not executed",
+                f"pytest passed on head in {repeats}/{repeats} runs",
                 EvidenceClass.NOT_REPRODUCED,
             )
         if head_failures < repeats:
-            return deferred(
-                f"flaky reproduction on head ({head_failures}/{repeats} runs failed)"
-            )
+            return deferred(_unstable_head_reason(head_runs, repeats))
+        if base_truncated:
+            return deferred(DEADLINE_REASON)
         # Head runs only reach this point as genuine test failures (exit 1,
         # failures > 0, errors == 0), so the head signature distinguishes *the
         # code misbehaved* -- an assertion OR a real crash such as
@@ -1229,11 +1274,7 @@ def execute_differential(
         # alike -- because both must first establish that the code misbehaved.
         head_symbol_is_present = _no_run_reports_the_symbol_absent(head_runs)
 
-        for index in range(1, repeats + 1):
-            run = run_once("base", index, trees_dir / "base")
-            if run is None:
-                return deferred(DEADLINE_REASON)
-            base_runs.append(run)
+        for index, run in enumerate(base_runs, start=1):
             if run.outcome is ExecutionOutcome.NOT_REPRODUCED:
                 continue
             if (

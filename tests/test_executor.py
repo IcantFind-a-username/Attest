@@ -1186,6 +1186,8 @@ def test_verification_subprocess_drops_credentials_and_redacts_ledger(
         ("head", 2),
         ("head", 3),
         ("base", 1),
+        ("base", 2),
+        ("base", 3),
     ]
     assert all(len(run["stdout"]) <= 2_000 for run in run_evidence)
     assert all(len(run["stderr"]) <= 2_000 for run in run_evidence)
@@ -1343,11 +1345,13 @@ def test_execute_reports_network_unblocked_when_process_never_starts(tmp_path: P
         (
             "def test_repro():\n    assert True",
             "not_reproduced",
-            "pytest passed on head in 3/3 runs; base not executed",
+            "pytest passed on head in 3/3 runs",
             4.0,
             "reproduction failed",
             ["not_reproduced"] * 3,
-            [],
+            # D-059: base runs regardless of the head result, so its evidence
+            # is on record even when the head never misbehaved
+            ["not_reproduced"] * 3,
             "not_reproduced",
         ),
     ],
@@ -1624,8 +1628,12 @@ def test_execute_differential_syntax_error_defers_and_cleans_worktrees(tmp_path:
 
     assert result.outcome is ExecutionOutcome.DEFERRED
     assert "collection/import/syntax" in result.reason
-    assert len(result.head_runs) == 1
-    assert result.base_runs == ()
+    # D-059: one indeterminate run no longer denies the candidate on the spot.
+    # Every configured repeat runs on both sides, and the classification reads
+    # all of them: three uniformly indeterminate head runs, base still executed.
+    assert result.reason.startswith("indeterminate on head in 3/3 runs; run 1/3:")
+    assert len(result.head_runs) == 3
+    assert len(result.base_runs) == 3
     assert result.base_sha == base_sha
     assert result.head_sha == head_sha
     assert_worktrees_cleaned(repo, stored)
@@ -1760,14 +1768,17 @@ def test_verify_candidate_flaky_head_reproduction_defers_without_buying_v(
     )
 
     assert verification.execution.outcome is ExecutionOutcome.DEFERRED
-    assert verification.execution.reason == "flaky reproduction on head (2/3 runs failed)"
+    assert verification.execution.reason == (
+        "unstable reproduction on head (2 failed, 1 passed, 0 indeterminate of 3 runs)"
+    )
     assert verification.gate_result is gate
     assert [run.outcome.value for run in verification.execution.head_runs] == [
         "reproduced",
         "not_reproduced",
         "reproduced",
     ]
-    assert verification.execution.base_runs == ()
+    # base is no longer skipped because of the head result; it stays evidence
+    assert len(verification.execution.base_runs) == 3
     assert_worktrees_cleaned(repo, stored)
 
 
@@ -2359,7 +2370,7 @@ def test_execute_differential_flaky_head_is_indeterminate(tmp_path: Path) -> Non
             DifferentialExpectation(
                 head_outcomes=("reproduced",) * 3,
                 head_signature="other",
-                base_outcomes=("reproduced",),
+                base_outcomes=("reproduced",) * 3,
                 base_signature="symbol_absent",
                 evidence_class="new_code_candidate",
                 outcome="deferred",
@@ -2381,7 +2392,7 @@ def test_execute_differential_flaky_head_is_indeterminate(tmp_path: Path) -> Non
             DifferentialExpectation(
                 head_outcomes=("reproduced",) * 3,
                 head_signature="symbol_absent",
-                base_outcomes=("reproduced",),
+                base_outcomes=("reproduced",) * 3,
                 base_signature="symbol_absent",
                 evidence_class="unfaithful",
                 outcome="deferred",
