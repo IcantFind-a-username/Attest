@@ -31,6 +31,7 @@ MAX_REPRO_ATTEMPTS = 2
 CLEANUP_TIMEOUT_S = 1.0
 GIT_TIMEOUT_S = 60.0
 MAX_REASON_CHARS = 300
+MAX_RUN_OUTPUT_FRAGMENT_CHARS = 2_000
 CAP_SYS_ADMIN = 21
 CAP_SYS_RESOURCE = 24
 # where the reproduction is executed from inside the tree under test; it is
@@ -1195,6 +1196,35 @@ def _differential_evidence(execution: DifferentialExecution) -> str:
     return "\n".join(sections)
 
 
+def _bounded_run_output(value: str) -> str:
+    if len(value) <= MAX_RUN_OUTPUT_FRAGMENT_CHARS:
+        return value
+    marker = "[...truncated...]\n"
+    return marker + value[-(MAX_RUN_OUTPUT_FRAGMENT_CHARS - len(marker)) :]
+
+
+def _differential_run_evidence(
+    execution: DifferentialExecution,
+) -> list[dict[str, object]]:
+    evidence: list[dict[str, object]] = []
+    for side, runs in (("head", execution.head_runs), ("base", execution.base_runs)):
+        for repeat, run in enumerate(runs, start=1):
+            evidence.append(
+                {
+                    "side": side,
+                    "repeat": repeat,
+                    "outcome": run.outcome.value,
+                    "reason": run.reason,
+                    "exit_code": run.exit_code,
+                    "elapsed_s": round(run.elapsed_s, 6),
+                    "network_blocked": run.network_blocked,
+                    "stdout": _bounded_run_output(run.stdout),
+                    "stderr": _bounded_run_output(run.stderr),
+                }
+            )
+    return evidence
+
+
 def verify_candidate(
     repo: Path,
     candidate: StoredCandidate,
@@ -1280,6 +1310,7 @@ def verify_candidate(
         base_runs=[run.outcome.value for run in execution.base_runs],
         repeats=execution.repeats,
         evidence_class=execution.evidence_class.value,
+        run_evidence=_differential_run_evidence(execution),
     )
     if execution.outcome is ExecutionOutcome.DEFERRED:
         return VerificationRun(execution=execution, gate_result=gate_result)

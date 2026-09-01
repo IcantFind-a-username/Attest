@@ -379,6 +379,39 @@ def product_evidence_classes_from_rows(
     return classes
 
 
+def product_candidate_evidence_from_rows(
+    ledger_rows: Sequence[Mapping[str, Any]], task_id: str
+) -> tuple[dict[str, Any], ...]:
+    """Preserve every candidate's structured verification evidence."""
+
+    evidence: list[dict[str, Any]] = []
+    finding_ids: set[str] = set()
+    for row in ledger_rows:
+        if row.get("kind") != "verification" or row.get("task_id") != task_id:
+            continue
+        finding_id = row.get("finding_id")
+        if not isinstance(finding_id, str):
+            raise ValueError("verification row requires a finding_id")
+        if finding_id in finding_ids:
+            raise ValueError("duplicate verification finding_id")
+        finding_ids.add(finding_id)
+        runs = row.get("run_evidence", [])
+        if not isinstance(runs, list) or not all(isinstance(run, dict) for run in runs):
+            raise ValueError("verification run_evidence must be a list of mappings")
+        evidence.append(
+            {
+                "finding_id": finding_id,
+                "outcome": row.get("outcome"),
+                "evidence_class": row.get(
+                    "evidence_class", EvidenceClass.INDETERMINATE.value
+                ),
+                "reason": row.get("reason"),
+                "runs": [dict(run) for run in runs],
+            }
+        )
+    return tuple(evidence)
+
+
 def extract_predictions(
     repo: Path,
     *,

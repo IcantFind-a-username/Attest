@@ -1172,6 +1172,16 @@ def test_verification_subprocess_drops_credentials_and_redacts_ledger(
     assert secret not in artifact
     assert "model-credential" not in artifact
     assert "[REDACTED]" in artifact
+    row = Ledger(repo).entries_strict()[-1]
+    run_evidence = row["run_evidence"]
+    assert [(run["side"], run["repeat"]) for run in run_evidence] == [
+        ("head", 1),
+        ("head", 2),
+        ("head", 3),
+        ("base", 1),
+    ]
+    assert all(len(run["stdout"]) <= 2_000 for run in run_evidence)
+    assert all(len(run["stderr"]) <= 2_000 for run in run_evidence)
 
 
 def test_execute_high_volume_output_uses_bounded_parent_memory(tmp_path: Path) -> None:

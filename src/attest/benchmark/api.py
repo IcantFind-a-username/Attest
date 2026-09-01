@@ -56,6 +56,7 @@ from attest.benchmark.runner import (
     LoopbackGitHub,
     ReproReceipt,
     ci_final_decisions_from_rows,
+    product_candidate_evidence_from_rows,
     rebuild_case_run_from_ledger,
 )
 from attest.benchmark.schema import (
@@ -406,6 +407,7 @@ class ProjectEvaluationResult:
     run: RunRecord
     score: ProjectEvaluationScore | None
     measurement: MeasurementRecord
+    candidate_evidence: tuple[Mapping[str, Any], ...] = ()
 
     def __post_init__(self) -> None:
         if type(self.measurement) is not MeasurementRecord:
@@ -454,6 +456,7 @@ class ProjectEvaluationResult:
                 for prediction in self.predictions
             ],
             "final_decisions": [dict(decision) for decision in self.final_decisions],
+            "candidate_evidence": [dict(row) for row in self.candidate_evidence],
             "abstain_reason": self.abstain_reason,
             "latency_s": round(self.latency_s, 6),
             "spend_usd": round(self.spend_usd, 6),
@@ -637,6 +640,11 @@ def _evaluate_prepared_project(
                 if run.task_id
                 else ()
             )
+            candidate_evidence = (
+                product_candidate_evidence_from_rows(ledger_rows, run.task_id)
+                if run.task_id
+                else ()
+            )
             records = _persist(
                 artifact_store,
                 request,
@@ -653,6 +661,7 @@ def _evaluate_prepared_project(
         resolved=resolved,
         run=run,
         decisions=decisions,
+        candidate_evidence=candidate_evidence,
         records=records,
         latency_s=clock() - started,
     )
@@ -1039,6 +1048,7 @@ def _result(
     resolved: _Resolved,
     run: CaseRunResult,
     decisions: tuple[Mapping[str, Any], ...],
+    candidate_evidence: tuple[Mapping[str, Any], ...],
     records: tuple[ArtifactRecord, ...],
     latency_s: float,
 ) -> ProjectEvaluationResult:
@@ -1058,6 +1068,7 @@ def _result(
         head_sha=resolved.head_sha,
         predictions=run.run.predictions,
         final_decisions=decisions,
+        candidate_evidence=candidate_evidence,
         abstain_reason=abstain_reason,
         latency_s=latency_s,
         spend_usd=run.spend_usd,

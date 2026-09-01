@@ -122,6 +122,69 @@ def test_evaluate_project_measures_a_caller_owned_repository_without_truth(
     assert str(tmp_path / "workspace") not in git(repo, "worktree", "list")
 
 
+def test_multi_candidate_case_artifact_preserves_each_verification(
+    tmp_path: Path,
+) -> None:
+    repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    proposal = json.dumps(
+        {
+            "findings": [
+                {
+                    "claim": "average() divides by zero when items is empty.",
+                    "anchor": {"file": "app.py", "line": 2},
+                    "failure_scenario": "average([]) raises ZeroDivisionError",
+                    "falsification_plan": "call average([]) and require a safe empty result",
+                },
+                {
+                    "claim": "An empty health window terminates report generation.",
+                    "anchor": {"file": "app.py", "line": 2},
+                    "failure_scenario": "A report receives an empty measurement window.",
+                    "falsification_plan": "compute a report from no measurements",
+                },
+            ]
+        }
+    )
+
+    class MultiCandidateProvider:
+        def sample(
+            self,
+            system: str,
+            prompt: str,
+            schema: dict[str, Any],
+            max_tokens: int,
+            *,
+            timeout_s: float | None = None,
+        ) -> ProviderResult:
+            del prompt, schema, max_tokens, timeout_s
+            payload = REPRO if "focused pytest reproduction" in system else proposal
+            return ProviderResult(text=payload, input_tokens=10, output_tokens=10)
+
+    result = evaluate_project(
+        _request(tmp_path, repo, base_sha, head_sha, repeats=3),
+        provider=MultiCandidateProvider(),
+    )
+
+    payload = result.to_json_dict()
+    candidate_evidence = payload["candidate_evidence"]
+    assert isinstance(candidate_evidence, list)
+    assert len(candidate_evidence) == 2
+    assert {row["finding_id"] for row in candidate_evidence} == {
+        row["finding_id"] for row in payload["final_decisions"]
+    }
+    assert all(row["evidence_class"] == "regression_reproduced" for row in candidate_evidence)
+    assert all(row["reason"] == "head FAIL 3/3, base PASS 3/3" for row in candidate_evidence)
+    for row in candidate_evidence:
+        assert [(run["side"], run["repeat"], run["outcome"]) for run in row["runs"]] == [
+            ("head", 1, "reproduced"),
+            ("head", 2, "reproduced"),
+            ("head", 3, "reproduced"),
+            ("base", 1, "not_reproduced"),
+            ("base", 2, "not_reproduced"),
+            ("base", 3, "not_reproduced"),
+        ]
+        assert "ZeroDivisionError" in row["runs"][0]["stdout"]
+
+
 def test_explicit_null_truth_is_adjudicated_before_artifact_persistence(
     tmp_path: Path,
 ) -> None:

@@ -746,6 +746,7 @@ class Ledger:
         base_runs: list[str] | None = None,
         repeats: int | None = None,
         evidence_class: str | None = None,
+        run_evidence: list[dict[str, object]] | None = None,
     ) -> None:
         entry: dict[str, Any] = {
             "kind": "verification",
@@ -765,6 +766,7 @@ class Ledger:
             "base_runs": base_runs,
             "repeats": repeats,
             "evidence_class": evidence_class,
+            "run_evidence": run_evidence,
         }
         entry.update(
             {name: value for name, value in differential_fields.items() if value is not None}
