@@ -11,6 +11,13 @@ reproduction turns one into a real defect.
 
 <!-- entries below, newest first -->
 
+- `src/attest/review/history.py:112` — the graded F observation replaced `git blame -L` with
+  `git log -L`, which walks line history rather than reading one blame record. Measured at
+  ~0.1 s per candidate on this repository and on the black corpus checkouts, and it fails
+  open at a 15 s timeout, so no defect is reproduced here. The worst case on a very large
+  history is unmeasured; if a review ever spends real time in the history phase, cap the
+  traversal with `--max-count` before touching the timeout.
+
 - F redefined once (D-064) and measured once; **not measured again in this task, by design.**
   At the anchor-line unit the graded values are directionally suggestive on two of four
   fields — defect lines were touched more recently (median 65 vs 109 days since last change)
