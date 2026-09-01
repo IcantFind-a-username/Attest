@@ -554,3 +554,30 @@ is active only when the owning architecture/acceptance document changes with it.
   recover budget by under-reserving the enforced provider cap.
 - **Trace:** D-018; D-051; D-052; `src/attest/review/executor.py`;
   `docs/overnight-handoff.md`.
+
+### D-057 — D-037(c) was runner-bootstrap attribution, not Black shelling evidence
+
+- **Date/status/scope:** 2026-09-01 · evidence correction/owner decision required ·
+  D-037(c), local-development process audit, and the next paid V-funnel replay.
+- **Correction:** withdraw D-037's claim that the observed child-process DEFER came from
+  “black's own test idiom” or shell-out-style generated tests. All four retained generated
+  bodies were in-process. The old case artifacts individually bound the process reason to
+  only two candidates. Exact zero-paid replays of those two (`01dd26db09`, direct
+  `black.format_str`; `ffe9efc79f`, Click `CliRunner`) recorded the same first event:
+  `subprocess.Popen`, target `uname`, from pytest importing `py -> uuid -> platform.uname`
+  under the corpus Python 3.8 environment. The first DEFER stopped repeats at head 1/3 and
+  prevented every base run.
+- **Consequences:** the current process marker is interpreter-scoped, not attributable to
+  reviewed code. This is still a real abstention/runner-compatibility defect, but it is not
+  evidence that the two tested Black paths attempted a child process. No allowlist,
+  guard-activation timing change, containment relaxation, or paid rerun is authorized here.
+  Another paid V-funnel replay waits for owner direction on the runner/guard attribution
+  boundary; independent C-02 or V-01 work remains unblocked.
+- **Evidence:** `5a684fb` retains bounded event/target/stack diagnostics;
+  `e0f2db0` is the final gated implementation/test SHA; the exact stacks and per-candidate
+  outputs are in `docs/overnight-handoff.md`.
+- **Reversal:** n/a — this corrects attribution. A future runner policy requires its own
+  owner-approved decision and must preserve D-017/D-042 containment plus `G-SEC-002` and
+  `G-SEC-003`; X-02/X-03 remain the owning work orders.
+- **Trace:** D-017; D-037; D-041; D-042; D-049; `G-DOC-001`;
+  `src/attest/review/executor.py`; `docs/roadmap.md`; `docs/backlog.md`.

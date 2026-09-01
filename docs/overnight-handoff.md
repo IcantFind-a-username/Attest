@@ -551,3 +551,42 @@ One bounded D-049/D-039 self-review found only that the 2,000-character evidence
 lacked a direct guard test; `e0f2db0` added it. Final review severity is **P0=0/P1=0**.
 No second self-review loop ran. The report-seal commit after this Gate changes only this
 append-only handoff and does not alter code, tests, decisions, or Gate inputs.
+
+## Repository synchronization for the next window (2026-09-01)
+
+The owner subsequently authorized pushing every local feature-branch commit and requested
+a repository-wide documentation handoff. The pre-documentation-sync branch head was
+`994abef1eb371e0e752d1fd2dffa913011602c4d`; the final gated code/test SHA remains
+`e0f2db029128ca1b98597e68e370aea8c24d78f0`. This synchronization changes only standing
+warnings, current roadmap wording, backlog attribution, historical errata, the decision
+log, and this handoff.
+
+The SHA-bound handoff snapshot below is evidence, not parallel status authority. A new
+window must read roadmap NOW for current work-order status:
+
+1. C-01 is complete; C-02 and V-01 are the first unblocked architecture work orders.
+2. Per-candidate evidence persistence is complete, including every executed repeat and
+   bounded/redacted stdout/stderr.
+3. The reproduction-only provider/reservation cap is 3,000; proposer remains 2,400. The
+   post-change reproduction truncation rate is not measured because no paid rerun occurred.
+4. D-057 corrects D-037(c): the two exactly replayed process DEFERs were first triggered by
+   trusted pytest bootstrap calling `uname -p`, not by the in-process Black test bodies.
+5. Do not change process/resource policy or spend on another V-funnel replay without an
+   owner decision on attribution. That decision is independent of C-02/V-01 work.
+6. Accuracy, precision, recall, and silence precision remain not estimated. DEVSPEND remains
+   30 entries and $5.933150/$10.00.
+
+New-window startup must run these commands so an existing stale local branch cannot pass as
+current:
+
+```bash
+git fetch origin --prune
+git switch feature/m01-authoritative-outcomes
+git merge --ff-only origin/feature/m01-authoritative-outcomes
+test "$(git rev-parse HEAD)" = "$(git rev-parse origin/feature/m01-authoritative-outcomes)"
+git status --short
+```
+
+The final command must print nothing. Then read `AGENTS.md`, `docs/README.md`, roadmap NOW,
+D-050 through D-057, and this report's follow-on sections. Resolve the exact remote branch
+SHA after fetch rather than relying on a self-referential SHA inside the report-seal commit.

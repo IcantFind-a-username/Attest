@@ -28,6 +28,11 @@
   five replay attempts all DEFERred with no finding, so finding precision and recall were
   not estimated; the defensible operational statement is surfaced delivery 0/5 with the
   recorded abstention reasons.
+- Later per-candidate replay withdrew the report's containment-vs-shelling attribution.
+  All four retained generated tests were in-process. For the two candidates with exact
+  diagnostic replays, the first child-process audit event came from old pytest bootstrap via
+  Python 3.8 `platform.uname()` calling `uname -p`, before Black's tested API ran. The other
+  two old candidate reasons remain unrecoverable; see D-057 and `overnight-handoff.md`.
 - The 11.5–33% scheduling saving is a synthetic mechanism result with assumed outcomes and
   cross-task pooled ordering. It is not a production or within-PR Core result.
 - The two Phase-3 runs are integration smoke repetitions on planted fixtures, not independent

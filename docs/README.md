@@ -31,6 +31,10 @@ match the bug.
 - [`github-action.md`](github-action.md) documents how the current prototype Action behaves
   and its current safety limitations. It is non-normative: target architecture and release
   gates override its implementation-era usage instructions.
+- [`overnight-handoff.md`](overnight-handoff.md) is the current SHA-bound implementation
+  handoff for `feature/m01-authoritative-outcomes`. Its newest appendices supersede earlier
+  diagnostic attributions without rewriting the historical run record; roadmap status still
+  lives only in [`roadmap.md`](roadmap.md).
 - `examples/` contains current fixtures/templates, not proof that their path is release-ready.
 
 ## Evidence and historical documents
