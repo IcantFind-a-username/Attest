@@ -90,8 +90,16 @@ Do not confuse target contracts with current behavior:
 - `src/attest/core.Engine` is research/simulation code and is not in the product path;
   production currently reuses only the generic `core.betting.decide` helper;
 - S/T price only positive evidence, so current product wealth is **not an e-process**;
-- at factory alpha, cap arithmetic normally forces positive differential V before speech,
-  but this is not a runtime invariant for all configurations;
+- at factory alpha the purchased channels cannot reach the surfacing threshold without V.
+  With the frozen factory tables `S*T` tops out at 9 against a threshold of 10 and the
+  smallest reachable wealth is 0.5 against a discard threshold of 0.1, so V is the only
+  channel that crosses and V crosses alone. Measured, not assumed: the wealth
+  multiplication has changed a decision **0 times** — over the 45 reachable channel
+  combinations, over every candidate on record, and over D-059's findings at every
+  reachable S (D-063). Observed `S*T` has never exceeded **3.0**, with `T = 1.0` on all 26
+  recorded candidates (D-065). This holds by factory arithmetic and is not a runtime
+  invariant: `alpha > 1/9` removes it, and raising a cap or pricing a new channel requires
+  its own enumeration;
 - current CI can skip verification for an already-terminal S/T surface when alpha is
   relaxed, and head configuration can influence policy;
 - manual `attest verify --reproduced` is not a trusted differential receipt;

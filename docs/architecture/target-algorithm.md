@@ -42,11 +42,19 @@ The product path under `src/attest/review` is a fixed S/T/V pipeline:
    head and three times on base;
 5. the generic wealth threshold and GitHub layer decide placement.
 
-At the factory `alpha=0.1`, S×T is capped below the surface boundary and a positive V
-normally supplies the decisive factor. The S and T factors price only positive evidence;
-they are not e-values, and the product wealth is not an e-process. Current error control
-therefore rests on factory arithmetic and the reliability of differential reproduction,
-not on a general sequential-validity theorem.
+At the factory `alpha=0.1`, S×T is capped at 9 against a surfacing threshold of 10, so a
+positive V supplies the decisive factor for every reachable combination — not usually, but
+in all 45 of them (D-063). The multiplication of the purchased channels has therefore never
+crossed a threshold its strongest single channel had not already crossed: 0 changed
+decisions over the reachable grid, over every candidate on record, and over D-059's
+findings at every reachable S. D-065 adds the observed distribution behind that bound —
+`S×T` has never exceeded 3.0 in a real run, with `T = 1.0` on all 26 recorded candidates.
+This is a property of the frozen factory tables at this alpha, not a runtime guarantee:
+`alpha > 1/9` removes it (see the gap list below), and raising a cap or pricing a new
+channel changes the enumeration and requires its own. The S and T factors price only
+positive evidence; they are not e-values, and the product wealth is not an e-process.
+Current error control therefore rests on factory arithmetic and the reliability of
+differential reproduction, not on a general sequential-validity theorem.
 
 ### 2.2 What `attest.core` currently is
 

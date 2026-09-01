@@ -192,6 +192,18 @@ empty, but the size of that inflation is unmeasured.
 **Stopping here by design.** One redefinition, one measurement, no third or fourth slice.
 The result and the conditions are in `docs/backlog.md`.
 
+> **Amendment, 2026-09-01 (`7eaa366`, D-065) — the prerequisite stated above was wrong, and
+> the observations it rests on are unchanged.** The candidate-unit comparison did not need a
+> new control arm or a second corpus: splitting these same 26 candidates by whether the
+> anchor lands on the corpus's labelled defect region yields 20 against 5 *within the same
+> reviewed revisions*, which is a better-controlled contrast than the arm comparison would
+> have been. On that split F does not discriminate — the two fields called directionally
+> suggestive here do not carry to the candidate unit, and F is near-constant inside a single
+> review. Separately, the pricing layer turns out to be blocked by `S·T` rather than by F:
+> the observed maximum is 3.0 against the 8.334 an F capped at 1.2 would need. Nothing in
+> this section's measurements is retracted; only the "what would unblock this" sentence
+> above is superseded. See `docs/2026-09-01-d065-f-discrimination-population.md`.
+
 ## What did not change
 
 No factory statistical constant, alpha, LR, channel cap, hard-publication cap, gate
@@ -248,8 +260,12 @@ fix, but the worst case on a very large history is unmeasured.
   that. No validation receipt with scoring authority exists for `attest-v1`.
 - The next paid run is **not generation-comparable** to D-059's, because wave 2 changed the
   shared generator prompt.
-- F cannot be evaluated at the candidate unit on this corpus: the control arm emits almost no
-  candidates. That, and a second corpus, are the prerequisites for any pricing argument.
+- ~~F cannot be evaluated at the candidate unit on this corpus: the control arm emits almost
+  no candidates. That, and a second corpus, are the prerequisites for any pricing argument.~~
+  **Superseded 2026-09-01 by `7eaa366` (D-065):** the candidate unit was evaluated by
+  regrouping these same 26 candidates within their own revisions. F did not discriminate,
+  and the pricing layer turned out to be blocked by `S·T` (observed max 3.0) rather than by
+  F. See the amendment in the wave-5 section above.
 - D-059's dominant remaining loss is still the per-case product budget at `--budget-usd 0.16`
   (15 of 23 candidates), an evaluation knob rather than a product guard.
 - Untouched and still owner-gated: C-02, V-01, X-01, V-03, the process-audit window widening,

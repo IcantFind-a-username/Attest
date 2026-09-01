@@ -11,6 +11,34 @@ reproduction turns one into a real defect.
 
 <!-- entries below, newest first -->
 
+- **The pricing layer will not be activated under foreseeable evidence, and F is not the
+  reason.** Resolved by `7eaa366` (D-065). Crossing the surfacing threshold with a fourth
+  channel capped at `c` needs `S·T ≥ 10/c`; at the owner's `c = 1.2` that is 8.334, and the
+  observed maximum `S·T` over every candidate this project has recorded is **3.0**, with
+  `T = 1.0` on all 26 and `S ≤ 3.0`. The reachable ceiling of 9 that makes 1.2 sufficient
+  has never been approached in a real run. Closing a factor-of-2.8 gap means moving a cap or
+  an alpha, which `AGENTS.md` §16 reserves to the owner. Nothing here is a request to move
+  one. Two facts are worth carrying forward if the question reopens: a *flat* cap cannot
+  discriminate at all, because its crossing set is exactly `{S·T ≥ 10/c}`, a function of S
+  and T that carries no F information; and at `c = 1.2` the answer is invariant to how F is
+  graded, since any multiplier bounded by 1.2 still needs `S·T ≥ 8.334`.
+
+- **F does not discriminate at the candidate unit on the population available.** Resolved by
+  `7eaa366` (D-065); this supersedes the prerequisite recorded in the D-064 entry below.
+  A control arm that emits candidates was not needed after all: splitting the 26 recorded
+  candidates by whether the anchor lands on the corpus's labelled defect region gives 20
+  against 5 within the same reviewed revisions. The two fields D-064 called directionally
+  suggestive do not carry to this unit (repair share inverts, 0.042 vs 0.200 by mean;
+  days-since-last-change disagrees by median and mean), the two that were flat separate only
+  weakly, and the percentile bands do not separate the groups. F is also near-constant inside
+  a single review — repair share takes one distinct value in six of the seven multi-candidate
+  cases — which is decisive, because re-ordering candidates within one review is the only
+  thing a priced F would do. **This is not a refutation of F:** n = 5 on the non-defect side,
+  and four of those five anchor in `tests/test_black.py`, which BugsInPy cannot label because
+  its `bug_patch.txt` carries source hunks only. That group is unlabelable, not verified
+  clean. A second corpus, or any corpus whose control arm emits candidates, would still be a
+  better test — and still needs its own owner-approved work order.
+
 - `src/attest/review/history.py:112` — the graded F observation replaced `git blame -L` with
   `git log -L`, which walks line history rather than reading one blame record. Measured at
   ~0.1 s per candidate on this repository and on the black corpus checkouts, and it fails
@@ -25,9 +53,11 @@ reproduction turns one into a real defect.
   distinct authors have identical medians and the distributions overlap heavily throughout.
   At the candidate unit, which is what the product actually emits, the control arm produced
   1 candidate against 25, so no comparison exists there at all. This is neither a refutation
-  nor grounds to price F. Pricing needs a control arm that produces candidates and a second
-  corpus; both need their own owner-approved work order. A third or fourth slice of the same
-  history was deliberately not attempted.
+  nor grounds to price F. ~~Pricing needs a control arm that produces candidates and a second
+  corpus; both need their own owner-approved work order.~~ **Superseded by `7eaa366`
+  (D-065)**, which obtained the candidate-unit comparison from a different split of the same
+  26 candidates rather than from a new control arm; see the two entries above for what it
+  found. A third or fourth slice of the same history was deliberately not attempted.
 - The D-064 defect-line group may carry a recency advantage from corpus construction: a
   BugsInPy head sits at the bug-introducing commit, so the defect region was necessarily
   touched recently in that head's own history. Real pull requests also review recently
