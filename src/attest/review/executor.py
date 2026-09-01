@@ -54,6 +54,7 @@ import os
 import socket
 import sys
 import threading
+import traceback
 from pathlib import Path
 
 _PROCESS_EVENTS = {
@@ -346,6 +347,21 @@ _process_replacement_marker = Path({str(process_replacement_marker)!r})
 _thread_attempt_marker = Path({str(thread_attempt_marker)!r})
 _PROCESS_GUARD_PROBE = "attest.process_guard_probe"
 
+def _record_process_attempt(event, args):
+    if _process_attempt_marker.exists():
+        return
+    target = None
+    if args:
+        target = args[-1] if event in {"ctypes.dlsym", "ctypes.dlsym/handle"} else args[0]
+    frames = traceback.extract_stack(limit=16)[:-2]
+    stack = "\\n".join(
+        f"{{frame.filename}}:{{frame.lineno}}:{{frame.name}}" for frame in frames
+    )
+    _process_attempt_marker.write_text(
+        f"event={{event}}\\ntarget={{target!r}}\\nstack:\\n{{stack}}\\n",
+        encoding="utf-8",
+    )
+
 if os.name == "posix":
     import resource
     if resource.getrlimit(resource.RLIMIT_NPROC) != (0, 0):
@@ -375,7 +391,7 @@ def _guard_operations(event, args):
         raise PermissionError("process replacement disabled by evidence executor")
     if not process_event and not native_symbol:
         return
-    _process_attempt_marker.write_text("attempted", encoding="utf-8")
+    _record_process_attempt(event, args)
     if os.name != "posix":
         raise PermissionError("process creation disabled by evidence executor")
 
@@ -464,6 +480,14 @@ def _truncate_output(output: bytes | str | None, limit: int) -> str:
         return ""
     encoded = output.encode("utf-8", errors="replace") if isinstance(output, str) else output
     return encoded[-limit:].decode("utf-8", errors="ignore")
+
+
+def _append_guard_evidence(stderr: str, marker: Path, limit: int) -> str:
+    try:
+        evidence = marker.read_text(encoding="utf-8")
+    except OSError:
+        evidence = "process audit details were unavailable"
+    return _truncate_output(f"{stderr}\n[process audit]\n{evidence}", limit)
 
 
 class _TailBuffer:
@@ -897,7 +921,9 @@ def execute_repro(
             started,
             exit_code=process.returncode,
             stdout=stdout,
-            stderr=stderr,
+            stderr=_append_guard_evidence(
+                stderr, process_attempt_marker, limits.output_bytes
+            ),
             network_blocked=network_blocked,
         )
     if thread_attempt_marker.is_file():

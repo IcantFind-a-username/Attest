@@ -962,6 +962,9 @@ def test_execute_defers_subprocess_attempt_without_starting_child(tmp_path: Path
     assert result.outcome is ExecutionOutcome.DEFERRED
     assert result.reason == "reproduction attempted to create a child process"
     assert not child_started.exists()
+    assert "[process audit]" in result.stderr
+    assert "event=subprocess.Popen" in result.stderr
+    assert "test_repro" in result.stderr
 
 
 @pytest.mark.skipif(os.name != "posix", reason="PID liveness assertion uses POSIX signals")
