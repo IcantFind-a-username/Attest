@@ -915,3 +915,73 @@ is active only when the owning architecture/acceptance document changes with it.
   which pins that the instrument fires when the product really is load-bearing.
 - **Reversal:** owner call; the field is inert and removing it changes no behaviour.
 - **Trace:** D-007; D-008; D-022; D-059; `AGENTS.md` §16; `src/attest/review/gate.py`.
+
+### D-064 — F is redefined once as graded change heat, measured once, and stays unpriced
+
+- **Date/status/scope:** 2026-09-01 · owner-directed redefinition and single measurement ·
+  `src/attest/review/history.py`, its ledger row, and
+  `scripts/acceptance/d064_history_heat_discrimination.py`.
+- **What changed.** The v1 observation asked one boolean question — is the anchor line owned
+  by a recent revert or hotfix within the last 50 commits? — and fired on 0 of 26 candidates.
+  That is a rare event, not a fair test of whether the line's history carries signal. F now
+  records four raw values per candidate and applies no threshold to any of them: commits
+  touching the anchor line in the trailing 12 months, the share of those whose subject
+  matches a recorded repair vocabulary, the number of distinct authors, and the days since
+  the line last changed. The window ends at **the reviewed revision's own commit date**, not
+  at the wall clock, so a 2019 corpus revision is asked about its own twelve months.
+- **F remains unpriced.** It buys no wealth, multiplies nothing, orders nothing, vetoes
+  nothing, and reaches no publication path. `HISTORY_SIGNAL_SCHEMA_VERSION` moves to
+  `attest.history-signal.v2` and the row still carries `priced: false`. The repair pattern is
+  written into every row so the share is auditable rather than asserted.
+- **The measure is discrimination, not trigger rate.** Two units are reported.
+
+  *Per candidate* — the unit the product actually emits, all 26 candidates of the 2026-09-01
+  history counterfactual, each with its four raw values in the artifact's `rows` table:
+
+  | field | `historical_bug_replay` (n = 25) | `developer_fix_control` (n = 1) |
+  |---|---|---|
+  | commits | median 1, p25 1, p75 2 | 1 |
+  | repair_share | median 0.00 (n = 21 defined) | 1.00 |
+  | distinct_authors | median 1, p25 1, p75 2 | 1 |
+  | days_since_last_change | median 90, p25 35, p75 122 (n = 21) | 0 |
+
+  The control arm produced **one** candidate. There is no distribution to compare, and that
+  is the honest result at this unit, not a formatting problem.
+
+  *Per anchor line* — the unit that can carry a balanced comparison. Bug group: every
+  head-side labelled defect line of the 9 replay cases. Control group: an equal number of
+  fixed-stride lines from the same file at the same revision, at least 10 lines from every
+  changed location, chosen without reference to what the signal says about them.
+
+  | field | defect line (n = 72) | non-defect line (n = 72) |
+  |---|---|---|
+  | commits | median 1, p25 1, p75 2, mean 1.32, max 4 | median 1, p25 0, p75 2, mean 1.13, max 9 |
+  | repair_share | median 0.00, p75 1.00, mean 0.30 (n = 54) | median 0.00, p75 0.00, mean 0.14 (n = 51) |
+  | distinct_authors | median 1, p25 1, p75 1, mean 0.99 | median 1, p25 0, p75 1, mean 0.81 |
+  | days_since_last_change | median 65, p25 11, p75 122, mean 86 (n = 54) | median 109, p25 74, p75 158, mean 126 (n = 51) |
+
+- **No significance test was run and none should be read in.** The samples are small, they
+  come from one project, and the distributions are printed side by side precisely so no
+  statistical conclusion is smuggled in. The medians of commit count and distinct authors are
+  identical between the groups and every field overlaps heavily.
+- **Judgement, stated as judgement.** The redefinition did what it was meant to do: the v1
+  signal was constant and therefore incapable of discriminating anything, and the v2 signal
+  is not constant. Two of its four fields point in the direction one would expect. That is
+  not enough to price it, and it is not a refutation either. The blocking gap is the
+  candidate unit: the control arm emits almost no candidates, so on this corpus F cannot be
+  evaluated where it would actually be used.
+- **Stopping here, deliberately.** One redefinition, one measurement. No third or fourth cut
+  of the same history was attempted. The result, the caveat below and the conditions for a
+  future pricing argument are in `docs/backlog.md`.
+- **Caveat that any future pricing argument must bound first:** a BugsInPy head sits at the
+  bug-introducing commit, so the defect region was necessarily touched recently in that
+  head's own history. Real pull requests also review recently changed code, so the analogy is
+  not empty, but the size of that inflation is unmeasured.
+- **Explicitly unchanged:** no factory constant, alpha, LR, channel cap, gate threshold,
+  coverage threshold, pricing contract or product decision. F is not a channel.
+- **Evidence:** `docs/acceptance/evidence/2026-09-01-d064-history-heat/result.json`
+  (SHA-256 `e1f8658cf7fa7d84594141b361612e7f802d8f7bc16913cbb266dc1d941daa99`);
+  `tests/test_history.py`.
+- **Reversal:** owner call; F is inert and can be removed or re-scoped without touching any
+  decision path.
+- **Trace:** D-022; D-059; D-063; `docs/backlog.md`; `src/attest/review/history.py`.

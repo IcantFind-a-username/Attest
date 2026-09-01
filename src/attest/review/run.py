@@ -17,8 +17,8 @@ from attest.review.config import ReviewConfig
 from attest.review.diffs import git_diff
 from attest.review.gate import GateOutcome, GateResult, apply_gate, evaluate_finding
 from attest.review.history import (
-    HISTORY_LOOKBACK_COMMITS,
     HISTORY_SIGNAL_SCHEMA_VERSION,
+    REPAIR_SUBJECT_PATTERN,
     inspect_history_signal,
 )
 from attest.review.ledger import Ledger
@@ -264,10 +264,8 @@ def run_review(
                     "finding_id": candidate.finding_id,
                     "file": candidate.file,
                     "line": candidate.line,
-                    "lookback_commits": HISTORY_LOOKBACK_COMMITS,
-                    "triggered": history.triggered,
-                    "commit_sha": history.commit_sha,
-                    "commit_message": history.commit_message,
+                    "repair_pattern": REPAIR_SUBJECT_PATTERN,
+                    **history.to_json_dict(),
                     "priced": False,
                 }
             )

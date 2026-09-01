@@ -67,8 +67,17 @@ def test_run_review_persists_one_task_scoped_drawer_and_elapsed_time(repo: Path)
     history = [entry for entry in entries if entry["kind"] == "history_signal"]
     records = [entry for entry in entries if entry["kind"] in {"review", "review_run"}]
     assert len(history) == 1
-    assert history[0]["schema_version"] == "attest.history-signal.v1"
+    assert history[0]["schema_version"] == "attest.history-signal.v2"
     assert history[0]["priced"] is False
+    # F is graded now: four raw values, no threshold, no trigger flag.
+    assert set(history[0]) >= {
+        "commits",
+        "repair_commits",
+        "repair_share",
+        "distinct_authors",
+        "days_since_last_change",
+    }
+    assert "triggered" not in history[0]
     assert history[0]["finding_id"] == run.results[0].finding.finding_id
     assert run.results[0].wealth == 2.0
     assert [purchase.channel for purchase in run.results[0].purchases] == ["S"]
