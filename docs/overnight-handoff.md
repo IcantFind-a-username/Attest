@@ -395,3 +395,159 @@ child-process guard was stronger than the durable evidence. The attribution is i
 established for **2/4**, unproven for **2/4**; none reached a retained head-fail/base-pass
 receipt. The missing per-candidate execution result and stdout/stderr are a measurement-
 retention gap, not evidence for any of the alternative failure classes.
+
+## Follow-on V-funnel work — evidence retention and process diagnosis (2026-09-01)
+
+This append-only follow-up started from clean SHA
+`017a036217de314e4fe8a2f57bcc9f011b1207c3` after `git fetch origin --prune`.
+`origin/main` remained `1f6f73eb72f5ed45b129c4d7ff937cc23b409e5c`. No paid model call was
+made and no remote write was performed.
+
+### Wave 1 — per-candidate durable verification evidence
+
+Commit `3ff4c7c3312df85743998990941a1a6ad722b437` makes every verification row
+retain its own evidence class, DEFER reason, bounded stdout/stderr fragments, and every
+head/base repeat as a separate structured result. Case results now project every row as
+`candidate_evidence`; duplicate finding identities fail closed. Each stdout and stderr
+fragment is limited to 2,000 characters and continues through the existing ledger secret
+filter.
+
+The regression case contains two independently verified candidates, each with head runs
+1/2/3 and base runs 1/2/3. The before/after observation is:
+
+| Multi-candidate case | Independently addressable evidence records |
+|---|---:|
+| Before | 1 case-level first-DEFER reason |
+| After | 2 candidate records for 2 candidates |
+
+This does not retroactively reconstruct old Wave 4 workspaces. It closes the retention gap
+for subsequent runs; old claims remain limited to their old durable artifacts.
+
+### Wave 2 — exact child-process classification chain
+
+Commit `5a684fbee761a14f3b69bb942efeada2e9ffaf8d` records the first process
+audit event, its target, and a bounded filename/line/function stack in stderr evidence. It
+does not alter the event set, `RLIMIT_NPROC`, the DEFER condition, or any process/resource
+policy.
+
+Both retained test bodies were replayed locally with the corpus Python 3.8.3 environment
+and their exact historical base/head SHAs. No provider was called.
+
+| Candidate | Test form | Exact first process event | Actual trigger owner | Repeat result |
+|---|---|---|---|---|
+| `01dd26db09` | direct `black.format_str` | `subprocess.Popen`, target `uname` | runner bootstrap: old pytest imports `py`, then `uuid`, then `platform.uname()` invokes `uname -p` | configured 3; head 1 DEFER, head 2/3 not run, base 0 |
+| `ffe9efc79f` | in-process Click `CliRunner` | `subprocess.Popen`, target `uname` | same runner bootstrap, before CliRunner/Black main execution | configured 3; head 1 DEFER, head 2/3 not run, base 0 |
+
+The durable stack for both is:
+
+```text
+_pytest/_py/path.py:31 -> uuid.py:57 -> platform.py:891:system
+-> platform.py:857:uname -> platform.py:613:_syscmd_uname
+-> subprocess.py:411:check_output -> subprocess.Popen('uname', ['uname', '-p'])
+```
+
+The guard records the event in generated `sitecustomize` at
+`src/attest/review/executor.py:371-398`; after pytest exits, `execute_repro` sees the marker
+at line 918 and returns `reproduction attempted to create a child process`. Therefore the
+object classified for both candidates is **the reproduction runner's pytest dependency
+startup**, not behavior of the reviewed Black code.
+
+Additional execution evidence remains visible rather than being conflated with the guard:
+`01dd26db09` ran far enough to produce `black.py:905: KeyError` (exit 1), while
+`ffe9efc79f` encountered `ModuleNotFoundError: No module named '_black_version'` during
+collection (exit 2). In both cases the earlier process marker controls the final
+`indeterminate` DEFER.
+
+Repeat semantics are confirmed by both replay and code at
+`src/attest/review/executor.py:1126-1132`: a DEFER on head run 1 returns immediately.
+Thus one infrastructure classification can deny a candidate without running head repeats
+2/3 or any base repeat. No policy was changed in this wave.
+
+### Wave 3 — independent reproduction output headroom
+
+Commit `3ab116ae9c25c1e23dff7ba2d6cbaf5649cacd65` and D-056 rename the
+reproduction-only cap to `REPRO_MAX_OUTPUT_TOKENS` and increase it from 2,000 to 3,000.
+Both bounded-retry reservations and the provider hard cap use 3,000. The proposer remains
+independent at 2,400; retry count, schema, prompt, execution policy, gate, prices, and
+factory statistics are unchanged.
+
+| Reproduction generation | Before | After |
+|---|---:|---:|
+| Configured output cap | 2,000 | 3,000 |
+| Observed `max_tokens` rate | 3/7 (42.9%) | **not measured** |
+
+The post-change rate is deliberately not inferred: this work order forbade paid evaluation,
+so there is no post-change sample. No DEVSPEND row was added; the ledger remains 30 entries
+and **$5.933150/$10.00**.
+
+### Recommendation only — not implemented
+
+Before another paid corpus run, the owner should decide the runner/guard attribution
+boundary exposed above. The next design must preserve kernel containment while preventing
+trusted pytest bootstrap (`platform.uname` in this exact old environment) from being
+misreported as behavior of reviewed code. This is a runner security-policy decision, not a
+generation-prompt problem. After that decision, one preregistered paid rerun can measure the
+3,000-token cap's actual truncation rate and downstream receipt yield. No such policy or
+rerun is part of this task.
+
+Accuracy, precision, recall, and silence precision remain **not estimated**. This task ran
+no new product evaluation and produced no new certification receipt or public accuracy
+number.
+
+### Commits, size, and Gate evidence
+
+Final implementation/test SHA before this report-only seal:
+`e0f2db029128ca1b98597e68e370aea8c24d78f0`.
+
+Implementation diff from `017a036` through `e0f2db0`:
+
+```text
+DECISIONS.md                   | 20 +++++++++++++
+src/attest/benchmark/api.py    | 11 +++++++
+src/attest/benchmark/runner.py | 33 +++++++++++++++++++++
+src/attest/review/executor.py  | 67 ++++++++++++++++++++++++++++++++++++++----
+src/attest/review/ledger.py    |  2 ++
+tests/benchmark/test_api.py    | 63 +++++++++++++++++++++++++++++++++++++++
+tests/test_executor.py         | 27 +++++++++++++++--
+7 files changed, 216 insertions(+), 7 deletions(-)
+```
+
+Net implementation change: **+209 lines**. Wave commit changes were +150/-0,
++31/-2, +27/-5, and the bounded-fragment self-review guard +8/-0. No new atomic JSON,
+digest, matcher, aggregate, or credential-filter implementation was added; the existing
+ledger credential filter remains the single authority.
+
+Including this 156-line append-only report, the complete task diff is 8 files changed,
+372 insertions, 7 deletions, net **+365 lines**.
+
+Per-wave full Gates, each run from its clean commit:
+
+| Gate | pytest | Wall clock | Ruff | Mypy |
+|---|---|---:|---|---|
+| Wave 1 (`3ff4c7c`) | all passed | 713.30s | passed | 57 source files, no issues |
+| Wave 2 (`5a684fb`) | all passed | 714.67s | passed | 57 source files, no issues |
+| Wave 3 (`3ab116a`) | all passed | 714.84s | passed | 57 source files, no issues |
+
+One pre-commit Wave 1 probe was rejected by the repository's existing clean-tree guard
+(1 failure/3 setup errors); it is not counted as a Gate. The identical suite passed after
+the implementation commit was clean.
+
+Final clean integration Gate at `e0f2db0`:
+
+```text
+1617 tests collected
+................................................................ [100%]
+real 719.08
+user 316.01
+sys 206.45
+All checks passed!
+Success: no issues found in 57 source files
+No broken requirements found.
+CLEAN_TREE_OK
+e0f2db029128ca1b98597e68e370aea8c24d78f0
+```
+
+One bounded D-049/D-039 self-review found only that the 2,000-character evidence bound
+lacked a direct guard test; `e0f2db0` added it. Final review severity is **P0=0/P1=0**.
+No second self-review loop ran. The report-seal commit after this Gate changes only this
+append-only handoff and does not alter code, tests, decisions, or Gate inputs.
