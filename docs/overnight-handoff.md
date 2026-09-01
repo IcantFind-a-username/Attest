@@ -1,12 +1,12 @@
 # 2026-09-01 overnight handoff
 
 Status: **six scoped waves complete; no finding surfaced; final dual-Python integration
-Gate pending on the documentation-bound commit.**
+Gate passed.**
 
 This report binds the final implementation SHA
 `e955f298cd2722865090d714c1644e258176f628`. The later report-seal commit is
-documentation-only; its SHA and the exact final gated SHA are recorded in the final Gate
-section after execution.
+documentation-only; the exact final gated SHA is
+`ffd0dd2a5e40e8452e4c407612e624fb93075417`.
 
 ## Executive result
 
@@ -19,6 +19,9 @@ section after execution.
 - Final implementation range `53f4641..e955f29`: 45 files changed, 2,633 insertions,
   879 deletions, net +1,754. The large additions are the bounded Wave 5 probe/evidence and
   C-01's isolated domain plus mutation tests; Wave 1 itself was net -147.
+- Final documentation-bound gated range `53f4641..ffd0dd2`: 47 files changed, 3,001
+  insertions, 887 deletions, net +2,114. The difference is roadmap, decisions, and this
+  complete report.
 - One bounded self-review was performed, as required by D-049. Its reproduced missing
   mutation guards were fixed in `e955f29`; final P0=0/P1=0. No second review loop ran.
 - Development API spend increased by $2.340150, from $3.593000 to $5.933150 of the $10
@@ -277,9 +280,48 @@ within the 20-minute limit and the full Gate was rerun once at `ff258cd`.
 
 ## Final dual-Python integration Gate
 
-Pending on the documentation-bound commit. This section will be sealed with the exact
-gated SHA, Python 3.11.5 and 3.12.8 raw summaries, lock digest, Ruff, Mypy, pip, diff, and
-clean-tree results. The seal commit changes only this report.
+Exact gated SHA: `ffd0dd2a5e40e8452e4c407612e624fb93075417`.
+
+Toolchain lock SHA-256:
+`76908dd8dc527b59e95ab856cf67656946a4c1bf8eecbb0d95430a2161341c11`.
+Python 3.11.5 used a fresh environment under `/private/tmp`; Python 3.12.8 used the
+branch's existing locked `.venv`. The interpreters ran serially and each invoked full
+pytest exactly once.
+
+```text
+Python 3.11.5
+No broken requirements found.
+Required test coverage of 90.0% reached. Total coverage: 92.39%
+1615 passed in 765.23s (0:12:45)
+real 766.23
+benchmark coverage 89% (informational)
+core coverage 99% (informational)
+All checks passed!
+Success: no issues found in 57 source files
+No broken requirements found.
+CLEAN_TREE_OK
+ffd0dd2a5e40e8452e4c407612e624fb93075417
+76908dd8dc527b59e95ab856cf67656946a4c1bf8eecbb0d95430a2161341c11
+
+Python 3.12.8
+No broken requirements found.
+Required test coverage of 90.0% reached. Total coverage: 92.39%
+1615 passed in 742.35s (0:12:22)
+real 742.92
+benchmark coverage 89% (informational)
+core coverage 99% (informational)
+All checks passed!
+Success: no issues found in 57 source files
+No broken requirements found.
+CLEAN_TREE_OK
+ffd0dd2a5e40e8452e4c407612e624fb93075417
+76908dd8dc527b59e95ab856cf67656946a4c1bf8eecbb0d95430a2161341c11
+```
+
+Both interpreters passed pytest, the unchanged 90% product threshold, informational
+benchmark/Core reports, Ruff 0.16.5, Mypy 2.3.1, `pip check`, `git diff --check`, and the
+clean-tree assertion. The report-seal commit after this Gate changes only this report and
+does not alter code, normative policy, or Gate inputs.
 
 ## Public-number boundary
 
