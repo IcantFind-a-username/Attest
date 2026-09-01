@@ -248,14 +248,23 @@ For every behavior change:
 
 1. write one focused failing test and observe the relevant RED;
 2. implement the smallest typed boundary/behavior that makes it GREEN;
-3. run focused and adjacent tests immediately;
+3. run the tests covering the changed modules immediately, adjacent tests once the change
+   settles;
 4. add adversarial/fail-closed cases for trust, persistence, or statistics boundaries;
-5. run the full portable gates;
+5. run the full portable gates once at the end of the work order, not after every change;
 6. inspect the entire diff for authority bypass, compatibility, secret, denominator, and
    overclaim problems;
 7. request independent review before completion;
 8. fix confirmed findings and rerun affected gates;
 9. update roadmap/decision/evidence links only after the gate exists.
+
+Orders that only diagnose, measure, instrument, or report change no behavior: they carry no
+RED step and this sequence does not apply to them — their deliverable is the number or the
+finding. Never write a test whose only assertion is that an object constructs or a call does
+not raise, one written to move a coverage number, or one whose only failure mode is a typo
+mypy already catches. If coverage dips while staying above the product-package floor because
+an order legitimately needed no test, report the number rather than adding a filler test.
+See `docs/implementation/agent-work-orders.md` §3.1 and D-058.
 
 The review/repair loop is bounded by D-049:
 
@@ -323,7 +332,9 @@ reproduced pre-existing failure. Do not quote an old test count as a current gat
 ## 14. Decision and document updates
 
 - Before assigning a decision ID, scan all of `DECISIONS.md`, take the highest existing
-  `D-NNN`, and use the next number. Entries are not stored strictly in numeric order; never
+  `D-NNN` **across both entry formats — the historical `- **D-NNN` bullets and the newer
+  `### D-NNN —` headings** — and use the next number. Scanning only one format silently
+  misses every entry in the other. Entries are not stored strictly in numeric order; never
   trust a cached number or only the last line.
 - Every material trade-off gets a dated `DECISIONS.md` entry with status, scope, evidence,
   consequences, reversal conditions, superseded entries, affected invariants/Gates, and

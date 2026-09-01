@@ -581,3 +581,35 @@ is active only when the owning architecture/acceptance document changes with it.
   `G-SEC-003`; X-02/X-03 remain the owning work orders.
 - **Trace:** D-017; D-037; D-041; D-042; D-049; `G-DOC-001`;
   `src/attest/review/executor.py`; `docs/roadmap.md`; `docs/backlog.md`.
+
+### D-058 — the RED-test discipline is scoped to behavior changes, and ceremony tests are forbidden
+
+- **Date/status/scope:** 2026-09-01 · owner-directed process amendment ·
+  `docs/implementation/agent-work-orders.md` §1 and §3.1, the archived plans under
+  `docs/superpowers/plans/`, and the removed `.superpowers/sdd/` leftovers.
+- **Decision:** a named RED test is required only for orders that change behavior.
+  Diagnostic, observational and reporting orders have none — their deliverable is the number
+  or the finding — and §3.1 does not apply to them. Adjacent tests and the repository gates
+  run once at the end of an order, not after every small change. §3.1 now forbids three
+  kinds of test outright: one asserting an object can be constructed or a call does not
+  raise, one written to move a coverage number, and one whose only failure mode is a typo
+  the type checker already catches. A coverage number that falls because an order
+  legitimately needed no test is reported, never papered over with a filler test.
+- **Why:** 1615 tests at 92% coverage, about twelve minutes per gate, did not catch that the
+  process marker rejected every candidate in the corpus environment — D-057 traced the first
+  event to `uname -p`, spawned by `platform.uname()` during pytest's own bootstrap, before
+  any reviewed code ran. No amount of unit coverage could have caught that; one end-to-end
+  assertion would have. §3.1 therefore names the end-to-end shape as the highest-value test
+  in this repository — given a real defect and a correct reproduction, the verification path
+  produces a certified receipt — and asks for one of those over ten plumbing tests.
+- **Consequences:** the archived plans still carried a live "REQUIRED SUB-SKILL … implement
+  this plan task-by-task" line contradicting their own README; it is now a historical note.
+  `.superpowers/sdd/m01-overnight-plan/` reports are deleted as spent workflow scratch. No
+  gate threshold, factory statistical constant, containment behavior, or security invariant
+  changes here; this amends how orders are worked, not what the product guarantees.
+- **Evidence:** `docs/implementation/agent-work-orders.md` §1 steps 5 and 7, §3.1 "Scope and
+  cost"; both files under `docs/superpowers/plans/`; D-057 for the traced root cause.
+- **Reversal:** owner call — restore the per-order RED requirement if a defect is traced to
+  an order that skipped one under this scope.
+- **Trace:** D-039; D-057; `docs/implementation/agent-work-orders.md`;
+  `docs/superpowers/plans/README.md`.

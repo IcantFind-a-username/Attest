@@ -7,7 +7,7 @@
 > [`../../implementation/agent-work-orders.md`](../../implementation/agent-work-orders.md).
 > Checkboxes are preserved as written rather than retroactively rewritten.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Historical note:** this plan was originally executed task-by-task with checkbox tracking. It is archived. Do not execute its tasks, do not complete its checkboxes, and do not treat the sub-skill instruction it once carried as a live requirement — see `README.md` in this directory.
 
 **Goal:** Ship a locally verified composite GitHub Action that posts a status-only sticky comment, automatically runs focused Python reproduction tests, and publishes at most three findings only after the existing wealth gate clears.
 

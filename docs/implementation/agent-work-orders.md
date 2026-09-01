@@ -24,9 +24,13 @@ auditable change without reconstructing the project strategy from chat history.
 3. Verify dependency evidence in the repository; a checked roadmap box without its tests
    and artifacts is not sufficient.
 4. Claim a non-overlapping file set. One writer owns a file until review handoff.
-5. Write the named RED test first and run it to observe the intended failure.
+5. If the order changes behavior, write the named RED test first and run it to observe the
+   intended failure. If the order is diagnostic, observational, or reporting only — it
+   measures, instruments, or explains without changing what the system does — it has no RED
+   test and §3.1 does not apply to it; its deliverable is the number or the finding.
 6. Implement the smallest typed seam that satisfies the target contract.
-7. Run focused tests after every small change, then adjacent tests, then repository gates.
+7. Run the tests covering the changed modules after every small change. Adjacent tests and
+   the repository gates run once at the end of the order, not after each commit.
 8. Perform an explicit adversarial self-review against the task's escape hatches.
 9. Request an independent review. Fix confirmed findings and rerun the affected gates.
 10. Update the roadmap checkbox/progress and `DECISIONS.md` only when the evidence exists.
@@ -73,6 +77,22 @@ one focused RED -> minimal GREEN -> adjacent regressions -> adversarial RED/GREE
 A test that passes before the change is not the task's RED. A mock-only test is
 insufficient when the contract concerns real Git, process, filesystem, JUnit, or crash
 behavior; add a minimal real boundary fixture.
+
+**Scope and cost.** §3.1 governs behavior changes only. Three tests are never worth
+writing: one that asserts an object can be constructed or a call does not raise, one
+written to move a coverage number, and one whose only failure mode is a typo the type
+checker already catches. Do not add them to satisfy the sequence. If coverage dips while
+staying above the product-package floor because an order legitimately needed no new test,
+report the number rather than adding a filler test. The floor itself is never lowered to
+make a suite pass.
+
+What earns a test is a claim about behavior the system must keep, asserted at the level a
+user would notice. The highest-value test in this repository is the end-to-end one: given a
+real defect and a correct reproduction, the verification path produces a certified receipt.
+Prefer one such test over ten proving the plumbing is connected. The plumbing tests all
+passed while the process-audit window silently rejected every candidate in the corpus
+environment; no amount of unit coverage would have caught it, and one end-to-end assertion
+would have.
 
 ### 3.2 Versioning and compatibility
 
