@@ -553,7 +553,10 @@ def test_replay_with_a_prepared_root_runs_the_real_product_path(tmp_path: Path) 
     assert report["operational"]["delivery_rate"] is not None
     assert report["operational"]["abstained_cases"] == 0
     assert "validation receipt" in " ".join(report["limitations"])
-    assert report["evidence_class_counts"] == {"regression_reproduced": 1}
+    assert report["evidence_class_counts"]["product_self_certified"] == {
+        "regression_reproduced": 1
+    }
+    assert report["evidence_class_counts"]["oracle_overturned_product"] == 0
     assert "replay regression" in " ".join(report["limitations"])
     assert len(verify_artifacts(output / "artifacts")) > 0
 

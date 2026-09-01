@@ -95,7 +95,14 @@ def test_evaluate_project_measures_a_caller_owned_repository_without_truth(
     assert [decision["placement"] for decision in result.final_decisions] == ["inline"]
 
 
-    assert result.evidence_class_counts == {"regression_reproduced": 1}
+    assert result.evidence_class_counts == {
+        "basis": "per_candidate_durable_record",
+        "counted": 1,
+        "product_self_certified": {"regression_reproduced": 1},
+        "benchmark_oracle_independent_review": {},
+        "oracle_reviewed": 0,
+        "oracle_overturned_product": 0,
+    }
     assert {record.kind for record in result.artifacts} >= {
         "product_ledger",
         "predictions",

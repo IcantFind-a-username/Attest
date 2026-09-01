@@ -38,7 +38,7 @@ import os
 import stat
 import subprocess
 import time
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -113,6 +113,9 @@ from attest.benchmark.outcomes import (
     write_comparison_launch_receipt_once,
 )
 from attest.benchmark.schema import (
+    EVIDENCE_AUTHORITY_ORACLE,
+    EVIDENCE_AUTHORITY_PRODUCT,
+    EVIDENCE_COUNT_BASIS_SURFACED,
     BenchmarkCase,
     BenchmarkManifest,
     TruthDefect,
@@ -195,12 +198,30 @@ _ROLE_CONTROL = "developer_fix_control"
 
 @dataclass(frozen=True)
 class BaselineFinding:
-    """One surfaced anchor and the class of evidence actually purchased."""
+    """One surfaced anchor and the class of evidence actually purchased.
+
+    ``evidence_class`` is the effective verdict; the product's own and the
+    benchmark oracle's are kept beside it so a report never has to guess which
+    judge produced the number it is printing.
+    """
 
     file: str
     line: int
     evidence_class: str
     finding_id: str = ""
+    product_evidence_class: str = ""
+    oracle_evidence_class: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.product_evidence_class:
+            object.__setattr__(self, "product_evidence_class", self.evidence_class)
+
+    @property
+    def oracle_overturned_product(self) -> bool:
+        return (
+            self.oracle_evidence_class is not None
+            and self.oracle_evidence_class != self.product_evidence_class
+        )
 
 
 @dataclass(frozen=True)
@@ -330,7 +351,7 @@ class ArmSummary:
     accuracy: ArmAccuracy
     operational: ArmOperational
     abstentions: tuple[ArmAbstention, ...]
-    evidence_class_counts: Mapping[str, int]
+    evidence_class_counts: Mapping[str, object]
     scoring_semantics: str = "legacy_v1_scoring"
     outcome_accounting: Mapping[str, object] | None = None
 
@@ -3003,6 +3024,8 @@ def _product_arm(
             line=prediction.line,
             evidence_class=prediction.evidence_class,
             finding_id=prediction.finding_id,
+            product_evidence_class=prediction.product_evidence_class,
+            oracle_evidence_class=prediction.oracle_evidence_class,
         )
         for prediction in result.predictions
         if is_scored_placement(prediction.placement)
@@ -3517,6 +3540,40 @@ def _distance(line: int, start_line: int, end_line: int) -> int:
     return min(abs(line - start_line), abs(line - end_line))
 
 
+def _arm_evidence_class_counts(
+    findings: Iterable[BaselineFinding],
+) -> dict[str, object]:
+    """Attributed class counts for one arm, over its surfaced findings.
+
+    The comparison arms keep only surfaced findings, so ``basis`` records that
+    limit rather than letting the number read like a full candidate census.
+    """
+    product: dict[str, int] = {}
+    oracle: dict[str, int] = {}
+    overturned = 0
+    counted = 0
+    for finding in findings:
+        counted += 1
+        product[finding.product_evidence_class] = (
+            product.get(finding.product_evidence_class, 0) + 1
+        )
+        if finding.oracle_evidence_class is None:
+            continue
+        oracle[finding.oracle_evidence_class] = (
+            oracle.get(finding.oracle_evidence_class, 0) + 1
+        )
+        if finding.oracle_overturned_product:
+            overturned += 1
+    return {
+        "basis": EVIDENCE_COUNT_BASIS_SURFACED,
+        "counted": counted,
+        EVIDENCE_AUTHORITY_PRODUCT: dict(sorted(product.items())),
+        EVIDENCE_AUTHORITY_ORACLE: dict(sorted(oracle.items())),
+        "oracle_reviewed": sum(oracle.values()),
+        "oracle_overturned_product": overturned,
+    }
+
+
 def _summarize_arm(arm: str, runs: tuple[ArmRun, ...]) -> ArmSummary:
     if arm == ARM_PRODUCT and runs and all(
         run.product_measurement is not None for run in runs
@@ -3542,10 +3599,9 @@ def _summarize_arm(arm: str, runs: tuple[ArmRun, ...]) -> ArmSummary:
     silent_positives = sum(1 for run in positives if not run.findings)
     silent_cases = sum(1 for run in completed if not run.findings)
 
-    counts: dict[str, int] = {}
-    for run in completed:
-        for finding in run.findings:
-            counts[finding.evidence_class] = counts.get(finding.evidence_class, 0) + 1
+    counts = _arm_evidence_class_counts(
+        finding for run in completed for finding in run.findings
+    )
 
     tool_costs = [run.tool_cost_s for run in runs if run.tool_cost_s is not None]
     accuracy = ArmAccuracy(
@@ -3632,10 +3688,9 @@ def _summarize_authoritative_product(runs: tuple[ArmRun, ...]) -> ArmSummary:
     positive_total = summary.positive_pull_requests
     control_total = summary.null_pull_requests
     silent_cases = sum(record.published_count == 0 for record in completed_records)
-    counts: dict[str, int] = {}
-    for run in runs:
-        for finding in run.findings:
-            counts[finding.evidence_class] = counts.get(finding.evidence_class, 0) + 1
+    counts = _arm_evidence_class_counts(
+        finding for run in runs for finding in run.findings
+    )
     tool_costs = [run.tool_cost_s for run in runs if run.tool_cost_s is not None]
     accuracy = ArmAccuracy(
         finding_true_positives=correct,

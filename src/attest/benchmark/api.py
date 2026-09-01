@@ -65,6 +65,7 @@ from attest.benchmark.schema import (
     Prediction,
     RunRecord,
     TruthDefect,
+    attributed_evidence_class_counts,
 )
 from attest.review.config import ReviewConfig, validate_review_config
 from attest.review.executor import (
@@ -402,7 +403,7 @@ class ProjectEvaluationResult:
     spend_usd: float
     oracle_spend_usd: float
     artifacts: tuple[ArtifactRecord, ...]
-    evidence_class_counts: Mapping[str, int]
+    evidence_class_counts: Mapping[str, object]
     oracle_receipts: tuple[ReproReceipt, ...]
     run: RunRecord
     score: ProjectEvaluationScore | None
@@ -452,6 +453,9 @@ class ProjectEvaluationResult:
                     "action": prediction.action,
                     "repro_status": prediction.repro_status,
                     "evidence_class": prediction.evidence_class,
+                    "evidence_class_authority": prediction.evidence_class_authority,
+                    "product_evidence_class": prediction.product_evidence_class,
+                    "oracle_evidence_class": prediction.oracle_evidence_class,
                 }
                 for prediction in self.predictions
             ],
@@ -463,7 +467,10 @@ class ProjectEvaluationResult:
             "oracle_spend_usd": round(self.oracle_spend_usd, 6),
             "total_spend_usd": round(self.total_spend_usd, 6),
             "artifacts": [record.to_json_dict() for record in self.artifacts],
-            "evidence_class_counts": dict(sorted(self.evidence_class_counts.items())),
+            "evidence_class_counts": {
+                key: (dict(sorted(value.items())) if isinstance(value, Mapping) else value)
+                for key, value in sorted(self.evidence_class_counts.items())
+            },
             "oracle_receipts": [receipt.to_json_dict() for receipt in self.oracle_receipts],
             "delivery_at_s": self.run.delivery_at_s,
             "deadline_s": self.run.deadline_s,
@@ -1052,9 +1059,9 @@ def _result(
     records: tuple[ArtifactRecord, ...],
     latency_s: float,
 ) -> ProjectEvaluationResult:
-    counts: dict[str, int] = {}
-    for prediction in run.run.predictions:
-        counts[prediction.evidence_class] = counts.get(prediction.evidence_class, 0) + 1
+    counts = attributed_evidence_class_counts(
+        run.run.predictions, candidate_evidence
+    )
     measurement = run.measurement
     completed = measurement.task_status is TaskStatus.COMPLETED
     abstain_reason = run.deferred_reason

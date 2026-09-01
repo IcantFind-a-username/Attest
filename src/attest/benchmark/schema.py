@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -152,6 +152,12 @@ class TruthDefect:
     end_line: int
 
 
+EVIDENCE_AUTHORITY_PRODUCT = "product_self_certified"
+EVIDENCE_AUTHORITY_ORACLE = "benchmark_oracle_independent_review"
+EVIDENCE_COUNT_BASIS_CANDIDATES = "per_candidate_durable_record"
+EVIDENCE_COUNT_BASIS_SURFACED = "surfaced_predictions_only"
+
+
 @dataclass(frozen=True)
 class Prediction:
     """One candidate joined to its final CI placement and differential evidence.
@@ -161,6 +167,15 @@ class Prediction:
     regression can ever match truth, but a new-code candidate is unpriced
     signal rather than a failure, and a report that lumps the two together
     would misrepresent the tool.
+
+    Two different judges can classify the same finding: the product certifies
+    itself from its own differential run, and the benchmark oracle re-verifies
+    it independently. ``product_evidence_class`` always keeps the product's own
+    verdict, ``oracle_evidence_class`` keeps the oracle's when one exists, and
+    ``evidence_class_authority`` names which of the two ``evidence_class``
+    currently reports. A reader of a bare ``unfaithful`` could not previously
+    tell "the product never certified this" from "the oracle overturned what
+    the product certified"; those are different facts and both are kept here.
     """
 
     finding_id: str
@@ -171,6 +186,29 @@ class Prediction:
     action: str
     repro_status: str
     evidence_class: str = "indeterminate"
+    product_evidence_class: str = ""
+    oracle_evidence_class: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.product_evidence_class:
+            object.__setattr__(self, "product_evidence_class", self.evidence_class)
+
+    @property
+    def evidence_class_authority(self) -> str:
+        """Which judge produced ``evidence_class``."""
+        return (
+            EVIDENCE_AUTHORITY_ORACLE
+            if self.oracle_evidence_class is not None
+            else EVIDENCE_AUTHORITY_PRODUCT
+        )
+
+    @property
+    def oracle_overturned_product(self) -> bool:
+        """The oracle re-verified this finding and disagreed with the product."""
+        return (
+            self.oracle_evidence_class is not None
+            and self.oracle_evidence_class != self.product_evidence_class
+        )
 
     @classmethod
     def from_joined_ci_final(
@@ -181,6 +219,7 @@ class Prediction:
         case_id: str,
         repro_status: str,
         evidence_class: str = "indeterminate",
+        oracle_evidence_class: str | None = None,
     ) -> Prediction:
         """Join persisted candidate and ci_final rows with independent benchmark context."""
         finding_id = _mapping_string(candidate_row, "finding_id")
@@ -201,8 +240,74 @@ class Prediction:
             placement=placement,
             action=_mapping_string(ci_final_row, "action"),
             repro_status=_string_value(repro_status, "repro_status"),
-            evidence_class=_string_value(evidence_class, "evidence_class"),
+            evidence_class=_string_value(
+                evidence_class if oracle_evidence_class is None else oracle_evidence_class,
+                "evidence_class",
+            ),
+            product_evidence_class=_string_value(evidence_class, "evidence_class"),
+            oracle_evidence_class=(
+                None
+                if oracle_evidence_class is None
+                else _string_value(oracle_evidence_class, "oracle_evidence_class")
+            ),
         )
+
+
+def attributed_evidence_class_counts(
+    predictions: Iterable[Prediction],
+    candidate_evidence: Iterable[Mapping[str, object]] | None = None,
+) -> dict[str, object]:
+    """Count evidence classes per judge, over candidates when they are known.
+
+    Two report-layer defects are closed here.
+
+    *Attribution.* The product certifies itself from its own differential run
+    and the benchmark oracle re-verifies independently. A single flat map of
+    class -> count silently merged the two, so ``{"unfaithful": 1}`` could not
+    be read as "the oracle overturned something the product certified". Each
+    judge now gets its own map and the disagreement count is explicit.
+
+    *Denominator.* Counting only surfaced predictions dropped every candidate
+    the gate did not surface, so a case holding two classified candidates and
+    surfacing none reported ``{}``. When the per-candidate durable verification
+    records are supplied they are the denominator; ``basis`` says which of the
+    two was actually used, so a thin report never reads like a complete one.
+    """
+
+    predictions = tuple(predictions)
+    product: dict[str, int] = {}
+    if candidate_evidence is None:
+        basis = EVIDENCE_COUNT_BASIS_SURFACED
+        counted = len(predictions)
+        for prediction in predictions:
+            product[prediction.product_evidence_class] = (
+                product.get(prediction.product_evidence_class, 0) + 1
+            )
+    else:
+        rows = tuple(candidate_evidence)
+        basis = EVIDENCE_COUNT_BASIS_CANDIDATES
+        counted = len(rows)
+        for row in rows:
+            name = str(row.get("evidence_class", "indeterminate"))
+            product[name] = product.get(name, 0) + 1
+    oracle: dict[str, int] = {}
+    overturned = 0
+    for prediction in predictions:
+        if prediction.oracle_evidence_class is None:
+            continue
+        oracle[prediction.oracle_evidence_class] = (
+            oracle.get(prediction.oracle_evidence_class, 0) + 1
+        )
+        if prediction.oracle_overturned_product:
+            overturned += 1
+    return {
+        "basis": basis,
+        "counted": counted,
+        EVIDENCE_AUTHORITY_PRODUCT: dict(sorted(product.items())),
+        EVIDENCE_AUTHORITY_ORACLE: dict(sorted(oracle.items())),
+        "oracle_reviewed": sum(oracle.values()),
+        "oracle_overturned_product": overturned,
+    }
 
 
 @dataclass(frozen=True)

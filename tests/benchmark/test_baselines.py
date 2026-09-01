@@ -1013,9 +1013,15 @@ def test_compare_arms_measures_all_three_arms_with_honest_evidence(tmp_path: Pat
     ruff_arm = by_arm[ARM_RUFF]
     assert "deterministic" in ruff_arm.description
     assert "not an AI reviewer" in ruff_arm.description
-    assert ruff_arm.evidence_class_counts == {EVIDENCE_STATIC_DIAGNOSTIC: 1}
-    assert by_arm[ARM_BARE_PROMPT].evidence_class_counts == {EVIDENCE_UNVERIFIED_CLAIM: 1}
-    assert by_arm[ARM_PRODUCT].evidence_class_counts == {"regression_reproduced": 1}
+    assert ruff_arm.evidence_class_counts["product_self_certified"] == {
+        EVIDENCE_STATIC_DIAGNOSTIC: 1
+    }
+    assert by_arm[ARM_BARE_PROMPT].evidence_class_counts["product_self_certified"] == {
+        EVIDENCE_UNVERIFIED_CLAIM: 1
+    }
+    assert by_arm[ARM_PRODUCT].evidence_class_counts["product_self_certified"] == {
+        "regression_reproduced": 1
+    }
 
     for arm in measurements.arms:
         accuracy = arm.accuracy

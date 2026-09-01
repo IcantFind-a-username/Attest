@@ -1470,6 +1470,7 @@ def build_calibration_report(
         else:
             scored.append(payload)
     records = tuple(_run_record(payload) for payload in scored)
+    candidate_evidence = _payload_candidate_evidence(scored)
     underlying = build_report(
         manifest,
         records,
@@ -1481,6 +1482,7 @@ def build_calibration_report(
         line_slack=line_slack,
         validation_receipt=validation_receipt,
         measurement_records=measurement_records,
+        candidate_evidence=candidate_evidence,
     )
     accuracy_withheld = (
         ACCURACY_WITHHELD_REPLAY if mode == REPLAY_MODE else underlying.metrics_withheld_reason
@@ -1952,6 +1954,28 @@ def _run_record(payload: Mapping[str, object]) -> RunRecord:
     )
 
 
+def _payload_candidate_evidence(
+    payloads: Sequence[Mapping[str, object]],
+) -> tuple[Mapping[str, object], ...] | None:
+    """Every candidate's durable verification row, across the scored cases.
+
+    Returns ``None`` when no payload carries the per-candidate records, so the
+    report says it counted surfaced predictions instead of implying a candidate
+    census it never had.
+    """
+    rows: list[Mapping[str, object]] = []
+    seen = False
+    for payload in payloads:
+        if payload.get("repeat", 0) != 0:
+            continue
+        entry = payload.get("candidate_evidence")
+        if not isinstance(entry, list):
+            continue
+        seen = True
+        rows.extend(row for row in entry if isinstance(row, dict))
+    return tuple(rows) if seen else None
+
+
 def _payload_predictions(payload: Mapping[str, object]) -> tuple[Prediction, ...]:
     case_id = str(payload.get("case_id"))
     rows = payload.get("predictions")
@@ -1971,7 +1995,15 @@ def _payload_predictions(payload: Mapping[str, object]) -> tuple[Prediction, ...
                     placement=Placement(str(row["placement"])),
                     action=str(row["action"]),
                     repro_status=str(row["repro_status"]),
-                    evidence_class=str(row.get("evidence_class", "indeterminate")),
+                    evidence_class=str(
+                        row.get("product_evidence_class")
+                        or row.get("evidence_class", "indeterminate")
+                    ),
+                    oracle_evidence_class=(
+                        None
+                        if row.get("oracle_evidence_class") is None
+                        else str(row["oracle_evidence_class"])
+                    ),
                 )
             )
         except (KeyError, TypeError, ValueError) as exc:

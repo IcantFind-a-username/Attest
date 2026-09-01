@@ -419,6 +419,7 @@ def extract_predictions(
     case_id: str,
     repro_status: Mapping[str, str] | None = None,
     evidence_class: Mapping[str, str] | None = None,
+    oracle_evidence_class: Mapping[str, str] | None = None,
     publication_events: Sequence[CiPublicationEvent] = (),
     repository: str | None = None,
     pull_request_number: int | None = None,
@@ -432,6 +433,7 @@ def extract_predictions(
         case_id=case_id,
         repro_status=repro_status,
         evidence_class=evidence_class,
+        oracle_evidence_class=oracle_evidence_class,
         publication_events=publication_events,
         repository=repository,
         pull_request_number=pull_request_number,
@@ -447,12 +449,19 @@ def extract_predictions_from_rows(
     case_id: str,
     repro_status: Mapping[str, str] | None = None,
     evidence_class: Mapping[str, str] | None = None,
+    oracle_evidence_class: Mapping[str, str] | None = None,
     publication_events: Sequence[CiPublicationEvent] = (),
     repository: str | None = None,
     pull_request_number: int | None = None,
     head_sha: str | None = None,
 ) -> tuple[Prediction, ...]:
-    """Join candidates to ci_final and delivery from one ledger snapshot."""
+    """Join candidates to ci_final and delivery from one ledger snapshot.
+
+    ``evidence_class`` is the product's own per-finding verdict and
+    ``oracle_evidence_class`` the benchmark oracle's independent one. Both are
+    carried onto the prediction: the oracle's is what ``evidence_class``
+    reports when it exists, but it no longer erases the product's.
+    """
 
     decisions = ci_final_decisions_from_rows(ledger_rows, task_id)
     if not decisions:
@@ -473,6 +482,7 @@ def extract_predictions_from_rows(
     )
     statuses = dict(repro_status or {})
     classes = dict(evidence_class or {})
+    oracle_classes = dict(oracle_evidence_class or {})
     predictions: list[Prediction] = []
     for decision in decisions:
         finding_id = decision.get("finding_id")
@@ -492,6 +502,7 @@ def extract_predictions_from_rows(
                 evidence_class=classes.get(
                     finding_id, EvidenceClass.INDETERMINATE.value
                 ),
+                oracle_evidence_class=oracle_classes.get(finding_id),
             )
         )
     return tuple(predictions)
@@ -967,15 +978,14 @@ def rebuild_case_run_from_ledger(
         receipt.finding_id: receipt.evidence_class
         for receipt in expected_authority.oracle_receipts
     }
-    for finding_id, evidence_class in classes.items():
-        receipt_classes.setdefault(finding_id, evidence_class)
     predictions = extract_predictions_from_rows(
         repo,
         ledger_rows=rows,
         task_id=authoritative_task_id,
         case_id=run.case_id,
         repro_status=statuses,
-        evidence_class=receipt_classes,
+        evidence_class=classes,
+        oracle_evidence_class=receipt_classes,
         publication_events=publication_events,
         repository=repository,
         pull_request_number=pull_request_number,
@@ -1319,16 +1329,17 @@ class BenchmarkRunner:
                 ),
             )
         statuses = {receipt.finding_id: receipt.repro_status for receipt in receipts}
-        classes = {receipt.finding_id: receipt.evidence_class for receipt in receipts}
-        for finding_id, evidence_class in product_classes.items():
-            classes.setdefault(finding_id, evidence_class)
+        oracle_classes = {
+            receipt.finding_id: receipt.evidence_class for receipt in receipts
+        }
         predictions = (
             extract_predictions(
                 repo,
                 task_id=task_id,
                 case_id=case_id,
                 repro_status=statuses,
-                evidence_class=classes,
+                evidence_class=product_classes,
+                oracle_evidence_class=oracle_classes,
                 publication_events=ci.publication_events,
                 repository=repository,
                 pull_request_number=pull_request_number,

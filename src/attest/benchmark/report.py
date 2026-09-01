@@ -65,9 +65,12 @@ from attest.benchmark.metrics import (
 )
 from attest.benchmark.outcomes import ComparisonPublicationAuthority
 from attest.benchmark.schema import (
+    EVIDENCE_AUTHORITY_ORACLE,
+    EVIDENCE_AUTHORITY_PRODUCT,
     BenchmarkCase,
     BenchmarkManifest,
     RunRecord,
+    attributed_evidence_class_counts,
     is_scored_placement,
     require_manifest_binding,
 )
@@ -75,7 +78,7 @@ from attest.benchmark.stability import StabilityReport
 
 REPLAY_MODE = "replay"
 LIVE_MODE = "live"
-REPORT_SCHEMA_VERSION = "4"
+REPORT_SCHEMA_VERSION = "5"
 JSON_NAME = "report.json"
 MARKDOWN_NAME = "report.md"
 COMPARISON_SCHEMA_VERSION = "4"
@@ -143,7 +146,7 @@ class BenchmarkRunReport:
     measurements: BenchmarkReport | None
     metrics_withheld_reason: str | None
     validation_authority: ValidationVerification
-    evidence_class_counts: Mapping[str, int]
+    evidence_class_counts: Mapping[str, object]
     scoring_semantics: str
     outcome_accounting: Mapping[str, object] | None
     limitations: tuple[str, ...]
@@ -176,7 +179,9 @@ class BenchmarkRunReport:
             "abstained_cases": [
                 abstention.to_json_dict() for abstention in self.abstained_cases
             ],
-            "evidence_class_counts": dict(sorted(self.evidence_class_counts.items())),
+            "evidence_class_counts": _evidence_class_counts_payload(
+                self.evidence_class_counts
+            ),
             "metrics": _metrics_payload(self.metrics),
             "metrics_withheld_reason": self.metrics_withheld_reason,
             "validation_authority": self.validation_authority.to_json_dict(),
@@ -190,6 +195,31 @@ class BenchmarkRunReport:
             ),
             "limitations": list(self.limitations),
         }
+
+
+def _evidence_class_counts_payload(
+    counts: Mapping[str, object],
+) -> dict[str, object]:
+    """Order the attributed counts deterministically for artifacts."""
+    payload: dict[str, object] = {}
+    for key in sorted(counts):
+        value = counts[key]
+        payload[key] = (
+            dict(sorted(value.items())) if isinstance(value, Mapping) else value
+        )
+    return payload
+
+
+def _evidence_class_rows(counts: Mapping[str, object]) -> list[tuple[str, str, int]]:
+    """Flatten attributed counts into (judge, class, count) rows for markdown."""
+    rows: list[tuple[str, str, int]] = []
+    for judge in (EVIDENCE_AUTHORITY_PRODUCT, EVIDENCE_AUTHORITY_ORACLE):
+        entry = counts.get(judge)
+        if isinstance(entry, Mapping):
+            rows.extend(
+                (judge, str(name), int(count)) for name, count in sorted(entry.items())
+            )
+    return rows
 
 
 def build_report(
@@ -206,6 +236,7 @@ def build_report(
         ValidationVerification | ValidationReceipt | ValidationReceiptV2 | None
     ) = None,
     measurement_records: Iterable[MeasurementRecord] = (),
+    candidate_evidence: Iterable[Mapping[str, object]] | None = None,
 ) -> BenchmarkRunReport:
     """Aggregate the evaluated subset and attach its provenance limitations.
 
@@ -297,12 +328,15 @@ def build_report(
             withheld = CURRENT_TRUTH_UNADJUDICATED
         elif current_summary.unadjudicated:
             withheld = CURRENT_ACCURACY_UNADJUDICATED
-    counts: dict[str, int] = {}
-    for run in records:
-        if run.repeat != 0:
-            continue
-        for prediction in run.predictions:
-            counts[prediction.evidence_class] = counts.get(prediction.evidence_class, 0) + 1
+    counts = attributed_evidence_class_counts(
+        (
+            prediction
+            for run in records
+            if run.repeat == 0
+            for prediction in run.predictions
+        ),
+        candidate_evidence,
+    )
     report = BenchmarkRunReport(
         schema_version=REPORT_SCHEMA_VERSION,
         protocol_version=manifest.protocol_version,
@@ -833,14 +867,26 @@ def render_markdown(report: BenchmarkRunReport) -> str:
             ),
         )
     )
-    lines.extend(["", "## Evidence classes", "", "| class | count |", "| --- | --- |"])
-    if report.evidence_class_counts:
-        lines.extend(
-            f"| {name} | {count} |"
-            for name, count in sorted(report.evidence_class_counts.items())
-        )
+    counts = report.evidence_class_counts
+    lines.extend(
+        [
+            "",
+            "## Evidence classes",
+            "",
+            f"- counted over: {counts.get('basis')} "
+            f"({counts.get('counted')} record(s))",
+            f"- oracle re-reviewed: {counts.get('oracle_reviewed')}; "
+            f"overturned the product: {counts.get('oracle_overturned_product')}",
+            "",
+            "| judged by | class | count |",
+            "| --- | --- | --- |",
+        ]
+    )
+    rows = _evidence_class_rows(counts)
+    if rows:
+        lines.extend(f"| {judge} | {name} | {count} |" for judge, name, count in rows)
     else:
-        lines.append("| (none) | 0 |")
+        lines.append("| (none) | (none) | 0 |")
     lines.extend(["", "## Abstentions", "", "| case | reason |", "| --- | --- |"])
     if report.abstained_cases:
         lines.extend(
@@ -961,8 +1007,8 @@ class ComparisonRunReport:
                 {
                     "arm": summary.arm,
                     "description": summary.description,
-                    "evidence_class_counts": dict(
-                        sorted(summary.evidence_class_counts.items())
+                    "evidence_class_counts": _evidence_class_counts_payload(
+                        summary.evidence_class_counts
                     ),
                     "abstentions": [row.to_json_dict() for row in summary.abstentions],
                     "operational": summary.operational.to_json_dict(),
@@ -1244,13 +1290,18 @@ def render_comparison_markdown(report: ComparisonRunReport) -> str:
         else:
             assert isinstance(accuracy, dict)
             lines.extend(_value_table("metric", accuracy))
-        lines.extend(["", "### Evidence classes", "", "| class | count |", "| --- | --- |"])
+        lines.extend(
+            ["", "### Evidence classes", "", "| judged by | class | count |", "| --- | --- | --- |"]
+        )
         counts = arm["evidence_class_counts"]
         assert isinstance(counts, dict)
-        if counts:
-            lines.extend(f"| {name} | {count} |" for name, count in sorted(counts.items()))
+        arm_rows = _evidence_class_rows(counts)
+        if arm_rows:
+            lines.extend(
+                f"| {judge} | {name} | {count} |" for judge, name, count in arm_rows
+            )
         else:
-            lines.append("| (none) | 0 |")
+            lines.append("| (none) | (none) | 0 |")
         lines.extend(["", "### Abstentions", "", "| case | reason |", "| --- | --- |"])
         abstentions = arm["abstentions"]
         assert isinstance(abstentions, list)

@@ -536,15 +536,124 @@ def test_evidence_classes_are_broken_out_and_the_unpriced_class_is_named() -> No
     report = _report()
 
     assert report.evidence_class_counts == {
-        "new_code_candidate": 1,
-        "regression_reproduced": 1,
+        "basis": "surfaced_predictions_only",
+        "counted": 2,
+        "product_self_certified": {
+            "new_code_candidate": 1,
+            "regression_reproduced": 1,
+        },
+        "benchmark_oracle_independent_review": {},
+        "oracle_reviewed": 0,
+        "oracle_overturned_product": 0,
     }
     limitations = " ".join(report.limitations)
     assert "new_code_candidate" in limitations
     assert "unpriced" in limitations
     markdown = render_markdown(report)
     assert "new_code_candidate" in markdown
-    assert "| regression_reproduced | 1 |" in markdown
+    assert "| product_self_certified | regression_reproduced | 1 |" in markdown
+
+
+def test_evidence_classes_name_their_judge_and_keep_both_verdicts() -> None:
+    """A count must say who judged it; the oracle no longer erases the product.
+
+    The D-059 wave-4 replay reported ``{"unfaithful": 1}`` for
+    ``case-c6f141a2be09``. That single fact was two: the product certified the
+    finding as a reproduced regression and the benchmark oracle then overturned
+    it. Neither was recoverable from the number.
+    """
+    overturned = Prediction(
+        finding_id="f-overturned",
+        case_id=REPLAY_CASE,
+        file="calc.py",
+        line=7,
+        placement=Placement.INLINE,
+        action="surface",
+        repro_status="buggy_fail_fixed_fail",
+        evidence_class="unfaithful",
+        product_evidence_class="regression_reproduced",
+        oracle_evidence_class="unfaithful",
+    )
+    report = _report(
+        runs=(
+            RunRecord(
+                run_id="run-overturned",
+                case_id=REPLAY_CASE,
+                repeat=0,
+                predictions=(overturned,),
+                delivery_at_s=1.0,
+                deadline_s=60.0,
+            ),
+        ),
+        measurement_records=(),
+        validation_receipt=None,
+    )
+
+    counts = report.evidence_class_counts
+    assert counts["product_self_certified"] == {"regression_reproduced": 1}
+    assert counts["benchmark_oracle_independent_review"] == {"unfaithful": 1}
+    assert counts["oracle_overturned_product"] == 1
+    assert overturned.evidence_class_authority == "benchmark_oracle_independent_review"
+    markdown = render_markdown(report)
+    assert "| product_self_certified | regression_reproduced | 1 |" in markdown
+    assert "| benchmark_oracle_independent_review | unfaithful | 1 |" in markdown
+
+
+def test_evidence_class_counts_cover_candidates_the_gate_never_surfaced() -> None:
+    """A case holding classified candidates and surfacing none reported ``{}``.
+
+    ``case-81039ffa0c1e`` of the D-059 replay held two candidates with real
+    classes and surfaced neither, so the surfaced-prediction denominator
+    reported an empty map for it. The durable per-candidate records are the
+    denominator now, and ``basis`` states which one was used.
+    """
+    candidates = (
+        {"finding_id": "f-1", "evidence_class": "indeterminate"},
+        {"finding_id": "f-2", "evidence_class": "unfaithful"},
+    )
+    report = build_report(
+        _BOUND_MANIFEST,
+        (
+            RunRecord(
+                run_id="run-silent",
+                case_id=REPLAY_CASE,
+                repeat=0,
+                predictions=(),
+                delivery_at_s=None,
+                deadline_s=60.0,
+            ),
+        ),
+        mode=REPLAY_MODE,
+        manifest_sha256=MANIFEST_SHA,
+        differential_repeats=3,
+        validation_receipt=None,
+        candidate_evidence=candidates,
+    )
+
+    counts = report.evidence_class_counts
+    assert counts["basis"] == "per_candidate_durable_record"
+    assert counts["counted"] == 2
+    assert counts["product_self_certified"] == {"indeterminate": 1, "unfaithful": 1}
+
+    without = build_report(
+        _BOUND_MANIFEST,
+        (
+            RunRecord(
+                run_id="run-silent",
+                case_id=REPLAY_CASE,
+                repeat=0,
+                predictions=(),
+                delivery_at_s=None,
+                deadline_s=60.0,
+            ),
+        ),
+        mode=REPLAY_MODE,
+        manifest_sha256=MANIFEST_SHA,
+        differential_repeats=3,
+        validation_receipt=None,
+    )
+    assert without.evidence_class_counts["basis"] == "surfaced_predictions_only"
+    assert without.evidence_class_counts["product_self_certified"] == {}
 
 
 def test_replay_and_live_modes_are_described_differently() -> None:
