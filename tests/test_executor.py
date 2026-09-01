@@ -1189,6 +1189,14 @@ def test_verification_subprocess_drops_credentials_and_redacts_ledger(
     assert all(len(run["stderr"]) <= 2_000 for run in run_evidence)
 
 
+def test_candidate_run_output_fragment_is_bounded_with_visible_marker() -> None:
+    fragment = executor._bounded_run_output("A" * 2_500)
+
+    assert len(fragment) == executor.MAX_RUN_OUTPUT_FRAGMENT_CHARS
+    assert fragment.startswith("[...truncated...]\n")
+    assert fragment.endswith("A" * 100)
+
+
 def test_execute_high_volume_output_uses_bounded_parent_memory(tmp_path: Path) -> None:
 
     tracemalloc.start()
