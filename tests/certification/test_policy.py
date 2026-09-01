@@ -24,7 +24,20 @@ from attest.certification.types import CertificationPolicy
             PolicyRejectionCode.INVALID_EXECUTOR_PROFILE,
         ),
         (
+            {"allowed_executor_profiles": ("container-v1", "container-v1")},
+            PolicyRejectionCode.INVALID_EXECUTOR_PROFILE,
+        ),
+        (
             {"allowed_evidence_classes": ("future",)},
+            PolicyRejectionCode.UNKNOWN_EVIDENCE_CLASS,
+        ),
+        (
+            {
+                "allowed_evidence_classes": (
+                    "regression_reproduced",
+                    "regression_reproduced",
+                )
+            },
             PolicyRejectionCode.UNKNOWN_EVIDENCE_CLASS,
         ),
     ],

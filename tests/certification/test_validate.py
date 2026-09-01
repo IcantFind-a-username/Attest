@@ -95,6 +95,8 @@ def test_receipt_rejects_invalid_task_context(
     ("side", "changes", "expected"),
     [
         ("head", {"revision_sha": "7" * 40}, RejectionCode.HEAD_RUN_INVALID),
+        ("head", {"run_id": ""}, RejectionCode.HEAD_RUN_INVALID),
+        ("head", {"artifact_digest": "bad"}, RejectionCode.HEAD_RUN_INVALID),
         ("head", {"outcome": "passed"}, RejectionCode.HEAD_RUN_INVALID),
         ("head", {"collected_count": 2}, RejectionCode.HEAD_RUN_INVALID),
         ("head", {"skipped_count": 1}, RejectionCode.HEAD_RUN_INVALID),
@@ -143,9 +145,14 @@ def test_receipt_rejects_counts_and_duplicate_run_ids(
         base_runs=(replace(receipt.base_runs[0], run_id="head-0"), *receipt.base_runs[1:]),
     )
     repeated = validate_receipt(task, policy, subject, duplicate)
+    short_base = validate_receipt(
+        task, policy, subject, replace(receipt, base_runs=receipt.base_runs[:1])
+    )
 
     assert not isinstance(short, AcceptedReceipt)
     assert RejectionCode.HEAD_RUN_COUNT_MISMATCH in short.codes
+    assert not isinstance(short_base, AcceptedReceipt)
+    assert RejectionCode.BASE_RUN_COUNT_MISMATCH in short_base.codes
     assert not isinstance(repeated, AcceptedReceipt)
     assert RejectionCode.DUPLICATE_RUN_ID in repeated.codes
 
@@ -161,8 +168,71 @@ def test_valid_receipt_is_the_only_certified_finding_input(
     assert isinstance(accepted, AcceptedReceipt)
     with pytest.raises(TypeError):
         AcceptedReceipt(receipt)  # type: ignore[call-arg]
+    with pytest.raises(TypeError):
+        AcceptedReceipt._from_validated(receipt, object())
     finding = CertifiedFinding.from_accepted_receipt(
         accepted, (FindingAnchor(path="src/pkg.py", line=12),)
     )
     assert finding.claim == receipt.normalized_claim
     assert finding.accepted_receipt is accepted
+    with pytest.raises(ValueError, match="valid anchors"):
+        CertifiedFinding.from_accepted_receipt(accepted, ())
+    with pytest.raises(ValueError, match="valid anchors"):
+        CertifiedFinding.from_accepted_receipt(
+            accepted, (FindingAnchor(path="src/pkg.py", line=0),)
+        )
+
+
+def test_subject_claim_is_normalized_at_construction(
+    task: CertificationTask,
+    policy: CertificationPolicy,
+    subject: CertificationSubject,
+    receipt: CertificationReceipt,
+) -> None:
+    normalized = replace(
+        subject,
+        normalized_claim="  negative values  bypass\nvalidation  ",
+    )
+
+    result = validate_receipt(task, policy, normalized, receipt)
+
+    assert normalized.normalized_claim == receipt.normalized_claim
+    assert isinstance(result, AcceptedReceipt)
+
+
+def test_receipt_rejects_invalid_subject_and_nondeterministic_head_signature(
+    task: CertificationTask,
+    policy: CertificationPolicy,
+    subject: CertificationSubject,
+    receipt: CertificationReceipt,
+) -> None:
+    invalid_subject = validate_receipt(
+        task, policy, replace(subject, claim_digest="bad"), receipt
+    )
+    mismatched_signature = replace(
+        receipt,
+        head_runs=(
+            receipt.head_runs[0],
+            replace(receipt.head_runs[1], failure_signature="7" * 64),
+        ),
+    )
+    nondeterministic = validate_receipt(task, policy, subject, mismatched_signature)
+
+    assert not isinstance(invalid_subject, AcceptedReceipt)
+    assert RejectionCode.SUBJECT_INVALID in invalid_subject.codes
+    assert not isinstance(nondeterministic, AcceptedReceipt)
+    assert RejectionCode.HEAD_RUN_INVALID in nondeterministic.codes
+
+
+def test_receipt_rejects_untyped_run_record(
+    task: CertificationTask,
+    policy: CertificationPolicy,
+    subject: CertificationSubject,
+    receipt: CertificationReceipt,
+) -> None:
+    malformed = replace(receipt, head_runs=(object(), receipt.head_runs[1]))
+
+    result = validate_receipt(task, policy, subject, malformed)  # type: ignore[arg-type]
+
+    assert not isinstance(result, AcceptedReceipt)
+    assert RejectionCode.HEAD_RUN_INVALID in result.codes

@@ -43,6 +43,12 @@ class CertificationSubject:
     executor_profile: str
     executor_digest: str
 
+    def __post_init__(self) -> None:
+        if type(self.normalized_claim) is str:
+            object.__setattr__(
+                self, "normalized_claim", " ".join(self.normalized_claim.split())
+            )
+
 
 @dataclass(frozen=True)
 class ExecutionRun:
