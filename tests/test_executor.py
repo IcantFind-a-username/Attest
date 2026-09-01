@@ -835,6 +835,8 @@ def test_generated_guard_blocks_joinable_thread_entrypoint(tmp_path: Path) -> No
             tmp_path / "process-guarded",
             tmp_path / "process-contained",
             tmp_path / "process-attempted",
+            tmp_path / "process-observed",
+            tmp_path / "process-window-armed",
             tmp_path / "process-replacement-attempted",
             tmp_path / "thread-attempted",
         ),
@@ -2623,3 +2625,63 @@ def test_verify_candidate_renamed_method_never_buys_evidence(
     assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
     assert Ledger(repo).entries()[-1]["evidence_class"] == "unfaithful"
     assert_worktrees_cleaned(repo, stored)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="kernel process limit is POSIX-only")
+def test_execute_records_but_does_not_adjudicate_a_pre_test_process_event(
+    tmp_path: Path,
+) -> None:
+    """D-059: the adjudication window opens when a test function starts. An
+    event raised before that is recorded in full and decides nothing -- it is
+    the runner's, not the reviewed code's. This is the exact shape D-057 traced
+    to `platform.uname()` spawning `uname -p` during pytest's own bootstrap."""
+
+    subject = candidate(line=1)
+    result = execute_repro(
+        tmp_path,
+        subject,
+        ReproSpec(
+            "import subprocess\n"
+            "import sys\n"
+            "try:\n"
+            "    subprocess.Popen([sys.executable, '-c', 'pass'])\n"
+            "except OSError:\n"
+            "    pass\n"
+            "def test_repro():\n"
+            "    assert True\n"
+        ),
+        ExecutorLimits(),
+    )
+
+    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED, result.reason
+    observed = (
+        tmp_path
+        / ".attest"
+        / "repro"
+        / subject.task_id
+        / subject.finding.finding_id
+        / "python_startup"
+        / "process-observed"
+    )
+    evidence = observed.read_text(encoding="utf-8")
+    assert "event=subprocess.Popen" in evidence
+    assert "phase=runner-bootstrap" in evidence
+
+
+@pytest.mark.skipif(os.name != "posix", reason="kernel process limit is POSIX-only")
+def test_execute_refuses_a_verdict_when_the_audit_window_never_opens(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fail closed: a passing test whose audit window never armed is not a
+    NOT_REPRODUCED answer, because nothing was watching the reviewed code."""
+
+    monkeypatch.setattr(executor, "AUDIT_WINDOW_PLUGIN", "")
+    result = execute_repro(
+        tmp_path,
+        candidate(line=1),
+        ReproSpec("def test_repro():\n    assert True\n"),
+        ExecutorLimits(),
+    )
+
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.reason == "process audit window did not open for the reviewed-code phase"

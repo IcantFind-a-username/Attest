@@ -92,9 +92,33 @@ _PROCESS_REPLACEMENT_SYMBOLS = {
 }
 _NETWORK_EVENTS = {"socket.connect"}
 
+# The process-audit ADJUDICATION window. It opens when a test function starts
+# executing and never closes again, so teardown, atexit and every later test
+# stay adjudicated. Events seen while it is shut are still recorded in full --
+# they simply cannot decide a candidate, because they do not belong to the
+# reviewed code. D-057 traced a DEFER on every candidate in the corpus
+# environment to `platform.uname()` spawning `uname -p` while pytest imported
+# `py` -> `uuid`, before one line of reviewed code ran.
+_process_window = {"armed": False}
+
 def _reject_connection(*args, **kwargs):
     raise PermissionError("network disabled by evidence executor")
 """
+
+# Loaded with `-p` from the guard site directory. Deliberately tiny: the window
+# must open before the test body runs, and must fail closed when it does not,
+# so the marker it writes is what `execute_repro` requires before trusting any
+# verdict.
+AUDIT_WINDOW_PLUGIN = """\
+import pytest
+import sitecustomize
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_call(item):
+    sitecustomize._attest_arm_process_window()
+"""
+AUDIT_WINDOW_PLUGIN_NAME = "_attest_audit_window"
 
 
 class ExecutionOutcome(str, Enum):  # noqa: UP042 - public API requires this exact base shape
@@ -333,6 +357,8 @@ def _sitecustomize(
     process_guard_marker: Path,
     process_containment_marker: Path,
     process_attempt_marker: Path,
+    process_observed_marker: Path,
+    process_window_marker: Path,
     process_replacement_marker: Path,
     thread_attempt_marker: Path,
 ) -> str:
@@ -343,12 +369,21 @@ _network_marker = Path({str(network_marker)!r})
 _process_guard_marker = Path({str(process_guard_marker)!r})
 _process_containment_marker = Path({str(process_containment_marker)!r})
 _process_attempt_marker = Path({str(process_attempt_marker)!r})
+_process_observed_marker = Path({str(process_observed_marker)!r})
+_process_window_marker = Path({str(process_window_marker)!r})
 _process_replacement_marker = Path({str(process_replacement_marker)!r})
 _thread_attempt_marker = Path({str(thread_attempt_marker)!r})
 _PROCESS_GUARD_PROBE = "attest.process_guard_probe"
 
-def _record_process_attempt(event, args):
-    if _process_attempt_marker.exists():
+def _attest_arm_process_window():
+    _process_window["armed"] = True
+    _process_window_marker.write_text("armed", encoding="utf-8")
+
+def _record_process_event(event, args):
+    armed = _process_window["armed"]
+    recorded = _process_observed_marker.exists()
+    adjudicated = not armed or _process_attempt_marker.exists()
+    if recorded and adjudicated:
         return
     target = None
     if args:
@@ -357,10 +392,12 @@ def _record_process_attempt(event, args):
     stack = "\\n".join(
         f"{{frame.filename}}:{{frame.lineno}}:{{frame.name}}" for frame in frames
     )
-    _process_attempt_marker.write_text(
-        f"event={{event}}\\ntarget={{target!r}}\\nstack:\\n{{stack}}\\n",
-        encoding="utf-8",
-    )
+    phase = "reviewed-code" if armed else "runner-bootstrap"
+    record = f"event={{event}}\\ntarget={{target!r}}\\nphase={{phase}}\\nstack:\\n{{stack}}\\n"
+    if not recorded:
+        _process_observed_marker.write_text(record, encoding="utf-8")
+    if not adjudicated:
+        _process_attempt_marker.write_text(record, encoding="utf-8")
 
 if os.name == "posix":
     import resource
@@ -391,7 +428,7 @@ def _guard_operations(event, args):
         raise PermissionError("process replacement disabled by evidence executor")
     if not process_event and not native_symbol:
         return
-    _record_process_attempt(event, args)
+    _record_process_event(event, args)
     if os.name != "posix":
         raise PermissionError("process creation disabled by evidence executor")
 
@@ -778,6 +815,8 @@ def execute_repro(
     process_guard_marker = site_dir / "process-guarded"
     process_containment_marker = site_dir / "process-contained"
     process_attempt_marker = site_dir / "process-attempted"
+    process_observed_marker = site_dir / "process-observed"
+    process_window_marker = site_dir / "process-window-armed"
     process_replacement_marker = site_dir / "process-replacement-attempted"
     thread_attempt_marker = site_dir / "thread-attempted"
     raw_process: subprocess.Popen[bytes] | None = None
@@ -800,10 +839,15 @@ def execute_repro(
                 process_guard_marker,
                 process_containment_marker,
                 process_attempt_marker,
+                process_observed_marker,
+                process_window_marker,
                 process_replacement_marker,
                 thread_attempt_marker,
             ),
             encoding="utf-8",
+        )
+        (site_dir / f"{AUDIT_WINDOW_PLUGIN_NAME}.py").write_text(
+            AUDIT_WINDOW_PLUGIN, encoding="utf-8"
         )
         junit_path.unlink(missing_ok=True)
         for marker in (
@@ -811,13 +855,25 @@ def execute_repro(
             process_guard_marker,
             process_containment_marker,
             process_attempt_marker,
+            process_observed_marker,
+            process_window_marker,
             process_replacement_marker,
             thread_attempt_marker,
         ):
             marker.unlink(missing_ok=True)
 
         env = _reproduction_environment(site_dir, tree)
-        command = [interpreter, "-m", "pytest", "-q", str(run_path)]
+        command = [
+            interpreter,
+            "-m",
+            "pytest",
+            "-q",
+            # opens the process-audit adjudication window when a test function
+            # starts; PYTEST_DISABLE_PLUGIN_AUTOLOAD means nothing else loads it
+            "-p",
+            AUDIT_WINDOW_PLUGIN_NAME,
+            str(run_path),
+        ]
         if tree is not None:
             command += [
                 # rootdir also anchors conftest discovery, so both are pinned to
@@ -948,6 +1004,23 @@ def execute_repro(
     except (OSError, ET.ParseError, TypeError, ValueError) as exc:
         return _deferred(
             f"missing or malformed JUnit evidence: {type(exc).__name__}: {exc}",
+            started,
+            exit_code=process.returncode,
+            stdout=stdout,
+            stderr=stderr,
+            network_blocked=network_blocked,
+        )
+
+    # A verdict is only worth anything if the reviewed code actually ran under
+    # an open audit window. Collection/import/infrastructure failures never
+    # reach a test function, so they keep their own DEFER below rather than
+    # being relabelled here.
+    reached_a_verdict = process.returncode == 0 or (
+        process.returncode == 1 and failures > 0 and errors == 0
+    )
+    if reached_a_verdict and not process_window_marker.is_file():
+        return _deferred(
+            "process audit window did not open for the reviewed-code phase",
             started,
             exit_code=process.returncode,
             stdout=stdout,
