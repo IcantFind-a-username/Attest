@@ -102,12 +102,26 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | C-02 or V-01 (neither started) | C-01's pure domain is complete; D-059 narrowed the process audit to the reviewed-code phase and made every differential repeat run, and the first receipt-validated corpus rerun produced K = 4 certified differentials against K = 0 in all three prior rounds |
+| **NOW** | L-00 licence gate, then the deconstruction layer (D-066) | D-066 redirected the product: evidence locates a hazard rather than reproducing it, so mechanical structural analysis — not differential execution — is the admission path. L-00 comes first because D-068 makes every later "may we integrate this" decision depend on it |
+| **NOW (superseded as first work)** | C-02 or V-01 | still unblocked and still valid, but no longer the first thing: both serve the certification-by-reproduction path that D-066 demoted from admission requirement to strongest-available channel |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
 
-C-01 is complete. C-02 and V-01 are now the first unblocked code work; neither started in
+**Direction change, 2026-09-02 (D-066/D-067/D-068).** The owner redirected the product
+before the next work order started. Evidence now *locates* a hazard and proposes a remedy;
+it does not have to *reproduce* it, because reproduction is judgement work a human keeps and
+does better. A finding is publishable when its referents are mechanically verified. That
+demotes differential reproduction from admission requirement to strongest-available channel,
+makes the deconstruction graph the primary artifact, and puts the seven verification rules
+(`INV-VERIF-001..007`) and the licence iron rule ahead of further certification work. The
+revised order is: L-00 licence gate and manifest; deconstruction graph, blast radius and
+AI-authored-region signal, all mechanical and zero-API; the coverage manifest that discharges
+the recall obligation; drift detection; sharding as its own work order; and the
+convention-outlier engine as the only component that touches a model. Graph *construction* is
+integrated, not built. C-02 and V-01 keep their dependency positions.
+
+C-01 is complete. C-02 and V-01 remain unblocked code work; neither started in
 the overnight scope. The follow-on V-funnel implementation through `e0f2db0` added complete
 per-candidate run evidence and a reproduction-only 3,000-token cap. D-059 then resolved the
 two items D-057 had left pending: the process audit is scoped to the reviewed-code phase,

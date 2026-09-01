@@ -82,6 +82,50 @@ Multi-model work is useful as heterogeneous roles and marginal-value actions: pr
 skeptic, test designer, repairer, causal checker. Model agreement is correlated ranking
 information. It is never a vote, quorum, independent likelihood product, or certificate.
 
+### 3.1 Owner rulings on product scope (2026-09-02)
+
+Owner-issued and binding on candidate scope, evidence contracts, output shape and delivery
+form. They refine the north star above rather than replace it; where a downstream document
+disagrees, repair the downstream document.
+
+**Who it serves.** Attest exists so a developer can stay in control of a codebase growing
+faster than one person can hold in context. AI raises velocity, and velocity multiplied by
+locally-coherent work produces globally invisible drift — experienced engineers included.
+The barrier being lowered is not *writing* code, it is *steering a project*.
+
+**What it looks for.** Latent hazards in a project that appears to work: the weakness in the
+foundation whose failure reaches the macro whole. Concrete bugs remain by-products (§3),
+never the target.
+
+**Evidence locates; it does not reproduce.** The evidence obligation is to say *where* the
+problem is and *how it could be changed*, not to prove it fails. Reproduction is complex
+judgement work that a human does better and keeps. Finding candidate problems and proposing
+remedies is what a model does better. A finding is publishable when its referents are
+mechanically verified — not when its consequence is demonstrated.
+
+**Attest advises; the developer decides. Always.** The developer is also the final
+false-positive filter, which is only possible if every finding carries evidence they can
+check in seconds. Evidence therefore carries its own calibration wherever it can: a finding
+stated as "N of M call sites do X, this one does not" needs no engineering intuition to
+judge, while a bare metric needs a reader who already knows what normal looks like. Prefer
+the first shape; a claim that cannot be put in it is a claim whose normal range we do not
+know either.
+
+**Two-sided obligation.** Do not report what a developer will not care about. *And* what
+matters must be said. Silence is not free: the second half is a recall obligation, and the
+mechanism that discharges it is an auditable coverage manifest — every run reports which
+check classes ran and what each returned, including the ones that returned nothing. Silence
+without stated scope is not a report.
+
+**Never in scope.** Attest does not opine on development direction, project management, or
+architecture strategy. "Wire this unused package", "this subsystem is too large", "adopt
+this pattern" are the owner's decisions, not findings. A hazard is in scope; an opinion
+about where the project should go is not.
+
+**Delivery form.** Lightweight, cheap, high return, zero-configuration. Local CLI first; a
+GitHub CI action is a thin wrapper over the same core. Project data never leaves the user's
+machine or the user's runner. The default tier must run with no model API key at all.
+
 ## 4. Current implementation warning
 
 Do not confuse target contracts with current behavior:
@@ -178,6 +222,28 @@ Stable IDs are defined in the architecture and acceptance documents.
     named at their actual evidence level with numerator, denominator, interval, abstention,
     and version.
 
+16. **No model-produced number (`INV-VERIF-001`).** Counts, ratios, set sizes and
+    percentages are computed mechanically. A number a model emitted is never published.
+17. **No model-defined denominator (`INV-VERIF-002`).** A model may propose only a
+    mechanically enumerable predicate; the machine enumerates the population from it. A
+    population the model selected cannot be used to verify the model's own framing. If the
+    predicate is not mechanically enumerable, the finding is not emittable.
+18. **Provenance chain (`INV-VERIF-003`).** Every claim decomposes into steps that are each
+    independently checkable, and no step may depend on a later one.
+19. **Independent judge (`INV-VERIF-004`).** The judge is mechanical. Where a model must
+    judge, it must come from a different family than the proposer. Self-verification is
+    systematically lenient and same-family agreement is not independent verification.
+20. **Two-path agreement (`INV-VERIF-005`).** A fact used in a published claim is derived by
+    two independent extraction paths and must agree. Disagreement withholds the claim.
+21. **Metamorphic invariance (`INV-VERIF-006`).** Renaming symbols, reordering files, and
+    adding dead code must not change the finding set; analysing shards and merging must
+    equal analysing the whole. These relations are the correctness oracle where no ground
+    truth exists, and they run on every release.
+22. **Provenance-weighted coverage (`INV-VERIF-007`).** A test written in the same change as
+    the code it covers is not independent evidence of that code's correctness. Coverage used
+    as evidence is weighted by test provenance. This repository holds the counterexample:
+    1615 tests at 92% coverage did not catch the defect D-057 traced.
+
 Violating one is rework, not a small regression.
 
 ## 7. Repository and git discipline
@@ -216,6 +282,28 @@ Violating one is rework, not a small regression.
   them. Environment-name filtering is not sufficient isolation.
 - Public/user artifacts must be bounded and redacted. Hidden truth and private source stay
   access-controlled; committed manifests contain safe metadata and digests.
+
+**Licence iron rule (owner-issued, 2026-09-02).** Before building any component, first
+establish whether a good open-source solution exists; prefer learning from and using it over
+building. Nothing whose licence forbids the use is ever adopted — no exception, no "we will
+sort it out later".
+
+- Attest is Apache-2.0. Permitted dependency licences: MIT, BSD-2-Clause, BSD-3-Clause,
+  Apache-2.0, ISC, PSF, MPL-2.0 (as a library).
+- Forbidden: any `*GPL*`, BSL, SSPL, any non-commercial or field-of-use restriction, any
+  proprietary licence, and **any unknown licence**. Unknown fails closed and is resolved by a
+  person, whose resolution is recorded.
+- The trigger for copyleft is **distribution, not profit**. Publishing publicly on GitHub is
+  distribution. "We are not monetising this" grants no exemption.
+- The commercial cost of a copyleft dependency is mostly borne by users: many enterprises
+  forbid GPL tooling in a build chain regardless of price.
+- Distinguish what is being taken. An **algorithm or idea** is not copyrightable — read it,
+  learn it, reimplement it freely. **Expression (code copied in)** carries its licence, which
+  for Apache-2.0 means attribution, NOTICE, and a change notice. **Calling a library** is
+  governed by that library's licence.
+- Compliance is a mechanical CI gate against an SPDX allowlist plus `THIRD-PARTY.md`, using
+  existing tooling. The gate catches the obvious cases; it is not legal clearance, and
+  anything shipping commercially remains a human decision.
 
 ## 9. Spend and authority
 

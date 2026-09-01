@@ -1080,3 +1080,160 @@ is active only when the owning architecture/acceptance document changes with it.
   without touching any decision path. The result would be superseded by a corpus whose control
   arm emits candidates, or by any change that lifts observed `S·T` toward its reachable ceiling.
 - **Trace:** D-059; D-062; D-063; D-064; `AGENTS.md` §16; `INV-TRUTH-001`; `docs/backlog.md`.
+
+### D-066 — Attest locates hazards and advises; it never reproduces, never decides, and never opines on direction
+
+- **Date/status/scope:** 2026-09-02 · owner ruling, normative · governs candidate scope,
+  evidence contracts, output shape and delivery form. Recorded in `AGENTS.md` §3.1, which is
+  the operative text; this entry records the ruling and its reasoning.
+- **Who it serves.** A developer trying to stay in control of a codebase growing faster than
+  one person can hold in context. The owner's own reasoning, from a case observed in this
+  repository: velocity multiplied by locally-coherent work produces globally invisible
+  drift, experienced engineers included, and AI multiplies velocity. The barrier being
+  lowered is *steering a project*, not *writing code*.
+- **The ruling that changes the product most.** **Evidence locates; it does not reproduce.**
+  The obligation is to say where the problem is and how it might be changed — not to prove
+  it fails. Reproduction is complex judgement work a human does better and keeps. Proposing
+  candidate problems and remedies is what a model does better. A finding is publishable when
+  its **referents** are mechanically verified, not when its **consequence** is demonstrated.
+- **Consequence for the existing architecture.** Differential reproduction stops being the
+  admission requirement and becomes the strongest available channel on the subset that can
+  use it. `src/attest/review/executor.py` — the sandbox, process audit, `RLIMIT_NPROC`,
+  detached worktrees, repeat semantics — is ~20% of the production package and is demoted,
+  not deleted. D-017/D-042 containment and `G-SEC-002`/`G-SEC-003` are unaffected: whatever
+  still executes, executes under the same boundary.
+- **Two-sided obligation.** Do not report what a developer will not care about; *and* what
+  matters must be said. The second half is a recall obligation and silence is not free. The
+  mechanism that discharges it is an **auditable coverage manifest**: every run reports which
+  check classes ran and what each returned, including the ones that returned nothing.
+  Silence without stated scope is not a report. This does not estimate recall — it makes the
+  examined scope visible so the developer can see the gaps.
+- **Out of scope, permanently.** Attest does not opine on development direction, project
+  management, or architecture strategy. Calibration case: of six mechanically verified
+  observations produced about this repository on 2026-09-01, only two were in scope. "The
+  certification package is built but unwired", "the allocator is not in the product path",
+  and "the benchmark package is 3.7x the product" are all true, all verified, and all
+  **owner decisions rather than findings**. The proposer was over-broad by a factor of three
+  and the boundary is now written down.
+- **Output shape.** Evidence carries its own calibration wherever it can. "N of M call sites
+  do X, this one does not" is judgeable without engineering intuition; a bare metric requires
+  a reader who already knows what normal looks like. Prefer the first shape. A claim that
+  cannot be put in it is a claim whose normal range we do not know either.
+- **Delivery form.** Lightweight, cheap, zero-configuration, high return. Local CLI first; a
+  GitHub CI action is a thin wrapper over the same core. Project data never leaves the user's
+  machine or runner. **The default tier runs with no model API key at all** — today
+  `action.yml` requires `model-api-key`, which is the adoption barrier this removes.
+- **Explicitly unchanged:** the §3 north star, which this refines rather than replaces; every
+  invariant in §6; containment; and the receipt contract for whatever still certifies.
+- **Reversal:** owner call. This is a direction ruling, not a measurement.
+- **Trace:** `AGENTS.md` §3, §3.1, §4; D-024; D-059; D-067; `docs/roadmap.md`.
+
+### D-067 — Seven verification rules, because a finder with no ground truth can otherwise verify only itself
+
+- **Date/status/scope:** 2026-09-02 · owner requirement, normative · promoted to product
+  invariants `INV-VERIF-001` through `INV-VERIF-007` in `AGENTS.md` §6.
+- **The owner's requirement, verbatim in substance:** no circular reasoning, no
+  hallucination-caused errors, reliable verification at every step despite the absence of
+  ground truth, using cross-validation and provenance chains. These are mandatory.
+- **Three circularities found in the proposed design itself, before any of it was built.**
+  1. *The denominator was model-chosen.* A convention-outlier finding reads "17 of 18 paths
+     do X". Counting mechanically verifies the count but not the population, which the model
+     selected — so the machine was checking the model's own framing. Fixed by
+     `INV-VERIF-002`: the model proposes only a mechanically enumerable predicate and the
+     machine enumerates the population. Not enumerable, not emittable.
+  2. *Coverage is not independent evidence when the tests share an author with the code.*
+     The proposed "foundation risk = blast radius x uncovered" assumed coverage measures
+     correctness. When a model writes the code and its tests in one session, coverage
+     measures the model's internal consistency. **This repository is the counterexample:**
+     1615 tests at 92% coverage did not catch the defect D-057 traced. Fixed by
+     `INV-VERIF-007`: coverage used as evidence is weighted by test provenance, which git
+     supplies for free.
+  3. *Drift detection was going to use the test suite as its own oracle.* "Neutralise the
+     component, see if tests fail" cannot distinguish a dead component from a blind suite —
+     and the suite in question is the one that missed the drift. Fixed by using recorded
+     decisions over an enumerated input space instead, which is what D-063 actually did.
+- **What the literature settles.** Self-verification is systematically lenient; judges favour
+  familiar outputs and can prefer same-family models, so judge/target agreement is not
+  independent verification. AST-derived graphs beat LLM-extracted ones because the latter
+  hallucinate both nodes and edges and the error compounds through construction; the standing
+  recommendation is AST as the foundation with LLM extraction used selectively.
+  **Metamorphic testing is the standard answer to the oracle problem**: assert relations that
+  must hold under input transformations, with no reference implementation and no labels.
+- **The relation that unlocks sharding.** Sharding correctness has no ground truth, but
+  *analysing shards and merging must equal analysing the whole*. On repositories small enough
+  to run both, this validates the sharder before it is trusted where only sharding is
+  possible. Recorded in `INV-VERIF-006` with renaming, reordering and dead-code invariance.
+- **Recall without labels.** Inject known defects and check they are found. Synthetic ground
+  truth, zero labelling, zero paid calls. This is how the D-066 recall obligation gets a
+  number rather than a promise.
+- **Why these are mechanical and not a checklist — evidence from the day they were written.**
+  While correcting four claims on a public page that the code did not support, the author
+  fixed the prose and left the identical two claims standing in the diagram beside it, then
+  had to be corrected again. Same session, same person, having just written the rule.
+  Vigilance does not scale and neither does remembering; the closing sweep must be a
+  mechanical full-file check, not an intention.
+- **Tiering.** The low-cost tier is fully mechanical — graph, blast radius, two-path
+  agreement, metamorphic relations — with **zero model calls**, and satisfies rules 1 to 5 by
+  construction. The high-cost tier is an opt-in cross-family review board. Corum falsified
+  **consensus as evidence**; that result stands and does not extend to using several models
+  as **distinct lenses**, where the purchase is coverage of failure modes rather than
+  accumulation of belief. Therefore: **disagreement is signal, agreement is not evidence**,
+  the board's output is a union of concerns and never a vote count, a concern raised by one
+  lens and surviving mechanical verification is published, and certification authority stays
+  mechanical in both tiers. Requiring agreement would reduce recall, which D-066 forbids.
+- **Explicitly unchanged:** no factory constant, alpha, LR, channel cap, gate threshold or
+  coverage threshold.
+- **Reversal:** owner call. A rule may be relaxed only with a demonstration that it blocks a
+  finding that is otherwise verifiable.
+- **Trace:** `AGENTS.md` §6 `INV-VERIF-001..007`; D-003; D-007; D-023; D-026; D-057; D-058;
+  D-063; D-065; D-066.
+
+### D-068 — Survey open source before building, and never adopt what the licence forbids
+
+- **Date/status/scope:** 2026-09-02 · owner iron rule, normative · every component decision
+  and every dependency. Operative text in `AGENTS.md` §8; manifest in `THIRD-PARTY.md`.
+- **The rule.** Before building any component, establish whether a good open-source solution
+  exists and prefer learning from and using it. Integrate what may lawfully be integrated.
+  **Never adopt anything whose licence forbids the use** — no exception, no deferral.
+- **What the survey already changed.** Applying it to four proposed check classes deleted
+  three: swallowed-exception detection is fully covered by `ruff` rules that exist and are
+  partly enabled here (measured: `E722`, `BLE001`, `S110`, `SIM105` return zero on `src/`);
+  import cycles and layering belong to `import-linter`; and "durable record written but never
+  validated on read" turned out to be a special case of convention-outlier rather than its
+  own checker. One genuine gap survived. Separately, the graph layer is commoditising — a
+  tree-sitter knowledge graph over MCP reportedly cut agent token use ~10x across 31
+  repositories — so the graph is to be integrated, not built, and the defensible work sits in
+  the analyses above it.
+- **The landmine this rule caught on its first application.** Three graph-partitioning
+  libraries had been recommended one message earlier: **METIS** carries a non-commercial
+  restriction, **igraph** is GPL-2.0, **leidenalg** is GPL-3.0. Under Apache-2.0 the first is
+  an outright violation and the other two are infectious. `networkx` and `scipy`/
+  `scikit-learn`, all BSD-3-Clause, cover the same ground with no capability loss.
+- **The distinction that makes "learn from open source" safe.** An **algorithm or idea** is
+  not copyrightable: read it, learn it, reimplement it. **Expression copied in** carries its
+  licence — for Apache-2.0 that is attribution, NOTICE, and a change notice. **Calling a
+  library** is governed by that library's licence. Reading a design and reimplementing it is
+  safe; copy-paste is the risk.
+- **The correction the owner needed.** Copyleft triggers on **distribution, not profit**.
+  Publishing publicly on GitHub is distribution, so "I am not monetising this" grants no
+  exemption. And the commercial cost of a copyleft dependency falls mostly on users: many
+  enterprises forbid GPL tooling in a build chain at any price, which would block adoption by
+  exactly the audience D-066 targets.
+- **Current posture, measured 2026-09-02.** Attest is Apache-2.0. Runtime dependencies are
+  `numpy` (BSD-3), `anthropic` (MIT), `pytest` (MIT); dev adds `pytest-cov`, `ruff`, `mypy`,
+  all MIT. Across the installed environment: 20 MIT, 3 BSD-3-Clause, 2 Apache-2.0, 1
+  BSD-2-Clause, 1 MPL-2.0 (`pathspec`, transitive, library use, unrestricted here), 1
+  PSF-2.0, and **zero GPL or AGPL**. `numpy` reports no SPDX identifier because its metadata
+  uses a licence file; a gate must flag that rather than guess.
+- **Enforcement.** A mechanical CI gate against an SPDX allowlist (MIT, BSD-2, BSD-3,
+  Apache-2.0, ISC, PSF, MPL-2.0-as-library) denying any `*GPL*`, BSL, SSPL, non-commercial or
+  field-of-use restriction, proprietary licence, **and any unknown**, which **fails closed**
+  and is resolved by a person whose resolution is recorded. Built from existing tooling, not
+  self-written. **Stated limit:** the gate catches licence identifiers, not vendored code
+  inside a package, patent or trademark terms, dual-licensing subtleties, or where the
+  idea/expression line falls. It is not legal clearance; anything shipping commercially
+  remains a human decision.
+- **Explicitly unchanged:** the repository's Apache-2.0 licence and `NOTICE`.
+- **Reversal:** none for the prohibition. The allowlist may be extended by owner decision
+  with the reasoning recorded.
+- **Trace:** `AGENTS.md` §8; `LICENSE`; `NOTICE`; `THIRD-PARTY.md`; D-066.
