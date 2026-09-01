@@ -1237,3 +1237,76 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** none for the prohibition. The allowlist may be extended by owner decision
   with the reasoning recorded.
 - **Trace:** `AGENTS.md` §8; `LICENSE`; `NOTICE`; `THIRD-PARTY.md`; D-066.
+
+### D-069 — what a shard must satisfy, and how a sharder is validated without ground truth
+
+- **Date/status/scope:** 2026-09-02 · owner ruling, normative · binds the sharding work order
+  and any later partitioning of a repository for bounded review.
+- **The distinction this rests on.** Sharding exists so a model can **understand** a project
+  that does not fit one context. Deconstruction exists to **locate** a problem and to know
+  **how it affects the whole**. They are different mechanisms with different outputs and must
+  not be merged.
+- **Four properties a shard must satisfy.** These are requirements, not an algorithm; the
+  algorithm that achieves them is the open design question.
+  1. **Closure.** A reviewer must be able to reach a judgement about the shard's contents
+     without loading anything outside it. Partitioning by file, directory or token count
+     fails this: it yields a file with no knowledge of what calls it or what it calls.
+  2. **Joint completeness.** N shards must cover the repository, and whatever is not covered
+     must be nameable. This is the property that separates an audit partition from an editing
+     context window — existing repo-map tooling optimises for the latter.
+  3. **Deliberate boundary overlap.** Defects concentrate at boundaries, so a hazard crossing
+     a shard edge must be fully visible from at least one shard.
+  4. **Interface contract per shard.** Each shard carries a summary of what it depends on and
+     what depends on it, so a reviewer knows the blast radius of what it is looking at
+     without loading the rest.
+- **Validation without ground truth.** There is no correct partition to compare against, so
+  correctness is established by a metamorphic relation: **the findings of sharded analysis,
+  merged, must equal the findings of whole-repository analysis.** Validate the sharder on
+  repositories small enough to run both, then rely on it where only sharding is possible —
+  and state plainly what guarantee survives that transfer, because it is weaker than the
+  relation itself.
+- **Licence constraint, already resolved (D-068).** `METIS` (non-commercial), `igraph`
+  (GPL-2.0) and `leidenalg` (GPL-3.0) are rejected and must not be reconsidered. `networkx`,
+  `scipy` and `scikit-learn` (BSD-3-Clause) cover the same ground.
+- **Known hazards any design must answer.** Python admits no sound call graph: `getattr`,
+  dynamic dispatch, decorators that rewrite functions, DI containers, `__getattr__`,
+  re-exports, conditional and star imports. A graph whose nodes are file paths makes
+  rename-invariance vacuously true, which is not a measurement — nodes must carry symbols.
+  Anything the resolver cannot bind must not fall into a "violates" bucket, where it becomes
+  the highest-confidence false positive the product can emit.
+- **Out of scope for the sharder:** it does not decide what is a hazard, it does not rank,
+  and it does not opine on structure. It partitions and it states its coverage.
+- **Reversal:** owner call on any of the four properties, with the reasoning recorded.
+- **Trace:** D-066; D-067 `INV-VERIF-006`; D-068; `AGENTS.md` §3.1.
+
+### D-070 — differently-lensed reviewers found what one deep pass missed, and the numbers are model-clustered
+
+- **Date/status/scope:** 2026-09-02 · measurement, indicative not certified · informs how
+  multi-agent review is composed. Changes no product behaviour.
+- **What was run.** One real design question — the convention-outlier engine under D-066/067 —
+  given to six agents at once: one **unlensed control** (the single-deep-pass analogue) and
+  five with assigned lenses (circularity, false-positive, false-negative, scale-cost,
+  prior-art). Their problem lists were then clustered by substance and compared.
+- **Result.** 36 distinct clusters. The control found 20 of them alone; the lenses added 16 it
+  missed. The miss was not confined to minor material: of 17 blocking-severity clusters, 8
+  were invisible to the control. Every lens contributed 4–6 clusters the control lacked.
+  Redundancy was real: 9 clusters were raised by four or more agents.
+- **Leave-one-out loss** (clusters that disappear entirely if that agent is dropped):
+  prior-art 4, scale-cost 3, false-negative 2, false-positive 1, control 1, **circularity 0**.
+- **The generalisable finding.** The lenses that paid were those pointing at an axis the
+  design document itself does not discuss — cost, prior art, misses. The lens aimed at the
+  axis the document already foregrounds (circularity, which D-067 is built around) added
+  nothing unique, because the unlensed pass had already inherited that frame.
+  **Choose lenses adversarially to the source document's own framing, not by importance.**
+- **Recommended composition:** control + prior-art + scale-cost + false-negative +
+  false-positive. Drop the circularity lens.
+- **Limit, and it is a real one.** The clustering was performed by a model, so **36, 20 and 16
+  are model-produced numbers and `INV-VERIF-001` forbids publishing them as measurements.**
+  They are recorded here as indicative and must not be quoted as measured. A compliant
+  version would need a mechanical substance-clustering step, which does not exist. Further:
+  n = 1 question, one repository, and all six agents came from one model family, so
+  `INV-VERIF-004` applies — this measures lens diversity within a family, not independence.
+- **Why it is recorded anyway.** It is the evidence behind a composition choice that would
+  otherwise be an assertion, and the rule that caught its own numbers is the rule working.
+- **Reversal:** superseded by any run with mechanical clustering or cross-family agents.
+- **Trace:** D-003; D-007; D-023; D-067 `INV-VERIF-001`, `INV-VERIF-004`.

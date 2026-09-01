@@ -252,6 +252,26 @@ Violating one is rework, not a small regression.
   `chore:`.
 - Feature/fix work uses a focused `feature/*` or `fix/*` branch. Small docs/chore work may
   be direct only when the current task permits it.
+- **Branch names carry the work-order ID, so the roadmap and the branch list read the same.**
+  The form is `<kind>/<work-order-id-lowercased>-<short-slug>`, for example
+  `feature/l-00-licence-gate`. Three kinds, and the kind states what the owner must do:
+
+  | Kind | Meaning at a glance |
+  |---|---|
+  | `feature/` | implementation; mergeable on its own gate evidence |
+  | `design/` | produces a decision package; **must not be merged into `src/` without an owner decision** |
+  | `fix/` | repair of observed behaviour |
+
+  Work-order ID families in use: `C` certification, `V` verification/semantics, `X`
+  execution/isolation, `S` scheduler, `R` recall, `E` evaluation, `M` measurement, `L`
+  licence/release, `F` foundation/scaffold, `A` analysis/architecture. `D-*` is the decision
+  log and `G-*` is the Gate namespace; never start a work-order family with either.
+- **Concurrent sessions partition by branch and by path.** Two sessions committing to one
+  branch in one working tree has already happened in this repository. Every concurrent
+  session owns a disjoint set of paths, declared before it starts. The shared normative
+  documents — `AGENTS.md`, `DECISIONS.md`, `docs/roadmap.md`, `pyproject.toml` — are owned
+  by **no** concurrent session: each writes `docs/handoff/<branch-slug>.md` instead, and the
+  shared documents are merged in one serialised pass afterwards.
 - Never put an AI-assistant or vendor-agent name, including your own, in branch names,
   commit messages, code comments, or generated documentation. The commit hook is only a
   partial backstop. Never use `--no-verify` or weaken the hook.

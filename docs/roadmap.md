@@ -121,6 +121,24 @@ the recall obligation; drift detection; sharding as its own work order; and the
 convention-outlier engine as the only component that touches a model. Graph *construction* is
 integrated, not built. C-02 and V-01 keep their dependency positions.
 
+**Verification cost, measured 2026-09-02.** The repository gate is dominated by tests of the
+frozen measurement package: of 1628 collected tests, 1112 (68%) are under `tests/benchmark`,
+which carries no coverage floor. Full gate with coverage runs about 25 minutes single-threaded
+on a 12-core machine; the product-relevant subset — `pytest tests --ignore=tests/benchmark`,
+516 tests, no coverage — runs in 77 seconds. `pytest-xdist` is not installed. A tiered gate
+(T0 lint/type, T1 product subset, T2 full with coverage, T3 full with corpus and both
+interpreters) is the F-01 work order; these are its baseline figures to reproduce, not to
+quote.
+
+**Real-repository test ladder, available offline.** The deconstruction work is validated
+against a size ladder already on disk, all read-only, no network: `pysnooper` (29 py files,
+333 commits), `cookiecutter` (90, 3143), this repository (108 py files under `src` and
+`tests`, 203 commits), `black` (345, 2314) and `fastapi` (1138, 7695) under
+`~/Documents/attest-corpus-cache/upstream/`, plus the owner's `~/Documents/stock_trader`.
+Any analyser must exclude `.venv`, `site-packages`, `node_modules`, `.git` and `__pycache__`
+and report the file count before and after exclusion — `stock_trader` reports several
+thousand Python files unfiltered, which is a virtual environment rather than a codebase.
+
 C-01 is complete. C-02 and V-01 remain unblocked code work; neither started in
 the overnight scope. The follow-on V-funnel implementation through `e0f2db0` added complete
 per-candidate run evidence and a reproduction-only 3,000-token cap. D-059 then resolved the
