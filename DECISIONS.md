@@ -507,3 +507,30 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Trace:** D-022; `src/attest/review/history.py`;
   `scripts/history_counterfactual.py`;
   `docs/acceptance/evidence/2026-09-01-wave5-history-counterfactual/result.json`.
+
+### D-055 — C-01 owns a pure versioned regression-receipt domain
+
+- **Date/status/scope:** 2026-09-01 · accepted C-01 boundary · pure certification types
+  and validation only.
+- **Decision:** establish task schema `attest.certification-task.v1`, base-policy schema
+  `attest.certification-policy.v1`, and strict regression receipt schema
+  `attest.certification-receipt.v2`. The pure validator compares current task, repository,
+  revisions, diff, candidate, normalized claim, test node/digest, base policy,
+  environment, interpreter, executor, exact run evidence, result/evidence class, and
+  provenance. Ordinary invalid evidence returns exhaustive typed rejection codes; unknown
+  versions/classes fail closed. Only the validator can construct `AcceptedReceipt`, and
+  `CertifiedFinding` requires that accepted value.
+- **Authority boundary:** the package imports no review, benchmark, Core, provider,
+  subprocess, ledger, CLI, or GitHub code. It performs no JSON/file/network/process work,
+  has no product caller, and contains no wealth/ranking input. The C-05 selection seam is
+  a Protocol with no implementation. C-02, V-01, presentation, execution authority, PR
+  family policy, and every factory statistic remain unchanged and unstarted.
+- **Evidence:** implementation `e955f29`; 59 focused tests; executable certification logic
+  at 100% informational line coverage (the four uncovered statements are the deliberately
+  unimplemented selection Protocol); field-by-field mutation guards; adjacent gate/executor
+  regressions; Wave 6 `G-CODE-001` at 1615 passed with product coverage 92.39%; one bounded
+  self-review finished P0=0/P1=0.
+- **Reversal:** leave the types readable but reject v2 receipts and return typed DEFER. Never
+  fall back to raw wealth, legacy two-field validation, or a presentation-side constructor.
+- **Trace:** `INV-CERT-001`, `INV-CERT-002`, `INV-VERSION-001`; C-01; C-02 not started;
+  `G-CERT-001`, `G-CODE-001`, `G-CODE-002`.

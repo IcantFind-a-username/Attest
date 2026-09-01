@@ -25,8 +25,8 @@ execution-order controller. It is never a voter or certifier. Public speech is c
 only by a trusted, claim-bound differential receipt and a PR-level publication policy.
 
 The north star does not change the current sequence: Phase 0's trusted-measurement
-prerequisite is complete, while C-01 is the current evidence-safety foundation rather than
-the product goal.
+prerequisite and C-01's pure certification domain are complete, while receipt-only product
+routing remains the next evidence-safety boundary rather than the product goal.
 S-01 and all later evaluations must cover repository understanding, architecture
 decomposition, cross-cutting impact, and Top-issue prioritization. Current BugsInPy and
 local-regression metrics are bounded evidence and cannot establish that product outcome.
@@ -102,13 +102,13 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | C-01 | Phase 0 is complete; the next boundary is a versioned certification domain with no direct presentation authority |
-| **NEXT** | C-02 and V-01 after C-01; then remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
+| **NOW** | C-02 or V-01 (neither started) | C-01's pure domain is complete; the next owner-scoped window may route publication through it or begin the exact-node evidence contract |
+| **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
 
-The first unblocked code work is C-01; it has not started. Core is not the next direct
-production switch.
+C-01 is complete. C-02 and V-01 are now the first unblocked code work; neither started in
+the overnight scope. Core is not the next direct production switch.
 
 ## 4. Dependency graph
 
@@ -222,8 +222,13 @@ Goal: make the publication contract true by construction for every supported con
 
 ### Work orders
 
-- [ ] **C-01 — versioned certification domain.** Add independent receipt/policy/result
-  types and a pure validator under `attest.certification`.
+- [x] **C-01 — versioned certification domain.** Implementation `e955f29` adds frozen
+  task/policy/subject/receipt/result types, a pure exhaustive validator, and an unimplemented
+  C-05 selection protocol under `attest.certification`. It passed the C-01 portion of
+  `G-CERT-001`, field-by-field `G-CODE-002` mutation guards, P0=0/P1=0 self-review, and the
+  single-Python `G-CODE-001` Wave 6 Gate; exact evidence is in
+  [`overnight-handoff.md`](overnight-handoff.md). It has no presentation caller and does not
+  claim C-02 or the full publication invariant.
 - [ ] **C-02 — receipt-only speech.** Make CI, CLI reports, and GitHub presentation consume
   `CertifiedFinding`; remove the S/T direct-surface path. Add exhaustive configuration and
   state-machine properties.
