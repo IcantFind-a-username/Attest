@@ -9,6 +9,7 @@ import math
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from attest.github.client import GitHubClient
 from attest.github.context import load_pull_request_context
@@ -19,6 +20,7 @@ from attest.review.ledger import Ledger
 from attest.review.proposer import ApiProvider, MockProvider, Provider
 from attest.review.report import render
 from attest.review.run import run_review
+from attest.review.status import categorise_failure
 
 
 def _positive_finite(value: str) -> float:
@@ -192,11 +194,58 @@ def cmd_feedback(args: argparse.Namespace) -> int:
     return 0
 
 
+def render_drawer(entries: list[dict[str, Any]], store: CandidateStore, limit: int) -> str:
+    """Owner item 9 (2026-09-03): the candidates that entered the drawer but
+    earned no receipt, newest task first, with their votes and why each
+    reproduction failed. Read from the local ledger only; never a PR comment
+    and never speech."""
+    certified = {
+        str(e.get("finding_id"))
+        for e in entries
+        if e.get("kind") == "certification" and e.get("outcome") == "accepted"
+    }
+    reasons: dict[str, str] = {}
+    for e in entries:
+        if e.get("kind") == "verification" and e.get("finding_id"):
+            reasons[str(e["finding_id"])] = str(e.get("reason") or "")
+    labels: dict[str, str] = {}
+    for e in entries:
+        if e.get("kind") == "feedback" and e.get("finding_id"):
+            labels[str(e["finding_id"])] = str(e.get("feedback") or e.get("label") or "")
+    rows = []
+    seen: set[str] = set()
+    for stored in reversed(store.load()):
+        finding_id = stored.finding.finding_id
+        if stored.action == "discard" or finding_id in certified or finding_id in seen:
+            continue
+        seen.add(finding_id)
+        reason = reasons.get(finding_id, "")
+        category = categorise_failure(reason) if reason else "not attempted"
+        rows.append(
+            f"  - [{finding_id}] {stored.finding.file}:{stored.finding.line} "
+            f"votes {stored.finding.votes}; reproduction: {category}"
+            + (f" ({reason[:120]})" if reason else "")
+            + (f"; label: {labels[finding_id]}" if finding_id in labels else "")
+            + f"\n      {stored.finding.claim}"
+        )
+        if len(rows) >= limit:
+            break
+    if not rows:
+        return "drawer: empty (no uncertified candidates on record)"
+    return (
+        f"drawer ({len(rows)} uncertified candidate(s); label one with "
+        "`attest feedback <id> --fix|--good|--dismiss`):\n" + "\n".join(rows)
+    )
+
+
 def cmd_stats(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     config = load_config(repo)
     ledger = Ledger(repo)
     entries = ledger.entries_strict()
+    if getattr(args, "drawer", False):
+        print(render_drawer(entries, CandidateStore(repo), args.limit))
+        return 0
     final_runs = [e for e in entries if e.get("kind") == "ci_final"]
     final_tasks = {str(e.get("task_id", "")) for e in final_runs}
     runs = [
@@ -343,6 +392,12 @@ def main(argv: list[str] | None = None) -> int:
     p_fb.set_defaults(func=cmd_feedback)
 
     p_stats = sub.add_parser("stats", help="ledger summary")
+    p_stats.add_argument(
+        "--drawer",
+        action="store_true",
+        help="list uncertified drawer candidates with votes and reproduction failure reasons",
+    )
+    p_stats.add_argument("--limit", type=int, default=20, help="drawer rows to show")
     p_stats.set_defaults(func=cmd_stats)
 
     args = parser.parse_args(argv)
