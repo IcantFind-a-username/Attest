@@ -260,9 +260,12 @@ def _run(args: argparse.Namespace) -> int:
     from attest.benchmark.measurement import decode_measurement_record, semantic_measurement_sha256
     measurement_payload = result.measurement.to_json_dict()
     measurement = decode_measurement_record(measurement_payload)
+    # the mixed-outcome property: the published findings and the deferred candidate
+    # are both scored; how many of the four same-defect findings are visible is the
+    # product's publication policy (one since C-05), the rest are unresolved
     current = (report["evaluated_cases"] == 1, measurement.candidate_count == 5,
-        measurement.published_count == 4,
-        measurement.unresolved_count == 1,
+        measurement.published_count == len(expected_visible),
+        measurement.unresolved_count == 5 - len(expected_visible),
         measurement.task_status.value == "partially_deferred")
     if not all(current):
         raise ValueError("current mixed-outcome denominator regression")
@@ -330,8 +333,12 @@ def _aggregate(args: argparse.Namespace) -> int:
     summary = reduce_measurements(tuple(measurements))
     facts = (summary.semantic_n, summary.operational_repeats, summary.published,
              summary.unresolved, summary.partially_deferred)
-    if facts != (1, args.expected_repeats, 4, 1, 1):
-        raise ValueError("aggregate authoritative reducer result mismatch")
+    # the reducer must restate the exact per-run counts (published and unresolved
+    # follow the product's publication policy; one repeat is partially deferred)
+    expected_facts = (1, args.expected_repeats, measurements[0].published_count,
+                      measurements[0].unresolved_count, 1)
+    if facts != expected_facts:
+        raise ValueError(f"aggregate authoritative reducer result mismatch: {facts} != {expected_facts}")
     receipt = {"schema_version": "attest.m01-offline-aggregate.v1",
         **{field: payloads[0][field] for field in STABLE_FIELDS},
         "expected_repeats": args.expected_repeats,
