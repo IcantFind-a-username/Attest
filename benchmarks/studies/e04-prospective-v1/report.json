@@ -1,0 +1,35 @@
+{
+  "schema_version": "attest.e04-prospective.v1",
+  "freeze_at": "2026-09-02T21:43:17+00:00",
+  "population": [
+    "IcantFind-a-username/Attest",
+    "IcantFind-a-username/us-stock-helper",
+    "IcantFind-a-username/Corum",
+    "IcantFind-a-username/IcantFind-a-username"
+  ],
+  "units_sampled": 2,
+  "units_run": 2,
+  "strata": {
+    "feature": 2
+  },
+  "shadow_findings": 0,
+  "units_with_shadow_finding": 0,
+  "pr_any_shadow_finding_rate": 0.0,
+  "wrong_shadow_findings": 0,
+  "unadjudicated_shadow_findings": 0,
+  "behavior_changes_verified": 0,
+  "behavior_changes_intent_unknown": 0,
+  "deferred_units": 0,
+  "silent_audit_selected": 2,
+  "silent_audit_unresolved": 2,
+  "confirmed_eligible_opportunities": 0,
+  "eligible_detection": "INSUFFICIENT",
+  "semantic_precision": "adjudicated",
+  "safety_stop_reached": false,
+  "cost_usd_total": 0.169422,
+  "cost_usd_p50": 0.081621,
+  "cost_usd_p95": 0.087801,
+  "latency_s_p50": 20.692,
+  "latency_s_p95": 26.226,
+  "permitted_claim": "prospective shadow observation on the authorized population; no utility or precision claim until every shadow finding and every sampled silent unit is adjudicated product-blind and the preregistered minimum is met"
+}

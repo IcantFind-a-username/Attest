@@ -79,14 +79,20 @@ def cmd_build(_args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    pilot = (
-        Path(args.code) / "scripts" / "corpus" / "swebench_pilot.py"
-        if args.code
-        else ROOT / "scripts" / "corpus" / "swebench_pilot.py"
-    )
+    # The pilot script always runs from this checkout, because it resolves the
+    # corpus from its own location and the strict ledger refuses a symlinked
+    # path; ``--code`` fixes the *product* code through PYTHONPATH, and the
+    # code's commit id is printed so the report can name it.
+    pilot = ROOT / "scripts" / "corpus" / "swebench_pilot.py"
     env = dict(**__import__("os").environ)
     if args.code:
         env["PYTHONPATH"] = str(Path(args.code) / "src")
+        code_sha = subprocess.run(
+            ["git", "-C", args.code, "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        print(f"product code from {args.code} ({code_sha}); pilot script from {ROOT}", flush=True)
     only = set(args.only.split(",")) if args.only else None
     for iid, control in _jobs():
         if only is not None and iid not in only:

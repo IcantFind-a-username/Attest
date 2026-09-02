@@ -619,16 +619,29 @@ When a work order completes:
    --only <ids> --results-suffix .heldout-rerun`, $0.60) is tabulated apart from the
    one-time held-out table ([held-out report](acceptance/2026-09-03-e02-heldout.md) §
    "Supplementary run after the bootstrap fix").
-2. **E-04 prospective shadow** on the owner's live repositories, blind, no publication
-   (`G-SHADOW-001`; the drawer rate of behavior changes on natural feature commits is a
-   named metric of the study), then the L-01 pilot on the repository the owner names
-   (§5 D).
+2. **E-04 next stratum** (`G-SHADOW-001`; collector and protocol v1 landed, D-103): needs
+   new traffic on the authorized repositories and the owner's answer on the per-unit budget
+   / unit order (stratum v1 read 1 of 13 change units of a 23-file commit at $0.25); then
+   the L-01 pilot on the repository the owner names (§5 D).
 3. **Open security and packaging items:** `G-SEC-002`'s red-team matrix on the CI
    platform; the TypeScript executor decision package waits for its owner number
    (`docs/implementation/typescript-executor-decision-package.md`).
 
+- **2026-09-03 — E-04, the collector and protocol v1 (D-103):** one commit
+  (`feat: E-04 prospective shadow collector, preflight and the frozen protocol v1`, `5fc03fa`).
+  The RED failed on the unpatched path (no preflight existed; nothing refused a sample recorded
+  after an outcome) and passes after: every refusal by its own reason, the silent-audit draw
+  recorded before outcomes, the report `INSUFFICIENT` on unknown truth, and the zero-cost
+  identity fixture (the collector would publish exactly the receipt CI publishes and opens
+  no GitHub connection). Protocol v1 frozen at `2026-09-02T21:43:17+00:00`; stratum v1 (the
+  owner's Python repositories; the only prospective traffic was Attest's two commits of this
+  window): 22 candidates, 0 eligible, 0 reproductions, 0 shadow findings, $0.1694 —
+  budget-bound silence on the 23-file commit (1 of 13 change units read at $0.25);
+  [report](acceptance/2026-09-03-e04-prospective-v1.md). `G-SHADOW-001` stays open (its n
+  is a multi-window study); the per-unit budget and unit order go to the owner (§5 C).
+
 - **2026-09-03 — D-102 intent discriminator (owner decision 1):** one commit
-  (`feat: classify a raise on a changed line as a behavior change; publish only with a base-tree witness (D-102)`).
+  (`feat: classify a raise on a changed line as a behavior change; publish only with a base-tree witness (D-102)`, `19920c6`).
   The RED failed on the unpatched path (the `3a32c92` differential certified as a regression)
   and passes after: on the real bundles through the container, `3a32c92` DEFERs as
   `behavior_change` with the label and 0/3 witnesses, and all 7 held-out candidates on the 5

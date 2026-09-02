@@ -74,6 +74,11 @@ Important limits:
     a defect because the kernel was regression-only (D-100); under D-102 the same receipt
     goes to the drawer ([replay report](docs/acceptance/2026-09-03-d102-intent-replay.md))
     while the 5 held-out regressions still publish;
+  - **prospective shadow (E-04, stratum v1):** 0 shadow findings on 2 commits pushed to the
+    owner's repositories after the protocol freeze (Attest's own two commits of 2026-09-03;
+    22 candidates, none eligible, no reproduction ran; the 23-file commit had 1 of its 13
+    change units read at the $0.25 per-unit budget) — a mechanism run, not a population
+    estimate ([report](docs/acceptance/2026-09-03-e04-prospective-v1.md));
   - the earlier dev-slice figures are a development record, not a claim;
 - historical null, stability, Action, corpus, and synthetic scheduling results are scoped
   observations, not production guarantees.
