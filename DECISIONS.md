@@ -724,3 +724,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** `G-SEM-001`: the C-02 receipt digested declared inputs and its provenance was never recomputed, so a flipped byte could pass; the exact node and collection count were inferred from JUnit rather than enforced before repeats.
 - **Limits:** the bundle is written by the same process that ran the tests (V-03 adds fresh-state and authenticated provenance and ships the verifier as a CLI); environment identity covers the guard-relevant variables, not the full dependency set.
 - **Reversal:** a V-03/X-01 protocol that moves run records to the executor side supersedes the writer, not the verifier.
+
+
+### D-078 — E-02 pilot: next task is the generator's context, then proposal truncation
+
+- **Date/status/scope:** 2026-09-02 · active · `docs/acceptance/2026-09-02-e02-pilot.md`, `certification/validate.py` (`4561686`), `scripts/corpus/`.
+- **Decision:** the dev-slice pilot (8 regressions, 8 controls, K=4) certified 2 with 0 control false publications and no candidates→eligible loss, so per `mainline.md` §4 the next task is the R-01 revisit applied to reproduction generation (planner context and the reproduction prompt, within existing caps) and then the proposal-truncation loss (10/32 samples at the 2,400-token bound) via R-02's precommitted recovery; the dev slice is re-run after each. A claim is bounded as prose (≤ 2,000 chars) rather than as a 256-char identifier, a kernel defect the pilot exposed.
+- **Why:** the largest named loss is eligible→certified (unfaithful, `{}`, non-failing generated tests), and two of the three silent cases were silent only because every proposal sample truncated.
+- **Limits:** three repositories, feasibility-selected; the interpreter had to match each project's era (3.9 for requests/pylint, 3.11 for pytest); pytest's own repository is runner-is-subject.
+- **Reversal:** a re-run that certifies ≥ 5 on the dev slice with 0 control publications moves the mainline to C-05.
