@@ -51,8 +51,16 @@ Important limits:
 - the current three-finding setting limits inline layout, not every author-visible summary
   item;
 - new-code candidates are typed/classified as an unpriced class and deliberately abstain;
-- historical real bug-replay attempts all abstained, so they did not estimate finding
-  precision or recall;
+- measured so far (2026-09-03, held-out slice of SWE-bench Verified, one pass, 29 reverse-fix
+  regressions and 39 synthetic controls, K = 4, containers): certified findings on 5 of 29
+  defects, 0 false publications on 39 controls; 18 of the 29 defects never executed because
+  their environment failed to build, so the defect-side number is a lower bound (see
+  [the held-out report](docs/acceptance/2026-09-03-e02-heldout.md)); the earlier dev-slice
+  figures are a development record, not a claim;
+- on 20 real commits with no known defect (one repository, 2026-09-03) the flow published
+  once: a valid receipt for an intended behavior change presented as a defect
+  ([the natural-null report](docs/acceptance/2026-09-03-e01-natural-null.md), D-100) — the
+  regression-only kernel cannot yet tell an intended new rejection from a regression;
 - historical null, stability, Action, corpus, and synthetic scheduling results are scoped
   observations, not production guarantees.
 
@@ -144,6 +152,8 @@ Coding agents start with [AGENTS.md](AGENTS.md). The complete documentation map 
 - `benchmarks/attest-v1/` — frozen corpus metadata and a historical hash-bound receipt;
 - `DEVSPEND.md` — development API spend ledger;
 - `DECISIONS.md` D-020 through D-037 — differential/evaluation history.
+- `docs/acceptance/2026-09-03-e02-heldout.md` and `docs/acceptance/2026-09-03-e01-natural-null.md`
+  — the held-out and natural-null measurements with their sample sizes and stop conditions.
 
 Read each with its stated limitations. In particular, hash consistency is not execution
 authenticity, a reverse-fix corpus is not natural PR traffic, and an all-abstain result does

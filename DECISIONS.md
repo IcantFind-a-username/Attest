@@ -901,6 +901,7 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Limits:** Docker Desktop on the operator's macOS is the tested platform (a Linux VM daemon, not rootless mode); GitHub Actions Linux runners are the declared production platform and `G-SEC-002`'s full red-team matrix (fork bombs, `/proc` discovery, native helpers, forged results under a hostile job) is not yet exercised there; the language guard remains the marker, the kernel is the boundary.
 - **Reversal:** the profile string is versioned; a `linux-container-v2` (rootless, seccomp/landlock, cgroup v2 assertions) supersedes it and receipts say which one ran.
 - **Amendment (2026-09-03, E-01):** the image interpreter also honours `requires-python = ">=3.X"` as a lower bound (the natural-null corpus declares only that, so the era fallback 3.9 could not install it and 25 eligible candidates on 5 commits DEFERred as `environment bootstrap failed`); those five commits are re-run.
+- **Amendment (2026-09-03, held-out, `874e270`):** a setuptools_scm project is built with the version its committed `_version.py` carries (`SETUPTOOLS_SCM_PRETEND_VERSION`; the build context has no `.git`), only the tree root's own install is required and nested projects (`examples/`, docs helpers, sibling services) install best-effort with the failure kept in the build log. 45 held-out reproductions on 18 pytest/pylint cases had DEFERred as `environment bootstrap failed`; they are re-run only when the owner lifts the stop.
 
 
 ### D-097 — V-03: fresh writable state per run, a controller seal on every bundle, the offline verifier on `attest verify --bundle`
@@ -929,3 +930,21 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** mainline §1 item 6 and the L-01 exit list; the owner asked for the owner-free parts now.
 - **Limits:** the quickstart is not yet executed on an outside repository (that execution is the L-01 RED and needs the owner's pilot repository); the drills of the L-01 work order (credential revoked, GitHub outage, budget exhaustion, superseded PR) are covered by existing tests individually, not by a `scripts/release/drill.py` yet.
 - **Reversal:** none; documentation and one policy key.
+
+### D-100 — The natural null published once: a receipt-backed intended behavior change (`RISK-INTENT-01`); every paid run stopped
+
+- **Date/status/scope:** 2026-09-03 · observed, root-caused, owner decision pending · [`docs/acceptance/2026-09-03-e01-natural-null.md`](docs/acceptance/2026-09-03-e01-natural-null.md); roadmap §14 row `RISK-INTENT-01`.
+- **Decision:** E-01 (20 real commits, K = 4, $0.25 per PR, containers) published 1/20: on `3a32c92` (a guard that rejects served text containing a banned verb) the receipt is valid — head FAIL 3/3, base PASS 3/3, changed lines executed, sealed — but the published words ("false positive on legitimate copy") claim more than the receipt proves ("head rejects an input base accepted"); the rejected phrase contains the banned verb verbatim and was fabricated by the generator. Per the owner's stop rule every paid run stopped (held-out at 68/69, the 18 bootstrap-failed cases not re-run).
+- **Why:** a validation-tightening commit on an existing definition is regression-eligible (D-063) and every input it newly rejects yields `head_fail_base_pass`; the regression-only differential V cannot tell an intended rejection from a regression (D-078's limit, now observed on a natural commit).
+- **Owner choice (not implemented):** (a) a `new_rejection` result class — head failure is an exception raised from a changed line — that publishes only when the rejected input is a literal present in the reviewed tree, else drawer plus a question to the author; or (b) publish such receipts under a distinct evidence class worded as exactly what they prove. Either changes publication semantics (`INV-CERT-001`), so neither ships without the owner.
+- **Limits:** n = 20 commits, one repository, one author; 25 of 40 verified candidates were cut by the per-PR budget, so the observed rate is a lower bound at higher budgets.
+- **Reversal:** the register row is removed if the owner rules such receipts publishable as-is.
+
+### D-101 — E-02 held-out: one pass, 0 control false publications on 39, recall bounded by the environment; the bound stays at 3,200
+
+- **Date/status/scope:** 2026-09-03 · measured, incomplete by the stop rule · [`docs/acceptance/2026-09-03-e02-heldout.md`](docs/acceptance/2026-09-03-e02-heldout.md), `scripts/corpus/heldout_run.py` (`--only`, `--defects-only`), `scripts/corpus/binding_pilot.py`.
+- **Decision:** the held-out numbers replace the dev-slice numbers in the README (29 defects, 39 controls, 2026-09-03): certified 7 candidates on 5/29 defects, 0/39 control false publications, 0/280 truncated samples, 0 diff-boundary hits — the proposal bound stays at 3,200 (owner answer 3); cache reads ≈ 75 % of input tokens; $1.7899. 45 of 50 silent defect reproductions were `environment bootstrap failed` on 18 pytest/pylint cases (fixed in `874e270`, D-096 amendment); on the 11 defects that built, certified on 5/11.
+- **G-SEM-002 pilot:** 9 generated tests plus 18 constructed adversarial tests through the container: 18/18 adversarial rejected (9 unbound, 9 unfaithful), 5/5 real reproductions bound, 0 false verdicts; a mechanism check, not the preregistered sample.
+- **Why:** mainline §2 step 13; the dev slice is a development record from now on.
+- **Limits:** one pass, 68/69 cases, 18 defects never executed, reverse-fix corpus with synthetic controls.
+- **Reversal:** the re-run of the 18 cases after the owner lifts the stop supersedes the defect-side numbers.

@@ -580,6 +580,7 @@ Agents should prepare evidence packages for these decisions instead of guessing:
 | `RISK-MEASURE-01` | mixed DEFER erases author-visible FP/TP | P0 false precision | M-01; `G-MEASURE-001` |
 | `RISK-RECEIPT-01` | hash-consistent but fabricated/incomplete evidence | P0 false certificate/evaluation | M-02, V-01/V-03; `G-MEASURE-002`, `G-SEM-001`, `G-SEM-003` |
 | `RISK-SEMANTIC-01` | test proves another defect or branches on source version | P0 wrong semantic claim | V-02; `G-SEM-002` |
+| `RISK-INTENT-01` | a valid receipt certifies an intended behavior change (a new rejection on an existing definition) and the published words claim a defect | P0 wrong public claim on natural feature commits | observed once on E-01 (`3a32c92`, D-100); discriminator is the owner's choice (`new_rejection` class or exact wording); until then the E-01 stop rule stands |
 | `RISK-SEC-01` | head code reads secrets, reaches network, or forges results | P0 credential/remote compromise | X-01/X-02/X-03; `G-SEC-001` through `G-SEC-003` |
 | `RISK-RECALL-01` | safety is achieved only by near-total abstention | product has no utility | R-* and E-02/E-04; `G-RECALL-001`, `G-RECALL-002`, `G-SHADOW-001` |
 | `RISK-NEWCODE-01` | pressure to cover new code invents an LR without a counterfactual | P0 false certification in dominant PR class | D-043, N-01, `G-NEWCODE-001`; assign a post-selection implementation ID only after owner choice |
@@ -609,30 +610,31 @@ When a work order completes:
 
 ### Next steps (read this first after a model switch; keep it to three items)
 
-1. **E-02 held-out (step 13) is running** from the fixed checkout `a1624d2` (69 cases:
-   29 regressions + 40 controls, plan `benchmarks/attest-v2/runs/2026-09-03-e02-heldout-plan.json`,
-   results `.attest/corpora/swebench/results/*.heldout.json`). When every case has a result:
-   `scripts/corpus/heldout_run.py table` → write `docs/acceptance/2026-09-03-e02-heldout.md`
-   (per defect and per candidate certified/published, control false publications, precision,
-   recall, silence rate and reasons, truncation rate, diff boundary hits — if hits > 0 the
-   proposal bound returns to 2,400 per owner answer 3 — cache-read share, spend), settle the
-   $6.00 reservation in `DEVSPEND.md`, run `scripts/corpus/binding_pilot.py` (G-SEM-002: the
-   generated tests plus 20 constructed adversarial tests through the container; report the
-   reject/allow matrix), then replace the README's dev-slice numbers with the held-out numbers
-   (sample size and date stated) and demote the dev-slice numbers to a development record.
-2. **E-01 natural null (step 14): first pass done, 0/20 published, $0.8076**; 25 eligible
-   candidates on 5 commits (`034b650`, `801fb29`, `abefa25`, `8cfab6c`, `3a32c92`) DEFERred
-   as `environment bootstrap failed` because the corpus declares only
-   `requires-python >= 3.11` and the image rule fell back to 3.9 — fixed in `8b93b75`
-   (`requires-python` is now a lower bound) and those five are being re-run with
-   `natural_null.py run --only … --code <fixed checkout>` (cap $1.00). Then tabulate both
-   logs with `natural_null.py table`, write `docs/acceptance/2026-09-03-e01-natural-null.md`,
-   settle the $1.90 reservation. Any publication is a RISK-CERT-01 root cause: stop every
-   paid run, fix, do not re-run in this window.
-3. **Then:** full gate on the tip in a detached worktree (link `.venv` into it; the M-01 probe
-   needs `ROOT/.venv`), the one-page handoff (steps + SHAs, the two tables, A/B, spend, ≤ 3
-   yes/no questions), and after this window: E-04 prospective shadow, the L-01 pilot on the
-   repository the owner names (§5 D), `G-SEC-002`'s red-team matrix on the CI platform.
+1. **Every paid run is stopped (owner rule, D-100).** E-01 published 1/20 on `3a32c92`: a
+   valid receipt for an intended new rejection, published as a defect. The owner chooses the
+   discriminator — (a) a `new_rejection` result class that goes to the drawer unless the
+   rejected input is a literal in the reviewed tree, or (b) exact-wording publication under a
+   distinct evidence class — and lifts the stop. Do not start a paid run before that answer.
+2. **When the stop is lifted:** re-run the 18 bootstrap-failed held-out defects from a
+   checkout at `874e270` or later (`scripts/corpus/heldout_run.py run --code <checkout>
+   --defects-only --only <the pytest/pylint ids in
+   docs/acceptance/2026-09-03-e02-heldout.md>`, ≈ $0.60), rebuild the table, update
+   [the held-out report](acceptance/2026-09-03-e02-heldout.md), D-101 and the README numbers.
+3. **After that:** E-04 prospective shadow, the L-01 pilot on the repository the owner names
+   (§5 D), `G-SEC-002`'s red-team matrix on the CI platform; the TypeScript executor decision
+   package waits for its owner number (`docs/implementation/typescript-executor-decision-package.md`).
+
+- **2026-09-03 — E-02 held-out (step 13) and E-01 natural null (step 14), paid phase closed:**
+  held-out one pass at `a1624d2`, 68/69 cases: certified 7 candidates on 5/29 defects, 0/39
+  control false publications, 0 truncated samples, 0 diff-boundary hits (bound stays 3,200),
+  $1.7899; 45 of 50 silent defect reproductions were `environment bootstrap failed` on the 18
+  pytest/pylint cases — fixed in `874e270` (scm pretend version, best-effort nested projects,
+  unit RED), not re-run. G-SEM-002 binding pilot: 18/18 adversarial tests rejected, 5/5 real
+  reproductions bound. E-01: 1/20 published — `3a32c92`, a valid receipt for an intended
+  rejection (D-100, `RISK-INTENT-01`) — so every paid run stopped per the owner's rule.
+  Reports: [held-out](acceptance/2026-09-03-e02-heldout.md),
+  [natural null](acceptance/2026-09-03-e01-natural-null.md). Spend this window $6.8857;
+  cumulative $18.8723 of $30.
 
 - **2026-09-03 — L-01, owner-free parts:** one commit
   (`feat: base-owned kill switch and the L-01 operations documents`). New

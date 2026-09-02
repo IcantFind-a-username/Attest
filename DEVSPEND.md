@@ -51,8 +51,11 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-03 | owner instruction 3 RED: psf__requests-1766 with prompt caching, K=4; samples 1-3 read 3,901 cached tokens each, review $0.0248 (was $0.0439), 1 verified and published | $0.045458 |
 | 2026-09-03 | owner instruction 4: dev-slice comparison, arm r01 8 PRs $0.4862 (4 certified) and arm package-cache 8 PRs $1.7537 (2 certified), K=4, code `2931753` | $2.239900 |
 | 2026-09-03 | X-02 container smoke, psf__requests-1766 through linux-container-v1 (three attempts: bootstrap DEFER $0, nproc-race DEFER $0.0202, certified and published $0.0037) | $0.023912 |
+| 2026-09-03 | E-02 held-out (mainline §2 step 13): 29 regressions ($1.2309) + 39 of 40 controls ($0.5590), K=4, one pass through linux-container-v1, code `a1624d2`; 7 certified on 5/29, 0 control publications, 0 truncation, 0 boundary hits; stopped at 68/69 by the E-01 stop rule (ledger-recorded) | $1.789900 |
+| 2026-09-03 | E-01 natural null (mainline §2 step 14): 20 real us-stock-helper commits, K=4, $0.25 per PR, containers; first pass $0.8076 (0/20, five commits bootstrap-deferred) + re-run of those five from `8b93b75` $0.7204; 1/20 published (`3a32c92`, D-100) → all paid runs stopped | $1.528000 |
+| 2026-09-03 | G-SEM-002 binding pilot: 27 container reproductions, no model call | $0.00 |
 
-**Total API spend: $15.554352 of $30.00.** (44 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $18.872252 of $30.00.** (47 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
@@ -68,8 +71,8 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-03 | owner instruction 3 RED: one dev-slice regression PR (psf__requests-1766) re-run with prompt caching and first-token-staggered fan-out, K=4, to observe cache_read_input_tokens > 0 on the second sample and lower spend than the same case in paid check (b) ($0.0619) | $0.10 | $0.045458 (row below); $0.054542 released |
 | 2026-09-03 | owner instruction 4: R-01 cache-variant comparison on the dev slice, existing R-01 context vs the package-plus-tests shared block, 8 regressions each arm, K=4 | $2.50 | $2.239900 (row below); $0.260100 released |
 | 2026-09-03 | X-02 container smoke: one certified dev-slice regression (psf__requests-1766) through the linux-container-v1 backend, K=4; must match the C-05 re-run report | $0.10 | $0.023912 (row below); $0.076088 released |
-| 2026-09-03 | E-02 held-out (mainline §2 step 13): held-out slice of the committed split, feasible repositories, ≤ 40 defects and ≤ 40 controls (29 + 40 planned), K=4, one run each through linux-container-v1; samples not inspected before the run | $6.00 | pending |
-| 2026-09-03 | E-01 natural null (mainline §2 step 14): 20 real us-stock-helper commits with no known defect, full flow, expected zero publications; sized to the window and cumulative caps | $1.90 | pending |
+| 2026-09-03 | E-02 held-out (mainline §2 step 13): held-out slice of the committed split, feasible repositories, ≤ 40 defects and ≤ 40 controls (29 + 40 planned), K=4, one run each through linux-container-v1; samples not inspected before the run | $6.00 | $1.789900 (row above; stopped at 68/69); $4.210100 released |
+| 2026-09-03 | E-01 natural null (mainline §2 step 14): 20 real us-stock-helper commits with no known defect, full flow, expected zero publications; sized to the window and cumulative caps | $1.90 | $1.528000 (row above); $0.372000 released |
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 
