@@ -68,6 +68,8 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-03 | owner instruction 3 RED: one dev-slice regression PR (psf__requests-1766) re-run with prompt caching and first-token-staggered fan-out, K=4, to observe cache_read_input_tokens > 0 on the second sample and lower spend than the same case in paid check (b) ($0.0619) | $0.10 | $0.045458 (row below); $0.054542 released |
 | 2026-09-03 | owner instruction 4: R-01 cache-variant comparison on the dev slice, existing R-01 context vs the package-plus-tests shared block, 8 regressions each arm, K=4 | $2.50 | $2.239900 (row below); $0.260100 released |
 | 2026-09-03 | X-02 container smoke: one certified dev-slice regression (psf__requests-1766) through the linux-container-v1 backend, K=4; must match the C-05 re-run report | $0.10 | $0.023912 (row below); $0.076088 released |
+| 2026-09-03 | E-02 held-out (mainline §2 step 13): held-out slice of the committed split, feasible repositories, ≤ 40 defects and ≤ 40 controls (29 + 40 planned), K=4, one run each through linux-container-v1; samples not inspected before the run | $6.00 | pending |
+| 2026-09-03 | E-01 natural null (mainline §2 step 14): 20 real us-stock-helper commits with no known defect, full flow, expected zero publications; sized to the window and cumulative caps | $1.90 | pending |
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 

@@ -242,7 +242,11 @@ def cmd_build(args: argparse.Namespace) -> int:
             manifest.update(
                 base_sha=base_sha, head_sha=head_sha, shape="regression PR (revert of the gold fix)"
             )
-    manifest["project_python"] = str(_make_env(case, worktree))
+    # the container backend (X-02) builds its own image from the tree; the
+    # host virtualenv is only needed by the development adapter
+    manifest["project_python"] = (
+        sys.executable if args.no_env else str(_make_env(case, worktree))
+    )
     (case / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2))
     return 0
@@ -457,6 +461,11 @@ def main(argv: list[str] | None = None) -> int:
     b = sub.add_parser("build")
     b.add_argument("instance_id")
     b.add_argument("--control", choices=["test-only", "docs-only"], default=None)
+    b.add_argument(
+        "--no-env",
+        action="store_true",
+        help="skip the host virtualenv (container backend runs build their own image)",
+    )
     b.set_defaults(func=cmd_build)
     r = sub.add_parser("run")
     r.add_argument("instance_id")
