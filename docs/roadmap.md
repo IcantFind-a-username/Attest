@@ -102,7 +102,7 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | D-078 step c: re-run the dev slice (8 + 8, K=4) with generator context and R-02 recovery in place; certified ≥ 5 with 0 control publications moves to C-05 | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
+| **NOW** | C-05 (mainline §2 step 8): PR-level multiplicity decision package for the owner (mainline §5 A), order-invariant publication clusters, hard author-visible cap; the dev-slice re-run certified 5 with 0 control publications | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
@@ -593,6 +593,14 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-09-02 — D-078 step c (dev-slice re-run):** report
+  [`acceptance/2026-09-02-e02-pilot-rerun.md`](acceptance/2026-09-02-e02-pilot-rerun.md).
+| population | n | candidates | eligible | certified | published | spend |
+|---|---|---|---|---|---|---|
+| defects | 8 | 7 | 7 | 5 | 5 | $0.9387 |
+| controls | 8 | 1 | 1 | 0 | 0 | $0.1682 |
+  certified 5 ≥ 5 and control false publications 0 → per mainline §4 the mainline continues to step 8, C-05. The five certified findings sit on four of the eight regressions (pylint-4970 certified both of its same-defect candidates, the multiplicity C-05 exists to control); requests-1766, pytest-5809 and pytest-6202 certified once each. Silence 4/8: pylint-6386 and pytest-7236 produced no candidates (their samples were empty or exhausted the 2,400-token bound while reasoning), requests-2931's generated test still fails on base, pytest-10081's generator returned `{}` twice. Recovery over the 64 proposal samples: 17 intact, 34 empty, 4 truncated samples repaired by the single precommitted retry, 9 empty after the bound was consumed by reasoning, 0 unrecoverable; deterministic salvage never triggered because truncated samples carried no complete finding.
 
 - **2026-09-02 — D-078 steps a and b:** step a `ee9a0fb` gives the reproduction generator
   the planner's head/merge-base definitions, imports and test references with a prompt that
