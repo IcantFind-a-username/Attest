@@ -656,7 +656,8 @@ When a work order completes:
   fail-open or crash paths (record-cap eviction, unparsable source, substring inputs and
   witnesses, a handled raise deciding the class, surrogates) — fixed with REDs in `7c8de5c`
   (D-102 amendment); replay v2 on the eight real receipts keeps every verdict. Window-end
-  gate on `7c8de5c` in the handoff.
+  gate on the clean primary checkout at `0fee3a9`: pytest exit 0, coverage 92 %, Ruff / Mypy /
+  `git diff --check` clean, 17:22 wall clock (handoff `docs/overnight-handoff-2026-09-03b.md`).
 
 - **2026-09-03 — E-02 held-out (step 13) and E-01 natural null (step 14), paid phase closed:**
   held-out one pass at `a1624d2`, 68/69 cases: certified 7 candidates on 5/29 defects, 0/39

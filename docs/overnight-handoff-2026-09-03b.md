@@ -14,12 +14,18 @@ its first stratum ran; `r01` and the 3,200 bound stay.**
 | E-04 stratum v1 result, D-103; `heldout_run.py --code` semantics | `50c21d2` | docs |
 | D-104 shadow guard: dotted names from the tree roots | `69921e0` | stdlib `logging` beside `pkg/logging.py` is not a shadow; fix-3 REDs still pass |
 | supplementary held-out table, D-101 amendment, spend, this handoff | `506aae1` | docs |
-| D-049 review pass: five reproduced fail-open/crash paths in the discriminator fixed (D-102 amendment) | `7c8de5c` | observer REDs for F1-F5; executor REDs for a handled raise and a surrogate message; replay v2: same eight verdicts |
+| D-049 review pass: five reproduced fail-open/crash paths in the discriminator fixed (D-102 amendment) | `7c8de5c` |
+| E-04 preflight: selection must precede its own outcome; four later units recorded, not run | `0fee3a9` | prospective REDs | observer REDs for F1-F5; executor REDs for a handled raise and a surrogate message; replay v2: same eight verdicts |
 
 Gates: full `pytest --cov` + Ruff + Mypy + `git diff --check` on the working tree after D-102
 (1 real failure fixed — the benchmark status map made total over the new class; the M-01 probe
-failures were its clean-tree guard on the dirty tree and pass on the committed tree); the
-detached-worktree gate on `69921e0` is recorded at the end of this file.
+failures were its clean-tree guard on the dirty tree and pass on the committed tree). A gate in
+a detached worktree of `69921e0` measured nothing (the venv imports `src` from the primary
+checkout: coverage 0 %, probe guard tripped) — a detached-worktree gate needs that worktree's
+`src` first on the path. **Window-end gate on the clean primary checkout at `0fee3a9`: pytest
+exit 0, coverage 92 %, Ruff / Mypy / `git diff --check` clean, 17:22 wall clock** (above the
+15-minute target; the machine was otherwise idle, and the suite grew by the D-102/E-04 tests
+and their real reproductions).
 
 ## Decision 1 — the discriminator (D-102)
 
