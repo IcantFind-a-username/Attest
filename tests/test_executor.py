@@ -2688,4 +2688,40 @@ def test_differential_test_that_never_executes_a_changed_line_is_not_a_regressio
     )
     assert bound.outcome is ExecutionOutcome.REPRODUCED
     assert bound.binding is not None
-    assert bound.binding.executed_changed_lines == (1, 2)
+    # line 1 (the def statement) runs at import time, outside the reproduction
+    # window; only the body line the test actually drives counts as executed
+    assert bound.binding.executed_changed_lines == (2,)
+
+
+def test_line_tracer_is_confined_to_the_reproduction_window(tmp_path: Path) -> None:
+    """The V-02 tracer costs one Python call per frame while installed, so it
+    is installed for the collected item's protocol only: module import at
+    collection time sees no attest tracer, the test body does, and the binding
+    observation is still recorded."""
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(file="mod.py", line=2)
+    body = (
+        "import sys\n"
+        "import mod\n\n"
+        "def _attest_traced():\n"
+        "    return getattr(sys.gettrace(), '__name__', '') == '_attest_tracer'\n\n"
+        "TRACED_AT_IMPORT = _attest_traced()\n\n"
+        "def test_repro():\n"
+        "    assert not TRACED_AT_IMPORT, 'traced outside the reproduction window'\n"
+        "    assert _attest_traced(), 'untraced inside the reproduction window'\n"
+        "    assert mod.add(2, 2) == 4\n"
+    )
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(body),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+    assert result.binding is not None
+    assert result.binding.executed_changed_lines == (2,)
+    assert all("-p" in run.command_template for run in (*result.head_runs, *result.base_runs))

@@ -598,6 +598,18 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — step 0 (owner, 2026-09-03): the V-02 tracer is confined to the reproduction
+  window:** one commit (`perf: confine the V-02 line tracer to the reproduction window`).
+  The tracer is a pytest plugin that installs
+  `sys.settrace` only around the collected item's protocol; bootstrap, collection and imports
+  are untraced, and only lines the test drives count (the V-02 fixture binds line 2, not 1-2).
+  The RED failed on the unpatched path (the attest tracer was installed at import time, so the
+  probe failed on both trees as unfaithful) and passes after. Full gate on the committed tree in
+  a detached worktree: 793 s wall (13.2 min, against 35 min at `dd99320`), production coverage
+  91.59%, Ruff, Mypy and `git diff --check` clean; the eight `test_m01_offline_measurement_probe`
+  cases errored inside that run only because the worktree had no `.venv` (the probe invokes
+  `ROOT/.venv/bin/python`) and passed 8/8 alone once one was linked. See D-084.
+
 - **2026-09-02 — V-02 complete (policy adopted, pilot open):** implementation `dd99320`;
   the RED failed on the unpatched path (a source-reading test counted as reproduced) and
   passes after, while the genuine reproduction stays bound (executed changed lines 1-2).

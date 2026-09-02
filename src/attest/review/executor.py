@@ -369,7 +369,18 @@ def _parse_repro(text: str) -> ReproSpec:
     return ReproSpec(test_body=payload["test_body"])
 
 
-_TRACER = """
+# The V-02 line tracer costs one Python call per frame while installed, so it
+# is a pytest plugin that installs itself for the reproduction window only --
+# setup, call and teardown of the one collected item -- and never for pytest's
+# bootstrap, collection or the imports they trigger. Loaded with ``-p``; the
+# guard sitecustomize stays tracer-free.
+_LINES_PLUGIN = """import os
+import sys
+import threading
+from pathlib import Path
+
+import pytest
+
 _trace_target = {trace_target!r}
 _lines_marker = Path({lines_marker!r})
 _executed_lines = set()
@@ -384,16 +395,20 @@ def _attest_tracer(frame, event, arg):
     return _attest_tracer
 
 
-def _attest_flush_lines():
-    _lines_marker.write_text(",".join(str(n) for n in sorted(_executed_lines)), encoding="utf-8")
-
-
-import atexit
-
-atexit.register(_attest_flush_lines)
-sys.settrace(_attest_tracer)
-threading.settrace(_attest_tracer)
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    sys.settrace(_attest_tracer)
+    threading.settrace(_attest_tracer)
+    try:
+        yield
+    finally:
+        sys.settrace(None)
+        threading.settrace(None)
+        _lines_marker.write_text(
+            ",".join(str(n) for n in sorted(_executed_lines)), encoding="utf-8"
+        )
 """
+LINES_PLUGIN_NAME = "attest_repro_lines"
 
 
 def _sitecustomize(
@@ -403,17 +418,9 @@ def _sitecustomize(
     process_attempt_marker: Path,
     process_replacement_marker: Path,
     thread_attempt_marker: Path,
-    trace_target: str | None = None,
-    lines_marker: Path | None = None,
 ) -> str:
-    tracer = (
-        ""
-        if trace_target is None or lines_marker is None
-        else _TRACER.format(trace_target=trace_target, lines_marker=str(lines_marker))
-    )
     return (
         SITECUSTOMIZE
-        + tracer
         + f"""
 _network_marker = Path({str(network_marker)!r})
 _process_guard_marker = Path({str(process_guard_marker)!r})
@@ -1039,11 +1046,15 @@ def execute_repro(
                 process_attempt_marker,
                 process_replacement_marker,
                 thread_attempt_marker,
-                trace_target=None if collect_only else trace_target,
-                lines_marker=None if collect_only else lines_marker,
             ),
             encoding="utf-8",
         )
+        traced = not collect_only and trace_target is not None
+        if traced:
+            (site_dir / f"{LINES_PLUGIN_NAME}.py").write_text(
+                _LINES_PLUGIN.format(trace_target=trace_target, lines_marker=str(lines_marker)),
+                encoding="utf-8",
+            )
         lines_marker.unlink(missing_ok=True)
         junit_path.unlink(missing_ok=True)
         for marker in (
@@ -1061,6 +1072,8 @@ def execute_repro(
         command = [interpreter, "-m", "pytest", "-q", selector]
         if collect_only:
             command.append("--collect-only")
+        if traced:
+            command += ["-p", LINES_PLUGIN_NAME]
         if tree is not None:
             command += [
                 # rootdir also anchors conftest discovery, so both are pinned to

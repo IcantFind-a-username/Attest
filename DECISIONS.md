@@ -780,3 +780,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Comparison (mainline §2 step 9):** changed-line coverage costs no extra run and is deterministic; the base run already is the whole-diff ablation; mutation of the alleged cause and dependency slicing each need additional executions per candidate and stay unadopted; blind semantic adjudication is E-02's measurement, not a runtime policy.
 - **Limits:** line coverage proves the changed code ran, not that the claim's semantics hold; the G-SEM-002 pilot (≥30 legitimate regressions, all adversarial classes, preregistered) is not run in this window; tracing covers the main thread only (threads are already blocked).
 - **Reversal:** a stronger policy version supersedes this one; receipts record which policy bound them.
+
+
+### D-084 — The V-02 tracer is confined to the reproduction window
+
+- **Date/status/scope:** 2026-09-03 · active · `review/executor.py` (`_LINES_PLUGIN`, `LINES_PLUGIN_NAME`), `tests/test_executor.py`.
+- **Decision:** the changed-line tracer is a pytest plugin loaded with `-p` that calls `sys.settrace` inside a `pytest_runtest_protocol` wrapper around the one collected item (setup, call, teardown) and removes it afterwards; pytest bootstrap, collection and the imports they trigger are never traced, and the guard sitecustomize carries no tracer. Only lines the test itself drives count as executed: a `def` statement or module-level assignment that runs at import time no longer binds (the V-02 fixture's binding moves from lines 1-2 to line 2).
+- **Why:** owner step 0 (2026-09-03): the whole-process tracer doubled the full gate (12 → 35 min) and a line executed at import proves nothing about what the test exercised.
+- **Limits:** a regression whose only changed line is a default argument or a module constant is `UNBOUND` under `changed-line-coverage.v1` even when a test observes its effect; the G-SEM-002 pilot measures how often.
+- **Reversal:** none foreseen; the per-frame cost is intrinsic to `settrace`.
