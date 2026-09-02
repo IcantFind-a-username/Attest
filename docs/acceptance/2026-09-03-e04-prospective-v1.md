@@ -74,3 +74,22 @@ $0.169422 of the $2.00 reservation (DEVSPEND.md); $1.830578 released.
   reproduction ran; the container would have been selected at the first eligible candidate.
 - The next stratum needs new traffic and the owner's answer on the per-unit budget; the
   protocol forbids changing K, budget or order inside stratum v1.
+
+## Owner answers, 2026-09-03 (second window) — what stratum v2 will be
+
+**Question 1 — budget-bound units.** Answered: **order source units before documentation
+units and keep the $0.25 per-unit budget.** Implemented in the planner (`_unit_order`: a
+`.py` path ranks before any other, alphabetical within each rank), so the budget reaches code
+before prose on a large commit. Only a Python file can carry an anchored, reproducible
+finding, so no eligible candidate is traded away by the reordering. A budget-bound run now
+says so in the run status and in the silence receipt: `read N of M units, budget-limited`,
+with the omitted units and the call that would have exceeded the budget. Stratum v1's numbers
+stand as recorded — this is a **product-code change, so the next units run under a new
+stratum (v2)**, per D-103's reversal clause; nothing inside v1 is re-run or excluded.
+
+**Question 3 — adjudication.** Answered: **accept `INSUFFICIENT`.** The two v1 units and every
+future drawn silent unit stay `unresolved` until a product-blind reviewer labels them; the
+report keeps saying `INSUFFICIENT` for precision and eligible detection, and this does not
+block the mainline. The agent that wrote the commits is not an admissible reviewer and does
+not become one by being the only one available.
+
