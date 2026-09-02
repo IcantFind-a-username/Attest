@@ -145,12 +145,18 @@ def cmd_table(args: argparse.Namespace) -> int:
             continue
         cls, sha = parts[0], parts[1]
         status = re.search(
-            r"change units read: (\d+); candidates: (\d+); eligible: (\d+); "
+            # a budget-bound run says "read N of M units, budget-limited" instead
+            r"(?:change units read: (?P<read>\d+)|read (?P<partial>\d+) of \d+ units, "
+            r"budget-limited); candidates: (\d+); eligible: (\d+); "
             r"reproductions attempted: (\d+); certified: (\d+); published: (\d+)",
             body,
         )
         spend = re.search(r"spend \$([0-9.]+) of", body)
-        cells = status.groups() if status else ("-",) * 6
+        cells = (
+            (status.group("read") or status.group("partial"), *status.groups()[2:])
+            if status
+            else ("-",) * 6
+        )
         amount = float(spend.group(1)) if spend else 0.0
         spend_total += amount
         published_total += int(cells[5]) if status else 0
