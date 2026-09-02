@@ -825,3 +825,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **D-082 recomputed (C-05 re-run, 64 samples, by stop reason and recovery status):** defects 20 intact, 8 `no_text`, 4 true abstentions (all four on pytest-5809); controls 2 intact, 30 true abstentions, 0 `no_text`. The eight defect-side "empties" were exhaustion, not silence — the population fix 1 addresses — and every control silence was a model-authored empty list.
 - **Limits:** past runs are classified by `stop_reason == max_tokens` on an empty recovery, not by reading responses.
 - **Reversal:** none foreseen; the labels are additive.
+
+
+### D-089 — The reproduction generator sees signatures and the nearest test module's fixtures and helpers
+
+- **Date/status/scope:** 2026-09-03 · owner fix 4 (2026-09-03) · `review/planner.py` (`_signatures`, `_nearest_test_module`, `_test_module_helpers`, `generation_context`; `MAX_GENERATION_CONTEXT_CHARS` 8,000 → 12,000).
+- **Decision:** the generation context adds (a) every top-level function signature of the anchored module and every class header with its `__init__` (or annotated fields) and public method signatures, ≤ 60 lines, and (b) the imports, `@pytest.fixture` functions and non-test helper functions (module level or inside test classes, ≤ 8, ≤ 25 lines each) of the nearest existing test module — the first module that names the changed symbol, else the closest test file by path with `test_<stem>.py` winning ties — under an instruction to construct objects the way the project's tests do.
+- **Why:** the us-stock-helper trials: six of six haiku reproductions and the diagnostic sonnet-5 attempts guessed constructor arguments, field names and package paths (`GenericFeedAdapter.__init__() missing 'config' and 'transport'`, `OHLCVBar(date=)`), while the project's own test helpers construct them correctly.
+- **Limits:** the bound is on characters, not on relevance; the paid check is the trial A re-run (a), where the generated test must import the right package path and fail on head, pass on base.
+- **Reversal:** if re-run (b) shows no gain in faithful reproductions, drop the helper section and keep signatures.

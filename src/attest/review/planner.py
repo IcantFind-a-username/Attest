@@ -45,10 +45,41 @@ MAX_IMPORT_LINES = 40
 # only fill the context budget with unrelated matches (the omission is recorded)
 _GENERIC_NAMES = frozenset(
     {
-        "add", "append", "apply", "build", "call", "check", "clean", "close", "create",
-        "delete", "execute", "format", "get", "handle", "init", "load", "main", "open",
-        "parse", "post", "process", "put", "read", "remove", "render", "reset", "run",
-        "save", "set", "setup", "start", "stop", "teardown", "update", "validate",
+        "add",
+        "append",
+        "apply",
+        "build",
+        "call",
+        "check",
+        "clean",
+        "close",
+        "create",
+        "delete",
+        "execute",
+        "format",
+        "get",
+        "handle",
+        "init",
+        "load",
+        "main",
+        "open",
+        "parse",
+        "post",
+        "process",
+        "put",
+        "read",
+        "remove",
+        "render",
+        "reset",
+        "run",
+        "save",
+        "set",
+        "setup",
+        "start",
+        "stop",
+        "teardown",
+        "update",
+        "validate",
         "write",
     }
 )
@@ -394,9 +425,7 @@ def _test_references(corpus: _Corpus, names: list[str]) -> tuple[list[ContextSni
 def _import_block(source: str) -> tuple[int, int, str] | None:
     lines = source.splitlines()
     kept = [
-        (index, line)
-        for index, line in enumerate(lines[:400], start=1)
-        if _IMPORT_RE.match(line)
+        (index, line) for index, line in enumerate(lines[:400], start=1) if _IMPORT_RE.match(line)
     ][:MAX_IMPORT_LINES]
     if not kept:
         return None
@@ -423,9 +452,7 @@ def _file_context(
             found = _definition_source(head_source, symbol.name)
             if found is not None:
                 start, end, text = found
-                snippets.append(
-                    ContextSnippet("definition", symbol.name, path, start, end, text)
-                )
+                snippets.append(ContextSnippet("definition", symbol.name, path, start, end, text))
         if symbol.kind in ("changed", "removed"):
             found = _definition_source(base_source, symbol.name) if base_source else None
             if found is not None:
@@ -454,9 +481,7 @@ def _unit_id(files: tuple[str, ...], blocks: dict[str, str]) -> str:
     headers = []
     for path in files:
         headers.append(path)
-        headers.extend(
-            line for line in blocks[path].splitlines() if _HUNK_HEADER_RE.match(line)
-        )
+        headers.extend(line for line in blocks[path].splitlines() if _HUNK_HEADER_RE.match(line))
     return hashlib.sha256("\n".join(headers).encode("utf-8")).hexdigest()[:16]
 
 
@@ -531,8 +556,7 @@ def plan_review(repo: Path, diff: DiffInfo, base_ref: str) -> ReviewPlan:
     flush()
     digest = hashlib.sha256(
         "\n".join(
-            f"{u.unit_id}:{hashlib.sha256(u.prompt_context().encode()).hexdigest()}"
-            for u in units
+            f"{u.unit_id}:{hashlib.sha256(u.prompt_context().encode()).hexdigest()}" for u in units
         ).encode()
     ).hexdigest()
     return ReviewPlan(
@@ -540,7 +564,97 @@ def plan_review(repo: Path, diff: DiffInfo, base_ref: str) -> ReviewPlan:
     )
 
 
-MAX_GENERATION_CONTEXT_CHARS = 8_000
+MAX_GENERATION_CONTEXT_CHARS = 12_000
+MAX_SIGNATURE_LINES = 60  # signatures of the anchored module shown to the generator
+MAX_HELPERS = 8  # helpers/fixtures from the nearest test module
+MAX_HELPER_LINES = 25  # per helper or fixture
+
+
+def _signature_text(lines: list[str], node: ast.AST) -> str:
+    """The def/class header as written, joined onto one line."""
+    start = getattr(node, "lineno", 1) - 1
+    body = getattr(node, "body", None)
+    end = body[0].lineno - 1 if body else start + 1
+    text = " ".join(line.strip() for line in lines[start:end])
+    return text.rstrip(":")
+
+
+def _signatures(source: str) -> list[str]:
+    """Function and constructor signatures of a module: every top-level def,
+    every class header with its ``__init__`` (or annotated fields, the
+    dataclass constructor) and public methods."""
+    tree = _parse(source)
+    if tree is None:
+        return []
+    lines = source.splitlines()
+    out: list[str] = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            out.append(_signature_text(lines, node))
+        elif isinstance(node, ast.ClassDef):
+            out.append(_signature_text(lines, node) + ":")
+            for item in node.body:
+                if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+                    out.append("    " + (ast.get_source_segment(source, item) or "").strip())
+                elif isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
+                    item.name == "__init__" or not item.name.startswith("_")
+                ):
+                    out.append("    " + _signature_text(lines, item))
+    return out[:MAX_SIGNATURE_LINES]
+
+
+def _nearest_test_module(
+    corpus: _Corpus, path: str, referenced: list[str]
+) -> tuple[str, str] | None:
+    """The existing test module the generator should imitate: the first one
+    that names the symbol, else the closest test file by path (``test_<stem>``
+    wins ties)."""
+    tests = [(rel, source) for rel, source in corpus.sources() if "test" in rel.lower()]
+    if not tests:
+        return None
+    by_path = dict(tests)
+    for rel in referenced:
+        if rel in by_path:
+            return rel, by_path[rel]
+    stem = Path(path).stem
+    parts = Path(path).parts
+
+    def score(rel: str) -> tuple[int, int, str]:
+        shared = 0
+        for left, right in zip(parts, Path(rel).parts, strict=False):
+            if left != right:
+                break
+            shared += 1
+        named = 1 if Path(rel).name == f"test_{stem}.py" else 0
+        return (named, shared, rel)
+
+    best = max(tests, key=lambda item: score(item[0]))
+    return best
+
+
+def _test_module_helpers(source: str) -> list[str]:
+    """Fixtures and non-test helper functions (module level or inside test
+    classes) of one test module, each bounded, in source order."""
+    tree = _parse(source)
+    if tree is None:
+        return []
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if node.name.startswith("test"):
+            continue
+        segment = ast.get_source_segment(source, node, padded=True) or ""
+        decorators = [
+            ast.get_source_segment(source, decorator) or "" for decorator in node.decorator_list
+        ]
+        header = "".join(f"@{decorator}\n" for decorator in decorators)
+        body_lines = segment.splitlines()
+        if len(body_lines) > MAX_HELPER_LINES:
+            body_lines = [*body_lines[:MAX_HELPER_LINES], "    ..."]
+        found.append((node.lineno, header + "\n".join(body_lines)))
+    found.sort()
+    return [text for _line, text in found[:MAX_HELPERS]]
 
 
 def generation_context(repo: Path, base_ref: str, path: str, line: int) -> str:
@@ -578,13 +692,38 @@ def generation_context(repo: Path, base_ref: str, path: str, line: int) -> str:
             sections.append(f"`{path}` does not exist at the merge-base.")
         else:
             sections.append(f"`{name}` does not exist at the merge-base.")
+    signatures = _signatures(head_source)
+    if signatures:
+        sections.append(
+            f"Signatures in {path} (call things exactly like this):\n```python\n"
+            + "\n".join(signatures)
+            + "\n```"
+        )
     searchable = [name for name in sorted(names) if _searchable(name)]
+    referenced: list[str] = []
     if searchable:
         tests, _dropped = _test_references(corpus, searchable)
         if tests:
+            referenced = [t.path for t in tests]
             sections.append(
                 "Existing tests naming the symbol (import the project the way they do):\n"
                 + "\n".join(f"- {t.path}::{t.text}" for t in tests)
+            )
+    nearest = _nearest_test_module(corpus, path, referenced)
+    if nearest is not None:
+        test_path, test_source = nearest
+        test_imports = _import_block(test_source)
+        helpers = _test_module_helpers(test_source)
+        parts = []
+        if test_imports is not None:
+            parts.append(f"# imports\n{test_imports[2]}")
+        parts.extend(helpers)
+        if parts:
+            sections.append(
+                f"Nearest existing test module ({test_path}): its imports, fixtures and "
+                "helpers, to construct objects the way the project's tests do:\n```python\n"
+                + "\n\n".join(parts)
+                + "\n```"
             )
     text = "\n\n".join(sections)
     if len(text) > MAX_GENERATION_CONTEXT_CHARS:

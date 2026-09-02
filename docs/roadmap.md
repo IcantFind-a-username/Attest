@@ -600,6 +600,12 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — owner fix 4 (generator context):** one commit
+  (`feat: show the generator signatures and the nearest test module's fixtures and helpers`).
+  The RED failed on the unpatched path (no signature or fixture section) and passes after on
+  a `services/svc/src` layout. The paid check is the trial A re-run (a). Gate: see the
+  follow-up entry. See D-089.
+
 - **2026-09-03 — owner fix 2 (empty-sample classification):** one commit
   (`feat: count no-text responses apart from true abstentions`). The review notes and the
   pilot table report `no text returned` and `abstained (empty findings list)` separately;
