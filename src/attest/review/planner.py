@@ -44,7 +44,13 @@ MAX_IMPORT_LINES = 40
 # names too generic to locate callers or tests by text: retrieving them would
 # only fill the context budget with unrelated matches (the omission is recorded)
 _GENERIC_NAMES = frozenset(
-    ["add", "append", "apply", "build", "call", "check", "clean", "close", "create", "delete", "execute", "format", "get", "handle", "init", "load", "main", "open", "parse", "post", "process", "put", "read", "remove", "render", "reset", "run", "save", "set", "setup", "start", "stop", "teardown", "update", "validate", "write"]
+    {
+        "add", "append", "apply", "build", "call", "check", "clean", "close", "create",
+        "delete", "execute", "format", "get", "handle", "init", "load", "main", "open",
+        "parse", "post", "process", "put", "read", "remove", "render", "reset", "run",
+        "save", "set", "setup", "start", "stop", "teardown", "update", "validate",
+        "write",
+    }
 )
 _MIN_SEARCHABLE_NAME = 4
 
