@@ -1,4 +1,4 @@
-# Handoff — 2026-09-03, third window (`68408ad` → `a4e64aa`): the gates, three answers, and L-01
+# Handoff — 2026-09-03, third window (`68408ad` → `8fadb67`): the gates, three answers, and L-01
 
 Status: **the coverage/property/review gates now bind the kernel only (D-105); E-04's two
 answered questions are implemented; the L-01 document and private-pilot list is done and the
