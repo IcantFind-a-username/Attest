@@ -2629,3 +2629,19 @@ def test_verify_candidate_renamed_method_never_buys_evidence(
     assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
     assert Ledger(repo).entries()[-1]["evidence_class"] == "unfaithful"
     assert_worktrees_cleaned(repo, stored)
+
+
+def test_generation_prompt_shows_both_sides_of_the_anchored_definition(tmp_path: Path) -> None:
+    """The generator must see the merge-base version of the code it is asked to
+    distinguish from, not only a window of the head file: a faithful test asserts
+    the base behaviour and fails on head."""
+    from attest.review.executor import _generation_prompt
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(file="mod.py", line=2)
+
+    prompt = _generation_prompt(repo, stored, base_sha)
+
+    assert "return a - b" in prompt  # head definition, the defect
+    assert "return a + b" in prompt  # merge-base definition, the behaviour to assert
+    assert "merge-base" in prompt.lower()

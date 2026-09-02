@@ -538,3 +538,55 @@ def plan_review(repo: Path, diff: DiffInfo, base_ref: str) -> ReviewPlan:
     return ReviewPlan(
         schema_version=PLAN_SCHEMA_VERSION, base_ref=base_ref, units=tuple(units), digest=digest
     )
+
+
+MAX_GENERATION_CONTEXT_CHARS = 8_000
+
+
+def generation_context(repo: Path, base_ref: str, path: str, line: int) -> str:
+    """Bounded read-only context for reproducing one anchored finding.
+
+    The current (head) definition enclosing the anchor, the same definition at
+    the merge-base, the head file's imports, and existing test functions that
+    name the symbol. Rendered for the reproduction generator; the anchor window
+    itself is supplied by the caller.
+    """
+    head_source = _read(repo / path)
+    if head_source is None:
+        return ""
+    names = _enclosing_definitions(head_source, [(line, line)])
+    sections: list[str] = []
+    imports = _import_block(head_source)
+    if imports is not None:
+        sections.append(f"Module imports ({path}):\n```python\n{imports[2]}\n```")
+    base_source = show_file_at(repo, base_ref, path)
+    corpus = _Corpus(repo)
+    for name in sorted(names):
+        found = _definition_source(head_source, name)
+        if found is not None:
+            sections.append(
+                f"Current (head) definition of `{name}` ({path}:{found[0]}-{found[1]}), "
+                f"which contains the claimed defect:\n```python\n{found[2]}\n```"
+            )
+        found_base = _definition_source(base_source, name) if base_source else None
+        if found_base is not None:
+            sections.append(
+                f"Merge-base definition of `{name}` ({path}:{found_base[0]}-{found_base[1]}), "
+                f"the behaviour the test must assert:\n```python\n{found_base[2]}\n```"
+            )
+        elif base_source is None:
+            sections.append(f"`{path}` does not exist at the merge-base.")
+        else:
+            sections.append(f"`{name}` does not exist at the merge-base.")
+    searchable = [name for name in sorted(names) if _searchable(name)]
+    if searchable:
+        tests, _dropped = _test_references(corpus, searchable)
+        if tests:
+            sections.append(
+                "Existing tests naming the symbol (import the project the way they do):\n"
+                + "\n".join(f"- {t.path}::{t.text}" for t in tests)
+            )
+    text = "\n\n".join(sections)
+    if len(text) > MAX_GENERATION_CONTEXT_CHARS:
+        text = text[:MAX_GENERATION_CONTEXT_CHARS] + "\n[context truncated]"
+    return text

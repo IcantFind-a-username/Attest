@@ -25,6 +25,7 @@ from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.gate import GateResult, apply_verification
 from attest.review.ledger import Ledger
+from attest.review.planner import generation_context
 from attest.review.proposer import Provider, response_fragment
 from attest.review.security import is_secret_name
 
@@ -49,8 +50,15 @@ REPRO_SCHEMA: dict[str, Any] = {
 }
 
 GENERATOR_SYSTEM = """Write one focused pytest reproduction for the supplied finding. Return only
-the test body required by the schema. The test must distinguish the claimed defect from correct
-behavior and must not use the network."""
+the test body required by the schema, never an empty object.
+
+The reviewed change is a pull request. Two versions of the anchored code are shown: the current
+(head) version, which contains the claimed defect, and the merge-base version it replaced. The
+test must FAIL on the current version because of the claimed defect and PASS on the merge-base
+version: assert the merge-base behaviour concretely, not merely the absence of a crash. Exactly
+one module-level test function; import the project the way its existing tests do; no network,
+subprocesses, threads, or mocks of the code under test. If the defect only shows through
+pytest's own runner, use the project's test fixtures as the shown tests do."""
 
 SITECUSTOMIZE = """import _thread
 import os
@@ -311,14 +319,20 @@ def _anchor_context(repo: Path, candidate: StoredCandidate) -> str:
     return "\n".join(lines[start : start + MAX_CONTEXT_LINES])
 
 
-def _generation_prompt(repo: Path, candidate: StoredCandidate) -> str:
+def _generation_prompt(
+    repo: Path, candidate: StoredCandidate, base_ref: str | None = None
+) -> str:
     finding = candidate.finding
+    context = ""
+    if base_ref is not None:
+        context = generation_context(repo, base_ref, finding.file, finding.line)
     return (
         f"Claim: {finding.claim}\n"
         f"Failure scenario: {finding.failure_scenario}\n"
         f"Falsification plan: {finding.falsification_plan}\n"
         f"Anchor: {finding.file}:{finding.line}\n\n"
-        "Source context:\n"
+        + (f"{context}\n\n" if context else "")
+        + "Anchor window (head):\n"
         f"{_anchor_context(repo, candidate)}"
     )
 
@@ -443,8 +457,9 @@ def generate_repro(
     budget: Budget,
     *,
     timeout_s: float | None = None,
+    base_ref: str | None = None,
 ) -> ReproSpec:
-    prompt = _generation_prompt(repo, candidate)
+    prompt = _generation_prompt(repo, candidate, base_ref)
     labels = [
         f"verify-{candidate.finding.finding_id}-attempt-{attempt}"
         for attempt in range(1, MAX_REPRO_ATTEMPTS + 1)
@@ -1536,6 +1551,7 @@ def verify_candidate(
                 provider,
                 budget,
                 timeout_s=remaining_before_generation,
+                base_ref=resolved_base,
             )
         except Exception as exc:  # noqa: BLE001 - generation failures are ternary DEFER
             execution = deferred_execution(f"generation failed: {type(exc).__name__}: {exc}")
