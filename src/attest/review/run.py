@@ -21,7 +21,7 @@ from attest.review.history import (
     HISTORY_SIGNAL_SCHEMA_VERSION,
     inspect_history_signal,
 )
-from attest.review.ledger import Ledger
+from attest.review.ledger import REVIEW_AUTHORITY_RANKING, Ledger
 from attest.review.proposer import Provider, propose
 from attest.review.tier0 import collect_signals, signals_near, unresolved_identifiers
 
@@ -306,6 +306,7 @@ def run_review(
                 action=(
                     result.action if result not in outcome.drawer_overflow else "overflow_surface"
                 ),
+                authority=REVIEW_AUTHORITY_RANKING,
             )
         notes.extend(f"sample error: {error}" for error in proposal.sample_errors)
         if proposal.rejected:

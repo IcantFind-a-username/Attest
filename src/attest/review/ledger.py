@@ -42,6 +42,29 @@ _DELIVERY_KINDS = {
     "delivery_attempt_settlement",
     "delivery_journal_finalization",
 }
+# review rows written since C-04 carry the authority of their action: S/T/V
+# wealth ranks candidates and never speaks. Rows without the field predate the
+# marker and keep the legacy terminal-report semantics they were written under.
+REVIEW_AUTHORITY_RANKING = "ranking"
+SELF_REPORT_NAMESPACE = "self_reported"
+LEGACY_SELF_REPORT_NAMESPACE = "legacy_self_reported_unknown"
+
+
+def self_report_rows(entries: list[dict[str, Any]]) -> tuple[dict[str, Any], ...]:
+    """Every manual/self-reported row, each tagged with its namespace.
+
+    New ``self_report`` rows and legacy ``verified_*`` review rows (written by
+    the pre-C-04 ``attest verify``) are both returned; neither is ever
+    automated evidence, an accepted receipt, or a precision denominator.
+    """
+    rows: list[dict[str, Any]] = []
+    for entry in entries:
+        kind = entry.get("kind")
+        if kind == "self_report":
+            rows.append({**entry, "namespace": SELF_REPORT_NAMESPACE})
+        elif kind == "review" and str(entry.get("action", "")).startswith("verified_"):
+            rows.append({**entry, "namespace": LEGACY_SELF_REPORT_NAMESPACE})
+    return tuple(rows)
 
 
 def _require_row_fields(
@@ -283,6 +306,7 @@ def _surfaced_projection(
                     "wealth_final",
                     "action",
                 },
+                {"authority"},
             )
             task_id = _required_string(entry, "task_id")
             finding_id = _required_string(entry, "finding_id")
@@ -308,7 +332,17 @@ def _surfaced_projection(
                 raise ValueError("review action is invalid")
             if action.endswith("surface") and not channels:
                 raise ValueError("surfaced review must contain an evidence channel")
-            if action.endswith("surface") and task_id not in ci_tasks:
+            authority = entry.get("authority")
+            if authority is not None and authority != REVIEW_AUTHORITY_RANKING:
+                raise ValueError("review authority is invalid")
+            # legacy verified_* rows are self-reports (LEGACY_SELF_REPORT_NAMESPACE)
+            # and ranking rows never spoke: neither is author-visible evidence
+            if (
+                action.endswith("surface")
+                and not action.startswith("verified_")
+                and authority is None
+                and task_id not in ci_tasks
+            ):
                 finding_ids = (finding_id,)
         for finding_id in finding_ids:
             if finding_id in surfaced_ids:
@@ -685,18 +719,46 @@ class Ledger:
         spend: float,
         wealth_final: float,
         action: str,
+        *,
+        authority: str | None = None,
     ) -> None:
-        self.append(
-            {
-                "kind": "review",
-                "task_id": task_id,
-                "finding_id": finding_id,
-                "channels_bought": channels_bought,
-                "spend": round(spend, 6),
-                "wealth_final": round(wealth_final, 4),
-                "action": action,
-            }
-        )
+        entry: dict[str, Any] = {
+            "kind": "review",
+            "task_id": task_id,
+            "finding_id": finding_id,
+            "channels_bought": channels_bought,
+            "spend": round(spend, 6),
+            "wealth_final": round(wealth_final, 4),
+            "action": action,
+        }
+        if authority is not None:
+            entry["authority"] = authority
+        self.append(entry)
+
+    def record_self_report(
+        self,
+        *,
+        task_id: str,
+        finding_id: str,
+        reproduced: bool,
+        evidence: str | None,
+        actor: str = "human",
+    ) -> None:
+        """Record a manual reproduction note. It is never automated evidence."""
+        entry: dict[str, Any] = {
+            "kind": "self_report",
+            "task_id": task_id,
+            "finding_id": finding_id,
+            "actor": actor,
+            "reproduced": reproduced,
+        }
+        if evidence is not None:
+            entry["evidence"] = evidence
+        self.append(entry)
+
+    def self_reports(self) -> tuple[dict[str, Any], ...]:
+        """Manual rows in both namespaces; see ``self_report_rows``."""
+        return self_report_rows(self.entries_strict())
 
     def record_feedback(self, finding_id: str, feedback: str) -> None:
         """Record a human label for a surfaced finding.

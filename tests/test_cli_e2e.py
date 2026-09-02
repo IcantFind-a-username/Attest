@@ -133,9 +133,10 @@ def test_review_verify_feedback_stats(repo: Path, mocks: list[str], capsys) -> N
     )
     out = capsys.readouterr().out
     assert rc == 0
-    assert "=> surface" in out
+    assert "self-report recorded" in out
+    assert "surface" not in out
 
-    # --- feedback + stats
+    # --- feedback + stats: a self-report never enters the surfaced population
     rc = main(["--repo", str(repo), "feedback", finding_id, "--good"])
     capsys.readouterr()
     assert rc == 0
@@ -143,7 +144,9 @@ def test_review_verify_feedback_stats(repo: Path, mocks: list[str], capsys) -> N
     out = capsys.readouterr().out
     assert rc == 0
     assert "runs: 1" in out
-    assert "surfaced: 1" in out  # the verified surface
+    assert "surfaced: 0" in out
+    assert "self-reports: 1 (manual; excluded from precision)" in out
+    assert "surfaced precision: undefined" in out
 
 
 def test_stats_uses_the_same_deduplicated_surface_population_as_precision(
@@ -302,10 +305,11 @@ def test_verify_uses_the_selected_task_for_duplicate_finding_ids(repo: Path, cap
     )
 
     assert rc == 0
-    assert "wealth 2.0 -> 40.0 => surface" in capsys.readouterr().out
+    assert "self-report recorded: reproduced" in capsys.readouterr().out
     entries = [
         json.loads(line) for line in (repo / ".attest" / "ledger.jsonl").read_text().splitlines()
     ]
+    assert entries[-1]["kind"] == "self_report"
     assert entries[-1]["task_id"] == "first-task"
 
 
@@ -558,3 +562,61 @@ def test_ci_invalid_model_override_remains_a_cli_error(
 
     assert rc == 2
     assert "pricing" in capsys.readouterr().err
+
+
+def test_manual_reproduction_moves_no_finding_and_no_precision_window(
+    repo: Path, mocks: list[str], capsys
+) -> None:
+    """G-CERT-003: a self-reported reproduction is a note, not evidence.
+
+    ``attest verify --reproduced`` must not move the finding across any
+    threshold, must not enter the author-visible population or the precision
+    window that drives alpha auto-tightening, and legacy ``verified_*`` rows
+    must stay readable in their own namespace without being upgraded.
+    """
+    assert main(["--repo", str(repo), "review", "--k", "3", "--mock", *mocks]) == 0
+    capsys.readouterr()
+    ledger = Ledger(repo)
+    review = next(row for row in ledger.entries_strict() if row["kind"] == "review")
+    finding_id = str(review["finding_id"])
+
+    rc = main(
+        ["--repo", str(repo), "verify", finding_id, "--reproduced", "--evidence", "ran it"]
+    )
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "self-report" in out
+    assert "surface" not in out
+    assert "wealth" not in out
+
+    rows = ledger.entries_strict()
+    assert not [
+        row
+        for row in rows
+        if row["kind"] == "review" and str(row["action"]).startswith("verified_")
+    ]
+    self_reports = [row for row in rows if row["kind"] == "self_report"]
+    assert [row["finding_id"] for row in self_reports] == [finding_id]
+    assert self_reports[0]["reproduced"] is True
+    assert self_reports[0]["evidence"] == "ran it"
+    assert ledger.surfaced_finding_ids() == ()
+
+    assert main(["--repo", str(repo), "feedback", finding_id, "--good"]) == 0
+    capsys.readouterr()
+    assert ledger.surfaced_precision() == (None, 0)
+    assert ledger.current_alpha(0.1) == 0.1
+
+    # legacy rows: readable, in their own namespace, never upgraded
+    ledger.record_review("legacy-task", "legacy-1", ["V"], 0.0, 60.0, "verified_surface")
+    ledger.record_feedback("legacy-1", "good")
+    assert ledger.surfaced_finding_ids() == ()
+    assert ledger.surfaced_precision() == (None, 0)
+    assert [row["namespace"] for row in ledger.self_reports()] == [
+        "self_reported",
+        "legacy_self_reported_unknown",
+    ]
+
+    assert main(["--repo", str(repo), "stats"]) == 0
+    out = capsys.readouterr().out
+    assert "surfaced: 0" in out
+    assert "self-reports: 2 (manual; excluded from precision)" in out

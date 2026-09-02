@@ -15,7 +15,6 @@ from attest.github.context import load_pull_request_context
 from attest.review.candidates import CandidateStore
 from attest.review.ci import run_ci
 from attest.review.config import ReviewConfig, load_config
-from attest.review.gate import GateResult, apply_verification
 from attest.review.ledger import Ledger
 from attest.review.proposer import ApiProvider, MockProvider, Provider
 from attest.review.report import render
@@ -143,9 +142,7 @@ def cmd_ci(args: argparse.Namespace) -> int:
 
 def cmd_verify(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
-    config = load_config(repo)
     ledger = Ledger(repo)
-    alpha = ledger.current_alpha(config.alpha)
     store = CandidateStore(repo)
     task_id = args.task_id
     if task_id is None:
@@ -158,30 +155,24 @@ def cmd_verify(args: argparse.Namespace) -> int:
     if candidate is None:
         print(f"error: unknown finding id {args.finding_id}", file=sys.stderr)
         return 2
-    reproduced = args.reproduced
-    result = apply_verification(
-        GateResult(finding=candidate.finding, wealth=candidate.wealth), alpha, reproduced
-    )
-    ledger.record_review(
+    # INV-EVIDENCE-001: a human note lives in its own namespace. It buys no
+    # channel, crosses no threshold, and never enters publication or precision.
+    ledger.record_self_report(
         task_id=candidate.task_id,
         finding_id=args.finding_id,
-        channels_bought=[purchase.channel for purchase in result.purchases],
-        spend=0.0,
-        wealth_final=result.wealth,
-        action=f"verified_{result.action}",
+        reproduced=args.reproduced,
+        evidence=args.evidence,
     )
-    if args.evidence:
-        ledger.append(
-            {"kind": "evidence", "finding_id": args.finding_id, "evidence": args.evidence}
-        )
-    status = "reproduced" if reproduced else "not reproduced"
+    status = "reproduced" if args.reproduced else "not reproduced"
     print(
-        f"[{args.finding_id}] {candidate.finding.file}:{candidate.finding.line} {status}: "
-        f"wealth {candidate.wealth:.1f} -> {result.wealth:.1f} => {result.action}"
+        f"[{args.finding_id}] {candidate.finding.file}:{candidate.finding.line} "
+        f"self-report recorded: {status}."
     )
-    if result.action == "surface":
-        print(f"  {candidate.finding.claim}")
-        print(f"  breaks when: {candidate.finding.failure_scenario}")
+    print(
+        "  a self-report is a note for humans: it certifies nothing, publishes nothing, "
+        "and is excluded from precision; automated certification needs a differential "
+        "receipt from `attest ci`."
+    )
     return 0
 
 
@@ -221,6 +212,7 @@ def cmd_stats(args: argparse.Namespace) -> int:
     lat = sorted(float(e["elapsed_s"]) for e in runs if "elapsed_s" in e)
     p50 = lat[len(lat) // 2] if lat else None
     print(f"runs: {len(runs)}; findings evaluated: {len(reviews)}; surfaced: {len(surfaced)}")
+    print(f"self-reports: {len(ledger.self_reports())} (manual; excluded from precision)")
     print(f"total spend: ${spend:.4f}; p50 latency: {p50 if p50 is not None else 'n/a'}s")
     if precision is None:
         print("surfaced precision: undefined (no labeled surfaced outcomes)")
@@ -283,7 +275,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_ci.set_defaults(func=cmd_ci)
 
-    p_verify = sub.add_parser("verify", help="record a reproduction attempt for a finding")
+    p_verify = sub.add_parser(
+        "verify",
+        help="record a self-reported reproduction note for a finding (never a certificate)",
+    )
     p_verify.add_argument("finding_id")
     p_verify.add_argument("--task-id", default=None, help="review task containing the finding")
     group = p_verify.add_mutually_exclusive_group(required=True)
