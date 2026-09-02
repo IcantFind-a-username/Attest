@@ -40,6 +40,10 @@ class ReviewConfig:
     # its tests directory as one cache_control shared block reused by every
     # proposal sample, the reproduction generation and its repair
     context_strategy: str = "r01"
+    # L-01 kill switch: false on the base branch stops every review of pull
+    # requests into it before any model call or head-code execution; the head
+    # of a pull request cannot flip it because CI reads the base's policy
+    enabled: bool = True
 
     def __post_init__(self) -> None:
         validate_review_config(self)
@@ -75,11 +79,16 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError("tier0_commands must be a list of strings")
     if config.context_strategy not in CONTEXT_STRATEGIES:
         raise ValueError(f"context_strategy must be one of {sorted(CONTEXT_STRATEGIES)}")
+    if type(config.enabled) is not bool:
+        raise ValueError("enabled must be a boolean")
 
 
 CONTEXT_STRATEGIES = frozenset({"r01", "package-cache"})
 
+DISABLED_REASON = "disabled by the base policy (.attest.toml enabled = false)"
+
 _KNOWN_POLICY_KEYS = {
+    "enabled",
     "context_strategy",
     "alpha",
     "budget_usd",
@@ -125,9 +134,7 @@ def load_policy_bytes_at(repo_root: Path, sha: str) -> bytes | None:
         raise ValueError(f"cannot read policy at {sha[:12]}: {listed.stderr.strip()[:120]}")
     if not listed.stdout.strip():
         return None
-    shown = subprocess.run(
-        ["git", "-C", str(repo_root), "show", spec], capture_output=True
-    )
+    shown = subprocess.run(["git", "-C", str(repo_root), "show", spec], capture_output=True)
     if shown.returncode != 0:
         raise ValueError(f"cannot read policy at {sha[:12]}")
     return shown.stdout

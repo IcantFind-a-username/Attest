@@ -27,7 +27,7 @@ from attest.github.presentation import (
     render_deferred,
     render_running,
 )
-from attest.review.config import ReviewConfig, resolve_review_policy
+from attest.review.config import DISABLED_REASON, ReviewConfig, resolve_review_policy
 from attest.review.diffs import resolve_merge_base
 from attest.review.executor import ExecutorLimits
 from attest.review.ledger import Ledger
@@ -1071,6 +1071,27 @@ def run_ci(
             clock=clock,
         )
     config = resolved.config
+    if not config.enabled:
+        # L-01 kill switch: the base branch said no; nothing is bought or run
+        ledger.append({"kind": "defer", "task_id": task_id, "reason": DISABLED_REASON})
+        reason = _post_deferred(
+            context=context,
+            client=client,
+            ledger=ledger,
+            task_id=task_id,
+            journal=journal,
+            reason=DISABLED_REASON,
+        )
+        return _ci_run(
+            repo=repo,
+            task_id=task_id,
+            candidate_count=0,
+            surfaced_count=0,
+            deferred_reason=reason,
+            spend_usd=0.0,
+            started=started,
+            clock=clock,
+        )
     ledger.append(
         {
             "kind": "certification_task",

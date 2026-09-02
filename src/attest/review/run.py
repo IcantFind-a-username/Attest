@@ -15,7 +15,7 @@ from attest.certification.types import CertifiedFinding
 from attest.review.budget import Budget, BudgetExceeded
 from attest.review.candidates import CandidateStore
 from attest.review.channels import gate_feasibility
-from attest.review.config import ReviewConfig, resolve_review_policy
+from attest.review.config import DISABLED_REASON, ReviewConfig, resolve_review_policy
 from attest.review.diffs import git_diff
 from attest.review.eligibility import classify_finding, executor_unavailable_reason
 from attest.review.finding_evidence import FindingEvidence
@@ -238,6 +238,18 @@ def run_review(
         raise ReviewSetupError("review setup failed") from exc
     budget = Budget(limit_usd=config.budget_usd, model=config.model)
     diff_digest = hashlib.sha256(diff.text.encode("utf-8")).hexdigest()
+    if not config.enabled:
+        return ReviewRun(
+            task_id=task_id or "",
+            alpha=config.alpha,
+            budget=budget,
+            results=[],
+            outcome=_empty_outcome(),
+            notes=[DISABLED_REASON],
+            deferred_reason=DISABLED_REASON,
+            elapsed_s=clock() - started,
+            diff_digest=diff_digest,
+        )
     if not diff.hunks:
         return ReviewRun(
             task_id=task_id or "",

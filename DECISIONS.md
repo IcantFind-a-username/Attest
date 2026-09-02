@@ -919,3 +919,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **RED:** the test and command copied out of the PR comment fail on the head tree and pass on the base tree (`tests/test_ci_flow.py::test_verified_finding_comment_carries_a_test_and_command_that_reproduce_on_both_trees`).
 - **Limits:** logs are bounded to 6,000 characters per run; the command assumes the test is saved at the repository root the way the executor runs it.
 - **Reversal:** none foreseen; the block is additive.
+
+
+### D-099 — L-01, the parts that need no owner decision: quickstart, support matrix, failure copy, kill switch, rollback, privacy draft
+
+- **Date/status/scope:** 2026-09-03 · active · new `docs/operations/{quickstart,support-matrix,failure-modes,kill-switch-and-rollback,privacy-and-retention}.md`; `review/config.py` (`enabled`, `DISABLED_REASON`), `review/ci.py` (defer before any model call when the base policy is disabled), `review/run.py` (the local review honours it), `tests/test_ci_flow.py`.
+- **Decision:** the kill switch is one base-owned key, `enabled = false` in `.attest.toml`; CI reads it at the merge-base, so a pull request's head cannot re-enable it (the RED: base disabled, head says enabled, zero provider calls, an explicit final status). Rollback is the workflow's `uses:` ref; schemas are versioned so older readers reject rather than misread. The quickstart is written to be executed verbatim from a fresh clone to a verified comment or an explained silence; the support matrix and failure copy name every unsupported shape and the literal text the author sees. Publication, the pilot repository and the retention defaults stay with the owner (mainline §5 D).
+- **Why:** mainline §1 item 6 and the L-01 exit list; the owner asked for the owner-free parts now.
+- **Limits:** the quickstart is not yet executed on an outside repository (that execution is the L-01 RED and needs the owner's pilot repository); the drills of the L-01 work order (credential revoked, GitHub outage, budget exhaustion, superseded PR) are covered by existing tests individually, not by a `scripts/release/drill.py` yet.
+- **Reversal:** none; documentation and one policy key.

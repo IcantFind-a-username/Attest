@@ -607,6 +607,17 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — L-01, owner-free parts:** one commit
+  (`feat: base-owned kill switch and the L-01 operations documents`). New
+  `docs/operations/`: quickstart (fresh clone to a verified comment or an explained
+  silence), executor support matrix, failure-mode copy, kill switch and rollback, privacy
+  and retention draft. The kill switch is `enabled = false` in the base branch's
+  `.attest.toml`; the RED failed on the unpatched path (the key was unknown and the review
+  ran) and passes after: base disabled, head re-enabled, zero provider calls, an explicit
+  final status. Publication, the pilot repository and the retention defaults remain the
+  owner's (mainline §5 D); the quickstart's verbatim execution on an outside repository is
+  the L-01 RED and waits for that repository. See D-099.
+
 - **2026-09-03 — item 7 (finding as test):** one commit
   (`feat: present a verified finding as its runnable test with runs, logs and the bundle`).
   The RED failed on the unpatched path (the comment carried a test node id but no test) and

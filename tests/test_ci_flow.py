@@ -1306,3 +1306,49 @@ def test_verified_finding_comment_carries_a_test_and_command_that_reproduce_on_b
 
     assert run_on(head_sha) != 0
     assert run_on(base_sha) == 0
+
+
+def test_base_branch_kill_switch_stops_the_review_before_any_model_call(
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
+) -> None:
+    """L-01 kill switch: `enabled = false` committed on the base branch defers
+    the review before any provider call or head-code execution, and the head's
+    own .attest.toml saying `enabled = true` changes nothing."""
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = planted_repo
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    # base: disabled; head: a change plus a policy file that tries to re-enable
+    git("checkout", "-q", base_sha)
+    (repo / ".attest.toml").write_text("enabled = false\n", encoding="utf-8")
+    git("add", ".attest.toml")
+    git("commit", "-q", "-m", "base: switch attest off")
+    disabled_base = git("rev-parse", "HEAD")
+    git("checkout", "-q", head_sha)
+    (repo / ".attest.toml").write_text("enabled = true\n", encoding="utf-8")
+    git("add", ".attest.toml")
+    git("commit", "-q", "-m", "head: try to switch attest on")
+    enabled_head = git("rev-parse", "HEAD")
+
+    provider = RecordingProvider(
+        _finding_payload(), json.dumps({"test_body": "def test_repro(): assert False"})
+    )
+    result = run_ci(
+        repo,
+        _context(disabled_base, enabled_head),
+        GitHubClient("local-token", github_server.url),
+        None,
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+        merge_base_sha=disabled_base,
+    )
+    assert result.surfaced_count == 0
+    assert "disabled by the base policy" in str(result.deferred_reason)
+    assert provider.calls == []
+    assert "disabled by the base policy" in github_server.status_bodies[-1]
+    assert result.spend_usd == 0.0
