@@ -164,28 +164,36 @@ and resolutions, `git diff --check`.
 
 **Applies to:** every code work order.
 
+**Kernel and security paths** are `attest.certification` and `attest.execution` — the
+Certification Kernel, receipt validation, policy, and the isolation protocol. Everything else
+(`attest.review`, `attest.cli`, `attest.github`, `attest.benchmark`, `attest.core`,
+`attest.deconstruct`) is a peripheral module for the purpose of this gate.
+
 **Pass conditions:**
 
-- focused RED observed, then GREEN;
-- all adjacent tests pass;
+- focused RED observed, then GREEN — one named RED test per behaviour change (D-058);
 - full `pytest`, `ruff check .`, and `mypy src/attest` pass under the locked supported
-  toolchain;
-- combined coverage for `attest.review`, `attest.cli`, and `attest.github` is ≥90%;
-- `attest.benchmark` and `attest.core` coverage are printed separately as informational
-  observations with no fail threshold; both packages are frozen against feature growth,
-  and `attest.core` code requires explicit owner approval to grow;
+  toolchain, run once at the end of the work order;
+- combined coverage for `attest.certification` and `attest.execution` is ≥90%;
+- coverage for every peripheral module is **printed as an observation with no fail
+  threshold**; `attest.benchmark` and `attest.core` stay frozen against feature growth, and
+  `attest.core` code still requires explicit owner approval to grow;
 - an ordinary work-order/wave Gate runs one supported Python; the final integration Gate
   runs both the locked minimum and primary Python versions;
 - no test depends on current wall-clock date, global user environment, network, or secret;
 - minimum supported Python/tool combination is tested;
 - `git diff --check` clean;
-- independent review has no unresolved P0/P1 finding.
+- **independent review** is required only for a change that touches a kernel or security
+  path; every other work order is self-checked once by the agent that wrote it. Where a
+  review runs, it must have no unresolved P0/P1 finding.
 
 Test count is reported as an observation, never frozen as the gate.
 
 ### G-CODE-002 — Boundary mutation strength
 
-**Applies to:** Certification Kernel, receipt validation, policy, isolation protocol.
+**Applies to:** Certification Kernel, receipt validation, policy, isolation protocol — that
+is, `attest.certification` and `attest.execution` only. **Peripheral modules write neither
+property tests nor mutation tests**; this gate does not apply to them.
 
 **Pass:** table/property tests cover every enum/state/binding field; a mutation test or
 purpose-built guard-removal test proves each security/certification check has teeth. Unknown

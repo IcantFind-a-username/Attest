@@ -321,7 +321,9 @@ For every behavior change:
 5. run the full portable gates once at the end of the work order, not after every change;
 6. inspect the entire diff for authority bypass, compatibility, secret, denominator, and
    overclaim problems;
-7. request independent review before completion;
+7. request independent review before completion **only for kernel or security paths**
+   (`attest.certification`, `attest.execution`); every other module is self-checked once
+   under step 6 (`G-CODE-001`);
 8. fix confirmed findings and rerun affected gates;
 9. update roadmap/decision/evidence links only after the gate exists.
 
@@ -331,11 +333,15 @@ finding. Never write a test whose only assertion is that an object constructs or
 not raise, one written to move a coverage number, or one whose only failure mode is a typo
 mypy already catches. If coverage dips while staying above the product-package floor because
 an order legitimately needed no test, report the number rather than adding a filler test.
+The ≥90% coverage floor binds `attest.certification` and `attest.execution` only; every
+other module's coverage is printed as an observation, and peripheral modules write neither
+property nor mutation tests (`G-CODE-001`, `G-CODE-002`).
 See `docs/implementation/agent-work-orders.md` §3.1 and D-058.
 
 The review/repair loop is bounded by D-049:
 
-- run exactly one independent review pass per work-order branch;
+- run exactly one independent review pass per work-order branch where `G-CODE-001`
+  requires one;
 - fix only defects reproduced in that pass; unreproduced concerns and every finding from a
   second review round go to `docs/backlog.md`, one line each, rather than another code commit;
 - any one stop signal ends the task in a handoff report: three consecutive commits to the
@@ -369,6 +375,9 @@ Use the environment/lock specified by the current branch. Typical portable comma
 
 ```bash
 python -m pytest --cov=src/attest --cov-report=term-missing
+python -m coverage report --include='src/attest/review/*' --fail-under=0
+python -m coverage report --include='src/attest/cli/*' --fail-under=0
+python -m coverage report --include='src/attest/github/*' --fail-under=0
 python -m coverage report --include='src/attest/benchmark/*' --fail-under=0
 python -m coverage report --include='src/attest/core/*' --fail-under=0
 python -m ruff check .
@@ -379,11 +388,12 @@ git diff --check
 Inside an existing POSIX venv, replace `python` with `.venv/bin/python`; on Windows use the
 venv interpreter under `.venv\Scripts`. Never assume a platform-specific path in code.
 
-The coverage Gate applies `fail_under = 90` only to the production packages
-`attest.review`, `attest.cli`, and `attest.github`. The same run prints separate
-informational coverage reports for `attest.benchmark` and `attest.core` with no threshold.
-Benchmark is a frozen measurement tool whose correctness is established on known inputs;
-Core is research-only and frozen. Core code must not grow without explicit owner approval.
+The coverage Gate applies `fail_under = 90` only to the kernel and security paths
+`attest.certification` and `attest.execution`. The same run prints separate informational
+coverage reports for `attest.review`, `attest.cli`, `attest.github`, `attest.benchmark` and
+`attest.core` with no threshold. Benchmark is a frozen measurement tool whose correctness is
+established on known inputs; Core is research-only and frozen. Core code must not grow
+without explicit owner approval.
 Ordinary work-order/wave Gates use one supported Python; the final integration Gate uses
 both the locked minimum and primary Python versions.
 

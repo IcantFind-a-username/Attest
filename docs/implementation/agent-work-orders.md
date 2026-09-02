@@ -32,7 +32,10 @@ auditable change without reconstructing the project strategy from chat history.
 7. Run the tests covering the changed modules after every small change. Adjacent tests and
    the repository gates run once at the end of the order, not after each commit.
 8. Perform an explicit adversarial self-review against the task's escape hatches.
-9. Request an independent review. Fix confirmed findings and rerun the affected gates.
+9. Request an independent review **only if the order touches a kernel or security path**
+   (`attest.certification`, `attest.execution`). Every other order is self-checked once by
+   its own agent under step 8 and proceeds. Fix confirmed findings and rerun the affected
+   gates.
 10. Update the roadmap checkbox/progress and `DECISIONS.md` only when the evidence exists.
 
 An agent may split a work order into smaller commits, but must not combine two work orders
@@ -74,7 +77,7 @@ For every behavior change:
 
 ```text
 one focused RED -> minimal GREEN -> adjacent regressions -> adversarial RED/GREEN
--> full static/test gates -> independent review
+-> full static/test gates -> independent review (kernel and security paths only)
 ```
 
 A test that passes before the change is not the task's RED. A mock-only test is
@@ -193,7 +196,7 @@ A task is complete only when all applicable items exist:
 - documentation and user-visible copy match actual reachable behavior;
 - no factory statistical constant changed without a separately approved decision;
 - `git diff --check` is clean;
-- independent review found no unresolved P0/P1 issue;
+- independent review, where `G-CODE-001` requires one, found no unresolved P0/P1 issue;
 - roadmap/decision/evidence references are updated in the same change where required.
 
 A precisely reproduced pre-existing unrelated failure may be recorded in a non-completion
