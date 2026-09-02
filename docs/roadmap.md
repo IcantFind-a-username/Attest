@@ -102,12 +102,12 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | R-01, then the fixed sequence in [`mainline.md`](mainline.md) §2 (V-01, E-02 pilot, …) | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
+| **NOW** | V-01, then the fixed sequence in [`mainline.md`](mainline.md) §2 (E-02 pilot, …) | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
 
-C-01 through C-04 and R-03 are complete. `mainline.md` fixes the working order from here to L-01; R-01 is next.
+C-01 through C-04, R-03 and R-01 are complete. `mainline.md` fixes the working order from here to L-01; V-01 is next.
 V-01 follows R-03 and R-01 rather than preceding them, because the pilot measurement needs
 candidates before it needs richer receipts. The follow-on V-funnel implementation through `e0f2db0` added complete
 per-candidate run evidence and a reproduction-only 3,000-token cap. It did not change runner
@@ -331,7 +331,9 @@ weakening the kernel.
 
 ### Work orders
 
-- [ ] **R-01 — semantic diff/context planner.** Merge-base chunks, old-side deletion
+- [x] **R-01 — semantic diff/context planner** (implementation `3fe6c1b`..`8d9394c`, D-076;
+  the cross-file RED `test_cross_file_defect_context_contains_the_unchanged_caller` and a
+  five-PR real-corpus trial). Merge-base chunks, old-side deletion
   anchors, renames, definition/caller/test retrieval, language/project profiles, and
   per-chunk budgets.
 - [ ] **R-02 — structured-output recovery.** Separate schema/collection repair from
@@ -587,6 +589,13 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-09-02 — R-01 complete:** implementation `3fe6c1b` (planner and unit-wise proposal),
+  `ae0c22a` (symbols from enclosing definitions), `35b8c97`/`8d9394c` (pruned walk, generic
+  names). The RED failed on the unpatched path (prompt = diff only) and passes after; a
+  19-file 107k-char real diff plans into 9 units in 12.6 s deterministically. Trial numbers
+  are in D-076 and settled in `DEVSPEND.md`. Full gate on the committed tree: 1624 passed, production coverage 91.94%, Ruff, Mypy and
+  `git diff --check` clean. See D-076.
 
 - **2026-09-02 — R-03 complete:** implementation `36dc85b`; the RED
   (`test_permuted_batches_yield_identical_clusters_and_eligibility`) failed on the unpatched

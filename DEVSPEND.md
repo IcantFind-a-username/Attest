@@ -28,6 +28,9 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-09-01 | wave 3 operational-only live observation, 2 historical V1-validated pairs / 4 cases (accuracy withheld) | $0.330626 |
 | 2026-09-01 | wave 4 bounded-generation retest, same 2 historical V1-validated pairs / 4 cases (accuracy withheld) | $0.433304 |
 | 2026-09-01 | wave 5 history counterfactual, 9 V1-historical pairs / 18 cases (accuracy withheld; F unpriced) | $1.576220 |
+| 2026-09-02 | R-01 discovery trial, arm diff-only: 5 SWE-bench Verified dev regression PRs, K=4, 20 proposal samples (7 candidates) | $0.2575 |
+| 2026-09-02 | R-01 discovery trial, arm no-context repeat (planner v1 retrieved nothing on body-only diffs): same 5 PRs, K=4 (7 candidates) | $0.2581 |
+| 2026-09-02 | R-01 discovery trial, arm planner context: same 5 PRs, K=4 (6 candidates, garbage claim gone, 3/20 samples truncated) | $0.3566 |
 | 2026-08-29 | phase-3 acceptance run 33267601438 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0242 |
 | 2026-08-29 | phase-3 acceptance run 33267602736 (https://github.com/IcantFind-a-username/attest-phase3-20260829-181131-683ce1) | $0.0115 |
 | 2026-08-29 | phase-3 acceptance run 33268274146 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182623-6ffc59) | $0.0230 |
@@ -37,13 +40,13 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-08-29 | phase-3 acceptance run 33268347262 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0132 |
 | 2026-08-29 | phase-3 acceptance run 33268350447 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0272 |
 
-**Total API spend: $5.933150 of $10.00.** (30 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $6.805350 of $10.00.** (33 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
 | date | item | reserved | settled |
 |---|---|---|---|
-| 2026-09-02 | R-01 discovery trial: 5 SWE-bench Verified dev-slice regression PRs × 2 arms (diff-only vs planner context), K=4, discovery only, no verification | $1.00 | pending |
+| 2026-09-02 | R-01 discovery trial: 5 SWE-bench Verified dev-slice regression PRs × 3 arms (diff-only, no-context repeat, planner context), K=4, discovery only, no verification | $1.00 | $0.872200 (3 rows below); $0.127800 released |
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 
