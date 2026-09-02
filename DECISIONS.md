@@ -671,3 +671,11 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** owner call — reorder if the step-7 pilot shows receipts, not candidates,
   are the binding loss.
 - **Trace:** D-049; D-058; D-070; `docs/mainline.md`; `docs/roadmap.md` §3.
+
+### D-072 — C-02: only a validator-accepted receipt can speak
+
+- **Date/status/scope:** 2026-09-02 · active · `review/ci.py`, `review/certify.py`, `review/report.py`, `github/presentation.py`, `review/executor.py`.
+- **Decision:** CI verifies every non-discarded candidate (S/T rank, never publish) and builds one `CertificationReceipt` per regression-reproduced run through the new `review.certify` adapter; presentation and the CLI report accept only `CertifiedFinding`. `ci_final.action == "surface"` now means "receipt accepted"; the S/T/V wealth stays beside it for analysis. A `certification` ledger row records accepted/rejected/not-attempted with the receipt digest.
+- **Why:** at alpha ≥ 0.15 an S·T-terminal candidate was published with no verification (`RISK-CERT-01`); `G-CERT-001` demands zero speech without a current accepted receipt.
+- **Limits:** environment/interpreter/executor digests bind declared inputs (limits, guard source, interpreter path, executor module bytes); V-01 deepens them to test bytes, commands and per-run artifacts. Policy source is the event base SHA until C-03 resolves the merge-base.
+- **Reversal:** none foreseen; removing the adapter reopens the bypass.

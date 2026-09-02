@@ -94,8 +94,8 @@ Do not confuse target contracts with current behavior:
 - S/T price only positive evidence, so current product wealth is **not an e-process**;
 - at factory alpha, cap arithmetic normally forces positive differential V before speech,
   but this is not a runtime invariant for all configurations;
-- current CI can skip verification for an already-terminal S/T surface when alpha is
-  relaxed, and head configuration can influence policy;
+- since C-02 (`383ee65`) CI publishes only validator-accepted receipts and verifies every
+  candidate S/T did not discard; head configuration can still influence policy until C-03;
 - manual `attest verify --reproduced` is not a trusted differential receipt;
 - `max_findings` currently limits inline placement, not all author-visible findings;
 - current head/base execution proves a behavioral difference but lacks the complete exact-

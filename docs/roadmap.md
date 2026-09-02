@@ -102,12 +102,12 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | C-02, then the fixed sequence in [`mainline.md`](mainline.md) §2 (C-03, C-04, R-03, R-01, V-01, E-02 pilot, …) | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
+| **NOW** | C-03, then the fixed sequence in [`mainline.md`](mainline.md) §2 (C-04, R-03, R-01, V-01, E-02 pilot, …) | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
 
-C-01 is complete. `mainline.md` fixes the working order from here to L-01; C-02 is first.
+C-01 and C-02 are complete. `mainline.md` fixes the working order from here to L-01; C-03 is next.
 V-01 follows R-03 and R-01 rather than preceding them, because the pilot measurement needs
 candidates before it needs richer receipts. The follow-on V-funnel implementation through `e0f2db0` added complete
 per-candidate run evidence and a reproduction-only 3,000-token cap. It did not change runner
@@ -234,9 +234,11 @@ Goal: make the publication contract true by construction for every supported con
   single-Python `G-CODE-001` Wave 6 Gate; exact evidence is in
   [`overnight-handoff.md`](overnight-handoff.md). It has no presentation caller and does not
   claim C-02 or the full publication invariant.
-- [ ] **C-02 — receipt-only speech.** Make CI, CLI reports, and GitHub presentation consume
-  `CertifiedFinding`; remove the S/T direct-surface path. Add exhaustive configuration and
-  state-machine properties.
+- [x] **C-02 — receipt-only speech.** Implementation `383ee65` routes every non-discarded
+  candidate through differential execution and the C-01 validator; CI, the CLI report and
+  GitHub presentation consume only `CertifiedFinding`. The S/T direct-surface path is
+  deleted and replaced by a negative `G-CERT-001` regression over alpha 0.15/0.4 with and
+  without auto-tighten and cap variants (D-058: one RED, no exhaustive property matrix).
 - [ ] **C-03 — merge-base and base-owned policy.** Resolve the event merge-base; load
   destination policy from trusted base/defaults; digest it into the task and receipt;
   ignore head attempts to relax safety.
@@ -578,6 +580,16 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-09-02 — C-02 complete:** implementation `383ee65` adds `review.certify` (executor
+  output → `CertificationReceipt` → `validate_receipt`), verifies every candidate S/T did
+  not discard, records a `certification` ledger row per attempt, and makes presentation and
+  the CLI report accept only `CertifiedFinding`. `ci_final.action == "surface"` now means an
+  accepted receipt. The one RED (`test_st_cap_without_accepted_receipt_never_reaches_the_author`)
+  went red on the unpatched path (published, zero verification rows) and green after. Full
+  gate on the dirty pre-commit tree: 1616 passed, production coverage 92.55%, Ruff, Mypy and
+  `git diff --check` clean; the four `test_m01_offline_measurement_probe` cases that need a
+  clean tree were re-run after the commit. See D-072.
 
 - **2026-08-31 — M-01 Task 5 recovery accepted; Phase 0 complete:** final implementation
   `5efe3d1` retains Task 4's versioned before/after and 20-process mixed-outcome result and
