@@ -134,7 +134,8 @@ def _commit_generated_version_file(worktree: Path) -> None:
     never see it, so the pilot commits a fixed one on both sides of the PR."""
     version_file = worktree / "src" / "_pytest" / "_version.py"
     if (worktree / "src" / "_pytest" / "__init__.py").exists() and not version_file.exists():
-        version_file.write_text('version = "0.0.0+pilot"\nversion_tuple = (0, 0, 0)\n')
+        # a large version: pytest's own tox.ini enforces `minversion` against it
+        version_file.write_text('version = "99.0.0+pilot"\nversion_tuple = (99, 0, 0)\n')
         _git(worktree, "add", "-f", str(version_file))
         _commit(worktree, "pilot: commit the generated _pytest/_version.py")
 
