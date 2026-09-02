@@ -80,6 +80,8 @@ def run_record(
         "interpreter": run.interpreter,
         "interpreter_version": run.interpreter_version,
         "environment_digest": run.environment_digest,
+        "executor_profile": run.executor_profile,
+        "executor_digest": run.executor_digest,
         "test_file_digest": run.test_file_digest,
         "test_node": run.test_node,
         "collected_count": run.collected_count,
@@ -255,6 +257,10 @@ def verify_bundle(directory: Path) -> AcceptedReceipt | ReceiptRejection | Bundl
         interpreter = f"{record.get('interpreter')}\n{record.get('interpreter_version')}"
         if sha256_bytes(interpreter.encode("utf-8")) != receipt.interpreter_digest:
             reasons.append(f"run {run.run_id} used a different interpreter")
+        if record.get("executor_profile") != receipt.executor_profile:
+            reasons.append(f"run {run.run_id} ran under a different executor profile")
+        if record.get("executor_digest") != receipt.executor_digest:
+            reasons.append(f"run {run.run_id} ran under a different executor backend")
         records.append(record)
     templates = {json.dumps(record.get("command_template")) for record in records}
     if len(templates) > 1:

@@ -29,7 +29,8 @@ from attest.certification.types import (
     FindingAnchor,
 )
 from attest.certification.validate import validate_receipt
-from attest.review import executor as executor_module
+from attest.execution.local_adapter import LocalDevelopmentAdapter
+from attest.execution.types import LOCAL_DEVELOPMENT_PROFILE
 from attest.review.candidates import StoredCandidate
 from attest.review.evidence import (
     WrittenBundle,
@@ -48,7 +49,9 @@ from attest.review.executor import (
 # The current declared trust class for reproduction runs: language-level
 # process/network guards (AGENTS.md §4). X-02 introduces the OS boundary
 # profile; until then this is the only profile a base-owned policy may allow.
-EXECUTOR_PROFILE = "language-guard-v1"
+# X-01: the only adapter today is the in-process development one; it is named
+# for what it is and a production policy must never list it
+EXECUTOR_PROFILE = LOCAL_DEVELOPMENT_PROFILE
 RESULT_CLASS_HEAD_FAIL_BASE_PASS = "head_fail_base_pass"
 
 
@@ -106,8 +109,9 @@ def certification_task(
 
 
 def executor_digest() -> str:
-    """Digest of the executor module that produced the runs."""
-    return hashlib.sha256(Path(executor_module.__file__).read_bytes()).hexdigest()
+    """Backend digest of the development adapter (the receipt's executor identity
+    is otherwise taken from the runs themselves)."""
+    return LocalDevelopmentAdapter().backend_digest()
 
 
 def _single(values: set[str]) -> str:
@@ -189,8 +193,8 @@ def attempt_certification(
         interpreter_digest=_single(
             {text_digest(f"{run.interpreter}\n{run.interpreter_version}") for run in all_runs}
         ),
-        executor_profile=EXECUTOR_PROFILE,
-        executor_digest=executor_digest(),
+        executor_profile=_single({run.executor_profile for run in all_runs}),
+        executor_digest=_single({run.executor_digest for run in all_runs}),
     )
     sided = [
         *(

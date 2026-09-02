@@ -11,7 +11,6 @@ import re
 import shutil
 import subprocess
 import sys
-import threading
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
@@ -19,13 +18,16 @@ from contextlib import suppress
 from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
-from typing import Any, BinaryIO
+from typing import Any
 
 from attest.certification.binding import (
     BINDING_POLICY_VERSION,
     BindingObservation,
     binding_verdict,
 )
+from attest.execution.controller import Controller, ExecutorAdapter
+from attest.execution.local_adapter import LocalDevelopmentAdapter
+from attest.execution.types import ResourceLimits
 from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.diffs import parse_diff
@@ -33,7 +35,6 @@ from attest.review.gate import GateResult, apply_verification
 from attest.review.ledger import Ledger
 from attest.review.planner import generation_context
 from attest.review.proposer import Provider, response_fragment
-from attest.review.security import is_secret_name
 
 MAX_CONTEXT_LINES = 200
 REPRO_MAX_OUTPUT_TOKENS = 3_000
@@ -108,9 +109,87 @@ _PROCESS_REPLACEMENT_SYMBOLS = {
     "syscall",
 }
 _NETWORK_EVENTS = {"socket.connect"}
+# the writable outputs mount is the only place the guard reports to; a missing
+# mount fails closed, because no marker can then be written
+_outputs = Path(os.environ["ATTEST_OUTPUTS"])
+_network_marker = _outputs / "network-blocked"
+_process_guard_marker = _outputs / "process-guarded"
+_process_containment_marker = _outputs / "process-contained"
+_process_attempt_marker = _outputs / "process-attempted"
+_process_replacement_marker = _outputs / "process-replacement-attempted"
+_thread_attempt_marker = _outputs / "thread-attempted"
+_PROCESS_GUARD_PROBE = "attest.process_guard_probe"
+
+def _record_process_attempt(event, args):
+    if _process_attempt_marker.exists():
+        return
+    target = None
+    if args:
+        target = args[-1] if event in {"ctypes.dlsym", "ctypes.dlsym/handle"} else args[0]
+    frames = traceback.extract_stack(limit=16)[:-2]
+    stack = "\\n".join(
+        f"{frame.filename}:{frame.lineno}:{frame.name}" for frame in frames
+    )
+    _process_attempt_marker.write_text(
+        f"event={event}\\ntarget={target!r}\\nstack:\\n{stack}\\n",
+        encoding="utf-8",
+    )
+
+if os.name == "posix":
+    import resource
+    if resource.getrlimit(resource.RLIMIT_NPROC) != (0, 0):
+        raise RuntimeError("kernel process containment is inactive")
+    _process_containment_marker.write_text("active", encoding="utf-8")
+
+def _guard_operations(event, args):
+    if event == _PROCESS_GUARD_PROBE:
+        _process_guard_marker.write_text("active", encoding="utf-8")
+        return
+    if event in _NETWORK_EVENTS:
+        raise PermissionError("network disabled by evidence executor")
+    process_event = event in _PROCESS_EVENTS
+    native_symbol = (
+        event in {"ctypes.dlsym", "ctypes.dlsym/handle"}
+        and args
+        and args[-1] in _PROCESS_SYMBOLS
+    )
+    replacement_event = event in _PROCESS_REPLACEMENT_EVENTS
+    replacement_symbol = (
+        event in {"ctypes.dlsym", "ctypes.dlsym/handle"}
+        and args
+        and args[-1] in _PROCESS_REPLACEMENT_SYMBOLS
+    )
+    if replacement_event or replacement_symbol:
+        _process_replacement_marker.write_text("attempted", encoding="utf-8")
+        raise PermissionError("process replacement disabled by evidence executor")
+    if not process_event and not native_symbol:
+        return
+    _record_process_attempt(event, args)
+    if os.name != "posix":
+        raise PermissionError("process creation disabled by evidence executor")
+
+sys.addaudithook(_guard_operations)
+sys.audit(_PROCESS_GUARD_PROBE)
+
+if os.name == "posix":
+    def _reject_thread(*args, **kwargs):
+        _thread_attempt_marker.write_text("attempted", encoding="utf-8")
+        raise PermissionError("thread creation disabled by evidence executor")
+    for _module, _names in (
+        (_thread, ("start_new_thread", "start_joinable_thread")),
+        (threading, ("_start_new_thread", "_start_joinable_thread")),
+    ):
+        for _name in _names:
+            if hasattr(_module, _name):
+                setattr(_module, _name, _reject_thread)
 
 def _reject_connection(*args, **kwargs):
     raise PermissionError("network disabled by evidence executor")
+
+socket.socket.connect = _reject_connection
+socket.socket.connect_ex = _reject_connection
+socket.create_connection = _reject_connection
+_network_marker.write_text("active", encoding="utf-8")
 """
 
 
@@ -175,6 +254,8 @@ class ExecutionResult:
     test_file_digest: str = ""  # SHA-256 of the exact test bytes written for the run
     junit_xml: str = ""
     executed_lines: tuple[int, ...] = ()  # lines of the anchored file the run executed
+    executor_profile: str = ""  # X-01: the adapter profile that ran it
+    executor_digest: str = ""  # X-01: that adapter's backend digest
 
 
 @dataclass(frozen=True)
@@ -328,9 +409,7 @@ def _anchor_context(repo: Path, candidate: StoredCandidate) -> str:
     return "\n".join(lines[start : start + MAX_CONTEXT_LINES])
 
 
-def _generation_prompt(
-    repo: Path, candidate: StoredCandidate, base_ref: str | None = None
-) -> str:
+def _generation_prompt(repo: Path, candidate: StoredCandidate, base_ref: str | None = None) -> str:
     finding = candidate.finding
     context = ""
     if base_ref is not None:
@@ -381,14 +460,19 @@ from pathlib import Path
 
 import pytest
 
-_trace_target = {trace_target!r}
-_lines_marker = Path({lines_marker!r})
+_trace_target = os.path.realpath(os.environ["ATTEST_TRACE_TARGET"])
+_lines_marker = Path(os.environ["ATTEST_OUTPUTS"]) / "executed-lines"
 _executed_lines = set()
+_matches = {}
 
 
 def _attest_tracer(frame, event, arg):
     filename = frame.f_code.co_filename
-    if filename != _trace_target and os.path.abspath(filename) != _trace_target:
+    match = _matches.get(filename)
+    if match is None:
+        match = filename == _trace_target or os.path.realpath(filename) == _trace_target
+        _matches[filename] = match
+    if not match:
         return None
     if event == "line":
         _executed_lines.add(frame.f_lineno)
@@ -409,96 +493,6 @@ def pytest_runtest_protocol(item, nextitem):
         )
 """
 LINES_PLUGIN_NAME = "attest_repro_lines"
-
-
-def _sitecustomize(
-    network_marker: Path,
-    process_guard_marker: Path,
-    process_containment_marker: Path,
-    process_attempt_marker: Path,
-    process_replacement_marker: Path,
-    thread_attempt_marker: Path,
-) -> str:
-    return (
-        SITECUSTOMIZE
-        + f"""
-_network_marker = Path({str(network_marker)!r})
-_process_guard_marker = Path({str(process_guard_marker)!r})
-_process_containment_marker = Path({str(process_containment_marker)!r})
-_process_attempt_marker = Path({str(process_attempt_marker)!r})
-_process_replacement_marker = Path({str(process_replacement_marker)!r})
-_thread_attempt_marker = Path({str(thread_attempt_marker)!r})
-_PROCESS_GUARD_PROBE = "attest.process_guard_probe"
-
-def _record_process_attempt(event, args):
-    if _process_attempt_marker.exists():
-        return
-    target = None
-    if args:
-        target = args[-1] if event in {"ctypes.dlsym", "ctypes.dlsym/handle"} else args[0]
-    frames = traceback.extract_stack(limit=16)[:-2]
-    stack = "\\n".join(
-        f"{{frame.filename}}:{{frame.lineno}}:{{frame.name}}" for frame in frames
-    )
-    _process_attempt_marker.write_text(
-        f"event={{event}}\\ntarget={{target!r}}\\nstack:\\n{{stack}}\\n",
-        encoding="utf-8",
-    )
-
-if os.name == "posix":
-    import resource
-    if resource.getrlimit(resource.RLIMIT_NPROC) != (0, 0):
-        raise RuntimeError("kernel process containment is inactive")
-    _process_containment_marker.write_text("active", encoding="utf-8")
-
-def _guard_operations(event, args):
-    if event == _PROCESS_GUARD_PROBE:
-        _process_guard_marker.write_text("active", encoding="utf-8")
-        return
-    if event in _NETWORK_EVENTS:
-        raise PermissionError("network disabled by evidence executor")
-    process_event = event in _PROCESS_EVENTS
-    native_symbol = (
-        event in {{"ctypes.dlsym", "ctypes.dlsym/handle"}}
-        and args
-        and args[-1] in _PROCESS_SYMBOLS
-    )
-    replacement_event = event in _PROCESS_REPLACEMENT_EVENTS
-    replacement_symbol = (
-        event in {{"ctypes.dlsym", "ctypes.dlsym/handle"}}
-        and args
-        and args[-1] in _PROCESS_REPLACEMENT_SYMBOLS
-    )
-    if replacement_event or replacement_symbol:
-        _process_replacement_marker.write_text("attempted", encoding="utf-8")
-        raise PermissionError("process replacement disabled by evidence executor")
-    if not process_event and not native_symbol:
-        return
-    _record_process_attempt(event, args)
-    if os.name != "posix":
-        raise PermissionError("process creation disabled by evidence executor")
-
-sys.addaudithook(_guard_operations)
-sys.audit(_PROCESS_GUARD_PROBE)
-
-if os.name == "posix":
-    def _reject_thread(*args, **kwargs):
-        _thread_attempt_marker.write_text("attempted", encoding="utf-8")
-        raise PermissionError("thread creation disabled by evidence executor")
-    for _module, _names in (
-        (_thread, ("start_new_thread", "start_joinable_thread")),
-        (threading, ("_start_new_thread", "_start_joinable_thread")),
-    ):
-        for _name in _names:
-            if hasattr(_module, _name):
-                setattr(_module, _name, _reject_thread)
-
-socket.socket.connect = _reject_connection
-socket.socket.connect_ex = _reject_connection
-socket.create_connection = _reject_connection
-_network_marker.write_text("active", encoding="utf-8")
-"""
-    )
 
 
 def generate_repro(
@@ -566,60 +560,13 @@ def _truncate_output(output: bytes | str | None, limit: int) -> str:
     return encoded[-limit:].decode("utf-8", errors="ignore")
 
 
-def _append_guard_evidence(stderr: str, marker: Path, limit: int) -> str:
-    try:
-        evidence = marker.read_text(encoding="utf-8")
-    except OSError:
-        evidence = "process audit details were unavailable"
+def _append_guard_evidence(stderr: str, marker: bytes | None, limit: int) -> str:
+    evidence = (
+        marker.decode("utf-8", errors="replace")
+        if marker
+        else "process audit details were unavailable"
+    )
     return _truncate_output(f"{stderr}\n[process audit]\n{evidence}", limit)
-
-
-class _TailBuffer:
-    def __init__(self, limit: int):
-        self.limit = max(0, limit)
-        self.data = bytearray()
-
-    def append(self, chunk: bytes) -> None:
-        if self.limit == 0:
-            return
-        if len(chunk) >= self.limit:
-            self.data = bytearray(chunk[-self.limit :])
-            return
-        excess = len(self.data) + len(chunk) - self.limit
-        if excess > 0:
-            del self.data[:excess]
-        self.data.extend(chunk)
-
-
-def _drain_stream(stream: BinaryIO, tail: _TailBuffer) -> None:
-    try:
-        with stream:
-            while chunk := stream.read(65_536):
-                tail.append(chunk)
-    except (OSError, ValueError):
-        return
-
-
-def _resource_limiter(limits: ExecutorLimits) -> Callable[[], None] | None:
-    if os.name != "posix":
-        return None
-
-    def apply_limits() -> None:
-        import resource
-
-        cpu_seconds = max(1, limits.cpu_timeout_s)
-        memory_bytes = max(1, limits.memory_mb) * 1024 * 1024
-        resource.setrlimit(resource.RLIMIT_NPROC, (0, 0))
-        resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
-        try:
-            resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
-        except (OSError, ValueError):
-            # Darwin rejects finite address-space limits for the interpreter;
-            # Linux runners enforce this branch normally.
-            if sys.platform != "darwin":
-                raise
-
-    return apply_limits
 
 
 @dataclass(frozen=True)
@@ -632,8 +579,8 @@ class _JUnitSummary:
     test_node: str
 
 
-def _junit_summary(path: Path) -> _JUnitSummary:
-    root = ET.parse(path).getroot()
+def _junit_summary(data: bytes) -> _JUnitSummary:
+    root = ET.fromstring(data)
     suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
     if not suites:
         raise ValueError("JUnit has no test suites")
@@ -668,11 +615,10 @@ def _junit_summary(path: Path) -> _JUnitSummary:
     )
 
 
-def _executed_lines(marker: Path) -> tuple[int, ...]:
-    try:
-        text = marker.read_text(encoding="utf-8")
-    except OSError:
+def _executed_lines(marker: bytes | None) -> tuple[int, ...]:
+    if not marker:
         return ()
+    text = marker.decode("utf-8", errors="replace")
     return tuple(int(part) for part in text.split(",") if part.strip().isdigit())
 
 
@@ -691,8 +637,8 @@ def _changed_lines(repo: Path, base_sha: str, head_sha: str, path: str) -> tuple
     return tuple(sorted({line for start, end in ranges for line in range(start, end + 1)}))
 
 
-def _junit_counts(path: Path) -> tuple[int, int]:
-    summary = _junit_summary(path)
+def _junit_counts(data: bytes) -> tuple[int, int]:
+    summary = _junit_summary(data)
     return summary.failures, summary.errors
 
 
@@ -724,36 +670,14 @@ def _remaining(deadline: float) -> float:
     return max(0.0, deadline - time.monotonic())
 
 
-_ENVIRONMENT_BOUND_NAMES = (
-    "PYTEST_DISABLE_PLUGIN_AUTOLOAD",
-    "PYTHONSAFEPATH",
-    "PYTHONDONTWRITEBYTECODE",
-    "PYTHONPATH",
-)
 MAX_JUNIT_CHARS = 64_000
 
 
-def _template(values: list[str], tree: Path | None, site_dir: Path, work_dir: Path) -> list[str]:
-    """Replace per-run paths with placeholders so runs on both sides compare equal."""
-    out = []
-    for value in values:
-        if tree is not None:
-            value = value.replace(str(tree), "{tree}")
-        value = value.replace(str(site_dir), "{site_dir}").replace(str(work_dir), "{work_dir}")
-        out.append(value)
-    return out
-
-
-def _environment_digest(
-    env: dict[str, str], tree: Path | None, site_dir: Path, work_dir: Path
-) -> str:
-    bound = {
-        name: _template([env[name]], tree, site_dir, work_dir)[0]
-        for name in _ENVIRONMENT_BOUND_NAMES
-        if name in env
-    }
+def _environment_digest(environment: dict[str, str]) -> str:
+    """Canonical digest of the whole explicit job environment (mounts are
+    placeholders, so every run of a candidate on the same host agrees)."""
     return hashlib.sha256(
-        json.dumps(bound, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        json.dumps(environment, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
 
 
@@ -814,32 +738,32 @@ def _interpreter_version(interpreter: str) -> str:
     return probe.stdout.strip() if probe.returncode == 0 else ""
 
 
-def _reproduction_environment(site_dir: Path, tree: Path | None = None) -> dict[str, str]:
-    env = {
-        name: value
-        for name, value in os.environ.items()
-        if not is_secret_name(name)
+def _reproduction_environment(*, in_tree: bool, traced: bool, anchored_file: str) -> dict[str, str]:
+    """The explicit, secret-free job environment. Nothing is inherited from the
+    controller: the request names every variable, and the mounts are the
+    placeholders the adapter resolves. Tree entries come first so the revision
+    under test shadows any installed copy; the guard sitecustomize is resolved
+    from the inputs mount via the remainder of the path scan (a tree-level
+    shadow fails closed on markers). PYTHONPATH is necessary but not sufficient
+    for import steering: pytest prepends the directories it collects from, so
+    execute_repro also runs the reproduction from inside the tree with rootdir
+    and confcutdir pinned there."""
+    entries = ["{tree}", "{tree}/src"] if in_tree else []
+    entries.append("{inputs}")
+    environment = {
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTHONSAFEPATH": "1",
+        # no __pycache__ inside the revision under test: it would dirty the
+        # worktree, and a cached test_repro of the same size written in the
+        # same mtime second would otherwise be replayed instead of the
+        # reproduction actually generated
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPATH": os.pathsep.join(entries),
+        "ATTEST_OUTPUTS": "{outputs}",
     }
-    env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
-    env["PYTHONSAFEPATH"] = "1"
-    # no __pycache__ inside the revision under test: it would dirty the worktree,
-    # and a cached test_repro of the same size written in the same mtime second
-    # would otherwise be replayed instead of the reproduction actually generated
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
-    # tree entries come first so the revision under test shadows any installed
-    # copy; the guard sitecustomize is still resolved from site_dir via the
-    # remainder of the path scan (a tree-level shadow fails closed on markers).
-    # PYTHONPATH is necessary but not sufficient for import steering: pytest
-    # prepends the directories it collects from ahead of all of these, so
-    # execute_repro also runs the reproduction from inside the tree with rootdir
-    # and confcutdir pinned there.
-    entries = [] if tree is None else [str(tree), str(tree / "src")]
-    entries.append(str(site_dir))
-    old_pythonpath = env.get("PYTHONPATH")
-    if old_pythonpath:
-        entries.append(old_pythonpath)
-    env["PYTHONPATH"] = os.pathsep.join(entries)
-    return env
+    if traced:
+        environment["ATTEST_TRACE_TARGET"] = "{tree}/" + anchored_file
+    return environment
 
 
 def _linux_capabilities_override_process_limit() -> bool | None:
@@ -882,82 +806,15 @@ def _process_containment_unavailable_reason() -> str | None:
     return None
 
 
-def _terminate_owned_process(
-    process: subprocess.Popen[bytes],
-    deadline: float,
-) -> None:
-    if os.name == "nt":
-        killer = subprocess.Popen(
-            ["taskkill", "/F", "/T", "/PID", str(process.pid)],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        try:
-            killer.wait(timeout=_remaining(deadline))
-        except subprocess.TimeoutExpired:
-            killer.kill()
-    if process.poll() is None:
-        process.kill()
-
-
-def _cleanup_raw_process(process: subprocess.Popen[bytes], deadline: float) -> None:
-    with suppress(Exception):
-        _terminate_owned_process(process, deadline)
-    with suppress(subprocess.TimeoutExpired):
-        process.wait(timeout=_remaining(deadline))
-    for stream in (process.stdout, process.stderr):
-        if stream is not None and not stream.closed:
-            with suppress(OSError):
-                stream.close()
-
-
-class _OwnedProcess:
-    def __init__(self, process: subprocess.Popen[bytes], output_bytes: int):
-        self.process = process
-        self.stdout_tail = _TailBuffer(output_bytes)
-        self.stderr_tail = _TailBuffer(output_bytes)
-        self.drainers: list[threading.Thread] = []
-
-    def start(self) -> None:
-        if self.process.stdout is None or self.process.stderr is None:
-            raise RuntimeError("executor pipes were not created")
-        for stream, tail in (
-            (self.process.stdout, self.stdout_tail),
-            (self.process.stderr, self.stderr_tail),
-        ):
-            drainer = threading.Thread(target=_drain_stream, args=(stream, tail), daemon=True)
-            drainer.start()
-            self.drainers.append(drainer)
-
-    def wait(self, deadline: float) -> None:
-        self.process.wait(timeout=_remaining(deadline))
-        for drainer in self.drainers:
-            drainer.join(timeout=_remaining(deadline))
-        if any(drainer.is_alive() for drainer in self.drainers):
-            raise subprocess.TimeoutExpired(self.process.args, timeout=0)
-
-    def cleanup(self, deadline: float) -> None:
-        with suppress(Exception):
-            _terminate_owned_process(self.process, deadline)
-        with suppress(subprocess.TimeoutExpired):
-            self.process.wait(timeout=_remaining(deadline))
-        for drainer in self.drainers:
-            drainer.join(timeout=_remaining(deadline))
-        for stream in (self.process.stdout, self.process.stderr):
-            if stream is not None and not stream.closed:
-                with suppress(OSError):
-                    stream.close()
-        for drainer in self.drainers:
-            if drainer.is_alive():
-                drainer.join(timeout=_remaining(deadline))
-
-    @property
-    def stdout(self) -> bytes:
-        return bytes(self.stdout_tail.data)
-
-    @property
-    def stderr(self) -> bytes:
-        return bytes(self.stderr_tail.data)
+MARKER_NAMES = (
+    "network-blocked",
+    "process-guarded",
+    "process-contained",
+    "process-attempted",
+    "process-replacement-attempted",
+    "thread-attempted",
+)
+EXPECTED_ARTIFACTS = (*MARKER_NAMES, "executed-lines", "junit.xml", "stdout.txt", "stderr.txt")
 
 
 def execute_repro(
@@ -970,9 +827,15 @@ def execute_repro(
     run_label: str = "",
     node: str | None = None,
     collect_only: bool = False,
+    revision_sha: str = "",
+    controller: Controller | None = None,
+    adapter: ExecutorAdapter | None = None,
 ) -> ExecutionResult:
-    """One guarded pytest run. ``node`` selects the exact test function; with
-    ``collect_only`` the run only collects and reports the node ids it found."""
+    """One guarded pytest run through the controller/executor protocol (X-01).
+    ``node`` selects the exact test function; with ``collect_only`` the run only
+    collects and reports the node ids it found. The controller issues a nonced,
+    content-addressed request, the adapter runs it, and everything below is
+    read from artifacts the controller verified against that request."""
     started = time.monotonic()
     repo_root = repo.resolve()
     suffix = Path(candidate.finding.file).suffix.lower()
@@ -991,46 +854,21 @@ def execute_repro(
     if not Path(interpreter).is_file() or not os.access(interpreter, os.X_OK):
         return _deferred("reviewed-project Python interpreter is unavailable", started)
 
-    work_dir = (
-        repo_root
-        / ".attest"
-        / "repro"
-        / candidate.task_id
-        / candidate.finding.finding_id
-    )
+    work_dir = repo_root / ".attest" / "repro" / candidate.task_id / candidate.finding.finding_id
     if run_label:
         work_dir = work_dir / run_label
     generated_path = work_dir / "test_repro.py"
-    # PYTHONPATH alone cannot steer imports: pytest's prepend import mode puts
-    # the directory of the collected test -- and of every conftest.py it loads --
-    # at the front of sys.path, ahead of everything PYTHONPATH contributes, and
-    # PYTHONSAFEPATH does not suppress that. Running a test stored under
-    # repo_root therefore leaked the repository working tree (byte-identical to
-    # head) onto the import path of the BASE run too, so a genuine regression
-    # failed on both sides and was discarded as unfaithful. The reproduction is
-    # executed from inside the tree instead, with rootdir and conftest discovery
-    # pinned to it: the revision under test becomes the only import root, while
-    # its own conftest.py is still honoured. Everything that has to outlive the
-    # tree (the generated source, JUnit evidence, containment markers) keeps
-    # living under work_dir by absolute path.
+    # The reproduction is executed from inside the tree (see
+    # _reproduction_environment): the revision under test becomes the only
+    # import root while its own conftest.py is still honoured. Everything that
+    # has to outlive the tree (the generated source, the request, the verified
+    # artifacts) lives under work_dir.
     run_path = generated_path if tree is None else tree / RUN_DIR_NAME / "test_repro.py"
-    junit_path = work_dir / "junit.xml"
-    site_dir = work_dir / "python_startup"
-    network_marker = site_dir / "network-blocked"
-    process_guard_marker = site_dir / "process-guarded"
-    process_containment_marker = site_dir / "process-contained"
-    process_attempt_marker = site_dir / "process-attempted"
-    process_replacement_marker = site_dir / "process-replacement-attempted"
-    thread_attempt_marker = site_dir / "thread-attempted"
-    lines_marker = site_dir / "executed-lines"
-    trace_target = None if tree is None else str((tree / candidate.finding.file).resolve())
-    raw_process: subprocess.Popen[bytes] | None = None
-    owner: _OwnedProcess | None = None
-    failure: Exception | None = None
-    timed_out = False
+    traced = tree is not None and not collect_only
+    active_adapter: ExecutorAdapter = adapter or LocalDevelopmentAdapter()
+    active_controller = controller or Controller(work_dir.parent if run_label else work_dir)
     try:
         work_dir.mkdir(parents=True, exist_ok=True)
-        site_dir.mkdir(exist_ok=True)
         source = spec.test_body.rstrip("\n") + "\n"
         generated_path.write_text(source, encoding="utf-8")
         if run_path != generated_path:
@@ -1038,126 +876,105 @@ def execute_repro(
             # conjured into existence and then run as an empty revision
             run_path.parent.mkdir(exist_ok=True)
             run_path.write_text(source, encoding="utf-8")
-        (site_dir / "sitecustomize.py").write_text(
-            _sitecustomize(
-                network_marker,
-                process_guard_marker,
-                process_containment_marker,
-                process_attempt_marker,
-                process_replacement_marker,
-                thread_attempt_marker,
-            ),
-            encoding="utf-8",
-        )
-        traced = not collect_only and trace_target is not None
+        inputs: dict[str, bytes] = {
+            "sitecustomize.py": SITECUSTOMIZE.encode("utf-8"),
+            "test_repro.py": source.encode("utf-8"),
+        }
         if traced:
-            (site_dir / f"{LINES_PLUGIN_NAME}.py").write_text(
-                _LINES_PLUGIN.format(trace_target=trace_target, lines_marker=str(lines_marker)),
-                encoding="utf-8",
-            )
-        lines_marker.unlink(missing_ok=True)
-        junit_path.unlink(missing_ok=True)
-        for marker in (
-            network_marker,
-            process_guard_marker,
-            process_containment_marker,
-            process_attempt_marker,
-            process_replacement_marker,
-            thread_attempt_marker,
-        ):
-            marker.unlink(missing_ok=True)
-
-        env = _reproduction_environment(site_dir, tree)
-        selector = str(run_path) if node is None else f"{run_path}::{node}"
-        command = [interpreter, "-m", "pytest", "-q", selector]
+            inputs[f"{LINES_PLUGIN_NAME}.py"] = _LINES_PLUGIN.encode("utf-8")
+        selector = str(generated_path) if tree is None else f"{{tree}}/{RUN_DIR_NAME}/test_repro.py"
+        if node is not None:
+            selector = f"{selector}::{node}"
+        argv = [interpreter, "-m", "pytest", "-q", selector]
         if collect_only:
-            command.append("--collect-only")
-        if traced:
-            command += ["-p", LINES_PLUGIN_NAME]
+            argv.append("--collect-only")
         if tree is not None:
-            command += [
+            argv += [
                 # rootdir also anchors conftest discovery, so both are pinned to
                 # the tree: no conftest above it may be loaded, and loading one
                 # is what would otherwise prepend the other revision's directory
                 "--rootdir",
-                str(tree),
+                "{tree}",
                 "--confcutdir",
-                str(tree),
+                "{tree}",
                 # never write a .pytest_cache into the revision under test
                 "-p",
                 "no:cacheprovider",
             ]
+        if traced:
+            argv += ["-p", LINES_PLUGIN_NAME]
         if not collect_only:
-            command += ["--junitxml", str(junit_path)]
+            argv += ["--junitxml", "{outputs}/junit.xml"]
+        environment = _reproduction_environment(
+            in_tree=tree is not None, traced=traced, anchored_file=candidate.finding.file
+        )
         identity: dict[str, Any] = {
-            "executed_lines": (),  # filled after the run from the tracer marker
-            "command_template": tuple(_template(command, tree, site_dir, work_dir)),
+            "executed_lines": (),  # filled after the run from the verified marker
+            "command_template": tuple(argv),
             "interpreter": interpreter,
             "interpreter_version": _interpreter_version(interpreter),
-            "environment_digest": _environment_digest(env, tree, site_dir, work_dir),
+            "environment_digest": _environment_digest(environment),
             "test_file_digest": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+            "executor_profile": active_adapter.profile,
+            "executor_digest": active_adapter.backend_digest(),
         }
-        raw_process = subprocess.Popen(
-            command,
-            cwd=repo_root if tree is None else tree,
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=0,
-            preexec_fn=_resource_limiter(limits),
-            start_new_session=os.name == "posix",
-            creationflags=(
-                getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+        request = active_controller.issue(
+            task_id=candidate.task_id,
+            run_id=run_label or "run",
+            candidate_id=candidate.finding.finding_id,
+            revision_sha=revision_sha,
+            profile=active_adapter.profile,
+            interpreter=interpreter,
+            argv_template=argv,
+            environment=environment,
+            inputs=inputs,
+            limits=ResourceLimits(
+                wall_timeout_s=limits.wall_timeout_s,
+                cpu_timeout_s=limits.cpu_timeout_s,
+                memory_mb=limits.memory_mb,
+                output_bytes=limits.output_bytes,
             ),
+            expected_artifacts=EXPECTED_ARTIFACTS,
         )
-        owner = _OwnedProcess(raw_process, limits.output_bytes)
-        owner.start()
-        owner.wait(started + limits.wall_timeout_s)
-    except subprocess.TimeoutExpired as exc:
-        failure = exc
-        timed_out = True
+        dispatched = active_controller.dispatch(
+            request, active_adapter, tree=repo_root if tree is None else tree, inputs=inputs
+        )
     except Exception as exc:  # noqa: BLE001 - infrastructure failures are ternary DEFER
-        failure = exc
-    finally:
-        if failure is not None:
-            cleanup_deadline = time.monotonic() + CLEANUP_TIMEOUT_S
-            if owner is not None:
-                owner.cleanup(cleanup_deadline)
-            elif raw_process is not None:
-                _cleanup_raw_process(raw_process, cleanup_deadline)
+        return _deferred(f"executor failure: {type(exc).__name__}: {exc}", started)
 
-    stdout_bytes = owner.stdout if owner is not None else b""
-    stderr_bytes = owner.stderr if owner is not None else b""
-    if timed_out:
+    if not dispatched.accepted or dispatched.envelope is None:
+        return _deferred(f"executor result rejected: {dispatched.reason}", started)
+    envelope = dispatched.envelope
+    artifacts = dispatched.artifacts
+    stdout = _truncate_output(artifacts.get("stdout.txt"), limits.output_bytes)
+    stderr = _truncate_output(artifacts.get("stderr.txt"), limits.output_bytes)
+    network_blocked = "network-blocked" in artifacts
+    if envelope.timed_out:
         return _deferred(
             f"reproduction timed out after {limits.wall_timeout_s:g}s",
             started,
-            stdout=_truncate_output(stdout_bytes, limits.output_bytes),
-            stderr=_truncate_output(stderr_bytes, limits.output_bytes),
-            network_blocked=network_marker.is_file(),
+            stdout=stdout,
+            stderr=stderr,
+            network_blocked=network_blocked,
         )
-    if failure is not None:
+    if envelope.error:
         return _deferred(
-            f"executor failure: {type(failure).__name__}: {failure}",
+            f"executor failure: {envelope.error}",
             started,
-            stdout=_truncate_output(stdout_bytes, limits.output_bytes),
-            stderr=_truncate_output(stderr_bytes, limits.output_bytes),
-            network_blocked=network_marker.is_file(),
+            stdout=stdout,
+            stderr=stderr,
+            network_blocked=network_blocked,
         )
-
-    if owner is None:
+    if envelope.exit_code is None:
         return _deferred("executor failure: process was not started", started)
-    process = owner.process
-    stdout = _truncate_output(stdout_bytes, limits.output_bytes)
-    stderr = _truncate_output(stderr_bytes, limits.output_bytes)
-    network_blocked = network_marker.is_file()
-    process_guarded = process_guard_marker.is_file()
-    process_contained = os.name != "posix" or process_containment_marker.is_file()
+    exit_code = envelope.exit_code
+    process_guarded = "process-guarded" in artifacts
+    process_contained = os.name != "posix" or "process-contained" in artifacts
     if not process_guarded:
         return _deferred(
             "process guard did not initialize",
             started,
-            exit_code=process.returncode,
+            exit_code=exit_code,
             stdout=stdout,
             stderr=stderr,
             network_blocked=network_blocked,
@@ -1166,36 +983,36 @@ def execute_repro(
         return _deferred(
             "kernel process containment did not initialize",
             started,
-            exit_code=process.returncode,
+            exit_code=exit_code,
             stdout=stdout,
             stderr=stderr,
             network_blocked=network_blocked,
         )
-    if process_replacement_marker.is_file():
+    if "process-replacement-attempted" in artifacts:
         return _deferred(
             "reproduction attempted to replace the pytest process",
             started,
-            exit_code=process.returncode,
+            exit_code=exit_code,
             stdout=stdout,
             stderr=stderr,
             network_blocked=network_blocked,
         )
-    if process_attempt_marker.is_file():
+    if "process-attempted" in artifacts:
         return _deferred(
             "reproduction attempted to create a child process",
             started,
-            exit_code=process.returncode,
+            exit_code=exit_code,
             stdout=stdout,
             stderr=_append_guard_evidence(
-                stderr, process_attempt_marker, limits.output_bytes
+                stderr, artifacts.get("process-attempted"), limits.output_bytes
             ),
             network_blocked=network_blocked,
         )
-    if thread_attempt_marker.is_file():
+    if "thread-attempted" in artifacts:
         return _deferred(
             "reproduction attempted to create a thread",
             started,
-            exit_code=process.returncode,
+            exit_code=exit_code,
             stdout=stdout,
             stderr=stderr,
             network_blocked=network_blocked,
@@ -1204,17 +1021,17 @@ def execute_repro(
         return _deferred(
             "network guard did not initialize",
             started,
-            exit_code=process.returncode,
+            exit_code=exit_code,
             stdout=stdout,
             stderr=stderr,
         )
     if collect_only:
-        if process.returncode != 0:
+        if exit_code != 0:
             return _deferred(
                 "pytest collection/import/syntax or infrastructure failure during "
-                f"collection (exit code {process.returncode})",
+                f"collection (exit code {exit_code})",
                 started,
-                exit_code=process.returncode,
+                exit_code=exit_code,
                 stdout=stdout,
                 stderr=stderr,
                 network_blocked=network_blocked,
@@ -1223,7 +1040,7 @@ def execute_repro(
         return ExecutionResult(
             outcome=ExecutionOutcome.NOT_REPRODUCED,
             reason=f"collected {collected} node(s)",
-            exit_code=process.returncode,
+            exit_code=exit_code,
             stdout=stdout,
             stderr=stderr,
             elapsed_s=time.monotonic() - started,
@@ -1232,22 +1049,29 @@ def execute_repro(
             test_node=node_id,
             **identity,
         )
-    identity["executed_lines"] = _executed_lines(lines_marker)
+    identity["executed_lines"] = _executed_lines(artifacts.get("executed-lines"))
+    junit_bytes = artifacts.get("junit.xml")
     try:
-        junit = _junit_summary(junit_path)
+        if junit_bytes is None:
+            raise ValueError("no JUnit artifact")
+        junit = _junit_summary(junit_bytes)
         failures, errors = junit.failures, junit.errors
-        junit_text = junit_path.read_text(encoding="utf-8", errors="replace")[:MAX_JUNIT_CHARS]
-    except (OSError, ET.ParseError, TypeError, ValueError) as exc:
+        # decode only the bounded prefix: the artifact may be megabytes of
+        # captured output and the receipt keeps at most MAX_JUNIT_CHARS
+        junit_text = junit_bytes[: MAX_JUNIT_CHARS * 4].decode("utf-8", errors="replace")[
+            :MAX_JUNIT_CHARS
+        ]
+    except (ET.ParseError, TypeError, ValueError) as exc:
         return _deferred(
             f"missing or malformed JUnit evidence: {type(exc).__name__}: {exc}",
             started,
-            exit_code=process.returncode,
+            exit_code=exit_code,
             stdout=stdout,
             stderr=stderr,
             network_blocked=network_blocked,
         )
 
-    if process.returncode == 0:
+    if exit_code == 0:
         return ExecutionResult(
             outcome=ExecutionOutcome.NOT_REPRODUCED,
             reason="pytest passed",
@@ -1263,7 +1087,7 @@ def execute_repro(
             junit_xml=junit_text,
             **identity,
         )
-    if process.returncode == 1 and failures > 0 and errors == 0:
+    if exit_code == 1 and failures > 0 and errors == 0:
         return ExecutionResult(
             outcome=ExecutionOutcome.REPRODUCED,
             reason=f"pytest reported {failures} failure(s) and 0 error(s)",
@@ -1281,9 +1105,9 @@ def execute_repro(
         )
     return _deferred(
         "pytest collection/import/syntax or infrastructure failure "
-        f"(exit code {process.returncode}, {failures} failure(s), {errors} error(s))",
+        f"(exit code {exit_code}, {failures} failure(s), {errors} error(s))",
         started,
-        exit_code=process.returncode,
+        exit_code=exit_code,
         stdout=stdout,
         stderr=stderr,
         network_blocked=network_blocked,
@@ -1343,6 +1167,7 @@ def execute_differential(
     repeats: int = 3,
     deadline: float | None = None,
     clock: Callable[[], float] = time.monotonic,
+    adapter: ExecutorAdapter | None = None,
 ) -> DifferentialExecution:
     """Run the same reproduction repeatedly against detached head/base
     worktrees. Only a deterministic head failure that shows the code
@@ -1387,6 +1212,16 @@ def execute_differential(
         return finish(ExecutionOutcome.DEFERRED, _bounded_reason(reason), evidence_class)
 
     node: str | None = None
+    candidate_root = (
+        repo_root / ".attest" / "repro" / candidate.task_id / candidate.finding.finding_id
+    )
+    # one controller for the whole differential: every run gets its own nonce
+    # and a result can only ever answer the request it was issued for
+    controller = Controller(candidate_root)
+    revisions = {
+        "head": _resolve_commit(repo_root, head_sha) or "",
+        "base": _resolve_commit(repo_root, base_sha) or "",
+    }
 
     def run_once(
         side: str, index: int, tree: Path, *, collect_only: bool = False
@@ -1408,6 +1243,9 @@ def execute_differential(
             run_label=f"{side}-{index}" if not collect_only else "collect",
             node=node,
             collect_only=collect_only,
+            revision_sha=revisions.get(side, revisions["head"]),
+            controller=controller,
+            adapter=adapter,
         )
 
     if repeats < 1:
@@ -1417,21 +1255,14 @@ def execute_differential(
     if deadline is not None and deadline - clock() <= 0:
         return deferred(DEADLINE_REASON)
     trees_dir = (
-        repo_root
-        / ".attest"
-        / "repro"
-        / candidate.task_id
-        / candidate.finding.finding_id
-        / "trees"
+        repo_root / ".attest" / "repro" / candidate.task_id / candidate.finding.finding_id / "trees"
     )
     created: list[Path] = []
     try:
         trees_dir.mkdir(parents=True, exist_ok=True)
         for side, sha in (("head", head_sha), ("base", base_sha)):
             try:
-                added = _git(
-                    repo_root, "worktree", "add", "--detach", str(trees_dir / side), sha
-                )
+                added = _git(repo_root, "worktree", "add", "--detach", str(trees_dir / side), sha)
             except (OSError, subprocess.SubprocessError) as exc:
                 return deferred(f"could not create {side} worktree: {type(exc).__name__}")
             if added.returncode != 0:
@@ -1459,9 +1290,7 @@ def execute_differential(
             head_runs.append(run)
             if run.outcome is ExecutionOutcome.DEFERRED:
                 return deferred(f"head run {index}/{repeats} deferred: {run.reason}")
-        head_failures = sum(
-            1 for run in head_runs if run.outcome is ExecutionOutcome.REPRODUCED
-        )
+        head_failures = sum(1 for run in head_runs if run.outcome is ExecutionOutcome.REPRODUCED)
         if head_failures == 0:
             return finish(
                 ExecutionOutcome.NOT_REPRODUCED,
@@ -1469,9 +1298,7 @@ def execute_differential(
                 EvidenceClass.NOT_REPRODUCED,
             )
         if head_failures < repeats:
-            return deferred(
-                f"flaky reproduction on head ({head_failures}/{repeats} runs failed)"
-            )
+            return deferred(f"flaky reproduction on head ({head_failures}/{repeats} runs failed)")
         # Head runs only reach this point as genuine test failures (exit 1,
         # failures > 0, errors == 0), so the head signature distinguishes *the
         # code misbehaved* -- an assertion OR a real crash such as
@@ -1614,6 +1441,7 @@ def verify_candidate(
     repeats: int = 3,
     deadline: float | None = None,
     clock: Callable[[], float] = time.monotonic,
+    adapter: ExecutorAdapter | None = None,
 ) -> VerificationRun:
     started = time.monotonic()
     resolved_base = _resolve_commit(repo, base_sha)
@@ -1671,6 +1499,7 @@ def verify_candidate(
                 repeats=repeats,
                 deadline=deadline,
                 clock=clock,
+                adapter=adapter,
             )
 
     Ledger(repo).record_verification(

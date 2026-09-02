@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+import attest.execution.local_adapter as local_adapter
 import attest.review.executor as executor
 from attest.review.budget import Budget, BudgetExceeded
 from attest.review.candidates import StoredCandidate
@@ -830,17 +831,7 @@ def test_generated_guard_blocks_joinable_thread_entrypoint(tmp_path: Path) -> No
 
     escaped_thread = tmp_path / "joinable-thread-escaped"
     guard_path = tmp_path / "generated_sitecustomize.py"
-    guard_path.write_text(
-        executor._sitecustomize(
-            tmp_path / "network-blocked",
-            tmp_path / "process-guarded",
-            tmp_path / "process-contained",
-            tmp_path / "process-attempted",
-            tmp_path / "process-replacement-attempted",
-            tmp_path / "thread-attempted",
-        ),
-        encoding="utf-8",
-    )
+    guard_path.write_text(executor.SITECUSTOMIZE, encoding="utf-8")
     probe_path = tmp_path / "joinable_thread_probe.py"
     probe_path.write_text(
         "import _thread\n"
@@ -867,6 +858,7 @@ def test_generated_guard_blocks_joinable_thread_entrypoint(tmp_path: Path) -> No
     completed = subprocess.run(
         [sys.executable, "-I", str(probe_path)],
         cwd=tmp_path,
+        env={**os.environ, "ATTEST_OUTPUTS": str(tmp_path)},
         capture_output=True,
         check=False,
         timeout=10.0,
@@ -986,8 +978,8 @@ def test_execute_post_spawn_failure_cleans_up_owned_process(
     def fail_to_start_drainer(self: Any) -> None:
         raise RuntimeError("drainer startup failed")
 
-    monkeypatch.setattr(executor.subprocess, "Popen", recording_popen)
-    monkeypatch.setattr(executor.threading.Thread, "start", fail_to_start_drainer)
+    monkeypatch.setattr(local_adapter.subprocess, "Popen", recording_popen)
+    monkeypatch.setattr(local_adapter.threading.Thread, "start", fail_to_start_drainer)
 
     result = executor.execute_repro(
         tmp_path,
@@ -1021,8 +1013,8 @@ def test_execute_owner_constructor_failure_cleans_up_raw_process(
     def fail_owner_construction(*args: Any, **kwargs: Any) -> None:
         raise RuntimeError("owner construction failed")
 
-    monkeypatch.setattr(executor.subprocess, "Popen", recording_popen)
-    monkeypatch.setattr(executor, "_OwnedProcess", fail_owner_construction)
+    monkeypatch.setattr(local_adapter.subprocess, "Popen", recording_popen)
+    monkeypatch.setattr(local_adapter, "_OwnedProcess", fail_owner_construction)
 
     result = executor.execute_repro(
         tmp_path,

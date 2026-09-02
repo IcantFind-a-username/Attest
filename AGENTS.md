@@ -103,8 +103,11 @@ Do not confuse target contracts with current behavior:
   (`min(3, max_findings)`), and same-defect certified findings publish once;
 - since V-01 (`cf5c356`) head/base execution binds the exact node, test bytes, per-run
   command/interpreter/environment identity and verifies offline from its bundle, and since
-  V-02 (`dd99320`) a head failure must have executed a changed line of the anchored file;
-  fresh state and authenticated provenance (V-03) are still missing;
+  V-02 (`dd99320`) a head failure must have executed a changed line of the anchored file
+  (the tracer is confined to the reproduction window since `8c3513e`); since X-01 every
+  run goes through the nonced, content-addressed `attest.execution` protocol, but the only
+  adapter is `local_development_best_effort` (no OS boundary, X-02) and the result envelope
+  is not origin-authenticated and repeats do not get fresh state (V-03);
 - current language-level process/network guards are best-effort containment, not a security
   boundary for untrusted head code;
 - the current process audit covers the entire reproduction pytest interpreter, so trusted

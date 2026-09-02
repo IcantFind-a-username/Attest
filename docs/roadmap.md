@@ -102,7 +102,7 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | X-01 (mainline §2 step 10): controller/executor split behind a versioned request/result protocol with task nonce and content-addressed artifacts | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
+| **NOW** | owner fixes 1-5 of 2026-09-03 (generator/provider honesty, empty-sample classification, import bootstrap, generator context, local differential stage), then the paid re-runs (a) and (b), then X-02 (mainline §2 step 11) with the environment bootstrap folded into the container adapter | the us-stock-helper trials showed every candidate correct and every one silent for generator and bootstrap reasons; X-01 is done and X-02/V-03 follow the fixes |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
@@ -297,9 +297,11 @@ Goal: upgrade “head fails/base passes” into a replayable, claim-bound certif
   `G-SEM-002` preregistered pilot remains open). Compare trace/coverage/mutation/patch-ablation
   alternatives on adversarial tests; adopt the smallest binding policy that rejects tests
   proving another bug or source-version branching.
-- [ ] **X-01 — content-addressed execution protocol.** Split privileged controller from
+- [x] **X-01 — content-addressed execution protocol.** Split privileged controller from
   executor through a versioned request/result protocol with task nonce, immutable artifact
-  digests, development adapter, and a result-verification seam.
+  digests, development adapter, and a result-verification seam. Done 2026-09-03 (see
+  Progress; the RED is `tests/execution/test_controller.py::test_result_answering_another_nonce_is_rejected`;
+  origin authentication of the envelope is V-03).
 - [ ] **V-03 — fresh-state and provenance envelope.** Give every repeat a fresh writable
   state; persist each run atomically; sign or otherwise authenticate controller provenance;
   provide an offline receipt verifier.
@@ -597,6 +599,18 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-09-03 — X-01 complete:** implementation is the commit
+  `feat: split the controller from the executor behind a nonced, content-addressed protocol`
+  (new `attest.execution` package: types, strict protocol, controller, `local_development_best_effort`
+  adapter; `execute_repro` is controller-side only and reads nothing the controller did not
+  verify against the request nonce and digests). The RED failed on the unpatched path (no
+  protocol: any bytes in the work directory were the result) and passes after: an envelope
+  answering another request's nonce, an artifact whose bytes disagree with their digest, a
+  duplicate or never-issued result, an executor crash and a job left dispatched across a
+  controller restart are all rejected and buy nothing. Run records and receipts carry the
+  executor profile and backend digest the runs themselves recorded. Full gate: see the
+  follow-up entry once the committed tree's gate has run. See D-085.
 
 - **2026-09-03 — step 0 (owner, 2026-09-03): the V-02 tracer is confined to the reproduction
   window:** one commit (`perf: confine the V-02 line tracer to the reproduction window`).
