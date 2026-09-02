@@ -752,3 +752,21 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** 10 of 32 pilot proposal samples truncated at 2,400 tokens, silencing two cases outright; recovery must be precommitted, never outcome-aware (`G-RECALL-001`, AGENTS §6.13).
 - **Limits:** the reproduction generator keeps D-052's single schema retry; a `{}` text block (no content returned) is not salvageable and is recorded as such; the cache is per repository.
 - **Reversal:** set `MODEL_REPAIR_ATTEMPTS` to 0 and keep salvage only; attempts stay on disk.
+
+
+### D-081 — C-05: e-value Bonferroni family policy with a hard author-visible cap
+
+- **Date/status/scope:** 2026-09-02 · owner-selected (mainline §5 A, answered 2026-09-02) · new `certification/clustering.py`, `certification/selection.py`, `review/ci.py`.
+- **Decision:** certified findings are clustered for publication (same reproduction digest, or anchors within three lines of one file; connected components over a canonically sorted input) and a cluster counts once through its highest-e-value member (ties on candidate id); with m eligible candidates in the PR a finding publishes only when its e-value (S/T/V wealth) ≥ m/α; at most three findings are author-visible anywhere, inline or summary, so nothing is "overflow" any more; suppressed certified findings stay private with a reason (`below family threshold`, `same defect as a published finding`, `beyond the hard author-visible cap`) in a `publication_policy` ledger row that also reports the arithmetic mean of the eligible candidates' e-values as the PR-level global null. Factory LR, α, K unchanged.
+- **Why:** `G-CERT-004` / `INV-FAMILY-001`: the dev-slice re-run certified the same pylint defect twice and the old cap was layout-only.
+- **Limits:** the cluster relation is anchor/digest based, not semantic; V-02 binding will sharpen it; benchmark PR-any-wrong exposure now counts published findings only.
+- **Reversal:** a different family method needs a new policy schema version and re-runs `G-CERT-004`.
+
+
+### D-082 — Empty proposal samples classified; proposal output bound raised to 3,200
+
+- **Date/status/scope:** 2026-09-02 · owner-directed · `review/proposer.py` (`PROPOSER_MAX_OUTPUT_TOKENS`), `tests/test_proposer.py`.
+- **Decision:** of the 43 empty proposal samples in the dev-slice re-run, 30 were correct silences on controls; on the eight regression PRs 9 of 13 empty samples had stopped at the 2,400 bound with the allowance consumed by reasoning and 4 were deliberate empties, so exhaustion dominates where it costs recall and the bound is raised to 3,200 (a runtime output parameter, not a statistical constant; D-051's arithmetic and the documented ~26,000-char default-budget diff boundary move with it). K stays at 4 for the pilot.
+- **Why:** owner answer 3 of 2026-09-02; verified together with C-05 on the next dev-slice re-run rather than alone.
+- **Limits:** the classification is by stop reason and output size, not by reading the samples; a repair sample under R-02 already recovers some of these.
+- **Reversal:** if the re-run shows no fewer exhausted samples, the bound returns to 2,400.

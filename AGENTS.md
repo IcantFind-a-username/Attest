@@ -99,7 +99,8 @@ Do not confuse target contracts with current behavior:
   base-owned policy, while local `attest review` still reads the working tree's file;
 - manual `attest verify --reproduced` is a `self_report` row since C-04 (`71b99aa`): never a
   receipt, a published finding, or a precision row;
-- `max_findings` currently limits inline placement, not all author-visible findings;
+- since C-05 (`2b3d4c9`) the author-visible cap is real across inline and summary
+  (`min(3, max_findings)`), and same-defect certified findings publish once;
 - since V-01 (`cf5c356`) head/base execution binds the exact node, test bytes, per-run
   command/interpreter/environment identity and verifies offline from its bundle; semantic
   binding (V-02), fresh state and authenticated provenance (V-03) are still missing;

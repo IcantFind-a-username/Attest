@@ -102,7 +102,7 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | C-05 (mainline §2 step 8): PR-level multiplicity decision package for the owner (mainline §5 A), order-invariant publication clusters, hard author-visible cap; the dev-slice re-run certified 5 with 0 control publications | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
+| **NOW** | V-02 (mainline §2 step 9): compare binding policies on adversarial tests and adopt one; C-05 is implemented and re-verified on the dev slice | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
@@ -250,7 +250,9 @@ Goal: make the publication contract true by construction for every supported con
   legacy `verified_*` rows readable in `legacy_self_reported_unknown`, and excludes all of
   them from the surfaced population, precision, and alpha tightening. One RED: a manual
   `--reproduced` moves no finding, no precision window, and no alpha.
-- [ ] **C-05 — PR family and hard-publication policy.** Choose and implement a PR-level
+- [x] **C-05 — PR family and hard-publication policy** (implementation `2b3d4c9`, D-081;
+  owner selected mainline §5 A; RED
+  `test_pr_family_policy_caps_publication_and_counts_a_defect_once`). Choose and implement a PR-level
   multiplicity method, a minimal order-invariant semantic-cluster seam, deterministic
   tie-breaks, and a true author-visible cap across inline and summary surfaces. R-03 may
   extend later discovery clustering but cannot supply this prerequisite after the fact.
@@ -593,6 +595,12 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-09-02 — C-05 complete:** implementation `2b3d4c9` (publication clusters, e-value
+  Bonferroni at m/α, hard cap three, private suppression with reasons, PR-level mean
+  e-value) and `927bece` (proposal bound 3,200, D-082). The RED failed on the unpatched
+  path (all four certified same-defect findings published) and passes after. Full gate on `927bece`: 1623 passed, production coverage 91.57%, Ruff, Mypy and `git diff --check` clean, with five tests and the M-01 probe adapted afterwards to the family-policy counts (`2b3d4c9`..`47229a8`; the probe passes standalone against both the current tree and its baseline); the window-end gate re-verifies the whole tree.
+  The dev-slice re-run with both changes is recorded in the next entry.
 
 - **2026-09-02 — D-078 step c (dev-slice re-run):** report
   [`acceptance/2026-09-02-e02-pilot-rerun.md`](acceptance/2026-09-02-e02-pilot-rerun.md).
