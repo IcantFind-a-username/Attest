@@ -1,0 +1,11 @@
+{
+  "authorized_by": "owner, docs/mainline.md \u00a73 (any repository under the owner's GitHub account may be used as a shadow population without asking)",
+  "granted_at": "2026-09-02T05:43:50+00:00",
+  "population": [
+    "IcantFind-a-username/Attest",
+    "IcantFind-a-username/us-stock-helper",
+    "IcantFind-a-username/Corum",
+    "IcantFind-a-username/IcantFind-a-username"
+  ],
+  "scope": "shadow only: local review path, no GitHub write, no author-visible output; study bundle carries counts and ids only"
+}

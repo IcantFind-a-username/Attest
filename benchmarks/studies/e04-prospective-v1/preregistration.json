@@ -1,0 +1,33 @@
+{
+  "study_id": "attest.e04-prospective.v1",
+  "freeze_at": "2026-09-02T21:43:17+00:00",
+  "population": [
+    "IcantFind-a-username/Attest",
+    "IcantFind-a-username/us-stock-helper",
+    "IcantFind-a-username/Corum",
+    "IcantFind-a-username/IcantFind-a-username"
+  ],
+  "unit": "one non-merge commit pushed after freeze_at; head = commit, base = parent",
+  "strata": [
+    "docs",
+    "refactor",
+    "feature",
+    "fix",
+    "other"
+  ],
+  "per_pr_budget_usd": 0.25,
+  "k_samples": 4,
+  "context_strategy": "r01 (default; owner decision 3, 2026-09-03)",
+  "proposal_bound_tokens": 3200,
+  "executor_profile": "linux-container-v1",
+  "silent_audit_inclusion_probability": 1.0,
+  "silent_audit_seed": 20260903,
+  "cost_cap_usd": 2.0,
+  "safety_stop_wrong_findings": 5,
+  "minimum_adjudicated_findings": 100,
+  "minimum_confirmed_opportunities": 100,
+  "truth": "product-blind adjudication into adjudication.jsonl (unit_id, finding_id or empty, label defect|not_defect|unresolved, reviewer, evidence); unknown truth stays unresolved",
+  "retries": "none; a unit that cannot run is recorded with its DEFER reason",
+  "exclusions": "none after recording",
+  "code": "the checkout that runs each unit is recorded in the trial's executor profile and the corpus ledger; no code, model or prompt change mid-stratum without a new stratum"
+}
