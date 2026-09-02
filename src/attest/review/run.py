@@ -455,6 +455,7 @@ def run_review(
                     verification_timeout_s=verification_timeout_s,
                     clock=clock,
                     adapter=adapter,
+                    production=False,
                 )
                 results = list(stage.results_by_id.values())
                 certified = list(stage.certified_by_id.values())

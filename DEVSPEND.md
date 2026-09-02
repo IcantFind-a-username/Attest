@@ -50,8 +50,9 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-03 | paid check (b): dev-slice re-run after fixes 1-5, 8 regressions ($0.7127) + 8 controls ($0.1384), K=4, code `c2814b8`; 6 certified on 5/8 defects, 5 published, 0 control publications, 0 no-text samples | $0.851100 |
 | 2026-09-03 | owner instruction 3 RED: psf__requests-1766 with prompt caching, K=4; samples 1-3 read 3,901 cached tokens each, review $0.0248 (was $0.0439), 1 verified and published | $0.045458 |
 | 2026-09-03 | owner instruction 4: dev-slice comparison, arm r01 8 PRs $0.4862 (4 certified) and arm package-cache 8 PRs $1.7537 (2 certified), K=4, code `2931753` | $2.239900 |
+| 2026-09-03 | X-02 container smoke, psf__requests-1766 through linux-container-v1 (three attempts: bootstrap DEFER $0, nproc-race DEFER $0.0202, certified and published $0.0037) | $0.023912 |
 
-**Total API spend: $15.530440 of $30.00.** (43 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $15.554352 of $30.00.** (44 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
@@ -66,6 +67,7 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-03 | paid check (b): dev-slice re-run 8 regressions + 8 controls, K=4, full product path, table with no-text and true-abstention columns | $1.20 | $0.851100 (row below); $0.348900 released |
 | 2026-09-03 | owner instruction 3 RED: one dev-slice regression PR (psf__requests-1766) re-run with prompt caching and first-token-staggered fan-out, K=4, to observe cache_read_input_tokens > 0 on the second sample and lower spend than the same case in paid check (b) ($0.0619) | $0.10 | $0.045458 (row below); $0.054542 released |
 | 2026-09-03 | owner instruction 4: R-01 cache-variant comparison on the dev slice, existing R-01 context vs the package-plus-tests shared block, 8 regressions each arm, K=4 | $2.50 | $2.239900 (row below); $0.260100 released |
+| 2026-09-03 | X-02 container smoke: one certified dev-slice regression (psf__requests-1766) through the linux-container-v1 backend, K=4; must match the C-05 re-run report | $0.10 | $0.023912 (row below); $0.076088 released |
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 

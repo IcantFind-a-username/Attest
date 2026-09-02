@@ -1216,7 +1216,10 @@ def test_execute_blocks_socket_connections_with_sitecustomize(tmp_path: Path) ->
         ExecutorLimits(),
     )
 
-    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
+    # X-02: the attempt is refused *and* marks the run; catching the refusal
+    # inside the test does not turn it back into a passing run
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert "attempted a network connection" in result.reason
     assert result.exit_code == 0
     assert result.network_blocked is True
 
@@ -1245,7 +1248,8 @@ def test_execute_blocks_socket_connections_after_socket_reload(tmp_path: Path) -
         with pytest.raises(TimeoutError):
             listener.accept()
 
-    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert "attempted a network connection" in result.reason
     assert result.exit_code == 0
     assert result.network_blocked is True
 
@@ -1271,7 +1275,8 @@ def test_execute_repository_sitecustomize_cannot_shadow_network_guard(tmp_path: 
         ExecutorLimits(),
     )
 
-    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert "attempted a network connection" in result.reason
     assert result.network_blocked is True
 
 

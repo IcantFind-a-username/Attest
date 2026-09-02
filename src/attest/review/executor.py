@@ -131,7 +131,46 @@ _process_containment_marker = _outputs / "process-contained"
 _process_attempt_marker = _outputs / "process-attempted"
 _process_replacement_marker = _outputs / "process-replacement-attempted"
 _thread_attempt_marker = _outputs / "thread-attempted"
+_network_attempt_marker = _outputs / "network-attempted"
+_write_attempt_marker = _outputs / "write-attempted"
 _PROCESS_GUARD_PROBE = "attest.process_guard_probe"
+# X-02: the writable set is the outputs mount, the scratch/tmp areas and the
+# reproduction's own directory; a write anywhere else is an escape attempt
+# and marks the run, whatever the OS then does with it
+_writable_prefixes = tuple(
+    os.path.realpath(entry)
+    for entry in [
+        str(_outputs),
+        "/dev",  # device files (os.devnull) are not an escape
+        *os.environ.get("ATTEST_WRITABLE", "").split(os.pathsep),
+    ]
+    if entry
+)
+_WRITE_MODES = set("wax+")
+
+
+def _record_write_attempt(path, mode):
+    if _write_attempt_marker.exists():
+        return
+    try:
+        _write_attempt_marker.write_text(f"path={path!r}\\nmode={mode!r}\\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _guard_writes(event, args):
+    if event != "open" or len(args) < 2:
+        return
+    path, mode = args[0], args[1]
+    if isinstance(path, int) or not isinstance(mode, str) or not (set(mode) & _WRITE_MODES):
+        return
+    try:
+        real = os.path.realpath(os.fspath(path))
+    except (TypeError, OSError):
+        return
+    if any(real == prefix or real.startswith(prefix + os.sep) for prefix in _writable_prefixes):
+        return
+    _record_write_attempt(real, mode)
 
 def _record_process_attempt(event, args):
     if _process_attempt_marker.exists():
@@ -159,6 +198,8 @@ def _guard_operations(event, args):
         _process_guard_marker.write_text("active", encoding="utf-8")
         return
     if event in _NETWORK_EVENTS:
+        if not _network_attempt_marker.exists():
+            _network_attempt_marker.write_text("attempted", encoding="utf-8")
         raise PermissionError("network disabled by evidence executor")
     process_event = event in _PROCESS_EVENTS
     native_symbol = (
@@ -182,6 +223,7 @@ def _guard_operations(event, args):
         raise PermissionError("process creation disabled by evidence executor")
 
 sys.addaudithook(_guard_operations)
+sys.addaudithook(_guard_writes)
 sys.audit(_PROCESS_GUARD_PROBE)
 
 if os.name == "posix":
@@ -197,6 +239,8 @@ if os.name == "posix":
                 setattr(_module, _name, _reject_thread)
 
 def _reject_connection(*args, **kwargs):
+    if not _network_attempt_marker.exists():
+        _network_attempt_marker.write_text("attempted", encoding="utf-8")
     raise PermissionError("network disabled by evidence executor")
 
 socket.socket.connect = _reject_connection
@@ -878,6 +922,10 @@ def _reproduction_environment(
     }
     if tree_entries:
         environment["ATTEST_TREE_PATHS"] = os.pathsep.join(tree_entries)
+    # the reproduction may write inside its own run directory and the host's
+    # temporary directory (pytest's own tmp_path lives there); everything else
+    # is an escape attempt the guard marks
+    environment["ATTEST_WRITABLE"] = os.pathsep.join(["{tree}/" + RUN_DIR_NAME, "{scratch}"])
     if traced:
         environment["ATTEST_TRACE_TARGET"] = "{tree}/" + anchored_file
     return environment
@@ -930,6 +978,8 @@ MARKER_NAMES = (
     "process-attempted",
     "process-replacement-attempted",
     "thread-attempted",
+    "network-attempted",
+    "write-attempted",
 )
 EXPECTED_ARTIFACTS = (
     *MARKER_NAMES,
@@ -950,6 +1000,17 @@ def _import_origins(marker: bytes | None) -> tuple[tuple[str, str], ...]:
         if separator and name and file:
             origins.append((name, file))
     return tuple(origins)
+
+
+_DEFAULT_ADAPTER: LocalDevelopmentAdapter | None = None
+
+
+def _default_adapter() -> LocalDevelopmentAdapter:
+    """One host adapter per process, so the interpreter version is probed once."""
+    global _DEFAULT_ADAPTER
+    if _DEFAULT_ADAPTER is None:
+        _DEFAULT_ADAPTER = LocalDevelopmentAdapter()
+    return _DEFAULT_ADAPTER
 
 
 def execute_repro(
@@ -1000,7 +1061,7 @@ def execute_repro(
     # artifacts) lives under work_dir.
     run_path = generated_path if tree is None else tree / RUN_DIR_NAME / "test_repro.py"
     traced = tree is not None and not collect_only
-    active_adapter: ExecutorAdapter = adapter or LocalDevelopmentAdapter()
+    active_adapter: ExecutorAdapter = adapter or _default_adapter()
     active_controller = controller or Controller(work_dir.parent if run_label else work_dir)
     try:
         work_dir.mkdir(parents=True, exist_ok=True)
@@ -1046,11 +1107,12 @@ def execute_repro(
             anchored_file=candidate.finding.file,
             roots=None if tree is None else project_roots(tree),
         )
+        job_interpreter, interpreter_version = active_adapter.interpreter_identity(interpreter)
         identity: dict[str, Any] = {
             "executed_lines": (),  # filled after the run from the verified marker
-            "command_template": tuple(argv),
-            "interpreter": interpreter,
-            "interpreter_version": _interpreter_version(interpreter),
+            "command_template": tuple([job_interpreter, *argv[1:]]),
+            "interpreter": job_interpreter,
+            "interpreter_version": interpreter_version,
             "environment_digest": _environment_digest(environment),
             "test_file_digest": hashlib.sha256(source.encode("utf-8")).hexdigest(),
             "executor_profile": active_adapter.profile,
@@ -1154,6 +1216,26 @@ def execute_repro(
             exit_code=exit_code,
             stdout=stdout,
             stderr=stderr,
+            network_blocked=network_blocked,
+        )
+    if "network-attempted" in artifacts:
+        return _deferred(
+            "reproduction attempted a network connection",
+            started,
+            exit_code=exit_code,
+            stdout=stdout,
+            stderr=stderr,
+            network_blocked=network_blocked,
+        )
+    if "write-attempted" in artifacts:
+        return _deferred(
+            "reproduction attempted to write outside its work directory",
+            started,
+            exit_code=exit_code,
+            stdout=stdout,
+            stderr=_append_guard_evidence(
+                stderr, artifacts.get("write-attempted"), limits.output_bytes
+            ),
             network_blocked=network_blocked,
         )
     if not network_blocked:

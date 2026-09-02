@@ -62,6 +62,10 @@ class ExecutorAdapter(Protocol):
 
     def backend_digest(self) -> str: ...
 
+    def interpreter_identity(self, host_interpreter: str) -> tuple[str, str]:
+        """(interpreter as the job will invoke it, its version text)."""
+        ...
+
     def execute(
         self, request: ExecutionRequest, *, tree: Path, inputs: Path, outputs: Path
     ) -> ExecutionResultEnvelope: ...

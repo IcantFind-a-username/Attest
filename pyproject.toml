@@ -37,6 +37,7 @@ testpaths = ["tests"]
 addopts = "-q"
 markers = [
     "regression: pins numbers from the seed experiment record (RESULTS.md)",
+    "real_backend: run with the product's real executor backend selection",
 ]
 
 [tool.ruff]

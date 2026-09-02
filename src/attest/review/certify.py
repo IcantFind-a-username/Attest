@@ -65,14 +65,15 @@ def text_digest(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def certification_policy(repeats: int) -> CertificationPolicy:
-    """The policy the current product enforces: N/N differential repeats."""
+def certification_policy(repeats: int, profile: str = EXECUTOR_PROFILE) -> CertificationPolicy:
+    """The policy the current product enforces: N/N differential repeats on
+    exactly one executor profile (X-02: production lists the container)."""
     return CertificationPolicy(
         schema_version=CERTIFICATION_POLICY_SCHEMA_VERSION,
         receipt_schema_version=CERTIFICATION_RECEIPT_SCHEMA_VERSION,
         required_head_runs=repeats,
         required_base_runs=repeats,
-        allowed_executor_profiles=(EXECUTOR_PROFILE,),
+        allowed_executor_profiles=(profile,),
         allowed_evidence_classes=(EvidenceClass.REGRESSION_REPRODUCED.value,),
         binding_policy_version=BINDING_POLICY_VERSION,
     )
@@ -130,6 +131,7 @@ class CertificationAttempt:
     rejection_codes: tuple[str, ...]
     finding: CertifiedFinding | None
     bundle: WrittenBundle | None = None
+    executor_profile: str = EXECUTOR_PROFILE  # X-02: the profile the runs recorded
 
     def to_ledger_row(self, task_id: str) -> dict[str, object]:
         row: dict[str, object] = {
@@ -138,7 +140,7 @@ class CertificationAttempt:
             "finding_id": self.candidate_id,
             "outcome": self.outcome,
             "reason": self.reason,
-            "executor_profile": EXECUTOR_PROFILE,
+            "executor_profile": self.executor_profile,
         }
         if self.receipt_digest is not None:
             row["receipt_digest"] = self.receipt_digest
@@ -262,6 +264,7 @@ def attempt_certification(
             receipt_digest=provenance,
             rejection_codes=tuple(code.value for code in verdict.codes),
             finding=None,
+            executor_profile=subject.executor_profile,
         )
     finding = CertifiedFinding.from_accepted_receipt(
         verdict,
@@ -288,4 +291,5 @@ def attempt_certification(
         rejection_codes=(),
         finding=finding,
         bundle=bundle,
+        executor_profile=subject.executor_profile,
     )

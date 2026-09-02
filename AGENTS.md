@@ -105,9 +105,12 @@ Do not confuse target contracts with current behavior:
   command/interpreter/environment identity and verifies offline from its bundle, and since
   V-02 (`dd99320`) a head failure must have executed a changed line of the anchored file
   (the tracer is confined to the reproduction window since `8c3513e`); since X-01 every
-  run goes through the nonced, content-addressed `attest.execution` protocol, but the only
-  adapter is `local_development_best_effort` (no OS boundary, X-02) and the result envelope
-  is not origin-authenticated and repeats do not get fresh state (V-03);
+  run goes through the nonced, content-addressed `attest.execution` protocol and since X-02
+  production runs head code in `linux-container-v1` (no network, read-only root, uid 65534,
+  no capabilities, tmpfs scratch, image built from the tree's manifests) while a local
+  `attest review` may fall back to `local_development_best_effort` and says so; the result
+  envelope is not yet origin-authenticated (V-03) and `G-SEC-002`'s full red-team matrix on
+  the declared CI platform is open;
 - current language-level process/network guards are best-effort containment, not a security
   boundary for untrusted head code;
 - the current process audit covers the entire reproduction pytest interpreter, so trusted

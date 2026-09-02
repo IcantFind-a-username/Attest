@@ -23,6 +23,7 @@ from attest.certification.selection import (
     select_for_publication,
 )
 from attest.certification.types import CertifiedFinding
+from attest.execution.backends import select_backend
 from attest.execution.controller import ExecutorAdapter
 from attest.review.candidates import CandidateStore
 from attest.review.certify import (
@@ -76,6 +77,7 @@ def run_verification_stage(
     verification_timeout_s: float = 600.0,
     clock: Callable[[], float] = time.monotonic,
     adapter: ExecutorAdapter | None = None,
+    production: bool = True,
 ) -> VerificationStage:
     ledger = Ledger(repo)
     verification_started = clock()
@@ -89,7 +91,27 @@ def run_verification_stage(
         for candidate in CandidateStore(repo).load(task_id)
         if candidate.action != "discard"
     ]
-    policy = certification_policy(CERTIFICATION_REPEATS)
+    eligible_candidates = [c for c in candidates if c.eligibility == "regression"]
+    backend_reason = "caller-supplied adapter"
+    if adapter is None and eligible_candidates:
+        # X-02: one backend per task; the image is built from the head tree
+        # before any head code runs, and a failed bootstrap is its own reason
+        backend = select_backend(repo, production=production)
+        adapter = backend.adapter
+        backend_reason = backend.reason
+        profile = backend.profile
+    else:
+        profile = adapter.profile if adapter is not None else EXECUTOR_PROFILE
+    ledger.append(
+        {
+            "kind": "executor_backend",
+            "task_id": task_id,
+            "profile": profile,
+            "available": adapter is not None or not eligible_candidates,
+            "reason": backend_reason,
+        }
+    )
+    policy = certification_policy(CERTIFICATION_REPEATS, profile)
     certification = certification_task(
         task_id=task_id,
         repository_id=repository_id,
@@ -120,6 +142,20 @@ def run_verification_stage(
                     "executor_profile": EXECUTOR_PROFILE,
                 }
             )
+            continue
+        if adapter is None:
+            reason = f"isolation backend unavailable: {backend_reason}"
+            ledger.record_verification(
+                task_id=candidate.task_id,
+                finding_id=candidate.finding.finding_id,
+                outcome=ExecutionOutcome.DEFERRED.value,
+                reason=reason,
+                elapsed_s=0.0,
+                network_blocked=False,
+                evidence="",
+            )
+            verification_defers.append(reason)
+            reasons[candidate.finding.finding_id] = reason
             continue
         remaining_s = max(0.0, deadline - clock())
         if remaining_s <= 0:

@@ -391,9 +391,12 @@ test idioms safely.
 
 - **Foundation dependency:** X-01 is completed in Phase 2 before V-03; Phase 4 must use that
   protocol and may not invent a second result channel.
-- [ ] **X-02 — OS isolation backend.** Implement and threat-test one production Linux
+- [x] **X-02 — OS isolation backend.** Implement and threat-test one production Linux
   backend with no secrets, default-deny network, read-only source, bounded writable space,
-  cgroup/process/resource limits, and authenticated results.
+  cgroup/process/resource limits, and authenticated results. Done 2026-09-03 as
+  `linux-container-v1` (see Progress; the RED is `tests/execution/test_linux_isolation.py`
+  in real containers; result authentication is V-03; `G-SEC-002`'s full red-team matrix on
+  the declared CI platform remains open).
 - [ ] **X-03 — controlled subprocess profiles.** Add digest/argv allowlists for legitimate
   tools and child-process containment; keep process-free default and typed DEFER.
 
@@ -600,6 +603,25 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-09-03 — X-02 complete (linux-container-v1) with the environment bootstrap (item 8):**
+  one commit (`feat: run head code in a Linux container with an environment bootstrap (X-02)`).
+  Real-container RED (`tests/execution/test_linux_isolation.py`, skipped only without a
+  docker daemon): the planted regression fails 3/3 on head and passes 3/3 on base inside the
+  container with the changed line traced; the controller's canary is unreadable; a socket
+  connect and writes to the tree, `/etc` and the inputs mount fail and mark the run; uid 65534,
+  no capabilities, `RLIMIT_NPROC` (0,0), `--network none`, read-only root. Container smoke on
+  the dev slice (`psf__requests-1766`, task `20260903-015318-4cbfcc96`): head FAIL 3/3, base
+  PASS 3/3, certified and published as in the C-05 re-run; the receipt's executor profile is
+  `linux-container-v1`, its executor digest binds the image
+  (`attest-repro:eb26a92d9d1a10b7`, python 3.9.25 by the classifier rule) and the bundle
+  verifies offline. The first two smoke attempts DEFERred honestly: `environment bootstrap
+  failed` (the project's pinned `requirements.txt` cannot install; requirements files are now
+  best-effort, the project install is required) and `process guard did not initialize`
+  (`--ulimit nproc=0:0` raced the VM's per-uid process count at exec; the limit is now set by
+  a launcher inside the container). Production (`attest ci`, the pilot driver) never falls
+  back to the host adapter; the test suite runs on the host adapter unless marked
+  `real_backend`. Spend $0.0239 of the $0.10 smoke reservation. See D-096.
 
 - **2026-09-03 — owner instruction 4, result:** report
   [`acceptance/2026-09-03-r01-cache-variant.md`](acceptance/2026-09-03-r01-cache-variant.md).

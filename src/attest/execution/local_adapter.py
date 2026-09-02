@@ -14,6 +14,7 @@ import os
 import stat
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from collections.abc import Callable
@@ -203,14 +204,44 @@ def list_artifacts(outputs: Path, expected: tuple[str, ...]) -> tuple[Artifact, 
 class LocalDevelopmentAdapter:
     profile = LOCAL_DEVELOPMENT_PROFILE
 
+    def __init__(self) -> None:
+        self._versions: dict[str, str] = {}
+
     def backend_digest(self) -> str:
         return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+
+    def interpreter_identity(self, host_interpreter: str) -> tuple[str, str]:
+        """The host interpreter itself; its version is probed once per path."""
+        if host_interpreter not in self._versions:
+            if host_interpreter == sys.executable:
+                self._versions[host_interpreter] = sys.version
+            else:
+                try:
+                    probe = subprocess.run(
+                        [host_interpreter, "-c", "import sys; print(sys.version)"],
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                except (OSError, subprocess.SubprocessError):
+                    self._versions[host_interpreter] = ""
+                else:
+                    self._versions[host_interpreter] = (
+                        probe.stdout.strip() if probe.returncode == 0 else ""
+                    )
+        return host_interpreter, self._versions[host_interpreter]
 
     def execute(
         self, request: ExecutionRequest, *, tree: Path, inputs: Path, outputs: Path
     ) -> ExecutionResultEnvelope:
         started = time.monotonic()
-        mounts = {"{tree}": str(tree), "{inputs}": str(inputs), "{outputs}": str(outputs)}
+        mounts = {
+            "{tree}": str(tree),
+            "{inputs}": str(inputs),
+            "{outputs}": str(outputs),
+            # the host's temporary directory is the job's scratch area
+            "{scratch}": os.path.realpath(tempfile.gettempdir()),
+        }
         argv = [substitute(entry, mounts) for entry in request.argv_template]
         env = {name: os.environ[name] for name in HOST_PASSTHROUGH if name in os.environ}
         env.update({name: substitute(value, mounts) for name, value in request.environment})

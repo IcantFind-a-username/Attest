@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 STATUS_SCHEMA_VERSION = "attest.run-status.v1"
 
 FAILURE_CATEGORIES = (
+    "environment bootstrap failed",
     "no text returned",
     "unfaithful test",
     "environment or import failure",
@@ -29,6 +30,8 @@ FAILURE_CATEGORIES = (
 def categorise_failure(reason: str) -> str:
     """The category of one reproduction failure, from its recorded reason."""
     text = reason.lower()
+    if "environment bootstrap failed" in text or "isolation backend unavailable" in text:
+        return "environment bootstrap failed"
     if "generation_no_text" in text:
         return "no text returned"
     if "timed out" in text or "deadline" in text:

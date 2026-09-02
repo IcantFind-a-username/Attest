@@ -44,9 +44,9 @@ def certified_factory() -> CertifiedFactory:
         line: int = 24,
         candidate_id: str | None = None,
     ) -> CertifiedFinding:
-        candidate = candidate_id or hashlib.sha256(
-            f"{path}:{line}:{claim}".encode()
-        ).hexdigest()[:10]
+        candidate = (
+            candidate_id or hashlib.sha256(f"{path}:{line}:{claim}".encode()).hexdigest()[:10]
+        )
         task = CertificationTask(
             schema_version=CERTIFICATION_TASK_SCHEMA_VERSION,
             task_id="task-1",
@@ -172,3 +172,25 @@ def comparison_cli_authority(tmp_path: Path) -> tuple[Path, str]:
     authority_root = tmp_path / "comparison-owner"
     run_identity = hashlib.sha256(str(authority_root).encode("utf-8")).hexdigest()
     return authority_root, run_identity
+
+
+@pytest.fixture(autouse=True)
+def _host_executor_for_tests(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
+    """X-02: the product selects the container backend per task; the test
+    suite runs its reproductions on the host adapter unless a test asks for
+    the real selection with the ``real_backend`` marker."""
+    if request.node.get_closest_marker("real_backend") is not None:
+        yield
+        return
+    from attest.execution import backends
+    from attest.execution.local_adapter import LocalDevelopmentAdapter
+    from attest.execution.types import LOCAL_DEVELOPMENT_PROFILE
+    from attest.review import verification
+
+    def host_backend(tree, *, production):  # noqa: ANN001, ANN202
+        return backends.BackendSelection(
+            LocalDevelopmentAdapter(), LOCAL_DEVELOPMENT_PROFILE, "test host adapter"
+        )
+
+    monkeypatch.setattr(verification, "select_backend", host_backend)
+    yield
