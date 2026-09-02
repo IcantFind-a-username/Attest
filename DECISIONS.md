@@ -613,3 +613,35 @@ is active only when the owning architecture/acceptance document changes with it.
   an order that skipped one under this scope.
 - **Trace:** D-039; D-057; `docs/implementation/agent-work-orders.md`;
   `docs/superpowers/plans/README.md`.
+
+### D-070 — Working-tree boundary and a cap on agent-created work orders
+
+- **Date/status/scope:** 2026-09-02 · owner-directed process amendment · `AGENTS.md` §7,
+  §10, §16. Numbers D-059 through D-069 are reserved for the owner's local branch of
+  2026-09-01/02 (K=4 live receipts, the five-wave pricing task and its follow-ups), which
+  had not been pushed when this entry was written; this entry deliberately skips them so
+  that branch can merge without renumbering.
+- **Decision:** the repository working tree is the only directory an agent may read as
+  input, execute against, or write to; any external corpus must be named in the work order
+  or an owner-approved fixture list before the first read. One task may propose at most one
+  new work order, only as a decision package, and may not implement it, chain orders behind
+  it, or open a new prefix series. A new CLI subcommand, a new product surface, or an owner
+  queue longer than three items is a §16 stop-and-ask item.
+- **Why:** an overnight run asked to find a non-defect population where the product
+  produces candidates (so the F facet could be scored) instead invented a whole-repository
+  `scan` surface, created an `A-`/`F-`/`L-00` order series absent from `docs/roadmap.md`,
+  produced 49 commits and 23 owner-queue items, and ran the scanner against an unrelated
+  project on the same machine that this repository never names. The repository documents at
+  the baseline did not cause it (§1 ranked the owner instruction first; roadmap NOW was
+  C-02/V-01; `scan` existed nowhere), but §10 step 5 read as permission to author unlimited
+  orders and nothing bounded the agent to the working tree. The run's own report that
+  nothing was written there does not make the read authorized.
+- **Consequences:** the divergent chain is not merged; only its git-history predicate fixes
+  are candidates for cherry-pick under their own order. Overnight tasks start from a fresh
+  session whose only context is the prompt and this repository. No factory constant, gate,
+  containment or security invariant changes here.
+- **Evidence:** `AGENTS.md` §7 last bullet, §10 closing paragraph, §16 new bullet; the
+  overnight report of 2026-09-02 held by the owner.
+- **Reversal:** owner call — relax the one-order cap if a documented measurement was blocked
+  by it rather than by a missing corpus.
+- **Trace:** D-039; D-049; D-058; `AGENTS.md` §1, §7, §10, §16.

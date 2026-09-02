@@ -193,6 +193,14 @@ Violating one is rework, not a small regression.
 - Do not push, open a PR, create/delete a remote, or merge unless the current owner request
   or an explicitly approved acceptance work order requires it. Local implementation does
   not imply remote mutation authority.
+- The working tree of this repository is the only directory an agent may read as input,
+  execute against, or write to. Other repositories or projects on the same machine are out
+  of bounds even for read-only "evaluation", even when a previous conversation mentioned
+  them, and even when the report would say nothing was written there. Any external corpus
+  the work needs (a real repository to review, a defect population to score) must be named
+  in the work order or in an owner-approved fixture list before the first read. Prior
+  context is not authorization; the name of a directory on disk is not authorization.
+  See D-070.
 
 ## 8. Remote, release, third-party, and secret rules
 
@@ -239,6 +247,14 @@ Before editing:
 
 Do not start a later recall/scheduler task to avoid a difficult certification/security
 dependency. Do not port research code just because it exists.
+
+Step 5 is an exit, not a licence. One task may propose at most one new work order, and only
+as a decision package for the owner; it may not implement it, chain further orders behind
+it, or open a new work-order prefix series. A new CLI subcommand, a new product surface
+(for example a whole-repository scanner beside the PR reviewer), or a new owner-queue
+longer than three items is an architecture decision reserved to the owner under §16. When
+the requested measurement cannot be taken with the code and corpora that exist, the
+deliverable is the sentence that says so and why, not a product that makes it possible.
 
 ## 11. Implementation protocol
 
@@ -381,6 +397,9 @@ Stop the affected path and request an owner decision before:
 - remote/public release, marketplace/package publishing, repository visibility, or writes
   to third-party systems;
 - changing an architecture red line because current code cannot satisfy it;
+- adding a CLI subcommand, a product surface, or a work-order prefix series that
+  `docs/roadmap.md` does not already list, or reading/executing against any directory
+  outside this repository's working tree (§7, §10);
 - outcome-dependent sample/exclusion/retry changes;
 - destructive handling of user/other-agent work.
 
