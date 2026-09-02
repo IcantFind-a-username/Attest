@@ -649,3 +649,25 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** owner call — relax the one-order cap if a documented measurement was blocked
   by it rather than by a missing corpus.
 - **Trace:** D-039; D-049; D-058; `AGENTS.md` §1, §7, §10, §16.
+
+### D-071 — Mainline to the product and the owner's attention budget
+
+- **Date/status/scope:** 2026-09-02 · owner-directed · new `docs/mainline.md`;
+  `docs/roadmap.md` NOW row; `AGENTS.md` §10; `docs/README.md` authority table.
+- **Decision:** the remaining roadmap orders are worked in the fixed sequence of
+  `docs/mainline.md` §2 (C-02, C-03, C-04, R-03, R-01, V-01, E-02 pilot, C-05, V-02, X-01,
+  X-02, V-03, E-02 held-out, E-01, E-04, L-01); "product" is defined by its §1; the pilot
+  fork in its §4 chooses the next task from numbers; owner repositories, BugsInPy and
+  SWE-bench Verified are the corpora, with a committed dev/held-out split. Only §16 items
+  and the four decisions in mainline §5 reach the owner; everything else is the agent's,
+  logged in at most six lines; a handoff carries at most three owner items.
+- **Why:** the owner directs direction and does not read code; the last overnight produced
+  23 owner questions, which is a failed handoff. The roadmap's eight phases are correct as
+  dependencies but did not say what to do next without an owner round-trip, and no document
+  said which corpora could be used without asking.
+- **Consequences:** V-01 moves after R-03/R-01 (candidates before richer receipts); S-*,
+  N-01, X-03, R-04, pricing/F research and any scan surface are off the mainline until
+  after L-01. No gate threshold or factory constant changes.
+- **Reversal:** owner call — reorder if the step-7 pilot shows receipts, not candidates,
+  are the binding loss.
+- **Trace:** D-049; D-058; D-070; `docs/mainline.md`; `docs/roadmap.md` §3.

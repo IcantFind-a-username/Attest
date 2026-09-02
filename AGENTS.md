@@ -237,7 +237,16 @@ Violating one is rework, not a small regression.
 
 ## 10. Work-order selection
 
-`docs/roadmap.md` is the only owner of status and dependency order.
+`docs/roadmap.md` is the only owner of status and dependency order. `docs/mainline.md`
+fixes the sequence in which the remaining orders are worked, what "product" means, which
+corpora may be used without asking, and the four decisions reserved to the owner; the next
+task is its first unfinished step unless the owner says otherwise.
+
+The owner directs the destination and does not read code. Only §16 items and the four
+decisions in `docs/mainline.md` §5 go to the owner. Every other choice — library, layout,
+schema, retry, naming, tooling, test shape — is the agent's, decided by ordinary industry
+practice (search when unsure), recorded in a `DECISIONS.md` entry of at most six lines. A
+handoff is at most one page with at most three owner items, each a yes/no with a default.
 
 Before editing:
 
