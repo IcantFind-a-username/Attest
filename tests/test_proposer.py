@@ -124,11 +124,11 @@ def test_build_prompt_contains_diff() -> None:
     assert "risky = 1 / n" in build_prompt(DIFF)
 
 
-# The conservative default-budget boundary after reserving 2,400 output tokens
-# for all five calls is about 38,150 diff characters (proposer.py). Keep the
+# The conservative default-budget boundary after reserving 3,200 output tokens
+# for all five calls is about 26,000 diff characters (proposer.py). Keep the
 # fixture below that bound while exercising a much larger input than the live
 # truncation case that motivated the increase.
-LARGE_DIFF_CHARS = 37_000
+LARGE_DIFF_CHARS = 25_000
 
 
 class WorstCaseProvider:

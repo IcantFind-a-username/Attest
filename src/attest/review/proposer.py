@@ -58,7 +58,14 @@ from attest.review.schema import PROPOSAL_SCHEMA, Finding, validate_finding
 # so input_chars may reach (0.25 - 0.12) / 3.33e-6 = 39,000 chars — a diff
 # boundary of ~38,150 chars after prompt overhead. That explicit conservative
 # boundary is the cost of reserving the provider-enforced allowance up front.
-PROPOSER_MAX_OUTPUT_TOKENS = 2400
+#
+# 2026-09-02 (owner, after the dev-slice re-run): on the eight regression PRs 9 of
+# the 13 empty proposal samples had stopped at the 2,400 bound with the allowance
+# consumed by reasoning, so the bound is raised to 3,200. It is a runtime output
+# parameter, not a statistical constant; the reservation arithmetic above now
+# reads 5 x (input_chars/3 x $2e-6 + 3,200 x $1e-5) = input_chars x $3.33e-6 +
+# $0.16, a default-budget diff boundary of about 26,000 chars.
+PROPOSER_MAX_OUTPUT_TOKENS = 3200
 MAX_RESPONSE_FRAGMENT_CHARS = 500
 
 SYSTEM_PROMPT = """You are a code reviewer that reports ONLY high-severity defects: crashes, \
