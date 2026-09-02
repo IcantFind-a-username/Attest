@@ -77,7 +77,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     if args.code:
         env["PYTHONPATH"] = str(Path(args.code) / "src")
     spent = 0.0
-    log = open(args.log, "a", encoding="utf-8")
+    log = Path(args.log).open("a", encoding="utf-8")  # noqa: SIM115 - appended across the loop
     for row in plan:
         sha = row["sha"]
         subprocess.run(["git", "-C", str(CORPUS), "checkout", "-q", "--detach", sha], check=True)
@@ -129,7 +129,8 @@ def cmd_table(args: argparse.Namespace) -> int:
     plan = {r["sha"]: r for r in json.loads(PLAN.read_text())}
     blocks = re.split(r"^=== e01 ", text, flags=re.M)[1:]
     print(
-        "| class | commit | files | units | candidates | eligible | reproductions | published | spend |"
+        "| class | commit | files | units | candidates | eligible | reproductions | "
+        "published | spend |"
     )
     print("|---|---|---|---|---|---|---|---|---|")
     published_total = 0
@@ -141,7 +142,8 @@ def cmd_table(args: argparse.Namespace) -> int:
             continue
         cls, sha = parts[0], parts[1]
         status = re.search(
-            r"change units read: (\d+); candidates: (\d+); eligible: (\d+); reproductions attempted: (\d+); certified: (\d+); published: (\d+)",
+            r"change units read: (\d+); candidates: (\d+); eligible: (\d+); "
+            r"reproductions attempted: (\d+); certified: (\d+); published: (\d+)",
             body,
         )
         spend = re.search(r"spend \$([0-9.]+) of", body)
@@ -150,7 +152,8 @@ def cmd_table(args: argparse.Namespace) -> int:
         spend_total += amount
         published_total += int(cells[5]) if status else 0
         print(
-            f"| {cls} | `{sha}` {plan[sha]['message'][:60]} | {plan[sha]['files']} | {cells[0]} | {cells[1]} | {cells[2]} | {cells[3]} | {cells[5]} | ${amount:.4f} |"
+            f"| {cls} | `{sha}` {plan[sha]['message'][:60]} | {plan[sha]['files']} | "
+            f"{cells[0]} | {cells[1]} | {cells[2]} | {cells[3]} | {cells[5]} | ${amount:.4f} |"
         )
     print(f"\npublications: {published_total}/{len(plan)} commits; spend ${spend_total:.4f}")
     return 0

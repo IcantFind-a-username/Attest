@@ -244,9 +244,7 @@ def cmd_build(args: argparse.Namespace) -> int:
             )
     # the container backend (X-02) builds its own image from the tree; the
     # host virtualenv is only needed by the development adapter
-    manifest["project_python"] = (
-        sys.executable if args.no_env else str(_make_env(case, worktree))
-    )
+    manifest["project_python"] = sys.executable if args.no_env else str(_make_env(case, worktree))
     (case / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2))
     return 0

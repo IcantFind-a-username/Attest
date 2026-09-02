@@ -43,7 +43,10 @@ def cmd_plan(_args: argparse.Namespace) -> int:
             {
                 "defects": defects,
                 "controls": controls,
-                "rule": "held-out slice, feasible repositories, sorted ids, first 40; controls: test-only per defect, docs-only for the first 40-n",
+                "rule": (
+                    "held-out slice, feasible repositories, sorted ids, first 40; "
+                    "controls: test-only per defect, docs-only for the first 40-n"
+                ),
             },
             indent=2,
         )
@@ -187,14 +190,17 @@ def cmd_table(_args: argparse.Namespace) -> int:
         return out
 
     print(
-        "| population | n | candidates | eligible | certified | published | samples | truncated | boundary hits | cache read share | spend |"
+        "| population | n | candidates | eligible | certified | published | samples | "
+        "truncated | boundary hits | cache read share | spend |"
     )
     print("|---|---|---|---|---|---|---|---|---|---|---|")
     for name, group in (("defects", defects), ("controls", controls)):
         a = agg(group)
         share = a["cache_read"] / a["prompt_tokens"] if a["prompt_tokens"] else 0.0
         print(
-            f"| {name} | {a['n']} | {a['candidates']} | {a['eligible']} | {a['certified']} | {a['published']} | {a['samples']} | {a['truncated']} | {a['boundary_hits']} | {share:.0%} | ${a['spend']:.4f} |"
+            f"| {name} | {a['n']} | {a['candidates']} | {a['eligible']} | {a['certified']} | "
+            f"{a['published']} | {a['samples']} | {a['truncated']} | {a['boundary_hits']} | "
+            f"{share:.0%} | ${a['spend']:.4f} |"
         )
     cert_defects = sum(1 for r in defects if r["certified"] > 0)
     pub_defects = sum(1 for r in defects if r["published"] > 0)
@@ -202,16 +208,19 @@ def cmd_table(_args: argparse.Namespace) -> int:
     fp = sum(r["published"] for r in controls)
     print()
     print(
-        f"per defect: certified on {cert_defects}/{len(defects)}, published on {pub_defects}/{len(defects)}, with an eligible candidate {elig_defects}/{len(defects)}"
+        f"per defect: certified on {cert_defects}/{len(defects)}, published on "
+        f"{pub_defects}/{len(defects)}, with an eligible candidate {elig_defects}/{len(defects)}"
     )
     print(f"control false publications: {fp}/{len(controls)} cases")
     if pub_defects + fp:
         print(
-            f"precision (published defect findings / all published): {pub_defects}/{pub_defects + fp} = {pub_defects / (pub_defects + fp):.2f}"
+            f"precision (published defect findings / all published): "
+            f"{pub_defects}/{pub_defects + fp} = {pub_defects / (pub_defects + fp):.2f}"
         )
     if defects:
         print(
-            f"recall per defect: {cert_defects}/{len(defects)} = {cert_defects / len(defects):.2f}; eligible detection: {cert_defects}/{elig_defects}"
+            f"recall per defect: {cert_defects}/{len(defects)} = "
+            f"{cert_defects / len(defects):.2f}; eligible detection: {cert_defects}/{elig_defects}"
         )
     silent = [r for r in defects if r["published"] == 0]
     reasons = Counter()
@@ -228,14 +237,16 @@ def cmd_table(_args: argparse.Namespace) -> int:
     print(f"silence rate on defects: {len(silent)}/{len(defects)}; reasons: {dict(reasons)}")
     total = agg(rows)
     print(
-        f"truncation rate: {total['truncated']}/{total['samples']} samples; diff boundary hits: {total['boundary_hits']}"
+        f"truncation rate: {total['truncated']}/{total['samples']} samples; "
+        f"diff boundary hits: {total['boundary_hits']}"
     )
     print()
     print("| case | control | candidates | eligible | certified | published | failures | spend |")
     print("|---|---|---|---|---|---|---|---|")
     for r in rows:
         print(
-            f"| {r['case']} | {r['control']} | {r['candidates']} | {r['eligible']} | {r['certified']} | {r['published']} | {r['failures'] or '-'} | ${r['spend']:.4f} |"
+            f"| {r['case']} | {r['control']} | {r['candidates']} | {r['eligible']} | "
+            f"{r['certified']} | {r['published']} | {r['failures'] or '-'} | ${r['spend']:.4f} |"
         )
     return 0
 
