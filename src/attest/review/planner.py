@@ -16,6 +16,7 @@ import ast
 import hashlib
 import re
 import subprocess
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,11 +37,14 @@ _SKIP_DIRS = {".git", ".attest", ".venv", "venv", "node_modules", "build", "dist
 _DEF_RE = re.compile(r"^[-+]\s*(?:async\s+)?(?:def|class)\s+([A-Za-z_][A-Za-z0-9_]*)")
 _DIFF_GIT_RE = re.compile(r"^diff --git a/(.+?) b/(.+)$")
 _HUNK_HEADER_RE = re.compile(r"^@@ [^@]* @@")
+_HUNK_RANGES_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+_IMPORT_RE = re.compile(r"^(?:import\s|from\s+\S+\s+import\s)")
+MAX_IMPORT_LINES = 40
 
 
 @dataclass(frozen=True)
 class ContextSnippet:
-    kind: str  # "definition" | "caller" | "old_side" | "test"
+    kind: str  # "imports" | "definition" | "caller" | "old_side" | "test"
     symbol: str
     path: str
     start: int
@@ -51,6 +55,7 @@ class ContextSnippet:
         if self.kind == "test":
             return f"- {self.path}::{self.text} (references `{self.symbol}`)"
         title = {
+            "imports": "module imports at head",
             "definition": f"definition of `{self.symbol}` at head",
             "caller": f"caller of `{self.symbol}` outside the diff",
             "old_side": f"definition of `{self.symbol}` at the merge-base (old side)",
@@ -100,7 +105,7 @@ class ReviewPlan:
                     "context_chars": len(unit.prompt_context()),
                     "context": {
                         kind: sum(1 for s in unit.context if s.kind == kind)
-                        for kind in ("definition", "caller", "old_side", "test")
+                        for kind in ("imports", "definition", "caller", "old_side", "test")
                     },
                     "omissions": list(unit.omissions),
                 }
@@ -139,8 +144,57 @@ class ChangedSymbol:
     kind: str  # "added" | "removed" | "changed"
 
 
-def changed_symbols(path: str, block: str) -> list[ChangedSymbol]:
-    """Definitions whose def/class line appears on either side of the diff."""
+def hunk_ranges(block: str) -> list[tuple[int, int, int, int]]:
+    """(old_start, old_end, new_start, new_end) per hunk, inclusive, 1-based."""
+    ranges = []
+    for line in block.splitlines():
+        m = _HUNK_RANGES_RE.match(line)
+        if not m:
+            continue
+        old_start = int(m.group(1))
+        old_count = int(m.group(2)) if m.group(2) is not None else 1
+        new_start = int(m.group(3))
+        new_count = int(m.group(4)) if m.group(4) is not None else 1
+        ranges.append(
+            (
+                old_start,
+                old_start + max(old_count, 1) - 1,
+                new_start,
+                new_start + max(new_count, 1) - 1,
+            )
+        )
+    return ranges
+
+
+def _enclosing_definitions(source: str | None, spans: list[tuple[int, int]]) -> set[str]:
+    """Names of the innermost function (else class) definitions touching ``spans``."""
+    if not source:
+        return set()
+    tree = _parse(source)
+    if tree is None:
+        return set()
+    names: set[str] = set()
+    for start, end in spans:
+        best: tuple[int, str] | None = None  # (span length, name): innermost wins
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            node_end = node.end_lineno or node.lineno
+            if node_end < start or node.lineno > end:
+                continue
+            length = node_end - node.lineno
+            if best is None or length < best[0]:
+                best = (length, node.name)
+        if best is not None:
+            names.add(best[1])
+    return names
+
+
+def changed_symbols(
+    path: str, block: str, head_source: str | None, base_source: str | None
+) -> list[ChangedSymbol]:
+    """Definitions changed by the diff: def/class lines on either side, plus the
+    definitions enclosing each hunk's old and new line ranges."""
     removed: set[str] = set()
     added: set[str] = set()
     for line in block.splitlines():
@@ -148,11 +202,16 @@ def changed_symbols(path: str, block: str) -> list[ChangedSymbol]:
         if not m:
             continue
         (removed if line.startswith("-") else added).add(m.group(1))
+    ranges = hunk_ranges(block)
+    head_names = _enclosing_definitions(head_source, [(r[2], r[3]) for r in ranges])
+    base_names = _enclosing_definitions(base_source, [(r[0], r[1]) for r in ranges])
     symbols = []
-    for name in sorted(removed | added):
-        kind = "changed" if name in removed and name in added else (
-            "removed" if name in removed else "added"
-        )
+    for name in sorted(removed | added | head_names | base_names):
+        in_base = name in removed or name in base_names
+        in_head = name in added or name in head_names
+        if name in removed and name not in added and name not in head_names:
+            in_head = False
+        kind = "changed" if in_base and in_head else ("removed" if in_base else "added")
         symbols.append(ChangedSymbol(name=name, path=path, kind=kind))
     return symbols
 
@@ -169,6 +228,24 @@ def _python_files(repo: Path) -> list[Path]:
         if len(files) >= MAX_SCANNED_FILES:
             break
     return files
+
+
+class _Corpus:
+    """The repository's Python sources, read once per plan."""
+
+    def __init__(self, repo: Path) -> None:
+        self.repo = repo
+        self._sources: list[tuple[str, str]] | None = None
+
+    def sources(self) -> list[tuple[str, str]]:
+        if self._sources is None:
+            loaded: list[tuple[str, str]] = []
+            for path in _python_files(self.repo):
+                source = _read(path)
+                if source is not None:
+                    loaded.append((path.relative_to(self.repo).as_posix(), source))
+            self._sources = loaded
+        return self._sources
 
 
 def _read(path: Path) -> str | None:
@@ -192,10 +269,19 @@ def show_file_at(repo: Path, ref: str, path: str) -> str | None:
     return shown.stdout.decode("utf-8", errors="replace")
 
 
-def _definition_source(source: str, name: str) -> tuple[int, int, str] | None:
+def _parse(source: str) -> ast.Module | None:
+    """Parse without letting a corpus file's escape-sequence warnings leak out."""
     try:
-        tree = ast.parse(source)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", SyntaxWarning)
+            return ast.parse(source)
     except (ValueError, SyntaxError, RecursionError):
+        return None
+
+
+def _definition_source(source: str, name: str) -> tuple[int, int, str] | None:
+    tree = _parse(source)
+    if tree is None:
         return None
     for node in ast.walk(tree):
         if (
@@ -209,16 +295,16 @@ def _definition_source(source: str, name: str) -> tuple[int, int, str] | None:
     return None
 
 
-def _callers(repo: Path, symbol: ChangedSymbol, diff: DiffInfo) -> tuple[list[ContextSnippet], int]:
+def _callers(
+    corpus: _Corpus, symbol: ChangedSymbol, diff: DiffInfo
+) -> tuple[list[ContextSnippet], int]:
     """Call sites of ``symbol`` outside the diff hunks, bounded; returns (kept, dropped)."""
     pattern = re.compile(rf"(?<![\w.]){re.escape(symbol.name)}\s*\(")
     method = re.compile(rf"\.{re.escape(symbol.name)}\s*\(")
     hits: list[ContextSnippet] = []
-    for path in _python_files(repo):
-        rel = path.relative_to(repo).as_posix()
-        source = _read(path)
-        if source is None:
-            continue
+    for rel, source in corpus.sources():
+        if "test" in rel.lower():
+            continue  # tests are retrieved separately as references
         lines = source.splitlines()
         for index, line in enumerate(lines, start=1):
             if not (pattern.search(line) or method.search(line)):
@@ -243,18 +329,13 @@ def _callers(repo: Path, symbol: ChangedSymbol, diff: DiffInfo) -> tuple[list[Co
     return hits[:MAX_CALLERS_PER_SYMBOL], max(0, len(hits) - MAX_CALLERS_PER_SYMBOL)
 
 
-def _test_references(repo: Path, names: list[str]) -> tuple[list[ContextSnippet], int]:
+def _test_references(corpus: _Corpus, names: list[str]) -> tuple[list[ContextSnippet], int]:
     refs: list[ContextSnippet] = []
-    for path in _python_files(repo):
-        rel = path.relative_to(repo).as_posix()
+    for rel, source in corpus.sources():
         if "test" not in rel.lower():
             continue
-        source = _read(path)
-        if source is None:
-            continue
-        try:
-            tree = ast.parse(source)
-        except (ValueError, SyntaxError, RecursionError):
+        tree = _parse(source)
+        if tree is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -279,16 +360,33 @@ def _test_references(repo: Path, names: list[str]) -> tuple[list[ContextSnippet]
     return refs[:MAX_TEST_REFERENCES], max(0, len(refs) - MAX_TEST_REFERENCES)
 
 
+def _import_block(source: str) -> tuple[int, int, str] | None:
+    lines = source.splitlines()
+    kept = [
+        (index, line)
+        for index, line in enumerate(lines[:400], start=1)
+        if _IMPORT_RE.match(line)
+    ][:MAX_IMPORT_LINES]
+    if not kept:
+        return None
+    return kept[0][0], kept[-1][0], "\n".join(line for _index, line in kept)
+
+
 def _file_context(
-    repo: Path, base_ref: str, path: str, block: str, diff: DiffInfo
+    repo: Path, corpus: _Corpus, base_ref: str, path: str, block: str, diff: DiffInfo
 ) -> tuple[list[ContextSnippet], list[str]]:
     snippets: list[ContextSnippet] = []
     omissions: list[str] = []
     if not path.endswith(".py"):
         return snippets, omissions
-    symbols = changed_symbols(path, block)
     head_source = _read(repo / path)
-    base_source: str | None = None
+    base_source = show_file_at(repo, base_ref, path)
+    symbols = changed_symbols(path, block, head_source, base_source)
+    if head_source is not None:
+        imports = _import_block(head_source)
+        if imports is not None:
+            start, end, text = imports
+            snippets.append(ContextSnippet("imports", path, path, start, end, text))
     for symbol in symbols:
         if symbol.kind in ("changed", "added") and head_source is not None:
             found = _definition_source(head_source, symbol.name)
@@ -298,18 +396,16 @@ def _file_context(
                     ContextSnippet("definition", symbol.name, path, start, end, text)
                 )
         if symbol.kind in ("changed", "removed"):
-            if base_source is None:
-                base_source = show_file_at(repo, base_ref, path) or ""
             found = _definition_source(base_source, symbol.name) if base_source else None
             if found is not None:
                 start, end, text = found
                 snippets.append(ContextSnippet("old_side", symbol.name, path, start, end, text))
-            callers, dropped = _callers(repo, symbol, diff)
+            callers, dropped = _callers(corpus, symbol, diff)
             snippets.extend(callers)
             if dropped:
                 omissions.append(f"{dropped} further caller(s) of {symbol.name} omitted")
     if symbols:
-        tests, dropped = _test_references(repo, [s.name for s in symbols])
+        tests, dropped = _test_references(corpus, [s.name for s in symbols])
         snippets.extend(tests)
         if dropped:
             omissions.append(f"{dropped} further test reference(s) omitted")
@@ -336,7 +432,7 @@ def _bound_context(
     used = 0
     dropped = 0
     # callers first: they are the cross-file evidence the diff cannot show
-    priority = {"caller": 0, "old_side": 1, "definition": 2, "test": 3}
+    priority = {"imports": 0, "old_side": 1, "caller": 2, "definition": 3, "test": 4}
     for snippet in sorted(snippets, key=lambda s: (priority[s.kind], s.path, s.start)):
         rendered = len(snippet.render()) + 2
         if used + rendered > MAX_CONTEXT_CHARS:
@@ -355,11 +451,12 @@ def _bound_context(
 def plan_review(repo: Path, diff: DiffInfo, base_ref: str) -> ReviewPlan:
     """Stable units over the merge-base diff, each with bounded retrieved context."""
     blocks = split_diff_by_file(diff.text)
+    corpus = _Corpus(repo)
     per_file: list[tuple[str, list[ContextSnippet], list[str]]] = []
     for path in sorted(blocks):
         if path not in diff.hunks:
             continue  # no anchorable new-file lines (binary, mode-only)
-        snippets, omissions = _file_context(repo, base_ref, path, blocks[path], diff)
+        snippets, omissions = _file_context(repo, corpus, base_ref, path, blocks[path], diff)
         per_file.append((path, snippets, omissions))
 
     units: list[PlanUnit] = []
