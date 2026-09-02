@@ -102,8 +102,9 @@ Do not confuse target contracts with current behavior:
 - since C-05 (`2b3d4c9`) the author-visible cap is real across inline and summary
   (`min(3, max_findings)`), and same-defect certified findings publish once;
 - since V-01 (`cf5c356`) head/base execution binds the exact node, test bytes, per-run
-  command/interpreter/environment identity and verifies offline from its bundle; semantic
-  binding (V-02), fresh state and authenticated provenance (V-03) are still missing;
+  command/interpreter/environment identity and verifies offline from its bundle, and since
+  V-02 (`dd99320`) a head failure must have executed a changed line of the anchored file;
+  fresh state and authenticated provenance (V-03) are still missing;
 - current language-level process/network guards are best-effort containment, not a security
   boundary for untrusted head code;
 - the current process audit covers the entire reproduction pytest interpreter, so trusted

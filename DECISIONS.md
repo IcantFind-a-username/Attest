@@ -770,3 +770,13 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** owner answer 3 of 2026-09-02; verified together with C-05 on the next dev-slice re-run rather than alone.
 - **Limits:** the classification is by stop reason and output size, not by reading the samples; a repair sample under R-02 already recovers some of these.
 - **Reversal:** if the re-run shows no fewer exhausted samples, the bound returns to 2,400.
+
+
+### D-083 — V-02: differential evidence must execute a changed line
+
+- **Date/status/scope:** 2026-09-02 · active · new `certification/binding.py`, `review/executor.py` (tracer, binding), `certification/types.py` (receipt v3: `binding_policy_version`, `binding_digest`; policy `binding_policy_version`), `certification/validate.py`, `review/evidence.py`, benchmark status map.
+- **Decision:** the guard preamble traces the anchored file with `sys.settrace` and every run records the lines it executed; the binding observation is the set of the anchored file's changed lines (its diff hunks between base and head) executed on every head run. Policy `attest.binding.changed-line-coverage.v1` accepts only when that set is non-empty; otherwise the differential result is a typed `UNBOUND` abstention that buys no evidence. The receipt binds the policy version and the observation digest, the bundle stores the observation and the offline verifier recomputes it.
+- **Why:** `G-SEM-002`: a test that fails on head and passes on base without running the changed code (reading the source text, an unrelated known failure) proved the diff changed *something*, not the claim; the mainline RED demands its rejection.
+- **Comparison (mainline §2 step 9):** changed-line coverage costs no extra run and is deterministic; the base run already is the whole-diff ablation; mutation of the alleged cause and dependency slicing each need additional executions per candidate and stay unadopted; blind semantic adjudication is E-02's measurement, not a runtime policy.
+- **Limits:** line coverage proves the changed code ran, not that the claim's semantics hold; the G-SEM-002 pilot (≥30 legitimate regressions, all adversarial classes, preregistered) is not run in this window; tracing covers the main thread only (threads are already blocked).
+- **Reversal:** a stronger policy version supersedes this one; receipts record which policy bound them.
