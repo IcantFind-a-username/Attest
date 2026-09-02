@@ -834,3 +834,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** the us-stock-helper trials: six of six haiku reproductions and the diagnostic sonnet-5 attempts guessed constructor arguments, field names and package paths (`GenericFeedAdapter.__init__() missing 'config' and 'transport'`, `OHLCVBar(date=)`), while the project's own test helpers construct them correctly.
 - **Limits:** the bound is on characters, not on relevance; the paid check is the trial A re-run (a), where the generated test must import the right package path and fail on head, pass on base.
 - **Reversal:** if re-run (b) shows no gain in faithful reproductions, drop the helper section and keep signatures.
+
+
+### D-090 — `attest review` runs the differential stage CI runs; one verification stage, full commit ids at the entry
+
+- **Date/status/scope:** 2026-09-03 · owner fix 5 (2026-09-03) · new `review/verification.py` (`run_verification_stage`, `CERTIFICATION_REPEATS`), `review/ci.py` (calls it), `review/run.py` (`verify`, `resolve_full_sha`, `ReviewRun.certified/published/verification_reasons`), `cli/main.py` (`review --verification-timeout`, certified findings rendered), `review/report.py` unchanged.
+- **Decision:** the verification stage — differential reproduction for every regression-eligible, non-discarded candidate, one certification attempt each, the C-05 family policy and the hard cap, with the same ledger rows — is one function that CI and the local review both call. `attest review` runs it whenever the working tree is clean at a committed HEAD and `--base` resolves to a different commit; otherwise it says so ("verification skipped: … commit the change and pass --base <ref>") instead of pointing at `attest verify`, which records self-reports only. Base and head are resolved to 40-hex commit ids at the entry, so the executor, the worktrees and the certificate validator bind one identity.
+- **Why:** the us-stock-helper trials: `attest review` never ran reproduction and its note sent the operator to a command that certifies nothing; short ids reached the validator as `task_invalid`.
+- **Limits:** the local repository id is the literal `local`; the local policy digest is the caller-config digest, not a base-owned file.
+- **Reversal:** none foreseen; CI behaviour is byte-for-byte the previous inline code.

@@ -13,13 +13,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from attest.certification.selection import (
-    PUBLICATION_METHOD,
-    PUBLICATION_POLICY_SCHEMA_VERSION,
-    FamilyPolicy,
-    ScoredFinding,
-    select_for_publication,
-)
 from attest.certification.types import CertifiedFinding
 from attest.github.client import (
     STATUS_MARKER,
@@ -34,25 +27,17 @@ from attest.github.presentation import (
     render_deferred,
     render_running,
 )
-from attest.review.candidates import CandidateStore
-from attest.review.certify import (
-    EXECUTOR_PROFILE,
-    attempt_certification,
-    certification_policy,
-    certification_task,
-)
 from attest.review.config import ReviewConfig, resolve_review_policy
 from attest.review.diffs import resolve_merge_base
-from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
-from attest.review.gate import GateResult
+from attest.review.executor import ExecutorLimits
 from attest.review.ledger import Ledger
 from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
+from attest.review.verification import CERTIFICATION_REPEATS, run_verification_stage
 
 DELIVERY_TRANSCRIPT_SCHEMA_VERSION = 1
 DELIVERY_TRANSCRIPT_PROTOCOL = "attest.delivery-transcript.v1"
-# differential repeats per side; the certification policy demands exactly this many
-CERTIFICATION_REPEATS = 3
+__all__ = ["CERTIFICATION_REPEATS", "run_ci"]
 
 
 @dataclass
@@ -1261,141 +1246,25 @@ def run_ci(
             clock=clock,
         )
 
-    verification_started = clock()
-    deadline = verification_started + verification_timeout_s
-    default_limits = limits or ExecutorLimits()
-    results_by_id: dict[str, GateResult] = {
-        result.finding.finding_id: result for result in review.results
-    }
-    # S and T rank; they never speak. Every candidate they did not discard is
-    # sent through differential execution, and only a validator-accepted
-    # receipt can make it author-visible (INV-CERT-001).
-    candidates = [
-        candidate
-        for candidate in CandidateStore(repo).load(task_id)
-        if candidate.action != "discard"
-    ]
-    policy = certification_policy(CERTIFICATION_REPEATS)
-    certification = certification_task(
+    stage = run_verification_stage(
+        repo,
         task_id=task_id,
         repository_id=context.repository,
-        merge_base_sha=merge_base,
+        base_sha=merge_base,
         head_sha=context.head_sha,
-        diff_digest=review.diff_digest,
-        policy_source_sha=merge_base,
-        policy=policy,
+        review=review,
         review_policy_digest=resolved.policy_digest,
+        config=config,
+        provider=provider,
+        limits=limits,
+        verification_timeout_s=verification_timeout_s,
+        clock=clock,
     )
-    certified_by_id: dict[str, CertifiedFinding] = {}
-    verification_defers: list[str] = []
-    for index, candidate in enumerate(candidates):
-        if candidate.eligibility != "regression":
-            # typed abstention before any paid generation; not a verification
-            # DEFER and never part of the eligible denominator
-            ledger.append(
-                {
-                    "kind": "certification",
-                    "task_id": task_id,
-                    "finding_id": candidate.finding.finding_id,
-                    "outcome": "not_attempted",
-                    "reason": (
-                        f"ineligible: {candidate.eligibility}: "
-                        f"{candidate.eligibility_reason}"
-                    ),
-                    "executor_profile": EXECUTOR_PROFILE,
-                }
-            )
-            continue
-        remaining_s = max(0.0, deadline - clock())
-        if remaining_s <= 0:
-            reason = (
-                "shared verification deadline exceeded "
-                f"after {verification_timeout_s:g}s"
-            )
-            for unprocessed in candidates[index:]:
-                ledger.record_verification(
-                    task_id=unprocessed.task_id,
-                    finding_id=unprocessed.finding.finding_id,
-                    outcome=ExecutionOutcome.DEFERRED.value,
-                    reason=reason,
-                    elapsed_s=0.0,
-                    network_blocked=False,
-                    evidence="",
-                )
-                verification_defers.append(reason)
-            break
-        verification = verify_candidate(
-            repo,
-            candidate,
-            results_by_id[candidate.finding.finding_id],
-            provider,
-            review.budget,
-            default_limits,
-            base_sha=merge_base,
-            head_sha=context.head_sha,
-            repeats=CERTIFICATION_REPEATS,
-            deadline=deadline,
-            clock=clock,
-        )
-        results_by_id[candidate.finding.finding_id] = verification.gate_result
-        if verification.execution.outcome is ExecutionOutcome.DEFERRED:
-            verification_defers.append(verification.execution.reason)
-        attempt = attempt_certification(
-            certification,
-            policy,
-            candidate,
-            verification,
-            limits=default_limits,
-            bundle_root=repo,
-        )
-        ledger.append(attempt.to_ledger_row(task_id))
-        if attempt.finding is not None:
-            certified_by_id[candidate.finding.finding_id] = attempt.finding
-
+    results_by_id = stage.results_by_id
+    verification_defers = stage.verification_defers
     updated_results = list(results_by_id.values())
-    # C-05 (INV-FAMILY-001): same-defect certified findings count once, a
-    # finding publishes only at e-value >= m/alpha for the m eligible candidates
-    # in this PR, and at most the hard cap is author-visible anywhere
-    eligible_ids = [
-        candidate.finding.finding_id
-        for candidate in candidates
-        if candidate.eligibility == "regression"
-    ]
-    family = FamilyPolicy(
-        alpha=review.alpha,
-        eligible_count=len(eligible_ids),
-        hard_cap=min(3, config.max_findings),
-    )
-    selection = select_for_publication(
-        [
-            ScoredFinding(finding, results_by_id[_candidate_id(finding)].wealth)
-            for finding in certified_by_id.values()
-        ],
-        family,
-        [results_by_id[finding_id].wealth for finding_id in eligible_ids],
-    )
-    ledger.append(
-        {
-            "kind": "publication_policy",
-            "schema_version": PUBLICATION_POLICY_SCHEMA_VERSION,
-            "task_id": task_id,
-            "method": PUBLICATION_METHOD,
-            "alpha": review.alpha,
-            "eligible_count": family.eligible_count,
-            "family_threshold": round(selection.family_threshold, 6),
-            "hard_cap": family.hard_cap,
-            "mean_e_value": (
-                None if selection.mean_e_value is None else round(selection.mean_e_value, 6)
-            ),
-            "clusters": [list(cluster) for cluster in selection.clusters],
-            "published": [_candidate_id(finding) for finding in selection.published],
-            "suppressed": [
-                {"finding_id": _candidate_id(item.finding), "reason": item.reason}
-                for item in selection.suppressed
-            ],
-        }
-    )
-    inline_results = list(selection.published)
+    selection_published = stage.published
+    inline_results = list(selection_published)
     overflow_results: list[CertifiedFinding] = []  # the cap is author-visible, not layout
     surfaced = [*inline_results, *overflow_results]
     published_ids = {_candidate_id(finding) for finding in inline_results}

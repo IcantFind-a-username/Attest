@@ -100,7 +100,10 @@ def test_review_verify_feedback_stats(repo: Path, mocks: list[str], capsys) -> N
     assert rc == 0
     assert "no findings cleared the evidence bar" in out
     assert "drawer (1 candidate(s)" in out
-    assert "reachable only" in out  # feasibility transparency note
+    # the local differential stage runs after ranking; on a working-tree diff
+    # (no committed head) it says so instead of pointing at 'attest verify'
+    assert "verification skipped" in out
+    assert "attest verify" not in out
     assert "divides by zero" in out or "Division by zero" in out
 
     ledger_path = repo / ".attest" / "ledger.jsonl"

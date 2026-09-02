@@ -170,3 +170,121 @@ def test_unreachable_gate_records_explainable_defer_and_zero_spend_run(repo: Pat
     assert [row["kind"] for row in rows] == ["defer", "review_run"]
     assert rows[0]["reason"] == "unreachable gate"
     assert rows[1]["spend_usd"] == 0.0
+
+
+class PlantedProvider:
+    """Proposes the planted regression, then generates its reproduction."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def sample(
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, object],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
+    ):
+        from attest.review.proposer import ProviderResult
+
+        self.calls += 1
+        if "focused pytest reproduction" in system:
+            payload = json.dumps(
+                {
+                    "test_body": "import runpy\n\n"
+                    "def test_average_handles_empty_input():\n"
+                    "    average = runpy.run_path('app.py')['average']\n"
+                    "    assert average([]) == 0\n"
+                }
+            )
+        else:
+            payload = json.dumps(
+                {
+                    "findings": [
+                        {
+                            "claim": "average() divides by zero when items is empty.",
+                            "anchor": {"file": "app.py", "line": 2},
+                            "failure_scenario": "average([]) raises ZeroDivisionError",
+                            "falsification_plan": "call average([]) and require 0",
+                        }
+                    ]
+                }
+            )
+        return ProviderResult(text=payload, input_tokens=10, output_tokens=10)
+
+
+def _plant_regression(tmp_path: Path) -> tuple[Path, str, str]:
+    def git(*args: str) -> str:
+        completed = subprocess.run(
+            ["git", "-C", str(tmp_path), *args], check=True, capture_output=True, text=True
+        )
+        return completed.stdout.strip()
+
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test")
+    (tmp_path / "app.py").write_text(
+        "def average(items):\n"
+        "    if not items:\n"
+        "        return 0\n"
+        "    return sum(items) / len(items)\n",
+        encoding="utf-8",
+    )
+    git("add", "app.py")
+    git("commit", "-m", "base")
+    base_sha = git("rev-parse", "HEAD")
+    (tmp_path / "app.py").write_text(
+        "def average(items):\n    return sum(items) / len(items)\n", encoding="utf-8"
+    )
+    git("add", "app.py")
+    git("commit", "-m", "regress average to divide by zero")
+    return tmp_path, base_sha, git("rev-parse", "HEAD")
+
+
+def test_local_review_runs_the_differential_stage_and_publishes_a_receipt(
+    tmp_path: Path,
+) -> None:
+    """Fix 5 (2026-09-03): ``attest review`` runs the same differential
+    reproduction stage as CI; a short base id is normalised to the full commit
+    at the entry so the executor and the certificate agree on one identity."""
+    from attest.review.executor import ExecutorLimits
+    from attest.review.report import render
+
+    repo, base_sha, head_sha = _plant_regression(tmp_path)
+    review = run_review(
+        repo,
+        base_sha[:7],
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        PlantedProvider(),
+        verify=True,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    assert len(review.published) == 1, review.notes
+    receipt = review.published[0].accepted_receipt.receipt
+    assert receipt.merge_base_sha == base_sha
+    assert receipt.head_sha == head_sha
+    assert receipt.candidate_id == review.results[0].finding.finding_id
+    rows = [
+        json.loads(line)
+        for line in (repo / ".attest" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    accepted = [
+        r for r in rows if r.get("kind") == "certification" and r.get("outcome") == "accepted"
+    ]
+    assert len(accepted) == 1
+    assert not any("attest verify" in note for note in review.notes)
+    text = render(
+        review.outcome,
+        review.alpha,
+        review.budget.spent_usd,
+        0.25,
+        review.elapsed_s,
+        notes=review.notes,
+        certified=review.published,
+    )
+    assert "certified findings" in text
+    assert "head FAIL 3/3, base PASS 3/3" in text
+

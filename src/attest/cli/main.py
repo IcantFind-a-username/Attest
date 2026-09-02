@@ -53,7 +53,14 @@ def cmd_review(args: argparse.Namespace) -> int:
         provider = MockProvider([Path(p).read_text(encoding="utf-8") for p in args.mock])
     else:
         provider = ApiProvider(config.model)
-    review = run_review(repo, args.base, config, provider)
+    review = run_review(
+        repo,
+        args.base,
+        config,
+        provider,
+        verify=True,
+        verification_timeout_s=args.verification_timeout,
+    )
     if review.notes == ["no diff to review."]:
         print(review.notes[0])
         return 0
@@ -69,6 +76,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             review.elapsed_s,
             deferred_reason=review.deferred_reason,
             notes=review.notes,
+            certified=review.published,
         )
     )
     return 0
@@ -245,6 +253,12 @@ def main(argv: list[str] | None = None) -> int:
     p_review.add_argument("--budget", type=float, default=None, help="USD cap for this review")
     p_review.add_argument("--model", default=None)
     p_review.add_argument("--k", type=int, default=None, help="proposer samples")
+    p_review.add_argument(
+        "--verification-timeout",
+        type=float,
+        default=600.0,
+        help="shared time limit for the differential reproduction stage, in seconds",
+    )
     p_review.add_argument(
         "--mock",
         nargs="+",

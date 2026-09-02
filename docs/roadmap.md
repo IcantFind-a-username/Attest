@@ -600,6 +600,16 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — owner fix 5 (local differential stage):** one commit
+  (`feat: run the differential stage from attest review and resolve commit ids at the entry`).
+  `attest review` now runs the verification stage CI runs (one shared function; CI's
+  behaviour and ledger rows are unchanged), renders certified findings, and replaces the
+  `attest verify` hint with an honest skip note when the tree is dirty or no distinct base
+  commit is given; short ids are normalised to 40-hex at the entry. The RED failed on the
+  unpatched path (`run_review` had no `verify` and published nothing) and passes after: a
+  planted regression reviewed with a 7-character base id publishes one receipt whose
+  merge-base and head are the full ids. Gate: see the follow-up entry. See D-090.
+
 - **2026-09-03 — owner fix 4 (generator context):** one commit
   (`feat: show the generator signatures and the nearest test module's fixtures and helpers`).
   The RED failed on the unpatched path (no signature or fixture section) and passes after on

@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import hashlib
+import subprocess
 import time
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
+from attest.certification.types import CertifiedFinding
 from attest.review.budget import Budget, BudgetExceeded
 from attest.review.candidates import CandidateStore
 from attest.review.channels import gate_feasibility
-from attest.review.config import ReviewConfig
+from attest.review.config import ReviewConfig, resolve_review_policy
 from attest.review.diffs import git_diff
 from attest.review.eligibility import classify_finding, executor_unavailable_reason
 from attest.review.gate import GateOutcome, GateResult, apply_gate, evaluate_finding
@@ -27,18 +29,11 @@ from attest.review.planner import plan_review
 from attest.review.proposer import Provider, propose_plan
 from attest.review.tier0 import collect_signals, signals_near, unresolved_identifiers
 
+if TYPE_CHECKING:
+    from attest.execution.controller import ExecutorAdapter
+    from attest.review.executor import ExecutorLimits
 
-@dataclass
-class ReviewRun:
-    task_id: str
-    alpha: float
-    budget: Budget
-    results: list[GateResult]
-    outcome: GateOutcome
-    notes: list[str]
-    deferred_reason: str | None
-    elapsed_s: float
-    diff_digest: str = ""  # SHA-256 of the reviewed diff text; binds receipts to it
+LOCAL_REPOSITORY_ID = "local"
 
 
 @dataclass(frozen=True)
@@ -73,6 +68,39 @@ def count_samples(observations: list[object]) -> SampleCounts:
         else:
             other += 1
     return SampleCounts(len(observations), intact, no_text, abstained, other)
+
+
+@dataclass
+class ReviewRun:
+    task_id: str
+    alpha: float
+    budget: Budget
+    results: list[GateResult]
+    outcome: GateOutcome
+    notes: list[str]
+    deferred_reason: str | None
+    elapsed_s: float
+    diff_digest: str = ""  # SHA-256 of the reviewed diff text; binds receipts to it
+    # the local differential stage (fix 5, 2026-09-03): every accepted receipt,
+    # and the ones the family policy lets the author see
+    certified: list[CertifiedFinding] = field(default_factory=list)
+    published: list[CertifiedFinding] = field(default_factory=list)
+    verification_reasons: dict[str, str] = field(default_factory=dict)
+
+
+def resolve_full_sha(repo: Path, ref: str) -> str | None:
+    """The 40-hex commit id for ``ref``; short ids are normalised here, at the
+    entry, so the executor and the certificate validator see one identity."""
+    try:
+        resolved = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "--verify", f"{ref}^{{commit}}"],
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    value = resolved.stdout.strip()
+    return value if resolved.returncode == 0 and len(value) == 40 else None
 
 
 class ReviewSetupError(RuntimeError):
@@ -189,7 +217,15 @@ def run_review(
     *,
     clock: Callable[[], float] = time.monotonic,
     task_id: str | None = None,
+    verify: bool = False,
+    limits: ExecutorLimits | None = None,
+    verification_timeout_s: float = 600.0,
+    adapter: ExecutorAdapter | None = None,
 ) -> ReviewRun:
+    """One review of ``base``..working tree. With ``verify`` the same
+    differential reproduction stage CI runs follows the ranking: the head is
+    the committed HEAD, the base is ``base`` resolved to a full commit id, and
+    only an accepted receipt reaches the report."""
     started = clock()
     try:
         diff = git_diff(repo, base)
@@ -248,15 +284,12 @@ def run_review(
             elapsed_s=elapsed,
             diff_digest=diff_digest,
         )
-    if not feasibility["reachable_without_verification"]:
-        notes.append(
-            f"at alpha={alpha} the gate (wealth >= {1 / alpha:.0f}) is reachable only "
-            "with reproduction evidence: drawer candidates surface via 'attest verify'."
-        )
-
     results: list[GateResult] = []
     outcome = _empty_outcome()
     deferred_reason = None
+    certified: list[CertifiedFinding] = []
+    published: list[CertifiedFinding] = []
+    verification_reasons: dict[str, str] = {}
     provider_samples: list[dict[str, object]] = []
     phase = "planning"
     try:
@@ -374,6 +407,57 @@ def run_review(
                 f"{len(proposal.rejected)} finding(s) voided (schema/anchor): "
                 + "; ".join(proposal.rejected[:3])
             )
+        if verify and deferred_reason is None and results:
+            phase = "verification"
+            from attest.review.verification import run_verification_stage
+
+            head_sha = resolve_full_sha(repo, "HEAD")
+            base_sha = None if base is None else resolve_full_sha(repo, base)
+            if head_sha is None or base_sha is None or base_sha == head_sha:
+                notes.append(
+                    "verification skipped: differential evidence needs a committed head and "
+                    "a distinct base commit (commit the change and pass --base <ref>)"
+                )
+            else:
+                policy_digest = resolve_review_policy(repo, base_sha, config).policy_digest
+                stage = run_verification_stage(
+                    repo,
+                    task_id=task_id,
+                    repository_id=LOCAL_REPOSITORY_ID,
+                    base_sha=base_sha,
+                    head_sha=head_sha,
+                    review=ReviewRun(
+                        task_id=task_id,
+                        alpha=alpha,
+                        budget=budget,
+                        results=results,
+                        outcome=outcome,
+                        notes=[],
+                        deferred_reason=None,
+                        elapsed_s=0.0,
+                        diff_digest=diff_digest,
+                    ),
+                    review_policy_digest=policy_digest,
+                    config=config,
+                    provider=provider,
+                    limits=limits,
+                    verification_timeout_s=verification_timeout_s,
+                    clock=clock,
+                    adapter=adapter,
+                )
+                results = list(stage.results_by_id.values())
+                certified = list(stage.certified_by_id.values())
+                published = list(stage.published)
+                verification_reasons = dict(stage.reasons)
+                notes.extend(
+                    f"verification: {finding_id}: {reason}"
+                    for finding_id, reason in stage.reasons.items()
+                )
+                notes.extend(
+                    f"suppressed: {item.finding.accepted_receipt.receipt.candidate_id}: "
+                    f"{item.reason}"
+                    for item in stage.suppressed
+                )
     except BudgetExceeded as exc:
         deferred_reason = f"budget: {exc.reason}"
         ledger.append({"kind": "defer", "task_id": task_id, "reason": deferred_reason})
@@ -430,4 +514,7 @@ def run_review(
         deferred_reason=deferred_reason,
         elapsed_s=elapsed,
         diff_digest=diff_digest,
+        certified=certified,
+        published=published,
+        verification_reasons=verification_reasons,
     )
