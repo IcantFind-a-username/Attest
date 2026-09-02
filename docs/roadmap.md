@@ -600,6 +600,13 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — owner fix 2 (empty-sample classification):** one commit
+  (`feat: count no-text responses apart from true abstentions`). The review notes and the
+  pilot table report `no text returned` and `abstained (empty findings list)` separately;
+  D-082 recomputed on the C-05 re-run: defects 20 intact / 8 no-text / 4 abstentions,
+  controls 2 intact / 30 abstentions / 0 no-text. The RED failed on the unpatched path (no
+  such note) and passes after. Gate: see the follow-up entry. See D-087.
+
 - **2026-09-03 — owner fix 3 (import bootstrap):** one commit
   (`fix: import the reviewed tree's packages first and name a shadowed anchor`). Project
   roots under the tree (bounded discovery of `pyproject.toml`/`setup.py`/`setup.cfg` and

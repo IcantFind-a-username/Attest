@@ -373,6 +373,16 @@ def cmd_table(_args: argparse.Namespace) -> int:
         certified = sum(
             1 for e in mine if e.get("kind") == "certification" and e.get("outcome") == "accepted"
         )
+        samples = [
+            s
+            for e in mine
+            if e.get("kind") == "review_run"
+            for s in (e.get("provider_samples") or [])
+        ]
+        # owner fix 2 (2026-09-03): "no text returned" is a failed sample, not
+        # silence; only the model's own empty findings list abstains
+        no_text = sum(1 for s in samples if s.get("recovery") == "no_text")
+        abstained = sum(1 for s in samples if s.get("recovery") == "empty")
         verifications = [e for e in mine if e.get("kind") == "verification"]
         outcomes = {}
         for e in verifications:
@@ -389,6 +399,9 @@ def cmd_table(_args: argparse.Namespace) -> int:
                 "ineligible": ineligible,
                 "certified": certified,
                 "published": summary["surfaced_count"],
+                "samples": len(samples),
+                "no_text": no_text,
+                "abstained": abstained,
                 "verification": outcomes,
                 "defer": summary["deferred_reason"],
                 "spend": round(summary["spend_usd"], 4),
@@ -399,15 +412,20 @@ def cmd_table(_args: argparse.Namespace) -> int:
     controls = [r for r in rows if r["control"] != "-"]
     print(json.dumps(rows, indent=2))
     print()
-    print("| population | n | candidates | eligible | certified | published | spend |")
-    print("|---|---|---|---|---|---|---|")
+    print(
+        "| population | n | candidates | eligible | certified | published | "
+        "samples | no text returned | true abstentions | spend |"
+    )
+    print("|---|---|---|---|---|---|---|---|---|---|")
     for name, group in (("defects", defects), ("controls", controls)):
         if not group:
             continue
         print(
             f"| {name} | {len(group)} | {sum(r['candidates'] for r in group)} | "
             f"{sum(r['eligible'] for r in group)} | {sum(r['certified'] for r in group)} | "
-            f"{sum(r['published'] for r in group)} | ${sum(r['spend'] for r in group):.4f} |"
+            f"{sum(r['published'] for r in group)} | {sum(r['samples'] for r in group)} | "
+            f"{sum(r['no_text'] for r in group)} | {sum(r['abstained'] for r in group)} | "
+            f"${sum(r['spend'] for r in group):.4f} |"
         )
     if defects:
         silent = sum(1 for r in defects if r["published"] == 0)

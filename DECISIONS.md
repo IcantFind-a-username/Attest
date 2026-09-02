@@ -816,3 +816,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** the us-stock-helper trials: `services/*/src` packages resolved to the operator's editable install and the head tree executed 0 lines, which V-02 turned into silence with no stated cause.
 - **Limits:** a module pre-imported by the interpreter itself before sitecustomize (a cached copy) cannot be evicted, only detected; discovery is by project markers, not by reading build configuration (X-02's environment bootstrap reads it).
 - **Reversal:** none foreseen; the roots are additive and placeholder-relative.
+
+
+### D-087 — Empty samples split into "no text returned" and "true abstention"; D-082 recomputed
+
+- **Date/status/scope:** 2026-09-03 · owner fix 2 (2026-09-03) · `review/proposer.py` (`ProposalRun.no_text_samples`, `abstained_samples`), `review/run.py` (notes), `scripts/corpus/swebench_pilot.py` (table columns).
+- **Decision:** a proposal sample counts as an abstention only when the model returned an empty findings list; a response without a text block is `no_text`, a failed sample that is neither a candidate nor silence. The pilot table reports both columns per population; control silence is counted from true abstentions alone.
+- **D-082 recomputed (C-05 re-run, 64 samples, by stop reason and recovery status):** defects 20 intact, 8 `no_text`, 4 true abstentions (all four on pytest-5809); controls 2 intact, 30 true abstentions, 0 `no_text`. The eight defect-side "empties" were exhaustion, not silence — the population fix 1 addresses — and every control silence was a model-authored empty list.
+- **Limits:** past runs are classified by `stop_reason == max_tokens` on an empty recovery, not by reading responses.
+- **Reversal:** none foreseen; the labels are additive.

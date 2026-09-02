@@ -41,6 +41,40 @@ class ReviewRun:
     diff_digest: str = ""  # SHA-256 of the reviewed diff text; binds receipts to it
 
 
+@dataclass(frozen=True)
+class SampleCounts:
+    """Owner fix 2 (2026-09-03): a response without text is a failed sample,
+    not silence; only the model's own empty findings list abstains."""
+
+    samples: int
+    intact: int
+    no_text: int
+    abstained: int
+    other: int
+
+    def note(self) -> str:
+        return (
+            f"samples: {self.samples}; intact: {self.intact}; no text returned: "
+            f"{self.no_text}; abstained (empty findings list): {self.abstained}; "
+            f"other: {self.other}"
+        )
+
+
+def count_samples(observations: list[object]) -> SampleCounts:
+    intact = no_text = abstained = other = 0
+    for observation in observations:
+        recovery = str(getattr(observation, "recovery", ""))
+        if recovery == "no_text":
+            no_text += 1
+        elif recovery == "empty":
+            abstained += 1
+        elif recovery in {"intact", "repaired"} or recovery.startswith("salvaged"):
+            intact += 1
+        else:
+            other += 1
+    return SampleCounts(len(observations), intact, no_text, abstained, other)
+
+
 class ReviewSetupError(RuntimeError):
     """Review input could not be prepared before any provider work."""
 
@@ -239,6 +273,7 @@ def run_review(
                 + "; ".join(proposal.omitted_units[:3])
             )
         provider_samples = [asdict(sample) for sample in proposal.sample_observations]
+        notes.append(count_samples(list(proposal.sample_observations)).note())
         notes.extend(
             "provider sample "
             f"{sample.sample}: stop_reason={sample.stop_reason}; "
