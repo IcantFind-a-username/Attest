@@ -722,19 +722,21 @@ def test_mixed_surface_defer_preserves_predictions(tmp_path: Path) -> None:
     summary = reduce_measurements((result.measurement,))
     assert result.status == "deferred"
     assert result.measurement.task_status.value == "partially_deferred"
-    assert len(result.predictions) == result.measurement.published_count == 4
-    assert result.measurement.unresolved_count == 1
+    # four same-defect certified candidates publish once (C-05); the other three
+    # and the deferred candidate are unresolved
+    assert len(result.predictions) == result.measurement.published_count == 1
+    assert result.measurement.unresolved_count == 4
     assert result.score is not None
     assert (result.score.surfaced, result.score.matched, result.score.unmatched) == (
-        4,
         1,
-        3,
+        1,
+        0,
     )
     assert (summary.published, summary.correct, summary.wrong, summary.unresolved) == (
+        1,
+        1,
+        0,
         4,
-        1,
-        3,
-        1,
     )
     with pytest.raises(ValueError, match="status does not match.*task_status"):
         replace(result, status="completed")

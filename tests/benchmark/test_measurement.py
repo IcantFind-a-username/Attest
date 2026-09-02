@@ -3521,19 +3521,19 @@ def test_real_mixed_publications_remain_scored_when_one_candidate_defers(
         final_summary = github.status_bodies[-1]
 
     assert result.candidate_count == 5
-    assert result.surfaced_count == 4
+    assert result.surfaced_count == 1  # one defect, published once (C-05)
     assert result.deferred_reason is not None
-    assert len(inline_events) == 3
-    assert all(str(finding["claim"]) in final_summary for finding in surfaced)
+    assert len(inline_events) == 1
+    assert sum(str(finding["claim"]) in final_summary for finding in surfaced) == 1
     scored_predictions = tuple(
         prediction
         for prediction in result.run.predictions
         if is_scored_placement(prediction.placement)
     )
-    assert len(scored_predictions) == 4
+    assert len(scored_predictions) == 1
     assert result.measurement.task_status.value == "partially_deferred"
-    assert result.measurement.published_count == 4
-    assert result.measurement.unresolved_count == 1
+    assert result.measurement.published_count == 1
+    assert result.measurement.unresolved_count == 4
     assert result.measurement.delivery_status.value == "published_on_time"
     assert result.run.delivery_at_s is not None
 
@@ -3561,19 +3561,19 @@ def test_real_mixed_publications_remain_scored_when_one_candidate_defers(
     )
     assert evaluated.abstain_reason is not None
     assert evaluated.measurement.task_status.value == "partially_deferred"
-    assert evaluated.measurement.published_count == 4
-    assert evaluated.measurement.unresolved_count == 1
+    assert evaluated.measurement.published_count == 1
+    assert evaluated.measurement.unresolved_count == 4
     assert {
         finding.accuracy_status.value
         for finding in evaluated.measurement.findings
         if finding.author_visible
-    } == {"correct", "wrong"}
+    } == {"correct"}
     assert evaluated.score is not None
     assert (
         evaluated.score.surfaced,
         evaluated.score.matched,
         evaluated.score.unmatched,
-    ) == (4, 1, 3)
+    ) == (1, 1, 0)
 
     payload = case_payload(evaluated)
     payload["paid_calls"] = [
@@ -3611,5 +3611,5 @@ def test_real_mixed_publications_remain_scored_when_one_candidate_defers(
         "fully_deferred": 0,
         "failed": 0,
     }
-    assert report["outcome_accounting"]["published"] == 4
-    assert report["outcome_accounting"]["unresolved"] == 1
+    assert report["outcome_accounting"]["published"] == 1
+    assert report["outcome_accounting"]["unresolved"] == 4

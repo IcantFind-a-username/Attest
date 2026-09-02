@@ -520,7 +520,8 @@ def test_generate_reserves_budget_before_provider_and_settles_afterward(tmp_path
     assert len(budget.calls) == 1
     assert budget.calls[0]["label"] == f"verify-{candidate().finding.finding_id}-attempt-1"
     assert provider.requests[0][3] == executor.REPRO_MAX_OUTPUT_TOKENS
-    assert executor.REPRO_MAX_OUTPUT_TOKENS > PROPOSER_MAX_OUTPUT_TOKENS
+    # the reproduction bound is independent of the proposal bound (D-056, D-082)
+    assert executor.REPRO_MAX_OUTPUT_TOKENS == 3000
 
 
 def test_generate_cancels_reservation_when_provider_raises(tmp_path: Path) -> None:
