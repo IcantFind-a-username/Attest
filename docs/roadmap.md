@@ -102,7 +102,7 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | owner fixes 1-5 of 2026-09-03 (generator/provider honesty, empty-sample classification, import bootstrap, generator context, local differential stage), then the paid re-runs (a) and (b), then X-02 (mainline §2 step 11) with the environment bootstrap folded into the container adapter | the us-stock-helper trials showed every candidate correct and every one silent for generator and bootstrap reasons; X-01 is done and X-02/V-03 follow the fixes |
+| **NOW** | E-02 held-out (step 13) and E-01 natural null (step 14) results into the roadmap, README and handoff; then E-04 (prospective shadow on the owner's live repositories) and the L-01 pilot on the repository the owner names (§5 D) | steps 1-12 and the owner-free L-01 parts are done; every paid run goes through `linux-container-v1`; `G-SEC-002`'s full red-team matrix on the CI platform is the open security item |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
@@ -606,6 +606,30 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+### Next steps (read this first after a model switch; keep it to three items)
+
+1. **E-02 held-out (step 13) is running** from the fixed checkout `a1624d2` (69 cases:
+   29 regressions + 40 controls, plan `benchmarks/attest-v2/runs/2026-09-03-e02-heldout-plan.json`,
+   results `.attest/corpora/swebench/results/*.heldout.json`). When every case has a result:
+   `scripts/corpus/heldout_run.py table` → write `docs/acceptance/2026-09-03-e02-heldout.md`
+   (per defect and per candidate certified/published, control false publications, precision,
+   recall, silence rate and reasons, truncation rate, diff boundary hits — if hits > 0 the
+   proposal bound returns to 2,400 per owner answer 3 — cache-read share, spend), settle the
+   $6.00 reservation in `DEVSPEND.md`, run `scripts/corpus/binding_pilot.py` (G-SEM-002: the
+   generated tests plus 20 constructed adversarial tests through the container; report the
+   reject/allow matrix), then replace the README's dev-slice numbers with the held-out numbers
+   (sample size and date stated) and demote the dev-slice numbers to a development record.
+2. **E-01 natural null (step 14) is running** (`scripts/corpus/natural_null.py`, plan
+   `benchmarks/attest-v2/runs/2026-09-03-e01-natural-null-plan.json`, cap $1.85 of the $1.90
+   reservation; log in the session scratchpad — re-run `natural_null.py run --log <file>` if
+   the log is lost). Tabulate with `natural_null.py table`, write
+   `docs/acceptance/2026-09-03-e01-natural-null.md`, settle. Any publication is a
+   RISK-CERT-01 root cause: stop every paid run, fix, do not re-run in this window.
+3. **Then:** full gate on the tip in a detached worktree (link `.venv` into it; the M-01 probe
+   needs `ROOT/.venv`), the one-page handoff (steps + SHAs, the two tables, A/B, spend, ≤ 3
+   yes/no questions), and after this window: E-04 prospective shadow, the L-01 pilot on the
+   repository the owner names (§5 D), `G-SEC-002`'s red-team matrix on the CI platform.
 
 - **2026-09-03 — L-01, owner-free parts:** one commit
   (`feat: base-owned kill switch and the L-01 operations documents`). New

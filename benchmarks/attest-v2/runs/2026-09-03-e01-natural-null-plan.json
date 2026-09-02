@@ -1,0 +1,122 @@
+[
+  {
+    "sha": "540b0a8",
+    "class": "refactor",
+    "message": "chore: add a one-shot evidence-gate measurement script",
+    "files": 2
+  },
+  {
+    "sha": "58bf763",
+    "class": "refactor",
+    "message": "test: pin agency positive attribution and 13g amendment forms",
+    "files": 1
+  },
+  {
+    "sha": "facf699",
+    "class": "refactor",
+    "message": "test: pin a generated, byte-equal v2/v3 snapshot contract across languages",
+    "files": 4
+  },
+  {
+    "sha": "d1fd50f",
+    "class": "refactor",
+    "message": "test: execute analysis_api's documented test command verbatim",
+    "files": 1
+  },
+  {
+    "sha": "e953086",
+    "class": "refactor",
+    "message": "test: pin gateway macd/rsi series to an independent reference",
+    "files": 1
+  },
+  {
+    "sha": "96487d9",
+    "class": "refactor",
+    "message": "test: pin the adviser cap across languages",
+    "files": 1
+  },
+  {
+    "sha": "034b650",
+    "class": "refactor",
+    "message": "test: guard live candle semantic validation",
+    "files": 2
+  },
+  {
+    "sha": "9a68477",
+    "class": "docs",
+    "message": "docs: verify dual-entry fix in production and refresh Task 7 closeout",
+    "files": 3
+  },
+  {
+    "sha": "aa2a4cf",
+    "class": "docs",
+    "message": "docs: log nasdaq halt-timestamp fix in adapters progress ledger",
+    "files": 1
+  },
+  {
+    "sha": "fa85b21",
+    "class": "docs",
+    "message": "docs: hand the branch over to a sonnet-tier agent",
+    "files": 1
+  },
+  {
+    "sha": "44d396c",
+    "class": "docs",
+    "message": "docs: record the dual-entry republication fix in the ledger",
+    "files": 1
+  },
+  {
+    "sha": "07a6946",
+    "class": "docs",
+    "message": "docs: record the follow-up round in the ledger",
+    "files": 1
+  },
+  {
+    "sha": "9c023e6",
+    "class": "docs",
+    "message": "docs: propose a fix plan for dual-entry filing re-announcement",
+    "files": 1
+  },
+  {
+    "sha": "801fb29",
+    "class": "feature",
+    "message": "feat: add verified regulatory and agency sources",
+    "files": 13
+  },
+  {
+    "sha": "abefa25",
+    "class": "feature",
+    "message": "feat: register verified company ir feeds",
+    "files": 12
+  },
+  {
+    "sha": "8cfab6c",
+    "class": "feature",
+    "message": "feat: widen sec current-filings coverage to 10-Q, 10-K and schedule 13D/13G",
+    "files": 15
+  },
+  {
+    "sha": "3a32c92",
+    "class": "feature",
+    "message": "feat: guard pattern signal text against action verbs at construction",
+    "files": 2
+  },
+  {
+    "sha": "d6ceb70",
+    "class": "feature",
+    "message": "feat(market_gateway): serve patternShapes in snapshot indicators",
+    "files": 2
+  },
+  {
+    "sha": "e17c686",
+    "class": "feature",
+    "message": "feat(analysis_core): add patterns-shapes-v1 detection engine",
+    "files": 4
+  },
+  {
+    "sha": "b57092c",
+    "class": "feature",
+    "message": "feat: add plain-language vocabulary for rvol, volatility, breadth, sector RS, and magic nine",
+    "files": 3
+  }
+]
