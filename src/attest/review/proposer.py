@@ -9,10 +9,11 @@ standard environment chain (BYOK).
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
-from threading import Lock
+from threading import Event, Lock
 from typing import Any, Protocol
 
 from attest.review.budget import Budget, BudgetExceeded
@@ -86,10 +87,44 @@ Report at most 5 findings, best first."""
 @dataclass
 class ProviderResult:
     text: str | None  # None when the response carried no text block at all
-    input_tokens: int
+    input_tokens: int  # the uncached remainder of the prompt
     output_tokens: int
     stop_reason: str | None = None
     content_types: tuple[str, ...] = ("text",)  # block types the response carried, in order
+    cache_creation_input_tokens: int = 0  # prompt tokens written to the cache (1.25x)
+    cache_read_input_tokens: int = 0  # prompt tokens served from the cache (0.1x)
+
+
+FirstTokenCallback = Callable[[], None]
+
+
+def call_provider(
+    provider: Provider,
+    system: str,
+    prompt: str,
+    schema: dict[str, Any],
+    max_tokens: int,
+    *,
+    timeout_s: float | None = None,
+    shared_prefix: str = "",
+    on_first_token: FirstTokenCallback | None = None,
+) -> ProviderResult:
+    """One provider call. A provider that understands prompt caching gets the
+    shared prefix (the cacheable head of the user prompt) and the first-token
+    callback; every other provider gets the plain call."""
+    if getattr(provider, "supports_cache_control", False):
+        return provider.sample(  # type: ignore[call-arg]
+            system,
+            prompt,
+            schema,
+            max_tokens,
+            timeout_s=timeout_s,
+            shared_prefix=shared_prefix,
+            on_first_token=on_first_token,
+        )
+    if timeout_s is None:
+        return provider.sample(system, prompt, schema, max_tokens)
+    return provider.sample(system, prompt, schema, max_tokens, timeout_s=timeout_s)
 
 
 def no_text_reason(result: ProviderResult) -> str:
@@ -103,7 +138,7 @@ def no_text_reason(result: ProviderResult) -> str:
 def call_parameters(model: str) -> dict[str, Any]:
     """What besides the prompt decides a sample: the model and how it is asked
     to think. Part of the attempt cache identity."""
-    return {"model": model, **thinking_arguments(model)}
+    return {"model": model, "cache": "ephemeral", **thinking_arguments(model)}
 
 
 def thinking_arguments(model: str) -> dict[str, Any]:
@@ -126,6 +161,9 @@ class SampleObservation:
     # "no_text" is a response without a text block (not an abstention)
     recovery: str = "intact"
     replayed: bool = False  # served from the immutable attempt cache, nothing bought
+    input_tokens: int | None = None  # uncached prompt tokens
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
 
 
 def response_fragment(text: str) -> str:
@@ -152,7 +190,16 @@ class Provider(Protocol):
 
 
 class ApiProvider:
-    """Messages API provider; model id comes from configuration."""
+    """Messages API provider; model id comes from configuration.
+
+    Prompt caching (owner instruction 3, 2026-09-03): the system prompt and
+    the shared prefix of the user prompt carry ``cache_control`` breakpoints;
+    the variable remainder follows them. When a first-token callback is given
+    the request streams and the callback fires on the first content delta,
+    so a fan-out can start its siblings once the cache entry exists.
+    """
+
+    supports_cache_control = True
 
     def __init__(self, model: str, timeout: float = 120.0):
         self.model = model
@@ -177,12 +224,23 @@ class ApiProvider:
         max_tokens: int,
         *,
         timeout_s: float | None = None,
+        shared_prefix: str = "",
+        on_first_token: FirstTokenCallback | None = None,
     ) -> ProviderResult:
+        cache_control = {"type": "ephemeral"}
+        content: list[dict[str, Any]]
+        if shared_prefix and prompt.startswith(shared_prefix):
+            variable = prompt[len(shared_prefix) :]
+            content = [{"type": "text", "text": shared_prefix, "cache_control": cache_control}]
+            if variable:
+                content.append({"type": "text", "text": variable})
+        else:
+            content = [{"type": "text", "text": prompt, "cache_control": cache_control}]
         arguments: dict[str, Any] = {
             "model": self.model,
             "max_tokens": max_tokens,
-            "system": system,
-            "messages": [{"role": "user", "content": prompt}],
+            "system": [{"type": "text", "text": system, "cache_control": cache_control}],
+            "messages": [{"role": "user", "content": content}],
             "output_config": {"format": {"type": "json_schema", "schema": schema}},
             "timeout": self.timeout if timeout_s is None else timeout_s,
         }
@@ -191,17 +249,34 @@ class ApiProvider:
                 arguments["output_config"].update(value)
             else:
                 arguments[key] = value
-        response = self._client().messages.create(**arguments)
+        messages = self._client().messages
+        if on_first_token is None or getattr(messages, "stream", None) is None:
+            response = messages.create(**arguments)
+            if on_first_token is not None:
+                on_first_token()
+        else:
+            fired = False
+            with messages.stream(**arguments) as stream:
+                for event in stream:
+                    if not fired and getattr(event, "type", "") == "content_block_delta":
+                        fired = True
+                        on_first_token()
+                response = stream.get_final_message()
+            if not fired:
+                on_first_token()
         # a response without a text block is reported as exactly that: the
         # stop reason and the block types travel with the result, and no
         # placeholder document is ever invented for it
         text = next((b.text for b in response.content if b.type == "text"), None)
+        usage = response.usage
         return ProviderResult(
             text=text,
-            input_tokens=response.usage.input_tokens,
-            output_tokens=response.usage.output_tokens,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
             stop_reason=response.stop_reason,
             content_types=tuple(str(b.type) for b in response.content),
+            cache_creation_input_tokens=int(getattr(usage, "cache_creation_input_tokens", 0) or 0),
+            cache_read_input_tokens=int(getattr(usage, "cache_read_input_tokens", 0) or 0),
         )
 
 
@@ -348,7 +423,9 @@ def propose(
             budget.cancel(reservation)
         raise
 
-    def attempt(slot: int, attempt_index: int) -> tuple[ProviderResult, bool] | Exception:
+    def attempt(
+        slot: int, attempt_index: int, on_first_token: FirstTokenCallback | None = None
+    ) -> tuple[ProviderResult, bool] | Exception:
         """One attempt of the prompt; (result, replayed) or the provider error."""
         digest = attempt_digest(
             SYSTEM_PROMPT,
@@ -368,12 +445,22 @@ def propose(
                     cached.output_tokens,
                     cached.stop_reason,
                     cached.content_types,
+                    cached.cache_creation_input_tokens,
+                    cached.cache_read_input_tokens,
                 ),
                 True,
             )
         try:
-            result = provider.sample(
-                SYSTEM_PROMPT, prompt, PROPOSAL_SCHEMA, PROPOSER_MAX_OUTPUT_TOKENS
+            # the whole proposal prompt is shared by every sample of the unit,
+            # so it is the cacheable prefix
+            result = call_provider(
+                provider,
+                SYSTEM_PROMPT,
+                prompt,
+                PROPOSAL_SCHEMA,
+                PROPOSER_MAX_OUTPUT_TOKENS,
+                shared_prefix=prompt,
+                on_first_token=on_first_token,
             )
         except Exception as exc:  # noqa: BLE001 - error becomes a sample failure
             return exc
@@ -385,15 +472,22 @@ def propose(
                 result.output_tokens,
                 result.stop_reason,
                 result.content_types,
+                result.cache_creation_input_tokens,
+                result.cache_read_input_tokens,
             ),
         )
         return result, False
 
-    def one(i: int) -> tuple[ProviderResult, bool] | Exception:
-        return attempt(i, 0)
-
+    # fan-out timing (owner instruction 3): the first sample goes alone and the
+    # other K-1 are dispatched once its first token has arrived, so they read
+    # the cache entry the first one wrote instead of each writing their own
+    first_token = Event()
     with ThreadPoolExecutor(max_workers=k) as pool:
-        results = list(pool.map(one, range(k)))
+        futures = [pool.submit(attempt, 0, 0, first_token.set)]
+        while not first_token.is_set() and not futures[0].done():
+            first_token.wait(0.05)
+        futures.extend(pool.submit(attempt, i, 0) for i in range(1, k))
+        results = [future.result() for future in futures]
 
     per_sample: list[list[Finding]] = []
     rejected: list[str] = []
@@ -414,12 +508,26 @@ def propose(
         if replayed:
             budget.cancel(reservations[i])
         else:
-            budget.settle(f"sample-{label}", reservations[i], res.input_tokens, res.output_tokens)
+            budget.settle(
+                f"sample-{label}",
+                reservations[i],
+                res.input_tokens,
+                res.output_tokens,
+                cache_creation_input_tokens=res.cache_creation_input_tokens,
+                cache_read_input_tokens=res.cache_read_input_tokens,
+            )
         if res.text is None:
             # not an abstention: the model produced no document to read
             observations.append(
                 SampleObservation(
-                    label, res.stop_reason or "not_recorded", res.output_tokens, "no_text", replayed
+                    label,
+                    res.stop_reason or "not_recorded",
+                    res.output_tokens,
+                    "no_text",
+                    replayed,
+                    res.input_tokens,
+                    res.cache_creation_input_tokens,
+                    res.cache_read_input_tokens,
                 )
             )
             errors.append(f"sample {label}: {no_text_reason(res)}")
@@ -455,6 +563,8 @@ def propose(
                         reserved,
                         repaired_result.input_tokens,
                         repaired_result.output_tokens,
+                        cache_creation_input_tokens=repaired_result.cache_creation_input_tokens,
+                        cache_read_input_tokens=repaired_result.cache_read_input_tokens,
                     )
                 if repaired_result.text is None:
                     recovery = f"unrecoverable; repair {no_text_reason(repaired_result)}"
@@ -467,7 +577,14 @@ def propose(
                     break
         observations.append(
             SampleObservation(
-                label, res.stop_reason or "not_recorded", res.output_tokens, recovery, replayed
+                label,
+                res.stop_reason or "not_recorded",
+                res.output_tokens,
+                recovery,
+                replayed,
+                res.input_tokens,
+                res.cache_creation_input_tokens,
+                res.cache_read_input_tokens,
             )
         )
         if recovery.startswith("unrecoverable"):

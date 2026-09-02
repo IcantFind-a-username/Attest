@@ -48,8 +48,9 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-02 | us-stock-helper trial B (revert 3f6b67b, nasdaq halt timestamps): review K=4 $0.1208 (2 candidates, drawer); local differential drive with default model $0.1621 (same thinking-only generator failure, 2 candidates x 2 attempts); 2 haiku-4-5 generator drives $0.0369 (all unfaithful) | $0.319734 |
 | 2026-09-03 | paid check (a): us-stock-helper trial A (5 runs across fixes: $0.0757 + $0.0249 + $0.0246 + $0.0276 + $0.0284) and trial B ($0.2261), `attest review --k 4` with the local differential stage; B published one receipt-backed finding, A stayed silent (unfaithful test) | $0.407300 |
 | 2026-09-03 | paid check (b): dev-slice re-run after fixes 1-5, 8 regressions ($0.7127) + 8 controls ($0.1384), K=4, code `c2814b8`; 6 certified on 5/8 defects, 5 published, 0 control publications, 0 no-text samples | $0.851100 |
+| 2026-09-03 | owner instruction 3 RED: psf__requests-1766 with prompt caching, K=4; samples 1-3 read 3,901 cached tokens each, review $0.0248 (was $0.0439), 1 verified and published | $0.045458 |
 
-**Total API spend: $13.245082 of $30.00.** (41 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $13.290540 of $30.00.** (42 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
@@ -62,6 +63,8 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-02 | R-01 discovery trial: 5 SWE-bench Verified dev-slice regression PRs × 3 arms (diff-only, no-context repeat, planner context), K=4, discovery only, no verification | $1.00 | $0.872200 (3 rows below); $0.127800 released |
 | 2026-09-03 | paid check (a): us-stock-helper trial A/B re-run after owner fixes 1-5 (revert 375ab52 and 3f6b67b source changes as head, fixed main as base; `attest review --k 4` with the local differential stage) | $1.00 | $0.407300 (row below); $0.592700 released |
 | 2026-09-03 | paid check (b): dev-slice re-run 8 regressions + 8 controls, K=4, full product path, table with no-text and true-abstention columns | $1.20 | $0.851100 (row below); $0.348900 released |
+| 2026-09-03 | owner instruction 3 RED: one dev-slice regression PR (psf__requests-1766) re-run with prompt caching and first-token-staggered fan-out, K=4, to observe cache_read_input_tokens > 0 on the second sample and lower spend than the same case in paid check (b) ($0.0619) | $0.10 | $0.045458 (row below); $0.054542 released |
+| 2026-09-03 | owner instruction 4: R-01 cache-variant comparison on the dev slice, existing R-01 context vs the package-plus-tests shared block, 8 regressions each arm, K=4 | $2.50 | pending |
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 

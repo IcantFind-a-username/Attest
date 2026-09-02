@@ -89,9 +89,7 @@ def test_api_provider_records_stop_reason_and_actual_output_tokens() -> None:
         usage=SimpleNamespace(input_tokens=11, output_tokens=17),
         stop_reason="max_tokens",
     )
-    provider.client = SimpleNamespace(
-        messages=SimpleNamespace(create=lambda **_kwargs: response)
-    )
+    provider.client = SimpleNamespace(messages=SimpleNamespace(create=lambda **_kwargs: response))
 
     result = provider.sample("system", "prompt", {}, 20)
 
@@ -151,10 +149,7 @@ class WorstCaseProvider:
 
 def ascii_diff(total_chars: int) -> DiffInfo:
     """Single-hunk ASCII diff padded to exactly total_chars characters."""
-    header = (
-        "diff --git a/app.py b/app.py\n--- a/app.py\n+++ b/app.py\n"
-        "@@ -1,1 +1,2 @@\n context\n"
-    )
+    header = "diff --git a/app.py b/app.py\n--- a/app.py\n+++ b/app.py\n@@ -1,1 +1,2 @@\n context\n"
     text = header + "+" + "x" * (total_chars - len(header) - 2) + "\n"
     assert len(text) == total_chars
     return parse_diff(text)
@@ -279,3 +274,125 @@ def test_no_text_and_empty_findings_are_counted_apart() -> None:
     assert recoveries == ["empty", "no_text"]
     assert run.successful_samples == 1
     assert run.candidates == []
+
+
+def test_api_provider_marks_cache_breakpoints_and_streams_until_the_first_token() -> None:
+    """Owner instruction 3 (2026-09-03): the system prompt and the shared
+    prefix of the user prompt carry cache_control; the variable remainder
+    follows them; with a first-token callback the request streams and the
+    callback fires on the first content delta; cache usage is reported."""
+    provider = ApiProvider("claude-sonnet-5")
+    captured: dict[str, Any] = {}
+    events = [SimpleNamespace(type="message_start"), SimpleNamespace(type="content_block_delta")]
+    final = SimpleNamespace(
+        content=[SimpleNamespace(type="text", text='{"findings": []}')],
+        usage=SimpleNamespace(
+            input_tokens=7,
+            output_tokens=3,
+            cache_creation_input_tokens=0,
+            cache_read_input_tokens=1500,
+        ),
+        stop_reason="end_turn",
+    )
+
+    class Stream:
+        def __enter__(self) -> Any:
+            return self
+
+        def __exit__(self, *args: Any) -> None:
+            return None
+
+        def __iter__(self) -> Any:
+            return iter(events)
+
+        def get_final_message(self) -> Any:
+            return final
+
+    def stream(**kwargs: Any) -> Stream:
+        captured.update(kwargs)
+        return Stream()
+
+    provider.client = SimpleNamespace(messages=SimpleNamespace(stream=stream, create=None))
+    fired: list[str] = []
+    result = provider.sample(
+        "system",
+        "SHARED-PART variable tail",
+        {},
+        100,
+        shared_prefix="SHARED-PART",
+        on_first_token=lambda: fired.append("first"),
+    )
+
+    assert fired == ["first"]
+    assert captured["system"] == [
+        {"type": "text", "text": "system", "cache_control": {"type": "ephemeral"}}
+    ]
+    assert captured["messages"][0]["content"] == [
+        {"type": "text", "text": "SHARED-PART", "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": " variable tail"},
+    ]
+    assert result.cache_read_input_tokens == 1500
+    assert result.input_tokens == 7
+
+
+class StaggeringProvider:
+    """Records when each sample starts; the first sample's first token arrives
+    after a short delay, so a correct fan-out starts the others after it."""
+
+    supports_cache_control = True
+
+    def __init__(self) -> None:
+        self.starts: list[tuple[float, bool]] = []  # (time, had_first_token_callback)
+        self.first_token_at: float | None = None
+        self._lock = __import__("threading").Lock()
+
+    def sample(
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
+        shared_prefix: str = "",
+        on_first_token: Any = None,
+    ) -> ProviderResult:
+        import time
+
+        with self._lock:
+            self.starts.append((time.monotonic(), on_first_token is not None))
+        if on_first_token is not None:
+            time.sleep(0.2)
+            with self._lock:
+                self.first_token_at = time.monotonic()
+            on_first_token()
+        read = 0 if on_first_token is not None else 1000
+        return ProviderResult(
+            text='{"findings": []}',
+            input_tokens=10,
+            output_tokens=5,
+            stop_reason="end_turn",
+            cache_creation_input_tokens=1000 - read,
+            cache_read_input_tokens=read,
+        )
+
+
+def test_second_sample_starts_after_the_first_token_and_pays_cache_read_prices() -> None:
+    """The RED for owner instruction 3 at the unit level: sample 0 goes alone,
+    samples 1..K-1 start only after its first token, their cache reads are
+    priced at the read rate, and the run costs less than four cold samples."""
+    provider = StaggeringProvider()
+    budget = Budget(limit_usd=0.25, model=DEFAULT_MODEL)
+    run = propose(DIFF, ReviewConfig(k_samples=4), budget, provider)
+
+    assert run.successful_samples == 4
+    assert provider.first_token_at is not None
+    later = [start for start, first in provider.starts if not first]
+    assert len(later) == 3 and all(start >= provider.first_token_at for start in later)
+    reads = [obs.cache_read_input_tokens for obs in run.sample_observations]
+    assert sorted(reads) == [0, 1000, 1000, 1000]
+    cold = Budget(limit_usd=0.25, model=DEFAULT_MODEL)
+    for i in range(4):
+        cold.settle(f"cold-{i}", 0.0, 1010, 5)
+    assert budget.spent_usd < cold.spent_usd
+    assert budget.calls[1]["cache_read_input_tokens"] == 1000

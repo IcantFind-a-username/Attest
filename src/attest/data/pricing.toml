@@ -2,6 +2,10 @@
 # Data file: model identifiers here are configuration, not code.
 
 default_model = "claude-sonnet-5"
+# prompt-cache pricing relative to the input price (owner instruction 3, 2026-09-03):
+# a cache write costs 1.25x the input price, a cache read 0.1x
+cache_write_multiplier = 1.25
+cache_read_multiplier = 0.10
 
 [models.claude-sonnet-5]
 input_per_mtok = 2.00

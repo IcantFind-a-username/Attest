@@ -527,6 +527,8 @@ def test_dispatched_checkpoint_recovers_settled_artifact_without_redispatch(
         "input_tokens": expected.input_tokens,
         "output_tokens": expected.output_tokens,
         "stop_reason": expected.stop_reason,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
     }
     assert artifact_path.read_bytes() == artifact_bytes
     assert costs_path.read_bytes() == cost_bytes

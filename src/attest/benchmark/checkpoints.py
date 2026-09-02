@@ -126,6 +126,12 @@ class CheckpointedProvider:
             raise ValueError(f"no pricing for model {model_id!r}") from None
         self._input_price = float(model["input_per_mtok"]) / 1e6
         self._output_price = float(model["output_per_mtok"]) / 1e6
+        self._cache_write_price = self._input_price * float(
+            pricing.get("cache_write_multiplier", 1.25)
+        )
+        self._cache_read_price = self._input_price * float(
+            pricing.get("cache_read_multiplier", 0.10)
+        )
         self._inner = inner
         self._root = root
         self._trial_id = trial_id
@@ -186,9 +192,7 @@ class CheckpointedProvider:
         if path.exists():
             checkpoint = self._load(path, expected_role=self._role)
             if checkpoint["trial_id"] != self._trial_id:
-                raise ValueError(
-                    f"call checkpoint {path.name} belongs to a different trial"
-                )
+                raise ValueError(f"call checkpoint {path.name} belongs to a different trial")
             if checkpoint["request_sha256"] != request_sha256:
                 raise ValueError(
                     f"call checkpoint {path.name} request drifted before provider execution"
@@ -254,6 +258,8 @@ class CheckpointedProvider:
             "input_tokens": response.input_tokens,
             "output_tokens": response.output_tokens,
             "stop_reason": response.stop_reason,
+            "cache_creation_input_tokens": response.cache_creation_input_tokens,
+            "cache_read_input_tokens": response.cache_read_input_tokens,
         }
         artifact = self._artifact_payload(
             checkpoint,
@@ -261,12 +267,12 @@ class CheckpointedProvider:
             response=response_payload,
             cost_usd=(
                 response.input_tokens * self._input_price
+                + response.cache_creation_input_tokens * self._cache_write_price
+                + response.cache_read_input_tokens * self._cache_read_price
                 + response.output_tokens * self._output_price
             ),
         )
-        artifact_path, artifact_sha256 = self._write_artifact(
-            _ordinal(checkpoint), artifact
-        )
+        artifact_path, artifact_sha256 = self._write_artifact(_ordinal(checkpoint), artifact)
         checkpoint.update(
             {
                 "state": STATE_RESPONSE_PERSISTED,
@@ -332,9 +338,7 @@ class CheckpointedProvider:
             call_id = str(checkpoint["call_id"])
             record = by_call_id.get(call_id)
             if record is None or record != self._expected_cost_row(checkpoint):
-                raise ValueError(
-                    f"call {call_id} response evidence has no exact spend-row join"
-                )
+                raise ValueError(f"call {call_id} response evidence has no exact spend-row join")
             response = self._response(checkpoint, path)
             input_tokens += response.input_tokens
             output_tokens += response.output_tokens
@@ -347,27 +351,21 @@ class CheckpointedProvider:
             output_tokens=output_tokens,
         )
 
-    def _consume(
-        self, path: Path, checkpoint: dict[str, object]
-    ) -> dict[str, object]:
+    def _consume(self, path: Path, checkpoint: dict[str, object]) -> dict[str, object]:
         self._verify_artifact(checkpoint)
         self._settle_once(checkpoint)
         checkpoint["state"] = STATE_CONSUMED
         self._commit(path, checkpoint)
         return checkpoint
 
-    def _finalize_ambiguous(
-        self, path: Path, checkpoint: dict[str, object]
-    ) -> dict[str, object]:
+    def _finalize_ambiguous(self, path: Path, checkpoint: dict[str, object]) -> dict[str, object]:
         artifact = self._artifact_payload(
             checkpoint,
             outcome=STATE_AMBIGUOUS_COST,
             response=None,
             cost_usd=None,
         )
-        artifact_path, artifact_sha256 = self._write_artifact(
-            _ordinal(checkpoint), artifact
-        )
+        artifact_path, artifact_sha256 = self._write_artifact(_ordinal(checkpoint), artifact)
         checkpoint.update(
             {
                 "state": STATE_DISPATCHED,
@@ -396,9 +394,7 @@ class CheckpointedProvider:
             checkpoint.update(
                 {
                     "artifact_path": relative,
-                    "artifact_sha256": hashlib.sha256(
-                        _canonical_bytes(artifact)
-                    ).hexdigest(),
+                    "artifact_sha256": hashlib.sha256(_canonical_bytes(artifact)).hexdigest(),
                 }
             )
             self._settle_once(checkpoint, outcome=STATE_AMBIGUOUS_COST)
@@ -407,9 +403,7 @@ class CheckpointedProvider:
             return checkpoint
         response = artifact.get("response")
         if not isinstance(response, dict):
-            raise ValueError(
-                f"call artifact {artifact_path.name} has no durable response"
-            )
+            raise ValueError(f"call artifact {artifact_path.name} has no durable response")
         checkpoint.update(
             {
                 "state": STATE_RESPONSE_PERSISTED,
@@ -417,9 +411,7 @@ class CheckpointedProvider:
                 "response_sha256": artifact["response_sha256"],
                 "cost_usd": artifact["cost_usd"],
                 "artifact_path": artifact_path.relative_to(self._root).as_posix(),
-                "artifact_sha256": hashlib.sha256(
-                    _canonical_bytes(artifact)
-                ).hexdigest(),
+                "artifact_sha256": hashlib.sha256(_canonical_bytes(artifact)).hexdigest(),
             }
         )
         self._commit(path, checkpoint)
@@ -453,9 +445,7 @@ class CheckpointedProvider:
     def _artifact_path(self, ordinal: int) -> Path:
         return self._artifacts_dir / f"{ordinal:06d}.json"
 
-    def _write_artifact(
-        self, ordinal: int, artifact: Mapping[str, object]
-    ) -> tuple[str, str]:
+    def _write_artifact(self, ordinal: int, artifact: Mapping[str, object]) -> tuple[str, str]:
         path = self._artifact_path(ordinal)
         payload = _canonical_bytes(artifact) + b"\n"
         _atomic_write(path, payload)
@@ -464,14 +454,10 @@ class CheckpointedProvider:
             hashlib.sha256(_canonical_bytes(artifact)).hexdigest(),
         )
 
-    def _load_artifact(
-        self, path: Path, checkpoint: Mapping[str, object]
-    ) -> dict[str, object]:
+    def _load_artifact(self, path: Path, checkpoint: Mapping[str, object]) -> dict[str, object]:
         try:
             artifact = json.loads(
-                read_authoritative_bytes(
-                    self._root, path.relative_to(self._root)
-                )
+                read_authoritative_bytes(self._root, path.relative_to(self._root))
             )
         except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
             raise ValueError(
@@ -497,12 +483,8 @@ class CheckpointedProvider:
             "request": checkpoint["request"],
             "request_sha256": checkpoint["request_sha256"],
         }
-        if any(
-            artifact.get(key) != value for key, value in expected_identity.items()
-        ):
-            raise ValueError(
-                f"call artifact {path.name} binding does not match its paid trial"
-            )
+        if any(artifact.get(key) != value for key, value in expected_identity.items()):
+            raise ValueError(f"call artifact {path.name} binding does not match its paid trial")
         if artifact.get("outcome") not in {"settled", STATE_AMBIGUOUS_COST}:
             raise ValueError(f"call artifact {path.name} has an invalid outcome")
         return artifact
@@ -513,9 +495,7 @@ class CheckpointedProvider:
         if not isinstance(relative, str) or relative != (
             f"artifacts/{_ordinal(checkpoint):06d}.json"
         ):
-            raise ValueError(
-                f"call {checkpoint['call_id']} has an invalid artifact binding"
-            )
+            raise ValueError(f"call {checkpoint['call_id']} has an invalid artifact binding")
         path = self._root / relative
         if not path.is_file():
             raise ValueError(f"call artifact {relative} is missing")
@@ -529,20 +509,14 @@ class CheckpointedProvider:
         checkpoint_response = checkpoint.get("response")
         if artifact_response is None or checkpoint_response is None:
             if artifact_response is not None or checkpoint_response is not None:
-                raise ValueError(
-                    f"call artifact {relative} response differs from its checkpoint"
-                )
+                raise ValueError(f"call artifact {relative} response differs from its checkpoint")
             expected_response_sha256 = None
         elif type(artifact_response) is dict and type(checkpoint_response) is dict:
             if artifact_response != checkpoint_response:
-                raise ValueError(
-                    f"call artifact {relative} response differs from its checkpoint"
-                )
+                raise ValueError(f"call artifact {relative} response differs from its checkpoint")
             expected_response_sha256 = _digest(artifact_response)
         else:
-            raise ValueError(
-                f"call artifact {relative} response binding has an invalid type"
-            )
+            raise ValueError(f"call artifact {relative} response binding has an invalid type")
         if (
             artifact.get("response_sha256") != expected_response_sha256
             or checkpoint.get("response_sha256") != expected_response_sha256
@@ -579,9 +553,7 @@ class CheckpointedProvider:
             "artifact_sha256": checkpoint["artifact_sha256"],
         }
 
-    def _settle_once(
-        self, checkpoint: Mapping[str, object], *, outcome: str | None = None
-    ) -> None:
+    def _settle_once(self, checkpoint: Mapping[str, object], *, outcome: str | None = None) -> None:
         expected = self._expected_cost_row(checkpoint, outcome=outcome)
         with self._ledger_lock:
             rows = _cost_rows(self._root, self._costs_path)
@@ -602,9 +574,7 @@ class CheckpointedProvider:
                 b"".join(_canonical_bytes(row) + b"\n" for row in rows),
             )
 
-    def _assert_terminal_reconciliation(
-        self, checkpoint: Mapping[str, object], path: Path
-    ) -> None:
+    def _assert_terminal_reconciliation(self, checkpoint: Mapping[str, object], path: Path) -> None:
         self._verify_artifact(checkpoint)
         rows = _cost_rows(self._root, self._costs_path)
         matches = [row for row in rows if row.get("call_id") == checkpoint["call_id"]]
@@ -615,13 +585,9 @@ class CheckpointedProvider:
                 f"call {checkpoint['call_id']} appears more than once in its spend rows"
             )
         if matches[0] != self._expected_cost_row(checkpoint):
-            raise ValueError(
-                f"call checkpoint {path.name} spend row identity or binding mismatch"
-            )
+            raise ValueError(f"call checkpoint {path.name} spend row identity or binding mismatch")
 
-    def _assert_no_orphan_evidence(
-        self, checkpoints: list[dict[str, object]]
-    ) -> None:
+    def _assert_no_orphan_evidence(self, checkpoints: list[dict[str, object]]) -> None:
         by_call_id = {str(row["call_id"]): row for row in checkpoints}
         by_ordinal = {_ordinal(row): row for row in checkpoints}
         seen_spend: set[str] = set()
@@ -644,8 +610,7 @@ class CheckpointedProvider:
                 or row.get("model_id") != checkpoint["model_id"]
                 or row.get("binding_sha256") != checkpoint["binding_sha256"]
                 or row.get("request_sha256") != checkpoint["request_sha256"]
-                or row.get("artifact_path")
-                != artifact_path.relative_to(self._root).as_posix()
+                or row.get("artifact_path") != artifact_path.relative_to(self._root).as_posix()
                 or row.get("artifact_sha256") != artifact_sha256
                 or row.get("outcome") != artifact.get("outcome")
                 or row.get("cost_usd") != artifact.get("cost_usd")
@@ -661,24 +626,14 @@ class CheckpointedProvider:
                 ) from None
             artifact_checkpoint = by_ordinal.get(ordinal)
             if artifact_checkpoint is None or artifact_path.name != f"{ordinal:06d}.json":
-                raise ValueError(
-                    f"orphan artifact {artifact_path.name} has no call checkpoint"
-                )
+                raise ValueError(f"orphan artifact {artifact_path.name} has no call checkpoint")
             if artifact_checkpoint["state"] == STATE_RESERVED:
-                raise ValueError(
-                    f"orphan artifact {artifact_path.name} precedes provider dispatch"
-                )
+                raise ValueError(f"orphan artifact {artifact_path.name} precedes provider dispatch")
             self._load_artifact(artifact_path, artifact_checkpoint)
 
-    def _load(
-        self, path: Path, *, expected_role: str | None = None
-    ) -> dict[str, object]:
+    def _load(self, path: Path, *, expected_role: str | None = None) -> dict[str, object]:
         try:
-            raw = json.loads(
-                read_authoritative_bytes(
-                    self._root, path.relative_to(self._root)
-                )
-            )
+            raw = json.loads(read_authoritative_bytes(self._root, path.relative_to(self._root)))
         except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
             raise ValueError(f"call checkpoint {path.name} is unreadable or corrupt") from exc
         if not isinstance(raw, dict):
@@ -693,9 +648,7 @@ class CheckpointedProvider:
         if raw.get("state") not in CALL_STATES:
             raise ValueError(f"call checkpoint {path.name} has an unknown state")
         role = raw.get("role")
-        if role not in CALL_ROLES or (
-            expected_role is not None and role != expected_role
-        ):
+        if role not in CALL_ROLES or (expected_role is not None and role != expected_role):
             raise ValueError(
                 f"call checkpoint {path.name} paid-call role is missing, unknown, or drifted"
             )
@@ -723,9 +676,7 @@ class CheckpointedProvider:
             raw.get("model_id") != self._model_id
             or raw.get("binding_sha256") != self._binding_sha256
         ):
-            raise ValueError(
-                f"call checkpoint {path.name} model or predeclaration binding drifted"
-            )
+            raise ValueError(f"call checkpoint {path.name} model or predeclaration binding drifted")
         request = raw.get("request")
         request_sha256 = raw.get("request_sha256")
         if (
@@ -744,9 +695,7 @@ class CheckpointedProvider:
             or _DIGEST_PATTERN.fullmatch(request_sha256) is None
             or _digest(request) != request_sha256
         ):
-            raise ValueError(
-                f"call checkpoint {path.name} request role or digest binding drifted"
-            )
+            raise ValueError(f"call checkpoint {path.name} request role or digest binding drifted")
         state = raw["state"]
         reserved = raw.get("reserved_usd")
         if (
@@ -767,8 +716,7 @@ class CheckpointedProvider:
             ):
                 raise ValueError(f"call checkpoint {path.name} has invalid settled cost")
         elif state != STATE_AMBIGUOUS_COST and any(
-            raw.get(key) is not None
-            for key in ("response", "response_sha256", "cost_usd")
+            raw.get(key) is not None for key in ("response", "response_sha256", "cost_usd")
         ):
             raise ValueError(f"call checkpoint {path.name} has response data before settlement")
         if state in {
@@ -783,16 +731,12 @@ class CheckpointedProvider:
                 or not isinstance(digest, str)
                 or _DIGEST_PATTERN.fullmatch(digest) is None
             ):
-                raise ValueError(
-                    f"call checkpoint {path.name} has an invalid artifact binding"
-                )
+                raise ValueError(f"call checkpoint {path.name} has an invalid artifact binding")
         return raw
 
     def _checkpoint_paths(self) -> tuple[Path, ...]:
         try:
-            names = list_authoritative_directory(
-                self._root, "calls", maximum_entries=100_000
-            )
+            names = list_authoritative_directory(self._root, "calls", maximum_entries=100_000)
         except ValueError as exc:
             raise ValueError("call checkpoint directory is unreadable or unsafe") from exc
         if any(not name.endswith(".json") or name == ".json" for name in names):
@@ -801,9 +745,7 @@ class CheckpointedProvider:
 
     def _artifact_paths(self) -> tuple[Path, ...]:
         try:
-            names = list_authoritative_directory(
-                self._root, "artifacts", maximum_entries=100_000
-            )
+            names = list_authoritative_directory(self._root, "artifacts", maximum_entries=100_000)
         except ValueError as exc:
             raise ValueError("call artifact directory is unreadable or unsafe") from exc
         if any(re.fullmatch(r"[0-9]{6}\.json", name) is None for name in names):
@@ -823,10 +765,17 @@ class CheckpointedProvider:
         input_tokens = response.get("input_tokens")
         output_tokens = response.get("output_tokens")
         stop_reason = response.get("stop_reason")
+        cache_created = response.get("cache_creation_input_tokens", 0)
+        cache_read = response.get("cache_read_input_tokens", 0)
+        base_keys = {"text", "input_tokens", "output_tokens", "stop_reason"}
+        cache_keys = {"cache_creation_input_tokens", "cache_read_input_tokens"}
         if (
-            set(response) != {"text", "input_tokens", "output_tokens", "stop_reason"}
-            or
-            not isinstance(text, str)
+            set(response) not in (base_keys, base_keys | cache_keys)
+            or any(
+                not isinstance(value, int) or isinstance(value, bool) or value < 0
+                for value in (cache_created, cache_read)
+            )
+            or not isinstance(text, str)
             or not isinstance(input_tokens, int)
             or isinstance(input_tokens, bool)
             or input_tokens < 0
@@ -836,7 +785,14 @@ class CheckpointedProvider:
             or (stop_reason is not None and not isinstance(stop_reason, str))
         ):
             raise ValueError(f"call checkpoint {path.name} has an invalid response artifact")
-        return ProviderResult(text, input_tokens, output_tokens, stop_reason)
+        return ProviderResult(
+            text,
+            input_tokens,
+            output_tokens,
+            stop_reason,
+            cache_creation_input_tokens=int(cache_created),
+            cache_read_input_tokens=int(cache_read),
+        )
 
     def _commit(self, path: Path, checkpoint: Mapping[str, object]) -> None:
         payload = _canonical_bytes(checkpoint) + b"\n"
@@ -851,9 +807,7 @@ def _canonical_bytes(value: Mapping[str, object]) -> bytes:
 
 def _require_role(role: str) -> None:
     if role not in CALL_ROLES:
-        raise ValueError(
-            f"paid-call role must be one of {sorted(CALL_ROLES)!r}, got {role!r}"
-        )
+        raise ValueError(f"paid-call role must be one of {sorted(CALL_ROLES)!r}, got {role!r}")
 
 
 def _digest(value: Mapping[str, object] | dict[str, Any]) -> str:

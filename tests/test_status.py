@@ -65,3 +65,27 @@ def test_failure_categories_cover_the_named_causes() -> None:
     assert categorise_failure("collection deferred: pytest collection failure") == (
         "collection failure"
     )
+
+
+def test_status_reports_prompt_tokens_and_cache_reads() -> None:
+    rows = [
+        {
+            "kind": "review_run",
+            "task_id": "t1",
+            "provider_samples": [
+                {
+                    "input_tokens": 100,
+                    "cache_creation_input_tokens": 900,
+                    "cache_read_input_tokens": 0,
+                },
+                {
+                    "input_tokens": 100,
+                    "cache_creation_input_tokens": 0,
+                    "cache_read_input_tokens": 900,
+                },
+            ],
+        }
+    ]
+    status = status_from_rows(rows, "t1")
+    assert (status.prompt_tokens, status.cache_read_input_tokens) == (2000, 900)
+    assert "cache_read_input_tokens: 900" in status.render()

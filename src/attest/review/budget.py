@@ -49,6 +49,12 @@ class Budget:
             "in": float(m["input_per_mtok"]) / 1e6,
             "out": float(m["output_per_mtok"]) / 1e6,
         }
+        self._prices["cache_write"] = self._prices["in"] * float(
+            pricing.get("cache_write_multiplier", 1.25)
+        )
+        self._prices["cache_read"] = self._prices["in"] * float(
+            pricing.get("cache_read_multiplier", 0.10)
+        )
 
     def estimate_cost(self, input_chars: int, max_output_tokens: int) -> float:
         in_tokens = input_chars / CHARS_PER_TOKEN
@@ -66,15 +72,32 @@ class Budget:
         self.reserved_usd += est
         return est
 
-    def settle(self, label: str, reserved: float, input_tokens: int, output_tokens: int) -> float:
-        """Replace a reservation with actual usage-based cost."""
-        actual = input_tokens * self._prices["in"] + output_tokens * self._prices["out"]
+    def settle(
+        self,
+        label: str,
+        reserved: float,
+        input_tokens: int,
+        output_tokens: int,
+        *,
+        cache_creation_input_tokens: int = 0,
+        cache_read_input_tokens: int = 0,
+    ) -> float:
+        """Replace a reservation with actual usage-based cost. ``input_tokens``
+        is the uncached remainder; cache writes and reads are priced apart."""
+        actual = (
+            input_tokens * self._prices["in"]
+            + cache_creation_input_tokens * self._prices["cache_write"]
+            + cache_read_input_tokens * self._prices["cache_read"]
+            + output_tokens * self._prices["out"]
+        )
         self.reserved_usd = max(0.0, self.reserved_usd - reserved)
         self.spent_usd += actual
         self.calls.append(
             {
                 "label": label,
                 "input_tokens": input_tokens,
+                "cache_creation_input_tokens": cache_creation_input_tokens,
+                "cache_read_input_tokens": cache_read_input_tokens,
                 "output_tokens": output_tokens,
                 "cost_usd": actual,
             }

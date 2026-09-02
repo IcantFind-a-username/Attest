@@ -872,3 +872,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** owner item 10; the statistical vocabulary was leaking into author-visible text.
 - **Limits:** the `--alpha` flag name is unchanged (a configuration key, not prose).
 - **Reversal:** none foreseen.
+
+
+### D-094 — Prompt caching and first-token-staggered fan-out; cache writes and reads priced apart
+
+- **Date/status/scope:** 2026-09-03 · owner instruction 3 · `review/proposer.py` (`ApiProvider.supports_cache_control`, `call_provider`, `ProviderResult.cache_*`, staggered `propose`), `review/executor.py` (`generate_repro` shares its prompt prefix), `review/budget.py` (`settle` prices `cache_creation_input_tokens` at 1.25× and `cache_read_input_tokens` at 0.1× the input price), `data/pricing.toml` (`cache_write_multiplier`, `cache_read_multiplier`), `review/recovery.py` (attempt cache carries cache usage), `review/status.py` (prompt tokens and cache reads in the run status), `benchmark/checkpoints.py` (M-03 artifacts record and price cache usage; older four-key artifacts still read).
+- **Decision:** every structured call sends the system prompt and the shared prefix of the user prompt as `cache_control: ephemeral` blocks with the variable remainder after them; the K proposal samples of a unit share the whole prompt, and the reproduction generator's precommitted second attempt shares the first attempt's prompt. `propose` dispatches sample 0 alone with a streaming first-token callback and starts samples 1..K-1 only after that token (or after sample 0 finished without one), so they read the entry sample 0 wrote. No model, prompt text, bound or statistical constant changes; a provider without cache support gets the plain call.
+- **Why:** the K samples of a unit are byte-identical prompts and the generator's two attempts likewise; paying full input price K times was pure surcharge.
+- **Limits:** prompts under the model's cacheable minimum (1,024 tokens on Sonnet 5) silently do not cache; the benchmark's checkpointed provider forwards nothing cache-related to its inner provider, so M-03 studies stay cold until that wrapper opts in.
+- **Reversal:** remove the `cache_control` blocks; the staggered dispatch is harmless without them.

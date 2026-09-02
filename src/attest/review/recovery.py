@@ -118,6 +118,8 @@ class CachedAttempt:
     output_tokens: int
     stop_reason: str | None
     content_types: tuple[str, ...] = ("text",)
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
 
 
 class AttemptCache:
@@ -151,6 +153,8 @@ class AttemptCache:
                     if not isinstance(content_types, list)
                     else tuple(str(item) for item in content_types)
                 ),
+                cache_creation_input_tokens=int(raw.get("cache_creation_input_tokens") or 0),
+                cache_read_input_tokens=int(raw.get("cache_read_input_tokens") or 0),
             )
         except (KeyError, TypeError, ValueError):
             return None
@@ -172,6 +176,8 @@ class AttemptCache:
                     "output_tokens": attempt.output_tokens,
                     "stop_reason": attempt.stop_reason,
                     "content_types": list(attempt.content_types),
+                    "cache_creation_input_tokens": attempt.cache_creation_input_tokens,
+                    "cache_read_input_tokens": attempt.cache_read_input_tokens,
                 },
                 ensure_ascii=False,
             ),

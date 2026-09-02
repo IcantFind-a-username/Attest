@@ -69,12 +69,16 @@ class RunStatus:
     published: int
     failures: tuple[tuple[str, str], ...] = ()  # (category, bounded reason), attempt order
     counts: Mapping[str, int] = field(default_factory=dict)
+    prompt_tokens: int = 0  # proposal prompt tokens: uncached + cache writes + cache reads
+    cache_read_input_tokens: int = 0  # of which served from the prompt cache
 
     def lines(self) -> list[str]:
         out = [
             f"change units read: {self.units_read}; candidates: {self.candidates}; "
             f"eligible: {self.eligible}; reproductions attempted: {self.attempts}; "
             f"certified: {self.certified}; published: {self.published}",
+            f"proposal prompt tokens: {self.prompt_tokens}; cache_read_input_tokens: "
+            f"{self.cache_read_input_tokens}",
         ]
         for index, (category, reason) in enumerate(self.failures, 1):
             out.append(f"reproduction {index}: {category} — {reason}")
@@ -135,6 +139,22 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
         if row.get("kind") == "publication_policy":
             listed = row.get("published")
             published = len(listed) if isinstance(listed, list) else 0
+    prompt_tokens = 0
+    cache_reads = 0
+    for row in mine:
+        if row.get("kind") != "review_run":
+            continue
+        samples = row.get("provider_samples")
+        if not isinstance(samples, list):
+            continue
+        for sample in samples:
+            if not isinstance(sample, dict):
+                continue
+            uncached = sample.get("input_tokens") or 0
+            created = sample.get("cache_creation_input_tokens") or 0
+            read = sample.get("cache_read_input_tokens") or 0
+            prompt_tokens += int(uncached) + int(created) + int(read)
+            cache_reads += int(read)
     counts: dict[str, int] = {}
     for category, _reason in failures:
         counts[category] = counts.get(category, 0) + 1
@@ -148,4 +168,6 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
         published=published,
         failures=tuple(failures),
         counts=counts,
+        prompt_tokens=prompt_tokens,
+        cache_read_input_tokens=cache_reads,
     )

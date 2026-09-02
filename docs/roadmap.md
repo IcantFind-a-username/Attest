@@ -601,6 +601,17 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — owner instruction 3 (prompt caching, staggered fan-out, cache pricing):**
+  one commit (`perf: cache the shared prompt prefix, stagger the fan-out on the first token,
+  price cache writes and reads apart`). Unit RED: sample 0 goes alone, samples 1-3 start
+  after its first token and settle at the cache-read price; the run costs less than four
+  cold samples. Real-API RED on `psf__requests-1766` (task `20260903-013450-3fd08afb`,
+  $0.0455): sample 0 wrote 3,901 prompt tokens to the cache, samples 1-3 each read 3,901
+  (`cache_read_input_tokens` > 0 on the second sample), the review cost $0.0248 against
+  $0.0439 for the same case in paid check (b), and the finding was verified and published
+  as before; the run status reports `cache_read_input_tokens: 11703` of 15,612 prompt
+  tokens. See D-094.
+
 - **2026-09-03 — paid check (b), dev-slice re-run after fixes 1-5:** report
   [`acceptance/2026-09-03-e02-pilot-rerun-fixes.md`](acceptance/2026-09-03-e02-pilot-rerun-fixes.md).
   Defects 8: 19 candidates, 6 certified on 5/8, 5 published, 0 samples without text, 5 true

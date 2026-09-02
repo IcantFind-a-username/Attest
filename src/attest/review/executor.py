@@ -34,7 +34,7 @@ from attest.review.diffs import parse_diff
 from attest.review.gate import GateResult, apply_verification
 from attest.review.ledger import Ledger
 from attest.review.planner import generation_context
-from attest.review.proposer import Provider, no_text_reason, response_fragment
+from attest.review.proposer import Provider, call_provider, no_text_reason, response_fragment
 
 MAX_CONTEXT_LINES = 200
 REPRO_MAX_OUTPUT_TOKENS = 3_000
@@ -567,18 +567,29 @@ def generate_repro(
     last_schema_error: ValueError | None = None
     for index, (label, reservation) in enumerate(zip(labels, reservations, strict=True)):
         try:
-            result = provider.sample(
+            # the prompt is the shared prefix: the precommitted second attempt
+            # reads the cache entry the first one wrote
+            result = call_provider(
+                provider,
                 GENERATOR_SYSTEM,
                 prompt,
                 REPRO_SCHEMA,
                 REPRO_MAX_OUTPUT_TOKENS,
                 timeout_s=timeout_s,
+                shared_prefix=prompt,
             )
         except Exception:
             for unused in reservations[index:]:
                 budget.cancel(unused)
             raise
-        budget.settle(label, reservation, result.input_tokens, result.output_tokens)
+        budget.settle(
+            label,
+            reservation,
+            result.input_tokens,
+            result.output_tokens,
+            cache_creation_input_tokens=result.cache_creation_input_tokens,
+            cache_read_input_tokens=result.cache_read_input_tokens,
+        )
         if result.text is None:
             # the honest reason travels as-is: stop reason and block types,
             # never a fabricated document reported as a schema mismatch
