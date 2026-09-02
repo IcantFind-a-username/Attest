@@ -620,12 +620,15 @@ When a work order completes:
    generated tests plus 20 constructed adversarial tests through the container; report the
    reject/allow matrix), then replace the README's dev-slice numbers with the held-out numbers
    (sample size and date stated) and demote the dev-slice numbers to a development record.
-2. **E-01 natural null (step 14) is running** (`scripts/corpus/natural_null.py`, plan
-   `benchmarks/attest-v2/runs/2026-09-03-e01-natural-null-plan.json`, cap $1.85 of the $1.90
-   reservation; log in the session scratchpad — re-run `natural_null.py run --log <file>` if
-   the log is lost). Tabulate with `natural_null.py table`, write
-   `docs/acceptance/2026-09-03-e01-natural-null.md`, settle. Any publication is a
-   RISK-CERT-01 root cause: stop every paid run, fix, do not re-run in this window.
+2. **E-01 natural null (step 14): first pass done, 0/20 published, $0.8076**; 25 eligible
+   candidates on 5 commits (`034b650`, `801fb29`, `abefa25`, `8cfab6c`, `3a32c92`) DEFERred
+   as `environment bootstrap failed` because the corpus declares only
+   `requires-python >= 3.11` and the image rule fell back to 3.9 — fixed in `8b93b75`
+   (`requires-python` is now a lower bound) and those five are being re-run with
+   `natural_null.py run --only … --code <fixed checkout>` (cap $1.00). Then tabulate both
+   logs with `natural_null.py table`, write `docs/acceptance/2026-09-03-e01-natural-null.md`,
+   settle the $1.90 reservation. Any publication is a RISK-CERT-01 root cause: stop every
+   paid run, fix, do not re-run in this window.
 3. **Then:** full gate on the tip in a detached worktree (link `.venv` into it; the M-01 probe
    needs `ROOT/.venv`), the one-page handoff (steps + SHAs, the two tables, A/B, spend, ≤ 3
    yes/no questions), and after this window: E-04 prospective shadow, the L-01 pilot on the
