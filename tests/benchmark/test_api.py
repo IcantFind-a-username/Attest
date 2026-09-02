@@ -175,6 +175,7 @@ def test_multi_candidate_case_artifact_preserves_each_verification(
     assert all(row["reason"] == "head FAIL 3/3, base PASS 3/3" for row in candidate_evidence)
     for row in candidate_evidence:
         assert [(run["side"], run["repeat"], run["outcome"]) for run in row["runs"]] == [
+            ("collect", 1, "not_reproduced"),  # V-01 exact-node collection run
             ("head", 1, "reproduced"),
             ("head", 2, "reproduced"),
             ("head", 3, "reproduced"),
@@ -182,7 +183,7 @@ def test_multi_candidate_case_artifact_preserves_each_verification(
             ("base", 2, "not_reproduced"),
             ("base", 3, "not_reproduced"),
         ]
-        assert "ZeroDivisionError" in row["runs"][0]["stdout"]
+        assert "ZeroDivisionError" in row["runs"][1]["stdout"]
 
 
 def test_explicit_null_truth_is_adjudicated_before_artifact_persistence(
