@@ -221,7 +221,10 @@ def _run(args: argparse.Namespace) -> int:
         # since C-05 the product publishes same-defect certified findings once and caps
         # author-visible claims; the four mixed findings of this cassette then surface
         # as one inline claim instead of three inline plus one overflow
-        family_policy = importlib.util.find_spec("attest.certification.clustering") is not None
+        try:  # the baseline predates the certification package entirely
+            family_policy = importlib.util.find_spec("attest.certification.clustering") is not None
+        except ModuleNotFoundError:
+            family_policy = False
         expected_visible = ["inline"] if family_policy else ["inline", "inline", "inline", "overflow"]
         guards = (len(result.final_decisions) == 5, len(visible) == len(expected_visible),
             sorted(item.placement.value for item in visible) == expected_visible,

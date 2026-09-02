@@ -146,8 +146,10 @@ def test_current_run_embeds_the_exact_unnormalized_measurement(
         assert measurement["repeat"] == repeat
         assert payload["repeat"] == repeat
         assert measurement["candidate_count"] == 5
-        assert measurement["published_count"] == 4
-        assert measurement["unresolved_count"] == 1
+        # since C-05 the four same-defect findings publish once; the other three
+        # and the deferred candidate are unresolved
+        assert measurement["published_count"] == 1
+        assert measurement["unresolved_count"] == 4
     guards = payloads[0]["guards"]
     assert isinstance(guards, dict)
     assert isinstance(guards["platform_environment_removed"], bool)
@@ -183,8 +185,8 @@ def test_aggregate_uses_twenty_real_measurements_and_authoritative_reducer(
     assert aggregate["semantic_n"] == 1
     assert aggregate["operational_repeats"] == 20
     assert aggregate["candidate_count"] == 5
-    assert aggregate["published"] == 4
-    assert aggregate["unresolved"] == 1
+    assert aggregate["published"] == 1
+    assert aggregate["unresolved"] == 4
     assert aggregate["partially_deferred"] == 1
     assert aggregate["isolation_count"] == 20
     assert {payload["repeat"] for payload in payloads} == set(range(20))
