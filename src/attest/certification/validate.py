@@ -62,8 +62,21 @@ class ReceiptRejection:
     codes: tuple[RejectionCode, ...]
 
 
+MAX_CLAIM_CHARS = 2_000
+
+
 def _is_identifier(value: object) -> bool:
     return type(value) is str and value == value.strip() and 0 < len(value) <= 256
+
+
+def _is_claim(value: object) -> bool:
+    """A normalized claim is prose: single-spaced, printable, bounded, never empty."""
+    return (
+        type(value) is str
+        and value == " ".join(value.split())
+        and 0 < len(value) <= MAX_CLAIM_CHARS
+        and value.isprintable()
+    )
 
 
 def _is_sha(value: object) -> bool:
@@ -89,7 +102,7 @@ def _task_is_valid(task: CertificationTask) -> bool:
 def _subject_is_valid(subject: CertificationSubject) -> bool:
     return (
         _is_identifier(subject.candidate_id)
-        and _is_identifier(subject.normalized_claim)
+        and _is_claim(subject.normalized_claim)
         and _is_digest(subject.claim_digest)
         and _is_digest(subject.test_digest)
         and _is_identifier(subject.test_node)

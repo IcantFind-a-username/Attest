@@ -14,7 +14,7 @@ from attest.certification.types import (
     CertifiedFinding,
     FindingAnchor,
 )
-from attest.certification.validate import RejectionCode, validate_receipt
+from attest.certification.validate import ReceiptRejection, RejectionCode, validate_receipt
 
 
 def _replace_receipt(
@@ -236,3 +236,32 @@ def test_receipt_rejects_untyped_run_record(
 
     assert not isinstance(result, AcceptedReceipt)
     assert RejectionCode.HEAD_RUN_INVALID in result.codes
+
+
+def test_two_sentence_claim_longer_than_an_identifier_still_certifies(
+    task: CertificationTask,
+    policy: CertificationPolicy,
+    subject: CertificationSubject,
+    receipt: CertificationReceipt,
+) -> None:
+    """A claim is prose, not an identifier: a real two-sentence claim of 300
+    characters (seen on a SWE-bench regression) must be accepted, while a
+    claim beyond the prose bound is rejected as an invalid subject."""
+    long_claim = ("the encoder now decodes bytes with the ascii codec; " * 6).strip()
+    assert len(long_claim) > 256
+    accepted = validate_receipt(
+        task,
+        policy,
+        replace(subject, normalized_claim=long_claim),
+        replace(receipt, normalized_claim=long_claim),
+    )
+    assert isinstance(accepted, AcceptedReceipt)
+    too_long = "x" * 2_001
+    rejected = validate_receipt(
+        task,
+        policy,
+        replace(subject, normalized_claim=too_long),
+        replace(receipt, normalized_claim=too_long),
+    )
+    assert isinstance(rejected, ReceiptRejection)
+    assert RejectionCode.SUBJECT_INVALID in rejected.codes
