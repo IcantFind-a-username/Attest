@@ -675,7 +675,7 @@ def test_invalid_base_defers_with_immediate_comment_events_under_one_task(
 
     assert result.task_id is not None
     assert result.deferred_reason is not None
-    assert "review setup failed" in result.deferred_reason
+    assert "merge-base unavailable" in result.deferred_reason
     assert provider.calls == []
     assert len(github_server.status_bodies) == 2
     assert "Review running" in github_server.status_bodies[0]
@@ -982,3 +982,78 @@ def test_mixed_defer_summary_keeps_all_surfaced_overflow_and_hides_deferred_deta
         deferred["falsification_plan"],
     ):
         assert str(private_detail) not in sticky
+
+
+def test_head_policy_is_ignored_and_the_diff_is_merge_base_to_head(
+    planted_repo: tuple[Path, str, str],
+    github_server: RecordingGitHub,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """G-CERT-002: policy is base-owned and the counterfactual is the merge-base.
+
+    The head commit adds an ``.attest.toml`` that sets alpha to 1.0 (an invalid,
+    maximally relaxed value); the base branch then advances with an unrelated
+    file. The review must run under the base policy (factory alpha 0.1), must
+    review only the pull request's own change (one file, not the base advance),
+    and must verify against the merge-base rather than the advanced base tip.
+    """
+    from attest.cli.main import main
+
+    repo, base_sha, head_sha = planted_repo
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    (repo / ".attest.toml").write_text(
+        "alpha = 1.0\nmax_findings = 50\nbudget_usd = 1000.0\n", encoding="utf-8"
+    )
+    git("add", ".attest.toml")
+    git("commit", "-m", "head relaxes policy")
+    relaxed_head = git("rev-parse", "HEAD")
+    git("checkout", "-q", "--detach", base_sha)
+    (repo / "other.py").write_text("VALUE = 1\n", encoding="utf-8")
+    git("add", "other.py")
+    git("commit", "-m", "base advances after the fork")
+    advanced_base = git("rev-parse", "HEAD")
+    git("checkout", "-q", "--detach", relaxed_head)
+
+    event = tmp_path / "event.json"
+    event.write_text(
+        json.dumps(
+            {
+                "number": 9,
+                "repository": {"full_name": "octo/widgets"},
+                "pull_request": {
+                    "base": {"sha": advanced_base},
+                    "head": {"sha": relaxed_head, "repo": {"full_name": "octo/widgets"}},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    mock = tmp_path / "proposal.json"
+    mock.write_text(_finding_payload(), encoding="utf-8")
+    monkeypatch.setenv("GITHUB_TOKEN", "local-token")
+    monkeypatch.setenv("GITHUB_API_URL", github_server.url)
+
+    rc = main(
+        ["--repo", str(repo), "ci", "--event-path", str(event), "--k", "2", "--mock", str(mock)]
+    )
+
+    assert rc == 0
+    rows = _ledger_rows(repo)
+    run = next(row for row in rows if row["kind"] == "review_run")
+    assert run["alpha"] == 0.1
+    # merge-base..head touches app.py and the head's own .attest.toml; base-tip
+    # two-dot semantics would also show other.py (as a deletion) -> 3 files
+    assert run["files"] == 2
+    verification = next(row for row in rows if row["kind"] == "verification")
+    assert verification["base_sha"] == base_sha
+    assert verification["head_sha"] == relaxed_head
+    task = next(row for row in rows if row["kind"] == "certification_task")
+    assert task["merge_base_sha"] == base_sha
+    assert task["policy_source_sha"] == base_sha
+    assert task["policy_source"] == "factory-defaults"

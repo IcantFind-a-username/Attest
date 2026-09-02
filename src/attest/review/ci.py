@@ -6,8 +6,9 @@ import hashlib
 import json
 import math
 import re
+import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -32,7 +33,8 @@ from attest.review.certify import (
     certification_policy,
     certification_task,
 )
-from attest.review.config import ReviewConfig
+from attest.review.config import ReviewConfig, resolve_review_policy
+from attest.review.diffs import resolve_merge_base
 from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
 from attest.review.gate import GateResult
 from attest.review.ledger import Ledger
@@ -1010,19 +1012,37 @@ def _candidate_id(finding: CertifiedFinding) -> str:
     return finding.accepted_receipt.receipt.candidate_id
 
 
+def _workspace_head(repo: Path) -> str | None:
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True
+    )
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+HEAD_DRIFT_REASON = "workspace HEAD drifted from the reviewed head before publication"
+MERGE_BASE_REASON = "merge-base unavailable: fetch the base branch history (fetch-depth 0)"
+
+
 def run_ci(
     repo: Path,
     context: PullRequestContext,
     client: GitHubClient,
-    config: ReviewConfig,
+    config: ReviewConfig | None,
     provider: Provider,
     *,
     verification_timeout_s: float = 600.0,
     limits: ExecutorLimits | None = None,
     clock: Callable[[], float] = time.monotonic,
     publication_deadline_s: float | None = None,
+    config_overrides: Mapping[str, object] | None = None,
 ) -> CiRun:
-    """Run a review whose candidate details remain private until verified."""
+    """Run a review whose candidate details remain private until verified.
+
+    ``config`` is the caller's protected policy layer; pass ``None`` to load the
+    base-owned ``.attest.toml`` at the resolved merge-base with
+    ``config_overrides`` (protected Action inputs) applied on top. The head
+    checkout's policy file is never read.
+    """
     started = clock()
     ledger = Ledger(repo)
     task_id = make_task_id(
@@ -1079,10 +1099,56 @@ def run_ci(
         )
 
     _record_comment(ledger, task_id, "running")
+
+    # INV-TASK-001 / INV-POLICY-001: the counterfactual is the merge-base and the
+    # policy is whatever the destination owns there, never the head's file.
+    merge_base = resolve_merge_base(repo, context.base_sha, context.head_sha)
+    resolved = None
+    if merge_base is not None:
+        try:
+            resolved = resolve_review_policy(repo, merge_base, config, config_overrides)
+        except (ValueError, TypeError) as exc:
+            policy_reason = f"base policy invalid: {str(exc)[:160]}"
+    if merge_base is None or resolved is None:
+        reason = MERGE_BASE_REASON if merge_base is None else policy_reason
+        ledger.append({"kind": "defer", "task_id": task_id, "reason": reason})
+        reason = _post_deferred(
+            context=context,
+            client=client,
+            ledger=ledger,
+            task_id=task_id,
+            journal=journal,
+            reason=reason,
+        )
+        return _ci_run(
+            repo=repo,
+            task_id=task_id,
+            candidate_count=0,
+            surfaced_count=0,
+            deferred_reason=reason,
+            spend_usd=0.0,
+            started=started,
+            clock=clock,
+        )
+    config = resolved.config
+    ledger.append(
+        {
+            "kind": "certification_task",
+            "task_id": task_id,
+            "repository": context.repository,
+            "event_base_sha": context.base_sha,
+            "merge_base_sha": merge_base,
+            "head_sha": context.head_sha,
+            "policy_source": resolved.source,
+            "policy_source_sha": merge_base,
+            "policy_source_digest": resolved.source_digest,
+            "review_policy_digest": resolved.policy_digest,
+        }
+    )
     try:
         review = run_review(
             repo,
-            context.base_sha,
+            merge_base,
             config,
             provider,
             clock=clock,
@@ -1195,11 +1261,12 @@ def run_ci(
     certification = certification_task(
         task_id=task_id,
         repository_id=context.repository,
-        merge_base_sha=context.base_sha,
+        merge_base_sha=merge_base,
         head_sha=context.head_sha,
         diff_digest=review.diff_digest,
-        policy_source_sha=context.base_sha,
+        policy_source_sha=merge_base,
         policy=policy,
+        review_policy_digest=resolved.policy_digest,
     )
     certified_by_id: dict[str, CertifiedFinding] = {}
     verification_defers: list[str] = []
@@ -1229,7 +1296,7 @@ def run_ci(
             provider,
             review.budget,
             default_limits,
-            base_sha=context.base_sha,
+            base_sha=merge_base,
             head_sha=context.head_sha,
             repeats=CERTIFICATION_REPEATS,
             deadline=deadline,
@@ -1290,6 +1357,27 @@ def run_ci(
         spend_usd=review.budget.spent_usd,
         elapsed_s=clock() - started,
     )
+    if surfaced and _workspace_head(repo) != context.head_sha:
+        # revalidate the task immediately before the first author-visible write
+        ledger.append({"kind": "defer", "task_id": task_id, "reason": HEAD_DRIFT_REASON})
+        reason = _post_deferred(
+            context=context,
+            client=client,
+            ledger=ledger,
+            task_id=task_id,
+            journal=journal,
+            reason=HEAD_DRIFT_REASON,
+        )
+        return _ci_run(
+            repo=repo,
+            task_id=task_id,
+            candidate_count=len(review.results),
+            surfaced_count=0,
+            deferred_reason=reason,
+            spend_usd=review.budget.spent_usd,
+            started=started,
+            clock=clock,
+        )
     if surfaced:
         review_comments = inline_comments(inline_results)
         review_error = journal.attempt(

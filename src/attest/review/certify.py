@@ -85,7 +85,9 @@ def certification_task(
     diff_digest: str,
     policy_source_sha: str,
     policy: CertificationPolicy,
+    review_policy_digest: str,
 ) -> CertificationTask:
+    """Bind the task to both the certification policy and the resolved review policy."""
     return CertificationTask(
         schema_version=CERTIFICATION_TASK_SCHEMA_VERSION,
         task_id=task_id,
@@ -94,7 +96,9 @@ def certification_task(
         head_sha=head_sha,
         diff_digest=diff_digest,
         policy_source_sha=policy_source_sha,
-        policy_digest=policy_digest(policy),
+        policy_digest=canonical_digest(
+            {"certification": policy_digest(policy), "review": review_policy_digest}
+        ),
     )
 
 

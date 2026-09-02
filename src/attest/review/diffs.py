@@ -80,6 +80,28 @@ def parse_diff(text: str) -> DiffInfo:
     return DiffInfo(text=text, hunks={k: v for k, v in hunks.items() if v})
 
 
+_SHA_RE = re.compile(r"[0-9a-f]{40}")
+
+
+def resolve_merge_base(repo: Path, base: str, head: str) -> str | None:
+    """Full merge-base SHA of ``base`` and ``head``, or None when unresolvable.
+
+    A shallow clone that never fetched the base history returns None; the
+    caller must DEFER rather than fall back to two-dot base-tip semantics.
+    """
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "merge-base", base, head],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if proc.returncode != 0:
+        return None
+    sha = proc.stdout.strip()
+    return sha if _SHA_RE.fullmatch(sha) else None
+
+
 def git_diff(repo: Path, base: str | None = None) -> DiffInfo:
     """Working-tree diff against base (default HEAD, so staged changes are
     reviewed too — bare `git diff` would silently skip anything added to the

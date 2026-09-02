@@ -14,7 +14,7 @@ from attest.github.client import GitHubClient
 from attest.github.context import load_pull_request_context
 from attest.review.candidates import CandidateStore
 from attest.review.ci import run_ci
-from attest.review.config import load_config
+from attest.review.config import ReviewConfig, load_config
 from attest.review.gate import GateResult, apply_verification
 from attest.review.ledger import Ledger
 from attest.review.proposer import ApiProvider, MockProvider, Provider
@@ -87,7 +87,9 @@ def cmd_ci(args: argparse.Namespace) -> int:
         print(f"error: malformed GitHub event: {exc}", file=sys.stderr)
         return 2
 
-    config = load_config(repo)
+    # CI policy is base-owned: run_ci resolves the merge-base and reads the
+    # committed .attest.toml there. The head checkout's file is never loaded.
+    # Only the protected Action inputs are applied on top, validated here.
     overrides = {
         key: value
         for key, value in [
@@ -98,12 +100,14 @@ def cmd_ci(args: argparse.Namespace) -> int:
         ]
         if value is not None
     }
-    if overrides:
-        try:
-            config = dataclasses.replace(config, **overrides)
-        except ValueError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return 2
+    try:
+        protected = ReviewConfig(**overrides)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    # the model is a protected field: the provider is built before the base
+    # policy is read, so the Action input (or factory default) always wins
+    overrides["model"] = protected.model
 
     provider: Provider
     if args.mock is not None:
@@ -114,7 +118,7 @@ def cmd_ci(args: argparse.Namespace) -> int:
             return 2
         provider = MockProvider(payloads)
     else:
-        provider = ApiProvider(config.model)
+        provider = ApiProvider(protected.model)
 
     client = GitHubClient(
         token,
@@ -125,9 +129,10 @@ def cmd_ci(args: argparse.Namespace) -> int:
             repo,
             context,
             client,
-            config,
+            None,
             provider,
             verification_timeout_s=args.verification_timeout,
+            config_overrides=overrides,
         )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
