@@ -42,6 +42,7 @@ from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits, ReproSpec
 from attest.review.gate import GateResult
 from attest.review.ledger import Ledger, ci_final_decisions_from_rows
+from attest.review.proposer import ProviderResult
 from attest.review.schema import Finding
 
 CASE_ID = "case-0123456789ab"
@@ -468,10 +469,11 @@ def test_deferred_reason_reports_each_verification_cause() -> None:
     )
 
 
-def test_overflow_surfaces_are_extracted_as_scored_predictions(
+def test_same_defect_certified_findings_publish_once_and_the_rest_stay_private(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A surfaced finding beyond the formatting cap is still visible, so it is scored."""
+    """Two certified candidates bound to one reproduction are one defect (C-05):
+    the author sees it once and the suppressed candidate is private, unscored."""
     from attest.review import tier0
     from attest.review.tier0 import Tier0Signal
 
@@ -548,8 +550,12 @@ def test_overflow_surfaces_are_extracted_as_scored_predictions(
     placements = sorted(
         (prediction.placement.value, prediction.action) for prediction in result.run.predictions
     )
-    assert placements == [("inline", "surface"), ("overflow", "surface")]
-    assert result.surfaced_count == 2
+    assert placements == [("inline", "surface")]
+    assert result.surfaced_count == 1
+    policy = next(row for row in Ledger(repo).entries() if row.get("kind") == "publication_policy")
+    assert [item["reason"] for item in policy["suppressed"]] == [
+        "same defect as a published finding"
+    ]
 
 
 def test_identical_cassettes_produce_identical_scored_output(tmp_path: Path) -> None:
@@ -1115,9 +1121,12 @@ def test_inline_success_survives_a_failed_final_summary(
         "inline",
     )
     assert result.measurement.published_count == 1
+    # the second same-defect candidate is suppressed privately (C-05): it is
+    # an unresolved candidate, but no member's visibility depends on the failed
+    # summary, so only the task delivery is ambiguous, not the publication
     assert result.measurement.unresolved_count == 1
-    assert result.measurement.metrics_withheld_reason == "ambiguous_publication"
-    assert result.measurement.delivery_withheld_reason == "ambiguous_publication"
+    assert result.measurement.metrics_withheld_reason is None
+    assert result.measurement.delivery_withheld_reason is None
     assert result.measurement.task_delivery_withheld_reason == (
         "ambiguous_task_delivery"
     )
@@ -1126,10 +1135,10 @@ def test_inline_success_survives_a_failed_final_summary(
         event.channel.value == "inline_review" and event.succeeded
         for event in result.measurement.publication_events
     )
-    assert any(
-        any(member.placement.value == "overflow" for member in event.members)
-        and not event.succeeded
+    assert not any(
+        member.placement.value == "overflow"
         for event in result.measurement.publication_events
+        for member in event.members
     )
     prediction = result.run.predictions[0]
     request = ProjectEvaluationRequest(
@@ -1154,10 +1163,8 @@ def test_inline_success_survives_a_failed_final_summary(
     measurement = _adjudicate_measurement(
         request, result.measurement, result.run.predictions
     )
-    assert reduce_measurements((measurement,)).metrics_withheld_reason == (
-        "ambiguous_publication"
-    )
-    assert _score(measurement) is None
+    assert reduce_measurements((measurement,)).metrics_withheld_reason is None
+    assert _score(measurement) is not None
 
 
 def test_inline_success_survives_final_status_prepare_read_failure(
@@ -1431,6 +1438,31 @@ def test_inline_event_names_only_the_three_comments_actually_sent(
         }
     )
 
+    class PerModuleProvider:
+        """Each module gets its own reproduction bytes: four distinct defects."""
+
+        def sample(
+            self,
+            system: str,
+            prompt: str,
+            schema: dict[str, object],
+            max_tokens: int,
+            *,
+            timeout_s: float | None = None,
+        ) -> ProviderResult:
+            if "focused pytest reproduction" not in system:
+                return ProviderResult(text=proposal, input_tokens=10, output_tokens=10)
+            index = next(i for i in range(4) if f"module_{i}.py" in prompt)
+            body = (
+                "import runpy\n\n"
+                f"def test_defect_{index}_empty_input():\n"
+                f"    defect = runpy.run_path('module_{index}.py')['defect_{index}']\n"
+                "    assert defect([]) == 0\n"
+            )
+            return ProviderResult(
+                text=json.dumps({"test_body": body}), input_tokens=10, output_tokens=10
+            )
+
     with LoopbackGitHub() as github:
         result = BenchmarkRunner(repeats=1).run_case(
             repo,
@@ -1438,7 +1470,7 @@ def test_inline_event_names_only_the_three_comments_actually_sent(
             base_sha=base_sha,
             head_sha=head_sha,
             config=ReviewConfig(alpha=0.15, k_samples=2, max_findings=4),
-            provider=ReplayProvider(Cassette(proposal=proposal, repro=REPRO)),
+            provider=PerModuleProvider(),
             client=github.client(),
         )
         assert len(github.review_comments) == 3
@@ -1454,12 +1486,15 @@ def test_inline_event_names_only_the_three_comments_actually_sent(
         if event.channel.value == "status_summary"
     )
     assert len(review_event.members) == 3
-    assert len(summary_event.members) == 4
-    assert sum(
-        member.placement.value == "overflow" for member in summary_event.members
-    ) == 1
-    assert result.measurement.published_count == 4
-    assert len({prediction.finding_id for prediction in result.run.predictions}) == 4
+    # the hard cap is author-visible: the fourth certified defect is private
+    assert len(summary_event.members) == 3
+    assert not any(member.placement.value == "overflow" for member in summary_event.members)
+    assert result.measurement.published_count == 3
+    assert len({prediction.finding_id for prediction in result.run.predictions}) == 3
+    policy = next(row for row in Ledger(repo).entries() if row.get("kind") == "publication_policy")
+    assert [item["reason"] for item in policy["suppressed"]] == [
+        "beyond the hard author-visible cap"
+    ]
 
 
 def test_silent_complete_retains_task_delivery_without_a_finding_publication(

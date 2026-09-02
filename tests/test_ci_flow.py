@@ -867,18 +867,25 @@ def test_surface_overflow_stays_visible_without_extra_inline_placement(
     )
 
     assert result.candidate_count == 4
-    assert result.surfaced_count == 4
+    # four certified candidates for one defect (same anchor, same reproduction)
+    # are one publication cluster: the author sees it once (C-05)
+    assert result.surfaced_count == 1
     comments = github_server.review_bodies[0]["comments"]
     assert isinstance(comments, list)
-    assert len(comments) == 3
-    assert all(str(finding["claim"]) in github_server.status_bodies[-1] for finding in findings)
+    assert len(comments) == 1
+    visible = sum(
+        str(finding["claim"]) in github_server.status_bodies[-1] for finding in findings
+    )
+    assert visible == 1
     rows = _ledger_rows(repo)
     final = next(row for row in rows if row["kind"] == "ci_final")
     assert float(final["spend_usd"]) == pytest.approx(result.spend_usd)
     decisions = final["decisions"]
     assert isinstance(decisions, list)
     assert len(decisions) == 4
-    assert {decision["action"] for decision in decisions} == {"surface"}
+    assert sorted(decision["action"] for decision in decisions) == ["drawer"] * 3 + ["surface"]
+    policy = next(row for row in rows if row["kind"] == "publication_policy")
+    assert [s["reason"] for s in policy["suppressed"]] == ["same defect as a published finding"] * 3
 
     classified = classify_comments(
         [],
@@ -968,14 +975,14 @@ def test_mixed_defer_summary_keeps_all_surfaced_overflow_and_hides_deferred_deta
     )
 
     assert result.candidate_count == 5
-    assert result.surfaced_count == 4
+    assert result.surfaced_count == 1  # one defect, published once (C-05)
     assert result.deferred_reason is not None
     comments = github_server.review_bodies[0]["comments"]
     assert isinstance(comments, list)
-    assert len(comments) == 3
+    assert len(comments) == 1
     sticky = github_server.status_bodies[-1]
     assert "DEFER" in sticky
-    assert all(str(finding["claim"]) in sticky for finding in surfaced)
+    assert sum(str(finding["claim"]) in sticky for finding in surfaced) == 1
     for private_detail in (
         deferred["claim"],
         deferred["failure_scenario"],
@@ -1057,3 +1064,159 @@ def test_head_policy_is_ignored_and_the_diff_is_merge_base_to_head(
     assert task["merge_base_sha"] == base_sha
     assert task["policy_source_sha"] == base_sha
     assert task["policy_source"] == "factory-defaults"
+
+
+def test_pr_family_policy_caps_publication_and_counts_a_defect_once(
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
+) -> None:
+    """G-CERT-004: with m eligible candidates in one PR, nothing below m/alpha is
+    published, two certified candidates for the same defect count once, and the
+    author sees at most the hard cap.
+
+    Five candidates; two are asserted by both samples (votes 2), three by one
+    (votes 1). Every candidate is certified by the same reproduction, so all
+    five hold accepted receipts. At alpha 0.1 with m = 5 the family threshold is
+    50: wealth 2.64 x 20 = 52.8 clears it, 2.0 x 20 = 40 does not. The two
+    clearing candidates share one test digest and adjacent anchors: one defect.
+    """
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = planted_repo
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    # a second regression in another file so the singles form their own cluster
+    git("checkout", "-q", "--detach", base_sha)
+    (repo / "util.py").write_text(
+        "def ratio(a, b):\n    if b == 0:\n        return 0\n    return a / b\n",
+        encoding="utf-8",
+    )
+    git("add", "util.py")
+    git("commit", "-qm", "guarded ratio")
+    base_sha = git("rev-parse", "HEAD")
+    (repo / "app.py").write_text(
+        "def total(items):\n    return sum(items)\n\n\n"
+        "def average(items):\n    return sum(items) / len(items)\n",
+        encoding="utf-8",
+    )
+    (repo / "util.py").write_text("def ratio(a, b):\n    return a / b\n", encoding="utf-8")
+    git("add", "app.py", "util.py")
+    git("commit", "-qm", "drop both guards")
+    head_sha = git("rev-parse", "HEAD")
+    shared = [
+        {
+            "claim": "Empty batches crash the averaging helper.",
+            "anchor": {"file": "app.py", "line": 6},
+            "failure_scenario": "A request submits an empty batch.",
+            "falsification_plan": "Call the helper with no batch entries.",
+        },
+        {
+            "claim": "Vacant windows terminate the health computation.",
+            "anchor": {"file": "app.py", "line": 6},
+            "failure_scenario": "A health window contains nothing.",
+            "falsification_plan": "Evaluate a window with no samples.",
+        },
+    ]
+    singles = [
+        {
+            "claim": "Missing measurements abort the scheduled aggregation.",
+            "anchor": {"file": "util.py", "line": 2},
+            "failure_scenario": "A scheduled job receives no measurements.",
+            "falsification_plan": "Run the scheduled job without measurements.",
+        },
+        {
+            "claim": "Zero observations make the reporting endpoint unavailable.",
+            "anchor": {"file": "util.py", "line": 2},
+            "failure_scenario": "The endpoint handles a period with zero observations.",
+            "falsification_plan": "Request a report for an observation-free period.",
+        },
+        {
+            "claim": "Absent telemetry corrupts the archival checkpoint.",
+            "anchor": {"file": "util.py", "line": 2},
+            "failure_scenario": "An archival checkpoint receives absent telemetry.",
+            "falsification_plan": "Inspect the archival checkpoint path.",
+        },
+    ]
+
+    def repro_for(prompt: str) -> str:
+        # the singles reproduce the util.py regression, each with its own bytes
+        for index, finding in enumerate(singles):
+            if str(finding["claim"]) in prompt:
+                return json.dumps(
+                    {
+                        "test_body": "import runpy\n\n"
+                        f"def test_single_{index}_zero_divisor():\n"
+                        "    ratio = runpy.run_path('util.py')['ratio']\n"
+                        "    assert ratio(1, 0) == 0\n"
+                    }
+                )
+        return json.dumps(
+            {
+                "test_body": "import runpy\n\n"
+                "def test_empty_input_is_safe():\n"
+                "    average = runpy.run_path('app.py')['average']\n"
+                "    assert average([]) == 0\n"
+            }
+        )
+
+    class TwoSampleProvider:
+        def __init__(self) -> None:
+            self.proposals = 0
+
+        def sample(
+            self,
+            system: str,
+            prompt: str,
+            schema: dict[str, object],
+            max_tokens: int,
+            *,
+            timeout_s: float | None = None,
+        ) -> ProviderResult:
+            if "focused pytest reproduction" in system:
+                return ProviderResult(text=repro_for(prompt), input_tokens=10, output_tokens=10)
+            self.proposals += 1
+            payload = _payload(*shared, *singles) if self.proposals == 1 else _payload(*shared)
+            return ProviderResult(text=payload, input_tokens=10, output_tokens=10)
+
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(alpha=0.1, k_samples=2, max_findings=3, tier0_commands=[]),
+        TwoSampleProvider(),
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    assert result.candidate_count == 5
+    rows = _ledger_rows(repo)
+    accepted = [
+        row for row in rows if row["kind"] == "certification" and row["outcome"] == "accepted"
+    ]
+    assert len(accepted) == 5  # every candidate holds a receipt ...
+    policy = next(row for row in rows if row["kind"] == "publication_policy")
+    assert policy["eligible_count"] == 5
+    assert policy["family_threshold"] == 50.0
+    # ... but publication is family-controlled: one defect, once, above m/alpha
+    assert result.surfaced_count == 1
+    comments = github_server.review_bodies[0]["comments"]
+    assert isinstance(comments, list) and len(comments) == 1
+    body = str(comments[0]["body"])
+    # equal e-values: the deterministic tie-break on candidate id picks one of the two
+    assert ("Empty batches crash" in body) != ("Vacant windows" in body)
+    final = next(row for row in rows if row["kind"] == "ci_final")
+    published = [d for d in final["decisions"] if d["placement"] in {"inline", "overflow"}]
+    assert len(published) == 1
+    assert all(d["wealth_final"] >= 50.0 for d in published)
+    suppressed = {s["finding_id"]: s["reason"] for s in policy["suppressed"]}
+    assert sorted(suppressed.values()) == [
+        "below family threshold",
+        "below family threshold",
+        "below family threshold",
+        "same defect as a published finding",
+    ]
+    sticky = github_server.status_bodies[-1]
+    assert ("Empty batches crash" in sticky) != ("Vacant windows" in sticky)
+    assert "Missing measurements" not in sticky

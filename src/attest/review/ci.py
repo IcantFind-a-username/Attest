@@ -13,6 +13,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from attest.certification.selection import (
+    PUBLICATION_METHOD,
+    PUBLICATION_POLICY_SCHEMA_VERSION,
+    FamilyPolicy,
+    ScoredFinding,
+    select_for_publication,
+)
 from attest.certification.types import CertifiedFinding
 from attest.github.client import (
     STATUS_MARKER,
@@ -1346,19 +1353,52 @@ def run_ci(
             certified_by_id[candidate.finding.finding_id] = attempt.finding
 
     updated_results = list(results_by_id.values())
-    # legacy wealth orders the certified set (deterministic tie-break on ID);
-    # C-05 owns the PR-level family policy and the true author-visible cap
-    certified = sorted(
-        certified_by_id.values(),
-        key=lambda finding: (
-            -results_by_id[_candidate_id(finding)].wealth,
-            _candidate_id(finding),
-        ),
+    # C-05 (INV-FAMILY-001): same-defect certified findings count once, a
+    # finding publishes only at e-value >= m/alpha for the m eligible candidates
+    # in this PR, and at most the hard cap is author-visible anywhere
+    eligible_ids = [
+        candidate.finding.finding_id
+        for candidate in candidates
+        if candidate.eligibility == "regression"
+    ]
+    family = FamilyPolicy(
+        alpha=review.alpha,
+        eligible_count=len(eligible_ids),
+        hard_cap=min(3, config.max_findings),
     )
-    inline_limit = min(3, config.max_findings)
-    inline_results = certified[:inline_limit]
-    overflow_results = certified[inline_limit:]
+    selection = select_for_publication(
+        [
+            ScoredFinding(finding, results_by_id[_candidate_id(finding)].wealth)
+            for finding in certified_by_id.values()
+        ],
+        family,
+        [results_by_id[finding_id].wealth for finding_id in eligible_ids],
+    )
+    ledger.append(
+        {
+            "kind": "publication_policy",
+            "schema_version": PUBLICATION_POLICY_SCHEMA_VERSION,
+            "task_id": task_id,
+            "method": PUBLICATION_METHOD,
+            "alpha": review.alpha,
+            "eligible_count": family.eligible_count,
+            "family_threshold": round(selection.family_threshold, 6),
+            "hard_cap": family.hard_cap,
+            "mean_e_value": (
+                None if selection.mean_e_value is None else round(selection.mean_e_value, 6)
+            ),
+            "clusters": [list(cluster) for cluster in selection.clusters],
+            "published": [_candidate_id(finding) for finding in selection.published],
+            "suppressed": [
+                {"finding_id": _candidate_id(item.finding), "reason": item.reason}
+                for item in selection.suppressed
+            ],
+        }
+    )
+    inline_results = list(selection.published)
+    overflow_results: list[CertifiedFinding] = []  # the cap is author-visible, not layout
     surfaced = [*inline_results, *overflow_results]
+    published_ids = {_candidate_id(finding) for finding in inline_results}
     ledger.record_ci_final(
         task_id=task_id,
         decisions=[
@@ -1368,7 +1408,7 @@ def run_ci(
                 # beside it for analysis only
                 "action": (
                     "surface"
-                    if result.finding.finding_id in certified_by_id
+                    if result.finding.finding_id in published_ids
                     else "discard"
                     if result.decision == 0
                     else "drawer"
@@ -1376,10 +1416,7 @@ def run_ci(
                 "wealth_final": round(result.wealth, 4),
                 "placement": (
                     "inline"
-                    if result.finding.finding_id
-                    in {_candidate_id(finding) for finding in inline_results}
-                    else "overflow"
-                    if result.finding.finding_id in certified_by_id
+                    if result.finding.finding_id in published_ids
                     else "discard"
                     if result.decision == 0
                     else "drawer"
