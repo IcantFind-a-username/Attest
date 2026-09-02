@@ -50,9 +50,7 @@ NEW_FUNCTION_MODULE = GOOD_MODULE + '\n\ndef parse(text):\n    return text.split
 NEW_FUNCTION_BODY = 'import mod\n\ndef test_repro():\n    assert mod.parse("a,b") == "a"\n'
 NEW_MODULE = 'def parse(text):\n    return text.split(",")[-1]\n'
 NEW_MODULE_BODY = 'import newmod\n\ndef test_repro():\n    assert newmod.parse("a,b") == "a"\n'
-FABRICATED_BODY = (
-    "import mod\n\ndef test_repro():\n    assert mod.totally_absent_symbol(2) == 4\n"
-)
+FABRICATED_BODY = "import mod\n\ndef test_repro():\n    assert mod.totally_absent_symbol(2) == 4\n"
 # The live acceptance case: base ships only total(); head adds average() with no
 # empty-input guard, and the reproduction crashes rather than asserting.
 TOTAL_ONLY_MODULE = "def total(items):\n    return sum(items)\n"
@@ -84,17 +82,12 @@ RENAMED_HEAD_MODULE = (
     "def describe(s):\n"
     '    return "filled" if _is_nonempty(s) else "empty"\n'
 )
-STALE_RENAME_BODY = (
-    'import mypkg.calc as m\n\ndef test_x():\n    assert m._validate("") is False\n'
-)
+STALE_RENAME_BODY = 'import mypkg.calc as m\n\ndef test_x():\n    assert m._validate("") is False\n'
 # A crash-shaped genuine regression: `mean` exists on both trees, base guards
 # the empty list and head does not, so head fails with ZeroDivisionError rather
 # than an assertion (the D-022 widening).
 GUARDED_MEAN_MODULE = (
-    "def mean(items):\n"
-    "    if not items:\n"
-    "        return 0.0\n"
-    "    return sum(items) / len(items)\n"
+    "def mean(items):\n    if not items:\n        return 0.0\n    return sum(items) / len(items)\n"
 )
 UNGUARDED_MEAN_MODULE = "def mean(items):\n    return sum(items) / len(items)\n"
 MEAN_CRASH_BODY = "import mod\n\ndef test_repro():\n    mod.mean([])\n"
@@ -111,11 +104,7 @@ DEFAULTED_LOOKUP_MODULE = (
     '    return config.get("threshold", DEFAULTS["threshold"])\n'
 )
 UNDEFAULTED_LOOKUP_MODULE = (
-    'DEFAULTS = {"threshold": 5}\n'
-    "\n"
-    "\n"
-    "def threshold(config):\n"
-    '    return config["threshold"]\n'
+    'DEFAULTS = {"threshold": 5}\n\n\ndef threshold(config):\n    return config["threshold"]\n'
 )
 DEEP_KEY_ERROR_BODY = "import mod\n\ndef test_repro():\n    assert mod.threshold({}) == 5\n"
 MERGED_SETTINGS_MODULE = (
@@ -128,11 +117,7 @@ MERGED_SETTINGS_MODULE = (
     "    return merged\n"
 )
 DROPPED_SETTINGS_MODULE = (
-    'DEFAULTS = {"threshold": 5}\n'
-    "\n"
-    "\n"
-    "def settings(overrides):\n"
-    "    return dict(overrides)\n"
+    'DEFAULTS = {"threshold": 5}\n\n\ndef settings(overrides):\n    return dict(overrides)\n'
 )
 TEST_FRAME_KEY_ERROR_BODY = (
     'import mod\n\ndef test_repro():\n    assert mod.settings({})["threshold"] == 5\n'
@@ -182,14 +167,7 @@ GUARDED_CALC = (
 UNGUARDED_CALC = "def average(items):\n    return sum(items) / len(items)\n"
 CALC_CRASH_BODY = "import mypkg.calc\n\ndef test_repro():\n    mypkg.calc.average([])\n"
 TOTAL_CALC = "def total(items):\n    return sum(items)\n"
-FIXTURE_CONFTEST = (
-    "import pytest\n"
-    "\n"
-    "\n"
-    "@pytest.fixture\n"
-    "def sample_items():\n"
-    "    return {items}\n"
-)
+FIXTURE_CONFTEST = "import pytest\n\n\n@pytest.fixture\ndef sample_items():\n    return {items}\n"
 FIXTURE_BODY = (
     "import mypkg.calc\n"
     "\n"
@@ -2764,6 +2742,49 @@ def monorepo_repo(tmp_path: Path) -> tuple[Path, str, str, Path]:
     return repo, base_sha, head_sha, stale
 
 
+def test_reproduction_can_import_the_nearest_test_module_helpers_by_name(tmp_path: Path) -> None:
+    """A generated test that imitates the project's test module may import
+    that module's helpers by module name: each project's tests directory is on
+    the import path the way pytest's prepend mode exposes it (2026-09-03)."""
+    repo = tmp_path / "repo"
+    (repo / "services" / "svc" / "src" / "pkg").mkdir(parents=True)
+    (repo / "services" / "svc" / "tests").mkdir(parents=True)
+    (repo / "services" / "svc" / "pyproject.toml").write_text(
+        '[project]\nname = "pkg"\nversion = "0.0.1"\n', encoding="utf-8"
+    )
+    (repo / "services" / "svc" / "src" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    module = repo / MONOREPO_MODULE
+    module.write_text(MONOREPO_GOOD, encoding="utf-8")
+    (repo / "services" / "svc" / "tests" / "test_mod.py").write_text(
+        "from pkg import mod\n\nEXPECTED = 4\n\n\ndef _pair():\n    return 2, 2\n\n\n"
+        "def test_add():\n    assert mod.add(*_pair()) == EXPECTED\n",
+        encoding="utf-8",
+    )
+    run_git(repo, "init", "--initial-branch=main")
+    run_git(repo, "add", "-A")
+    run_git(repo, "commit", "-m", "base: working module and its tests")
+    base_sha = run_git(repo, "rev-parse", "HEAD")
+    module.write_text(MONOREPO_BUGGY, encoding="utf-8")
+    run_git(repo, "commit", "-am", "head: introduce the bug")
+    head_sha = run_git(repo, "rev-parse", "HEAD")
+    body = (
+        "from pkg import mod\n"
+        "from test_mod import EXPECTED, _pair\n\n"
+        "def test_repro():\n    assert mod.add(*_pair()) == EXPECTED\n"
+    )
+
+    result = execute_differential(
+        repo,
+        candidate(file=MONOREPO_MODULE, line=2),
+        ReproSpec(body),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+
+
 @pytest.mark.skipif(os.name != "posix", reason="shell wrapper interpreter")
 def test_reviewed_tree_wins_over_a_same_name_installed_copy(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -2814,8 +2835,8 @@ def test_pre_imported_copy_is_recorded_as_shadowed_not_as_silence(
         'if [ "$1" = "-c" ]; then exec ' + repr(sys.executable) + ' "$@"; fi\n'
         "shift 2\n"
         f"exec {sys.executable!r} -c 'import sys, runpy; sys.path.insert(0, {stale_json}); "
-        "import pkg.mod; sys.argv = [\"pytest\"] + sys.argv[1:]; "
-        "runpy.run_module(\"pytest\", run_name=\"__main__\")' \"$@\"\n",
+        'import pkg.mod; sys.argv = ["pytest"] + sys.argv[1:]; '
+        'runpy.run_module("pytest", run_name="__main__")\' "$@"\n',
         encoding="utf-8",
     )
     wrapper.chmod(0o755)

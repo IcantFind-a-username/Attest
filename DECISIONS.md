@@ -816,6 +816,7 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** the us-stock-helper trials: `services/*/src` packages resolved to the operator's editable install and the head tree executed 0 lines, which V-02 turned into silence with no stated cause.
 - **Limits:** a module pre-imported by the interpreter itself before sitecustomize (a cached copy) cannot be evicted, only detected; discovery is by project markers, not by reading build configuration (X-02's environment bootstrap reads it).
 - **Reversal:** none foreseen; the roots are additive and placeholder-relative.
+- **Amendment (2026-09-03, trial A re-run):** each discovered project's `tests` directory (and the tree's) is appended to the roots, the way pytest's prepend import mode exposes it to the project's own tests, and the generator is told the nearest test module's helpers are importable by module name; the first re-run's generated test had imported `test_analysis_service` and failed on both trees for that reason alone.
 
 
 ### D-087 — Empty samples split into "no text returned" and "true abstention"; D-082 recomputed

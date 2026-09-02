@@ -65,7 +65,10 @@ test must FAIL on the current version because of the claimed defect and PASS on 
 version: assert the merge-base behaviour concretely, not merely the absence of a crash. Exactly
 one module-level test function; import the project the way its existing tests do; no network,
 subprocesses, threads, or mocks of the code under test. If the defect only shows through
-pytest's own runner, use the project's test fixtures as the shown tests do."""
+pytest's own runner, use the project's test fixtures as the shown tests do. The directory of the
+nearest existing test module is importable, so its helpers can be imported by that module's
+name (for example ``from test_module import helper``); fixtures cannot be imported, only
+helpers and constants."""
 
 SITECUSTOMIZE = """import _thread
 import os
@@ -825,6 +828,13 @@ def project_roots(tree: Path) -> list[str]:
         roots.append(f"{{tree}}/{relative}")
         if (tree / relative / "src").is_dir():
             roots.append(f"{{tree}}/{relative}/src")
+    # the projects' own test directories come last, the way pytest's prepend
+    # import mode exposes them to the project's tests: a reproduction may then
+    # import the helpers of the test module it imitates by module name
+    for relative in ("", *found):
+        tests_dir = tree / relative / "tests" if relative else tree / "tests"
+        if tests_dir.is_dir():
+            roots.append(f"{{tree}}/{relative}/tests" if relative else "{tree}/tests")
     return roots
 
 

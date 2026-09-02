@@ -600,6 +600,17 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — X-01 gate and the fix-3 amendment:** full gate on `4788d1d` in the
+  detached worktree: 909 s wall, production coverage 91.81%, Ruff, Mypy and
+  `git diff --check` clean, no failures (the M-01 probe passes with the linked venv). Trial A
+  re-run after fixes 1-5 (task `20260903-010906-b302e7c2`, $0.0757): the generator now
+  returns text and the candidate is again exactly the 375ab52 defect, but the generated test
+  imported the project's test module by name and failed on both trees (unfaithful, not
+  published); one commit (`fix: expose each project's tests directory to reproductions`)
+  appends the projects' `tests` directories to the import roots and tells the generator.
+  The RED (a reproduction importing helpers from the nearest test module by name certifies)
+  failed before and passes after. See D-088 amendment.
+
 - **2026-09-03 — owner fix 5 (local differential stage):** one commit
   (`feat: run the differential stage from attest review and resolve commit ids at the entry`).
   `attest review` now runs the verification stage CI runs (one shared function; CI's
