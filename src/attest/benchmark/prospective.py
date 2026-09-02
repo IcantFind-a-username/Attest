@@ -238,7 +238,7 @@ def preflight_prospective(
     freeze_at = _utc(preregistration.freeze_at)
     samples = _read_jsonl(study_dir / SAMPLE_FILE)
     trials = _read_jsonl(study_dir / TRIALS_FILE)
-    first_outcome = min((_utc(row["recorded_at"]) for row in trials), default=None)
+    recorded_by_unit: dict[object, datetime] = {}
     for row in samples:
         try:
             recorded_at = _utc(row.get("recorded_at"))
@@ -262,18 +262,25 @@ def preflight_prospective(
                 REASON_SAMPLE_AFTER_OUTCOMES,
                 f"unit {row.get('unit_id')} was recorded before the freeze: not prospective",
             )
-        if first_outcome is not None and recorded_at > first_outcome:
-            trial_ids = {trial.get("unit_id") for trial in trials}
-            if row.get("unit_id") not in trial_ids or any(
-                _utc(trial["recorded_at"]) < recorded_at
-                for trial in trials
-                if trial.get("unit_id") == row.get("unit_id")
-            ):
-                raise ProspectivePreflightError(
-                    REASON_SAMPLE_AFTER_OUTCOMES,
-                    f"unit {row.get('unit_id')} was recorded after an outcome was observed; "
-                    "selection must precede every outcome",
-                )
+        recorded_by_unit.setdefault(row.get("unit_id"), recorded_at)
+    # selection precedes its own outcome: every trial's unit was recorded, with its
+    # inclusion probability, before that trial ran (traffic arriving after earlier
+    # outcomes is recorded as it arrives; nothing is chosen by outcome)
+    for trial in trials:
+        unit_id = trial.get("unit_id")
+        try:
+            trial_at = _utc(trial.get("recorded_at"))
+        except ValueError as exc:
+            raise ProspectivePreflightError(
+                REASON_SAMPLE_AFTER_OUTCOMES, f"trial for {unit_id} has no valid timestamp"
+            ) from exc
+        selected_at = recorded_by_unit.get(unit_id)
+        if selected_at is None or selected_at > trial_at:
+            raise ProspectivePreflightError(
+                REASON_SAMPLE_AFTER_OUTCOMES,
+                f"unit {unit_id} has an outcome recorded before its selection; "
+                "selection must precede its own outcome",
+            )
     total, cap = read_devspend(devspend_path)
     headroom = cap - total - reserve_usd
     if reserve_usd < 0 or not math.isfinite(headroom) or headroom < 0:

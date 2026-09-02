@@ -652,7 +652,11 @@ When a work order completes:
   guard with a fabricated input posts nothing and is labelled, the same guard with the base
   tree's own test as witness publishes as a behavior change in the words of what it proves,
   and the offline verifier rejects a digest-consistent bundle whose intent observation lost
-  its witnesses. Receipt schema v4. Window-end gates below.
+  its witnesses. Receipt schema v4. The one bounded D-049 review pass reproduced five
+  fail-open or crash paths (record-cap eviction, unparsable source, substring inputs and
+  witnesses, a handled raise deciding the class, surrogates) — fixed with REDs in `7c8de5c`
+  (D-102 amendment); replay v2 on the eight real receipts keeps every verdict. Window-end
+  gate on `7c8de5c` in the handoff.
 
 - **2026-09-03 — E-02 held-out (step 13) and E-01 natural null (step 14), paid phase closed:**
   held-out one pass at `a1624d2`, 68/69 cases: certified 7 candidates on 5/29 defects, 0/39

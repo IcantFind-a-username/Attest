@@ -46,6 +46,15 @@ precision has nothing to adjudicate.
   built the discriminator. That is the only prospective traffic the authorization covers in
   this window; it is recorded, not hidden, and the stratum makes no claim beyond its counts.
 
+## Traffic recorded after the run
+
+Four more Attest commits arrived in the same window after the two units ran (`50c21d2`,
+`69921e0`, `506aae1`, `7c8de5c`: docs, a fix, docs, a fix). They are recorded in `sample.jsonl`
+(units sampled 6, units run 2) and not run: the owner's answer on the per-unit budget and unit
+order (question 1) decides the next stratum's rule, and the protocol forbids changing it inside
+stratum v1. Recording traffic after earlier outcomes is allowed by the preflight; an outcome
+recorded before its own unit's selection is not.
+
 ## Adjudication
 
 Both units are drawn for the silent audit (probability 1.0) and remain `unresolved`: the

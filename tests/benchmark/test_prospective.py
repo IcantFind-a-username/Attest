@@ -184,8 +184,26 @@ def test_preflight_refuses_a_sample_recorded_after_an_outcome_or_before_the_free
         ),
     )
     assert _preflight(study, tmp_path).trials_recorded == 1  # type: ignore[attr-defined]
-    # a unit selected after that outcome was observed
+    # traffic that arrives after earlier outcomes is recorded as it arrives: allowed
     record_sample(study, [_unit("c" * 40)], recorded_at="2026-09-03T13:20:00+00:00")
+    assert _preflight(study, tmp_path).sampled_units == 2  # type: ignore[attr-defined]
+    # an outcome recorded before its own unit's selection is post-hoc: refused
+    record_trial(
+        study,
+        ShadowTrial(
+            unit_id="owner/repo@ddddddd",
+            task_id="t3",
+            recorded_at="2026-09-03T13:25:00+00:00",
+            candidates=0,
+            eligible=0,
+            attempted=0,
+            certified=0,
+            would_publish=(),
+            behavior_changes_verified=0,
+            behavior_changes_intent_unknown=0,
+        ),
+    )
+    record_sample(study, [_unit("d" * 40)], recorded_at="2026-09-03T13:30:00+00:00")
     with pytest.raises(ProspectivePreflightError) as refused:
         _preflight(study, tmp_path)
     assert refused.value.reason == REASON_SAMPLE_AFTER_OUTCOMES

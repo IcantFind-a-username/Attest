@@ -14,7 +14,7 @@ its first stratum ran; `r01` and the 3,200 bound stay.**
 | E-04 stratum v1 result, D-103; `heldout_run.py --code` semantics | `50c21d2` | docs |
 | D-104 shadow guard: dotted names from the tree roots | `69921e0` | stdlib `logging` beside `pkg/logging.py` is not a shadow; fix-3 REDs still pass |
 | supplementary held-out table, D-101 amendment, spend, this handoff | `506aae1` | docs |
-| D-049 review pass: five reproduced fail-open/crash paths in the discriminator fixed (D-102 amendment) | (below) | observer REDs for F1-F5; executor REDs for a handled raise and a surrogate message; replay v2: same eight verdicts |
+| D-049 review pass: five reproduced fail-open/crash paths in the discriminator fixed (D-102 amendment) | `7c8de5c` | observer REDs for F1-F5; executor REDs for a handled raise and a surrogate message; replay v2: same eight verdicts |
 
 Gates: full `pytest --cov` + Ruff + Mypy + `git diff --check` on the working tree after D-102
 (1 real failure fixed — the benchmark status map made total over the new class; the M-01 probe
@@ -114,7 +114,8 @@ Collector, preflight and protocol v1 (D-103) landed; the only prospective traffi
 authorized population was Attest's own two commits: 22 candidates, 0 eligible (10 Markdown
 anchors, 12 new-code), 0 reproductions, **0 shadow findings**, $0.1694. The 23-file commit had
 1 of its 13 change units read at the $0.25 per-unit budget — budget-bound silence, the E-01
-mechanism again. Report:
+mechanism again. Four later commits of this window are recorded as units and not run
+(6 sampled, 2 run) pending question 1. Report:
 [`docs/acceptance/2026-09-03-e04-prospective-v1.md`](acceptance/2026-09-03-e04-prospective-v1.md).
 
 ## Errata found this window

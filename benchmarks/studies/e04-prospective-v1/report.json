@@ -7,10 +7,12 @@
     "IcantFind-a-username/Corum",
     "IcantFind-a-username/IcantFind-a-username"
   ],
-  "units_sampled": 2,
+  "units_sampled": 6,
   "units_run": 2,
   "strata": {
-    "feature": 2
+    "feature": 2,
+    "fix": 2,
+    "docs": 2
   },
   "shadow_findings": 0,
   "units_with_shadow_finding": 0,
@@ -20,8 +22,8 @@
   "behavior_changes_verified": 0,
   "behavior_changes_intent_unknown": 0,
   "deferred_units": 0,
-  "silent_audit_selected": 2,
-  "silent_audit_unresolved": 2,
+  "silent_audit_selected": 6,
+  "silent_audit_unresolved": 6,
   "confirmed_eligible_opportunities": 0,
   "eligible_detection": "INSUFFICIENT",
   "semantic_precision": "adjudicated",
