@@ -85,10 +85,29 @@ Report at most 5 findings, best first."""
 
 @dataclass
 class ProviderResult:
-    text: str
+    text: str | None  # None when the response carried no text block at all
     input_tokens: int
     output_tokens: int
     stop_reason: str | None = None
+    content_types: tuple[str, ...] = ("text",)  # block types the response carried, in order
+
+
+def no_text_reason(result: ProviderResult) -> str:
+    """The honest failure label for a response without a text block: the stop
+    reason and the block types, never a fabricated ``{}``."""
+    blocks = ",".join(result.content_types) or "none"
+    stop = result.stop_reason or "not_recorded"
+    return f"generation_no_text (stop_reason={stop}, blocks={blocks})"
+
+
+def thinking_arguments(model: str) -> dict[str, Any]:
+    """Structured generation buys text, not reasoning: on models that accept
+    it, thinking is disabled so the whole output bound is available to the JSON
+    document; on models whose thinking is always on, the request omits the
+    parameter and asks for the lowest effort instead."""
+    if model.startswith(("claude-fable", "claude-mythos")):
+        return {"output_config": {"effort": "low"}}
+    return {"thinking": {"type": "disabled"}}
 
 
 @dataclass(frozen=True)
@@ -96,7 +115,10 @@ class SampleObservation:
     sample: int
     stop_reason: str
     output_tokens: int | None
-    recovery: str = "intact"  # intact | empty | salvaged:<n> | repaired | unrecoverable | error
+    # intact | empty | no_text | salvaged:<n> | repaired | unrecoverable | error;
+    # "empty" is the model's own empty findings list (a true abstention),
+    # "no_text" is a response without a text block (not an abstention)
+    recovery: str = "intact"
     replayed: bool = False  # served from the immutable attempt cache, nothing bought
 
 
@@ -150,20 +172,30 @@ class ApiProvider:
         *,
         timeout_s: float | None = None,
     ) -> ProviderResult:
-        response = self._client().messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-            output_config={"format": {"type": "json_schema", "schema": schema}},
-            timeout=self.timeout if timeout_s is None else timeout_s,
-        )
-        text = next((b.text for b in response.content if b.type == "text"), "{}")
+        arguments: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": [{"role": "user", "content": prompt}],
+            "output_config": {"format": {"type": "json_schema", "schema": schema}},
+            "timeout": self.timeout if timeout_s is None else timeout_s,
+        }
+        for key, value in thinking_arguments(self.model).items():
+            if key == "output_config":
+                arguments["output_config"].update(value)
+            else:
+                arguments[key] = value
+        response = self._client().messages.create(**arguments)
+        # a response without a text block is reported as exactly that: the
+        # stop reason and the block types travel with the result, and no
+        # placeholder document is ever invented for it
+        text = next((b.text for b in response.content if b.type == "text"), None)
         return ProviderResult(
             text=text,
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
             stop_reason=response.stop_reason,
+            content_types=tuple(str(b.type) for b in response.content),
         )
 
 
@@ -324,7 +356,11 @@ def propose(
         if cached is not None:
             return (
                 ProviderResult(
-                    cached.text, cached.input_tokens, cached.output_tokens, cached.stop_reason
+                    cached.text,
+                    cached.input_tokens,
+                    cached.output_tokens,
+                    cached.stop_reason,
+                    cached.content_types,
                 ),
                 True,
             )
@@ -337,7 +373,11 @@ def propose(
         cache.put(
             digest,
             CachedAttempt(
-                result.text, result.input_tokens, result.output_tokens, result.stop_reason
+                result.text,
+                result.input_tokens,
+                result.output_tokens,
+                result.stop_reason,
+                result.content_types,
             ),
         )
         return result, False
@@ -370,6 +410,16 @@ def propose(
             budget.settle(
                 f"sample-{label}", reservations[i], res.input_tokens, res.output_tokens
             )
+        if res.text is None:
+            # not an abstention: the model produced no document to read
+            observations.append(
+                SampleObservation(
+                    label, res.stop_reason or "not_recorded", res.output_tokens, "no_text", replayed
+                )
+            )
+            errors.append(f"sample {label}: {no_text_reason(res)}")
+            per_sample.append([])
+            continue
         salvage = salvage_findings(res.text)
         recovery = salvage.status
         raw_findings = salvage.findings
@@ -401,6 +451,9 @@ def propose(
                         repaired_result.input_tokens,
                         repaired_result.output_tokens,
                     )
+                if repaired_result.text is None:
+                    recovery = f"unrecoverable; repair {no_text_reason(repaired_result)}"
+                    continue
                 again = salvage_findings(repaired_result.text)
                 if again.status != "unrecoverable":
                     raw_findings = again.findings
@@ -415,7 +468,7 @@ def propose(
         if recovery.startswith("unrecoverable"):
             errors.append(
                 f"sample {label}: unparseable JSON ({recovery}); "
-                f"raw={response_fragment(res.text)}"
+                f"raw={response_fragment(res.text or '')}"
             )
             per_sample.append([])
             continue
@@ -433,7 +486,7 @@ def propose(
             successful_samples += 1
         else:
             errors.append(
-                f"sample {i}: all findings malformed; raw={response_fragment(res.text)}"
+                f"sample {i}: all findings malformed; raw={response_fragment(res.text or '')}"
             )
         per_sample.append(valid)
 

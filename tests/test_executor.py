@@ -2685,6 +2685,54 @@ def test_differential_test_that_never_executes_a_changed_line_is_not_a_regressio
     assert bound.binding.executed_changed_lines == (2,)
 
 
+def test_thinking_only_generator_response_is_recorded_as_generation_no_text(
+    tmp_path: Path,
+) -> None:
+    """Owner fix 1 (2026-09-03): a response whose only block is thinking, stopped
+    at max_tokens, is recorded as generation_no_text with the stop reason and the
+    block types -- never collapsed to ``{}`` and never reported as a schema
+    mismatch."""
+    from types import SimpleNamespace
+
+    from attest.review.proposer import ApiProvider
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    provider = ApiProvider("claude-sonnet-5")
+    captured: list[dict[str, Any]] = []
+    response = SimpleNamespace(
+        content=[SimpleNamespace(type="thinking", thinking="")],
+        usage=SimpleNamespace(input_tokens=6201, output_tokens=3000),
+        stop_reason="max_tokens",
+    )
+
+    def create(**kwargs: Any) -> Any:
+        captured.append(kwargs)
+        return response
+
+    provider.client = SimpleNamespace(messages=SimpleNamespace(create=create))
+    stored = candidate(file="mod.py", line=1)
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        original_gate(stored),
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    reason = verification.execution.reason
+    assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+    assert "generation_no_text" in reason
+    assert "stop_reason=max_tokens" in reason and "blocks=thinking" in reason
+    assert "schema" not in reason and "{}" not in reason
+    assert Ledger(repo).entries()[-1]["reason"] == reason
+    assert all(call["thinking"] == {"type": "disabled"} for call in captured)
+    assert len(captured) == executor.MAX_REPRO_ATTEMPTS
+
+
 def test_line_tracer_is_confined_to_the_reproduction_window(tmp_path: Path) -> None:
     """The V-02 tracer costs one Python call per frame while installed, so it
     is installed for the collected item's protocol only: module import at

@@ -34,7 +34,7 @@ from attest.review.diffs import parse_diff
 from attest.review.gate import GateResult, apply_verification
 from attest.review.ledger import Ledger
 from attest.review.planner import generation_context
-from attest.review.proposer import Provider, response_fragment
+from attest.review.proposer import Provider, no_text_reason, response_fragment
 
 MAX_CONTEXT_LINES = 200
 REPRO_MAX_OUTPUT_TOKENS = 3_000
@@ -425,6 +425,11 @@ def _generation_prompt(repo: Path, candidate: StoredCandidate, base_ref: str | N
     )
 
 
+class GenerationNoText(ValueError):
+    """The model answered without a text block: nothing to parse, and never a
+    schema mismatch (owner fix 1, 2026-09-03)."""
+
+
 def _parse_repro(text: str) -> ReproSpec:
     stripped = text.strip()
     fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", stripped, flags=re.DOTALL | re.IGNORECASE)
@@ -539,6 +544,11 @@ def generate_repro(
                 budget.cancel(unused)
             raise
         budget.settle(label, reservation, result.input_tokens, result.output_tokens)
+        if result.text is None:
+            # the honest reason travels as-is: stop reason and block types,
+            # never a fabricated document reported as a schema mismatch
+            last_schema_error = GenerationNoText(no_text_reason(result))
+            continue
         try:
             spec = _parse_repro(result.text)
         except ValueError as exc:

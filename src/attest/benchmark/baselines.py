@@ -3349,7 +3349,9 @@ def _resolve_commit(repo: Path, ref: str) -> str:
     return resolved
 
 
-def _parse_findings(text: str) -> list[object] | None:
+def _parse_findings(text: str | None) -> list[object] | None:
+    if text is None:  # no text block in the response: nothing to parse
+        return None
     try:
         payload = json.loads(text)
     except json.JSONDecodeError:

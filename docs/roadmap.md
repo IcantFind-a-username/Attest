@@ -600,6 +600,15 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — owner fix 1 (generator/provider honesty):** one commit
+  (`fix: disable thinking for structured generation and report no-text responses honestly`).
+  Structured calls disable thinking where the model accepts it (or ask for `effort: low`
+  where thinking is always on); a response without a text block is `generation_no_text
+  (stop_reason=…, blocks=…)` in the proposer's sample observations and the generator's
+  ledger reason, never `{}` and never a schema mismatch. The RED failed on the unpatched
+  path (a thinking-only `max_tokens` response was reported as a schema mismatch with
+  `raw="{}"`) and passes after. Gate: see the follow-up entry. See D-086.
+
 - **2026-09-03 — X-01 complete:** implementation is the commit
   `feat: split the controller from the executor behind a nonced, content-addressed protocol`
   (new `attest.execution` package: types, strict protocol, controller, `local_development_best_effort`

@@ -108,10 +108,11 @@ def attempt_digest(
 
 @dataclass(frozen=True)
 class CachedAttempt:
-    text: str
+    text: str | None  # None: the response carried no text block
     input_tokens: int
     output_tokens: int
     stop_reason: str | None
+    content_types: tuple[str, ...] = ("text",)
 
 
 class AttemptCache:
@@ -134,12 +135,18 @@ class AttemptCache:
         if not isinstance(raw, dict) or raw.get("schema_version") != RECOVERY_SCHEMA_VERSION:
             return None
         try:
+            content_types = raw.get("content_types")
             return CachedAttempt(
-                text=str(raw["text"]),
+                text=None if raw.get("text") is None else str(raw["text"]),
                 input_tokens=int(raw["input_tokens"]),
                 output_tokens=int(raw["output_tokens"]),
                 stop_reason=(
                     None if raw.get("stop_reason") is None else str(raw["stop_reason"])
+                ),
+                content_types=(
+                    ("text",)
+                    if not isinstance(content_types, list)
+                    else tuple(str(item) for item in content_types)
                 ),
             )
         except (KeyError, TypeError, ValueError):
@@ -161,6 +168,7 @@ class AttemptCache:
                     "input_tokens": attempt.input_tokens,
                     "output_tokens": attempt.output_tokens,
                     "stop_reason": attempt.stop_reason,
+                    "content_types": list(attempt.content_types),
                 },
                 ensure_ascii=False,
             ),

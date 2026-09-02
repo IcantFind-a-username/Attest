@@ -185,3 +185,97 @@ def test_provider_receives_preregistered_output_bound() -> None:
     provider = WorstCaseProvider()
     propose(DIFF, cfg, budget, provider)
     assert provider.max_tokens_seen == [PROPOSER_MAX_OUTPUT_TOKENS] * 3
+
+
+def test_thinking_only_response_is_generation_no_text_not_a_schema_mismatch() -> None:
+    """Fix 1 (2026-09-03): a response whose only block is thinking, stopped at
+    max_tokens, is reported as generation_no_text with its stop reason and block
+    types; the provider never invents a ``{}`` document, and structured
+    generation asks the model for text, not reasoning."""
+    provider = ApiProvider("claude-sonnet-5")
+    captured: dict[str, Any] = {}
+    response = SimpleNamespace(
+        content=[SimpleNamespace(type="thinking", thinking="")],
+        usage=SimpleNamespace(input_tokens=6201, output_tokens=3000),
+        stop_reason="max_tokens",
+    )
+
+    def create(**kwargs: Any) -> Any:
+        captured.update(kwargs)
+        return response
+
+    provider.client = SimpleNamespace(messages=SimpleNamespace(create=create))
+
+    result = provider.sample("system", "prompt", {}, 3000)
+
+    assert result.text is None
+    assert result.content_types == ("thinking",)
+    assert captured["thinking"] == {"type": "disabled"}
+    run = propose(
+        DIFF,
+        ReviewConfig(k_samples=1),
+        Budget(limit_usd=0.25, model=DEFAULT_MODEL),
+        provider,
+    )
+    assert run.successful_samples == 0
+    assert run.sample_observations[0].recovery == "no_text"
+    assert run.sample_observations[0].stop_reason == "max_tokens"
+    assert any("generation_no_text" in error for error in run.sample_errors)
+    assert not any("schema" in error for error in run.sample_errors)
+    assert not any("{}" in error for error in run.sample_errors)
+
+
+def test_always_on_thinking_models_get_low_effort_instead_of_disabled() -> None:
+    provider = ApiProvider("claude-fable-5-1")
+    captured: dict[str, Any] = {}
+    response = SimpleNamespace(
+        content=[SimpleNamespace(type="text", text='{"findings": []}')],
+        usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+        stop_reason="end_turn",
+    )
+
+    def create(**kwargs: Any) -> Any:
+        captured.update(kwargs)
+        return response
+
+    provider.client = SimpleNamespace(messages=SimpleNamespace(create=create))
+    provider.sample("system", "prompt", {"type": "object"}, 100)
+    assert "thinking" not in captured
+    assert captured["output_config"]["effort"] == "low"
+    assert captured["output_config"]["format"]["type"] == "json_schema"
+
+
+class NoTextThenEmptyProvider:
+    """Sample 0 carries no text block; sample 1 is the model's own empty list."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def sample(self, system: str, prompt: str, schema: dict[str, Any], max_tokens: int):
+        self.calls += 1
+        if self.calls == 1:
+            return ProviderResult(
+                text=None,
+                input_tokens=10,
+                output_tokens=max_tokens,
+                stop_reason="max_tokens",
+                content_types=("thinking",),
+            )
+        return ProviderResult(
+            text='{"findings": []}', input_tokens=10, output_tokens=5, stop_reason="end_turn"
+        )
+
+
+def test_no_text_and_empty_findings_are_counted_apart() -> None:
+    """Fix 2 (2026-09-03): only the model's own empty findings list is an
+    abstention; a response without text is a generation failure."""
+    run = propose(
+        DIFF,
+        ReviewConfig(k_samples=2),
+        Budget(limit_usd=0.25, model=DEFAULT_MODEL),
+        NoTextThenEmptyProvider(),
+    )
+    recoveries = sorted(observation.recovery for observation in run.sample_observations)
+    assert recoveries == ["empty", "no_text"]
+    assert run.successful_samples == 1
+    assert run.candidates == []

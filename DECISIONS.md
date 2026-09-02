@@ -798,3 +798,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** `G-SEC-001`: the executor's result channel was the same writable directory the job could reach, and the job inherited the controller's whole environment minus a name filter.
 - **Limits:** origin authentication of the envelope (a controller seal) and fresh state per repeat are V-03; there is no production adapter until X-02, and a policy listing only a production profile would DEFER every run today.
 - **Reversal:** a protocol v2 supersedes by version; results under v1 stay verifiable.
+
+
+### D-086 — Structured generation buys text, not reasoning; a response without text is a generation failure
+
+- **Date/status/scope:** 2026-09-03 · owner fix 1 (2026-09-03) · `review/proposer.py` (`ProviderResult.text` may be None, `content_types`, `thinking_arguments`, `no_text_reason`), `review/recovery.py` (the attempt cache carries block types), `review/executor.py` (`GenerationNoText`), `benchmark/baselines.py` (None-safe parse).
+- **Decision:** every structured call sends `thinking: {"type": "disabled"}` on models that accept it (Sonnet 5, Opus 5 at default effort, the 4.x family) and, on models whose thinking is always on (Fable/Mythos), omits the parameter and asks for `effort: "low"`, so the output bound is spent on the JSON document; a response with no text block is reported as `generation_no_text (stop_reason=…, blocks=…)` — the generator raises it after the precommitted attempts and the proposer records the sample as `no_text` — with no placeholder `{}` and no "schema mismatch" ever reported for it.
+- **Why:** the us-stock-helper trials (2026-09-02): sonnet-5's reproduction generation failed 8/8 with `output_tokens=3000`, `stop_reason=max_tokens` and only a thinking block, reported as "schema mismatch raw={}"; the same exhaustion hid inside the proposer's "empty" samples.
+- **Limits:** the effect on proposal quality of removing reasoning is measured by the dev-slice re-run (b), not assumed; the fixed-`budget_tokens` split is not expressible on the Claude 5 API, so "separate budgets" means text-only output.
+- **Reversal:** if re-run (b) certifies fewer defects than the C-05 re-run at zero control publications, restore adaptive thinking with a larger bound and re-measure.
