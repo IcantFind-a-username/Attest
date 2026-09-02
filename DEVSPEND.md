@@ -44,8 +44,10 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-08-29 | phase-3 acceptance run 33268345406 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0220 |
 | 2026-08-29 | phase-3 acceptance run 33268347262 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0132 |
 | 2026-08-29 | phase-3 acceptance run 33268350447 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0272 |
+| 2026-09-02 | us-stock-helper trial A (revert 375ab52, market_brief sample wording): review K=4 $0.0746 (1 candidate, drawer); local differential drives with default model 2x $0.0848 (generator hit max_tokens with a thinking-only response both times); 1 diagnostic generator call $0.0424; 4 haiku-4-5 generator drives $0.0390 (all unfaithful) | $0.325598 |
+| 2026-09-02 | us-stock-helper trial B (revert 3f6b67b, nasdaq halt timestamps): review K=4 $0.1208 (2 candidates, drawer); local differential drive with default model $0.1621 (same thinking-only generator failure, 2 candidates x 2 attempts); 2 haiku-4-5 generator drives $0.0369 (all unfaithful) | $0.319734 |
 
-**Total API spend: $11.341350 of $30.00.** (37 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $11.986682 of $30.00.** (39 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
