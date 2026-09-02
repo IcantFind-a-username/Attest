@@ -481,6 +481,19 @@ certification designs require a base-side counterfactual harness, mutation/patch
 specification oracle, or human-authored invariant. Each design must be calibrated as a
 separate evidence class.
 
+### 8.3a Behavior-change class (D-102)
+
+A head failure raised by a `raise`/`assert` statement on a changed line of the anchored file
+is a **behavior change** — head rejects an input the base accepted — not a regression. It is
+certified as its own evidence class, `behavior_change`, bound to an intent observation
+(policy `attest.intent.new-rejection.v1`: origin line and statement, exception type, the
+rejected inputs identified from the generated test's literals, their witnesses). It may be
+published only when every rejected input occurs verbatim in the base tree's tests, fixtures,
+examples or documentation, and then in words that say exactly that and ask the author to
+confirm. Without a witness the differential is a typed abstention in the drawer ("behavior
+change confirmed, intent unknown"). The offline verifier re-judges the observation; a
+behavior-change receipt without an intent policy fails closed.
+
 ### 8.4 Manual evidence
 
 Manual `--reproduced` input becomes `self_reported` evidence. It may be useful in a local

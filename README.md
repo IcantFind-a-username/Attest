@@ -51,16 +51,30 @@ Important limits:
 - the current three-finding setting limits inline layout, not every author-visible summary
   item;
 - new-code candidates are typed/classified as an unpriced class and deliberately abstain;
-- measured so far (2026-09-03, held-out slice of SWE-bench Verified, one pass, 29 reverse-fix
-  regressions and 39 synthetic controls, K = 4, containers): certified findings on 5 of 29
-  defects, 0 false publications on 39 controls; 18 of the 29 defects never executed because
-  their environment failed to build, so the defect-side number is a lower bound (see
-  [the held-out report](docs/acceptance/2026-09-03-e02-heldout.md)); the earlier dev-slice
-  figures are a development record, not a claim;
-- on 20 real commits with no known defect (one repository, 2026-09-03) the flow published
-  once: a valid receipt for an intended behavior change presented as a defect
-  ([the natural-null report](docs/acceptance/2026-09-03-e01-natural-null.md), D-100) — the
-  regression-only kernel cannot yet tell an intended new rejection from a regression;
+- a head failure raised by a `raise`/`assert` on a changed line is classified as a
+  *behavior change*, not a regression, and publishes only when the rejected input occurs in
+  the base tree's own tests, fixtures or documentation; otherwise it stays in the drawer as
+  "behavior change confirmed, intent unknown" (D-102, 2026-09-03);
+- measured so far, each number with its sample and date:
+  - **controls:** 0 false publications on 39 synthetic controls (test-only and docs-only
+    commits of the held-out SWE-bench Verified slice; one pass, K = 4, containers;
+    2026-09-03; [held-out report](docs/acceptance/2026-09-03-e02-heldout.md));
+  - **adversarial tests:** 18 of 18 rejected by the changed-line binding policy (9 held-out
+    cases × two constructed adversarial tests, container re-execution, no model call;
+    2026-09-03; same report);
+  - **defects:** certified on 5 of the 10 held-out defects whose environment built, and 5 of
+    all 29 (one pass, 2026-09-03; the report's first prose count said 11 and 18 — the result
+    files say 10 and 19, see its erratum); the 19 environments that failed to build were
+    fixed afterwards and their supplementary run is reported apart from the one-time table,
+    never merged into it;
+  - **natural null:** 1 false publication on 20 real commits with no known defect (one
+    repository, 7 refactor/test-only, 6 docs-only, 7 feature commits; K = 4, $0.25 per PR;
+    2026-09-03; [natural-null report](docs/acceptance/2026-09-03-e01-natural-null.md)) —
+    a valid receipt for an intended new rejection on an existing constructor, published as
+    a defect because the kernel was regression-only (D-100); under D-102 the same receipt
+    goes to the drawer ([replay report](docs/acceptance/2026-09-03-d102-intent-replay.md))
+    while the 5 held-out regressions still publish;
+  - the earlier dev-slice figures are a development record, not a claim;
 - historical null, stability, Action, corpus, and synthetic scheduling results are scoped
   observations, not production guarantees.
 
@@ -153,7 +167,10 @@ Coding agents start with [AGENTS.md](AGENTS.md). The complete documentation map 
 - `DEVSPEND.md` — development API spend ledger;
 - `DECISIONS.md` D-020 through D-037 — differential/evaluation history.
 - `docs/acceptance/2026-09-03-e02-heldout.md` and `docs/acceptance/2026-09-03-e01-natural-null.md`
-  — the held-out and natural-null measurements with their sample sizes and stop conditions.
+  — the held-out and natural-null measurements with their sample sizes and stop conditions;
+- `docs/acceptance/2026-09-03-d102-intent-replay.md` — the intent discriminator replayed on
+  the eight real receipts (the natural-null publication to the drawer, the five held-out
+  regressions unchanged).
 
 Read each with its stated limitations. In particular, hash consistency is not execution
 authenticity, a reverse-fix corpus is not natural PR traffic, and an all-abstain result does

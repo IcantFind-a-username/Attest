@@ -111,7 +111,12 @@ Do not confuse target contracts with current behavior:
   `attest review` may fall back to `local_development_best_effort` and says so; since V-03
   every run starts from an empty outputs directory recorded in its run record and every
   accepted bundle is sealed under the repository's controller key (verify with
-  `attest verify --bundle`); `G-SEC-002`'s full red-team matrix on the declared CI platform
+  `attest verify --bundle`); since D-102 (2026-09-03) a head failure raised by a
+  `raise`/`assert` statement on a changed line of the anchored file is a *behavior change*,
+  not a regression: it is a `behavior_change` receipt only when the rejected input occurs
+  verbatim in the base tree's tests, fixtures or documentation, and otherwise stays in
+  the drawer as "behavior change confirmed, intent unknown" (the offline verifier re-judges
+  the intent observation); `G-SEC-002`'s full red-team matrix on the declared CI platform
   is open;
 - current language-level process/network guards are best-effort containment, not a security
   boundary for untrusted head code;

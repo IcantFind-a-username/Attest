@@ -16,6 +16,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from attest.certification.binding import BINDING_POLICY_VERSION
+from attest.certification.intent import INTENT_POLICY_VERSION
 from attest.certification.types import (
     CERTIFICATION_POLICY_SCHEMA_VERSION,
     CERTIFICATION_RECEIPT_SCHEMA_VERSION,
@@ -75,8 +76,12 @@ def certification_policy(repeats: int, profile: str = EXECUTOR_PROFILE) -> Certi
         required_head_runs=repeats,
         required_base_runs=repeats,
         allowed_executor_profiles=(profile,),
-        allowed_evidence_classes=(EvidenceClass.REGRESSION_REPRODUCED.value,),
+        allowed_evidence_classes=(
+            EvidenceClass.REGRESSION_REPRODUCED.value,
+            EvidenceClass.BEHAVIOR_CHANGE.value,
+        ),
         binding_policy_version=BINDING_POLICY_VERSION,
+        intent_policy_version=INTENT_POLICY_VERSION,
     )
 
 
@@ -133,6 +138,7 @@ class CertificationAttempt:
     finding: CertifiedFinding | None
     bundle: WrittenBundle | None = None
     executor_profile: str = EXECUTOR_PROFILE  # X-02: the profile the runs recorded
+    evidence_class: str = ""  # D-102: the accepted receipt's class, for accounting
 
     def to_ledger_row(self, task_id: str) -> dict[str, object]:
         row: dict[str, object] = {
@@ -145,6 +151,8 @@ class CertificationAttempt:
         }
         if self.receipt_digest is not None:
             row["receipt_digest"] = self.receipt_digest
+        if self.evidence_class:
+            row["evidence_class"] = self.evidence_class
         if self.rejection_codes:
             row["rejection_codes"] = list(self.rejection_codes)
         if self.bundle is not None:
@@ -167,7 +175,8 @@ def attempt_certification(
     candidate_id = candidate.finding.finding_id
     if (
         execution.outcome is not ExecutionOutcome.REPRODUCED
-        or execution.evidence_class is not EvidenceClass.REGRESSION_REPRODUCED
+        or execution.evidence_class
+        not in (EvidenceClass.REGRESSION_REPRODUCED, EvidenceClass.BEHAVIOR_CHANGE)
         or verification.spec is None
     ):
         return CertificationAttempt(
@@ -246,6 +255,10 @@ def attempt_certification(
             "" if execution.binding is None else execution.binding.policy_version
         ),
         "binding_digest": "" if execution.binding is None else execution.binding.digest(),
+        "intent_policy_version": (
+            "" if execution.intent is None else execution.intent.policy_version
+        ),
+        "intent_digest": "" if execution.intent is None else execution.intent.digest(),
     }
     draft = CertificationReceipt(
         **{**unsigned, "head_runs": head_runs, "base_runs": base_runs},
@@ -283,6 +296,7 @@ def attempt_certification(
             test_bytes=test_bytes,
             runs=[(side, index, run, revision) for side, index, run, revision in sided],
             binding=execution.binding,
+            intent=execution.intent,
             key=load_or_create_key(bundle_root),
         )
     return CertificationAttempt(
@@ -294,4 +308,5 @@ def attempt_certification(
         finding=finding,
         bundle=bundle,
         executor_profile=subject.executor_profile,
+        evidence_class=execution.evidence_class.value,
     )

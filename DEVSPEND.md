@@ -73,6 +73,8 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-03 | X-02 container smoke: one certified dev-slice regression (psf__requests-1766) through the linux-container-v1 backend, K=4; must match the C-05 re-run report | $0.10 | $0.023912 (row below); $0.076088 released |
 | 2026-09-03 | E-02 held-out (mainline §2 step 13): held-out slice of the committed split, feasible repositories, ≤ 40 defects and ≤ 40 controls (29 + 40 planned), K=4, one run each through linux-container-v1; samples not inspected before the run | $6.00 | $1.789900 (row above; stopped at 68/69); $4.210100 released |
 | 2026-09-03 | E-01 natural null (mainline §2 step 14): 20 real us-stock-helper commits with no known defect, full flow, expected zero publications; sized to the window and cumulative caps | $1.90 | $1.528000 (row above); $0.372000 released |
+| 2026-09-03 | supplementary held-out run after the bootstrap fix (owner decision 2, 2026-09-03): the 19 pytest/pylint defects whose environment failed to build in the one-time run (recounted from the result files; the report said 18), defects only, K=4, from a fixed checkout at D-102 or later, results suffixed `.heldout-rerun` and tabulated apart from the one-time table; window cap $3 | $0.60 | pending |
+| 2026-09-03 | E-04 prospective shadow, stratum v1 (mainline §2 step 15): every non-merge commit pushed to the owner's Python repositories after the freeze `2026-09-02T21:43:17+00:00`, local review path (no GitHub write), K=4, $0.25 per unit, containers, cost cap $2.00 in the preregistration; window cap $3 | $2.00 | pending |
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 

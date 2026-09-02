@@ -2898,3 +2898,170 @@ def test_line_tracer_is_confined_to_the_reproduction_window(tmp_path: Path) -> N
     assert result.binding is not None
     assert result.binding.executed_changed_lines == (2,)
     assert all("-p" in run.command_template for run in (*result.head_runs, *result.base_runs))
+
+
+# --------------------------------------------------------------------------- D-102
+GUARD_BASE_MODULE = (
+    "BANNED = ('buy', 'sell')\n"
+    "\n"
+    "\n"
+    "class Signal:\n"
+    "    def __init__(self, summary):\n"
+    "        if not summary.strip():\n"
+    "            raise ValueError('summary is required')\n"
+    "        self.summary = summary\n"
+)
+GUARD_HEAD_MODULE = (
+    "BANNED = ('buy', 'sell')\n"
+    "\n"
+    "\n"
+    "class Signal:\n"
+    "    def __init__(self, summary):\n"
+    "        if not summary.strip():\n"
+    "            raise ValueError('summary is required')\n"
+    "        for verb in BANNED:\n"
+    "            if verb in summary:\n"
+    "                raise ValueError(\n"
+    "                    f'summary must never contain {verb!r}: {summary!r}'\n"
+    "                )\n"
+    "        self.summary = summary\n"
+)
+GUARD_BODY = (
+    "import mod\n"
+    "\n"
+    "\n"
+    "def test_repro():\n"
+    "    signal = mod.Signal('the buyback plan raises the floor')\n"
+    "    assert 'buyback' in signal.summary\n"
+)
+GUARD_WITNESS = (
+    "from mod import Signal\n"
+    "\n"
+    "\n"
+    "def test_buyback_copy_is_accepted():\n"
+    "    assert Signal('the buyback plan raises the floor').summary\n"
+)
+CRASH_MODULE = "def add(a, b):\n    return a + b + [][0]\n"
+
+
+def test_a_new_rejection_of_a_fabricated_input_goes_to_the_drawer(tmp_path: Path) -> None:
+    """D-102 (RISK-INTENT-01): the head commit tightens validation on an existing
+    definition and the generated test feeds it a phrase it made up. The
+    differential holds (head FAIL, base PASS, changed lines executed) but the
+    failure is a `raise` on a changed line, so it is a behavior change; without
+    a base-tree witness for the rejected input it buys no receipt and carries
+    the label the author reads in the drawer."""
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": GUARD_BASE_MODULE}, {"mod.py": GUARD_HEAD_MODULE}
+    )
+    stored = candidate(file="mod.py", line=10)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(GUARD_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert [run.outcome.value for run in result.head_runs] == ["reproduced"] * 3
+    assert [run.outcome.value for run in result.base_runs] == ["not_reproduced"] * 3
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.evidence_class is EvidenceClass.BEHAVIOR_CHANGE
+    assert "behavior change confirmed, intent unknown" in result.reason
+    assert "行为变化已证实，意图未知" in result.reason
+    assert "mod.py" not in result.reason and "buyback" not in result.reason
+    assert result.binding is not None and 10 in result.binding.executed_changed_lines
+    intent = result.intent
+    assert intent is not None
+    assert intent.new_rejection
+    assert (intent.origin_line, intent.origin_statement, intent.exception_type) == (
+        10,
+        "raise",
+        "ValueError",
+    )
+    assert intent.rejected_inputs == ("buyback", "the buyback plan raises the floor")
+    assert intent.witnesses == ()
+    assert intent.head_runs_observed == 3
+    origins = result.head_runs[0].raise_origins
+    assert origins and origins[0].line == 10 and origins[0].function == "__init__"
+    assert "the buyback plan raises the floor" in origins[0].values
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_a_new_rejection_of_an_input_the_base_tests_use_is_a_behavior_change_receipt(
+    tmp_path: Path,
+) -> None:
+    """The same guard, but the base tree's own test constructs the rejected
+    phrase as legitimate copy: the differential is a behavior-change receipt
+    with the witness recorded, worded as what it proves."""
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path,
+        {"mod.py": GUARD_BASE_MODULE, "tests/test_signal.py": GUARD_WITNESS},
+        {"mod.py": GUARD_HEAD_MODULE, "tests/test_signal.py": GUARD_WITNESS},
+    )
+    stored = candidate(file="mod.py", line=10)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(GUARD_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+    assert result.evidence_class is EvidenceClass.BEHAVIOR_CHANGE
+    assert "behavior change: head raises ValueError from a changed line (mod.py:10)" in (
+        result.reason
+    )
+    assert "tests/test_signal.py" in result.reason
+    intent = result.intent
+    assert intent is not None and intent.new_rejection
+    assert intent.witnesses == (
+        ("buyback", "tests/test_signal.py"),
+        ("the buyback plan raises the floor", "tests/test_signal.py"),
+    )
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_a_regression_and_a_crash_on_a_changed_line_keep_the_regression_class(
+    tmp_path: Path,
+) -> None:
+    """The discriminator separates a rejection from a defect: an assertion in
+    the test and a crash raised by an expression on a changed line are both
+    regressions, and their intent observation says so."""
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(file="mod.py", line=2)
+    regression = execute_differential(
+        repo,
+        stored,
+        ReproSpec(DIFFERENTIAL_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+    assert regression.outcome is ExecutionOutcome.REPRODUCED, regression.reason
+    assert regression.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    assert regression.intent is not None and not regression.intent.new_rejection
+    assert regression.intent.origin_line == 0
+
+    (tmp_path / "crash").mkdir()
+    crash_repo, crash_base, crash_head = two_commit_repo(
+        tmp_path / "crash", {"mod.py": GOOD_MODULE}, {"mod.py": CRASH_MODULE}
+    )
+    crash = execute_differential(
+        crash_repo,
+        stored,
+        ReproSpec(DIFFERENTIAL_BODY),
+        ExecutorLimits(),
+        base_sha=crash_base,
+        head_sha=crash_head,
+    )
+    assert crash.outcome is ExecutionOutcome.REPRODUCED, crash.reason
+    assert crash.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    assert crash.intent is not None and not crash.intent.new_rejection
+    assert (crash.intent.origin_line, crash.intent.origin_statement) == (2, "other")
+    assert crash.intent.exception_type == "IndexError"

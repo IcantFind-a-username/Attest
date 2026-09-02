@@ -22,9 +22,14 @@ def _fmt_finding(
 ) -> str:
     receipt = finding.accepted_receipt.receipt
     anchor = finding.anchors[0]
+    label = (
+        "behavior change (intent to confirm): "
+        if receipt.evidence_class == "behavior_change"
+        else ""
+    )
     lines = [
         f"  {idx}. [{receipt.candidate_id}] {anchor.path}:{anchor.line}",
-        f"     {finding.claim}",
+        f"     {label}{finding.claim}",
         f"     verified:    the test failed on head {len(receipt.head_runs)}/"
         f"{len(receipt.head_runs)} times and passed on base {len(receipt.base_runs)}/"
         f"{len(receipt.base_runs)} times ({receipt.test_node})",

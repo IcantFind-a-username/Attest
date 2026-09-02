@@ -94,6 +94,9 @@ REPRO_STATUS_BY_EVIDENCE_CLASS: Mapping[str, str] = {
     EvidenceClass.NEW_CODE_CANDIDATE.value: "new_code_candidate",
     EvidenceClass.INDETERMINATE.value: "deferred",
     EvidenceClass.UNBOUND.value: "unbound",  # V-02: head failed, base passed, no changed line ran
+    # D-102: head rejects an input the base accepted; never a match against a
+    # reverse-fix truth, so it never scores
+    EvidenceClass.BEHAVIOR_CHANGE.value: "behavior_change",
 }
 
 NOT_EXECUTED = "not_executed"

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -1352,3 +1354,203 @@ def test_base_branch_kill_switch_stops_the_review_before_any_model_call(
     assert provider.calls == []
     assert "disabled by the base policy" in github_server.status_bodies[-1]
     assert result.spend_usd == 0.0
+
+
+# --------------------------------------------------------------------------- D-102
+GUARD_APP_BASE = (
+    "BANNED = ('buy', 'sell')\n"
+    "\n"
+    "\n"
+    "class Signal:\n"
+    "    def __init__(self, summary):\n"
+    "        if not summary.strip():\n"
+    "            raise ValueError('summary is required')\n"
+    "        self.summary = summary\n"
+)
+GUARD_APP_HEAD = (
+    "BANNED = ('buy', 'sell')\n"
+    "\n"
+    "\n"
+    "class Signal:\n"
+    "    def __init__(self, summary):\n"
+    "        if not summary.strip():\n"
+    "            raise ValueError('summary is required')\n"
+    "        for verb in BANNED:\n"
+    "            if verb in summary:\n"
+    "                raise ValueError(\n"
+    "                    f'summary must never contain {verb!r}: {summary!r}'\n"
+    "                )\n"
+    "        self.summary = summary\n"
+)
+GUARD_WITNESS_TEST = (
+    "from app import Signal\n"
+    "\n"
+    "\n"
+    "def test_buyback_copy_is_accepted():\n"
+    "    assert Signal('the buyback plan raises the floor').summary\n"
+)
+GUARD_REPRO = json.dumps(
+    {
+        "test_body": "import app\n\n\n"
+        "def test_buyback_copy_constructs():\n"
+        "    signal = app.Signal('the buyback plan raises the floor')\n"
+        "    assert 'buyback' in signal.summary\n"
+    }
+)
+
+
+def _guard_finding_payload() -> str:
+    return json.dumps(
+        {
+            "findings": [
+                {
+                    "claim": (
+                        "The banned-verb guard uses substring containment and rejects "
+                        "legitimate copy that merely contains a banned verb inside a "
+                        "longer word."
+                    ),
+                    "anchor": {"file": "app.py", "line": 10},
+                    "failure_scenario": "Signal('the buyback plan') raises ValueError",
+                    "falsification_plan": "construct a signal whose summary contains buyback",
+                }
+            ]
+        }
+    )
+
+
+def _guarded_repo(tmp_path: Path, *, witness: bool) -> tuple[Path, str, str]:
+    """A base whose existing constructor accepts every phrase and a head that
+    newly rejects phrases containing a banned verb; with ``witness`` the base
+    tree's own test constructs the phrase the reproduction will feed."""
+
+    def git(*args: str) -> str:
+        result = subprocess.run(
+            ["git", "-C", str(tmp_path), *args], check=True, capture_output=True, text=True
+        )
+        return result.stdout.strip()
+
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test")
+    (tmp_path / "app.py").write_text(GUARD_APP_BASE, encoding="utf-8")
+    if witness:
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "test_app.py").write_text(GUARD_WITNESS_TEST, encoding="utf-8")
+    git("add", "--all")
+    git("commit", "-m", "base")
+    base_sha = git("rev-parse", "HEAD")
+    (tmp_path / "app.py").write_text(GUARD_APP_HEAD, encoding="utf-8")
+    git("add", "--all")
+    git("commit", "-m", "feat: guard summaries against action verbs")
+    return tmp_path, base_sha, git("rev-parse", "HEAD")
+
+
+def test_a_new_rejection_without_a_base_witness_publishes_nothing_and_is_labelled(
+    tmp_path: Path, github_server: RecordingGitHub
+) -> None:
+    """D-102 RED: the E-01 shape -- a valid head-fail/base-pass differential on a
+    validation-tightening commit whose rejected input the generator invented --
+    reaches no author. The run status and the ledger carry the label."""
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = _guarded_repo(tmp_path, witness=False)
+    provider = RecordingProvider(_guard_finding_payload(), GUARD_REPRO)
+
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    assert result.candidate_count == 1
+    assert result.surfaced_count == 0
+    assert github_server.review_bodies == []
+    final = github_server.status_bodies[-1]
+    assert "behavior change, intent unknown" in final
+    assert "buyback" not in final and "app.py" not in final
+    rows = _ledger_rows(repo)
+    verification = next(row for row in rows if row["kind"] == "verification")
+    assert verification["outcome"] == "deferred"
+    assert verification["evidence_class"] == "behavior_change"
+    assert "behavior change confirmed, intent unknown" in str(verification["reason"])
+    assert "行为变化已证实，意图未知" in str(verification["reason"])
+    certification = next(row for row in rows if row["kind"] == "certification")
+    assert certification["outcome"] == "not_attempted"
+    assert "behavior_change" in str(certification["reason"])
+
+
+def test_a_new_rejection_the_base_tests_attest_publishes_as_a_behavior_change(
+    tmp_path: Path, github_server: RecordingGitHub
+) -> None:
+    """The same commit when the base tree's own test builds the rejected phrase:
+    a behavior-change receipt, published in words that say exactly what it
+    proves, with an intent observation the offline verifier re-judges."""
+    from attest.certification.types import AcceptedReceipt
+    from attest.review.ci import run_ci
+    from attest.review.evidence import BundleRejection, canonical_digest, verify_bundle
+
+    repo, base_sha, head_sha = _guarded_repo(tmp_path, witness=True)
+    provider = RecordingProvider(_guard_finding_payload(), GUARD_REPRO)
+
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    assert result.surfaced_count == 1
+    body = str(github_server.review_bodies[0]["comments"][0]["body"])  # type: ignore[index]
+    assert "Behavior change (intent to confirm):" in body
+    assert "Verified behavior change:" in body
+    assert "rejects an input the merge base accepted" in body
+    assert "head raises ValueError at app.py:10 on 'buyback'" in body
+    assert "tests/test_app.py" in body
+    assert "If the rejection is intended, dismiss this finding." in body
+    final = github_server.status_bodies[-1]
+    assert "behavior changes verified: 1" in final
+    rows = _ledger_rows(repo)
+    certification = next(row for row in rows if row["kind"] == "certification")
+    assert certification["outcome"] == "accepted"
+    assert certification["evidence_class"] == "behavior_change"
+    bundle = Path(str(certification["bundle_path"]))
+    intent = json.loads((bundle / "intent.json").read_text(encoding="utf-8"))
+    assert intent["new_rejection"] is True
+    assert ["buyback", "tests/test_app.py"] in intent["witnesses"]
+    receipt = json.loads((bundle / "receipt.json").read_text(encoding="utf-8"))
+    assert receipt["evidence_class"] == "behavior_change"
+    assert receipt["intent_policy_version"] == "attest.intent.new-rejection.v1"
+    assert isinstance(verify_bundle(bundle), AcceptedReceipt)
+
+    # the verifier re-judges the observation: a bundle whose every digest is
+    # consistent but whose intent observation lost its witnesses is rejected
+    mutant = tmp_path / "mutant"
+    shutil.copytree(bundle, mutant)
+    intent["witnesses"] = []
+    intent_bytes = json.dumps(
+        intent, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    (mutant / "intent.json").write_bytes(intent_bytes)
+    receipt["intent_digest"] = hashlib.sha256(intent_bytes).hexdigest()
+    unsigned = {key: value for key, value in receipt.items() if key != "provenance_digest"}
+    receipt["provenance_digest"] = canonical_digest(unsigned)
+    receipt_bytes = json.dumps(
+        receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    (mutant / "receipt.json").write_bytes(receipt_bytes)
+    manifest = json.loads((mutant / "manifest.json").read_text(encoding="utf-8"))
+    manifest["files"]["intent.json"] = hashlib.sha256(intent_bytes).hexdigest()
+    manifest["files"]["receipt.json"] = hashlib.sha256(receipt_bytes).hexdigest()
+    (mutant / "manifest.json").write_bytes(
+        json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+            "utf-8"
+        )
+    )
+    verdict = verify_bundle(mutant)
+    assert isinstance(verdict, BundleRejection)
+    assert any("intent observation forbids publication" in reason for reason in verdict.reasons)

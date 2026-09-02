@@ -14,6 +14,8 @@ from attest.review.finding_evidence import FindingEvidence, render_markdown
 
 FINDING_ID_MARKER_PREFIX = "<!-- attest:finding-id:"
 RECEIPT_LINE_PREFIX = "Receipt:"
+BEHAVIOR_CHANGE_CLASS = "behavior_change"  # D-102
+BEHAVIOR_CHANGE_PREFIX = "Behavior change (intent to confirm):"
 
 
 def render_running(candidate_count: int | None = None) -> str:
@@ -75,9 +77,14 @@ def _certified_only(findings: Sequence[CertifiedFinding]) -> list[CertifiedFindi
 def _summary_line(finding: CertifiedFinding) -> str:
     receipt = finding.accepted_receipt.receipt
     anchor = finding.anchors[0]
+    label = (
+        f"{BEHAVIOR_CHANGE_PREFIX} "
+        if receipt.evidence_class == BEHAVIOR_CHANGE_CLASS
+        else ""
+    )
     return (
         f"- {_finding_id_marker(receipt.candidate_id)} Finding ID: {receipt.candidate_id}; "
-        f"{anchor.path}:{anchor.line} — {_one_line(finding.claim)} "
+        f"{anchor.path}:{anchor.line} — {label}{_one_line(finding.claim)} "
         f"(receipt {receipt.provenance_digest[:12]})"
     )
 
@@ -87,13 +94,24 @@ def _inline_comment(
 ) -> dict[str, object]:
     receipt = finding.accepted_receipt.receipt
     anchor = finding.anchors[0]
+    behavior_change = receipt.evidence_class == BEHAVIOR_CHANGE_CLASS
+    runs = (
+        f"the generated test failed on head in {len(receipt.head_runs)}/"
+        f"{len(receipt.head_runs)} runs and passed on the merge base in "
+        f"{len(receipt.base_runs)}/{len(receipt.base_runs)} runs."
+    )
     parts = [
         _finding_id_marker(receipt.candidate_id),
-        finding.claim,
+        f"{BEHAVIOR_CHANGE_PREFIX} {finding.claim}" if behavior_change else finding.claim,
         f"Finding ID: {receipt.candidate_id}",
-        "Verified: the generated test failed on head in "
-        f"{len(receipt.head_runs)}/{len(receipt.head_runs)} runs and passed on the "
-        f"merge base in {len(receipt.base_runs)}/{len(receipt.base_runs)} runs.",
+        (
+            # D-102: the published words say exactly what the receipt proves
+            f"Verified behavior change: {runs} This change rejects an input the merge "
+            "base accepted; the input appears in the base tree's own tests, fixtures or "
+            "documentation, so the rejection is reported for you to confirm."
+            if behavior_change
+            else f"Verified: {runs}"
+        ),
         f"Test: {receipt.test_node}",
         f"{RECEIPT_LINE_PREFIX} {receipt.provenance_digest}",
     ]

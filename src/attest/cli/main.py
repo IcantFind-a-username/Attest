@@ -307,6 +307,25 @@ def cmd_stats(args: argparse.Namespace) -> int:
     lat = sorted(float(e["elapsed_s"]) for e in runs if "elapsed_s" in e)
     p50 = lat[len(lat) // 2] if lat else None
     print(f"runs: {len(runs)}; findings evaluated: {len(reviews)}; surfaced: {len(surfaced)}")
+    # D-102: behavior-change receipts are accounted apart from regressions
+    behavior_verified = sum(
+        1
+        for e in entries
+        if e.get("kind") == "certification"
+        and e.get("outcome") == "accepted"
+        and e.get("evidence_class") == "behavior_change"
+    )
+    behavior_unknown = sum(
+        1
+        for e in entries
+        if e.get("kind") == "verification"
+        and e.get("evidence_class") == "behavior_change"
+        and e.get("outcome") != "reproduced"
+    )
+    print(
+        f"behavior changes: {behavior_verified} verified (input attested by the base tree); "
+        f"{behavior_unknown} intent unknown (drawer)"
+    )
     print(f"self-reports: {len(ledger.self_reports())} (manual; excluded from precision)")
     print(f"total spend: ${spend:.4f}; p50 latency: {p50 if p50 is not None else 'n/a'}s")
     if precision is None:

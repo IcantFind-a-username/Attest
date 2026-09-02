@@ -35,6 +35,8 @@ class FindingEvidence:
     executor_profile: str = ""
     image: str = ""
     extra: dict[str, str] = field(default_factory=dict)
+    evidence_class: str = ""  # D-102: "regression_reproduced" | "behavior_change"
+    rejection: str = ""  # D-102: what the behavior-change receipt proves, one sentence
 
     def summary(self) -> str:
         head = sum(1 for run in self.head_runs if run.outcome == "failed")
@@ -70,6 +72,30 @@ def _runs(bundle: Path, run_ids: list[str]) -> tuple[RunSummary, ...]:
     return tuple(out)
 
 
+def _rejection_sentence(bundle: Path) -> str:
+    """What a behavior-change receipt proves, read from its intent observation."""
+    try:
+        intent = json.loads((bundle / "intent.json").read_bytes())
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(intent, dict) or not intent.get("new_rejection"):
+        return ""
+    inputs = [str(value) for value in (intent.get("rejected_inputs") or [])[:3]]
+    paths = sorted(
+        {
+            str(pair[1])
+            for pair in (intent.get("witnesses") or [])
+            if isinstance(pair, list) and len(pair) == 2
+        }
+    )
+    return (
+        f"head raises {intent.get('exception_type')} at {intent.get('path')}:"
+        f"{intent.get('origin_line')} on {', '.join(repr(value) for value in inputs)}, "
+        f"an input the merge base accepts and the base tree uses in "
+        f"{', '.join(paths[:3]) or 'its tests'}"
+    )
+
+
 def evidence_from_bundle(bundle: Path, *, repo: Path | None = None) -> FindingEvidence | None:
     """The runnable presentation of one accepted bundle; None when unreadable."""
     try:
@@ -77,6 +103,7 @@ def evidence_from_bundle(bundle: Path, *, repo: Path | None = None) -> FindingEv
         source = (bundle / "test_repro.py").read_text(encoding="utf-8")
     except (OSError, ValueError):
         return None
+    evidence_class = str(receipt.get("evidence_class") or "")
     node = str(receipt.get("test_node") or "test_repro.py")
     head_ids = [str(run["run_id"]) for run in receipt.get("head_runs", [])]
     base_ids = [str(run["run_id"]) for run in receipt.get("base_runs", [])]
@@ -97,6 +124,8 @@ def evidence_from_bundle(bundle: Path, *, repo: Path | None = None) -> FindingEv
         bundle_path=str(shown),
         verify_command=f"attest verify --bundle {shown} --require-seal",
         executor_profile=profile,
+        evidence_class=evidence_class,
+        rejection=_rejection_sentence(bundle) if evidence_class == "behavior_change" else "",
     )
 
 
@@ -113,8 +142,15 @@ def render_markdown(evidence: FindingEvidence) -> str:
         for run in (*evidence.head_runs, *evidence.base_runs)
         if run.log.strip()
     )
+    behavior = (
+        f"Behavior change: {evidence.rejection}. If the rejection is intended, dismiss this "
+        "finding.\n\n"
+        if evidence.rejection
+        else ""
+    )
     return (
-        "Run it yourself: save the test as `test_repro.py` in the repository root and run\n\n"
+        behavior
+        + "Run it yourself: save the test as `test_repro.py` in the repository root and run\n\n"
         f"```bash\n{evidence.command}\n```\n\n"
         f"```python\n{evidence.test_source.rstrip()}\n```\n\n"
         f"Runs: {evidence.summary()}\n\nhead:\n{head}\n\nbase (merge-base):\n{base}\n\n"
@@ -130,6 +166,8 @@ def render_text(evidence: FindingEvidence, indent: str = "     ") -> str:
         f"{indent}run it:      {evidence.command}",
         f"{indent}test:",
     ]
+    if evidence.rejection:
+        lines.insert(0, f"{indent}behavior change: {evidence.rejection}; confirm the intent")
     lines.extend(f"{indent}  {line}" for line in evidence.test_source.rstrip().splitlines())
     lines.append(f"{indent}runs:        {evidence.summary()}")
     lines.append(f"{indent}bundle:      {evidence.bundle_path}")

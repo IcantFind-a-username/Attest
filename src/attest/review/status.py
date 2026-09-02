@@ -13,9 +13,12 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
+from attest.certification.intent import INTENT_UNKNOWN_LABEL, INTENT_UNKNOWN_LABEL_ZH
+
 STATUS_SCHEMA_VERSION = "attest.run-status.v1"
 
 FAILURE_CATEGORIES = (
+    "behavior change, intent unknown",
     "environment bootstrap failed",
     "no text returned",
     "unfaithful test",
@@ -30,6 +33,10 @@ FAILURE_CATEGORIES = (
 def categorise_failure(reason: str) -> str:
     """The category of one reproduction failure, from its recorded reason."""
     text = reason.lower()
+    if "intent unknown" in text:
+        # D-102: head rejects an input the base accepted, and the base tree
+        # does not attest that input as legitimate
+        return "behavior change, intent unknown"
     if "environment bootstrap failed" in text or "isolation backend unavailable" in text:
         return "environment bootstrap failed"
     if "generation_no_text" in text:
@@ -74,12 +81,18 @@ class RunStatus:
     counts: Mapping[str, int] = field(default_factory=dict)
     prompt_tokens: int = 0  # proposal prompt tokens: uncached + cache writes + cache reads
     cache_read_input_tokens: int = 0  # of which served from the prompt cache
+    behavior_changes: int = 0  # D-102: accepted receipts of the behavior-change class
 
     def lines(self) -> list[str]:
         out = [
             f"change units read: {self.units_read}; candidates: {self.candidates}; "
             f"eligible: {self.eligible}; reproductions attempted: {self.attempts}; "
-            f"certified: {self.certified}; published: {self.published}",
+            f"certified: {self.certified}; published: {self.published}"
+            + (
+                f"; behavior changes verified: {self.behavior_changes}"
+                if self.behavior_changes
+                else ""
+            ),
             f"proposal prompt tokens: {self.prompt_tokens}; cache_read_input_tokens: "
             f"{self.cache_read_input_tokens}",
         ]
@@ -133,9 +146,22 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
         if outcome == "not_reproduced":
             failures.append(("unfaithful test", reason or "the test passed on head"))
         else:
-            failures.append((categorise_failure(reason), reason))
+            category = categorise_failure(reason)
+            if category == "behavior change, intent unknown":
+                # the recorded reason names the anchored line and the rejected
+                # input; the status never carries an uncertified candidate's
+                # location or content (D-091), only the label
+                reason = f"{INTENT_UNKNOWN_LABEL} ({INTENT_UNKNOWN_LABEL_ZH})"
+            failures.append((category, reason))
     certified = sum(
         1 for row in mine if row.get("kind") == "certification" and row.get("outcome") == "accepted"
+    )
+    behavior_changes = sum(
+        1
+        for row in mine
+        if row.get("kind") == "certification"
+        and row.get("outcome") == "accepted"
+        and row.get("evidence_class") == "behavior_change"
     )
     published = 0
     for row in mine:
@@ -173,4 +199,5 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
         counts=counts,
         prompt_tokens=prompt_tokens,
         cache_read_input_tokens=cache_reads,
+        behavior_changes=behavior_changes,
     )

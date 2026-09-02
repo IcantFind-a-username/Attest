@@ -422,6 +422,10 @@ shelling fixtures become decisive; process-free remains default.
 
 **Applies to:** E-01 and any certification-policy release candidate.
 
+A published `behavior_change` receipt counts as a wrong publication unless the base-tree
+witness it names exists and the rejection is adjudicated a defect (D-102); a drawer
+abstention "behavior change confirmed, intent unknown" is neither an error nor a detection.
+
 **Population/design:** at least 600 unique adjudicated null candidates, at least 30
 repositories, preregistered natural and adversarial strata, current exact binary/policy,
 one immutable trial record per attempt. Include at least 381 independent adjudicated null

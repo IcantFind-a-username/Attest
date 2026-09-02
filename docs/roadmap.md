@@ -580,7 +580,7 @@ Agents should prepare evidence packages for these decisions instead of guessing:
 | `RISK-MEASURE-01` | mixed DEFER erases author-visible FP/TP | P0 false precision | M-01; `G-MEASURE-001` |
 | `RISK-RECEIPT-01` | hash-consistent but fabricated/incomplete evidence | P0 false certificate/evaluation | M-02, V-01/V-03; `G-MEASURE-002`, `G-SEM-001`, `G-SEM-003` |
 | `RISK-SEMANTIC-01` | test proves another defect or branches on source version | P0 wrong semantic claim | V-02; `G-SEM-002` |
-| `RISK-INTENT-01` | a valid receipt certifies an intended behavior change (a new rejection on an existing definition) and the published words claim a defect | P0 wrong public claim on natural feature commits | observed once on E-01 (`3a32c92`, D-100); discriminator is the owner's choice (`new_rejection` class or exact wording); until then the E-01 stop rule stands |
+| `RISK-INTENT-01` | a valid receipt certifies an intended behavior change (a new rejection on an existing definition) and the published words claim a defect | P0 wrong public claim on natural feature commits | observed once on E-01 (`3a32c92`, D-100); D-102 discriminator (2026-09-03): a `raise`/`assert` on a changed line is a `behavior_change` receipt, published only when the rejected input is witnessed by the base tree's tests/fixtures/docs, else the drawer with the label "behavior change confirmed, intent unknown"; replayed on the real bundles; residual: a rejection raised by an unchanged helper; E-04 measures the drawer rate |
 | `RISK-SEC-01` | head code reads secrets, reaches network, or forges results | P0 credential/remote compromise | X-01/X-02/X-03; `G-SEC-001` through `G-SEC-003` |
 | `RISK-RECALL-01` | safety is achieved only by near-total abstention | product has no utility | R-* and E-02/E-04; `G-RECALL-001`, `G-RECALL-002`, `G-SHADOW-001` |
 | `RISK-NEWCODE-01` | pressure to cover new code invents an LR without a counterfactual | P0 false certification in dominant PR class | D-043, N-01, `G-NEWCODE-001`; assign a post-selection implementation ID only after owner choice |
@@ -610,19 +610,34 @@ When a work order completes:
 
 ### Next steps (read this first after a model switch; keep it to three items)
 
-1. **Every paid run is stopped (owner rule, D-100).** E-01 published 1/20 on `3a32c92`: a
-   valid receipt for an intended new rejection, published as a defect. The owner chooses the
-   discriminator — (a) a `new_rejection` result class that goes to the drawer unless the
-   rejected input is a literal in the reviewed tree, or (b) exact-wording publication under a
-   distinct evidence class — and lifts the stop. Do not start a paid run before that answer.
-2. **When the stop is lifted:** re-run the 18 bootstrap-failed held-out defects from a
-   checkout at `874e270` or later (`scripts/corpus/heldout_run.py run --code <checkout>
-   --defects-only --only <the pytest/pylint ids in
-   docs/acceptance/2026-09-03-e02-heldout.md>`, ≈ $0.60), rebuild the table, update
-   [the held-out report](acceptance/2026-09-03-e02-heldout.md), D-101 and the README numbers.
-3. **After that:** E-04 prospective shadow, the L-01 pilot on the repository the owner names
-   (§5 D), `G-SEC-002`'s red-team matrix on the CI platform; the TypeScript executor decision
-   package waits for its owner number (`docs/implementation/typescript-executor-decision-package.md`).
+1. **The stop is lifted (owner decisions 1-3, 2026-09-03; D-102).** The intent
+   discriminator is in: a `raise`/`assert` on a changed line is a `behavior_change`
+   receipt that publishes only with a base-tree witness, else the drawer with the label
+   "behavior change confirmed, intent unknown". `r01` stays the default context strategy;
+   the proposal bound stays 3,200. The supplementary run of the 19 bootstrap-failed held-out
+   defects (the held-out report's erratum: 19, not 18; 10 built, certified on 5/10) (`heldout_run.py run --code <checkout at D-102 or later> --defects-only
+   --only <ids> --results-suffix .heldout-rerun`, $0.60) is tabulated apart from the
+   one-time held-out table ([held-out report](acceptance/2026-09-03-e02-heldout.md) §
+   "Supplementary run after the bootstrap fix").
+2. **E-04 prospective shadow** on the owner's live repositories, blind, no publication
+   (`G-SHADOW-001`; the drawer rate of behavior changes on natural feature commits is a
+   named metric of the study), then the L-01 pilot on the repository the owner names
+   (§5 D).
+3. **Open security and packaging items:** `G-SEC-002`'s red-team matrix on the CI
+   platform; the TypeScript executor decision package waits for its owner number
+   (`docs/implementation/typescript-executor-decision-package.md`).
+
+- **2026-09-03 — D-102 intent discriminator (owner decision 1):** one commit
+  (`feat: classify a raise on a changed line as a behavior change; publish only with a base-tree witness (D-102)`).
+  The RED failed on the unpatched path (the `3a32c92` differential certified as a regression)
+  and passes after: on the real bundles through the container, `3a32c92` DEFERs as
+  `behavior_change` with the label and 0/3 witnesses, and all 7 held-out candidates on the 5
+  real defects stay `regression_reproduced`
+  ([replay report](acceptance/2026-09-03-d102-intent-replay.md)); in the suite, a planted
+  guard with a fabricated input posts nothing and is labelled, the same guard with the base
+  tree's own test as witness publishes as a behavior change in the words of what it proves,
+  and the offline verifier rejects a digest-consistent bundle whose intent observation lost
+  its witnesses. Receipt schema v4. Window-end gates below.
 
 - **2026-09-03 — E-02 held-out (step 13) and E-01 natural null (step 14), paid phase closed:**
   held-out one pass at `a1624d2`, 68/69 cases: certified 7 candidates on 5/29 defects, 0/39

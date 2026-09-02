@@ -6,8 +6,10 @@ primary checkout's corpus, so editing ``src/`` during the run cannot change late
   plan      write the population by id only (held-out slice, feasible repositories, first 40)
   build     build every planned case without a host virtualenv (the container builds its image)
   run       one run per case, K=4, through linux-container-v1, results suffixed ``.heldout``
+            (``--results-suffix`` names another suffix: a supplementary run after a fix
+            never overwrites the one-time held-out results)
   table     the step-13 table: per population and per case, silence reasons, truncation,
-            diff boundary hits, cache-read share, spend
+            diff boundary hits, cache-read share, spend (``--suffix`` reads another run)
 
 Paid: ``run``. Reserve in DEVSPEND.md first.
 """
@@ -101,7 +103,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             "--verification-timeout",
             "900",
             "--results-suffix",
-            ".heldout",
+            args.results_suffix,
         ]
         if control:
             argv += ["--control", control]
@@ -110,12 +112,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_table(_args: argparse.Namespace) -> int:
+def cmd_table(args: argparse.Namespace) -> int:
     sys.path.insert(0, str(ROOT / "src"))
     from attest.review.status import categorise_failure
 
     rows = []
-    for path in sorted(RESULTS.glob("*.heldout.json")):
+    for path in sorted(RESULTS.glob(f"*{args.suffix}.json")):
         summary = json.loads(path.read_text())
         case = CASES / summary["case"]
         ledger = [
@@ -267,8 +269,15 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--code", default=None, help="fixed checkout whose attest code runs the cases")
     run.add_argument("--only", default=None, help="comma-separated instance ids to (re-)run")
     run.add_argument("--defects-only", action="store_true", help="skip the control cases")
+    run.add_argument(
+        "--results-suffix",
+        default=".heldout",
+        help="results file suffix; use another one for a supplementary run after a fix",
+    )
     run.set_defaults(func=cmd_run)
-    sub.add_parser("table").set_defaults(func=cmd_table)
+    table = sub.add_parser("table")
+    table.add_argument("--suffix", default=".heldout", help="results file suffix to tabulate")
+    table.set_defaults(func=cmd_table)
     args = parser.parse_args(argv)
     return int(args.func(args))
 

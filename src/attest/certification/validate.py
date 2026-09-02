@@ -22,6 +22,7 @@ from .types import (
 _SHA_RE = re.compile(r"[0-9a-f]{40}")
 _DIGEST_RE = re.compile(r"[0-9a-f]{64}")
 _RESULT_CLASS = "head_fail_base_pass"
+_BEHAVIOR_CHANGE = "behavior_change"
 
 
 class RejectionCode(StrEnum):
@@ -57,6 +58,8 @@ class RejectionCode(StrEnum):
     PROVENANCE_INVALID = "provenance_invalid"
     BINDING_POLICY_MISMATCH = "binding_policy_mismatch"
     BINDING_DIGEST_INVALID = "binding_digest_invalid"
+    INTENT_POLICY_MISMATCH = "intent_policy_mismatch"
+    INTENT_DIGEST_INVALID = "intent_digest_invalid"
 
 
 @dataclass(frozen=True)
@@ -264,6 +267,17 @@ def validate_receipt(
     reject_if(
         bool(policy.binding_policy_version) and not _is_digest(receipt.binding_digest),
         RejectionCode.BINDING_DIGEST_INVALID,
+    )
+    # D-102: the intent observation is bound like the binding observation, and a
+    # behavior-change receipt without an intent policy has nothing to stand on
+    reject_if(
+        receipt.intent_policy_version != policy.intent_policy_version
+        or (receipt.evidence_class == _BEHAVIOR_CHANGE and not receipt.intent_policy_version),
+        RejectionCode.INTENT_POLICY_MISMATCH,
+    )
+    reject_if(
+        bool(policy.intent_policy_version) and not _is_digest(receipt.intent_digest),
+        RejectionCode.INTENT_DIGEST_INVALID,
     )
     if codes:
         return ReceiptRejection(tuple(codes))

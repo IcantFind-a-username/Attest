@@ -15,7 +15,7 @@ import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -25,6 +25,7 @@ from attest.certification.binding import (
     BindingObservation,
     binding_verdict,
 )
+from attest.certification.intent import IntentObservation, intent_verdict
 from attest.execution.controller import Controller, ExecutorAdapter
 from attest.execution.local_adapter import LocalDevelopmentAdapter
 from attest.execution.types import ResourceLimits
@@ -32,6 +33,7 @@ from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.diffs import parse_diff
 from attest.review.gate import GateResult, apply_verification
+from attest.review.intent import RaiseOrigin, observe_intent, parse_raise_origins
 from attest.review.ledger import Ledger
 from attest.review.planner import generation_context
 from attest.review.proposer import Provider, call_provider, no_text_reason, response_fragment
@@ -267,6 +269,9 @@ class EvidenceClass(str, Enum):  # noqa: UP042 - public API requires this exact 
     NOT_REPRODUCED = "not_reproduced"
     INDETERMINATE = "indeterminate"
     UNBOUND = "unbound"  # head failed, base passed, but no changed line ran (V-02)
+    # D-102: head rejects an input the base accepted -- the failure was raised
+    # from a raise/assert on a changed line; publishable only with a base-tree witness
+    BEHAVIOR_CHANGE = "behavior_change"
 
 
 class FailureSignature(str, Enum):  # noqa: UP042 - public API requires this exact base shape
@@ -316,6 +321,8 @@ class ExecutionResult:
     # owner fix 3: modules that shadowed the anchored file (name, file), if any
     import_origins: tuple[tuple[str, str], ...] = ()
     fresh_state: bool = True  # V-03: the writable outputs directory was created empty
+    # D-102: exceptions first seen in a frame of the anchored file, in order
+    raise_origins: tuple[RaiseOrigin, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -332,6 +339,7 @@ class DifferentialExecution:
     evidence_class: EvidenceClass = EvidenceClass.INDETERMINATE
     collection_run: ExecutionResult | None = None  # the collect-only run (V-01)
     binding: BindingObservation | None = None  # changed-line binding (V-02)
+    intent: IntentObservation | None = None  # regression or new rejection (D-102)
 
 
 @dataclass(frozen=True)
@@ -518,7 +526,8 @@ def _parse_repro(text: str) -> ReproSpec:
 # setup, call and teardown of the one collected item -- and never for pytest's
 # bootstrap, collection or the imports they trigger. Loaded with ``-p``; the
 # guard sitecustomize stays tracer-free.
-_LINES_PLUGIN = """import os
+_LINES_PLUGIN = """import json
+import os
 import sys
 import threading
 from pathlib import Path
@@ -528,8 +537,56 @@ import pytest
 _trace_target = os.path.realpath(os.environ["ATTEST_TRACE_TARGET"])
 _lines_marker = Path(os.environ["ATTEST_OUTPUTS"]) / "executed-lines"
 _origin_marker = Path(os.environ["ATTEST_OUTPUTS"]) / "import-origin"
+_raise_marker = Path(os.environ["ATTEST_OUTPUTS"]) / "raise-origin"
 _executed_lines = set()
 _matches = {}
+_raise_origins = []
+_seen_exceptions = {}
+MAX_RAISE_ORIGINS = 32
+MAX_MESSAGE_CHARS = 2000
+MAX_VALUE_CHARS = 500
+MAX_VALUES = 16
+
+
+def _string_values(frame):
+    values = []
+    try:
+        items = list(frame.f_locals.items())
+    except Exception:
+        return values
+    for _name, value in items:
+        if isinstance(value, str):
+            values.append(value[:MAX_VALUE_CHARS])
+            if len(values) >= MAX_VALUES:
+                break
+    return values
+
+
+def _record_exception(frame, arg):
+    # The first exception event for one exception object is the innermost
+    # frame of the anchored file it passed through (only anchored frames are
+    # traced). The object is kept so its id cannot be reused by another.
+    if len(_raise_origins) >= MAX_RAISE_ORIGINS:
+        return
+    if not isinstance(arg, tuple) or len(arg) != 3:
+        return
+    exc_type, exc_value, _tb = arg
+    if id(exc_value) in _seen_exceptions:
+        return
+    _seen_exceptions[id(exc_value)] = exc_value
+    try:
+        message = str(exc_value)
+    except Exception:
+        message = ""
+    _raise_origins.append(
+        {
+            "line": frame.f_lineno,
+            "function": frame.f_code.co_name,
+            "exception_type": getattr(exc_type, "__name__", str(exc_type)),
+            "message": message[:MAX_MESSAGE_CHARS],
+            "values": _string_values(frame),
+        }
+    )
 
 
 def _record_import_origin():
@@ -560,6 +617,8 @@ def _attest_tracer(frame, event, arg):
         return None
     if event == "line":
         _executed_lines.add(frame.f_lineno)
+    elif event == "exception":
+        _record_exception(frame, arg)
     return _attest_tracer
 
 
@@ -575,6 +634,7 @@ def pytest_runtest_protocol(item, nextitem):
         _lines_marker.write_text(
             ",".join(str(n) for n in sorted(_executed_lines)), encoding="utf-8"
         )
+        _raise_marker.write_text(json.dumps(_raise_origins, ensure_ascii=False), encoding="utf-8")
         _record_import_origin()
 """
 LINES_PLUGIN_NAME = "attest_repro_lines"
@@ -986,6 +1046,7 @@ EXPECTED_ARTIFACTS = (
     *MARKER_NAMES,
     "executed-lines",
     "import-origin",
+    "raise-origin",
     "junit.xml",
     "stdout.txt",
     "stderr.txt",
@@ -1120,6 +1181,7 @@ def execute_repro(
             "executor_digest": active_adapter.backend_digest(),
             "import_origins": (),
             "fresh_state": True,
+            "raise_origins": (),
         }
         request = active_controller.issue(
             task_id=candidate.task_id,
@@ -1275,6 +1337,7 @@ def execute_repro(
         )
     identity["executed_lines"] = _executed_lines(artifacts.get("executed-lines"))
     identity["import_origins"] = _import_origins(artifacts.get("import-origin"))
+    identity["raise_origins"] = parse_raise_origins(artifacts.get("raise-origin"))
     junit_bytes = artifacts.get("junit.xml")
     try:
         if junit_bytes is None:
@@ -1409,6 +1472,7 @@ def execute_differential(
 
     collection_runs: list[ExecutionResult] = []
     bindings: list[BindingObservation] = []
+    intents: list[IntentObservation] = []
 
     def finish(
         outcome: ExecutionOutcome,
@@ -1429,6 +1493,7 @@ def execute_differential(
             evidence_class=evidence_class,
             collection_run=collection_runs[0] if collection_runs else None,
             binding=bindings[0] if bindings else None,
+            intent=intents[0] if intents else None,
         )
 
     def deferred(
@@ -1596,10 +1661,44 @@ def execute_differential(
         verdict = binding_verdict(binding)
         if verdict is not None:
             return deferred(f"binding: {verdict}", EvidenceClass.UNBOUND)
+        # D-102: a failure raised by a raise/assert on a changed line of the
+        # anchored file is a new rejection, not a regression. It publishes as a
+        # behavior change only when the rejected input -- a literal of the
+        # generated test that reached the raising frame -- occurs verbatim in
+        # the base tree's tests, fixtures or documentation; otherwise it goes
+        # to the drawer with the label "behavior change confirmed, intent unknown".
+        try:
+            head_source = (trees_dir / "head" / candidate.finding.file).read_text(
+                encoding="utf-8", errors="replace"
+            )
+        except OSError:
+            head_source = ""
+        observed = observe_intent(
+            path=candidate.finding.file,
+            changed_lines=changed,
+            head_source=head_source,
+            test_source=spec.test_body,
+            head_origins=[run.raise_origins for run in head_runs],
+            base_tree=trees_dir / "base",
+        )
+        if isinstance(observed, str):
+            return deferred(f"intent: {observed}")
+        intents.append(observed)
+        differential = f"head FAIL {repeats}/{repeats}, base PASS {repeats}/{repeats}"
+        if observed.new_rejection:
+            intent_reason = intent_verdict(observed)
+            if intent_reason is not None:
+                return deferred(f"intent: {intent_reason}", EvidenceClass.BEHAVIOR_CHANGE)
+            literal, witness = observed.witnesses[0]
+            return finish(
+                ExecutionOutcome.REPRODUCED,
+                f"{differential}; behavior change: head raises {observed.exception_type} "
+                f"from a changed line ({observed.path}:{observed.origin_line}) on "
+                f"{literal!r}, an input present in the base tree at {witness}",
+                EvidenceClass.BEHAVIOR_CHANGE,
+            )
         return finish(
-            ExecutionOutcome.REPRODUCED,
-            f"head FAIL {repeats}/{repeats}, base PASS {repeats}/{repeats}",
-            EvidenceClass.REGRESSION_REPRODUCED,
+            ExecutionOutcome.REPRODUCED, differential, EvidenceClass.REGRESSION_REPRODUCED
         )
     finally:
         for tree in created:
@@ -1755,6 +1854,7 @@ def verify_candidate(
         repeats=execution.repeats,
         evidence_class=execution.evidence_class.value,
         run_evidence=_differential_run_evidence(execution),
+        intent=None if execution.intent is None else asdict(execution.intent),
     )
     if execution.outcome is ExecutionOutcome.DEFERRED:
         return VerificationRun(execution=execution, gate_result=gate_result, spec=spec)

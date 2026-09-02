@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from attest.certification.binding import BindingObservation
+from attest.certification.intent import IntentObservation, evidence_class_for, intent_verdict
 from attest.certification.types import (
     AcceptedReceipt,
     CertificationPolicy,
@@ -139,6 +140,7 @@ def write_bundle(
     test_bytes: bytes,
     runs: list[tuple[str, int, ExecutionResult, str]],  # (side, index, run, revision)
     binding: BindingObservation | None = None,
+    intent: IntentObservation | None = None,
     key: bytes | None = None,
 ) -> WrittenBundle:
     """Persist the bundle under ``root/.attest/evidence/<task>/<candidate>/``."""
@@ -159,6 +161,8 @@ def write_bundle(
     put("test_repro.py", test_bytes)
     if binding is not None:
         put("binding.json", canonical_bytes(asdict(binding)))
+    if intent is not None:
+        put("intent.json", canonical_bytes(asdict(intent)))
     for side, index, run, revision in runs:
         record = run_record(side, index, run, revision_sha=revision)
         run_id = str(record["run_id"])
@@ -312,6 +316,33 @@ def verify_bundle(
                     reasons.append("binding observation does not match receipt.binding_digest")
                 if observation.policy_version != receipt.binding_policy_version:
                     reasons.append("binding observation policy differs from the receipt")
+    if receipt.intent_policy_version:
+        # D-102: the intent observation is recomputed and re-judged from the
+        # bundle: its digest, its policy, the verdict, and the evidence class
+        # it supports must all agree with the receipt
+        intent_raw = _load(directory, "intent.json")
+        if intent_raw is None:
+            reasons.append("intent observation missing")
+        else:
+            try:
+                intent_raw["changed_lines"] = tuple(intent_raw["changed_lines"])
+                intent_raw["rejected_inputs"] = tuple(intent_raw["rejected_inputs"])
+                intent_raw["witnesses"] = tuple(
+                    (str(literal), str(path)) for literal, path in intent_raw["witnesses"]
+                )
+                intent = IntentObservation(**intent_raw)
+            except (TypeError, ValueError, KeyError):
+                reasons.append("intent observation malformed")
+            else:
+                if intent.digest() != receipt.intent_digest:
+                    reasons.append("intent observation does not match receipt.intent_digest")
+                if intent.policy_version != receipt.intent_policy_version:
+                    reasons.append("intent observation policy differs from the receipt")
+                intent_reason = intent_verdict(intent)
+                if intent_reason is not None:
+                    reasons.append(f"intent observation forbids publication: {intent_reason}")
+                if evidence_class_for(intent) != receipt.evidence_class:
+                    reasons.append("intent observation disagrees with the receipt evidence class")
     if reasons:
         return BundleRejection(tuple(reasons))
     return validate_receipt(task, policy, subject, receipt)

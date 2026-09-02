@@ -11,7 +11,8 @@ from .types import (
     CertificationPolicy,
 )
 
-KNOWN_EVIDENCE_CLASSES = frozenset({"regression_reproduced"})
+# D-102: a behavior-change receipt proves head rejects an input the base accepted
+KNOWN_EVIDENCE_CLASSES = frozenset({"regression_reproduced", "behavior_change"})
 
 
 class PolicyRejectionCode(StrEnum):
