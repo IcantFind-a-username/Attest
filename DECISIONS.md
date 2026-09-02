@@ -679,3 +679,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** at alpha ≥ 0.15 an S·T-terminal candidate was published with no verification (`RISK-CERT-01`); `G-CERT-001` demands zero speech without a current accepted receipt.
 - **Limits:** environment/interpreter/executor digests bind declared inputs (limits, guard source, interpreter path, executor module bytes); V-01 deepens them to test bytes, commands and per-run artifacts. Policy source is the event base SHA until C-03 resolves the merge-base.
 - **Reversal:** none foreseen; removing the adapter reopens the bypass.
+
+
+### D-073 — C-03: the counterfactual is the merge-base and policy is base-owned
+
+- **Date/status/scope:** 2026-09-02 · active · `review/ci.py`, `review/config.py`, `review/diffs.py`, `cli/main.py`.
+- **Decision:** CI resolves `git merge-base <event base> <head>` and DEFERs when it is unavailable (no two-dot fallback); discovery diffs and differential execution both use it. Policy comes from the committed `.attest.toml` at the merge-base (factory defaults when absent) with only protected Action inputs on top; the model is Action-owned so provider and pricing agree; a caller-supplied config (benchmark harness) is its own protected layer, and the harness declares the counterfactual of its reverse historical pairs via `merge_base_sha` (`248adfb`) because a head that is an ancestor of its base has no merge-base diff; the Action path never passes it. Source and digest are recorded in a `certification_task` row and bound into every receipt's task; the workspace HEAD is re-checked before the first author-visible write.
+- **Why:** the head could relax alpha/caps/budget by editing its own file, and base-tip two-dot diffs reviewed the base's progress as if the PR had made it (`G-CERT-002`).
+- **Limits:** local `attest review` still reads the working tree's file (developer-owned, no trust boundary); the Action does no explicit fetch, so the example workflow's `fetch-depth: 0` is required and a shallow checkout DEFERs with a stated reason.
+- **Reversal:** none foreseen.

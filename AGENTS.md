@@ -95,7 +95,8 @@ Do not confuse target contracts with current behavior:
 - at factory alpha, cap arithmetic normally forces positive differential V before speech,
   but this is not a runtime invariant for all configurations;
 - since C-02 (`383ee65`) CI publishes only validator-accepted receipts and verifies every
-  candidate S/T did not discard; head configuration can still influence policy until C-03;
+  candidate S/T did not discard; since C-03 (`fc1ae04`) CI reviews the merge-base under the
+  base-owned policy, while local `attest review` still reads the working tree's file;
 - manual `attest verify --reproduced` is not a trusted differential receipt;
 - `max_findings` currently limits inline placement, not all author-visible findings;
 - current head/base execution proves a behavioral difference but lacks the complete exact-

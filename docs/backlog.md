@@ -23,3 +23,4 @@ reproduction turns one into a real defect.
   behavior but changed several message strings; no repository caller depends on them, and
   the later-round compatibility concern is deferred under D-049 rather than opening another
   repair loop.
+- 2026-09-02 (C-03 gate): `tests/benchmark/test_m01_offline_measurement_probe.py` — three module-fixture errors (`source import or clean-tree guard failed`) only when the whole suite runs from the repository root; the file passes alone, inside `tests/benchmark`, and with `--cov=src/attest`. Unattributed; bisect against the non-benchmark modules before the next full-suite acceptance claim.

@@ -102,12 +102,12 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | C-03, then the fixed sequence in [`mainline.md`](mainline.md) §2 (C-04, R-03, R-01, V-01, E-02 pilot, …) | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
+| **NOW** | C-04, then the fixed sequence in [`mainline.md`](mainline.md) §2 (R-03, R-01, V-01, E-02 pilot, …) | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
 
-C-01 and C-02 are complete. `mainline.md` fixes the working order from here to L-01; C-03 is next.
+C-01 through C-03 are complete. `mainline.md` fixes the working order from here to L-01; C-04 is next.
 V-01 follows R-03 and R-01 rather than preceding them, because the pilot measurement needs
 candidates before it needs richer receipts. The follow-on V-funnel implementation through `e0f2db0` added complete
 per-candidate run evidence and a reproduction-only 3,000-token cap. It did not change runner
@@ -239,9 +239,12 @@ Goal: make the publication contract true by construction for every supported con
   GitHub presentation consume only `CertifiedFinding`. The S/T direct-surface path is
   deleted and replaced by a negative `G-CERT-001` regression over alpha 0.15/0.4 with and
   without auto-tighten and cap variants (D-058: one RED, no exhaustive property matrix).
-- [ ] **C-03 — merge-base and base-owned policy.** Resolve the event merge-base; load
-  destination policy from trusted base/defaults; digest it into the task and receipt;
-  ignore head attempts to relax safety.
+- [x] **C-03 — merge-base and base-owned policy.** Implementation `fc1ae04` (+ `248adfb`) resolves the
+  event merge-base (DEFER when unavailable), loads the destination policy from the committed
+  `.attest.toml` at that commit or factory defaults with protected Action inputs on top,
+  digests source and values into the task and every receipt, and revalidates HEAD before
+  publication. One RED: a head that sets alpha 1.0 while the base advances runs under
+  factory alpha, reviews only the merge-base diff, and verifies against the merge-base.
 - [ ] **C-04 — self-report separation.** Rename/manual evidence into a distinct namespace,
   prevent it from automated publication and calibration denominators, and migrate old
   ledger readers without rewriting rows.
@@ -580,6 +583,16 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-09-02 — C-03 complete:** implementation `fc1ae04`; the RED
+  (`test_head_policy_is_ignored_and_the_diff_is_merge_base_to_head`) failed on the unpatched
+  path with the head's invalid alpha aborting the review and passes after. Full gate on the committed tree: 1596 passed, production coverage 92.22%, Ruff, Mypy
+  and `git diff --check` clean; 22 `test_baselines` failures were the harness's reverse
+  historical pairs meeting true merge-base semantics, fixed in `248adfb`, after which
+  `tests/benchmark` passes in full. Three `test_m01_offline_measurement_probe` fixture
+  errors appear only in the whole-suite run (they pass alone, in `tests/benchmark`, and
+  with `--cov`); logged in `docs/backlog.md` for attribution, not claimed as passing.
+  See D-073.
 
 - **2026-09-02 — C-02 complete:** implementation `383ee65` adds `review.certify` (executor
   output → `CertificationReceipt` → `validate_receipt`), verifies every candidate S/T did
