@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import os
 import re
 import subprocess
 import warnings
@@ -40,6 +41,16 @@ _HUNK_HEADER_RE = re.compile(r"^@@ [^@]* @@")
 _HUNK_RANGES_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 _IMPORT_RE = re.compile(r"^(?:import\s|from\s+\S+\s+import\s)")
 MAX_IMPORT_LINES = 40
+# names too generic to locate callers or tests by text: retrieving them would
+# only fill the context budget with unrelated matches (the omission is recorded)
+_GENERIC_NAMES = frozenset(
+    ["add", "append", "apply", "build", "call", "check", "clean", "close", "create", "delete", "execute", "format", "get", "handle", "init", "load", "main", "open", "parse", "post", "process", "put", "read", "remove", "render", "reset", "run", "save", "set", "setup", "start", "stop", "teardown", "update", "validate", "write"]
+)
+_MIN_SEARCHABLE_NAME = 4
+
+
+def _searchable(name: str) -> bool:
+    return len(name) >= _MIN_SEARCHABLE_NAME and name not in _GENERIC_NAMES
 
 
 @dataclass(frozen=True)
@@ -220,14 +231,19 @@ def changed_symbols(
 
 
 def _python_files(repo: Path) -> list[Path]:
+    """Python files under ``repo`` with skipped directories pruned during the walk."""
     files: list[Path] = []
-    for path in sorted(repo.rglob("*.py")):
-        if any(part in _SKIP_DIRS for part in path.relative_to(repo).parts):
-            continue
-        files.append(path)
-        if len(files) >= MAX_SCANNED_FILES:
-            break
+    for dirpath, dirnames, filenames in os.walk(repo):
+        dirnames[:] = sorted(d for d in dirnames if d not in _SKIP_DIRS)
+        for name in sorted(filenames):
+            if name.endswith(".py"):
+                files.append(Path(dirpath) / name)
+                if len(files) >= MAX_SCANNED_FILES:
+                    return files
     return files
+
+
+_TestFunction = tuple[str, str, ast.FunctionDef | ast.AsyncFunctionDef, str]
 
 
 class _Corpus:
@@ -246,6 +262,25 @@ class _Corpus:
                     loaded.append((path.relative_to(self.repo).as_posix(), source))
             self._sources = loaded
         return self._sources
+
+    def test_functions(self) -> list[_TestFunction]:
+        """(path, source, node, body) for every test function, parsed once."""
+        if not hasattr(self, "_tests"):
+            found: list[_TestFunction] = []
+            for rel, source in self.sources():
+                if "test" not in rel.lower():
+                    continue
+                tree = _parse(source)
+                if tree is None:
+                    continue
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
+                        node.name.startswith("test")
+                    ):
+                        body = ast.get_source_segment(source, node) or ""
+                        found.append((rel, source, node, body))
+            self._tests = found
+        return self._tests
 
 
 def _read(path: Path) -> str | None:
@@ -331,31 +366,21 @@ def _callers(
 
 def _test_references(corpus: _Corpus, names: list[str]) -> tuple[list[ContextSnippet], int]:
     refs: list[ContextSnippet] = []
-    for rel, source in corpus.sources():
-        if "test" not in rel.lower():
-            continue
-        tree = _parse(source)
-        if tree is None:
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            if not node.name.startswith("test"):
-                continue
-            body = ast.get_source_segment(source, node) or ""
-            for name in names:
-                if re.search(rf"\b{re.escape(name)}\b", body):
-                    refs.append(
-                        ContextSnippet(
-                            kind="test",
-                            symbol=name,
-                            path=rel,
-                            start=node.lineno,
-                            end=node.end_lineno or node.lineno,
-                            text=node.name,
-                        )
+    patterns = [(name, re.compile(rf"\b{re.escape(name)}\b")) for name in names]
+    for rel, _source, node, body in corpus.test_functions():
+        for name, pattern in patterns:
+            if pattern.search(body):
+                refs.append(
+                    ContextSnippet(
+                        kind="test",
+                        symbol=name,
+                        path=rel,
+                        start=node.lineno,
+                        end=node.end_lineno or node.lineno,
+                        text=node.name,
                     )
-                    break
+                )
+                break
     refs.sort(key=lambda s: (s.path, s.start))
     return refs[:MAX_TEST_REFERENCES], max(0, len(refs) - MAX_TEST_REFERENCES)
 
@@ -400,12 +425,16 @@ def _file_context(
             if found is not None:
                 start, end, text = found
                 snippets.append(ContextSnippet("old_side", symbol.name, path, start, end, text))
+            if not _searchable(symbol.name):
+                omissions.append(f"callers of generic name {symbol.name} not searched")
+                continue
             callers, dropped = _callers(corpus, symbol, diff)
             snippets.extend(callers)
             if dropped:
                 omissions.append(f"{dropped} further caller(s) of {symbol.name} omitted")
-    if symbols:
-        tests, dropped = _test_references(corpus, [s.name for s in symbols])
+    searchable = [s.name for s in symbols if _searchable(s.name)]
+    if searchable:
+        tests, dropped = _test_references(corpus, searchable)
         snippets.extend(tests)
         if dropped:
             omissions.append(f"{dropped} further test reference(s) omitted")
