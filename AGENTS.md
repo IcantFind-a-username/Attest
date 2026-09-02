@@ -12,7 +12,9 @@ Follow, in order:
 2. this file for repository authority, safety, and work protocol;
 3. `docs/architecture/target-algorithm.md` for target product contracts;
 4. `docs/acceptance/evolution-gates.md` for definitions of done and quantitative gates;
-5. `docs/roadmap.md` for dependency order and current status;
+5. `docs/roadmap.md` for dependency order and current status, and `docs/mainline.md` for
+   the working sequence to the product, the definition of "product", corpus policy, and the
+   decisions reserved to the owner;
 6. the selected task in `docs/implementation/agent-work-orders.md` for implementation
    method;
 7. active decisions in `DECISIONS.md` for narrow trade-offs and reversal conditions;
@@ -115,7 +117,8 @@ These gaps are work-order inputs. Never rewrite the architecture to bless a curr
 For ordinary implementation:
 
 1. this file;
-2. `docs/roadmap.md` to find the first unblocked work order;
+2. `docs/mainline.md` §2 for the first unfinished step, then `docs/roadmap.md` for that
+   order's status and dependencies;
 3. the exact work-order section;
 4. only the linked architecture sections and Gate IDs;
 5. the affected code and tests;
@@ -248,9 +251,26 @@ schema, retry, naming, tooling, test shape — is the agent's, decided by ordina
 practice (search when unsure), recorded in a `DECISIONS.md` entry of at most six lines. A
 handoff is at most one page with at most three owner items, each a yes/no with a default.
 
+The mainline, so that every agent carries the same picture without opening the file:
+
+```text
+product = outside Python repo installs from a stable ref and gets PR comments, every
+          comment receipt-backed and offline-verifiable, head code secretless, silent on
+          all controls of a human-labelled corpus, one clean shadow run, L-01 exit list.
+
+C-02 -> C-03 -> C-04 -> R-03 -> R-01 -> V-01 -> E-02 pilot (fork on numbers, §4)
+     -> C-05 -> V-02 -> X-01 -> X-02 -> V-03 -> E-02 held-out -> E-01 -> E-04 -> L-01
+
+off the mainline until after L-01: S-*, N-01, X-03, R-04, pricing/F research, any scan.
+corpora: owner's GitHub repos (clone, no asking), BugsInPy, SWE-bench Verified;
+         committed dev/held-out split before the first run.
+owner decides only: A multiplicity method, B isolation backend, C paid spend, D release.
+```
+
 Before editing:
 
-1. choose exactly one first-unblocked work order;
+1. choose exactly one first-unblocked work order — the first unfinished mainline step
+   unless the owner says otherwise;
 2. verify its dependency Gate IDs and artifacts, not only checkbox state;
 3. record baseline SHA, claimed files, task scope, and whether it is paid/security/remote;
 4. run its focused pre-change test;
