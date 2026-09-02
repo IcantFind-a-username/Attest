@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import tomllib
 from pathlib import Path
@@ -245,6 +246,19 @@ def test_example_workflow_checks_out_exact_pull_request_head() -> None:
     example = (ROOT / "examples" / "pull-request.yml").read_text(encoding="utf-8")
     expected = "ref: ${{ github.event.pull_request.head.sha }}"
     assert expected in example
+
+
+def test_example_workflow_pins_the_action_to_an_immutable_ref() -> None:
+    """L-01 pilot wiring: the example an operator copies pinned the action to
+    `@main`, so a repository following the quickstart would have installed a
+    moving branch while `install-ref.md` promised an immutable ref, and no
+    receipt could name the code that produced it."""
+    example = (ROOT / "examples" / "pull-request.yml").read_text(encoding="utf-8")
+    used = re.findall(r"uses:\s*IcantFind-a-username/Attest@(\S+)", example)
+    assert used, "the example workflow must use the action"
+    for ref in used:
+        assert ref not in {"main", "master", "HEAD"}, f"mutable action ref in the example: {ref}"
+        assert re.fullmatch(r"v\d+\.\d+\.\d+[-.\w]*|[0-9a-f]{40}", ref), ref
 
 
 def test_credential_free_gate_marks_cross_repository_event_untrusted(tmp_path: Path) -> None:
