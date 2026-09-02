@@ -128,6 +128,17 @@ def _docs_only_commit(upstream: Path, base_commit: str) -> tuple[str, str] | Non
     return None
 
 
+def _commit_generated_version_file(worktree: Path) -> None:
+    """pytest's own tree imports ``_pytest._version``, a file setuptools_scm
+    generates at install time; the executor runs from fresh worktrees that
+    never see it, so the pilot commits a fixed one on both sides of the PR."""
+    version_file = worktree / "src" / "_pytest" / "_version.py"
+    if (worktree / "src" / "_pytest" / "__init__.py").exists() and not version_file.exists():
+        version_file.write_text('version = "0.0.0+pilot"\nversion_tuple = (0, 0, 0)\n')
+        _git(worktree, "add", "-f", str(version_file))
+        _commit(worktree, "pilot: commit the generated _pytest/_version.py")
+
+
 def _make_env(case: Path, worktree: Path) -> Path:
     """Per-case virtualenv. PILOT_PYTHON selects the interpreter (older
     projects cannot import on the newest Python); the choice is recorded."""
@@ -168,6 +179,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         manifest.update(base_sha=parent, head_sha=sha, shape="docs-only history commit")
     else:
         _git(upstream, "worktree", "add", "--detach", str(worktree), row["base_commit"])
+        _commit_generated_version_file(worktree)
         if args.control == "test-only":
             base_sha = row["base_commit"]
             _apply(worktree, _hidden(args.instance_id)["test_patch"])
