@@ -441,8 +441,8 @@ def test_verify_passes_remaining_shared_deadline_to_repro_provider(tmp_path: Pat
 
     verify_candidate(
         repo,
-        candidate(line=1),
-        original_gate(candidate(line=1)),
+        candidate(file="mod.py", line=1),
+        original_gate(candidate(file="mod.py", line=1)),
         provider,
         Budget(limit_usd=1.0, model=DEFAULT_MODEL),
         ExecutorLimits(),
@@ -628,7 +628,7 @@ def test_generate_schema_failure_includes_bounded_redacted_raw_fragment(
 
 def test_execute_assertion_failure_is_reproduced_and_uses_task_path(tmp_path: Path) -> None:
 
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     result = execute_repro(
         tmp_path,
         stored,
@@ -656,7 +656,7 @@ def test_execute_passing_test_is_not_reproduced(tmp_path: Path) -> None:
 
     result = execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec("def test_repro():\n    assert 2 + 2 == 4"),
         ExecutorLimits(),
     )
@@ -679,7 +679,7 @@ def test_execute_collection_failures_are_deferred(
 
     result = execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec(test_body),
         ExecutorLimits(),
     )
@@ -693,7 +693,7 @@ def test_execute_timeout_is_deferred(tmp_path: Path) -> None:
 
     result = execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec("import time\ndef test_repro():\n    time.sleep(5)"),
         ExecutorLimits(wall_timeout_s=0.2),
     )
@@ -710,7 +710,7 @@ def test_execute_defers_atexit_spawn_attempt_without_starting_child(tmp_path: Pa
     child_started = tmp_path / "atexit-child-started"
     result = execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec(
             "import atexit\n"
             "import subprocess\n"
@@ -745,7 +745,7 @@ def test_execute_defers_atexit_exec_attempt_without_replacing_pytest(tmp_path: P
     replacement_started = tmp_path / "exec-replacement-started"
     result = execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec(
             "import atexit\n"
             "import os\n"
@@ -776,7 +776,7 @@ def test_execute_kernel_limit_defers_native_fork_without_starting_child(
     child_started = tmp_path / "native-fork-child-started"
     result = execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec(
             "import ctypes\n"
             "import errno\n"
@@ -807,7 +807,7 @@ def test_execute_defers_python_thread_attempt_without_starting_thread(tmp_path: 
     thread_started = tmp_path / "thread-started"
     result = execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec(
             "import threading\n"
             "from pathlib import Path\n"
@@ -886,7 +886,7 @@ def test_execute_privileged_posix_user_defers_before_running_generated_code(
 
     result = executor.execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         executor.ReproSpec("def test_repro(): assert False"),
         executor.ExecutorLimits(),
     )
@@ -926,7 +926,7 @@ def test_execute_linux_privilege_state_fails_closed_before_generated_code(
 
     result = executor.execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         executor.ReproSpec("def test_repro(): assert False"),
         executor.ExecutorLimits(),
     )
@@ -942,7 +942,7 @@ def test_execute_defers_subprocess_attempt_without_starting_child(tmp_path: Path
     child_started = tmp_path / "subprocess-child-started"
     result = execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec(
             "import subprocess\n"
             "import sys\n"
@@ -991,7 +991,7 @@ def test_execute_post_spawn_failure_cleans_up_owned_process(
 
     result = executor.execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         executor.ReproSpec("import time\ndef test_repro(): time.sleep(30)"),
         executor.ExecutorLimits(wall_timeout_s=0.4),
     )
@@ -1026,7 +1026,7 @@ def test_execute_owner_constructor_failure_cleans_up_raw_process(
 
     result = executor.execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         executor.ReproSpec("import time\ndef test_repro(): time.sleep(30)"),
         executor.ExecutorLimits(wall_timeout_s=0.4),
     )
@@ -1076,7 +1076,7 @@ def test_execute_resolves_relative_repository_before_building_paths(
     repo = tmp_path / "relative-repo"
     repo.mkdir()
     monkeypatch.chdir(tmp_path)
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
 
     result = execute_repro(
         Path("relative-repo"),
@@ -1106,7 +1106,7 @@ def test_execute_can_use_reviewed_project_python_seam(
 
     result = execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec("def test_repro(): assert True"),
         ExecutorLimits(),
     )
@@ -1119,7 +1119,7 @@ def test_execute_truncates_each_output_stream_to_last_bytes(tmp_path: Path) -> N
 
     result = execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec(
             "import sys\n"
             "def test_repro():\n"
@@ -1162,8 +1162,8 @@ def test_verification_subprocess_drops_credentials_and_redacts_ledger(
 
     verification = verify_candidate(
         repo,
-        candidate(line=1),
-        original_gate(candidate(line=1)),
+        candidate(file="mod.py", line=1),
+        original_gate(candidate(file="mod.py", line=1)),
         provider,
         Budget(limit_usd=1.0, model=DEFAULT_MODEL),
         ExecutorLimits(wall_timeout_s=10),
@@ -1206,7 +1206,7 @@ def test_execute_high_volume_output_uses_bounded_parent_memory(tmp_path: Path) -
     try:
         result = execute_repro(
             tmp_path,
-            candidate(line=1),
+            candidate(file="mod.py", line=1),
             ReproSpec(
                 "import os\n"
                 "def test_repro():\n"
@@ -1231,7 +1231,7 @@ def test_execute_blocks_socket_connections_with_sitecustomize(tmp_path: Path) ->
 
     result = execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec(
             "import socket\n"
             "import sys\n"
@@ -1257,7 +1257,7 @@ def test_execute_blocks_socket_connections_after_socket_reload(tmp_path: Path) -
         port = listener.getsockname()[1]
         result = execute_repro(
             tmp_path,
-            candidate(line=1),
+            candidate(file="mod.py", line=1),
             ReproSpec(
                 "import importlib\n"
                 "import socket\n"
@@ -1286,7 +1286,7 @@ def test_execute_repository_sitecustomize_cannot_shadow_network_guard(tmp_path: 
     )
     result = execute_repro(
         tmp_path,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec(
             "import socket\n"
             "import sys\n"
@@ -1309,7 +1309,7 @@ def test_execute_reports_network_unblocked_when_process_never_starts(tmp_path: P
     repo_file.write_text("not a directory", encoding="utf-8")
     result = execute_repro(
         repo_file,
-        candidate(line=1),
+        candidate(file="mod.py", line=1),
         ReproSpec("def test_repro(): assert False"),
         ExecutorLimits(),
     )
@@ -1366,7 +1366,7 @@ def test_verify_candidate_applies_only_conclusive_evidence_and_records_it(
 ) -> None:
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3)
@@ -1408,11 +1408,11 @@ def test_verify_candidate_applies_only_conclusive_evidence_and_records_it(
     ("stored", "provider_result", "reason_fragment"),
     [
         (
-            candidate(line=1),
+            candidate(file="mod.py", line=1),
             ProviderResult(text="{}", input_tokens=2, output_tokens=3),
             "generator output",
         ),
-        (candidate(line=1), RuntimeError("provider down"), "provider down"),
+        (candidate(file="mod.py", line=1), RuntimeError("provider down"), "provider down"),
         (
             candidate(file="pkg/example.js", line=1),
             ProviderResult(
@@ -1466,7 +1466,7 @@ def test_execute_repro_imports_code_from_the_given_tree(tmp_path: Path) -> None:
     trees = {name: repo / "trees" / name for name in ("tree-one", "tree-two")}
     for name, tree in trees.items():
         write_layout(tree, provenance_layout(name))
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
 
     def run(tree: Path, expected: Path, label: str) -> Any:
         return execute_repro(
@@ -1515,7 +1515,7 @@ def test_execute_repro_src_layout_with_root_conftest_imports_from_the_given_tree
             "src/mypkg/calc.py": 'ORIGIN = "head"\n',
         },
     )
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
 
     result = execute_repro(
         repo,
@@ -1554,7 +1554,7 @@ def test_execute_repro_honours_the_conftest_fixtures_of_the_tree_under_test(
             "mypkg/calc.py": TOTAL_CALC,
         },
     )
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
 
     result = execute_repro(
         repo,
@@ -1588,7 +1588,7 @@ def test_execute_differential_root_conftest_does_not_leak_head_code_into_base(
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path, project(GUARDED_CALC), project(UNGUARDED_CALC)
     )
-    stored = candidate(line=1)
+    stored = candidate(file="mypkg/calc.py", line=1)
 
     result = execute_differential(
         repo,
@@ -1611,7 +1611,7 @@ def test_execute_differential_root_conftest_does_not_leak_head_code_into_base(
 def test_execute_differential_syntax_error_defers_and_cleans_worktrees(tmp_path: Path) -> None:
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
 
     result = execute_differential(
         repo,
@@ -1638,7 +1638,7 @@ def test_execute_differential_syntax_error_defers_and_cleans_worktrees(tmp_path:
 def test_execute_differential_expired_deadline_defers_before_any_run(tmp_path: Path) -> None:
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
 
     result = execute_differential(
         repo,
@@ -1663,7 +1663,7 @@ def test_execute_differential_runs_one_test_source_with_one_interpreter(
 ) -> None:
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     log = tmp_path / "interpreter-invocations"
     wrapper = tmp_path / "project-python"
     wrapper.write_text(
@@ -1699,7 +1699,7 @@ def test_verify_candidate_unfaithful_test_failing_on_base_is_deferred(
 ) -> None:
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(
@@ -1749,7 +1749,7 @@ def test_verify_candidate_flaky_head_reproduction_defers_without_buying_v(
         "    counter.write_text(str(n + 1))\n"
         "    assert n % 2 == 1\n"
     )
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(text=json.dumps({"test_body": body}), input_tokens=2, output_tokens=3)
@@ -1781,7 +1781,7 @@ def test_verify_candidate_deadline_expiring_after_generation_defers_differential
 ) -> None:
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(
@@ -1839,7 +1839,7 @@ def test_verify_candidate_validates_revisions_before_calling_provider(
         requested_head = base_sha
     elif violation == "unresolvable":
         requested_base = "0" * 40
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(
@@ -2070,7 +2070,7 @@ def test_verify_candidate_new_function_on_head_is_a_new_code_candidate(
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path, {"mod.py": GOOD_MODULE}, {"mod.py": NEW_FUNCTION_MODULE}
     )
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(
@@ -2115,7 +2115,7 @@ def test_verify_candidate_new_module_on_head_is_a_new_code_candidate(
         {"mod.py": GOOD_MODULE},
         {"mod.py": GOOD_MODULE, "newmod.py": NEW_MODULE},
     )
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(
@@ -2164,7 +2164,7 @@ def test_verify_candidate_any_genuine_crash_on_added_code_is_a_new_code_candidat
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path, {"mod.py": TOTAL_ONLY_MODULE}, {"mod.py": head_module}
     )
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3)
@@ -2196,7 +2196,7 @@ def test_verify_candidate_false_assertion_on_both_trees_is_still_unfaithful(
     widening the head-side condition must not let this buy the new-code class."""
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(
@@ -2231,7 +2231,7 @@ def test_verify_candidate_fabricated_symbol_can_never_be_a_new_code_candidate(
     fails symbol-absent on HEAD, which the new-code rule excludes outright."""
 
     repo, base_sha, head_sha = differential_repo(tmp_path)
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(
@@ -2279,7 +2279,7 @@ def test_execute_differential_flaky_head_is_indeterminate(tmp_path: Path) -> Non
         "    counter.write_text(str(n + 1))\n"
         "    assert n % 2 == 1\n"
     )
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
 
     result = execute_differential(
         repo,
@@ -2412,7 +2412,7 @@ def test_differential_certification_requires_the_head_code_to_misbehave(
     matter how cleanly base passes."""
 
     repo, base_sha, head_sha = two_commit_repo(tmp_path, base_files, head_files)
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3)
@@ -2496,7 +2496,7 @@ def test_verify_candidate_key_error_regression_certifies(
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path, {"mod.py": base_module}, {"mod.py": head_module}
     )
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(text=json.dumps({"test_body": test_body}), input_tokens=2, output_tokens=3)
@@ -2547,7 +2547,7 @@ def test_verify_candidate_symbol_that_exists_nowhere_still_buys_nothing(
         {"mod.py": DEFAULTED_LOOKUP_MODULE},
         {"mod.py": UNDEFAULTED_LOOKUP_MODULE},
     )
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(
@@ -2597,7 +2597,7 @@ def test_verify_candidate_renamed_method_never_buys_evidence(
         {"mod.py": RENAMED_METHOD_BASE_MODULE},
         {"mod.py": RENAMED_METHOD_HEAD_MODULE},
     )
-    stored = candidate(line=1)
+    stored = candidate(file="mod.py", line=1)
     gate = original_gate(stored)
     provider = RecordingProvider(
         ProviderResult(
@@ -2646,3 +2646,46 @@ def test_generation_prompt_shows_both_sides_of_the_anchored_definition(tmp_path:
     assert "return a - b" in prompt  # head definition, the defect
     assert "return a + b" in prompt  # merge-base definition, the behaviour to assert
     assert "merge-base" in prompt.lower()
+
+
+def test_differential_test_that_never_executes_a_changed_line_is_not_a_regression(
+    tmp_path: Path,
+) -> None:
+    """V-02 (G-SEM-002): a test can fail on head and pass on base without ever
+    running the changed code -- here it reads the source text instead of calling
+    add(). Such a run is bound to nothing and must not buy regression evidence."""
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(file="mod.py", line=2)
+    source_reading_test = (
+        "from pathlib import Path\n\n"
+        "def test_repro():\n"
+        "    assert Path('mod.py').read_text() == 'def add(a, b):\\n    return a + b\\n'\n"
+    )
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(source_reading_test),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.evidence_class is EvidenceClass.UNBOUND
+    assert "none of the changed lines" in result.reason
+    assert result.binding is not None
+    assert result.binding.changed_lines == (1, 2)
+    assert result.binding.executed_changed_lines == ()
+    # the same reproduction shape that does call add() stays a regression
+    bound = execute_differential(
+        repo,
+        stored,
+        ReproSpec(DIFFERENTIAL_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+    assert bound.outcome is ExecutionOutcome.REPRODUCED
+    assert bound.binding is not None
+    assert bound.binding.executed_changed_lines == (1, 2)

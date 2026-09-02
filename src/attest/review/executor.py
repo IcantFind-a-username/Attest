@@ -21,8 +21,14 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, BinaryIO
 
+from attest.certification.binding import (
+    BINDING_POLICY_VERSION,
+    BindingObservation,
+    binding_verdict,
+)
 from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
+from attest.review.diffs import parse_diff
 from attest.review.gate import GateResult, apply_verification
 from attest.review.ledger import Ledger
 from attest.review.planner import generation_context
@@ -124,6 +130,7 @@ class EvidenceClass(str, Enum):  # noqa: UP042 - public API requires this exact 
     UNFAITHFUL = "unfaithful"
     NOT_REPRODUCED = "not_reproduced"
     INDETERMINATE = "indeterminate"
+    UNBOUND = "unbound"  # head failed, base passed, but no changed line ran (V-02)
 
 
 class FailureSignature(str, Enum):  # noqa: UP042 - public API requires this exact base shape
@@ -167,6 +174,7 @@ class ExecutionResult:
     environment_digest: str = ""  # canonical digest of the guard-relevant environment
     test_file_digest: str = ""  # SHA-256 of the exact test bytes written for the run
     junit_xml: str = ""
+    executed_lines: tuple[int, ...] = ()  # lines of the anchored file the run executed
 
 
 @dataclass(frozen=True)
@@ -182,6 +190,7 @@ class DifferentialExecution:
     network_blocked: bool  # every executed run confirmed the network guard
     evidence_class: EvidenceClass = EvidenceClass.INDETERMINATE
     collection_run: ExecutionResult | None = None  # the collect-only run (V-01)
+    binding: BindingObservation | None = None  # changed-line binding (V-02)
 
 
 @dataclass(frozen=True)
@@ -360,6 +369,33 @@ def _parse_repro(text: str) -> ReproSpec:
     return ReproSpec(test_body=payload["test_body"])
 
 
+_TRACER = """
+_trace_target = {trace_target!r}
+_lines_marker = Path({lines_marker!r})
+_executed_lines = set()
+
+
+def _attest_tracer(frame, event, arg):
+    filename = frame.f_code.co_filename
+    if filename != _trace_target and os.path.abspath(filename) != _trace_target:
+        return None
+    if event == "line":
+        _executed_lines.add(frame.f_lineno)
+    return _attest_tracer
+
+
+def _attest_flush_lines():
+    _lines_marker.write_text(",".join(str(n) for n in sorted(_executed_lines)), encoding="utf-8")
+
+
+import atexit
+
+atexit.register(_attest_flush_lines)
+sys.settrace(_attest_tracer)
+threading.settrace(_attest_tracer)
+"""
+
+
 def _sitecustomize(
     network_marker: Path,
     process_guard_marker: Path,
@@ -367,9 +403,17 @@ def _sitecustomize(
     process_attempt_marker: Path,
     process_replacement_marker: Path,
     thread_attempt_marker: Path,
+    trace_target: str | None = None,
+    lines_marker: Path | None = None,
 ) -> str:
+    tracer = (
+        ""
+        if trace_target is None or lines_marker is None
+        else _TRACER.format(trace_target=trace_target, lines_marker=str(lines_marker))
+    )
     return (
         SITECUSTOMIZE
+        + tracer
         + f"""
 _network_marker = Path({str(network_marker)!r})
 _process_guard_marker = Path({str(process_guard_marker)!r})
@@ -615,6 +659,29 @@ def _junit_summary(path: Path) -> _JUnitSummary:
         xfailed=xfailed,
         test_node=test_node,
     )
+
+
+def _executed_lines(marker: Path) -> tuple[int, ...]:
+    try:
+        text = marker.read_text(encoding="utf-8")
+    except OSError:
+        return ()
+    return tuple(int(part) for part in text.split(",") if part.strip().isdigit())
+
+
+def _changed_lines(repo: Path, base_sha: str, head_sha: str, path: str) -> tuple[int, ...]:
+    """New-file lines inside the anchored file's hunks between base and head."""
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "diff", "--no-color", base_sha, head_sha, "--", path],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if proc.returncode != 0:
+        return ()
+    ranges = parse_diff(proc.stdout).hunks.get(path, [])
+    return tuple(sorted({line for start, end in ranges for line in range(start, end + 1)}))
 
 
 def _junit_counts(path: Path) -> tuple[int, int]:
@@ -948,6 +1015,8 @@ def execute_repro(
     process_attempt_marker = site_dir / "process-attempted"
     process_replacement_marker = site_dir / "process-replacement-attempted"
     thread_attempt_marker = site_dir / "thread-attempted"
+    lines_marker = site_dir / "executed-lines"
+    trace_target = None if tree is None else str((tree / candidate.finding.file).resolve())
     raw_process: subprocess.Popen[bytes] | None = None
     owner: _OwnedProcess | None = None
     failure: Exception | None = None
@@ -970,9 +1039,12 @@ def execute_repro(
                 process_attempt_marker,
                 process_replacement_marker,
                 thread_attempt_marker,
+                trace_target=None if collect_only else trace_target,
+                lines_marker=None if collect_only else lines_marker,
             ),
             encoding="utf-8",
         )
+        lines_marker.unlink(missing_ok=True)
         junit_path.unlink(missing_ok=True)
         for marker in (
             network_marker,
@@ -1005,6 +1077,7 @@ def execute_repro(
         if not collect_only:
             command += ["--junitxml", str(junit_path)]
         identity: dict[str, Any] = {
+            "executed_lines": (),  # filled after the run from the tracer marker
             "command_template": tuple(_template(command, tree, site_dir, work_dir)),
             "interpreter": interpreter,
             "interpreter_version": _interpreter_version(interpreter),
@@ -1146,6 +1219,7 @@ def execute_repro(
             test_node=node_id,
             **identity,
         )
+    identity["executed_lines"] = _executed_lines(lines_marker)
     try:
         junit = _junit_summary(junit_path)
         failures, errors = junit.failures, junit.errors
@@ -1271,6 +1345,7 @@ def execute_differential(
     base_runs: list[ExecutionResult] = []
 
     collection_runs: list[ExecutionResult] = []
+    bindings: list[BindingObservation] = []
 
     def finish(
         outcome: ExecutionOutcome,
@@ -1290,6 +1365,7 @@ def execute_differential(
             network_blocked=bool(runs) and all(run.network_blocked for run in runs),
             evidence_class=evidence_class,
             collection_run=collection_runs[0] if collection_runs else None,
+            binding=bindings[0] if bindings else None,
         )
 
     def deferred(
@@ -1429,6 +1505,22 @@ def execute_differential(
         # MISBEHAVING before anything is bought.
         if not head_symbol_is_present:
             return deferred(STALE_REFERENCE_REASON, EvidenceClass.UNFAITHFUL)
+        # V-02: the failing head runs must have executed the changed code
+        changed = _changed_lines(repo_root, base_sha, head_sha, candidate.finding.file)
+        executed_on_every_head_run = set(changed)
+        for run in head_runs:
+            executed_on_every_head_run &= set(run.executed_lines)
+        binding = BindingObservation(
+            policy_version=BINDING_POLICY_VERSION,
+            path=candidate.finding.file,
+            changed_lines=changed,
+            executed_changed_lines=tuple(sorted(executed_on_every_head_run)),
+            head_runs_observed=len(head_runs),
+        )
+        bindings.append(binding)
+        verdict = binding_verdict(binding)
+        if verdict is not None:
+            return deferred(f"binding: {verdict}", EvidenceClass.UNBOUND)
         return finish(
             ExecutionOutcome.REPRODUCED,
             f"head FAIL {repeats}/{repeats}, base PASS {repeats}/{repeats}",

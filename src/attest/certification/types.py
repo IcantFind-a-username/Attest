@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 CERTIFICATION_TASK_SCHEMA_VERSION = "attest.certification-task.v1"
 CERTIFICATION_POLICY_SCHEMA_VERSION = "attest.certification-policy.v1"
-CERTIFICATION_RECEIPT_SCHEMA_VERSION = "attest.certification-receipt.v2"
+CERTIFICATION_RECEIPT_SCHEMA_VERSION = "attest.certification-receipt.v3"
 
 
 @dataclass(frozen=True)
@@ -29,6 +29,7 @@ class CertificationPolicy:
     required_base_runs: int
     allowed_executor_profiles: tuple[str, ...]
     allowed_evidence_classes: tuple[str, ...]
+    binding_policy_version: str = ""  # V-02; "" means no binding is required (legacy)
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,8 @@ class CertificationReceipt:
     result_class: str
     evidence_class: str
     provenance_digest: str
+    binding_policy_version: str = ""  # V-02
+    binding_digest: str = ""  # digest of the recorded BindingObservation
 
 
 _ACCEPTED_RECEIPT_TOKEN = object()

@@ -19,6 +19,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from attest.certification.binding import BindingObservation
 from attest.certification.types import (
     AcceptedReceipt,
     CertificationPolicy,
@@ -132,6 +133,7 @@ def write_bundle(
     receipt: CertificationReceipt,
     test_bytes: bytes,
     runs: list[tuple[str, int, ExecutionResult, str]],  # (side, index, run, revision)
+    binding: BindingObservation | None = None,
 ) -> WrittenBundle:
     """Persist the bundle under ``root/.attest/evidence/<task>/<candidate>/``."""
     directory = root / ".attest" / "evidence" / receipt.task_id / receipt.candidate_id
@@ -149,6 +151,8 @@ def write_bundle(
     put("subject.json", canonical_bytes(asdict(subject)))
     put("receipt.json", canonical_bytes(asdict(receipt)))
     put("test_repro.py", test_bytes)
+    if binding is not None:
+        put("binding.json", canonical_bytes(asdict(binding)))
     for side, index, run, revision in runs:
         record = run_record(side, index, run, revision_sha=revision)
         run_id = str(record["run_id"])
@@ -257,6 +261,24 @@ def verify_bundle(directory: Path) -> AcceptedReceipt | ReceiptRejection | Bundl
         reasons.append("runs used different commands")
     if provenance_digest(receipt) != receipt.provenance_digest:
         reasons.append("provenance digest does not match the receipt body")
+    if receipt.binding_policy_version:
+        binding_raw = _load(directory, "binding.json")
+        if binding_raw is None:
+            reasons.append("binding observation missing")
+        else:
+            try:
+                binding_raw["changed_lines"] = tuple(binding_raw["changed_lines"])
+                binding_raw["executed_changed_lines"] = tuple(
+                    binding_raw["executed_changed_lines"]
+                )
+                observation = BindingObservation(**binding_raw)
+            except (TypeError, ValueError, KeyError):
+                reasons.append("binding observation malformed")
+            else:
+                if observation.digest() != receipt.binding_digest:
+                    reasons.append("binding observation does not match receipt.binding_digest")
+                if observation.policy_version != receipt.binding_policy_version:
+                    reasons.append("binding observation policy differs from the receipt")
     if reasons:
         return BundleRejection(tuple(reasons))
     return validate_receipt(task, policy, subject, receipt)

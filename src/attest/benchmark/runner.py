@@ -93,6 +93,7 @@ REPRO_STATUS_BY_EVIDENCE_CLASS: Mapping[str, str] = {
     EvidenceClass.NOT_REPRODUCED.value: "buggy_pass",
     EvidenceClass.NEW_CODE_CANDIDATE.value: "new_code_candidate",
     EvidenceClass.INDETERMINATE.value: "deferred",
+    EvidenceClass.UNBOUND.value: "unbound",  # V-02: head failed, base passed, no changed line ran
 }
 
 NOT_EXECUTED = "not_executed"

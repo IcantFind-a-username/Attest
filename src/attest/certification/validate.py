@@ -55,6 +55,8 @@ class RejectionCode(StrEnum):
     RESULT_CLASS_INVALID = "result_class_invalid"
     EVIDENCE_CLASS_UNSUPPORTED = "evidence_class_unsupported"
     PROVENANCE_INVALID = "provenance_invalid"
+    BINDING_POLICY_MISMATCH = "binding_policy_mismatch"
+    BINDING_DIGEST_INVALID = "binding_digest_invalid"
 
 
 @dataclass(frozen=True)
@@ -255,6 +257,14 @@ def validate_receipt(
         RejectionCode.EVIDENCE_CLASS_UNSUPPORTED,
     )
     reject_if(not _is_digest(receipt.provenance_digest), RejectionCode.PROVENANCE_INVALID)
+    reject_if(
+        receipt.binding_policy_version != policy.binding_policy_version,
+        RejectionCode.BINDING_POLICY_MISMATCH,
+    )
+    reject_if(
+        bool(policy.binding_policy_version) and not _is_digest(receipt.binding_digest),
+        RejectionCode.BINDING_DIGEST_INVALID,
+    )
     if codes:
         return ReceiptRejection(tuple(codes))
     return AcceptedReceipt._from_validated(receipt, _ACCEPTED_RECEIPT_TOKEN)

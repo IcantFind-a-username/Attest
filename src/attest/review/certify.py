@@ -15,6 +15,7 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from attest.certification.binding import BINDING_POLICY_VERSION
 from attest.certification.types import (
     CERTIFICATION_POLICY_SCHEMA_VERSION,
     CERTIFICATION_RECEIPT_SCHEMA_VERSION,
@@ -70,6 +71,7 @@ def certification_policy(repeats: int) -> CertificationPolicy:
         required_base_runs=repeats,
         allowed_executor_profiles=(EXECUTOR_PROFILE,),
         allowed_evidence_classes=(EvidenceClass.REGRESSION_REPRODUCED.value,),
+        binding_policy_version=BINDING_POLICY_VERSION,
     )
 
 
@@ -233,6 +235,10 @@ def attempt_certification(
         "base_runs": [asdict(run) for run in base_runs],
         "result_class": RESULT_CLASS_HEAD_FAIL_BASE_PASS,
         "evidence_class": execution.evidence_class.value,
+        "binding_policy_version": (
+            "" if execution.binding is None else execution.binding.policy_version
+        ),
+        "binding_digest": "" if execution.binding is None else execution.binding.digest(),
     }
     draft = CertificationReceipt(
         **{**unsigned, "head_runs": head_runs, "base_runs": base_runs},
@@ -268,6 +274,7 @@ def attempt_certification(
             receipt=receipt,
             test_bytes=test_bytes,
             runs=[(side, index, run, revision) for side, index, run, revision in sided],
+            binding=execution.binding,
         )
     return CertificationAttempt(
         candidate_id=candidate_id,
