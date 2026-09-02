@@ -102,7 +102,7 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | E-02 held-out (step 13) and E-01 natural null (step 14) results into the roadmap, README and handoff; then E-04 (prospective shadow on the owner's live repositories) and the L-01 pilot on the repository the owner names (§5 D) | steps 1-12 and the owner-free L-01 parts are done; every paid run goes through `linux-container-v1`; `G-SEC-002`'s full red-team matrix on the CI platform is the open security item |
+| **NOW** | L-01's remaining release evidence: the offline drill script and its tests, and owner approval of the privacy/retention defaults. Steps 1-15 and the L-01 document and private-pilot list are done (D-106) | steps 1-12 and the owner-free L-01 parts are done; every paid run goes through `linux-container-v1`; `G-SEC-002`'s full red-team matrix on the CI platform is the open security item |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
@@ -530,9 +530,15 @@ measured together.
 
 ### Work orders
 
-- [ ] **L-01 — release candidate.** Stable install ref, minimal quickstart, base-owned
-  policy docs, executor support matrix, privacy/retention policy, failure-mode copy,
-  rollback/kill switch, and private-user pilot.
+- [~] **L-01 — release candidate.** Stable install ref (`v0.1.0-pilot.1`), minimal
+  quickstart, base-owned policy docs, executor support matrix, privacy/retention policy,
+  failure-mode copy, rollback/kill switch, and private-user pilot. The **document and pilot
+  list is done** — private pilot on `IcantFind-a-username/us-stock-helper`, six commits, six
+  documented silences, four wiring fixes
+  ([report](acceptance/2026-09-03-l01-private-pilot.md), D-106). Still open for
+  `G-RELEASE-001`: the offline drill script (`scripts/release/drill.py --offline --all`) and
+  its release tests, owner approval of the privacy/retention defaults, and `G-SEC-002`'s
+  red-team matrix on the CI platform.
 
 ### Mandatory prerequisites
 
