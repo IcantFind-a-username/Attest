@@ -697,3 +697,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** `G-CERT-003`: a manual `--reproduced` moved wealth 2.6 → 52.8 and counted as a surfaced, labelable finding, contaminating the calibration denominator (`INV-EVIDENCE-001`).
 - **Limits:** no certification JSON import boundary exists yet, so "reject self-reported IDs at the boundary" waits for V-03's offline verifier; legacy rows without the authority marker written by the pre-C-02 terminal report keep their old surfaced semantics because that report did assert them.
 - **Reversal:** none foreseen.
+
+
+### D-075 — R-03: clusters are components of the candidate multiset; eligibility precedes generation
+
+- **Date/status/scope:** 2026-09-02 · active · `review/dedup.py`, new `review/eligibility.py`, `review/diffs.py`, `review/schema.py`, `review/candidates.py`, `review/run.py`, `review/ci.py`.
+- **Decision:** discovery clusters (`attest.discovery-cluster.v1`) are connected components of the pairwise anchor/lexical similarity graph (thresholds unchanged from D-013), represented by the medoid with canonical tie-break, sorted provenance retained, and a cluster id digested from the member anchor/claim set without sample ids. Before any paid reproduction each candidate is classified from facts only — non-Python suffix, executor host unavailable, anchored file new in the diff, or enclosing def/class absent at the merge-base → `new_code` — and only `regression` enters V; the rest are `not_attempted` certification rows outside the eligible denominator. Parse failures fail open to `regression` because V still decides.
+- **Why:** the greedy first-match merge let sample completion order pick the public claim and its anchor (`G-RECALL-001`), and new-code/non-Python candidates bought generation they could never certify (D-043).
+- **Limits:** components can chain distinct defects through intermediate wordings; C-05 owns publication clusters and may version the schema. Candidate counts on real PRs are unchanged by construction (clustering merges exactly what the old predicate merged); the eligible share is measured in the E-02 pilot table.
+- **Reversal:** a C-05 publication-cluster schema that needs different discovery identities.

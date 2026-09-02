@@ -102,12 +102,12 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | R-03, then the fixed sequence in [`mainline.md`](mainline.md) §2 (R-01, V-01, E-02 pilot, …) | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
+| **NOW** | R-01, then the fixed sequence in [`mainline.md`](mainline.md) §2 (V-01, E-02 pilot, …) | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
 
-C-01 through C-04 are complete. `mainline.md` fixes the working order from here to L-01; R-03 is next.
+C-01 through C-04 and R-03 are complete. `mainline.md` fixes the working order from here to L-01; R-01 is next.
 V-01 follows R-03 and R-01 rather than preceding them, because the pilot measurement needs
 candidates before it needs richer receipts. The follow-on V-funnel implementation through `e0f2db0` added complete
 per-candidate run evidence and a reproduction-only 3,000-token cap. It did not change runner
@@ -337,7 +337,9 @@ weakening the kernel.
 - [ ] **R-02 — structured-output recovery.** Separate schema/collection repair from
   behavioral execution; precommit retry counts and visibility; cache by immutable digest;
   forbid outcome-aware retries.
-- [ ] **R-03 — deterministic dedup and eligibility.** Replace order-dependent greedy
+- [x] **R-03 — deterministic dedup and eligibility** (implementation `36dc85b`, D-075; taken
+  before R-01/C-05 per `mainline.md` §2 with a minimal cluster schema C-05 may version).
+  Replace order-dependent greedy
   clustering; retain provenance; classify regression/new-code/non-Python/executor-profile
   feasibility before expensive generation.
 - [ ] **R-04 — feasibility-aware priority.** Use deterministic S/T plus predicted execution
@@ -585,6 +587,14 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-09-02 — R-03 complete:** implementation `36dc85b`; the RED
+  (`test_permuted_batches_yield_identical_clusters_and_eligibility`) failed on the unpatched
+  path (no classifier; representative chosen by sample order) and passes after over all
+  sample permutations and within-sample reversals. Full gate on the committed tree: 1621 passed, production coverage 92.21%, Ruff, Mypy
+  and `git diff --check` clean; the two `test_runner` failures were fixtures whose
+  findings anchored on new code and were certified by the shared reproduction (a V-02
+  gap); reshaped as regressions in `cce63e1`, after which the file passes. See D-075.
 
 - **2026-09-02 — C-04 complete:** implementation `71b99aa`; the RED
   (`test_manual_reproduction_moves_no_finding_and_no_precision_window`) failed on the
