@@ -1180,6 +1180,7 @@ def test_verification_subprocess_drops_credentials_and_redacts_ledger(
     row = Ledger(repo).entries_strict()[-1]
     run_evidence = row["run_evidence"]
     assert [(run["side"], run["repeat"]) for run in run_evidence] == [
+        ("collect", 1),  # V-01: the exact-node collection run is evidence too
         ("head", 1),
         ("head", 2),
         ("head", 3),
@@ -1622,7 +1623,11 @@ def test_execute_differential_syntax_error_defers_and_cleans_worktrees(tmp_path:
 
     assert result.outcome is ExecutionOutcome.DEFERRED
     assert "collection/import/syntax" in result.reason
-    assert len(result.head_runs) == 1
+    # V-01 collects before any behavioural repeat: the failing collection run is
+    # the retained evidence and no head run is bought
+    assert result.collection_run is not None
+    assert result.collection_run.outcome is ExecutionOutcome.DEFERRED
+    assert result.head_runs == ()
     assert result.base_runs == ()
     assert result.base_sha == base_sha
     assert result.head_sha == head_sha
@@ -1683,7 +1688,8 @@ def test_execute_differential_runs_one_test_source_with_one_interpreter(
     labels = ["head-1", "head-2", "head-3", "base-1", "base-2", "base-3"]
     sources = {(work / label / "test_repro.py").read_bytes() for label in labels}
     assert len(sources) == 1
-    assert log.read_text(encoding="utf-8").splitlines() == ["run"] * 6
+    # one interpreter-version probe, one collect-only run, then 3 + 3 repeats
+    assert log.read_text(encoding="utf-8").splitlines() == ["run"] * 8
     assert_worktrees_cleaned(repo, stored)
 
 

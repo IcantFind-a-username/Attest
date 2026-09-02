@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import functools
+import hashlib
 import json
 import os
 import re
@@ -149,6 +151,13 @@ class ExecutionResult:
     skipped_count: int = 0
     xfailed_count: int = 0
     test_node: str = ""
+    # exact execution identity (V-01): what ran, where, with what
+    command_template: tuple[str, ...] = ()  # argv with tree/site paths as placeholders
+    interpreter: str = ""
+    interpreter_version: str = ""
+    environment_digest: str = ""  # canonical digest of the guard-relevant environment
+    test_file_digest: str = ""  # SHA-256 of the exact test bytes written for the run
+    junit_xml: str = ""
 
 
 @dataclass(frozen=True)
@@ -163,6 +172,7 @@ class DifferentialExecution:
     elapsed_s: float
     network_blocked: bool  # every executed run confirmed the network guard
     evidence_class: EvidenceClass = EvidenceClass.INDETERMINATE
+    collection_run: ExecutionResult | None = None  # the collect-only run (V-01)
 
 
 @dataclass(frozen=True)
@@ -624,6 +634,56 @@ def _remaining(deadline: float) -> float:
     return max(0.0, deadline - time.monotonic())
 
 
+_ENVIRONMENT_BOUND_NAMES = (
+    "PYTEST_DISABLE_PLUGIN_AUTOLOAD",
+    "PYTHONSAFEPATH",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONPATH",
+)
+MAX_JUNIT_CHARS = 64_000
+
+
+def _template(values: list[str], tree: Path | None, site_dir: Path, work_dir: Path) -> list[str]:
+    """Replace per-run paths with placeholders so runs on both sides compare equal."""
+    out = []
+    for value in values:
+        if tree is not None:
+            value = value.replace(str(tree), "{tree}")
+        value = value.replace(str(site_dir), "{site_dir}").replace(str(work_dir), "{work_dir}")
+        out.append(value)
+    return out
+
+
+def _environment_digest(
+    env: dict[str, str], tree: Path | None, site_dir: Path, work_dir: Path
+) -> str:
+    bound = {
+        name: _template([env[name]], tree, site_dir, work_dir)[0]
+        for name in _ENVIRONMENT_BOUND_NAMES
+        if name in env
+    }
+    return hashlib.sha256(
+        json.dumps(bound, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+@functools.lru_cache(maxsize=8)
+def _interpreter_version(interpreter: str) -> str:
+    """One probe per interpreter path per process; the receipt binds its text."""
+    if interpreter == sys.executable:
+        return sys.version
+    try:
+        probe = subprocess.run(
+            [interpreter, "-c", "import sys; print(sys.version)"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return probe.stdout.strip() if probe.returncode == 0 else ""
+
+
 def _reproduction_environment(site_dir: Path, tree: Path | None = None) -> dict[str, str]:
     env = {
         name: value
@@ -778,7 +838,11 @@ def execute_repro(
     *,
     tree: Path | None = None,
     run_label: str = "",
+    node: str | None = None,
+    collect_only: bool = False,
 ) -> ExecutionResult:
+    """One guarded pytest run. ``node`` selects the exact test function; with
+    ``collect_only`` the run only collects and reports the node ids it found."""
     started = time.monotonic()
     repo_root = repo.resolve()
     suffix = Path(candidate.finding.file).suffix.lower()
@@ -865,7 +929,10 @@ def execute_repro(
             marker.unlink(missing_ok=True)
 
         env = _reproduction_environment(site_dir, tree)
-        command = [interpreter, "-m", "pytest", "-q", str(run_path)]
+        selector = str(run_path) if node is None else f"{run_path}::{node}"
+        command = [interpreter, "-m", "pytest", "-q", selector]
+        if collect_only:
+            command.append("--collect-only")
         if tree is not None:
             command += [
                 # rootdir also anchors conftest discovery, so both are pinned to
@@ -879,7 +946,15 @@ def execute_repro(
                 "-p",
                 "no:cacheprovider",
             ]
-        command += ["--junitxml", str(junit_path)]
+        if not collect_only:
+            command += ["--junitxml", str(junit_path)]
+        identity: dict[str, Any] = {
+            "command_template": tuple(_template(command, tree, site_dir, work_dir)),
+            "interpreter": interpreter,
+            "interpreter_version": _interpreter_version(interpreter),
+            "environment_digest": _environment_digest(env, tree, site_dir, work_dir),
+            "test_file_digest": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+        }
         raw_process = subprocess.Popen(
             command,
             cwd=repo_root if tree is None else tree,
@@ -991,9 +1066,38 @@ def execute_repro(
             stdout=stdout,
             stderr=stderr,
         )
+    if collect_only:
+        if process.returncode != 0:
+            return _deferred(
+                "pytest collection/import/syntax or infrastructure failure during "
+                f"collection (exit code {process.returncode})",
+                started,
+                exit_code=process.returncode,
+                stdout=stdout,
+                stderr=stderr,
+                network_blocked=network_blocked,
+            )
+        nodes = [
+            line.strip()
+            for line in stdout.splitlines()
+            if "::" in line and not line.startswith(("=", " ", "<"))
+        ]
+        return ExecutionResult(
+            outcome=ExecutionOutcome.NOT_REPRODUCED,
+            reason=f"collected {len(nodes)} node(s)",
+            exit_code=process.returncode,
+            stdout=stdout,
+            stderr=stderr,
+            elapsed_s=time.monotonic() - started,
+            network_blocked=network_blocked,
+            collected_count=len(nodes),
+            test_node=nodes[0].split("/")[-1] if len(nodes) == 1 else "",
+            **identity,
+        )
     try:
         junit = _junit_summary(junit_path)
         failures, errors = junit.failures, junit.errors
+        junit_text = junit_path.read_text(encoding="utf-8", errors="replace")[:MAX_JUNIT_CHARS]
     except (OSError, ET.ParseError, TypeError, ValueError) as exc:
         return _deferred(
             f"missing or malformed JUnit evidence: {type(exc).__name__}: {exc}",
@@ -1017,6 +1121,8 @@ def execute_repro(
             skipped_count=junit.skipped,
             xfailed_count=junit.xfailed,
             test_node=junit.test_node,
+            junit_xml=junit_text,
+            **identity,
         )
     if process.returncode == 1 and failures > 0 and errors == 0:
         return ExecutionResult(
@@ -1031,6 +1137,8 @@ def execute_repro(
             skipped_count=junit.skipped,
             xfailed_count=junit.xfailed,
             test_node=junit.test_node,
+            junit_xml=junit_text,
+            **identity,
         )
     return _deferred(
         "pytest collection/import/syntax or infrastructure failure "
@@ -1110,6 +1218,8 @@ def execute_differential(
     head_runs: list[ExecutionResult] = []
     base_runs: list[ExecutionResult] = []
 
+    collection_runs: list[ExecutionResult] = []
+
     def finish(
         outcome: ExecutionOutcome,
         reason: str,
@@ -1127,6 +1237,7 @@ def execute_differential(
             elapsed_s=time.monotonic() - started,
             network_blocked=bool(runs) and all(run.network_blocked for run in runs),
             evidence_class=evidence_class,
+            collection_run=collection_runs[0] if collection_runs else None,
         )
 
     def deferred(
@@ -1134,7 +1245,11 @@ def execute_differential(
     ) -> DifferentialExecution:
         return finish(ExecutionOutcome.DEFERRED, _bounded_reason(reason), evidence_class)
 
-    def run_once(side: str, index: int, tree: Path) -> ExecutionResult | None:
+    node: str | None = None
+
+    def run_once(
+        side: str, index: int, tree: Path, *, collect_only: bool = False
+    ) -> ExecutionResult | None:
         """One containment-guarded run against `tree`; None when the shared
         deadline is exhausted."""
         effective = limits
@@ -1149,7 +1264,9 @@ def execute_differential(
             spec,
             effective,
             tree=tree,
-            run_label=f"{side}-{index}",
+            run_label=f"{side}-{index}" if not collect_only else "collect",
+            node=node,
+            collect_only=collect_only,
         )
 
     if repeats < 1:
@@ -1180,6 +1297,20 @@ def execute_differential(
                 return deferred(f"could not create {side} worktree: {added.stderr.strip()}")
             created.append(trees_dir / side)
 
+        # V-01: collect first, under the same guards, and demand exactly one
+        # node; every behavioural run then selects that node explicitly
+        collection = run_once("collect", 0, trees_dir / "head", collect_only=True)
+        if collection is None:
+            return deferred(DEADLINE_REASON)
+        collection_runs.append(collection)
+        if collection.outcome is ExecutionOutcome.DEFERRED:
+            return deferred(f"collection deferred: {collection.reason}")
+        if collection.collected_count != 1 or not collection.test_node:
+            return deferred(
+                f"collection produced {collection.collected_count} test node(s); "
+                "exactly one is required"
+            )
+        node = collection.test_node.split("::", 1)[1]
         for index in range(1, repeats + 1):
             run = run_once("head", index, trees_dir / "head")
             if run is None:
@@ -1290,7 +1421,12 @@ def _differential_run_evidence(
     execution: DifferentialExecution,
 ) -> list[dict[str, object]]:
     evidence: list[dict[str, object]] = []
-    for side, runs in (("head", execution.head_runs), ("base", execution.base_runs)):
+    collection = () if execution.collection_run is None else (execution.collection_run,)
+    for side, runs in (
+        ("collect", collection),
+        ("head", execution.head_runs),
+        ("base", execution.base_runs),
+    ):
         for repeat, run in enumerate(runs, start=1):
             evidence.append(
                 {

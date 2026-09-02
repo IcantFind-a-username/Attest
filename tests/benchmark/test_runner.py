@@ -2254,7 +2254,8 @@ def test_fail_on_buggy_and_pass_on_fixed_is_confirmed_under_identical_limits(
     assert receipt.fixed_runs == ("not_reproduced",)
 
     interpreters = record.read_text(encoding="utf-8").split()
-    assert len(interpreters) == 2
+    # collect-only run, then one head and one base repeat, all on one interpreter
+    assert len(interpreters) == 3
     assert len(set(interpreters)) == 1
 
 

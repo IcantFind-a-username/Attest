@@ -1334,7 +1334,12 @@ def run_ci(
         if verification.execution.outcome is ExecutionOutcome.DEFERRED:
             verification_defers.append(verification.execution.reason)
         attempt = attempt_certification(
-            certification, policy, candidate, verification, limits=default_limits
+            certification,
+            policy,
+            candidate,
+            verification,
+            limits=default_limits,
+            bundle_root=repo,
         )
         ledger.append(attempt.to_ledger_row(task_id))
         if attempt.finding is not None:

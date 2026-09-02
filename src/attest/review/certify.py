@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -27,20 +25,23 @@ from attest.certification.types import (
     CertificationSubject,
     CertificationTask,
     CertifiedFinding,
-    ExecutionRun,
     FindingAnchor,
 )
 from attest.certification.validate import validate_receipt
 from attest.review import executor as executor_module
 from attest.review.candidates import StoredCandidate
+from attest.review.evidence import (
+    WrittenBundle,
+    execution_run_from_record,
+    provenance_digest,
+    run_record,
+    write_bundle,
+)
 from attest.review.executor import (
-    SITECUSTOMIZE,
     EvidenceClass,
     ExecutionOutcome,
-    ExecutionResult,
     ExecutorLimits,
     VerificationRun,
-    classify_failure_signature,
 )
 
 # The current declared trust class for reproduction runs: language-level
@@ -107,20 +108,9 @@ def executor_digest() -> str:
     return hashlib.sha256(Path(executor_module.__file__).read_bytes()).hexdigest()
 
 
-def interpreter_digest() -> str:
-    interpreter = os.environ.get("ATTEST_PROJECT_PYTHON", sys.executable)
-    return text_digest(interpreter)
-
-
-def environment_digest(limits: ExecutorLimits) -> str:
-    return canonical_digest(
-        {
-            "executor_limits": asdict(limits),
-            "guard_digest": text_digest(SITECUSTOMIZE),
-            "pytest_plugin_autoload": False,
-            "python_safe_path": True,
-        }
-    )
+def _single(values: set[str]) -> str:
+    """The one value every run agreed on, or "" (which no receipt can accept)."""
+    return next(iter(values)) if len(values) == 1 else ""
 
 
 @dataclass(frozen=True)
@@ -133,6 +123,7 @@ class CertificationAttempt:
     receipt_digest: str | None
     rejection_codes: tuple[str, ...]
     finding: CertifiedFinding | None
+    bundle: WrittenBundle | None = None
 
     def to_ledger_row(self, task_id: str) -> dict[str, object]:
         row: dict[str, object] = {
@@ -147,33 +138,10 @@ class CertificationAttempt:
             row["receipt_digest"] = self.receipt_digest
         if self.rejection_codes:
             row["rejection_codes"] = list(self.rejection_codes)
+        if self.bundle is not None:
+            row["bundle_path"] = str(self.bundle.path)
+            row["bundle_digest"] = self.bundle.manifest_digest
         return row
-
-
-def _execution_run(
-    side: str, index: int, run: ExecutionResult, *, revision_sha: str
-) -> ExecutionRun:
-    failed = run.outcome is ExecutionOutcome.REPRODUCED
-    return ExecutionRun(
-        run_id=f"{side}-{index}",
-        revision_sha=revision_sha,
-        outcome="failed" if failed else "passed",
-        artifact_digest=canonical_digest(
-            {
-                "exit_code": run.exit_code,
-                "outcome": run.outcome.value,
-                "reason": run.reason,
-                "stderr": run.stderr,
-                "stdout": run.stdout,
-            }
-        ),
-        collected_count=run.collected_count,
-        skipped_count=run.skipped_count,
-        xfailed_count=run.xfailed_count,
-        failure_signature=(
-            text_digest(classify_failure_signature(run).value) if failed else None
-        ),
-    )
 
 
 def attempt_certification(
@@ -183,6 +151,7 @@ def attempt_certification(
     verification: VerificationRun,
     *,
     limits: ExecutorLimits,
+    bundle_root: Path | None = None,
 ) -> CertificationAttempt:
     """Build and validate one receipt; every non-regression outcome is a no-op."""
     execution = verification.execution
@@ -204,26 +173,42 @@ def attempt_certification(
             finding=None,
         )
 
-    nodes = {run.test_node for run in (*execution.head_runs, *execution.base_runs)}
+    all_runs = (*execution.head_runs, *execution.base_runs)
     normalized_claim = " ".join(candidate.finding.claim.split())
+    # every identity field is what the runs themselves recorded; disagreement
+    # between runs collapses to "" and the validator rejects the subject
     subject = CertificationSubject(
         candidate_id=candidate_id,
         normalized_claim=normalized_claim,
         claim_digest=text_digest(normalized_claim),
-        test_digest=text_digest(verification.spec.test_body),
-        test_node=next(iter(nodes)) if len(nodes) == 1 else "",
-        environment_digest=environment_digest(limits),
-        interpreter_digest=interpreter_digest(),
+        test_digest=_single({run.test_file_digest for run in all_runs}),
+        test_node=_single({run.test_node for run in all_runs}),
+        environment_digest=_single({run.environment_digest for run in all_runs}),
+        interpreter_digest=_single(
+            {text_digest(f"{run.interpreter}\n{run.interpreter_version}") for run in all_runs}
+        ),
         executor_profile=EXECUTOR_PROFILE,
         executor_digest=executor_digest(),
     )
+    sided = [
+        *(
+            ("head", index, run, execution.head_sha)
+            for index, run in enumerate(execution.head_runs, 1)
+        ),
+        *(
+            ("base", index, run, execution.base_sha)
+            for index, run in enumerate(execution.base_runs, 1)
+        ),
+    ]
+    records = [
+        (side, index, run, revision, run_record(side, index, run, revision_sha=revision))
+        for side, index, run, revision in sided
+    ]
     head_runs = tuple(
-        _execution_run("head", index, run, revision_sha=execution.head_sha)
-        for index, run in enumerate(execution.head_runs, start=1)
+        execution_run_from_record(record) for side, _i, _r, _v, record in records if side == "head"
     )
     base_runs = tuple(
-        _execution_run("base", index, run, revision_sha=execution.base_sha)
-        for index, run in enumerate(execution.base_runs, start=1)
+        execution_run_from_record(record) for side, _i, _r, _v, record in records if side == "base"
     )
     unsigned = {
         "schema_version": CERTIFICATION_RECEIPT_SCHEMA_VERSION,
@@ -249,7 +234,11 @@ def attempt_certification(
         "result_class": RESULT_CLASS_HEAD_FAIL_BASE_PASS,
         "evidence_class": execution.evidence_class.value,
     }
-    provenance = canonical_digest(unsigned)
+    draft = CertificationReceipt(
+        **{**unsigned, "head_runs": head_runs, "base_runs": base_runs},
+        provenance_digest="0" * 64,
+    )
+    provenance = provenance_digest(draft)
     receipt = CertificationReceipt(
         **{**unsigned, "head_runs": head_runs, "base_runs": base_runs},
         provenance_digest=provenance,
@@ -268,6 +257,18 @@ def attempt_certification(
         verdict,
         (FindingAnchor(path=candidate.finding.file, line=candidate.finding.line),),
     )
+    bundle = None
+    if bundle_root is not None:
+        test_bytes = (verification.spec.test_body.rstrip("\n") + "\n").encode("utf-8")
+        bundle = write_bundle(
+            bundle_root,
+            task=task,
+            policy=policy,
+            subject=subject,
+            receipt=receipt,
+            test_bytes=test_bytes,
+            runs=[(side, index, run, revision) for side, index, run, revision in sided],
+        )
     return CertificationAttempt(
         candidate_id=candidate_id,
         outcome="accepted",
@@ -275,4 +276,5 @@ def attempt_certification(
         receipt_digest=provenance,
         rejection_codes=(),
         finding=finding,
+        bundle=bundle,
     )
