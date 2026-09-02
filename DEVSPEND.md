@@ -29,6 +29,7 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-01 | wave 3 operational-only live observation, 2 historical V1-validated pairs / 4 cases (accuracy withheld) | $0.330626 |
 | 2026-09-01 | wave 4 bounded-generation retest, same 2 historical V1-validated pairs / 4 cases (accuracy withheld) | $0.433304 |
 | 2026-09-01 | wave 5 history counterfactual, 9 V1-historical pairs / 18 cases (accuracy withheld; F unpriced) | $1.576220 |
+| 2026-09-02 | C-05 verification re-run: 8 regression PRs + 8 controls, K=4 with verification, no retries; 4 certified on 4 defects, 0 control publications | $1.170900 |
 | 2026-09-02 | D-078 step c: dev-slice re-run, 8 regression PRs + 8 controls, K=4 with verification, no retries; 5 certified, 0 control publications | $1.107200 |
 | 2026-09-02 | D-078 step a: three regeneration passes over the 6 eligible-uncertified candidates (6 + 3 + 3 generations with differential execution; two passes interpreter-blocked), 5/6 faithful on the final pass | $0.397800 |
 | 2026-09-02 | E-02 pilot: 25 product tasks over 8 dev-slice regression PRs + 8 controls (retries on interpreter/tree problems included), K=4 with verification; 2 certified, 0 control publications (ledger-recorded; mid-verification generation of stopped tasks not recorded) | $1.860100 |
@@ -44,14 +45,13 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-08-29 | phase-3 acceptance run 33268347262 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0132 |
 | 2026-08-29 | phase-3 acceptance run 33268350447 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0272 |
 
-**Total API spend: $10.170450 of $30.00.** (36 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $11.341350 of $30.00.** (37 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
 | date | item | reserved | settled |
 |---|---|---|---|
-| 2026-09-02 | C-05 verification: dev-slice re-run 8 regressions + 8 controls, K=4, full product path with the family policy and the 3,200 proposal bound | $2.50 | pending |
-| 2026-09-02 | C-05 verification: dev-slice re-run 8 regressions + 8 controls, K=4, full product path with the family policy and the 3,200 proposal bound | $2.50 | pending |
+| 2026-09-02 | C-05 verification: dev-slice re-run 8 regressions + 8 controls, K=4, full product path with the family policy and the 3,200 proposal bound | $2.50 | $1.170900 (row below); $1.329100 released |
 | 2026-09-02 | D-078 step a: regenerate reproductions for the 6 eligible-uncertified dev-slice candidates with generator context, differential execution only, no publication | $0.50 | $0.397800 (row below); $0.102200 released |
 | 2026-09-02 | D-078 step c: re-run the dev slice 8 regressions + 8 controls, K=4, full product path | $2.50 | $1.107200 (row below); $1.392800 released |
 | 2026-09-02 | E-02 pilot (mainline §2 step 7): up to 8 dev-slice regression PRs + 8 controls (test-only and docs-only from the same repositories), full product path K=4 with verification; sample sized to the remaining cap; raised from $2.20 after environment retries consumed the first tranche | $3.00 | $1.860100 (row below); $1.139900 released |

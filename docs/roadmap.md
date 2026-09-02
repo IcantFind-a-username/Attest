@@ -600,7 +600,11 @@ When a work order completes:
   Bonferroni at m/α, hard cap three, private suppression with reasons, PR-level mean
   e-value) and `927bece` (proposal bound 3,200, D-082). The RED failed on the unpatched
   path (all four certified same-defect findings published) and passes after. Full gate on `927bece`: 1623 passed, production coverage 91.57%, Ruff, Mypy and `git diff --check` clean, with five tests and the M-01 probe adapted afterwards to the family-policy counts (`2b3d4c9`..`47229a8`; the probe passes standalone against both the current tree and its baseline); the window-end gate re-verifies the whole tree.
-  The dev-slice re-run with both changes is recorded in the next entry.
+  Dev-slice re-run with both changes
+  ([`acceptance/2026-09-02-e02-pilot-rerun-c05.md`](acceptance/2026-09-02-e02-pilot-rerun-c05.md)):
+  candidates 7, eligible 7, certified 4 candidates on 4/8 defects, published 4, controls
+  0/8, spend $1.1709; the duplicate publication is gone and every published finding clears
+  its PR's m/α.
 
 - **2026-09-02 — D-078 step c (dev-slice re-run):** report
   [`acceptance/2026-09-02-e02-pilot-rerun.md`](acceptance/2026-09-02-e02-pilot-rerun.md).
