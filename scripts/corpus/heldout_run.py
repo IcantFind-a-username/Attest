@@ -94,11 +94,18 @@ def cmd_run(args: argparse.Namespace) -> int:
         ).stdout.strip()
         print(f"product code from {args.code} ({code_sha}); pilot script from {ROOT}", flush=True)
     only = set(args.only.split(",")) if args.only else None
+    spent = 0.0
     for iid, control in _jobs():
         if only is not None and iid not in only:
             continue
         if args.defects_only and control:
             continue
+        if args.cap is not None and spent >= args.cap:
+            print(
+                f"cumulative spend ${spent:.4f} reached the cap ${args.cap:.2f}; stopping",
+                flush=True,
+            )
+            break
         argv = [
             sys.executable,
             str(pilot),
@@ -115,6 +122,10 @@ def cmd_run(args: argparse.Namespace) -> int:
             argv += ["--control", control]
         print("run", iid, control or "regression", flush=True)
         subprocess.run(argv, check=False, env=env)
+        suffix = f"--{control}" if control else ""
+        result_path = RESULTS / f"{iid}{suffix}{args.results_suffix}.json"
+        if result_path.is_file():
+            spent += float(json.loads(result_path.read_text()).get("spend_usd", 0.0))
     return 0
 
 
@@ -275,6 +286,12 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--code", default=None, help="fixed checkout whose attest code runs the cases")
     run.add_argument("--only", default=None, help="comma-separated instance ids to (re-)run")
     run.add_argument("--defects-only", action="store_true", help="skip the control cases")
+    run.add_argument(
+        "--cap",
+        type=float,
+        default=None,
+        help="stop before the next case once the cumulative recorded spend reaches this many USD",
+    )
     run.add_argument(
         "--results-suffix",
         default=".heldout",

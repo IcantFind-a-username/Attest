@@ -55,9 +55,10 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-03 | E-01 natural null (mainline §2 step 14): 20 real us-stock-helper commits, K=4, $0.25 per PR, containers; first pass $0.8076 (0/20, five commits bootstrap-deferred) + re-run of those five from `8b93b75` $0.7204; 1/20 published (`3a32c92`, D-100) → all paid runs stopped | $1.528000 |
 | 2026-09-03 | G-SEM-002 binding pilot: 27 container reproductions, no model call | $0.00 |
 | 2026-09-03 | D-102 intent replay: 8 real receipts re-executed through the container, no model call | $0.00 |
+| 2026-09-03 | supplementary held-out run after the bootstrap fix (owner decision 2): the 19 pytest/pylint defects whose environment failed to build in the one-time run, defects only, K=4, product code `5fc03fa` from a detached worktree, results `.heldout-rerun`; 12 certified / 11 published on 10/19 defects, 0 bootstrap failures; ran $0.2913 over the $0.60 reservation (no cumulative cap in the driver) | $0.891300 |
 | 2026-09-03 | E-04 prospective shadow, stratum v1: 2 prospective units (Attest `19920c6`, `5fc03fa`; the other three authorized repositories had no push after the freeze), K=4, $0.25 per unit, local review path; 22 candidates, 0 eligible (10 non-Python anchors, 12 new-code), 0 reproductions, 0 shadow findings | $0.169422 |
 
-**Total API spend: $19.041674 of $30.00.** (49 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $19.932974 of $30.00.** (50 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
@@ -75,7 +76,7 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-03 | X-02 container smoke: one certified dev-slice regression (psf__requests-1766) through the linux-container-v1 backend, K=4; must match the C-05 re-run report | $0.10 | $0.023912 (row below); $0.076088 released |
 | 2026-09-03 | E-02 held-out (mainline §2 step 13): held-out slice of the committed split, feasible repositories, ≤ 40 defects and ≤ 40 controls (29 + 40 planned), K=4, one run each through linux-container-v1; samples not inspected before the run | $6.00 | $1.789900 (row above; stopped at 68/69); $4.210100 released |
 | 2026-09-03 | E-01 natural null (mainline §2 step 14): 20 real us-stock-helper commits with no known defect, full flow, expected zero publications; sized to the window and cumulative caps | $1.90 | $1.528000 (row above); $0.372000 released |
-| 2026-09-03 | supplementary held-out run after the bootstrap fix (owner decision 2, 2026-09-03): the 19 pytest/pylint defects whose environment failed to build in the one-time run (recounted from the result files; the report said 18), defects only, K=4, from a fixed checkout at D-102 or later, results suffixed `.heldout-rerun` and tabulated apart from the one-time table; window cap $3 | $0.60 | pending |
+| 2026-09-03 | supplementary held-out run after the bootstrap fix (owner decision 2, 2026-09-03): the 19 pytest/pylint defects whose environment failed to build in the one-time run (recounted from the result files; the report said 18), defects only, K=4, from a fixed checkout at D-102 or later, results suffixed `.heldout-rerun` and tabulated apart from the one-time table; window cap $3 | $0.60 | $0.891300 (row below); **over the reservation by $0.291300** — the pytest cases carried 2-10 candidates each and the driver had no cumulative cap (added afterwards as `--cap`) |
 | 2026-09-03 | E-04 prospective shadow, stratum v1 (mainline §2 step 15): every non-merge commit pushed to the owner's Python repositories after the freeze `2026-09-02T21:43:17+00:00`, local review path (no GitHub write), K=4, $0.25 per unit, containers, cost cap $2.00 in the preregistration; window cap $3 | $2.00 | $0.169422 (row below); $1.830578 released |
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)

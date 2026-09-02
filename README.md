@@ -65,8 +65,9 @@ Important limits:
   - **defects:** certified on 5 of the 10 held-out defects whose environment built, and 5 of
     all 29 (one pass, 2026-09-03; the report's first prose count said 11 and 18 — the result
     files say 10 and 19, see its erratum); the 19 environments that failed to build were
-    fixed afterwards and their supplementary run is reported apart from the one-time table,
-    never merged into it;
+    fixed afterwards and their **supplementary run** (2026-09-03, second code version,
+    K = 4, containers) certified findings on 10 of those 19 defects with 0 bootstrap
+    failures — reported apart from the one-time table, never merged into it;
   - **natural null:** 1 false publication on 20 real commits with no known defect (one
     repository, 7 refactor/test-only, 6 docs-only, 7 feature commits; K = 4, $0.25 per PR;
     2026-09-03; [natural-null report](docs/acceptance/2026-09-03-e01-natural-null.md)) —

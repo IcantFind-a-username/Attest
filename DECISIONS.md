@@ -949,6 +949,7 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Limits:** one pass, 68/69 cases, 18 defects never executed, reverse-fix corpus with synthetic controls.
 - **Reversal:** the re-run of the 18 cases after the owner lifts the stop supersedes the defect-side numbers.
 - **Amendment (2026-09-03, second window):** recounted from the result files, the bootstrap-failed defects are 19 (15 pytest + 4 pylint), not 18; 10 environments built and the built-environment figure is certified on 5/10, not 5/11 (erratum in the held-out report). The supplementary run covers the 19.
+- **Supplementary run (owner decision 2, 2026-09-03; product code `5fc03fa`):** on the 19 defects, 50 candidates, 45 eligible, 12 certified, 11 published, certified on 10/19, 0/19 bootstrap failures, 0 truncation, 0 boundary hits, no behavior-change classification; silence: 24 unfaithful reproductions, 2 unbound (one the D-104 false positive), 2 collection failures, 2 new-code, 1 budget cut. Tabulated apart in the held-out report; never merged into the one-time table (different code, not pre-registered). Spend $0.8913, over the $0.60 reservation by $0.2913 (driver had no cumulative cap; `--cap` added).
 
 ### D-102 — The intent discriminator: a `raise` on a changed line is a behavior change, published only with a base-tree witness (owner decision 1 on D-100)
 

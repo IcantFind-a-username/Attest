@@ -615,10 +615,12 @@ When a work order completes:
    receipt that publishes only with a base-tree witness, else the drawer with the label
    "behavior change confirmed, intent unknown". `r01` stays the default context strategy;
    the proposal bound stays 3,200. The supplementary run of the 19 bootstrap-failed held-out
-   defects (the held-out report's erratum: 19, not 18; 10 built, certified on 5/10) (`heldout_run.py run --code <checkout at D-102 or later> --defects-only
-   --only <ids> --results-suffix .heldout-rerun`, $0.60) is tabulated apart from the
-   one-time held-out table ([held-out report](acceptance/2026-09-03-e02-heldout.md) §
-   "Supplementary run after the bootstrap fix").
+   defects (the held-out report's erratum: 19, not 18; 10 built, certified on 5/10) ran from
+   `5fc03fa`: certified on 10/19, 0/19 bootstrap failures, $0.8913 (over the $0.60
+   reservation; `--cap` added), tabulated apart from the one-time held-out table
+   ([held-out report](acceptance/2026-09-03-e02-heldout.md) § "Supplementary run after the
+   bootstrap fix"). `pytest-10051` was DEFERred by the D-104 false positive; its re-run under
+   `69921e0` is an owner question.
 2. **E-04 next stratum** (`G-SHADOW-001`; collector and protocol v1 landed, D-103): needs
    new traffic on the authorized repositories and the owner's answer on the per-unit budget
    / unit order (stratum v1 read 1 of 13 change units of a 23-file commit at $0.25); then
