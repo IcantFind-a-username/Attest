@@ -340,7 +340,7 @@ def test_planted_bug_waits_for_failing_repro_before_speaking(
     assert isinstance(comments, list)
     assert len(comments) == 1
     assert "average() divides by zero" in str(comments[0]["body"])
-    assert "Certified: the generated test failed on head in 3/3 runs" in str(
+    assert "Verified: the generated test failed on head in 3/3 runs" in str(
         comments[0]["body"]
     )
     assert "Test: test_repro.py::test_average_handles_empty_input" in str(comments[0]["body"])
@@ -444,7 +444,8 @@ def test_clean_negative_control_posts_no_inline_review(
     assert result.deferred_reason is None
     assert len(provider.calls) == 1
     assert github_server.review_bodies == []
-    assert "No findings cleared the evidence bar." in github_server.status_bodies[-1]
+    final_body = github_server.status_bodies[-1]
+    assert "No finding was verified by a reproduction; abstained." in final_body
 
 
 def test_fork_is_skipped_before_provider_or_executor_use(

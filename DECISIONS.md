@@ -854,3 +854,21 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** the us-stock-helper trials were silent with no visible cause; the owner requires silence to be explained.
 - **Limits:** categories come from the recorded reason strings; a new failure shape lands in `other` until named.
 - **Reversal:** none foreseen; the section is additive.
+
+
+### D-092 — The drawer is visible to the owner in `attest stats --drawer`
+
+- **Date/status/scope:** 2026-09-03 · owner instruction 2, item 9 · `cli/main.py` (`render_drawer`, `stats --drawer/--limit`), `tests/test_stats_drawer.py`.
+- **Decision:** `attest stats --drawer` lists, newest task first, every candidate that entered the drawer without a receipt: id, file:line, votes, the category and bounded reason of its reproduction failure (or `not attempted`), any `attest feedback` label, and the claim. It reads the local ledger and candidate store only; it never enters a PR comment and is not speech.
+- **Why:** the owner wants to label what the product held back; trial A's correct-but-unverified candidate was invisible outside the ledger.
+- **Limits:** the newest verification reason per candidate is shown; older attempts stay in the ledger.
+- **Reversal:** none foreseen; the view is read-only.
+
+
+### D-093 — User-facing wording: verified / evidence / abstained / reproduction failed
+
+- **Date/status/scope:** 2026-09-03 · owner instruction 2, item 10 · `review/report.py`, `github/presentation.py`, `README.md` (user-facing sections). Display only; no computation changed.
+- **Decision:** the CLI report, the PR comments and the README's user-facing text no longer say wealth, alpha, e-value or likelihood ratio: findings are "verified" (by a reproduction receipt), the rest are "unverified candidates ranked by internal score, not evidence", silence is "abstained", and a failed reproduction is named as such. Internal logs, `DECISIONS.md`, ledger rows and bundle fields keep the statistical terms.
+- **Why:** owner item 10; the statistical vocabulary was leaking into author-visible text.
+- **Limits:** the `--alpha` flag name is unchanged (a configuration key, not prose).
+- **Reversal:** none foreseen.

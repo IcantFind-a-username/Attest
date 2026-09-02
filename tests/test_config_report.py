@@ -95,12 +95,12 @@ def test_render_certified_findings_and_drawer(certified_factory) -> None:
         for r in ranked[:2]
     ]
     text = render(outcome, 0.1, 0.12, 0.25, 42.0, notes=["hello"], certified=certified)
-    assert "certified findings (each backed by one accepted receipt):" in text
+    assert "verified findings (each backed by one accepted receipt):" in text
     assert text.count("receipt:") == 2
-    assert "drawer (3 candidate(s) awaiting a receipt" in text
+    assert "unverified candidates (3; ranked by internal score, not evidence" in text
     assert "note: hello" in text
     assert "spend $0.1200 of $0.25" in text
-    assert "5 candidate(s): 2 certified, 3 in drawer, 0 discarded" in text
+    assert "5 candidate(s): 2 verified, 3 unverified, 0 discarded" in text
     assert "certified-false" not in text
     assert "surfaced" not in text
 
@@ -119,9 +119,9 @@ def test_render_silence_reports_candidate_count_without_surfacing() -> None:
     outcome = apply_gate(drawer_only, max_findings=3)
     text = render(outcome, 0.1, 0.0, 0.25, 3.0)
     assert "checked 1 candidate(s)" in text
-    assert "no findings cleared the evidence bar" in text
+    assert "none was verified by a reproduction" in text
     assert "certified-false" not in text
-    assert "1 candidate(s): 0 certified, 1 in drawer, 0 discarded" in text
+    assert "1 candidate(s): 0 verified, 1 unverified, 0 discarded" in text
 
 
 def test_render_silence_zero_candidates_is_distinct() -> None:
@@ -131,4 +131,4 @@ def test_render_silence_zero_candidates_is_distinct() -> None:
     text = render(outcome, 0.1, 0.0, 0.25, 0.5)
     assert "no candidates proposed — saying nothing." in text
     assert "checked" not in text
-    assert "0 candidate(s): 0 certified, 0 in drawer, 0 discarded" in text
+    assert "0 candidate(s): 0 verified, 0 unverified, 0 discarded" in text

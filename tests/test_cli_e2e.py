@@ -98,8 +98,8 @@ def test_review_verify_feedback_stats(repo: Path, mocks: list[str], capsys) -> N
     rc = main(["--repo", str(repo), "review", "--k", "3", "--mock", *mocks])
     out = capsys.readouterr().out
     assert rc == 0
-    assert "no findings cleared the evidence bar" in out
-    assert "drawer (1 candidate(s)" in out
+    assert "none was verified by a reproduction" in out
+    assert "unverified candidates (1;" in out
     # the local differential stage runs after ranking; on a working-tree diff
     # (no committed head) it says so instead of pointing at 'attest verify'
     assert "verification skipped" in out

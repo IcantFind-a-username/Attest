@@ -601,6 +601,12 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — items 9 and 10:** two commits (`feat: show the drawer in attest stats`,
+  `refactor: user-facing wording without statistical terms`). Item 9's RED failed on the
+  unpatched path (no `--drawer`) and passes after: an unverified candidate appears with its
+  votes and `reproduction: unfaithful test`, and an `attest feedback` label shows beside it.
+  Item 10 changes display strings only. See D-092, D-093.
+
 - **2026-09-03 — paid check (a), us-stock-helper trial A/B re-run:** report
   [`acceptance/2026-09-03-us-stock-helper-trial-rerun.md`](acceptance/2026-09-03-us-stock-helper-trial-rerun.md).
   Trial B: 6 candidates, 3 certified, 1 published with a receipt from `attest review`

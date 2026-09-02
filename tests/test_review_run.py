@@ -285,6 +285,6 @@ def test_local_review_runs_the_differential_stage_and_publishes_a_receipt(
         notes=review.notes,
         certified=review.published,
     )
-    assert "certified findings" in text
-    assert "head FAIL 3/3, base PASS 3/3" in text
+    assert "verified findings" in text
+    assert "failed on head 3/3 times and passed on base 3/3 times" in text
 

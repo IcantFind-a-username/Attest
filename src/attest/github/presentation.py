@@ -34,10 +34,10 @@ def render_complete(
     certified = _certified_only(findings)
     lines = ["Review complete."]
     if certified:
-        lines.append("Certified findings:")
+        lines.append("Verified findings (each backed by a reproduction receipt):")
         lines.extend(_summary_line(finding) for finding in certified)
     else:
-        lines.append("No findings cleared the evidence bar.")
+        lines.append("No finding was verified by a reproduction; abstained.")
     lines.append(f"Spend ${spend_usd:.4f}; {elapsed_s:.1f}s.")
     return "\n".join(lines)
 
@@ -71,7 +71,7 @@ def _inline_comment(finding: CertifiedFinding) -> dict[str, object]:
             _finding_id_marker(receipt.candidate_id),
             finding.claim,
             f"Finding ID: {receipt.candidate_id}",
-            "Certified: the generated test failed on head in "
+            "Verified: the generated test failed on head in "
             f"{len(receipt.head_runs)}/{len(receipt.head_runs)} runs and passed on the "
             f"merge base in {len(receipt.base_runs)}/{len(receipt.base_runs)} runs.",
             f"Test: {receipt.test_node}",

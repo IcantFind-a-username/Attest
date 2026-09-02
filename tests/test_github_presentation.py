@@ -104,7 +104,7 @@ def test_complete_status_names_only_certified_findings(certified_factory) -> Non
 
     complete = render_complete([first, overflow], 0.0125, 3.2)
 
-    assert "Certified findings:" in complete
+    assert "Verified findings (each backed by a reproduction receipt):" in complete
     assert "Surface one." in complete
     assert "Surface two." in complete
     first_id = first.accepted_receipt.receipt.candidate_id
@@ -113,7 +113,7 @@ def test_complete_status_names_only_certified_findings(certified_factory) -> Non
     assert f"Finding ID: {overflow_id}" in complete
     assert "$0.0125" in complete
     assert "3.2s" in complete
-    assert "No findings cleared the evidence bar." in render_complete([], 0.0, 1.0)
+    assert "No finding was verified by a reproduction; abstained." in render_complete([], 0.0, 1.0)
 
     # anything that is not a validator-built CertifiedFinding is refused,
     # including the legacy wealth-gated result type
@@ -142,6 +142,6 @@ def test_inline_comments_keep_caller_order_anchors_and_receipt(certified_factory
     receipt = findings[0].accepted_receipt.receipt
     assert "First." in body
     assert f"Finding ID: {receipt.candidate_id}" in body
-    assert "Certified: the generated test failed on head in 3/3 runs" in body
+    assert "Verified: the generated test failed on head in 3/3 runs" in body
     assert f"Receipt: {receipt.provenance_digest}" in body
     assert "wealth" not in body.lower()

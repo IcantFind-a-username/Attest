@@ -36,11 +36,12 @@ It currently contains:
 
 Important limits:
 
-- the current product wealth is **not an e-process**: S and T only price positive evidence;
+- the internal ranking score is not a statistical guarantee: it orders candidates for
+  verification and never publishes anything by itself;
 - Core's `Engine` is not used by the production review path and has not been activated as a
   scheduler;
 - “no trusted differential receipt, no publication” is the target contract, but the current
-  implementation does not yet enforce it for every alpha/config/manual path;
+  implementation does not yet enforce it for every configuration and manual path;
 - head configuration is not yet cleanly separated from base-owned safety policy;
 - current reproduction proves head/base behavioral difference but does not yet provide the
   complete exact-node, semantic/causal, fresh-state, authenticated evidence bundle required
