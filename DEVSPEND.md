@@ -46,6 +46,7 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 
 | date | item | reserved | settled |
 |---|---|---|---|
+| 2026-09-02 | E-02 pilot (mainline §2 step 7): up to 8 dev-slice regression PRs + 8 controls (test-only and docs-only from the same repositories), full product path K=4 with verification; sample sized to the remaining cap | $2.20 | pending |
 | 2026-09-02 | R-01 discovery trial: 5 SWE-bench Verified dev-slice regression PRs × 3 arms (diff-only, no-context repeat, planner context), K=4, discovery only, no verification | $1.00 | $0.872200 (3 rows below); $0.127800 released |
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)

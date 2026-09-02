@@ -100,8 +100,9 @@ Do not confuse target contracts with current behavior:
 - manual `attest verify --reproduced` is a `self_report` row since C-04 (`71b99aa`): never a
   receipt, a published finding, or a precision row;
 - `max_findings` currently limits inline placement, not all author-visible findings;
-- current head/base execution proves a behavioral difference but lacks the complete exact-
-  node, semantic-binding, fresh-state, and authenticated-provenance target receipt;
+- since V-01 (`cf5c356`) head/base execution binds the exact node, test bytes, per-run
+  command/interpreter/environment identity and verifies offline from its bundle; semantic
+  binding (V-02), fresh state and authenticated provenance (V-03) are still missing;
 - current language-level process/network guards are best-effort containment, not a security
   boundary for untrusted head code;
 - the current process audit covers the entire reproduction pytest interpreter, so trusted

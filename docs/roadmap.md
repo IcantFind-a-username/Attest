@@ -102,12 +102,12 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | V-01, then the fixed sequence in [`mainline.md`](mainline.md) §2 (E-02 pilot, …) | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
+| **NOW** | E-02 pilot (mainline §2 step 7), then the §4 fork | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
 
-C-01 through C-04, R-03 and R-01 are complete. `mainline.md` fixes the working order from here to L-01; V-01 is next.
+C-01 through C-04, R-03, R-01 and V-01 are complete. `mainline.md` fixes the working order from here to L-01; the E-02 pilot is next.
 V-01 follows R-03 and R-01 rather than preceding them, because the pilot measurement needs
 candidates before it needs richer receipts. The follow-on V-funnel implementation through `e0f2db0` added complete
 per-candidate run evidence and a reproduction-only 3,000-token cap. It did not change runner
@@ -285,7 +285,9 @@ Goal: upgrade “head fails/base passes” into a replayable, claim-bound certif
 
 ### Work orders
 
-- [ ] **V-01 — exact-node execution evidence.** Version the reproduction schema and bundle
+- [x] **V-01 — exact-node execution evidence** (implementation `cf5c356`, D-077; RED
+  `test_accepted_receipt_verifies_offline_and_any_flipped_byte_rejects`). Version the
+  reproduction schema and bundle
   exact test bytes, node ID, collection count, zero skip/xfail, per-run JUnit/output,
   commands, interpreter/environment/executor digests, and immutable revisions.
 - [ ] **V-02 — semantic and causal binding.** Compare trace/coverage/mutation/patch-ablation
@@ -589,6 +591,13 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-09-02 — V-01 complete:** implementation `cf5c356`; the RED failed on the unpatched
+  path (no bundle, no offline verifier) and passes after: an accepted receipt from the
+  planted regression verifies from its bundle alone, and every sampled byte flip across
+  `receipt.json`, the test bytes, a run artifact and a run record is rejected. Full gate on the committed tree: 1624 passed, production coverage 91.95%, Ruff, Mypy
+  and `git diff --check` clean; the one `test_api` failure expected the pre-V-01 run
+  sequence and now records the collection run (`2a94a94`). See D-077.
 
 - **2026-09-02 — R-01 complete:** implementation `3fe6c1b` (planner and unit-wise proposal),
   `ae0c22a` (symbols from enclosing definitions), `35b8c97`/`8d9394c` (pruned walk, generic
