@@ -19,7 +19,7 @@ explicit, explained silence; there is no third outcome.
 git clone https://github.com/IcantFind-a-username/Attest.git
 cd Attest
 git checkout v0.1.0-pilot.1   # the ref in docs/operations/install-ref.md
-python -m venv .venv
+python3 -m venv .venv          # `python` is often absent on macOS
 .venv/bin/python -m pip install -r requirements-toolchain.lock
 .venv/bin/python -m pip install --no-deps --no-build-isolation -e .
 .venv/bin/attest --help
@@ -42,9 +42,17 @@ container), and prints one of:
 - `verified findings (each backed by one accepted receipt):` followed by the test, the
   command to run it yourself, the run summaries, the bundle path and the offline
   verification command; or
-- `checked N candidate(s); none was verified by a reproduction ... — abstained.` followed by
-  `run status:` with the change units read, candidates, eligible, reproductions attempted
-  and one line per reproduction failure with its category.
+- `checked N candidate(s); none was verified by a reproduction (a test that fails on head
+  and passes on base) — abstained.` followed by `run status:` with the change units read,
+  candidates, eligible, reproductions attempted and one line per reproduction failure with
+  its category.
+
+Locally — and only locally — the abstention is followed by `unverified candidates (N; ranked
+by internal score, not evidence)`, one drawer line each. They are not findings and carry no
+receipt; the Action never shows them. If the run status says
+`read N of M units, budget-limited`, the per-review budget stopped before the remaining
+change units were read: raise `--budget` and run again. Source files are read before
+documentation, so the budget reaches code first.
 
 Nothing else is a finding. `attest stats --drawer` lists what was held back and why;
 `attest feedback <id> --fix|--good|--dismiss` labels it.
