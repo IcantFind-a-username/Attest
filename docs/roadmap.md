@@ -635,6 +635,10 @@ When a work order completes:
   Reports: [held-out](acceptance/2026-09-03-e02-heldout.md),
   [natural null](acceptance/2026-09-03-e01-natural-null.md). Spend this window $6.8857;
   cumulative $18.8723 of $30.
+  Window-end gates in detached worktrees (`pytest --cov`, Ruff, Mypy, `git diff --check`, all
+  clean): X-02..item 7 tip `fdff273` 1093 s / 91.45 %; `8b93b75` 1083 s / 91.55 %; reports tip
+  `e505291` 1067 s / 91.55 % — above the 15-minute target while the held-out containers ran
+  alongside (step 0 alone measured 793 s). Handoff: `docs/overnight-handoff-2026-09-03.md`.
 
 - **2026-09-03 — L-01, owner-free parts:** one commit
   (`feat: base-owned kill switch and the L-01 operations documents`). New
