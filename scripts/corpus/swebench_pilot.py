@@ -152,6 +152,9 @@ def _make_env(case: Path, worktree: Path) -> Path:
         )
         # best effort: the product must survive an un-installable project as a DEFER
         subprocess.run([str(py), "-m", "pip", "install", "-q", "-e", str(worktree)], check=False)
+        # an editable install may regenerate tracked files (setuptools_scm rewrites
+        # _version.py); the executor demands an immutable, clean tree
+        _git(worktree, "checkout", "--", ".")
     return env_dir / "bin" / "python"
 
 
