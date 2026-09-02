@@ -39,6 +39,12 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 
 **Total API spend: $5.933150 of $10.00.** (30 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
+## Reservations (pre-charged against the cap; settled into the table above on completion)
+
+| date | item | reserved | settled |
+|---|---|---|---|
+| 2026-09-02 | R-01 discovery trial: 5 SWE-bench Verified dev-slice regression PRs × 2 arms (diff-only vs planner context), K=4, discovery only, no verification | $1.00 | pending |
+
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 
 Dogfood proposer samples and verification workflows ran as harness subagents on
