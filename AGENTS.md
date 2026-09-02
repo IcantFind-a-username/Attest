@@ -198,9 +198,12 @@ Violating one is rework, not a small regression.
   of bounds even for read-only "evaluation", even when a previous conversation mentioned
   them, and even when the report would say nothing was written there. Any external corpus
   the work needs (a real repository to review, a defect population to score) must be named
-  in the work order or in an owner-approved fixture list before the first read. Prior
-  context is not authorization; the name of a directory on disk is not authorization.
-  See D-070.
+  in the work order or in an owner-approved fixture list before the first read, and it is
+  brought in by cloning its remote into the gitignored `.attest/corpora/<name>/` path under
+  this working tree at a recorded commit — never by opening the owner's local checkout of
+  that project, which may hold uncommitted work and is not a reproducible input. Owner
+  permission to "use project X" means clone X; prior context and the name of a directory
+  on disk are not authorization. See D-070.
 
 ## 8. Remote, release, third-party, and secret rules
 

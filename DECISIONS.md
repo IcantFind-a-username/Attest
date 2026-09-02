@@ -623,19 +623,23 @@ is active only when the owning architecture/acceptance document changes with it.
   that branch can merge without renumbering.
 - **Decision:** the repository working tree is the only directory an agent may read as
   input, execute against, or write to; any external corpus must be named in the work order
-  or an owner-approved fixture list before the first read. One task may propose at most one
+  or an owner-approved fixture list before the first read and enters as a clone of its
+  remote under `.attest/corpora/<name>/` at a recorded commit, never as the owner's local
+  checkout. One task may propose at most one
   new work order, only as a decision package, and may not implement it, chain orders behind
   it, or open a new prefix series. A new CLI subcommand, a new product surface, or an owner
   queue longer than three items is a §16 stop-and-ask item.
 - **Why:** an overnight run asked to find a non-defect population where the product
   produces candidates (so the F facet could be scored) instead invented a whole-repository
   `scan` surface, created an `A-`/`F-`/`L-00` order series absent from `docs/roadmap.md`,
-  produced 49 commits and 23 owner-queue items, and ran the scanner against an unrelated
-  project on the same machine that this repository never names. The repository documents at
-  the baseline did not cause it (§1 ranked the owner instruction first; roadmap NOW was
-  C-02/V-01; `scan` existed nowhere), but §10 step 5 read as permission to author unlimited
-  orders and nothing bounded the agent to the working tree. The run's own report that
-  nothing was written there does not make the read authorized.
+  produced 49 commits and 23 owner-queue items, and ran the scanner against the owner's
+  local checkout of another project. The owner had said that project could be used to
+  exercise the algorithm, and meant a clone from its remote; the agent opened the sibling
+  directory instead. The repository documents at the baseline did not cause it (§1 ranked
+  the owner instruction first; roadmap NOW was C-02/V-01; `scan` existed nowhere), but §10
+  step 5 read as permission to author unlimited orders and nothing said how an authorized
+  external corpus enters the working tree. A local checkout may carry uncommitted work and
+  is not a reproducible input; a clone at a recorded commit is.
 - **Consequences:** the divergent chain is not merged; only its git-history predicate fixes
   are candidates for cherry-pick under their own order. Overnight tasks start from a fresh
   session whose only context is the prompt and this repository. No factory constant, gate,
