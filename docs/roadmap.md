@@ -102,7 +102,7 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | §4 fork after the pilot (D-078): R-01 revisit for reproduction generation, then proposal-truncation recovery (R-02), then re-run the dev slice | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
+| **NOW** | D-078 step c: re-run the dev slice (8 + 8, K=4) with generator context and R-02 recovery in place; certified ≥ 5 with 0 control publications moves to C-05 | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
@@ -338,7 +338,9 @@ weakening the kernel.
   five-PR real-corpus trial). Merge-base chunks, old-side deletion
   anchors, renames, definition/caller/test retrieval, language/project profiles, and
   per-chunk budgets.
-- [ ] **R-02 — structured-output recovery.** Separate schema/collection repair from
+- [x] **R-02 — structured-output recovery** (implementation `4db546c`, D-080; RED
+  `test_truncated_sample_is_salvaged_and_unusable_sample_gets_one_cached_repair`; pulled
+  forward by the D-078 fork). Separate schema/collection repair from
   behavioral execution; precommit retry counts and visibility; cache by immutable digest;
   forbid outcome-aware retries.
 - [x] **R-03 — deterministic dedup and eligibility** (implementation `36dc85b`, D-075; taken
@@ -591,6 +593,14 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-09-02 — D-078 steps a and b:** step a `ee9a0fb` gives the reproduction generator
+  the planner's head/merge-base definitions, imports and test references with a prompt that
+  asserts merge-base behaviour; measurement on the six eligible-uncertified pilot
+  candidates: 5 of 6 faithful (head FAIL 3/3, base PASS 3/3): requests-2931 first candidate, pylint-4970 second, pytest-10081, pytest-6202 both; the remaining requests-2931 candidate still guesses the base URL encoding. Two earlier passes at 2/6 and 0/3 were interpreter-blocked (pytest 5.x cannot compile on 3.11's AST; a 0.0.0 version failed pytest's minversion), which set the executor-side interpreter rule: the highest available interpreter within the project's declared `Programming Language :: Python :: 3.X` classifiers, else the oldest available (3.9); CPython 3.8 is excluded because its eager `platform.uname()` trips the process guard (owner item 3, 2026-09-02). (D-079). Step b `4db546c` adds precommitted recovery of
+  truncated proposal samples with an immutable attempt cache (D-080). The pilot builder
+  now commits a pytest version that satisfies its `minversion`. Step c (dev-slice re-run)
+  follows.
 
 - **2026-09-02 — E-02 pilot (step 7) run:** report
   [`acceptance/2026-09-02-e02-pilot.md`](acceptance/2026-09-02-e02-pilot.md). Dev slice, 8

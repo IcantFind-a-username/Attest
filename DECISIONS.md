@@ -733,3 +733,22 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** the largest named loss is eligible→certified (unfaithful, `{}`, non-failing generated tests), and two of the three silent cases were silent only because every proposal sample truncated.
 - **Limits:** three repositories, feasibility-selected; the interpreter had to match each project's era (3.9 for requests/pylint, 3.11 for pytest); pytest's own repository is runner-is-subject.
 - **Reversal:** a re-run that certifies ≥ 5 on the dev slice with 0 control publications moves the mainline to C-05.
+
+
+### D-079 — Step a: the reproduction generator sees both sides of the anchored definition
+
+- **Date/status/scope:** 2026-09-02 · active · `review/planner.py` (`generation_context`), `review/executor.py` (prompt, `generate_repro`, `verify_candidate`); `scripts/corpus/regen_trial.py`.
+- **Decision:** reproduction generation receives the head definition enclosing the anchor, the same definition at the merge-base, the module's imports and the existing tests naming the symbol (≤ 8,000 chars), and the system prompt demands one module-level test that fails on head because of the claim and asserts the merge-base behaviour concretely, imported the way the project's tests import. One generation per candidate; the schema-only retry of D-052 is unchanged.
+- **Why:** the six eligible-but-uncertified dev-slice candidates failed on guessed base behaviour, non-distinguishing inputs, or `{}`; the generator had only a 200-line head window.
+- **Measurement (owner RED: ≥ 3 of 6 faithful):** 5 of 6 faithful (head FAIL 3/3, base PASS 3/3): requests-2931 first candidate, pylint-4970 second, pytest-10081, pytest-6202 both; the remaining requests-2931 candidate still guesses the base URL encoding. Two earlier passes at 2/6 and 0/3 were interpreter-blocked (pytest 5.x cannot compile on 3.11's AST; a 0.0.0 version failed pytest's minversion), which set the executor-side interpreter rule: the highest available interpreter within the project's declared `Programming Language :: Python :: 3.X` classifiers, else the oldest available (3.9); CPython 3.8 is excluded because its eager `platform.uname()` trips the process guard (owner item 3, 2026-09-02).
+- **Limits:** the executor's interpreter and each project's own runner still bound what can run; pytest's repository is runner-is-subject (backlog).
+- **Reversal:** none foreseen; the context is bounded and read-only.
+
+
+### D-080 — R-02 (step b): truncated proposals are salvaged, unusable ones get one cached repair
+
+- **Date/status/scope:** 2026-09-02 · active · new `review/recovery.py`, `review/proposer.py`, `review/run.py`.
+- **Decision:** a proposal sample that stops at the output bound keeps the complete finding objects before the cut (deterministic, no model call, marked `salvaged:<n>`); a sample with nothing salvageable gets exactly `MODEL_REPAIR_ATTEMPTS = 1` further sample of the same prompt under the same bound, reserved before dispatch; every attempt is cached under a digest of inputs, slot and attempt index in `.attest/cache/attempts`, so a repeated run replays instead of buying and cannot pick among attempts; replayed attempts cancel their reservation. All of this precedes any behavioural execution.
+- **Why:** 10 of 32 pilot proposal samples truncated at 2,400 tokens, silencing two cases outright; recovery must be precommitted, never outcome-aware (`G-RECALL-001`, AGENTS §6.13).
+- **Limits:** the reproduction generator keeps D-052's single schema retry; a `{}` text block (no content returned) is not salvageable and is recorded as such; the cache is per repository.
+- **Reversal:** set `MODEL_REPAIR_ATTEMPTS` to 0 and keep salvage only; attempts stay on disk.
