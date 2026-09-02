@@ -109,6 +109,16 @@ _PROCESS_REPLACEMENT_SYMBOLS = {
     "syscall",
 }
 _NETWORK_EVENTS = {"socket.connect"}
+# owner fix 3 (2026-09-03): the tree under test is the only import root for its
+# own packages -- ahead of site-packages (an editable install of the same
+# name) and of anything the interpreter's environment prepends
+_tree_paths = [
+    entry for entry in os.environ.get("ATTEST_TREE_PATHS", "").split(os.pathsep) if entry
+]
+for _index, _entry in enumerate(_tree_paths):
+    while _entry in sys.path:
+        sys.path.remove(_entry)
+    sys.path.insert(_index, _entry)
 # the writable outputs mount is the only place the guard reports to; a missing
 # mount fails closed, because no marker can then be written
 _outputs = Path(os.environ["ATTEST_OUTPUTS"])
@@ -256,6 +266,8 @@ class ExecutionResult:
     executed_lines: tuple[int, ...] = ()  # lines of the anchored file the run executed
     executor_profile: str = ""  # X-01: the adapter profile that ran it
     executor_digest: str = ""  # X-01: that adapter's backend digest
+    # owner fix 3: modules that shadowed the anchored file (name, file), if any
+    import_origins: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -467,8 +479,27 @@ import pytest
 
 _trace_target = os.path.realpath(os.environ["ATTEST_TRACE_TARGET"])
 _lines_marker = Path(os.environ["ATTEST_OUTPUTS"]) / "executed-lines"
+_origin_marker = Path(os.environ["ATTEST_OUTPUTS"]) / "import-origin"
 _executed_lines = set()
 _matches = {}
+
+
+def _record_import_origin():
+    # every loaded module whose dotted name maps onto the anchored file's path
+    # but whose file is a different one: the anchored module was shadowed
+    lines = []
+    for name, module in list(sys.modules.items()):
+        file = getattr(module, "__file__", None)
+        if not isinstance(file, str) or not file:
+            continue
+        as_path = name.replace(".", os.sep)
+        tails = (os.sep + as_path + ".py", os.sep + as_path + os.sep + "__init__.py")
+        if not any(_trace_target.endswith(tail) for tail in tails):
+            continue
+        real = os.path.realpath(file)
+        if real != _trace_target:
+            lines.append(name + "\\t" + real)
+    _origin_marker.write_text("\\n".join(lines), encoding="utf-8")
 
 
 def _attest_tracer(frame, event, arg):
@@ -496,6 +527,7 @@ def pytest_runtest_protocol(item, nextitem):
         _lines_marker.write_text(
             ",".join(str(n) for n in sorted(_executed_lines)), encoding="utf-8"
         )
+        _record_import_origin()
 """
 LINES_PLUGIN_NAME = "attest_repro_lines"
 
@@ -748,7 +780,57 @@ def _interpreter_version(interpreter: str) -> str:
     return probe.stdout.strip() if probe.returncode == 0 else ""
 
 
-def _reproduction_environment(*, in_tree: bool, traced: bool, anchored_file: str) -> dict[str, str]:
+_PROJECT_MARKERS = ("pyproject.toml", "setup.py", "setup.cfg")
+_PROJECT_SKIP_DIRS = {
+    ".git",
+    ".attest",
+    ".attest-repro",
+    ".venv",
+    "venv",
+    "node_modules",
+    "build",
+    "dist",
+    "__pycache__",
+    ".tox",
+    ".nox",
+}
+MAX_PROJECT_ROOT_DEPTH = 4
+MAX_PROJECT_ROOTS = 32
+
+
+def project_roots(tree: Path) -> list[str]:
+    """Placeholder-relative import roots of a tree: the tree and its ``src``,
+    then every directory (bounded depth) holding a project marker and its
+    ``src`` when present, so ``services/*/src`` layouts import from the tree
+    under test rather than from an installed copy (owner fix 3)."""
+    roots = ["{tree}", "{tree}/src"]
+    found: list[str] = []
+    for current, directories, files in os.walk(tree):
+        rel = Path(current).relative_to(tree)
+        depth = len(rel.parts)
+        directories[:] = sorted(
+            name
+            for name in directories
+            if name not in _PROJECT_SKIP_DIRS and not name.startswith(".")
+        )
+        if depth >= MAX_PROJECT_ROOT_DEPTH:
+            directories[:] = []
+        if depth == 0:
+            continue
+        if any(marker in files for marker in _PROJECT_MARKERS):
+            found.append(rel.as_posix())
+            if len(found) >= MAX_PROJECT_ROOTS:
+                break
+    for relative in found:
+        roots.append(f"{{tree}}/{relative}")
+        if (tree / relative / "src").is_dir():
+            roots.append(f"{{tree}}/{relative}/src")
+    return roots
+
+
+def _reproduction_environment(
+    *, in_tree: bool, traced: bool, anchored_file: str, roots: list[str] | None = None
+) -> dict[str, str]:
     """The explicit, secret-free job environment. Nothing is inherited from the
     controller: the request names every variable, and the mounts are the
     placeholders the adapter resolves. Tree entries come first so the revision
@@ -758,8 +840,8 @@ def _reproduction_environment(*, in_tree: bool, traced: bool, anchored_file: str
     for import steering: pytest prepends the directories it collects from, so
     execute_repro also runs the reproduction from inside the tree with rootdir
     and confcutdir pinned there."""
-    entries = ["{tree}", "{tree}/src"] if in_tree else []
-    entries.append("{inputs}")
+    tree_entries = list(roots or ["{tree}", "{tree}/src"]) if in_tree else []
+    entries = [*tree_entries, "{inputs}"]
     environment = {
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTHONSAFEPATH": "1",
@@ -771,6 +853,8 @@ def _reproduction_environment(*, in_tree: bool, traced: bool, anchored_file: str
         "PYTHONPATH": os.pathsep.join(entries),
         "ATTEST_OUTPUTS": "{outputs}",
     }
+    if tree_entries:
+        environment["ATTEST_TREE_PATHS"] = os.pathsep.join(tree_entries)
     if traced:
         environment["ATTEST_TRACE_TARGET"] = "{tree}/" + anchored_file
     return environment
@@ -824,7 +908,25 @@ MARKER_NAMES = (
     "process-replacement-attempted",
     "thread-attempted",
 )
-EXPECTED_ARTIFACTS = (*MARKER_NAMES, "executed-lines", "junit.xml", "stdout.txt", "stderr.txt")
+EXPECTED_ARTIFACTS = (
+    *MARKER_NAMES,
+    "executed-lines",
+    "import-origin",
+    "junit.xml",
+    "stdout.txt",
+    "stderr.txt",
+)
+
+
+def _import_origins(marker: bytes | None) -> tuple[tuple[str, str], ...]:
+    if not marker:
+        return ()
+    origins = []
+    for line in marker.decode("utf-8", errors="replace").splitlines():
+        name, separator, file = line.partition("\t")
+        if separator and name and file:
+            origins.append((name, file))
+    return tuple(origins)
 
 
 def execute_repro(
@@ -916,7 +1018,10 @@ def execute_repro(
         if not collect_only:
             argv += ["--junitxml", "{outputs}/junit.xml"]
         environment = _reproduction_environment(
-            in_tree=tree is not None, traced=traced, anchored_file=candidate.finding.file
+            in_tree=tree is not None,
+            traced=traced,
+            anchored_file=candidate.finding.file,
+            roots=None if tree is None else project_roots(tree),
         )
         identity: dict[str, Any] = {
             "executed_lines": (),  # filled after the run from the verified marker
@@ -927,6 +1032,7 @@ def execute_repro(
             "test_file_digest": hashlib.sha256(source.encode("utf-8")).hexdigest(),
             "executor_profile": active_adapter.profile,
             "executor_digest": active_adapter.backend_digest(),
+            "import_origins": (),
         }
         request = active_controller.issue(
             task_id=candidate.task_id,
@@ -1060,6 +1166,7 @@ def execute_repro(
             **identity,
         )
     identity["executed_lines"] = _executed_lines(artifacts.get("executed-lines"))
+    identity["import_origins"] = _import_origins(artifacts.get("import-origin"))
     junit_bytes = artifacts.get("junit.xml")
     try:
         if junit_bytes is None:
@@ -1300,6 +1407,16 @@ def execute_differential(
             head_runs.append(run)
             if run.outcome is ExecutionOutcome.DEFERRED:
                 return deferred(f"head run {index}/{repeats} deferred: {run.reason}")
+        # owner fix 3: a head run that imported the anchored module from
+        # outside the tree proves nothing about the tree; it is recorded as
+        # shadowed, never as "passed on head"
+        for run in head_runs:
+            for name, origin in run.import_origins:
+                return deferred(
+                    f"binding: the anchored module {name} was imported from outside the "
+                    f"head tree ({origin})",
+                    EvidenceClass.UNBOUND,
+                )
         head_failures = sum(1 for run in head_runs if run.outcome is ExecutionOutcome.REPRODUCED)
         if head_failures == 0:
             return finish(

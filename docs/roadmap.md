@@ -600,6 +600,14 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — owner fix 3 (import bootstrap):** one commit
+  (`fix: import the reviewed tree's packages first and name a shadowed anchor`). Project
+  roots under the tree (bounded discovery of `pyproject.toml`/`setup.py`/`setup.cfg` and
+  their `src`) lead `PYTHONPATH` and are re-pinned at the front of `sys.path` by the guard;
+  a head run whose anchored module came from outside the tree DEFERs as `UNBOUND` naming
+  the origin. Both REDs failed on the unpatched path (a same-name stale copy made the head
+  "pass" 3/3 with 0 executed lines) and pass after. Gate: see the follow-up entry. See D-088.
+
 - **2026-09-03 — owner fix 1 (generator/provider honesty):** one commit
   (`fix: disable thinking for structured generation and report no-text responses honestly`).
   Structured calls disable thinking where the model accepts it (or ask for `effort: low`

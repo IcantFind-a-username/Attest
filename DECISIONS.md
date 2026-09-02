@@ -807,3 +807,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** the us-stock-helper trials (2026-09-02): sonnet-5's reproduction generation failed 8/8 with `output_tokens=3000`, `stop_reason=max_tokens` and only a thinking block, reported as "schema mismatch raw={}"; the same exhaustion hid inside the proposer's "empty" samples.
 - **Limits:** the effect on proposal quality of removing reasoning is measured by the dev-slice re-run (b), not assumed; the fixed-`budget_tokens` split is not expressible on the Claude 5 API, so "separate budgets" means text-only output.
 - **Reversal:** if re-run (b) certifies fewer defects than the C-05 re-run at zero control publications, restore adaptive thinking with a larger bound and re-measure.
+
+
+### D-088 — The tree under test is the only import root for its own packages; a shadowed anchor is its own reason
+
+- **Date/status/scope:** 2026-09-03 · owner fix 3 (2026-09-03) · `review/executor.py` (`project_roots`, `ATTEST_TREE_PATHS`, the guard's `sys.path` pinning, the tracer's `import-origin` artifact, `ExecutionResult.import_origins`, the shadowed-anchor DEFER in `execute_differential`).
+- **Decision:** the controller discovers every directory under the tree (depth ≤ 4, hidden and build directories skipped, ≤ 32 roots) holding `pyproject.toml`/`setup.py`/`setup.cfg` and puts the tree, its `src`, each such directory and its `src` first on `PYTHONPATH` *and* in `ATTEST_TREE_PATHS`, which the guard sitecustomize re-inserts at the front of `sys.path` at startup, ahead of site-packages (a same-name editable install) and of anything the interpreter's environment prepends. After the reproduction window the tracer records every loaded module whose dotted name maps onto the anchored file but whose file is another path; a head run with such an origin DEFERs as `UNBOUND` with the origin named, never as "passed on head". The same environment goes to every adapter, so X-02's container inherits it.
+- **Why:** the us-stock-helper trials: `services/*/src` packages resolved to the operator's editable install and the head tree executed 0 lines, which V-02 turned into silence with no stated cause.
+- **Limits:** a module pre-imported by the interpreter itself before sitecustomize (a cached copy) cannot be evicted, only detected; discovery is by project markers, not by reading build configuration (X-02's environment bootstrap reads it).
+- **Reversal:** none foreseen; the roots are additive and placeholder-relative.

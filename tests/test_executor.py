@@ -2733,6 +2733,111 @@ def test_thinking_only_generator_response_is_recorded_as_generation_no_text(
     assert len(captured) == executor.MAX_REPRO_ATTEMPTS
 
 
+MONOREPO_GOOD = "def add(a, b):\n    return a + b\n"
+MONOREPO_BUGGY = "def add(a, b):\n    return a - b\n"
+MONOREPO_MODULE = "services/svc/src/pkg/mod.py"
+MONOREPO_BODY = "from pkg import mod\n\ndef test_repro():\n    assert mod.add(2, 2) == 4\n"
+
+
+def monorepo_repo(tmp_path: Path) -> tuple[Path, str, str, Path]:
+    """A services/*/src layout on both revisions plus a stale, correct copy of
+    the package outside the tree (the shape of a same-name editable install)."""
+    repo = tmp_path / "repo"
+    (repo / "services" / "svc" / "src" / "pkg").mkdir(parents=True)
+    (repo / "services" / "svc" / "pyproject.toml").write_text(
+        '[project]\nname = "pkg"\nversion = "0.0.1"\n', encoding="utf-8"
+    )
+    (repo / "services" / "svc" / "src" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    module = repo / MONOREPO_MODULE
+    module.write_text(MONOREPO_GOOD, encoding="utf-8")
+    run_git(repo, "init", "--initial-branch=main")
+    run_git(repo, "add", "-A")
+    run_git(repo, "commit", "-m", "base: working module")
+    base_sha = run_git(repo, "rev-parse", "HEAD")
+    module.write_text(MONOREPO_BUGGY, encoding="utf-8")
+    run_git(repo, "commit", "-am", "head: introduce the bug")
+    head_sha = run_git(repo, "rev-parse", "HEAD")
+    stale = tmp_path / "stale-install"
+    (stale / "pkg").mkdir(parents=True)
+    (stale / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    (stale / "pkg" / "mod.py").write_text(MONOREPO_GOOD, encoding="utf-8")
+    return repo, base_sha, head_sha, stale
+
+
+@pytest.mark.skipif(os.name != "posix", reason="shell wrapper interpreter")
+def test_reviewed_tree_wins_over_a_same_name_installed_copy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Owner fix 3 (2026-09-03): with a same-name copy of the package installed
+    for the interpreter (here: prepended to PYTHONPATH by the interpreter
+    wrapper, a stronger shadow than a site-packages editable install), the
+    reviewed tree's services/*/src package is what the head run imports, so the
+    anchored file executes under tracing and the regression certifies."""
+    repo, base_sha, head_sha, stale = monorepo_repo(tmp_path)
+    wrapper = tmp_path / "project-python"
+    wrapper.write_text(
+        "#!/bin/sh\n"
+        f'PYTHONPATH="{stale}${{PYTHONPATH:+:$PYTHONPATH}}" exec {sys.executable!r} "$@"\n',
+        encoding="utf-8",
+    )
+    wrapper.chmod(0o755)
+    monkeypatch.setenv("ATTEST_PROJECT_PYTHON", str(wrapper))
+    stored = candidate(file=MONOREPO_MODULE, line=2)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(MONOREPO_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+    assert all(len(run.executed_lines) > 0 for run in result.head_runs)
+    assert result.binding is not None
+    assert result.binding.executed_changed_lines == (2,)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="shell wrapper interpreter")
+def test_pre_imported_copy_is_recorded_as_shadowed_not_as_silence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the anchored module is already loaded from outside the tree before
+    the reproduction runs (a cached same-name package), the run is a typed
+    UNBOUND with the shadowing origin in its reason, never 'passed on head'."""
+    repo, base_sha, head_sha, stale = monorepo_repo(tmp_path)
+    stale_json = json.dumps(str(stale))
+    wrapper = tmp_path / "project-python"
+    wrapper.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "-c" ]; then exec ' + repr(sys.executable) + ' "$@"; fi\n'
+        "shift 2\n"
+        f"exec {sys.executable!r} -c 'import sys, runpy; sys.path.insert(0, {stale_json}); "
+        "import pkg.mod; sys.argv = [\"pytest\"] + sys.argv[1:]; "
+        "runpy.run_module(\"pytest\", run_name=\"__main__\")' \"$@\"\n",
+        encoding="utf-8",
+    )
+    wrapper.chmod(0o755)
+    monkeypatch.setenv("ATTEST_PROJECT_PYTHON", str(wrapper))
+    stored = candidate(file=MONOREPO_MODULE, line=2)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(MONOREPO_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.evidence_class is EvidenceClass.UNBOUND
+    assert "imported from outside the head tree" in result.reason
+    assert str(stale) in result.reason
+    assert result.head_runs[0].import_origins[0][0] == "pkg.mod"
+
+
 def test_line_tracer_is_confined_to_the_reproduction_window(tmp_path: Path) -> None:
     """The V-02 tracer costs one Python call per frame while installed, so it
     is installed for the collected item's protocol only: module import at
