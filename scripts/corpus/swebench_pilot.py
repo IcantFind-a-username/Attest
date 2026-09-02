@@ -412,6 +412,14 @@ def cmd_table(_args: argparse.Namespace) -> int:
     if defects:
         silent = sum(1 for r in defects if r["published"] == 0)
         print(f"\nsilence rate on defects: {silent}/{len(defects)}")
+        certified_defects = sum(1 for r in defects if r["certified"] > 0)
+        published_defects = sum(1 for r in defects if r["published"] > 0)
+        print(
+            f"certified: {sum(r['certified'] for r in defects)} candidates on "
+            f"{certified_defects}/{len(defects)} defects; published: "
+            f"{sum(r['published'] for r in defects)} candidates on "
+            f"{published_defects}/{len(defects)} defects"
+        )
     if controls:
         false_publications = sum(r["published"] for r in controls)
         print(f"control false publications: {false_publications}/{len(controls)} cases")
