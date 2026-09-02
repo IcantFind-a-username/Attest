@@ -80,22 +80,29 @@ def _result(votes: int, claim: str, verified: bool):
     return evaluate_finding(f, 0.1, [], verification=True if verified else None)
 
 
-def test_render_formal_findings_and_drawer() -> None:
-    surfaced = [_result(3, f"Crash variant number {i} on empty input.", True) for i in range(4)]
-    for i, r in enumerate(surfaced):
+def test_render_certified_findings_and_drawer(certified_factory) -> None:
+    ranked = [_result(3, f"Crash variant number {i} on empty input.", True) for i in range(4)]
+    for i, r in enumerate(ranked):
         r.wealth += i  # stable ordering
     drawer = [_result(1, "Weak hunch about a possible leak.", False)]
-    outcome = apply_gate(surfaced + drawer, max_findings=3)
-    text = render(outcome, 0.1, 0.12, 0.25, 42.0, notes=["hello"])
-    assert "findings (wealth >= 10" in text
-    assert text.count("breaks when:") == 3  # cap-3 formal
-    assert "drawer (2 candidate(s)" in text  # overflow + deferred, both visible
+    outcome = apply_gate(ranked + drawer, max_findings=3)
+    # only the two candidates with an accepted receipt are findings; the other
+    # two cleared the legacy wealth gate and are still just drawer candidates
+    certified = [
+        certified_factory(
+            claim=r.finding.claim, path="a.py", line=5, candidate_id=r.finding.finding_id
+        )
+        for r in ranked[:2]
+    ]
+    text = render(outcome, 0.1, 0.12, 0.25, 42.0, notes=["hello"], certified=certified)
+    assert "certified findings (each backed by one accepted receipt):" in text
+    assert text.count("receipt:") == 2
+    assert "drawer (3 candidate(s) awaiting a receipt" in text
     assert "note: hello" in text
     assert "spend $0.1200 of $0.25" in text
-    # honest counts: overflow findings count as surfaced (they passed the
-    # gate; the cap is layout, not speech), never "certified-false"
-    assert "5 candidate(s): 4 surfaced, 1 in drawer, 0 discarded" in text
+    assert "5 candidate(s): 2 certified, 3 in drawer, 0 discarded" in text
     assert "certified-false" not in text
+    assert "surfaced" not in text
 
 
 def test_render_defer() -> None:
@@ -114,7 +121,7 @@ def test_render_silence_reports_candidate_count_without_surfacing() -> None:
     assert "checked 1 candidate(s)" in text
     assert "no findings cleared the evidence bar" in text
     assert "certified-false" not in text
-    assert "1 candidate(s): 0 surfaced, 1 in drawer, 0 discarded" in text
+    assert "1 candidate(s): 0 certified, 1 in drawer, 0 discarded" in text
 
 
 def test_render_silence_zero_candidates_is_distinct() -> None:
@@ -124,4 +131,4 @@ def test_render_silence_zero_candidates_is_distinct() -> None:
     text = render(outcome, 0.1, 0.0, 0.25, 0.5)
     assert "no candidates proposed — saying nothing." in text
     assert "checked" not in text
-    assert "0 candidate(s): 0 surfaced, 0 in drawer, 0 discarded" in text
+    assert "0 candidate(s): 0 certified, 0 in drawer, 0 discarded" in text

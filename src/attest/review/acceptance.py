@@ -169,7 +169,11 @@ def classify_comments(
     for raw in review_comments:
         comment = _comment_object(raw, "review comment")
         body = comment["body"]
-        if "Evidence purchases:" in body and re.search(r"\bV\s+x20(?:\.0+)?\b", body):
+        legacy_verified = "Evidence purchases:" in body and re.search(
+            r"\bV\s+x20(?:\.0+)?\b", body
+        )
+        receipt_backed = re.search(r"(?:^|\n)Receipt: [0-9a-f]{64}(?:\n|$)", body)
+        if legacy_verified or receipt_backed:
             if not isinstance(comment.get("path"), str) or not isinstance(
                 comment.get("line"), int
             ):

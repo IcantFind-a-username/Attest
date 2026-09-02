@@ -36,6 +36,7 @@ class ReviewRun:
     notes: list[str]
     deferred_reason: str | None
     elapsed_s: float
+    diff_digest: str = ""  # SHA-256 of the reviewed diff text; binds receipts to it
 
 
 class ReviewSetupError(RuntimeError):
@@ -159,6 +160,7 @@ def run_review(
     except (OSError, RuntimeError) as exc:
         raise ReviewSetupError("review setup failed") from exc
     budget = Budget(limit_usd=config.budget_usd, model=config.model)
+    diff_digest = hashlib.sha256(diff.text.encode("utf-8")).hexdigest()
     if not diff.hunks:
         return ReviewRun(
             task_id=task_id or "",
@@ -169,6 +171,7 @@ def run_review(
             notes=["no diff to review."],
             deferred_reason=None,
             elapsed_s=clock() - started,
+            diff_digest=diff_digest,
         )
 
     try:
@@ -207,6 +210,7 @@ def run_review(
             ],
             deferred_reason="unreachable gate",
             elapsed_s=elapsed,
+            diff_digest=diff_digest,
         )
     if not feasibility["reachable_without_verification"]:
         notes.append(
@@ -364,4 +368,5 @@ def run_review(
         notes=notes,
         deferred_reason=deferred_reason,
         elapsed_s=elapsed,
+        diff_digest=diff_digest,
     )

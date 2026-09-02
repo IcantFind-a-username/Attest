@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from attest.certification.types import CertifiedFinding
 from attest.github.client import (
     STATUS_MARKER,
     GitHubApiError,
@@ -26,15 +27,22 @@ from attest.github.presentation import (
     render_running,
 )
 from attest.review.candidates import CandidateStore
+from attest.review.certify import (
+    attempt_certification,
+    certification_policy,
+    certification_task,
+)
 from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
-from attest.review.gate import GateResult, apply_gate
+from attest.review.gate import GateResult
 from attest.review.ledger import Ledger
 from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
 
 DELIVERY_TRANSCRIPT_SCHEMA_VERSION = 1
 DELIVERY_TRANSCRIPT_PROTOCOL = "attest.delivery-transcript.v1"
+# differential repeats per side; the certification policy demands exactly this many
+CERTIFICATION_REPEATS = 3
 
 
 @dataclass
@@ -954,11 +962,11 @@ def _post_deferred(
     task_id: str | None,
     journal: _DeliveryJournal,
     reason: str,
-    surfaced: list[GateResult] | None = None,
+    surfaced: list[CertifiedFinding] | None = None,
     spend_usd: float = 0.0,
     elapsed_s: float = 0.0,
-    inline: list[GateResult] | None = None,
-    overflow: list[GateResult] | None = None,
+    inline: list[CertifiedFinding] | None = None,
+    overflow: list[CertifiedFinding] | None = None,
 ) -> str:
     body = render_deferred(f"DEFER: {reason}")
     if surfaced:
@@ -966,12 +974,12 @@ def _post_deferred(
             "Review complete.", body, 1
         )
     members = tuple(
-        (result.finding.finding_id, placement)
-        for placement, results in (
+        (_candidate_id(finding), placement)
+        for placement, findings in (
             ("inline", inline or []),
             ("overflow", overflow or []),
         )
-        for result in results
+        for finding in findings
     )
     try:
         prepared = _prepare_status_delivery(client, context, body)
@@ -996,6 +1004,10 @@ def _post_deferred(
         return f"{reason}; {github_reason}"
     _record_comment(ledger, task_id, "defer")
     return reason
+
+
+def _candidate_id(finding: CertifiedFinding) -> str:
+    return finding.accepted_receipt.receipt.candidate_id
 
 
 def run_ci(
@@ -1171,11 +1183,25 @@ def run_ci(
     results_by_id: dict[str, GateResult] = {
         result.finding.finding_id: result for result in review.results
     }
+    # S and T rank; they never speak. Every candidate they did not discard is
+    # sent through differential execution, and only a validator-accepted
+    # receipt can make it author-visible (INV-CERT-001).
     candidates = [
         candidate
         for candidate in CandidateStore(repo).load(task_id)
-        if candidate.action == "drawer"
+        if candidate.action != "discard"
     ]
+    policy = certification_policy(CERTIFICATION_REPEATS)
+    certification = certification_task(
+        task_id=task_id,
+        repository_id=context.repository,
+        merge_base_sha=context.base_sha,
+        head_sha=context.head_sha,
+        diff_digest=review.diff_digest,
+        policy_source_sha=context.base_sha,
+        policy=policy,
+    )
+    certified_by_id: dict[str, CertifiedFinding] = {}
     verification_defers: list[str] = []
     for index, candidate in enumerate(candidates):
         remaining_s = max(0.0, deadline - clock())
@@ -1205,31 +1231,58 @@ def run_ci(
             default_limits,
             base_sha=context.base_sha,
             head_sha=context.head_sha,
+            repeats=CERTIFICATION_REPEATS,
             deadline=deadline,
             clock=clock,
         )
         results_by_id[candidate.finding.finding_id] = verification.gate_result
         if verification.execution.outcome is ExecutionOutcome.DEFERRED:
             verification_defers.append(verification.execution.reason)
+        attempt = attempt_certification(
+            certification, policy, candidate, verification, limits=default_limits
+        )
+        ledger.append(attempt.to_ledger_row(task_id))
+        if attempt.finding is not None:
+            certified_by_id[candidate.finding.finding_id] = attempt.finding
 
     updated_results = list(results_by_id.values())
-    outcome = apply_gate(updated_results, config.max_findings)
-    inline_results = outcome.formal[:3]
-    overflow_results = [*outcome.formal[3:], *outcome.drawer_overflow]
+    # legacy wealth orders the certified set (deterministic tie-break on ID);
+    # C-05 owns the PR-level family policy and the true author-visible cap
+    certified = sorted(
+        certified_by_id.values(),
+        key=lambda finding: (
+            -results_by_id[_candidate_id(finding)].wealth,
+            _candidate_id(finding),
+        ),
+    )
+    inline_limit = min(3, config.max_findings)
+    inline_results = certified[:inline_limit]
+    overflow_results = certified[inline_limit:]
     surfaced = [*inline_results, *overflow_results]
     ledger.record_ci_final(
         task_id=task_id,
         decisions=[
             {
                 "finding_id": result.finding.finding_id,
-                "action": result.action,
+                # `surface` is now a receipt decision; the S/T/V wealth is kept
+                # beside it for analysis only
+                "action": (
+                    "surface"
+                    if result.finding.finding_id in certified_by_id
+                    else "discard"
+                    if result.decision == 0
+                    else "drawer"
+                ),
                 "wealth_final": round(result.wealth, 4),
                 "placement": (
                     "inline"
-                    if result in inline_results
+                    if result.finding.finding_id
+                    in {_candidate_id(finding) for finding in inline_results}
                     else "overflow"
-                    if result in overflow_results
-                    else result.action
+                    if result.finding.finding_id in certified_by_id
+                    else "discard"
+                    if result.decision == 0
+                    else "drawer"
                 ),
             }
             for result in updated_results
@@ -1242,7 +1295,7 @@ def run_ci(
         review_error = journal.attempt(
             channel="inline_review",
             members=tuple(
-                (result.finding.finding_id, "inline") for result in inline_results
+                (_candidate_id(finding), "inline") for finding in inline_results
             ),
             body={
                 "commit_id": context.head_sha,
@@ -1336,12 +1389,12 @@ def run_ci(
     complete_error = journal.attempt(
         channel="status_summary",
         members=tuple(
-            (result.finding.finding_id, placement)
-            for placement, results in (
+            (_candidate_id(finding), placement)
+            for placement, findings in (
                 ("inline", inline_results),
                 ("overflow", overflow_results),
             )
-            for result in results
+            for finding in findings
         ),
         body=prepared.body,
         terminal_status="completed",

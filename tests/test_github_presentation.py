@@ -96,68 +96,52 @@ def test_deferred_status_contains_only_its_reason() -> None:
     assert render_deferred("verification timed out") == "verification timed out"
 
 
-def test_complete_status_names_only_surfaced_results_and_keeps_overflow_visible() -> None:
+def test_complete_status_names_only_certified_findings(certified_factory) -> None:
     from attest.github.presentation import render_complete
 
-    first = _result(claim="Surface one.", wealth=30.0)
-    overflow = _result(claim="Surface two.", wealth=15.0)
-    drawer = _result(
-        claim="Drawer claim.",
-        file="secret.py",
-        line=99,
-        scenario="Drawer scenario.",
-        plan="Drawer plan.",
-        wealth=2.0,
-        decision=None,
-    )
-    discarded = _result(
-        claim="Discarded claim.",
-        file="discarded.py",
-        line=101,
-        scenario="Discarded scenario.",
-        plan="Discarded plan.",
-        wealth=0.1,
-        decision=0,
-    )
+    first = certified_factory(claim="Surface one.")
+    overflow = certified_factory(claim="Surface two.", path="src/other.py", line=8)
 
-    complete = render_complete([drawer, overflow, discarded, first], 0.0125, 3.2)
+    complete = render_complete([first, overflow], 0.0125, 3.2)
 
+    assert "Certified findings:" in complete
     assert "Surface one." in complete
     assert "Surface two." in complete
-    assert f"Finding ID: {first.finding.finding_id}" in complete
-    assert f"Finding ID: {overflow.finding.finding_id}" in complete
-    assert "Drawer claim." not in complete
-    assert "secret.py" not in complete
-    assert "99" not in complete
-    assert "Drawer scenario." not in complete
-    assert "Drawer plan." not in complete
-    assert "Discarded claim." not in complete
+    first_id = first.accepted_receipt.receipt.candidate_id
+    overflow_id = overflow.accepted_receipt.receipt.candidate_id
+    assert f"Finding ID: {first_id}" in complete
+    assert f"Finding ID: {overflow_id}" in complete
     assert "$0.0125" in complete
     assert "3.2s" in complete
+    assert "No findings cleared the evidence bar." in render_complete([], 0.0, 1.0)
+
+    # anything that is not a validator-built CertifiedFinding is refused,
+    # including the legacy wealth-gated result type
+    with pytest.raises(TypeError, match="CertifiedFinding"):
+        render_complete([_result(claim="Forged.", wealth=99.0)], 0.0, 1.0)  # type: ignore[list-item]
 
 
-def test_inline_comments_reject_non_surfaced_results_and_keep_right_anchors() -> None:
+def test_inline_comments_keep_caller_order_anchors_and_receipt(certified_factory) -> None:
     from attest.github.presentation import inline_comments
 
-    drawer = _result(decision=None)
-    with pytest.raises(ValueError, match="surfaced"):
-        inline_comments([drawer])
+    with pytest.raises(TypeError, match="CertifiedFinding"):
+        inline_comments([_result(decision=1)])  # type: ignore[list-item]
 
-    comments = inline_comments(
-        [
-            _result(claim="Third.", wealth=10.0, file="c.py", line=3),
-            _result(claim="First.", wealth=30.0, file="a.py", line=1),
-            _result(claim="Second.", wealth=20.0, file="b.py", line=2),
-            _result(claim="Fourth.", wealth=5.0, file="d.py", line=4),
-        ]
-    )
+    findings = [
+        certified_factory(claim="First.", path="a.py", line=1),
+        certified_factory(claim="Second.", path="b.py", line=2),
+        certified_factory(claim="Third.", path="c.py", line=3),
+        certified_factory(claim="Fourth.", path="d.py", line=4),
+    ]
+    comments = inline_comments(findings)
 
     assert [comment["path"] for comment in comments] == ["a.py", "b.py", "c.py"]
     assert [comment["line"] for comment in comments] == [1, 2, 3]
     assert all(comment["side"] == "RIGHT" for comment in comments)
-    assert "First." in str(comments[0]["body"])
-    assert "A request omits its payload." in str(comments[0]["body"])
-    assert "Call serialize with None." in str(comments[0]["body"])
-    assert "wealth 30.0" in str(comments[0]["body"])
-    assert "V x20.00 (reproduced)" in str(comments[0]["body"])
-    assert "Finding ID: fdc3624e36" in str(comments[0]["body"])
+    body = str(comments[0]["body"])
+    receipt = findings[0].accepted_receipt.receipt
+    assert "First." in body
+    assert f"Finding ID: {receipt.candidate_id}" in body
+    assert "Certified: the generated test failed on head in 3/3 runs" in body
+    assert f"Receipt: {receipt.provenance_digest}" in body
+    assert "wealth" not in body.lower()

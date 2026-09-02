@@ -143,6 +143,12 @@ class ExecutionResult:
     stderr: str
     elapsed_s: float
     network_blocked: bool
+    # JUnit-derived collection identity of a completed run; a deferred run
+    # carries the zero defaults, which no certification receipt can accept.
+    collected_count: int = 0
+    skipped_count: int = 0
+    xfailed_count: int = 0
+    test_node: str = ""
 
 
 @dataclass(frozen=True)
@@ -163,6 +169,7 @@ class DifferentialExecution:
 class VerificationRun:
     execution: DifferentialExecution
     gate_result: GateResult
+    spec: ReproSpec | None = None  # the generated test that was executed, if any
 
 
 def _failure_point_markers(*exceptions: str) -> tuple[re.Pattern[str], ...]:
@@ -538,14 +545,55 @@ def _resource_limiter(limits: ExecutorLimits) -> Callable[[], None] | None:
     return apply_limits
 
 
-def _junit_counts(path: Path) -> tuple[int, int]:
+@dataclass(frozen=True)
+class _JUnitSummary:
+    failures: int
+    errors: int
+    collected: int
+    skipped: int
+    xfailed: int
+    test_node: str
+
+
+def _junit_summary(path: Path) -> _JUnitSummary:
     root = ET.parse(path).getroot()
     suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
     if not suites:
         raise ValueError("JUnit has no test suites")
     failures = sum(int(suite.attrib.get("failures", "0")) for suite in suites)
     errors = sum(int(suite.attrib.get("errors", "0")) for suite in suites)
-    return failures, errors
+    cases = [case for suite in suites for case in suite.iter("testcase")]
+    xfailed = sum(
+        1
+        for case in cases
+        for skipped in case.iter("skipped")
+        if skipped.attrib.get("type") == "pytest.xfail"
+    )
+    skipped = sum(int(suite.attrib.get("skipped", "0")) for suite in suites) - xfailed
+    test_node = ""
+    if len(cases) == 1:
+        # the generated module is always test_repro.py; pytest's classname joins
+        # path components with dots, so anchor on the module name rather than
+        # re-splitting a run directory whose name itself contains a dot
+        classname = cases[0].attrib.get("classname", "")
+        name = cases[0].attrib.get("name", "")
+        parts = classname.split(".")
+        if "test_repro" in parts and name:
+            module_index = len(parts) - 1 - parts[::-1].index("test_repro")
+            test_node = "::".join(["test_repro.py", *parts[module_index + 1 :], name])
+    return _JUnitSummary(
+        failures=failures,
+        errors=errors,
+        collected=len(cases),
+        skipped=skipped,
+        xfailed=xfailed,
+        test_node=test_node,
+    )
+
+
+def _junit_counts(path: Path) -> tuple[int, int]:
+    summary = _junit_summary(path)
+    return summary.failures, summary.errors
 
 
 def _deferred(
@@ -944,7 +992,8 @@ def execute_repro(
             stderr=stderr,
         )
     try:
-        failures, errors = _junit_counts(junit_path)
+        junit = _junit_summary(junit_path)
+        failures, errors = junit.failures, junit.errors
     except (OSError, ET.ParseError, TypeError, ValueError) as exc:
         return _deferred(
             f"missing or malformed JUnit evidence: {type(exc).__name__}: {exc}",
@@ -964,6 +1013,10 @@ def execute_repro(
             stderr=stderr,
             elapsed_s=time.monotonic() - started,
             network_blocked=network_blocked,
+            collected_count=junit.collected,
+            skipped_count=junit.skipped,
+            xfailed_count=junit.xfailed,
+            test_node=junit.test_node,
         )
     if process.returncode == 1 and failures > 0 and errors == 0:
         return ExecutionResult(
@@ -974,6 +1027,10 @@ def execute_repro(
             stderr=stderr,
             elapsed_s=time.monotonic() - started,
             network_blocked=network_blocked,
+            collected_count=junit.collected,
+            skipped_count=junit.skipped,
+            xfailed_count=junit.xfailed,
+            test_node=junit.test_node,
         )
     return _deferred(
         "pytest collection/import/syntax or infrastructure failure "
@@ -1268,6 +1325,7 @@ def verify_candidate(
     started = time.monotonic()
     resolved_base = _resolve_commit(repo, base_sha)
     resolved_head = _resolve_commit(repo, head_sha)
+    spec: ReproSpec | None = None
 
     def deferred_execution(reason: str) -> DifferentialExecution:
         return DifferentialExecution(
@@ -1339,10 +1397,10 @@ def verify_candidate(
         run_evidence=_differential_run_evidence(execution),
     )
     if execution.outcome is ExecutionOutcome.DEFERRED:
-        return VerificationRun(execution=execution, gate_result=gate_result)
+        return VerificationRun(execution=execution, gate_result=gate_result, spec=spec)
     verified = apply_verification(
         gate_result,
         candidate.alpha,
         reproduced=execution.outcome is ExecutionOutcome.REPRODUCED,
     )
-    return VerificationRun(execution=execution, gate_result=verified)
+    return VerificationRun(execution=execution, gate_result=verified, spec=spec)

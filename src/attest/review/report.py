@@ -1,21 +1,33 @@
-"""Terminal report: at most 3 formal findings, each with clickable evidence."""
+"""Terminal report: receipt-backed findings first, S/T-ranked candidates after.
+
+Only a ``CertifiedFinding`` is reported as a finding. Every other candidate is
+listed as a drawer entry with its S/T wealth as ranking information; that
+wealth is never speech authority.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
+from attest.certification.types import CertifiedFinding
 from attest.review.gate import GateOutcome, GateResult
 
 
-def _fmt_finding(idx: int, r: GateResult) -> str:
-    f = r.finding
+def _fmt_finding(idx: int, finding: CertifiedFinding) -> str:
+    receipt = finding.accepted_receipt.receipt
+    anchor = finding.anchors[0]
     lines = [
-        f"  {idx}. [{f.finding_id}] {f.file}:{f.line}  (wealth {r.wealth:.1f})",
-        f"     {f.claim}",
-        f"     breaks when: {f.failure_scenario}",
-        f"     check it:    {f.falsification_plan}",
-        "     evidence:    "
-        + "; ".join(f"{p.channel} x{p.lr:.2f} ({p.detail})" for p in r.purchases),
+        f"  {idx}. [{receipt.candidate_id}] {anchor.path}:{anchor.line}",
+        f"     {finding.claim}",
+        f"     certified:   head FAIL {len(receipt.head_runs)}/{len(receipt.head_runs)}, "
+        f"base PASS {len(receipt.base_runs)}/{len(receipt.base_runs)} ({receipt.test_node})",
+        f"     receipt:     {receipt.provenance_digest}",
     ]
     return "\n".join(lines)
+
+
+def _candidates(outcome: GateOutcome) -> list[GateResult]:
+    return [*outcome.formal, *outcome.drawer_overflow, *outcome.drawer]
 
 
 def render(
@@ -26,35 +38,46 @@ def render(
     elapsed_s: float,
     deferred_reason: str | None = None,
     notes: list[str] | None = None,
+    certified: Sequence[CertifiedFinding] = (),
 ) -> str:
     out: list[str] = []
     threshold = 1.0 / alpha
 
-    n_surfaced = len(outcome.formal) + len(outcome.drawer_overflow)
-    n_drawer = len(outcome.drawer)
+    certified_ids = {
+        finding.accepted_receipt.receipt.candidate_id for finding in certified
+    }
+    drawer = [
+        result
+        for result in _candidates(outcome)
+        if result.finding.finding_id not in certified_ids
+    ]
+    n_certified = len(certified)
+    n_drawer = len(drawer)
     n_discarded = len(outcome.discarded)
-    n_total = n_surfaced + n_drawer + n_discarded
+    n_total = n_certified + n_drawer + n_discarded
 
     if deferred_reason:
         out.append(f"DEFER: {deferred_reason}")
 
-    if outcome.formal:
-        out.append(f"findings (wealth >= {threshold:.0f}, alpha={alpha}):")
-        for i, r in enumerate(outcome.formal, 1):
-            out.append(_fmt_finding(i, r))
+    if certified:
+        out.append("certified findings (each backed by one accepted receipt):")
+        for i, finding in enumerate(certified, 1):
+            out.append(_fmt_finding(i, finding))
     elif not deferred_reason:
         if n_total == 0:
             out.append("no candidates proposed — saying nothing.")
         else:
             out.append(
                 f"checked {n_total} candidate(s); no findings cleared the evidence bar "
-                f"(wealth >= {threshold:.0f}) — saying nothing."
+                "(an accepted differential receipt) — saying nothing."
             )
 
-    extra = outcome.drawer_overflow + outcome.drawer
-    if extra:
-        out.append(f"drawer ({len(extra)} candidate(s) below the bar or beyond the cap):")
-        for r in sorted(extra, key=lambda r: r.wealth, reverse=True):
+    if drawer:
+        out.append(
+            f"drawer ({len(drawer)} candidate(s) awaiting a receipt; "
+            f"S/T wealth ranks only, threshold {threshold:.0f} is not speech):"
+        )
+        for r in sorted(drawer, key=lambda r: r.wealth, reverse=True):
             f = r.finding
             out.append(
                 f"  - [{f.finding_id}] {f.file}:{f.line} wealth {r.wealth:.1f} "
@@ -66,7 +89,7 @@ def render(
 
     out.append(
         f"spend ${spend_usd:.4f} of ${budget_usd:.2f} budget; {elapsed_s:.1f}s; "
-        f"{n_total} candidate(s): {n_surfaced} surfaced, {n_drawer} in drawer, "
+        f"{n_total} candidate(s): {n_certified} certified, {n_drawer} in drawer, "
         f"{n_discarded} discarded."
     )
     return "\n".join(out)
