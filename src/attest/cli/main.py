@@ -80,6 +80,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             notes=review.notes,
             certified=review.published,
             status=review.status,
+            evidence=review.evidence,
         )
     )
     return 0

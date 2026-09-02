@@ -607,6 +607,12 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — item 7 (finding as test):** one commit
+  (`feat: present a verified finding as its runnable test with runs, logs and the bundle`).
+  The RED failed on the unpatched path (the comment carried a test node id but no test) and
+  passes after: the test and command copied out of the PR comment fail on head and pass on
+  base. See D-098.
+
 - **2026-09-03 — V-03 complete:** one commit
   (`feat: fresh writable state per run, a controller seal on every bundle, and the offline verifier (V-03)`).
   The RED failed on the unpatched path (run records carried no freshness evidence and the

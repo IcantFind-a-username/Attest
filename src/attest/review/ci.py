@@ -1201,6 +1201,7 @@ def run_ci(
     verification_defers = stage.verification_defers
     updated_results = list(results_by_id.values())
     selection_published = stage.published
+    finding_evidence = stage.evidence
     inline_results = list(selection_published)
     overflow_results: list[CertifiedFinding] = []  # the cap is author-visible, not layout
     surfaced = [*inline_results, *overflow_results]
@@ -1255,7 +1256,7 @@ def run_ci(
             clock=clock,
         )
     if surfaced:
-        review_comments = inline_comments(inline_results)
+        review_comments = inline_comments(inline_results, finding_evidence)
         review_error = journal.attempt(
             channel="inline_review",
             members=tuple((_candidate_id(finding), "inline") for finding in inline_results),
@@ -1333,7 +1334,9 @@ def run_ci(
 
     elapsed_s = clock() - started
     complete_body = _with_run_status(
-        ledger, task_id, render_complete(surfaced, review.budget.spent_usd, elapsed_s)
+        ledger,
+        task_id,
+        render_complete(surfaced, review.budget.spent_usd, elapsed_s, finding_evidence),
     )
     try:
         prepared = _prepare_status_delivery(client, context, complete_body)

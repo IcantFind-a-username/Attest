@@ -34,6 +34,7 @@ from attest.review.certify import (
 )
 from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
+from attest.review.finding_evidence import FindingEvidence, evidence_from_bundle
 from attest.review.gate import GateResult
 from attest.review.ledger import Ledger
 from attest.review.planner import package_block
@@ -60,6 +61,7 @@ class VerificationStage:
     hard_cap: int
     attempted: int = 0  # candidates that entered differential reproduction
     reasons: dict[str, str] = field(default_factory=dict)  # finding id -> DEFER reason
+    evidence: dict[str, FindingEvidence] = field(default_factory=dict)  # item 7
 
 
 def run_verification_stage(
@@ -125,6 +127,7 @@ def run_verification_stage(
     certified_by_id: dict[str, CertifiedFinding] = {}
     verification_defers: list[str] = []
     reasons: dict[str, str] = {}
+    evidence: dict[str, FindingEvidence] = {}
     attempted = 0
     for index, candidate in enumerate(candidates):
         if candidate.eligibility != "regression":
@@ -209,6 +212,10 @@ def run_verification_stage(
         ledger.append(attempt.to_ledger_row(task_id))
         if attempt.finding is not None:
             certified_by_id[candidate.finding.finding_id] = attempt.finding
+            if attempt.bundle is not None:
+                block = evidence_from_bundle(attempt.bundle.path, repo=repo)
+                if block is not None:
+                    evidence[candidate.finding.finding_id] = block
 
     # C-05 (INV-FAMILY-001): same-defect certified findings count once, a
     # finding publishes only at e-value >= m/alpha for the m eligible candidates
@@ -263,4 +270,5 @@ def run_verification_stage(
         hard_cap=family.hard_cap,
         attempted=attempted,
         reasons=reasons,
+        evidence=evidence,
     )

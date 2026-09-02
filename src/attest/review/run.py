@@ -18,6 +18,7 @@ from attest.review.channels import gate_feasibility
 from attest.review.config import ReviewConfig, resolve_review_policy
 from attest.review.diffs import git_diff
 from attest.review.eligibility import classify_finding, executor_unavailable_reason
+from attest.review.finding_evidence import FindingEvidence
 from attest.review.gate import GateOutcome, GateResult, apply_gate, evaluate_finding
 from attest.review.history import (
     HISTORY_LOOKBACK_COMMITS,
@@ -89,6 +90,7 @@ class ReviewRun:
     verification_reasons: dict[str, str] = field(default_factory=dict)
     # owner item 6: operational status of the run, readable when it is silent
     status: RunStatus | None = None
+    evidence: dict[str, FindingEvidence] = field(default_factory=dict)  # item 7
 
 
 def resolve_full_sha(repo: Path, ref: str) -> str | None:
@@ -293,6 +295,7 @@ def run_review(
     certified: list[CertifiedFinding] = []
     published: list[CertifiedFinding] = []
     verification_reasons: dict[str, str] = {}
+    evidence: dict[str, FindingEvidence] = {}
     provider_samples: list[dict[str, object]] = []
     phase = "planning"
     try:
@@ -461,6 +464,7 @@ def run_review(
                 certified = list(stage.certified_by_id.values())
                 published = list(stage.published)
                 verification_reasons = dict(stage.reasons)
+                evidence = dict(stage.evidence)
                 notes.extend(
                     f"verification: {finding_id}: {reason}"
                     for finding_id, reason in stage.reasons.items()
@@ -533,4 +537,5 @@ def run_review(
         published=published,
         verification_reasons=verification_reasons,
         status=status,
+        evidence=evidence,
     )

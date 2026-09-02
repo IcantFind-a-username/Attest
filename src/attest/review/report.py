@@ -9,14 +9,17 @@ statistical terms stay in the ledger and the decision log.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from attest.certification.types import CertifiedFinding
+from attest.review.finding_evidence import FindingEvidence, render_text
 from attest.review.gate import GateOutcome, GateResult
 from attest.review.status import RunStatus
 
 
-def _fmt_finding(idx: int, finding: CertifiedFinding) -> str:
+def _fmt_finding(
+    idx: int, finding: CertifiedFinding, evidence: FindingEvidence | None = None
+) -> str:
     receipt = finding.accepted_receipt.receipt
     anchor = finding.anchors[0]
     lines = [
@@ -27,6 +30,8 @@ def _fmt_finding(idx: int, finding: CertifiedFinding) -> str:
         f"{len(receipt.base_runs)} times ({receipt.test_node})",
         f"     receipt:     {receipt.provenance_digest}",
     ]
+    if evidence is not None:
+        lines.append(render_text(evidence))
     return "\n".join(lines)
 
 
@@ -44,6 +49,7 @@ def render(
     notes: list[str] | None = None,
     certified: Sequence[CertifiedFinding] = (),
     status: RunStatus | None = None,
+    evidence: Mapping[str, FindingEvidence] | None = None,
 ) -> str:
     out: list[str] = []
     certified_ids = {finding.accepted_receipt.receipt.candidate_id for finding in certified}
@@ -61,7 +67,8 @@ def render(
     if certified:
         out.append("verified findings (each backed by one accepted receipt):")
         for i, finding in enumerate(certified, 1):
-            out.append(_fmt_finding(i, finding))
+            block = (evidence or {}).get(finding.accepted_receipt.receipt.candidate_id)
+            out.append(_fmt_finding(i, finding, block))
     elif not deferred_reason:
         if n_total == 0:
             out.append("no candidates proposed — saying nothing.")

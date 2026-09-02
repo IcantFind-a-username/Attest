@@ -909,3 +909,13 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** `G-SEM-003`: repeats shared writable state and nothing authenticated the controller's authorship of a bundle.
 - **Limits:** HMAC with a repository-local key authenticates the controller to itself and to whoever holds the key (the operator, CI secrets); a public-key seal with a platform trust root is the next version. The head and base worktrees are shared by the three repeats; the guard marks writes into them and pytest's own writes are disabled, so state cannot leak between repeats through the tree, but the tree is not recreated per repeat.
 - **Reversal:** the seal schema is versioned; unsealed historical bundles still verify structurally.
+
+
+### D-098 — A verified finding is presented as its test
+
+- **Date/status/scope:** 2026-09-03 · owner instruction 2, item 7 · new `review/finding_evidence.py` (`FindingEvidence`, `evidence_from_bundle`, `render_markdown`, `render_text`), `github/presentation.py` (`render_complete`/`inline_comments` take the evidence), `review/report.py` (CLI block), `review/verification.py` (`VerificationStage.evidence` from each accepted bundle), `review/ci.py`, `review/run.py`, `cli/main.py`.
+- **Decision:** every published finding, inline and in the summary comment, carries the exact reproduction bytes as a fenced test, the one-line command with the node id (`pytest -q test_repro.py::…`), the head/base run summaries, the full logs in a collapsed section, the evidence bundle path and the offline command `attest verify --bundle <path> --require-seal`; the CLI prints the same block. Everything is read from the sealed bundle the certification wrote; nothing is re-executed for presentation.
+- **Why:** owner item 7: an author must be able to run what the product claims without trusting the product.
+- **RED:** the test and command copied out of the PR comment fail on the head tree and pass on the base tree (`tests/test_ci_flow.py::test_verified_finding_comment_carries_a_test_and_command_that_reproduce_on_both_trees`).
+- **Limits:** logs are bounded to 6,000 characters per run; the command assumes the test is saved at the repository root the way the executor runs it.
+- **Reversal:** none foreseen; the block is additive.

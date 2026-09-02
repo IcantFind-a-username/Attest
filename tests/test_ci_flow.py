@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import time
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -287,8 +288,7 @@ def test_st_cap_without_accepted_receipt_never_reaches_the_author(
         assert "app.py" not in body
     final = next(row for row in rows if row["kind"] == "ci_final")
     assert all(
-        decision["placement"] not in {"inline", "overflow"}
-        for decision in final["decisions"]
+        decision["placement"] not in {"inline", "overflow"} for decision in final["decisions"]
     )
     assert Ledger(repo).surfaced_finding_ids() == ()
 
@@ -340,9 +340,7 @@ def test_planted_bug_waits_for_failing_repro_before_speaking(
     assert isinstance(comments, list)
     assert len(comments) == 1
     assert "average() divides by zero" in str(comments[0]["body"])
-    assert "Verified: the generated test failed on head in 3/3 runs" in str(
-        comments[0]["body"]
-    )
+    assert "Verified: the generated test failed on head in 3/3 runs" in str(comments[0]["body"])
     assert "Test: test_repro.py::test_average_handles_empty_input" in str(comments[0]["body"])
     assert "Receipt: " in str(comments[0]["body"])
     certification = next(row for row in _ledger_rows(repo) if row["kind"] == "certification")
@@ -413,9 +411,7 @@ def test_real_ci_drawer_reproduction_inline_ledger_is_accepted(
         if isinstance(comment, dict)
     ]
     comments = classify_comments([], api_comments)
-    ledger = parse_ledger(
-        (repo / ".attest" / "ledger.jsonl").read_text(encoding="utf-8")
-    )
+    ledger = parse_ledger((repo / ".attest" / "ledger.jsonl").read_text(encoding="utf-8"))
 
     ledger.assert_event_coverage(
         expected_comment_phases=BUG_COMMENT_PHASES,
@@ -568,9 +564,7 @@ def test_expired_shared_deadline_defers_every_unprocessed_candidate_without_v(
     assert {row["outcome"] for row in verification_rows} == {"deferred"}
     assert all("deadline" in str(row["reason"]) for row in verification_rows)
     assert all(
-        row["channels_bought"] == ["S"]
-        for row in _ledger_rows(repo)
-        if row["kind"] == "review"
+        row["channels_bought"] == ["S"] for row in _ledger_rows(repo) if row["kind"] == "review"
     )
 
 
@@ -718,9 +712,7 @@ def test_pre_provider_ledger_preparation_failure_is_zero_spend_setup_defer(
     assert result.spend_usd == 0.0
     assert result.deferred_reason == "review setup failed: ReviewSetupError"
     assert "private ledger preparation failure detail" not in result.deferred_reason
-    comment_rows = [
-        row for row in _ledger_rows(repo) if row["kind"] == "github_comment"
-    ]
+    comment_rows = [row for row in _ledger_rows(repo) if row["kind"] == "github_comment"]
     assert [row["phase"] for row in comment_rows] == ["running", "defer"]
     assert {row["task_id"] for row in comment_rows} == {result.task_id}
 
@@ -874,9 +866,7 @@ def test_surface_overflow_stays_visible_without_extra_inline_placement(
     comments = github_server.review_bodies[0]["comments"]
     assert isinstance(comments, list)
     assert len(comments) == 1
-    visible = sum(
-        str(finding["claim"]) in github_server.status_bodies[-1] for finding in findings
-    )
+    visible = sum(str(finding["claim"]) in github_server.status_bodies[-1] for finding in findings)
     assert visible == 1
     rows = _ledger_rows(repo)
     final = next(row for row in rows if row["kind"] == "ci_final")
@@ -1253,3 +1243,66 @@ def test_silent_run_status_comment_names_counts_and_every_failure_reason(
     assert "reproduction 1: unfaithful test" in final
     assert "app.py" not in final.split("<details>")[1]
     assert "divides by zero" not in final
+
+
+def test_verified_finding_comment_carries_a_test_and_command_that_reproduce_on_both_trees(
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
+) -> None:
+    """Owner item 7 (2026-09-03): the test and command copied out of the PR
+    comment fail on the head tree and pass on the base tree."""
+    import re
+
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = planted_repo
+    provider = RecordingProvider(
+        _finding_payload(),
+        json.dumps(
+            {
+                "test_body": "import runpy\n\n"
+                "def test_average_handles_empty_input():\n"
+                "    average = runpy.run_path('app.py')['average']\n"
+                "    assert average([]) == 0\n"
+            }
+        ),
+    )
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+    assert result.surfaced_count == 1
+    inline = str(github_server.review_bodies[-1]["comments"][0]["body"])
+    final = github_server.status_bodies[-1]
+    for body in (inline, final):
+        assert "Run it yourself" in body
+        assert "attest verify --bundle" in body
+        assert "<summary>Full logs</summary>" in body
+        assert "head FAIL 3/3, base PASS 3/3" in body
+    test_source = re.search(r"```python\n(.*?)\n```", inline, re.DOTALL).group(1)
+    command = re.search(r"```bash\n(.*?)\n```", inline, re.DOTALL).group(1).strip()
+    assert command.startswith("pytest -q test_repro.py::test_average_handles_empty_input")
+
+    def run_on(sha: str) -> int:
+        tree = repo.parent / f"tree-{sha[:7]}"
+        subprocess.run(
+            ["git", "-C", str(repo), "worktree", "add", "--detach", str(tree), sha],
+            check=True,
+            capture_output=True,
+        )
+        (tree / "test_repro.py").write_text(test_source + "\n", encoding="utf-8")
+        completed = subprocess.run(
+            [sys.executable, "-m", *command.split()], cwd=tree, capture_output=True, text=True
+        )
+        subprocess.run(
+            ["git", "-C", str(repo), "worktree", "remove", "--force", str(tree)],
+            check=False,
+            capture_output=True,
+        )
+        return completed.returncode
+
+    assert run_on(head_sha) != 0
+    assert run_on(base_sha) == 0
