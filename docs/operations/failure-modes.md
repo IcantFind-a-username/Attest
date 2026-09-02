@@ -10,6 +10,7 @@ literal text or its stable prefix; the statistical vocabulary never appears.
 | fork pull request | `fork pull requests are skipped before model or head-code execution` | expected; open the pull request from a branch of the repository |
 | model credential missing or revoked | the Action exits before any head code runs: `trusted pull requests require both action credentials` | fix the secret; nothing was executed |
 | budget exhausted | `DEFER: budget: …` | raise `budget-usd` on the Action or wait for the next push |
+| the budget ran out part-way through a large change | `read N of M units, budget-limited` in the run status, with the omitted units and the call that would have exceeded the budget | raise `budget-usd`; the M − N unread units were **not** reviewed, and the silence covers only what was read. Source files are read before documentation, so the budget reaches code first |
 | merge-base unavailable | `merge-base unavailable: fetch the base branch history (fetch-depth 0)` | set `fetch-depth: 0` in the checkout step |
 | isolation backend unavailable (CI) | `isolation backend unavailable: …` in every reproduction's status line | the runner has no Docker; production never falls back |
 | environment bootstrap failed | `environment bootstrap failed (python 3.x, roots […]): …` | the project's manifests do not install on a slim image; see the build log tail in the status |
