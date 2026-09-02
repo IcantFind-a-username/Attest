@@ -623,3 +623,17 @@ def test_manual_reproduction_moves_no_finding_and_no_precision_window(
     out = capsys.readouterr().out
     assert "surfaced: 0" in out
     assert "self-reports: 2 (manual; excluded from precision)" in out
+
+
+def test_top_level_help_says_verify_checks_a_bundle_offline(capsys) -> None:
+    """L-01 pilot wiring: the quickstart sends an operator to `attest verify
+    --bundle … --require-seal`, but the subcommand list described verify only as
+    a self-report recorder, so nothing in `attest --help` pointed at the offline
+    verifier the pilot is told to run."""
+    import contextlib
+
+    from attest.cli.main import main
+
+    with contextlib.suppress(SystemExit):
+        main(["--help"])
+    assert "verify an evidence bundle offline" in capsys.readouterr().out

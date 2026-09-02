@@ -396,7 +396,10 @@ def main(argv: list[str] | None = None) -> int:
 
     p_verify = sub.add_parser(
         "verify",
-        help="record a self-reported reproduction note for a finding (never a certificate)",
+        help=(
+            "verify an evidence bundle offline (--bundle), or record a "
+            "self-reported reproduction note for a finding (never a certificate)"
+        ),
     )
     p_verify.add_argument("finding_id", nargs="?", default=None)
     p_verify.add_argument("--task-id", default=None, help="review task containing the finding")
