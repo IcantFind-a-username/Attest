@@ -106,6 +106,7 @@ These are P0 even though many happy-path tests pass:
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
+| **LATER (proposal)** | a TypeScript executor (vitest/jest differential reproduction) — decision package in `implementation/typescript-executor-decision-package.md`; work-order number is the owner's | it reuses the X-01 protocol and the certification kernel unchanged; only the job, the coverage source and the image are language-specific; placed after L-01 |
 
 C-01 through C-04, R-03, R-01 and V-01 are complete. `mainline.md` fixes the working order from here to L-01; the E-02 pilot is next.
 V-01 follows R-03 and R-01 rather than preceding them, because the pilot measurement needs
@@ -599,6 +600,11 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-09-03 — fix-4 amendment:** one commit
+  (`feat: rank test helpers by use and show representative tests to the generator`), from
+  trial A runs 2-5 (paid check (a)); see D-089 amendment and
+  [`acceptance/2026-09-03-us-stock-helper-trial-rerun.md`](acceptance/2026-09-03-us-stock-helper-trial-rerun.md).
 
 - **2026-09-03 — X-01 gate and the fix-3 amendment:** full gate on `4788d1d` in the
   detached worktree: 909 s wall, production coverage 91.81%, Ruff, Mypy and

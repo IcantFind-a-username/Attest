@@ -564,10 +564,12 @@ def plan_review(repo: Path, diff: DiffInfo, base_ref: str) -> ReviewPlan:
     )
 
 
-MAX_GENERATION_CONTEXT_CHARS = 12_000
+MAX_GENERATION_CONTEXT_CHARS = 20_000
 MAX_SIGNATURE_LINES = 60  # signatures of the anchored module shown to the generator
-MAX_HELPERS = 8  # helpers/fixtures from the nearest test module
+MAX_HELPERS = 12  # helpers, helper classes and fixtures from the nearest test module
 MAX_HELPER_LINES = 25  # per helper or fixture
+MAX_REPRESENTATIVE_TESTS = 2  # tests that use the most-used helpers, shown whole (bounded)
+MAX_REPRESENTATIVE_TEST_LINES = 40
 
 
 def _signature_text(lines: list[str], node: ast.AST) -> str:
@@ -613,11 +615,22 @@ def _nearest_test_module(
     if not tests:
         return None
     by_path = dict(tests)
+    stem = Path(path).stem
+    parts = Path(path).parts
+    # the module named after the anchored file is where its construction
+    # helpers live; a test that merely names the symbol comes second
+    named = [rel for rel, _source in tests if Path(rel).name == f"test_{stem}.py"]
+    if named:
+        closest = max(
+            named,
+            key=lambda rel: sum(
+                1 for left, right in zip(parts, Path(rel).parts, strict=False) if left == right
+            ),
+        )
+        return closest, by_path[closest]
     for rel in referenced:
         if rel in by_path:
             return rel, by_path[rel]
-    stem = Path(path).stem
-    parts = Path(path).parts
 
     def score(rel: str) -> tuple[int, int, str]:
         shared = 0
@@ -633,28 +646,73 @@ def _nearest_test_module(
 
 
 def _test_module_helpers(source: str) -> list[str]:
-    """Fixtures and non-test helper functions (module level or inside test
-    classes) of one test module, each bounded, in source order."""
+    """Fixtures, helper functions and helper classes of one test module -- top
+    level, plus non-test methods of test classes -- ranked by how often the
+    module's own tests use them (the most-used helpers construct the objects
+    under test), each bounded, at most MAX_HELPERS."""
     tree = _parse(source)
     if tree is None:
         return []
+    candidates: list[tuple[int, str, ast.AST]] = []
+    test_bodies: list[str] = []
+
+    def consider(node: ast.AST) -> None:
+        if isinstance(node, ast.ClassDef):
+            if node.name.startswith("Test") or node.name.endswith("Tests"):
+                for item in node.body:
+                    consider(item)
+            else:
+                candidates.append((node.lineno, node.name, node))
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.name.startswith("test"):
+                test_bodies.append(ast.get_source_segment(source, node) or "")
+            else:
+                candidates.append((node.lineno, node.name, node))
+
+    for node in tree.body:
+        consider(node)
+    corpus_text = "\n".join(test_bodies)
+    ranked = sorted(
+        candidates,
+        key=lambda item: (
+            -len(re.findall(rf"\b{re.escape(item[1])}\b", corpus_text)),
+            item[0],
+        ),
+    )
     found: list[tuple[int, str]] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        if node.name.startswith("test"):
-            continue
-        segment = ast.get_source_segment(source, node, padded=True) or ""
+    for line, _name, helper in ranked[:MAX_HELPERS]:
+        segment = ast.get_source_segment(source, helper, padded=True) or ""
         decorators = [
-            ast.get_source_segment(source, decorator) or "" for decorator in node.decorator_list
+            ast.get_source_segment(source, decorator) or ""
+            for decorator in getattr(helper, "decorator_list", [])
         ]
         header = "".join(f"@{decorator}\n" for decorator in decorators)
         body_lines = segment.splitlines()
         if len(body_lines) > MAX_HELPER_LINES:
             body_lines = [*body_lines[:MAX_HELPER_LINES], "    ..."]
-        found.append((node.lineno, header + "\n".join(body_lines)))
+        found.append((line, header + "\n".join(body_lines)))
     found.sort()
-    return [text for _line, text in found[:MAX_HELPERS]]
+    helpers = [text for _line, text in found]
+    # two representative tests that use the most-used helpers: they show the
+    # scale and shape of the inputs the project's own tests build
+    top = [name for _line, name, _node in ranked[:3]]
+    representatives: list[tuple[int, int, str]] = []
+    for test_node in ast.walk(tree):
+        if not isinstance(test_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if not test_node.name.startswith("test"):
+            continue
+        body = ast.get_source_segment(source, test_node, padded=True) or ""
+        uses = sum(1 for name in top if re.search(rf"\b{re.escape(name)}\b", body))
+        if uses:
+            representatives.append((-uses, test_node.lineno, body))
+    representatives.sort()
+    for _uses, _line, body in representatives[:MAX_REPRESENTATIVE_TESTS]:
+        lines = body.splitlines()
+        if len(lines) > MAX_REPRESENTATIVE_TEST_LINES:
+            lines = [*lines[:MAX_REPRESENTATIVE_TEST_LINES], "    ..."]
+        helpers.append("\n".join(lines))
+    return helpers
 
 
 def generation_context(repo: Path, base_ref: str, path: str, line: int) -> str:
@@ -701,14 +759,10 @@ def generation_context(repo: Path, base_ref: str, path: str, line: int) -> str:
         )
     searchable = [name for name in sorted(names) if _searchable(name)]
     referenced: list[str] = []
+    tests: list[ContextSnippet] = []
     if searchable:
         tests, _dropped = _test_references(corpus, searchable)
-        if tests:
-            referenced = [t.path for t in tests]
-            sections.append(
-                "Existing tests naming the symbol (import the project the way they do):\n"
-                + "\n".join(f"- {t.path}::{t.text}" for t in tests)
-            )
+        referenced = [t.path for t in tests]
     nearest = _nearest_test_module(corpus, path, referenced)
     if nearest is not None:
         test_path, test_source = nearest
@@ -725,6 +779,11 @@ def generation_context(repo: Path, base_ref: str, path: str, line: int) -> str:
                 + "\n\n".join(parts)
                 + "\n```"
             )
+    if tests:
+        sections.append(
+            "Existing tests naming the symbol (import the project the way they do):\n"
+            + "\n".join(f"- {t.path}::{t.text}" for t in tests)
+        )
     text = "\n\n".join(sections)
     if len(text) > MAX_GENERATION_CONTEXT_CHARS:
         text = text[:MAX_GENERATION_CONTEXT_CHARS] + "\n[context truncated]"

@@ -140,3 +140,10 @@ def test_generation_context_shows_signatures_and_the_nearest_test_module_helpers
     assert "return Adapter(config={'a': 1}, transport=object())" in context
     assert "def _events():" in context
     assert "from pkg.adapter import Adapter, compute" in context
+    # helpers are ranked by use and a representative test shows the shape of
+    # the inputs the project's tests build (fix 4 amendment, 2026-09-03)
+    assert "def test_parse(adapter):" in context
+    if "Existing tests naming" in context:
+        assert context.index("Nearest existing test module") < context.index(
+            "Existing tests naming"
+        )

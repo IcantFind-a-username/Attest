@@ -835,6 +835,7 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** the us-stock-helper trials: six of six haiku reproductions and the diagnostic sonnet-5 attempts guessed constructor arguments, field names and package paths (`GenericFeedAdapter.__init__() missing 'config' and 'transport'`, `OHLCVBar(date=)`), while the project's own test helpers construct them correctly.
 - **Limits:** the bound is on characters, not on relevance; the paid check is the trial A re-run (a), where the generated test must import the right package path and fail on head, pass on base.
 - **Reversal:** if re-run (b) shows no gain in faithful reproductions, drop the helper section and keep signatures.
+- **Amendment (2026-09-03, trial A runs 2-5):** the nearest test module is first the one named after the anchored file (`test_<stem>.py`, closest by path), helpers include helper classes and are ranked by how often the module's own tests use them (≤ 12), two representative tests using the most-used helpers are shown whole (≤ 40 lines each), the helper section precedes the list of test names, and the bound is 20,000 characters; trial A's generated test then constructs objects exactly as the project's tests do, and its remaining failure is a behavioural threshold (universe size), not an API guess.
 
 
 ### D-090 — `attest review` runs the differential stage CI runs; one verification stage, full commit ids at the entry
