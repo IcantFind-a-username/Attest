@@ -231,7 +231,7 @@ def run_review(
         plan = plan_review(repo, diff, base or "HEAD")
         ledger.append(plan.to_ledger_row(task_id))
         phase = "proposal"
-        proposal = propose_plan(plan, config, budget, provider)
+        proposal = propose_plan(plan, config, budget, provider, cache_root=repo)
         if proposal.omitted_units:
             reviewed = len(plan.units) - len(proposal.omitted_units)
             notes.append(

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from pathlib import Path
 from threading import Lock
 from typing import Any, Protocol
 
@@ -20,6 +21,13 @@ from attest.review.dedup import cluster_findings
 from attest.review.diffs import DiffInfo
 from attest.review.ledger import redact_known_secrets
 from attest.review.planner import ReviewPlan
+from attest.review.recovery import (
+    MODEL_REPAIR_ATTEMPTS,
+    AttemptCache,
+    CachedAttempt,
+    attempt_digest,
+    salvage_findings,
+)
 from attest.review.schema import PROPOSAL_SCHEMA, Finding, validate_finding
 
 # Preregistered per-sample output-token bound for proposal sampling. It feeds
@@ -81,6 +89,8 @@ class SampleObservation:
     sample: int
     stop_reason: str
     output_tokens: int | None
+    recovery: str = "intact"  # intact | empty | salvaged:<n> | repaired | unrecoverable | error
+    replayed: bool = False  # served from the immutable attempt cache, nothing bought
 
 
 def response_fragment(text: str) -> str:
@@ -202,7 +212,12 @@ def build_prompt(diff: DiffInfo, context: str = "") -> str:
 
 
 def propose_plan(
-    plan: ReviewPlan, config: ReviewConfig, budget: Budget, provider: Provider
+    plan: ReviewPlan,
+    config: ReviewConfig,
+    budget: Budget,
+    provider: Provider,
+    *,
+    cache_root: Path | None = None,
 ) -> ProposalRun:
     """Propose per planned unit in deterministic order, then cluster task-wide.
 
@@ -226,6 +241,7 @@ def propose_plan(
                 provider,
                 context=unit.prompt_context(),
                 sample_offset=index * config.k_samples,
+                cache_root=cache_root,
             )
         except BudgetExceeded as exc:
             if index == 0:
@@ -260,10 +276,18 @@ def propose(
     *,
     context: str = "",
     sample_offset: int = 0,
+    cache_root: Path | None = None,
 ) -> ProposalRun:
-    """K parallel samples -> validate four-piece schema -> merge into candidates."""
+    """K parallel samples -> recover/validate four-piece schema -> cluster candidates.
+
+    Recovery is precommitted (R-02): a truncated sample keeps its complete
+    findings, an unusable sample gets exactly MODEL_REPAIR_ATTEMPTS more
+    samples of the same prompt, and every attempt is cached by an immutable
+    digest so a repeated run replays instead of buying.
+    """
     prompt = build_prompt(diff, context)
     k = config.k_samples
+    cache = AttemptCache(cache_root)
     reservations: list[float] = []
     try:
         for i in range(k):
@@ -279,13 +303,40 @@ def propose(
             budget.cancel(reservation)
         raise
 
-    def one(i: int) -> ProviderResult | Exception:
+    def attempt(slot: int, attempt_index: int) -> tuple[ProviderResult, bool] | Exception:
+        """One attempt of the prompt; (result, replayed) or the provider error."""
+        digest = attempt_digest(
+            SYSTEM_PROMPT,
+            prompt,
+            PROPOSAL_SCHEMA,
+            PROPOSER_MAX_OUTPUT_TOKENS,
+            sample_offset + slot,
+            attempt_index,
+        )
+        cached = cache.get(digest)
+        if cached is not None:
+            return (
+                ProviderResult(
+                    cached.text, cached.input_tokens, cached.output_tokens, cached.stop_reason
+                ),
+                True,
+            )
         try:
-            return provider.sample(
+            result = provider.sample(
                 SYSTEM_PROMPT, prompt, PROPOSAL_SCHEMA, PROPOSER_MAX_OUTPUT_TOKENS
             )
         except Exception as exc:  # noqa: BLE001 - error becomes a sample failure
             return exc
+        cache.put(
+            digest,
+            CachedAttempt(
+                result.text, result.input_tokens, result.output_tokens, result.stop_reason
+            ),
+        )
+        return result, False
+
+    def one(i: int) -> tuple[ProviderResult, bool] | Exception:
+        return attempt(i, 0)
 
     with ThreadPoolExecutor(max_workers=k) as pool:
         results = list(pool.map(one, range(k)))
@@ -295,32 +346,68 @@ def propose(
     errors: list[str] = []
     successful_samples = 0
     observations: list[SampleObservation] = []
-    for i, res in enumerate(results):
+    for i, outcome in enumerate(results):
         label = sample_offset + i
-        if isinstance(res, Exception):
+        if isinstance(outcome, Exception):
             budget.cancel(reservations[i])
-            errors.append(f"sample {label}: {type(res).__name__}: {res}")
+            errors.append(f"sample {label}: {type(outcome).__name__}: {outcome}")
             observations.append(
-                SampleObservation(label, f"error:{type(res).__name__}", None)
+                SampleObservation(label, f"error:{type(outcome).__name__}", None, "error")
             )
             per_sample.append([])
             continue
-        budget.settle(f"sample-{label}", reservations[i], res.input_tokens, res.output_tokens)
+        res, replayed = outcome
+        if replayed:
+            budget.cancel(reservations[i])
+        else:
+            budget.settle(
+                f"sample-{label}", reservations[i], res.input_tokens, res.output_tokens
+            )
+        salvage = salvage_findings(res.text)
+        recovery = salvage.status
+        raw_findings = salvage.findings
+        if salvage.status == "unrecoverable":
+            # precommitted repair: the same prompt again, at most
+            # MODEL_REPAIR_ATTEMPTS times, reserved before each dispatch
+            for repair_index in range(1, MODEL_REPAIR_ATTEMPTS + 1):
+                try:
+                    reserved = budget.reserve(
+                        f"sample-{label}-repair-{repair_index}",
+                        len(SYSTEM_PROMPT) + len(prompt),
+                        PROPOSER_MAX_OUTPUT_TOKENS,
+                    )
+                except BudgetExceeded as exc:
+                    recovery = f"unrecoverable; repair unaffordable: {exc.reason}"
+                    break
+                repaired = attempt(i, repair_index)
+                if isinstance(repaired, Exception):
+                    budget.cancel(reserved)
+                    recovery = f"unrecoverable; repair error: {type(repaired).__name__}"
+                    continue
+                repaired_result, repaired_replayed = repaired
+                if repaired_replayed:
+                    budget.cancel(reserved)
+                else:
+                    budget.settle(
+                        f"sample-{label}-repair-{repair_index}",
+                        reserved,
+                        repaired_result.input_tokens,
+                        repaired_result.output_tokens,
+                    )
+                again = salvage_findings(repaired_result.text)
+                if again.status != "unrecoverable":
+                    raw_findings = again.findings
+                    recovery = "repaired"
+                    res = repaired_result
+                    break
         observations.append(
-            SampleObservation(label, res.stop_reason or "not_recorded", res.output_tokens)
-        )
-        try:
-            payload = json.loads(res.text)
-            raw_findings = payload.get("findings", [])
-        except (json.JSONDecodeError, AttributeError):
-            errors.append(
-                f"sample {i}: unparseable JSON; raw={response_fragment(res.text)}"
+            SampleObservation(
+                label, res.stop_reason or "not_recorded", res.output_tokens, recovery, replayed
             )
-            per_sample.append([])
-            continue
-        if not isinstance(raw_findings, list):
+        )
+        if recovery.startswith("unrecoverable"):
             errors.append(
-                f"sample {i}: malformed findings collection; "
+                f"sample {label}: unparseable JSON ({recovery}); "
                 f"raw={response_fragment(res.text)}"
             )
             per_sample.append([])
