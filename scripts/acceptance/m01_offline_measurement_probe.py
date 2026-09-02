@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import importlib.util
 import json
 import os
 import re
@@ -217,13 +218,24 @@ def _run(args: argparse.Namespace) -> int:
             preregistration_sha256="7" * 64, validation_receipt=None).to_json_dict()
         visible = tuple(item for item in result.predictions if is_scored_placement(item.placement))
         expected_product_generators = 5 if source_sha == BASELINE else 6
-        guards = (len(result.final_decisions) == 5, len(visible) == 4,
-            sorted(item.placement.value for item in visible) == ["inline", "inline", "inline", "overflow"],
+        # since C-05 the product publishes same-defect certified findings once and caps
+        # author-visible claims; the four mixed findings of this cassette then surface
+        # as one inline claim instead of three inline plus one overflow
+        family_policy = importlib.util.find_spec("attest.certification.clustering") is not None
+        expected_visible = ["inline"] if family_policy else ["inline", "inline", "inline", "overflow"]
+        guards = (len(result.final_decisions) == 5, len(visible) == len(expected_visible),
+            sorted(item.placement.value for item in visible) == expected_visible,
             result.task_id is not None, bool(result.abstain_reason and result.abstain_reason.strip()),
             product.proposals == 2, product.generators == expected_product_generators,
-            oracle.proposals == 0, oracle.generators == 4, not external_attempts)
+            oracle.proposals == 0, oracle.generators == len(expected_visible), not external_attempts)
         if not all(guards):
-            raise ValueError("common product execution guard failed")
+            detail = {
+                "decisions": len(result.final_decisions),
+                "visible": sorted(item.placement.value for item in visible),
+                "generators": product.generators,
+                "oracle": (oracle.proposals, oracle.generators),
+            }
+            raise ValueError(f"common product execution guard failed: {guards} {detail}")
         isolation_sha = digest(str(root).encode())
     payload: dict[str, object] = {
         "schema_version": "attest.m01-offline-run.v2", "source_sha": source_sha,
