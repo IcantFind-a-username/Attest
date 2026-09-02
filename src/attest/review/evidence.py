@@ -29,6 +29,7 @@ from attest.certification.types import (
     ExecutionRun,
 )
 from attest.certification.validate import ReceiptRejection, validate_receipt
+from attest.execution.provenance import seal, verify_seal
 from attest.review.executor import ExecutionOutcome, ExecutionResult, classify_failure_signature
 
 EVIDENCE_BUNDLE_SCHEMA_VERSION = "attest.evidence-bundle.v1"
@@ -88,6 +89,7 @@ def run_record(
         "skipped_count": run.skipped_count,
         "xfailed_count": run.xfailed_count,
         "network_blocked": run.network_blocked,
+        "fresh_state": run.fresh_state,
         "files": files,
     }
 
@@ -124,6 +126,7 @@ def provenance_digest(receipt: CertificationReceipt) -> str:
 class WrittenBundle:
     path: Path
     manifest_digest: str
+    seal_key_id: str = ""  # V-03: the controller key that sealed it ("" = unsealed)
 
 
 def write_bundle(
@@ -136,6 +139,7 @@ def write_bundle(
     test_bytes: bytes,
     runs: list[tuple[str, int, ExecutionResult, str]],  # (side, index, run, revision)
     binding: BindingObservation | None = None,
+    key: bytes | None = None,
 ) -> WrittenBundle:
     """Persist the bundle under ``root/.attest/evidence/<task>/<candidate>/``."""
     directory = root / ".attest" / "evidence" / receipt.task_id / receipt.candidate_id
@@ -165,7 +169,15 @@ def write_bundle(
     manifest = {"schema_version": EVIDENCE_BUNDLE_SCHEMA_VERSION, "files": files}
     manifest_bytes = canonical_bytes(manifest)
     (directory / "manifest.json").write_bytes(manifest_bytes)
-    return WrittenBundle(path=directory, manifest_digest=sha256_bytes(manifest_bytes))
+    manifest_digest = sha256_bytes(manifest_bytes)
+    key_id = ""
+    if key is not None:
+        # V-03: the controller seals what it wrote; the seal sits beside the
+        # manifest, outside it, and names the receipt it belongs to
+        sealed = seal(manifest_digest, receipt.provenance_digest, key)
+        (directory / "seal.json").write_bytes(canonical_bytes(sealed))
+        key_id = str(sealed["key_id"])
+    return WrittenBundle(path=directory, manifest_digest=manifest_digest, seal_key_id=key_id)
 
 
 @dataclass(frozen=True)
@@ -181,18 +193,25 @@ def _load(directory: Path, relative: str) -> dict[str, Any] | None:
     return dict(value) if isinstance(value, dict) else None
 
 
-def verify_bundle(directory: Path) -> AcceptedReceipt | ReceiptRejection | BundleRejection:
+def verify_bundle(
+    directory: Path, *, key: bytes | None = None, require_seal: bool = False
+) -> AcceptedReceipt | ReceiptRejection | BundleRejection:
     """Recompute every digest and binding from the files, then validate.
 
     No ranking input, no repository access, no subprocess: the bundle alone
     must prove the receipt. Any byte that disagrees with a recorded digest, any
     run that disagrees with its siblings, and any receipt field that disagrees
-    with the recomputed evidence rejects.
+    with the recomputed evidence rejects. With the controller ``key`` the seal
+    is verified too (V-03); ``require_seal`` rejects an unverified seal.
     """
     reasons: list[str] = []
     manifest = _load(directory, "manifest.json")
     if manifest is None or manifest.get("schema_version") != EVIDENCE_BUNDLE_SCHEMA_VERSION:
         return BundleRejection(("manifest missing or unknown schema",))
+    try:
+        manifest_digest = sha256_bytes((directory / "manifest.json").read_bytes())
+    except OSError:
+        return BundleRejection(("manifest unreadable",))
     files = manifest.get("files")
     if not isinstance(files, dict):
         return BundleRejection(("manifest files missing",))
@@ -261,12 +280,22 @@ def verify_bundle(directory: Path) -> AcceptedReceipt | ReceiptRejection | Bundl
             reasons.append(f"run {run.run_id} ran under a different executor profile")
         if record.get("executor_digest") != receipt.executor_digest:
             reasons.append(f"run {run.run_id} ran under a different executor backend")
+        if record.get("fresh_state") is not True:
+            reasons.append(f"run {run.run_id} did not start from fresh writable state")
         records.append(record)
     templates = {json.dumps(record.get("command_template")) for record in records}
     if len(templates) > 1:
         reasons.append("runs used different commands")
     if provenance_digest(receipt) != receipt.provenance_digest:
         reasons.append("provenance digest does not match the receipt body")
+    if key is not None:
+        reasons.extend(
+            verify_seal(
+                _load(directory, "seal.json"), manifest_digest, receipt.provenance_digest, key
+            )
+        )
+    elif require_seal:
+        reasons.append("controller seal not verified: no key supplied")
     if receipt.binding_policy_version:
         binding_raw = _load(directory, "binding.json")
         if binding_raw is None:
@@ -274,9 +303,7 @@ def verify_bundle(directory: Path) -> AcceptedReceipt | ReceiptRejection | Bundl
         else:
             try:
                 binding_raw["changed_lines"] = tuple(binding_raw["changed_lines"])
-                binding_raw["executed_changed_lines"] = tuple(
-                    binding_raw["executed_changed_lines"]
-                )
+                binding_raw["executed_changed_lines"] = tuple(binding_raw["executed_changed_lines"])
                 observation = BindingObservation(**binding_raw)
             except (TypeError, ValueError, KeyError):
                 reasons.append("binding observation malformed")

@@ -303,9 +303,12 @@ Goal: upgrade “head fails/base passes” into a replayable, claim-bound certif
   digests, development adapter, and a result-verification seam. Done 2026-09-03 (see
   Progress; the RED is `tests/execution/test_controller.py::test_result_answering_another_nonce_is_rejected`;
   origin authentication of the envelope is V-03).
-- [ ] **V-03 — fresh-state and provenance envelope.** Give every repeat a fresh writable
+- [x] **V-03 — fresh-state and provenance envelope.** Give every repeat a fresh writable
   state; persist each run atomically; sign or otherwise authenticate controller provenance;
-  provide an offline receipt verifier.
+  provide an offline receipt verifier. Done 2026-09-03 (see Progress; the RED is
+  `tests/execution/test_fresh_repeats.py::test_a_run_started_on_stale_state_is_rejected_by_the_verifier`;
+  the seal is an HMAC under a repository-local controller key, a public-key trust root is a
+  later version).
 
 ### Entry
 
@@ -603,6 +606,16 @@ When a work order completes:
 6. never mark a phase complete from test count alone.
 
 ### Progress
+
+- **2026-09-03 — V-03 complete:** one commit
+  (`feat: fresh writable state per run, a controller seal on every bundle, and the offline verifier (V-03)`).
+  The RED failed on the unpatched path (run records carried no freshness evidence and the
+  verifier accepted a rewritten record) and passes after: a bundle whose run record says the
+  writable state was not fresh is rejected offline; the controller creates the outputs
+  directory empty for every run and names what it removed; every accepted bundle is sealed
+  with HMAC-SHA256 under `.attest/controller.key` (mode 0600, outside every executor mount);
+  a seal made with another key or naming another bundle rejects; `attest verify --bundle DIR
+  [--key FILE] [--require-seal]` verifies offline and exits non-zero on rejection. See D-097.
 
 - **2026-09-03 — X-02 complete (linux-container-v1) with the environment bootstrap (item 8):**
   one commit (`feat: run head code in a Linux container with an environment bootstrap (X-02)`).

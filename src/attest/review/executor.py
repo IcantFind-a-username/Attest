@@ -315,6 +315,7 @@ class ExecutionResult:
     executor_digest: str = ""  # X-01: that adapter's backend digest
     # owner fix 3: modules that shadowed the anchored file (name, file), if any
     import_origins: tuple[tuple[str, str], ...] = ()
+    fresh_state: bool = True  # V-03: the writable outputs directory was created empty
 
 
 @dataclass(frozen=True)
@@ -1118,6 +1119,7 @@ def execute_repro(
             "executor_profile": active_adapter.profile,
             "executor_digest": active_adapter.backend_digest(),
             "import_origins": (),
+            "fresh_state": True,
         }
         request = active_controller.issue(
             task_id=candidate.task_id,
@@ -1147,6 +1149,7 @@ def execute_repro(
         return _deferred(f"executor result rejected: {dispatched.reason}", started)
     envelope = dispatched.envelope
     artifacts = dispatched.artifacts
+    identity["fresh_state"] = dispatched.fresh_state
     stdout = _truncate_output(artifacts.get("stdout.txt"), limits.output_bytes)
     stderr = _truncate_output(artifacts.get("stderr.txt"), limits.output_bytes)
     network_blocked = "network-blocked" in artifacts

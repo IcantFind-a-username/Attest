@@ -108,9 +108,11 @@ Do not confuse target contracts with current behavior:
   run goes through the nonced, content-addressed `attest.execution` protocol and since X-02
   production runs head code in `linux-container-v1` (no network, read-only root, uid 65534,
   no capabilities, tmpfs scratch, image built from the tree's manifests) while a local
-  `attest review` may fall back to `local_development_best_effort` and says so; the result
-  envelope is not yet origin-authenticated (V-03) and `G-SEC-002`'s full red-team matrix on
-  the declared CI platform is open;
+  `attest review` may fall back to `local_development_best_effort` and says so; since V-03
+  every run starts from an empty outputs directory recorded in its run record and every
+  accepted bundle is sealed under the repository's controller key (verify with
+  `attest verify --bundle`); `G-SEC-002`'s full red-team matrix on the declared CI platform
+  is open;
 - current language-level process/network guards are best-effort containment, not a security
   boundary for untrusted head code;
 - the current process audit covers the entire reproduction pytest interpreter, so trusted

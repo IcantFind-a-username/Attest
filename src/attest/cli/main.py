@@ -153,6 +153,15 @@ def cmd_ci(args: argparse.Namespace) -> int:
 
 def cmd_verify(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
+    if args.bundle is not None:
+        return verify_bundle_offline(repo, Path(args.bundle), args.key, args.require_seal)
+    if args.finding_id is None or args.reproduced is None:
+        print(
+            "error: attest verify needs a finding id with --reproduced/--not-reproduced, "
+            "or --bundle DIR",
+            file=sys.stderr,
+        )
+        return 2
     ledger = Ledger(repo)
     store = CandidateStore(repo)
     task_id = args.task_id
@@ -185,6 +194,35 @@ def cmd_verify(args: argparse.Namespace) -> int:
         "receipt from `attest ci`."
     )
     return 0
+
+
+def verify_bundle_offline(repo: Path, bundle: Path, key_path: str | None, require: bool) -> int:
+    """V-03: recompute every digest and the controller seal from the bundle
+    alone; no repository access, no model, no execution."""
+    from attest.certification.types import AcceptedReceipt
+    from attest.execution.provenance import KEY_RELATIVE, load_key
+    from attest.review.evidence import verify_bundle
+
+    key: bytes | None = None
+    candidate = Path(key_path) if key_path else repo / KEY_RELATIVE
+    if candidate.is_file():
+        try:
+            key = load_key(candidate)
+        except (OSError, ValueError) as exc:
+            print(f"error: controller key unusable: {exc}", file=sys.stderr)
+            return 2
+    verdict = verify_bundle(bundle, key=key, require_seal=require)
+    if isinstance(verdict, AcceptedReceipt):
+        receipt = verdict.receipt
+        sealed = "seal verified" if key is not None else "seal not checked (no key)"
+        print(
+            f"accepted: receipt {receipt.provenance_digest} for {receipt.candidate_id} "
+            f"({receipt.executor_profile}); {sealed}"
+        )
+        return 0
+    reasons = getattr(verdict, "reasons", None) or getattr(verdict, "codes", None) or ()
+    print("rejected: " + "; ".join(str(getattr(reason, "value", reason)) for reason in reasons))
+    return 1
 
 
 def cmd_feedback(args: argparse.Namespace) -> int:
@@ -340,11 +378,22 @@ def main(argv: list[str] | None = None) -> int:
         "verify",
         help="record a self-reported reproduction note for a finding (never a certificate)",
     )
-    p_verify.add_argument("finding_id")
+    p_verify.add_argument("finding_id", nargs="?", default=None)
     p_verify.add_argument("--task-id", default=None, help="review task containing the finding")
-    group = p_verify.add_mutually_exclusive_group(required=True)
-    group.add_argument("--reproduced", dest="reproduced", action="store_true")
-    group.add_argument("--not-reproduced", dest="reproduced", action="store_false")
+    group = p_verify.add_mutually_exclusive_group(required=False)
+    group.add_argument("--reproduced", dest="reproduced", action="store_true", default=None)
+    group.add_argument("--not-reproduced", dest="reproduced", action="store_false", default=None)
+    p_verify.add_argument(
+        "--bundle",
+        default=None,
+        help="verify an evidence bundle offline (digests, bindings, controller seal)",
+    )
+    p_verify.add_argument(
+        "--key", default=None, help="controller key file (default: .attest/controller.key)"
+    )
+    p_verify.add_argument(
+        "--require-seal", action="store_true", help="reject a bundle whose seal cannot be verified"
+    )
     p_verify.add_argument("--evidence", default=None, help="command + output that reproduces it")
     p_verify.set_defaults(func=cmd_verify)
 

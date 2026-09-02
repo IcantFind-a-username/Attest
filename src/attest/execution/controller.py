@@ -78,6 +78,10 @@ class DispatchOutcome:
     envelope: ExecutionResultEnvelope | None
     artifacts: Mapping[str, bytes]  # controller-verified bytes, by artifact name
     run_dir: Path | None
+    # V-03: the job's writable outputs directory was created empty for this
+    # run; anything found there beforehand is named (and was removed)
+    fresh_state: bool = True
+    stale_entries: tuple[str, ...] = ()
 
     @property
     def reason(self) -> str:
@@ -238,14 +242,21 @@ class Controller:
         inputs_dir = run_dir / "inputs"
         outputs_dir = run_dir / "outputs"
         artifacts_dir = run_dir / "artifacts"
+        stale: tuple[str, ...] = ()
         try:
             if not tree.is_dir():
                 raise OSError(f"tree {tree} is not a directory")
+            if outputs_dir.exists():
+                stale = tuple(
+                    sorted(str(p.relative_to(outputs_dir)) for p in outputs_dir.rglob("*"))
+                )
             for directory in (inputs_dir, outputs_dir, artifacts_dir):
                 shutil.rmtree(directory, ignore_errors=True)
             run_dir.mkdir(parents=True, exist_ok=True)
             inputs_dir.mkdir()
             outputs_dir.mkdir()
+            if any(outputs_dir.iterdir()):
+                raise OSError("outputs directory is not empty after creation")
             for declared in request.inputs:
                 data = inputs.get(declared.name)
                 if (
@@ -309,4 +320,6 @@ class Controller:
             return DispatchOutcome(
                 False, (f"could not persist the result: {exc}",), envelope, {}, run_dir
             )
-        return DispatchOutcome(True, (), envelope, artifact_bytes, run_dir)
+        return DispatchOutcome(
+            True, (), envelope, artifact_bytes, run_dir, fresh_state=True, stale_entries=stale
+        )

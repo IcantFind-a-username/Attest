@@ -30,6 +30,7 @@ from attest.certification.types import (
 )
 from attest.certification.validate import validate_receipt
 from attest.execution.local_adapter import LocalDevelopmentAdapter
+from attest.execution.provenance import load_or_create_key
 from attest.execution.types import LOCAL_DEVELOPMENT_PROFILE
 from attest.review.candidates import StoredCandidate
 from attest.review.evidence import (
@@ -282,6 +283,7 @@ def attempt_certification(
             test_bytes=test_bytes,
             runs=[(side, index, run, revision) for side, index, run, revision in sided],
             binding=execution.binding,
+            key=load_or_create_key(bundle_root),
         )
     return CertificationAttempt(
         candidate_id=candidate_id,
