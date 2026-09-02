@@ -112,12 +112,13 @@ Do not confuse target contracts with current behavior:
   every run starts from an empty outputs directory recorded in its run record and every
   accepted bundle is sealed under the repository's controller key (verify with
   `attest verify --bundle`); since D-102 (2026-09-03) a head failure raised by a
-  `raise`/`assert` statement on a changed line of the anchored file is a *behavior change*,
-  not a regression: it is a `behavior_change` receipt only when the rejected input occurs
-  verbatim in the base tree's tests, fixtures or documentation, and otherwise stays in
-  the drawer as "behavior change confirmed, intent unknown" (the offline verifier re-judges
-  the intent observation); `G-SEC-002`'s full red-team matrix on the declared CI platform
-  is open;
+  `raise`/`assert` statement on a changed line of the anchored file that escaped the
+  anchored code is a *behavior change*, not a regression: it is a `behavior_change` receipt
+  only when every rejected input (a test literal equal to a local of the raising frame or
+  quoted in its message) occurs quoted in the base tree's tests, fixtures or documentation,
+  and otherwise stays in the drawer as "behavior change confirmed, intent unknown" (the
+  offline verifier re-judges the intent observation; truncated or unparsable evidence
+  DEFERs); `G-SEC-002`'s full red-team matrix on the declared CI platform is open;
 - current language-level process/network guards are best-effort containment, not a security
   boundary for untrusted head code;
 - the current process audit covers the entire reproduction pytest interpreter, so trusted

@@ -13,7 +13,8 @@ its first stratum ran; `r01` and the 3,200 bound stay.**
 | E-04 collector, fail-closed preflight, protocol v1 frozen | `5fc03fa` | every refusal by reason; shadow on/off identity at zero cost |
 | E-04 stratum v1 result, D-103; `heldout_run.py --code` semantics | `50c21d2` | docs |
 | D-104 shadow guard: dotted names from the tree roots | `69921e0` | stdlib `logging` beside `pkg/logging.py` is not a shadow; fix-3 REDs still pass |
-| supplementary held-out table, D-101 amendment, spend, this handoff | (below) | docs |
+| supplementary held-out table, D-101 amendment, spend, this handoff | `506aae1` | docs |
+| D-049 review pass: five reproduced fail-open/crash paths in the discriminator fixed (D-102 amendment) | (below) | observer REDs for F1-F5; executor REDs for a handled raise and a surrogate message; replay v2: same eight verdicts |
 
 Gates: full `pytest --cov` + Ruff + Mypy + `git diff --check` on the working tree after D-102
 (1 real failure fixed — the benchmark status map made total over the new class; the M-01 probe
@@ -37,10 +38,22 @@ nothing. The status shows only the label; the ledger and bundle keep the observa
 | `3a32c92` / `7ecf2fb275` (E-01 publication) | `deferred`, `behavior_change`, `ValueError` from the `raise` at patterns_shapes.py:349, 3 rejected inputs, **0 witnesses** → drawer |
 | 7 held-out candidates on 5 defects (requests 1142, 1921, 5414; pylint 4551, 4604 ×3) | all `regression_reproduced`, unchanged |
 
+**D-049 review pass (one bounded pass, findings fixed only where reproduced):** F1 the
+tracer's 32-record cap could evict the rejecting raise (now 256 distinct records, duplicates
+suppressed, a `truncated` flag that DEFERs); F2 an unparsable anchored file classified every
+raise as a crash (now DEFERs when an origin lies on a changed line); F3 substring matching
+made a dictionary key inside a message an "input" and `requirements.txt` a witness (now:
+equality with a local or quoted in the message; witnesses must quote the literal; data files
+count only inside test/fixture/example/doc directories); F4 a raise the changed code handled
+itself decided the class (now the tracer records escape, and the raise must agree with the
+JUnit failure type or a test-level failure); F5 a lone surrogate in a message crashed the
+hook (replaced before writing). Replay v2 on the eight real receipts: same verdicts.
+
 Residual (`RISK-INTENT-01`): a rejection raised by an unchanged helper called from a changed
-line is still a regression; only string literals are identified as inputs; a literal present
-in base tests as a negative example is not distinguished (mitigated by requiring every
-identified input to be witnessed).
+line is still a regression; inputs built by the test at run time (f-strings, concatenation)
+are not identified and such receipts stay in the drawer; a literal present in base tests as a
+negative example is not distinguished (mitigated by requiring every identified input to be
+witnessed and quoted).
 
 ## Decision 2 — the supplementary held-out run (19 cases, `.heldout-rerun`)
 

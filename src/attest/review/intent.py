@@ -1,7 +1,10 @@
-"""Observing the intent of a head failure (D-102): the raise origins the tracer
-recorded, the statement kind from the head source, the rejected inputs from the
-generated test's literals, and their witnesses in the base tree. File reads
-only: no execution, no model, no repository command.
+"""Observing the intent of a head failure (D-102, tightened after the D-049 review):
+the raise origins the tracer recorded, the statement kind from the head source, the
+rejected inputs from the generated test's literals, and their witnesses in the base
+tree. File reads only: no execution, no model, no repository command.
+
+Fail closed at every step: an unreadable or unparsable anchored file, a truncated
+origin record, or head runs that disagree all DEFER instead of classifying.
 """
 
 from __future__ import annotations
@@ -18,7 +21,7 @@ from attest.certification.intent import (
     IntentObservation,
 )
 
-MAX_ORIGIN_RECORDS = 32
+MAX_ORIGIN_RECORDS = 256
 MAX_MESSAGE_CHARS = 2_000
 MAX_VALUE_CHARS = 500
 MAX_VALUES = 16
@@ -26,6 +29,8 @@ MIN_LITERAL_CHARS = 2
 MAX_WITNESS_FILES = 5_000
 MAX_WITNESS_FILE_BYTES = 1_000_000
 MAX_WITNESS_TOTAL_BYTES = 64_000_000
+# a failure the test itself raised: the escaped rejection may still be its cause
+TEST_LEVEL_FAILURES = frozenset({"AssertionError", "Failed", ""})
 WITNESS_DIRS = frozenset(
     {
         "tests",
@@ -41,7 +46,8 @@ WITNESS_DIRS = frozenset(
         "doc",
     }
 )
-WITNESS_SUFFIXES = (".md", ".rst", ".txt")
+DOC_SUFFIXES = (".md", ".rst")  # documentation anywhere in the tree
+DATA_SUFFIXES = (".txt", ".json", ".yaml", ".yml", ".toml", ".csv")  # only inside witness dirs
 SKIPPED_DIRS = frozenset(
     {
         ".git",
@@ -71,18 +77,33 @@ class RaiseOrigin:
     exception_type: str
     message: str  # bounded str(exception)
     values: tuple[str, ...]  # bounded string-typed locals of that frame
+    escaped: bool = True  # False when a frame of the anchored file handled it
 
 
-def parse_raise_origins(marker: bytes | None) -> tuple[RaiseOrigin, ...]:
-    """The tracer's ``raise-origin`` artifact, fail-soft: malformed rows are dropped."""
+@dataclass(frozen=True)
+class RaiseRecord:
+    origins: tuple[RaiseOrigin, ...]
+    truncated: bool  # the tracer hit its record bound; the record is incomplete
+
+
+def parse_raise_record(marker: bytes | None) -> RaiseRecord:
+    """The tracer's ``raise-origin`` artifact, fail-soft on malformed rows and
+    fail-closed on an unreadable artifact (``truncated`` = incomplete)."""
     if not marker:
-        return ()
+        return RaiseRecord((), False)
     try:
-        rows = json.loads(marker.decode("utf-8", errors="replace"))
+        payload = json.loads(marker.decode("utf-8", errors="replace"))
     except ValueError:
-        return ()
-    if not isinstance(rows, list):
-        return ()
+        return RaiseRecord((), True)
+    if isinstance(payload, list):  # the first record format: a bare list
+        rows: list[object] = payload
+        truncated = False
+    elif isinstance(payload, dict):
+        raw_rows = payload.get("origins")
+        rows = raw_rows if isinstance(raw_rows, list) else []
+        truncated = bool(payload.get("truncated")) or "error" in payload
+    else:
+        return RaiseRecord((), True)
     origins: list[RaiseOrigin] = []
     for row in rows[:MAX_ORIGIN_RECORDS]:
         if not isinstance(row, dict):
@@ -102,17 +123,25 @@ def parse_raise_origins(marker: bytes | None) -> tuple[RaiseOrigin, ...]:
                     for value in (values if isinstance(values, list) else [])[:MAX_VALUES]
                     if isinstance(value, str)
                 ),
+                escaped=bool(row.get("escaped", True)),
             )
         )
-    return tuple(origins)
+    return RaiseRecord(tuple(origins), truncated or len(rows) > MAX_ORIGIN_RECORDS)
 
 
-def statement_kinds(source: str) -> dict[int, str]:
-    """Line -> ``raise`` | ``assert`` for every line such a statement spans."""
+def parse_raise_origins(marker: bytes | None) -> tuple[RaiseOrigin, ...]:
+    return parse_raise_record(marker).origins
+
+
+def statement_kinds(source: str) -> dict[int, str] | None:
+    """Line -> ``raise`` | ``assert`` for every line such a statement spans;
+    ``None`` when the source cannot be parsed (the caller must not classify)."""
+    if not source.strip():
+        return None
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
-        return {}
+        return None
     kinds: dict[int, str] = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.Raise):
@@ -128,51 +157,69 @@ def statement_kinds(source: str) -> dict[int, str]:
 
 
 def string_literals(source: str) -> tuple[str, ...]:
-    """The string constants of the generated test (f-string parts included):
-    the only inputs the test can have fed the code under test verbatim."""
+    """The string constants of the generated test that can have been fed to the
+    code under test: not docstrings, not dictionary keys, not subscripts."""
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
         return ()
+    excluded: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            excluded.update(id(key) for key in node.keys if key is not None)
+        elif isinstance(node, ast.Subscript):
+            excluded.add(id(node.slice))
+        elif isinstance(node, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            body = node.body
+            if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+                excluded.add(id(body[0].value))
     literals: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            value = node.value
-            if len(value.strip()) >= MIN_LITERAL_CHARS:
-                literals.add(value)
-    # a module/function docstring is prose about the test, never an input
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
-            docstring = ast.get_docstring(node, clean=False)
-            if docstring is not None:
-                literals.discard(docstring)
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in excluded
+            and len(node.value.strip()) >= MIN_LITERAL_CHARS
+        ):
+            literals.add(node.value)
     return tuple(sorted(literals))
 
 
+def _quoted_forms(literal: str) -> tuple[str, ...]:
+    return (repr(literal), '"' + literal + '"', "'" + literal + "'", "`" + literal + "`")
+
+
 def identify_rejected_inputs(literals: tuple[str, ...], origin: RaiseOrigin) -> tuple[str, ...]:
-    """The test literals that reached the raising frame: present in the
-    exception message or in a string-typed local of that frame."""
-    haystacks = (origin.message, *origin.values)
-    return tuple(literal for literal in literals if any(literal in text for text in haystacks))
+    """The test literals that reached the raising frame: equal to a string-typed
+    local of that frame, or quoted verbatim in the exception message. Substring
+    presence is not enough (a dictionary key inside a message is not an input)."""
+    values = set(origin.values)
+    return tuple(
+        literal
+        for literal in literals
+        if literal in values or any(form in origin.message for form in _quoted_forms(literal))
+    )
 
 
 def is_witness_file(relative: Path) -> bool:
     """A file of the base tree that can attest an input as legitimate: a test
-    module, a fixture or example directory, or documentation."""
-    parts = relative.parts[:-1]
-    if any(part in WITNESS_DIRS for part in parts):
-        return True
+    module anywhere, documentation anywhere, data files only inside a test,
+    fixture, example or documentation directory."""
     name = relative.name
-    if name.endswith(WITNESS_SUFFIXES) or name.upper().startswith("README"):
+    in_witness_dir = any(part in WITNESS_DIRS for part in relative.parts[:-1])
+    if name.endswith(DOC_SUFFIXES) or name.upper().startswith("README"):
         return True
-    return name == "conftest.py" or (
+    if name == "conftest.py" or (
         name.endswith(".py") and (name.startswith("test_") or name.endswith("_test.py"))
-    )
+    ):
+        return True
+    return in_witness_dir and (name.endswith(".py") or name.endswith(DATA_SUFFIXES))
 
 
 def find_witnesses(base_tree: Path, literals: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
-    """(literal, relative path) for every literal found verbatim in a witness file
-    of ``base_tree``; bounded walk, first witness per literal."""
+    """(literal, relative path) for every literal that occurs *quoted* in a witness
+    file of ``base_tree`` -- as a string literal, or in backticks -- so that it is
+    used there as an input, not merely mentioned; bounded walk, first witness each."""
     pending = set(literals)
     found: dict[str, str] = {}
     files_seen = 0
@@ -191,8 +238,10 @@ def find_witnesses(base_tree: Path, literals: tuple[str, ...]) -> tuple[tuple[st
             if files_seen > MAX_WITNESS_FILES:
                 return tuple(sorted(found.items()))
             try:
+                if path.is_symlink():
+                    continue
                 size = path.stat().st_size
-                if size > MAX_WITNESS_FILE_BYTES or path.is_symlink():
+                if size > MAX_WITNESS_FILE_BYTES:
                     continue
                 bytes_seen += size
                 if bytes_seen > MAX_WITNESS_TOTAL_BYTES:
@@ -201,17 +250,35 @@ def find_witnesses(base_tree: Path, literals: tuple[str, ...]) -> tuple[tuple[st
             except OSError:
                 continue
             for literal in list(pending):
-                if literal in text:
+                if any(form in text for form in _quoted_forms(literal)):
                     found[literal] = relative.as_posix()
                     pending.discard(literal)
     return tuple(sorted(found.items()))
 
 
+def failure_type(failure_message: str) -> str:
+    """The exception type a JUnit failure message names ("Type: text"), or ""."""
+    head = failure_message.split(":", 1)[0].strip() if failure_message else ""
+    return head if head.isidentifier() or head.replace(".", "").isidentifier() else ""
+
+
 def _rejecting_origin(
-    origins: tuple[RaiseOrigin, ...], changed: frozenset[int], kinds: dict[int, str]
+    origins: tuple[RaiseOrigin, ...],
+    changed: frozenset[int],
+    kinds: dict[int, str],
+    failure: str,
 ) -> RaiseOrigin | None:
+    """The first origin that is a raise/assert on a changed line, escaped the
+    anchored code, and is consistent with the failure the test reported: either
+    the same exception type, or a test-level failure (assertion, pytest.fail)
+    that the escaped rejection can have caused."""
+    reported = failure_type(failure).rsplit(".", 1)[-1]
     for origin in origins:
-        if origin.line in changed and kinds.get(origin.line) in REJECTING_STATEMENTS:
+        if origin.line not in changed or kinds.get(origin.line) not in REJECTING_STATEMENTS:
+            continue
+        if not origin.escaped:
+            continue
+        if reported in TEST_LEVEL_FAILURES or reported == origin.exception_type:
             return origin
     return None
 
@@ -224,12 +291,34 @@ def observe_intent(
     test_source: str,
     head_origins: list[tuple[RaiseOrigin, ...]],
     base_tree: Path,
+    head_failures: list[str] | None = None,
+    truncated: bool = False,
 ) -> IntentObservation | str:
-    """The intent observation for one differential, or the reason the head runs
-    could not be read consistently (a string; the caller DEFERs)."""
+    """The intent observation for one differential, or the reason it cannot be
+    made (a string; the caller DEFERs and buys nothing)."""
+    if truncated:
+        return (
+            "the raise-origin record is incomplete (the tracer hit its record bound); "
+            "the failure origin cannot be classified"
+        )
     changed = frozenset(changed_lines)
+    failures = list(head_failures or [""] * len(head_origins))
+    if len(failures) < len(head_origins):
+        failures += [""] * (len(head_origins) - len(failures))
     kinds = statement_kinds(head_source)
-    rejecting = [_rejecting_origin(origins, changed, kinds) for origins in head_origins]
+    any_on_changed = any(
+        origin.line in changed for origins in head_origins for origin in origins
+    )
+    if kinds is None and any_on_changed:
+        return (
+            f"the anchored file {path} could not be parsed on the host; a failure origin "
+            "on a changed line cannot be classified"
+        )
+    kinds = kinds or {}
+    rejecting = [
+        _rejecting_origin(origins, changed, kinds, failure)
+        for origins, failure in zip(head_origins, failures, strict=True)
+    ]
     present = [origin for origin in rejecting if origin is not None]
     if present and len(present) != len(rejecting):
         return "head runs disagree on whether the failure was raised from a changed line"

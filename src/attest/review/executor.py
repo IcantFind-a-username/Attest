@@ -33,7 +33,7 @@ from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.diffs import parse_diff
 from attest.review.gate import GateResult, apply_verification
-from attest.review.intent import RaiseOrigin, observe_intent, parse_raise_origins
+from attest.review.intent import RaiseOrigin, observe_intent, parse_raise_record
 from attest.review.ledger import Ledger
 from attest.review.planner import generation_context
 from attest.review.proposer import Provider, call_provider, no_text_reason, response_fragment
@@ -321,8 +321,11 @@ class ExecutionResult:
     # owner fix 3: modules that shadowed the anchored file (name, file), if any
     import_origins: tuple[tuple[str, str], ...] = ()
     fresh_state: bool = True  # V-03: the writable outputs directory was created empty
-    # D-102: exceptions first seen in a frame of the anchored file, in order
+    # D-102: exceptions first seen in a frame of the anchored file, in order;
+    # ``raise_origins_truncated`` says the tracer hit its record bound
     raise_origins: tuple[RaiseOrigin, ...] = ()
+    raise_origins_truncated: bool = False
+    failure_message: str = ""  # the JUnit failure message ("Type: text"), failed runs only
 
 
 @dataclass(frozen=True)
@@ -540,12 +543,24 @@ _origin_marker = Path(os.environ["ATTEST_OUTPUTS"]) / "import-origin"
 _raise_marker = Path(os.environ["ATTEST_OUTPUTS"]) / "raise-origin"
 _executed_lines = set()
 _matches = {}
-_raise_origins = []
-_seen_exceptions = {}
-MAX_RAISE_ORIGINS = 32
-MAX_MESSAGE_CHARS = 2000
-MAX_VALUE_CHARS = 500
-MAX_VALUES = 16
+_raise_origins = []  # recorded exception origins, in order
+_origin_index = {}  # id(exception) -> index into _raise_origins
+_seen_exceptions = {}  # id(exception) -> the object (kept alive so ids stay unique)
+_signatures = set()  # exact-duplicate suppression
+_pending = {}  # id(frame) -> id(exception) currently propagating through that frame
+_caught = set()  # ids of exceptions handled inside a frame of the anchored file
+_truncated = False
+MAX_RAISE_ORIGINS = 256
+MAX_SEEN_EXCEPTIONS = 4096
+MAX_MESSAGE_CHARS = 1000
+MAX_VALUE_CHARS = 300
+MAX_VALUES = 12
+
+
+def _clean(text):
+    # lone surrogates (os.fsdecode of undecodable bytes) must not break the
+    # artifact write: replace them, never raise inside the hook
+    return text.encode("utf-8", "replace").decode("utf-8")
 
 
 def _string_values(frame):
@@ -556,7 +571,7 @@ def _string_values(frame):
         return values
     for _name, value in items:
         if isinstance(value, str):
-            values.append(value[:MAX_VALUE_CHARS])
+            values.append(_clean(value[:MAX_VALUE_CHARS]))
             if len(values) >= MAX_VALUES:
                 break
     return values
@@ -565,28 +580,57 @@ def _string_values(frame):
 def _record_exception(frame, arg):
     # The first exception event for one exception object is the innermost
     # frame of the anchored file it passed through (only anchored frames are
-    # traced). The object is kept so its id cannot be reused by another.
-    if len(_raise_origins) >= MAX_RAISE_ORIGINS:
-        return
+    # traced). Every later event for the same object marks propagation into
+    # another anchored frame. A frame that runs a line after the event has
+    # handled the exception; a frame that returns right after it let it out.
+    global _truncated
     if not isinstance(arg, tuple) or len(arg) != 3:
         return
     exc_type, exc_value, _tb = arg
-    if id(exc_value) in _seen_exceptions:
+    key = id(exc_value)
+    _pending[id(frame)] = key
+    if key in _seen_exceptions:
         return
-    _seen_exceptions[id(exc_value)] = exc_value
+    if len(_seen_exceptions) >= MAX_SEEN_EXCEPTIONS:
+        _truncated = True
+        return
+    _seen_exceptions[key] = exc_value
     try:
-        message = str(exc_value)
+        message = _clean(str(exc_value)[:MAX_MESSAGE_CHARS])
     except Exception:
         message = ""
-    _raise_origins.append(
-        {
-            "line": frame.f_lineno,
-            "function": frame.f_code.co_name,
-            "exception_type": getattr(exc_type, "__name__", str(exc_type)),
-            "message": message[:MAX_MESSAGE_CHARS],
-            "values": _string_values(frame),
-        }
-    )
+    record = {
+        "line": frame.f_lineno,
+        "function": frame.f_code.co_name,
+        "exception_type": getattr(exc_type, "__name__", str(exc_type)),
+        "message": message,
+        "values": _string_values(frame),
+        "exception_id": key,
+    }
+    signature = (record["line"], record["exception_type"], message, tuple(record["values"]))
+    if signature in _signatures:
+        return
+    if len(_raise_origins) >= MAX_RAISE_ORIGINS:
+        _truncated = True
+        return
+    _signatures.add(signature)
+    _origin_index[key] = len(_raise_origins)
+    _raise_origins.append(record)
+
+
+def _write_raise_origins():
+    origins = []
+    for record in _raise_origins:
+        row = dict(record)
+        key = row.pop("exception_id")
+        row["escaped"] = key not in _caught
+        origins.append(row)
+    payload = {"origins": origins, "truncated": _truncated}
+    try:
+        text = json.dumps(payload, ensure_ascii=True)
+    except Exception as exc:
+        text = json.dumps({"origins": [], "truncated": True, "error": type(exc).__name__})
+    _raise_marker.write_text(text, encoding="utf-8")
 
 
 def _expected_module_names():
@@ -644,8 +688,13 @@ def _attest_tracer(frame, event, arg):
         return None
     if event == "line":
         _executed_lines.add(frame.f_lineno)
+        handled = _pending.pop(id(frame), None)
+        if handled is not None:
+            _caught.add(handled)
     elif event == "exception":
         _record_exception(frame, arg)
+    elif event == "return":
+        _pending.pop(id(frame), None)
     return _attest_tracer
 
 
@@ -661,7 +710,10 @@ def pytest_runtest_protocol(item, nextitem):
         _lines_marker.write_text(
             ",".join(str(n) for n in sorted(_executed_lines)), encoding="utf-8"
         )
-        _raise_marker.write_text(json.dumps(_raise_origins, ensure_ascii=False), encoding="utf-8")
+        try:
+            _write_raise_origins()
+        except Exception:
+            pass
         _record_import_origin()
 """
 LINES_PLUGIN_NAME = "attest_repro_lines"
@@ -767,6 +819,7 @@ class _JUnitSummary:
     skipped: int
     xfailed: int
     test_node: str
+    failure_message: str = ""  # first <failure>/<error> message attribute, entity-decoded
 
 
 def _junit_summary(data: bytes) -> _JUnitSummary:
@@ -795,6 +848,16 @@ def _junit_summary(data: bytes) -> _JUnitSummary:
         if "test_repro" in parts and name:
             module_index = len(parts) - 1 - parts[::-1].index("test_repro")
             test_node = "::".join(["test_repro.py", *parts[module_index + 1 :], name])
+    failure_message = ""
+    for case in cases:
+        for tag in ("failure", "error"):
+            for node in case.iter(tag):
+                failure_message = " ".join(str(node.attrib.get("message", "")).split())[:2000]
+                break
+            if failure_message:
+                break
+        if failure_message:
+            break
     return _JUnitSummary(
         failures=failures,
         errors=errors,
@@ -802,6 +865,7 @@ def _junit_summary(data: bytes) -> _JUnitSummary:
         skipped=skipped,
         xfailed=xfailed,
         test_node=test_node,
+        failure_message=failure_message,
     )
 
 
@@ -1209,6 +1273,7 @@ def execute_repro(
             "import_origins": (),
             "fresh_state": True,
             "raise_origins": (),
+            "raise_origins_truncated": False,
         }
         request = active_controller.issue(
             task_id=candidate.task_id,
@@ -1364,7 +1429,9 @@ def execute_repro(
         )
     identity["executed_lines"] = _executed_lines(artifacts.get("executed-lines"))
     identity["import_origins"] = _import_origins(artifacts.get("import-origin"))
-    identity["raise_origins"] = parse_raise_origins(artifacts.get("raise-origin"))
+    raise_record = parse_raise_record(artifacts.get("raise-origin"))
+    identity["raise_origins"] = raise_record.origins
+    identity["raise_origins_truncated"] = raise_record.truncated
     junit_bytes = artifacts.get("junit.xml")
     try:
         if junit_bytes is None:
@@ -1416,6 +1483,7 @@ def execute_repro(
             xfailed_count=junit.xfailed,
             test_node=junit.test_node,
             junit_xml=junit_text,
+            failure_message=junit.failure_message,
             **identity,
         )
     return _deferred(
@@ -1706,6 +1774,8 @@ def execute_differential(
             head_source=head_source,
             test_source=spec.test_body,
             head_origins=[run.raise_origins for run in head_runs],
+            head_failures=[run.failure_message for run in head_runs],
+            truncated=any(run.raise_origins_truncated for run in head_runs),
             base_tree=trees_dir / "base",
         )
         if isinstance(observed, str):

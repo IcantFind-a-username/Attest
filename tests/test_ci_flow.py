@@ -1509,7 +1509,7 @@ def test_a_new_rejection_the_base_tests_attest_publishes_as_a_behavior_change(
     assert "Behavior change (intent to confirm):" in body
     assert "Verified behavior change:" in body
     assert "rejects an input the merge base accepted" in body
-    assert "head raises ValueError at app.py:10 on 'buyback'" in body
+    assert "head raises ValueError at app.py:10 on 'the buyback plan raises the floor'" in body
     assert "tests/test_app.py" in body
     assert "If the rejection is intended, dismiss this finding." in body
     final = github_server.status_bodies[-1]
@@ -1521,7 +1521,7 @@ def test_a_new_rejection_the_base_tests_attest_publishes_as_a_behavior_change(
     bundle = Path(str(certification["bundle_path"]))
     intent = json.loads((bundle / "intent.json").read_text(encoding="utf-8"))
     assert intent["new_rejection"] is True
-    assert ["buyback", "tests/test_app.py"] in intent["witnesses"]
+    assert intent["witnesses"] == [["the buyback plan raises the floor", "tests/test_app.py"]]
     receipt = json.loads((bundle / "receipt.json").read_text(encoding="utf-8"))
     assert receipt["evidence_class"] == "behavior_change"
     assert receipt["intent_policy_version"] == "attest.intent.new-rejection.v1"

@@ -240,7 +240,13 @@ def preflight_prospective(
     trials = _read_jsonl(study_dir / TRIALS_FILE)
     first_outcome = min((_utc(row["recorded_at"]) for row in trials), default=None)
     for row in samples:
-        recorded_at = _utc(row.get("recorded_at"))
+        try:
+            recorded_at = _utc(row.get("recorded_at"))
+        except ValueError as exc:
+            raise ProspectivePreflightError(
+                REASON_SAMPLE_AFTER_OUTCOMES,
+                f"sampled unit {row.get('unit_id')} has no valid recorded_at timestamp",
+            ) from exc
         probability = row.get("silent_audit_inclusion_probability")
         if (
             not isinstance(probability, int | float)

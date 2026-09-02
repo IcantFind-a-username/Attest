@@ -5,10 +5,11 @@ Date: 2026-09-03. No model call; every reproduction re-executed through
 generated tests of every receipt the E-02 held-out run published (5 defects, 7 candidates,
 [held-out report](2026-09-03-e02-heldout.md)) and of the one E-01 natural-null publication
 (`3a32c92`, candidate `7ecf2fb275`, [natural-null report](2026-09-03-e01-natural-null.md)).
-Result files: `.attest/corpora/swebench/results/intent-replay.json` (all eight) and
-`intent-replay-natural-null.json` (the `3a32c92` row re-run after the verdict wording was
-made author-safe; same verdict). Evidence level: **mechanism replay on the eight real
-receipts**, not a new population.
+Result files: `.attest/corpora/swebench/results/intent-replay.json` (all eight, first
+rule), `intent-replay-natural-null.json` (the `3a32c92` row after the verdict wording was
+made author-safe) and `intent-replay-v2.json` (all eight again under the rule tightened by
+the D-049 review pass, see the D-102 amendment: same eight verdicts). Evidence level:
+**mechanism replay on the eight real receipts**, not a new population.
 
 ## The RED the owner named
 
@@ -28,7 +29,7 @@ receipts**, not a new population.
 | pylint-dev__pylint-4604 | 034c8cce0a | reproduced | regression_reproduced | no | none (the test asserts) | – | – |
 | pylint-dev__pylint-4604 | a1933d1ec3 | reproduced | regression_reproduced | no | none (the test asserts) | – | – |
 | pylint-dev__pylint-4604 | a3c6946d1d | reproduced | regression_reproduced | no | none (the test asserts) | – | – |
-| us-stock-helper `3a32c92` | 7ecf2fb275 | **deferred** | **behavior_change** | **yes** | `ValueError` from the `raise` at patterns_shapes.py:349, a changed line, on every head run | `买入价曾经历史新高`, `本次形态与`, `相关，仅作历史信息呈现` | **0 of 3** in the base tree's tests, fixtures or docs |
+| us-stock-helper `3a32c92` | 7ecf2fb275 | **deferred** | **behavior_change** | **yes** | `ValueError` from the `raise` at patterns_shapes.py:349, a changed line, escaped, on every head run; the JUnit failure is that `ValueError` | first rule: `买入价曾经历史新高`, `本次形态与`, `相关，仅作历史信息呈现` (substrings of the f-string-built phrase), 0 of 3 witnessed; tightened rule: none identified (no literal equals the phrase or is quoted in the message) | **0** — drawer either way |
 
 Reading: the discriminator separates the one wrong publication from the seven right ones
 by structure, not by wording — the head failure of `3a32c92` is an exception raised by a
@@ -45,11 +46,15 @@ regression fails in the test's own assertion (or, for requests-1142, records onl
 2. If, on every head run, an exception originated from a `raise` or `assert` statement on
    a changed line of the anchored file, the differential is a **behavior change**: head
    rejects an input the base accepted.
-3. The rejected inputs are the generated test's string literals that reached the raising
-   frame (present in the exception message or in a string local). The receipt publishes —
-   as a `behavior_change` receipt, worded as what it proves — only when every identified
-   input occurs verbatim in a witness file of the **base** tree (tests, fixtures, examples,
-   documentation). Otherwise: drawer, label "behavior change confirmed, intent unknown".
+3. The rejected inputs are the generated test's string literals (not docstrings, dictionary
+   keys or subscripts) that reached the raising frame: equal to a string local of that
+   frame, or quoted verbatim in the exception message. The receipt publishes — as a
+   `behavior_change` receipt, worded as what it proves — only when every identified input
+   occurs *quoted* in a witness file of the **base** tree (a test module or documentation
+   anywhere; data files only inside test, fixture, example or doc directories). Otherwise:
+   drawer, label "behavior change confirmed, intent unknown". The raise must have escaped
+   the anchored code and agree with the JUnit failure (same exception type, or a test-level
+   assertion/`pytest.fail`); a truncated origin record or an unparsable anchored file DEFERs.
 4. The receipt binds the intent observation (`intent_policy_version`, `intent_digest`,
    `intent.json` in the bundle); `attest verify --bundle` recomputes the digest and
    re-judges the verdict, so a bundle whose observation lost its witnesses is rejected.

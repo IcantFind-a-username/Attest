@@ -209,6 +209,14 @@ def test_preflight_refuses_a_sample_recorded_after_an_outcome_or_before_the_free
         _preflight(early, tmp_path)
     assert refused.value.reason == REASON_SAMPLE_AFTER_OUTCOMES
 
+    # a sample row without a timestamp is refused with a reason, not a traceback
+    (early / "sample.jsonl").write_text(
+        json.dumps({**_unit().__dict__, "silent_audit_inclusion_probability": 0.5}) + "\n"
+    )
+    with pytest.raises(ProspectivePreflightError) as refused:
+        _preflight(early, tmp_path)
+    assert refused.value.reason == REASON_SAMPLE_AFTER_OUTCOMES
+
 
 def test_preflight_refuses_without_development_cap_headroom(tmp_path: Path) -> None:
     study = _study(tmp_path)

@@ -2981,7 +2981,7 @@ def test_a_new_rejection_of_a_fabricated_input_goes_to_the_drawer(tmp_path: Path
         "raise",
         "ValueError",
     )
-    assert intent.rejected_inputs == ("buyback", "the buyback plan raises the floor")
+    assert intent.rejected_inputs == ("the buyback plan raises the floor",)
     assert intent.witnesses == ()
     assert intent.head_runs_observed == 3
     origins = result.head_runs[0].raise_origins
@@ -3020,11 +3020,82 @@ def test_a_new_rejection_of_an_input_the_base_tests_use_is_a_behavior_change_rec
     assert "tests/test_signal.py" in result.reason
     intent = result.intent
     assert intent is not None and intent.new_rejection
-    assert intent.witnesses == (
-        ("buyback", "tests/test_signal.py"),
-        ("the buyback plan raises the floor", "tests/test_signal.py"),
-    )
+    assert intent.witnesses == (("the buyback plan raises the floor", "tests/test_signal.py"),)
     assert_worktrees_cleaned(repo, stored)
+
+
+CAUGHT_HEAD_MODULE = (
+    "def add(a, b):\n"
+    "    try:\n"
+    "        raise KeyError('probe')\n"
+    "    except KeyError:\n"
+    "        pass\n"
+    "    return a - b\n"
+)
+SURROGATE_HEAD_MODULE = (
+    "import os\n"
+    "\n"
+    "\n"
+    "def add(a, b):\n"
+    "    raise ValueError('rejected ' + os.fsdecode(b'\\xff') + repr(str(a)))\n"
+)
+
+
+def test_a_raise_the_changed_code_handles_itself_does_not_hide_a_regression(
+    tmp_path: Path,
+) -> None:
+    """Review finding F4: the head raises and catches a KeyError on a changed
+    line and separately regresses add(); the test fails on the assertion. The
+    handled raise is not the rejection, so the regression certifies."""
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": GOOD_MODULE}, {"mod.py": CAUGHT_HEAD_MODULE}
+    )
+    stored = candidate(file="mod.py", line=6)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(DIFFERENTIAL_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+    assert result.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    assert result.intent is not None and not result.intent.new_rejection
+    origins = result.head_runs[0].raise_origins
+    assert origins and origins[0].exception_type == "KeyError" and origins[0].escaped is False
+    # a bare assertion's JUnit message carries no exception type: a test-level failure
+    assert result.head_runs[0].failure_message.startswith("assert ")
+
+
+def test_a_lone_surrogate_in_the_message_does_not_break_the_head_run(tmp_path: Path) -> None:
+    """Review finding F5: undecodable bytes in an exception message must not
+    make the tracer hook fail; the run stays a differential and the raise is
+    still classified."""
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": GOOD_MODULE}, {"mod.py": SURROGATE_HEAD_MODULE}
+    )
+    stored = candidate(file="mod.py", line=5)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(DIFFERENTIAL_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert [run.outcome.value for run in result.head_runs] == ["reproduced"] * 3
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.evidence_class is EvidenceClass.BEHAVIOR_CHANGE
+    assert "intent unknown" in result.reason
+    origins = result.head_runs[0].raise_origins
+    assert origins and origins[0].exception_type == "ValueError"
+    assert origins[0].message.startswith("rejected ")
+    assert not any("\ud800" <= char <= "\udfff" for char in origins[0].message)
 
 
 def test_a_regression_and_a_crash_on_a_changed_line_keep_the_regression_class(
