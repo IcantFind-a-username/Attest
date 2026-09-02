@@ -10,15 +10,16 @@ from __future__ import annotations
 
 import json
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import Lock
 from typing import Any, Protocol
 
 from attest.review.budget import Budget, BudgetExceeded
 from attest.review.config import ReviewConfig
-from attest.review.dedup import merge_findings
+from attest.review.dedup import cluster_findings
 from attest.review.diffs import DiffInfo
 from attest.review.ledger import redact_known_secrets
+from attest.review.planner import ReviewPlan
 from attest.review.schema import PROPOSAL_SCHEMA, Finding, validate_finding
 
 # Preregistered per-sample output-token bound for proposal sampling. It feeds
@@ -179,27 +180,98 @@ class ProposalRun:
     sample_errors: list[str]
     successful_samples: int
     sample_observations: list[SampleObservation]
+    per_sample: list[list[Finding]] = field(default_factory=list)
+    omitted_units: list[str] = field(default_factory=list)  # typed, never silent
 
 
-def build_prompt(diff: DiffInfo) -> str:
-    return (
+CONTEXT_PREAMBLE = (
+    "Repository context: read-only excerpts from outside the diff. A defect that "
+    "manifests at a caller or test outside the diff is still reportable: anchor it at "
+    "the changed definition inside the hunks and name the caller in failure_scenario."
+)
+
+
+def build_prompt(diff: DiffInfo, context: str = "") -> str:
+    prompt = (
         "Review this diff. Anchors must use new-file line numbers inside the hunks.\n\n"
         "```diff\n" + diff.text + "\n```"
+    )
+    if context:
+        prompt += "\n\n" + CONTEXT_PREAMBLE + "\n\n" + context
+    return prompt
+
+
+def propose_plan(
+    plan: ReviewPlan, config: ReviewConfig, budget: Budget, provider: Provider
+) -> ProposalRun:
+    """Propose per planned unit in deterministic order, then cluster task-wide.
+
+    Units are attempted in plan order; the first unit that the budget cannot
+    cover stops the run and every remaining unit is recorded as omitted, so a
+    large change is reviewed partially and *visibly*, never truncated in
+    silence. A first unit that does not fit raises BudgetExceeded as before.
+    """
+    per_sample: list[list[Finding]] = []
+    rejected: list[str] = []
+    errors: list[str] = []
+    observations: list[SampleObservation] = []
+    successful = 0
+    omitted: list[str] = []
+    for index, unit in enumerate(plan.units):
+        try:
+            run = propose(
+                unit.diff(),
+                config,
+                budget,
+                provider,
+                context=unit.prompt_context(),
+                sample_offset=index * config.k_samples,
+            )
+        except BudgetExceeded as exc:
+            if index == 0:
+                raise
+            omitted.append(f"unit {unit.unit_id} ({', '.join(unit.files)}): budget: {exc.reason}")
+            omitted.extend(
+                f"unit {later.unit_id} ({', '.join(later.files)}): not attempted after budget stop"
+                for later in plan.units[index + 1 :]
+            )
+            break
+        per_sample.extend(run.per_sample)
+        rejected.extend(run.rejected)
+        errors.extend(run.sample_errors)
+        observations.extend(run.sample_observations)
+        successful += run.successful_samples
+    return ProposalRun(
+        candidates=cluster_findings(per_sample),
+        rejected=rejected,
+        sample_errors=errors,
+        successful_samples=successful,
+        sample_observations=observations,
+        per_sample=per_sample,
+        omitted_units=omitted,
     )
 
 
 def propose(
-    diff: DiffInfo, config: ReviewConfig, budget: Budget, provider: Provider
+    diff: DiffInfo,
+    config: ReviewConfig,
+    budget: Budget,
+    provider: Provider,
+    *,
+    context: str = "",
+    sample_offset: int = 0,
 ) -> ProposalRun:
     """K parallel samples -> validate four-piece schema -> merge into candidates."""
-    prompt = build_prompt(diff)
+    prompt = build_prompt(diff, context)
     k = config.k_samples
     reservations: list[float] = []
     try:
         for i in range(k):
             reservations.append(
                 budget.reserve(
-                    f"sample-{i}", len(SYSTEM_PROMPT) + len(prompt), PROPOSER_MAX_OUTPUT_TOKENS
+                    f"sample-{sample_offset + i}",
+                    len(SYSTEM_PROMPT) + len(prompt),
+                    PROPOSER_MAX_OUTPUT_TOKENS,
                 )
             )
     except BudgetExceeded:
@@ -224,17 +296,18 @@ def propose(
     successful_samples = 0
     observations: list[SampleObservation] = []
     for i, res in enumerate(results):
+        label = sample_offset + i
         if isinstance(res, Exception):
             budget.cancel(reservations[i])
-            errors.append(f"sample {i}: {type(res).__name__}: {res}")
+            errors.append(f"sample {label}: {type(res).__name__}: {res}")
             observations.append(
-                SampleObservation(i, f"error:{type(res).__name__}", None)
+                SampleObservation(label, f"error:{type(res).__name__}", None)
             )
             per_sample.append([])
             continue
-        budget.settle(f"sample-{i}", reservations[i], res.input_tokens, res.output_tokens)
+        budget.settle(f"sample-{label}", reservations[i], res.input_tokens, res.output_tokens)
         observations.append(
-            SampleObservation(i, res.stop_reason or "not_recorded", res.output_tokens)
+            SampleObservation(label, res.stop_reason or "not_recorded", res.output_tokens)
         )
         try:
             payload = json.loads(res.text)
@@ -271,9 +344,10 @@ def propose(
         per_sample.append(valid)
 
     return ProposalRun(
-        candidates=merge_findings(per_sample),
+        candidates=cluster_findings(per_sample),
         rejected=rejected,
         sample_errors=errors,
         successful_samples=successful_samples,
         sample_observations=observations,
+        per_sample=per_sample,
     )

@@ -23,7 +23,8 @@ from attest.review.history import (
     inspect_history_signal,
 )
 from attest.review.ledger import REVIEW_AUTHORITY_RANKING, Ledger
-from attest.review.proposer import Provider, propose
+from attest.review.planner import plan_review
+from attest.review.proposer import Provider, propose_plan
 from attest.review.tier0 import collect_signals, signals_near, unresolved_identifiers
 
 
@@ -223,9 +224,20 @@ def run_review(
     outcome = _empty_outcome()
     deferred_reason = None
     provider_samples: list[dict[str, object]] = []
-    phase = "proposal"
+    phase = "planning"
     try:
-        proposal = propose(diff, config, budget, provider)
+        # R-01: stable change units with bounded retrieved context; the plan
+        # and every omission are recorded before any sample is bought
+        plan = plan_review(repo, diff, base or "HEAD")
+        ledger.append(plan.to_ledger_row(task_id))
+        phase = "proposal"
+        proposal = propose_plan(plan, config, budget, provider)
+        if proposal.omitted_units:
+            reviewed = len(plan.units) - len(proposal.omitted_units)
+            notes.append(
+                f"{reviewed} of {len(plan.units)} change units reviewed; omitted: "
+                + "; ".join(proposal.omitted_units[:3])
+            )
         provider_samples = [asdict(sample) for sample in proposal.sample_observations]
         notes.extend(
             "provider sample "
