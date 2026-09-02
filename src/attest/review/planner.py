@@ -565,6 +565,81 @@ def plan_review(repo: Path, diff: DiffInfo, base_ref: str) -> ReviewPlan:
 
 
 MAX_GENERATION_CONTEXT_CHARS = 20_000
+MAX_PACKAGE_BLOCK_CHARS = 120_000  # the cacheable shared block (owner instruction 4)
+MAX_PACKAGE_FILE_CHARS = 40_000
+
+
+def _package_dir(repo: Path, path: str) -> Path:
+    """The top-most package directory enclosing the anchored file (walk up
+    while ``__init__.py`` exists), else the file's own directory."""
+    current = (repo / path).parent
+    while (current / "__init__.py").is_file() and current.parent != current:
+        parent = current.parent
+        if not (parent / "__init__.py").is_file():
+            break
+        current = parent
+    return current
+
+
+def _tests_dir_for(repo: Path, package_dir: Path) -> Path | None:
+    """The nearest ``tests`` directory at or above the package (its project)."""
+    current = package_dir
+    for _ in range(6):
+        candidate = current / "tests"
+        if candidate.is_dir() and candidate != package_dir:
+            return candidate
+        if current == repo or current.parent == current:
+            break
+        current = current.parent
+    return None
+
+
+def package_block(repo: Path, path: str) -> str:
+    """One shared, cacheable block: the anchored module's package sources and
+    its project's tests directory, bounded, in a deterministic order."""
+    package_dir = _package_dir(repo, path)
+    sections: list[str] = []
+    used = 0
+
+    def add(file: Path) -> bool:
+        nonlocal used
+        source = _read(file)
+        if source is None:
+            return True
+        if len(source) > MAX_PACKAGE_FILE_CHARS:
+            source = source[:MAX_PACKAGE_FILE_CHARS] + "\n# [file truncated]\n"
+        rel = file.relative_to(repo).as_posix()
+        text = f"### {rel}\n```python\n{source}\n```"
+        if used + len(text) > MAX_PACKAGE_BLOCK_CHARS:
+            sections.append(f"### [omitted: {rel} and later files, block bound reached]")
+            return False
+        sections.append(text)
+        used += len(text)
+        return True
+
+    anchored = repo / path
+    ordered = [anchored] if anchored.is_file() else []
+
+    def skipped(file: Path) -> bool:
+        return any(part in _SKIP_DIRS for part in file.relative_to(repo).parts)
+
+    ordered.extend(
+        file for file in sorted(package_dir.rglob("*.py")) if file != anchored and not skipped(file)
+    )
+    tests_dir = _tests_dir_for(repo, package_dir)
+    if tests_dir is not None:
+        ordered.extend(file for file in sorted(tests_dir.rglob("*.py")) if not skipped(file))
+    for file in ordered:
+        if not add(file):
+            break
+    if not sections:
+        return ""
+    return (
+        "Shared repository context (the anchored module's package and its tests; "
+        "read-only):\n\n" + "\n\n".join(sections)
+    )
+
+
 MAX_SIGNATURE_LINES = 60  # signatures of the anchored module shown to the generator
 MAX_HELPERS = 12  # helpers, helper classes and fixtures from the nearest test module
 MAX_HELPER_LINES = 25  # per helper or fixture

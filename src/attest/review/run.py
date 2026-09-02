@@ -25,7 +25,7 @@ from attest.review.history import (
     inspect_history_signal,
 )
 from attest.review.ledger import REVIEW_AUTHORITY_RANKING, Ledger
-from attest.review.planner import plan_review
+from attest.review.planner import package_block, plan_review
 from attest.review.proposer import Provider, propose_plan
 from attest.review.status import RunStatus, status_from_rows
 from attest.review.tier0 import collect_signals, signals_near, unresolved_identifiers
@@ -301,7 +301,15 @@ def run_review(
         plan = plan_review(repo, diff, base or "HEAD")
         ledger.append(plan.to_ledger_row(task_id))
         phase = "proposal"
-        proposal = propose_plan(plan, config, budget, provider, cache_root=repo)
+        shared_system = ""
+        if config.context_strategy == "package-cache" and plan.units:
+            # owner instruction 4 (comparison only): one cached block for the
+            # whole PR -- the package of the first unit's first changed file
+            # and its tests -- reused by every sample, generation and repair
+            shared_system = package_block(repo, plan.units[0].files[0])
+        proposal = propose_plan(
+            plan, config, budget, provider, cache_root=repo, shared_system=shared_system
+        )
         if proposal.omitted_units:
             reviewed = len(plan.units) - len(proposal.omitted_units)
             notes.append(

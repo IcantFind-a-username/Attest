@@ -35,6 +35,7 @@ from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
 from attest.review.gate import GateResult
 from attest.review.ledger import Ledger
+from attest.review.planner import package_block
 from attest.review.proposer import Provider
 from attest.review.run import ReviewRun
 
@@ -114,8 +115,7 @@ def run_verification_stage(
                     "finding_id": candidate.finding.finding_id,
                     "outcome": "not_attempted",
                     "reason": (
-                        f"ineligible: {candidate.eligibility}: "
-                        f"{candidate.eligibility_reason}"
+                        f"ineligible: {candidate.eligibility}: {candidate.eligibility_reason}"
                     ),
                     "executor_profile": EXECUTOR_PROFILE,
                 }
@@ -123,10 +123,7 @@ def run_verification_stage(
             continue
         remaining_s = max(0.0, deadline - clock())
         if remaining_s <= 0:
-            reason = (
-                "shared verification deadline exceeded "
-                f"after {verification_timeout_s:g}s"
-            )
+            reason = f"shared verification deadline exceeded after {verification_timeout_s:g}s"
             for unprocessed in candidates[index:]:
                 ledger.record_verification(
                     task_id=unprocessed.task_id,
@@ -141,6 +138,9 @@ def run_verification_stage(
                 reasons[unprocessed.finding.finding_id] = reason
             break
         attempted += 1
+        shared_system = ""
+        if config.context_strategy == "package-cache":
+            shared_system = package_block(repo, candidate.finding.file)
         verification = verify_candidate(
             repo,
             candidate,
@@ -154,6 +154,7 @@ def run_verification_stage(
             deadline=deadline,
             clock=clock,
             adapter=adapter,
+            shared_system=shared_system,
         )
         results_by_id[candidate.finding.finding_id] = verification.gate_result
         if verification.execution.outcome is ExecutionOutcome.DEFERRED:

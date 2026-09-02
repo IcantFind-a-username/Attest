@@ -8,6 +8,7 @@ standard environment chain (BYOK).
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -108,10 +109,14 @@ def call_provider(
     timeout_s: float | None = None,
     shared_prefix: str = "",
     on_first_token: FirstTokenCallback | None = None,
+    shared_system: str = "",
 ) -> ProviderResult:
     """One provider call. A provider that understands prompt caching gets the
-    shared prefix (the cacheable head of the user prompt) and the first-token
-    callback; every other provider gets the plain call."""
+    shared prefix (the cacheable head of the user prompt), the first-token
+    callback and the shared system block (owner instruction 4: one cached
+    block ahead of the role instruction, identical across roles); every other
+    provider gets the plain call with the shared block folded into the
+    system text."""
     if getattr(provider, "supports_cache_control", False):
         return provider.sample(  # type: ignore[call-arg]
             system,
@@ -121,10 +126,12 @@ def call_provider(
             timeout_s=timeout_s,
             shared_prefix=shared_prefix,
             on_first_token=on_first_token,
+            shared_system=shared_system,
         )
+    folded = f"{shared_system}\n\n{system}" if shared_system else system
     if timeout_s is None:
-        return provider.sample(system, prompt, schema, max_tokens)
-    return provider.sample(system, prompt, schema, max_tokens, timeout_s=timeout_s)
+        return provider.sample(folded, prompt, schema, max_tokens)
+    return provider.sample(folded, prompt, schema, max_tokens, timeout_s=timeout_s)
 
 
 def no_text_reason(result: ProviderResult) -> str:
@@ -226,6 +233,7 @@ class ApiProvider:
         timeout_s: float | None = None,
         shared_prefix: str = "",
         on_first_token: FirstTokenCallback | None = None,
+        shared_system: str = "",
     ) -> ProviderResult:
         cache_control = {"type": "ephemeral"}
         content: list[dict[str, Any]]
@@ -236,10 +244,18 @@ class ApiProvider:
                 content.append({"type": "text", "text": variable})
         else:
             content = [{"type": "text", "text": prompt, "cache_control": cache_control}]
+        system_blocks: list[dict[str, Any]] = []
+        if shared_system:
+            # the shared block comes first so every role's request shares the
+            # same cached prefix; the role instruction is its own breakpoint
+            system_blocks.append(
+                {"type": "text", "text": shared_system, "cache_control": cache_control}
+            )
+        system_blocks.append({"type": "text", "text": system, "cache_control": cache_control})
         arguments: dict[str, Any] = {
             "model": self.model,
             "max_tokens": max_tokens,
-            "system": [{"type": "text", "text": system, "cache_control": cache_control}],
+            "system": system_blocks,
             "messages": [{"role": "user", "content": content}],
             "output_config": {"format": {"type": "json_schema", "schema": schema}},
             "timeout": self.timeout if timeout_s is None else timeout_s,
@@ -338,6 +354,7 @@ def propose_plan(
     provider: Provider,
     *,
     cache_root: Path | None = None,
+    shared_system: str = "",
 ) -> ProposalRun:
     """Propose per planned unit in deterministic order, then cluster task-wide.
 
@@ -362,6 +379,7 @@ def propose_plan(
                 context=unit.prompt_context(),
                 sample_offset=index * config.k_samples,
                 cache_root=cache_root,
+                shared_system=shared_system,
             )
         except BudgetExceeded as exc:
             if index == 0:
@@ -397,6 +415,7 @@ def propose(
     context: str = "",
     sample_offset: int = 0,
     cache_root: Path | None = None,
+    shared_system: str = "",
 ) -> ProposalRun:
     """K parallel samples -> recover/validate four-piece schema -> cluster candidates.
 
@@ -434,7 +453,10 @@ def propose(
             PROPOSER_MAX_OUTPUT_TOKENS,
             sample_offset + slot,
             attempt_index,
-            call_parameters(config.model),
+            {
+                **call_parameters(config.model),
+                "shared_system_sha256": hashlib.sha256(shared_system.encode("utf-8")).hexdigest(),
+            },
         )
         cached = cache.get(digest)
         if cached is not None:
@@ -461,6 +483,7 @@ def propose(
                 PROPOSER_MAX_OUTPUT_TOKENS,
                 shared_prefix=prompt,
                 on_first_token=on_first_token,
+                shared_system=shared_system,
             )
         except Exception as exc:  # noqa: BLE001 - error becomes a sample failure
             return exc

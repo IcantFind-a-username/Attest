@@ -601,6 +601,13 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — owner instruction 4 (R-01 cache-variant experiment), code:** one commit
+  (`feat: package-cache context strategy for the R-01 comparison (default unchanged)`).
+  `context_strategy = "package-cache"` sends the anchored package and its tests as one
+  cached system block reused by every sample, generation and repair; the pilot driver gets
+  `--context-strategy` and `--results-suffix`. The two-arm run and its table follow in the
+  next entry. See D-095.
+
 - **2026-09-03 — owner instruction 3 (prompt caching, staggered fan-out, cache pricing):**
   one commit (`perf: cache the shared prompt prefix, stagger the fan-out on the first token,
   price cache writes and reads apart`). Unit RED: sample 0 goes alone, samples 1-3 start

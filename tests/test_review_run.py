@@ -83,6 +83,9 @@ def test_run_review_persists_one_task_scoped_drawer_and_elapsed_time(repo: Path)
             "output_tokens": 200,
             "recovery": "intact",
             "replayed": False,
+            "input_tokens": 218,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
         }
     ]
     assert "provider sample 0: stop_reason=not_recorded; output_tokens=200" in run.notes

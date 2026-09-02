@@ -35,6 +35,11 @@ class ReviewConfig:
     max_findings: int = 3  # formal findings cap (formatting only, not a gate)
     auto_tighten_alpha: bool = True
     tier0_commands: list[str] = field(default_factory=lambda: ["ruff"])
+    # owner instruction 4 (2026-09-03), comparison only: "r01" is the default
+    # planner context; "package-cache" adds the anchored module's package and
+    # its tests directory as one cache_control shared block reused by every
+    # proposal sample, the reproduction generation and its repair
+    context_strategy: str = "r01"
 
     def __post_init__(self) -> None:
         validate_review_config(self)
@@ -68,9 +73,14 @@ def validate_review_config(config: ReviewConfig) -> None:
         type(command) is not str for command in config.tier0_commands
     ):
         raise ValueError("tier0_commands must be a list of strings")
+    if config.context_strategy not in CONTEXT_STRATEGIES:
+        raise ValueError(f"context_strategy must be one of {sorted(CONTEXT_STRATEGIES)}")
 
+
+CONTEXT_STRATEGIES = frozenset({"r01", "package-cache"})
 
 _KNOWN_POLICY_KEYS = {
+    "context_strategy",
     "alpha",
     "budget_usd",
     "model",

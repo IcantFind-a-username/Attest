@@ -356,6 +356,7 @@ class StaggeringProvider:
         timeout_s: float | None = None,
         shared_prefix: str = "",
         on_first_token: Any = None,
+        shared_system: str = "",
     ) -> ProviderResult:
         import time
 
@@ -396,3 +397,37 @@ def test_second_sample_starts_after_the_first_token_and_pays_cache_read_prices()
         cold.settle(f"cold-{i}", 0.0, 1010, 5)
     assert budget.spent_usd < cold.spent_usd
     assert budget.calls[1]["cache_read_input_tokens"] == 1000
+
+
+def test_shared_system_block_leads_every_role_request_identically() -> None:
+    """Owner instruction 4: the shared block is the first system block, with
+    its own cache breakpoint, byte-identical whichever role instruction
+    follows it, so proposals and generations read one cache entry."""
+    provider = ApiProvider("claude-sonnet-5")
+    captured: list[dict[str, Any]] = []
+    response = SimpleNamespace(
+        content=[SimpleNamespace(type="text", text='{"findings": []}')],
+        usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+        stop_reason="end_turn",
+    )
+
+    def create(**kwargs: Any) -> Any:
+        captured.append(kwargs)
+        return response
+
+    provider.client = SimpleNamespace(messages=SimpleNamespace(create=create))
+    block = "Shared repository context: package and tests"
+    provider.sample("proposer role", "p", {}, 10, shared_system=block)
+    provider.sample("generator role", "g", {}, 10, shared_system=block)
+
+    first = [call["system"][0] for call in captured]
+    assert (
+        first[0]
+        == first[1]
+        == {
+            "type": "text",
+            "text": block,
+            "cache_control": {"type": "ephemeral"},
+        }
+    )
+    assert [call["system"][1]["text"] for call in captured] == ["proposer role", "generator role"]

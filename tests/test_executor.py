@@ -400,6 +400,8 @@ def test_generate_uses_literal_schema_and_candidate_details(tmp_path: Path) -> N
         {
             "label": f"verify-{candidate().finding.finding_id}-attempt-1",
             "input_tokens": 9,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
             "output_tokens": 7,
             "cost_usd": pytest.approx(budget.spent_usd),
         }

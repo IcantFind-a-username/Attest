@@ -309,7 +309,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     manifest = json.loads((case / "manifest.json").read_text(encoding="utf-8"))
     worktree = case / "repo"
     os.environ["ATTEST_PROJECT_PYTHON"] = manifest["project_python"]
-    config = ReviewConfig(k_samples=args.k, budget_usd=args.budget, tier0_commands=[])
+    config = ReviewConfig(
+        k_samples=args.k,
+        budget_usd=args.budget,
+        tier0_commands=[],
+        context_strategy=args.context_strategy,
+    )
     github = Loopback()
     try:
         result = run_ci(
@@ -341,7 +346,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         "reviews": github.reviews,
         "final_status": github.status_bodies[-1] if github.status_bodies else None,
     }
-    (RESULTS / f"{case.name}.json").write_text(
+    (RESULTS / f"{case.name}{args.results_suffix}.json").write_text(
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
     print(json.dumps({k: v for k, v in summary.items() if k != "reviews"}, indent=2))
@@ -459,6 +464,17 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--k", type=int, default=4)
     r.add_argument("--budget", type=float, default=0.25)
     r.add_argument("--verification-timeout", type=float, default=900.0)
+    r.add_argument(
+        "--context-strategy",
+        choices=["r01", "package-cache"],
+        default="r01",
+        help="owner instruction 4 comparison arm; the default is unchanged",
+    )
+    r.add_argument(
+        "--results-suffix",
+        default="",
+        help="suffix for the results file so both arms keep their summaries",
+    )
     r.set_defaults(func=cmd_run)
     t = sub.add_parser("table")
     t.set_defaults(func=cmd_table)

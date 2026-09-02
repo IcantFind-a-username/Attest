@@ -543,6 +543,7 @@ def generate_repro(
     *,
     timeout_s: float | None = None,
     base_ref: str | None = None,
+    shared_system: str = "",
 ) -> ReproSpec:
     prompt = _generation_prompt(repo, candidate, base_ref)
     labels = [
@@ -577,6 +578,7 @@ def generate_repro(
                 REPRO_MAX_OUTPUT_TOKENS,
                 timeout_s=timeout_s,
                 shared_prefix=prompt,
+                shared_system=shared_system,
             )
         except Exception:
             for unused in reservations[index:]:
@@ -1590,6 +1592,7 @@ def verify_candidate(
     deadline: float | None = None,
     clock: Callable[[], float] = time.monotonic,
     adapter: ExecutorAdapter | None = None,
+    shared_system: str = "",
 ) -> VerificationRun:
     started = time.monotonic()
     resolved_base = _resolve_commit(repo, base_sha)
@@ -1633,6 +1636,7 @@ def verify_candidate(
                 budget,
                 timeout_s=remaining_before_generation,
                 base_ref=resolved_base,
+                shared_system=shared_system,
             )
         except Exception as exc:  # noqa: BLE001 - generation failures are ternary DEFER
             execution = deferred_execution(f"generation failed: {type(exc).__name__}: {exc}")

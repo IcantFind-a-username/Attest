@@ -881,3 +881,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** the K samples of a unit are byte-identical prompts and the generator's two attempts likewise; paying full input price K times was pure surcharge.
 - **Limits:** prompts under the model's cacheable minimum (1,024 tokens on Sonnet 5) silently do not cache; the benchmark's checkpointed provider forwards nothing cache-related to its inner provider, so M-03 studies stay cold until that wrapper opts in.
 - **Reversal:** remove the `cache_control` blocks; the staggered dispatch is harmless without them.
+
+
+### D-095 — `package-cache`: an experimental context strategy, default unchanged
+
+- **Date/status/scope:** 2026-09-03 · owner instruction 4 · comparison only · `review/config.py` (`context_strategy`, `CONTEXT_STRATEGIES`), `review/planner.py` (`package_block`), `review/proposer.py` (`shared_system` block ahead of the role instruction, in the attempt identity), `review/run.py`, `review/executor.py`, `review/verification.py`, `scripts/corpus/swebench_pilot.py` (`--context-strategy`, `--results-suffix`).
+- **Decision:** with `context_strategy = "package-cache"` the anchored module's whole package (anchored file first, then the package's sources, then the project's `tests` directory; ≤ 120,000 characters, ≤ 40,000 per file) is sent as the first system block with its own `cache_control` breakpoint, byte-identical for every proposal sample of the PR, every reproduction generation and its repair, so the block is written once and read afterwards; the role instruction is the second system block. `r01` (the planner's per-unit context) stays the default; switching is the owner's decision after the comparison.
+- **Why:** owner instruction 4: measure whether one large cached block beats retrieved context on certified count, no-text count, cost per PR and cache-read share.
+- **Limits:** the block is chosen from the first unit's first changed file for proposals and from the anchored file for generation, so a PR spanning packages shares only the first; prompts below the cacheable minimum do not cache.
+- **Reversal:** delete the strategy value; the default path is untouched.

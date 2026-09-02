@@ -147,3 +147,36 @@ def test_generation_context_shows_signatures_and_the_nearest_test_module_helpers
         assert context.index("Nearest existing test module") < context.index(
             "Existing tests naming"
         )
+
+
+def test_package_block_is_the_anchored_package_and_its_tests_in_a_bounded_order(
+    tmp_path: Path,
+) -> None:
+    """Owner instruction 4 (2026-09-03): the shared block is the anchored
+    module first, then the rest of its package, then the project's tests
+    directory, each file fenced and the whole bounded."""
+    from attest.review.planner import package_block
+
+    repo = tmp_path / "repo"
+    pkg = repo / "services" / "svc" / "src" / "pkg"
+    (pkg / "sub").mkdir(parents=True)
+    (repo / "services" / "svc" / "tests").mkdir(parents=True)
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "mod.py").write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+    (pkg / "sub" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "sub" / "deep.py").write_text("X = 1\n", encoding="utf-8")
+    (repo / "services" / "svc" / "tests" / "test_mod.py").write_text(
+        "def test_add():\n    assert True\n", encoding="utf-8"
+    )
+    (repo / "unrelated.py").write_text("Y = 2\n", encoding="utf-8")
+
+    block = package_block(repo, "services/svc/src/pkg/mod.py")
+
+    order = [
+        block.index("### services/svc/src/pkg/mod.py"),
+        block.index("### services/svc/src/pkg/sub/deep.py"),
+        block.index("### services/svc/tests/test_mod.py"),
+    ]
+    assert order == sorted(order)
+    assert "unrelated.py" not in block
+    assert block.startswith("Shared repository context")
