@@ -1,6 +1,7 @@
 # Development spend ledger
 
-Hard cap: $10 API spend for all development including dogfood (handoff guardrail 4).
+Hard cap: $30 API spend for all development including dogfood (handoff guardrail 4);
+raised from $10 by the owner on 2026-09-02.
 
 ## API spend (counts against the $10 cap)
 
@@ -41,7 +42,7 @@ Hard cap: $10 API spend for all development including dogfood (handoff guardrail
 | 2026-08-29 | phase-3 acceptance run 33268347262 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0132 |
 | 2026-08-29 | phase-3 acceptance run 33268350447 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0272 |
 
-**Total API spend: $8.665450 of $10.00.** (34 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $8.665450 of $30.00.** (34 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
