@@ -102,13 +102,14 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | C-02 or V-01 (neither started); owner decision before another paid V-funnel replay | C-01's pure domain is complete; D-057 shows the current process marker cannot distinguish pytest bootstrap from reviewed-code process attempts |
+| **NOW** | C-02, then the fixed sequence in [`mainline.md`](mainline.md) §2 (C-03, C-04, R-03, R-01, V-01, E-02 pilot, …) | C-01's pure domain is complete; the mainline orders the remaining work by what an outside repository needs to install the product, and its §4 fork decides the next task from the pilot numbers without an owner round-trip |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
 
-C-01 is complete. C-02 and V-01 are now the first unblocked code work; neither started in
-the overnight scope. The follow-on V-funnel implementation through `e0f2db0` added complete
+C-01 is complete. `mainline.md` fixes the working order from here to L-01; C-02 is first.
+V-01 follows R-03 and R-01 rather than preceding them, because the pilot measurement needs
+candidates before it needs richer receipts. The follow-on V-funnel implementation through `e0f2db0` added complete
 per-candidate run evidence and a reproduction-only 3,000-token cap. It did not change runner
 policy or measure the post-change truncation rate. D-057 blocks only another paid V-funnel
 replay or a runner-policy change pending owner direction; it does not block C-02 or V-01.

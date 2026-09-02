@@ -14,6 +14,7 @@ Authority is by domain:
 | [`architecture/target-algorithm.md`](architecture/target-algorithm.md) | target product boundaries and invariants |
 | [`acceptance/evolution-gates.md`](acceptance/evolution-gates.md) | definitions of done, quantitative thresholds, permitted claims |
 | [`roadmap.md`](roadmap.md) | dependency order, current phase/work-order status, progress |
+| [`mainline.md`](mainline.md) | working sequence to the product, definition of product, corpus policy, owner-reserved decisions |
 | [`implementation/agent-work-orders.md`](implementation/agent-work-orders.md) | implementation method, file seams, RED/GREEN steps, handoff format |
 | [`../DECISIONS.md`](../DECISIONS.md) | narrow accepted trade-offs, evidence, consequences, reversal conditions |
 

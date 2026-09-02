@@ -37,7 +37,10 @@ auditable change without reconstructing the project strategy from chat history.
 
 An agent may split a work order into smaller commits, but must not combine two work orders
 unless the roadmap declares them inseparable. No task authorizes a factory-statistical
-constant change, paid API call, remote mutation, public release, or third-party write.
+constant change, paid API call, remote mutation, public release, or third-party write. No task authorizes a work order the roadmap does not list (at most one may be proposed, as
+a decision package), a new CLI subcommand or product surface, or reading or executing
+against any directory outside this repository's working tree (`AGENTS.md` §7, §10, §16;
+D-070).
 
 ## 2. Mandatory preflight
 

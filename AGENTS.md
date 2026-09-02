@@ -12,7 +12,9 @@ Follow, in order:
 2. this file for repository authority, safety, and work protocol;
 3. `docs/architecture/target-algorithm.md` for target product contracts;
 4. `docs/acceptance/evolution-gates.md` for definitions of done and quantitative gates;
-5. `docs/roadmap.md` for dependency order and current status;
+5. `docs/roadmap.md` for dependency order and current status, and `docs/mainline.md` for
+   the working sequence to the product, the definition of "product", corpus policy, and the
+   decisions reserved to the owner;
 6. the selected task in `docs/implementation/agent-work-orders.md` for implementation
    method;
 7. active decisions in `DECISIONS.md` for narrow trade-offs and reversal conditions;
@@ -115,7 +117,8 @@ These gaps are work-order inputs. Never rewrite the architecture to bless a curr
 For ordinary implementation:
 
 1. this file;
-2. `docs/roadmap.md` to find the first unblocked work order;
+2. `docs/mainline.md` §2 for the first unfinished step, then `docs/roadmap.md` for that
+   order's status and dependencies;
 3. the exact work-order section;
 4. only the linked architecture sections and Gate IDs;
 5. the affected code and tests;
@@ -193,6 +196,17 @@ Violating one is rework, not a small regression.
 - Do not push, open a PR, create/delete a remote, or merge unless the current owner request
   or an explicitly approved acceptance work order requires it. Local implementation does
   not imply remote mutation authority.
+- The working tree of this repository is the only directory an agent may read as input,
+  execute against, or write to. Other repositories or projects on the same machine are out
+  of bounds even for read-only "evaluation", even when a previous conversation mentioned
+  them, and even when the report would say nothing was written there. Any external corpus
+  the work needs (a real repository to review, a defect population to score) must be named
+  in the work order or in an owner-approved fixture list before the first read, and it is
+  brought in by cloning its remote into the gitignored `.attest/corpora/<name>/` path under
+  this working tree at a recorded commit — never by opening the owner's local checkout of
+  that project, which may hold uncommitted work and is not a reproducible input. Owner
+  permission to "use project X" means clone X; prior context and the name of a directory
+  on disk are not authorization. See D-070.
 
 ## 8. Remote, release, third-party, and secret rules
 
@@ -226,11 +240,37 @@ Violating one is rework, not a small regression.
 
 ## 10. Work-order selection
 
-`docs/roadmap.md` is the only owner of status and dependency order.
+`docs/roadmap.md` is the only owner of status and dependency order. `docs/mainline.md`
+fixes the sequence in which the remaining orders are worked, what "product" means, which
+corpora may be used without asking, and the four decisions reserved to the owner; the next
+task is its first unfinished step unless the owner says otherwise.
+
+The owner directs the destination and does not read code. Only §16 items and the four
+decisions in `docs/mainline.md` §5 go to the owner. Every other choice — library, layout,
+schema, retry, naming, tooling, test shape — is the agent's, decided by ordinary industry
+practice (search when unsure), recorded in a `DECISIONS.md` entry of at most six lines. A
+handoff is at most one page with at most three owner items, each a yes/no with a default.
+
+The mainline, so that every agent carries the same picture without opening the file:
+
+```text
+product = outside Python repo installs from a stable ref and gets PR comments, every
+          comment receipt-backed and offline-verifiable, head code secretless, silent on
+          all controls of a human-labelled corpus, one clean shadow run, L-01 exit list.
+
+C-02 -> C-03 -> C-04 -> R-03 -> R-01 -> V-01 -> E-02 pilot (fork on numbers, §4)
+     -> C-05 -> V-02 -> X-01 -> X-02 -> V-03 -> E-02 held-out -> E-01 -> E-04 -> L-01
+
+off the mainline until after L-01: S-*, N-01, X-03, R-04, pricing/F research, any scan.
+corpora: owner's GitHub repos (clone, no asking), BugsInPy, SWE-bench Verified;
+         committed dev/held-out split before the first run.
+owner decides only: A multiplicity method, B isolation backend, C paid spend, D release.
+```
 
 Before editing:
 
-1. choose exactly one first-unblocked work order;
+1. choose exactly one first-unblocked work order — the first unfinished mainline step
+   unless the owner says otherwise;
 2. verify its dependency Gate IDs and artifacts, not only checkbox state;
 3. record baseline SHA, claimed files, task scope, and whether it is paid/security/remote;
 4. run its focused pre-change test;
@@ -239,6 +279,14 @@ Before editing:
 
 Do not start a later recall/scheduler task to avoid a difficult certification/security
 dependency. Do not port research code just because it exists.
+
+Step 5 is an exit, not a licence. One task may propose at most one new work order, and only
+as a decision package for the owner; it may not implement it, chain further orders behind
+it, or open a new work-order prefix series. A new CLI subcommand, a new product surface
+(for example a whole-repository scanner beside the PR reviewer), or a new owner-queue
+longer than three items is an architecture decision reserved to the owner under §16. When
+the requested measurement cannot be taken with the code and corpora that exist, the
+deliverable is the sentence that says so and why, not a product that makes it possible.
 
 ## 11. Implementation protocol
 
@@ -381,6 +429,9 @@ Stop the affected path and request an owner decision before:
 - remote/public release, marketplace/package publishing, repository visibility, or writes
   to third-party systems;
 - changing an architecture red line because current code cannot satisfy it;
+- adding a CLI subcommand, a product surface, or a work-order prefix series that
+  `docs/roadmap.md` does not already list, or reading/executing against any directory
+  outside this repository's working tree (§7, §10);
 - outcome-dependent sample/exclusion/retry changes;
 - destructive handling of user/other-agent work.
 
