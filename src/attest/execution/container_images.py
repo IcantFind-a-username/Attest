@@ -53,9 +53,17 @@ class ProjectRoot:
     manifests: tuple[str, ...]
 
 
+_REQUIRES_PYTHON_RE = re.compile(r"requires-python\s*=\s*[\"']\s*>=\s*3\.(\d+)")
+
+
 def project_python(tree: Path) -> tuple[str, str]:
-    """(python minor version, reason) by the project's own classifiers."""
+    """(python minor version, reason) by the project's own declaration: the
+    highest available interpreter no newer than the newest ``Programming
+    Language :: Python :: 3.X`` classifier and no older than the strictest
+    ``requires-python = ">=3.X"`` lower bound (2026-09-03: the natural-null
+    corpus declares only the lower bound); else the era fallback."""
     declared: list[int] = []
+    lower: list[int] = []
     for root in discover_roots(tree):
         for name in ("setup.py", "setup.cfg", "pyproject.toml"):
             path = tree / root.relative / name if root.relative else tree / name
@@ -65,13 +73,26 @@ def project_python(tree: Path) -> tuple[str, str]:
                 except OSError:
                     continue
                 declared.extend(int(m) for m in _CLASSIFIER_RE.findall(text))
-    if declared:
-        newest = max(declared)
-        for version in AVAILABLE_PYTHONS:
-            if int(version.split(".")[1]) <= newest:
-                return version, f"classifiers up to 3.{newest}"
-        return FALLBACK_PYTHON, f"classifiers up to 3.{newest}; fallback"
-    return FALLBACK_PYTHON, "no classifiers; era fallback"
+                lower.extend(int(m) for m in _REQUIRES_PYTHON_RE.findall(text))
+    floor = max(lower) if lower else None
+    ceiling = max(declared) if declared else None
+    for version in AVAILABLE_PYTHONS:
+        minor = int(version.split(".")[1])
+        if ceiling is not None and minor > ceiling:
+            continue
+        if floor is not None and minor < floor:
+            continue
+        if ceiling is None and floor is None:
+            continue
+        reason = []
+        if ceiling is not None:
+            reason.append(f"classifiers up to 3.{ceiling}")
+        if floor is not None:
+            reason.append(f"requires-python >= 3.{floor}")
+        return version, "; ".join(reason)
+    if floor is not None or ceiling is not None:
+        return FALLBACK_PYTHON, "declared range not available; fallback"
+    return FALLBACK_PYTHON, "no classifiers or requires-python; era fallback"
 
 
 def discover_roots(tree: Path) -> list[ProjectRoot]:

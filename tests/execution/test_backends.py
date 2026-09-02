@@ -56,3 +56,23 @@ def test_bootstrap_failure_is_the_reason_not_silence(
     selection = backends.select_backend(tmp_path, production=True)
     assert selection.adapter is None
     assert selection.reason.startswith("environment bootstrap failed")
+
+
+def test_project_python_honours_requires_python_and_classifiers(tmp_path: Path) -> None:
+    """The image interpreter follows the project's declaration: a lower bound
+    from requires-python, an upper bound from classifiers, the era fallback
+    only when nothing is declared (2026-09-03)."""
+    from attest.execution.container_images import project_python
+
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "x"\nrequires-python = ">=3.11"\n', encoding="utf-8"
+    )
+    assert project_python(tmp_path)[0] == "3.13"
+    (tmp_path / "setup.py").write_text(
+        'classifiers=["Programming Language :: Python :: 3.12"]\n', encoding="utf-8"
+    )
+    assert project_python(tmp_path)[0] == "3.12"
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
+    assert project_python(tmp_path)[0] == "3.12"
+    (tmp_path / "setup.py").unlink()
+    assert project_python(tmp_path)[0] == "3.9"

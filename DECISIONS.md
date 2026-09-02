@@ -900,6 +900,7 @@ is active only when the owning architecture/acceptance document changes with it.
 - **RED (real containers, `tests/execution/test_linux_isolation.py`):** the planted regression fails 3/3 on head and passes 3/3 on base inside the container with the changed line executed; a reproduction that reads the controller's canary sees nothing; a socket connect and a write to the tree, `/etc` or the inputs mount fail and the run is marked; uid ≠ 0, `CapEff` 0, `RLIMIT_NPROC` (0,0).
 - **Limits:** Docker Desktop on the operator's macOS is the tested platform (a Linux VM daemon, not rootless mode); GitHub Actions Linux runners are the declared production platform and `G-SEC-002`'s full red-team matrix (fork bombs, `/proc` discovery, native helpers, forged results under a hostile job) is not yet exercised there; the language guard remains the marker, the kernel is the boundary.
 - **Reversal:** the profile string is versioned; a `linux-container-v2` (rootless, seccomp/landlock, cgroup v2 assertions) supersedes it and receipts say which one ran.
+- **Amendment (2026-09-03, E-01):** the image interpreter also honours `requires-python = ">=3.X"` as a lower bound (the natural-null corpus declares only that, so the era fallback 3.9 could not install it and 25 eligible candidates on 5 commits DEFERred as `environment bootstrap failed`); those five commits are re-run.
 
 
 ### D-097 — V-03: fresh writable state per run, a controller seal on every bundle, the offline verifier on `attest verify --bundle`

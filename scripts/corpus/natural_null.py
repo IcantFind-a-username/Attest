@@ -78,8 +78,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         env["PYTHONPATH"] = str(Path(args.code) / "src")
     spent = 0.0
     log = Path(args.log).open("a", encoding="utf-8")  # noqa: SIM115 - appended across the loop
+    only = set(args.only.split(",")) if args.only else None
     for row in plan:
         sha = row["sha"]
+        if only is not None and sha not in only:
+            continue
         subprocess.run(["git", "-C", str(CORPUS), "checkout", "-q", "--detach", sha], check=True)
         parent = subprocess.run(
             ["git", "-C", str(CORPUS), "rev-parse", f"{sha}^"],
@@ -173,6 +176,7 @@ def main(argv: list[str] | None = None) -> int:
         "--code", default=None, help="fixed checkout whose attest code runs the reviews"
     )
     run.add_argument("--cap", type=float, default=1.85)
+    run.add_argument("--only", default=None, help="comma-separated commit ids to (re-)run")
     run.set_defaults(func=cmd_run)
     table = sub.add_parser("table")
     table.add_argument("--log", required=True)
