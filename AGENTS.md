@@ -97,7 +97,8 @@ Do not confuse target contracts with current behavior:
 - since C-02 (`383ee65`) CI publishes only validator-accepted receipts and verifies every
   candidate S/T did not discard; since C-03 (`fc1ae04`) CI reviews the merge-base under the
   base-owned policy, while local `attest review` still reads the working tree's file;
-- manual `attest verify --reproduced` is not a trusted differential receipt;
+- manual `attest verify --reproduced` is a `self_report` row since C-04 (`71b99aa`): never a
+  receipt, a published finding, or a precision row;
 - `max_findings` currently limits inline placement, not all author-visible findings;
 - current head/base execution proves a behavioral difference but lacks the complete exact-
   node, semantic-binding, fresh-state, and authenticated-provenance target receipt;

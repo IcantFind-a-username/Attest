@@ -688,3 +688,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** the head could relax alpha/caps/budget by editing its own file, and base-tip two-dot diffs reviewed the base's progress as if the PR had made it (`G-CERT-002`).
 - **Limits:** local `attest review` still reads the working tree's file (developer-owned, no trust boundary); the Action does no explicit fetch, so the example workflow's `fetch-depth: 0` is required and a shallow checkout DEFERs with a stated reason.
 - **Reversal:** none foreseen.
+
+
+### D-074 — C-04: self-reported evidence lives in its own namespace
+
+- **Date/status/scope:** 2026-09-02 · active · `cli/main.py`, `review/ledger.py`, `review/run.py`.
+- **Decision:** `attest verify` writes a `self_report` row (actor, reproduced, evidence) and buys no channel; it prints a note, never a verdict. Review rows from `run_review` carry `authority: "ranking"`, and the surfaced projection counts neither ranking rows nor legacy `verified_*` rows (namespace `legacy_self_reported_unknown`, readable unchanged) as author-visible, so manual notes and S/T ranks never enter precision, the alpha window, or publication. `attest stats` reports self-reports separately.
+- **Why:** `G-CERT-003`: a manual `--reproduced` moved wealth 2.6 → 52.8 and counted as a surfaced, labelable finding, contaminating the calibration denominator (`INV-EVIDENCE-001`).
+- **Limits:** no certification JSON import boundary exists yet, so "reject self-reported IDs at the boundary" waits for V-03's offline verifier; legacy rows without the authority marker written by the pre-C-02 terminal report keep their old surfaced semantics because that report did assert them.
+- **Reversal:** none foreseen.
