@@ -601,6 +601,13 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — owner instruction 4, result:** report
+  [`acceptance/2026-09-03-r01-cache-variant.md`](acceptance/2026-09-03-r01-cache-variant.md).
+  r01: 4 certified / 4 published, $0.4862 ($0.0608 per PR), 78% of proposal prompt tokens
+  read from cache; package-cache: 2 certified / 2 published, $1.7537 ($0.2192 per PR), 75%.
+  No sample without text in either arm. Recommendation: keep `r01`; the owner decides.
+  Spend $2.2399 of the $2.50 reservation, settled.
+
 - **2026-09-03 — owner instruction 4 (R-01 cache-variant experiment), code:** one commit
   (`feat: package-cache context strategy for the R-01 comparison (default unchanged)`).
   `context_strategy = "package-cache"` sends the anchored package and its tests as one

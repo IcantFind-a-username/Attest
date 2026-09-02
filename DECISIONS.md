@@ -890,3 +890,4 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** owner instruction 4: measure whether one large cached block beats retrieved context on certified count, no-text count, cost per PR and cache-read share.
 - **Limits:** the block is chosen from the first unit's first changed file for proposals and from the anchored file for generation, so a PR spanning packages shares only the first; prompts below the cacheable minimum do not cache.
 - **Reversal:** delete the strategy value; the default path is untouched.
+- **Result (2026-09-03, dev slice, 8 PRs per arm):** r01 certified 4 at $0.0608 per PR, package-cache certified 2 at $0.2192 per PR (3.6×), no-text 0 in both, cache-read share 78% / 75% of proposal prompt tokens; the recommendation is to keep `r01` ([`acceptance/2026-09-03-r01-cache-variant.md`](docs/acceptance/2026-09-03-r01-cache-variant.md)); the switch remains the owner's.
