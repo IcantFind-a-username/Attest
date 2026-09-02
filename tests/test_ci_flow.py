@@ -1220,3 +1220,35 @@ def test_pr_family_policy_caps_publication_and_counts_a_defect_once(
     sticky = github_server.status_bodies[-1]
     assert ("Empty batches crash" in sticky) != ("Vacant windows" in sticky)
     assert "Missing measurements" not in sticky
+
+
+def test_silent_run_status_comment_names_counts_and_every_failure_reason(
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
+) -> None:
+    """Owner item 6 (2026-09-03): a run that publishes nothing still reports
+    its status in a collapsed section -- change units, candidates, eligible,
+    reproduction attempts and each attempt's failure category -- without the
+    content or location of any uncertified candidate."""
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = planted_repo
+    # a test that fails on both trees: unfaithful, so nothing is published
+    provider = RecordingProvider(
+        _finding_payload(),
+        json.dumps({"test_body": "def test_repro():\n    assert False\n"}),
+    )
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+    assert result.surfaced_count == 0
+    final = github_server.status_bodies[-1]
+    assert "<summary>Run status</summary>" in final
+    assert "change units read: 1; candidates: 1; eligible: 1; reproductions attempted: 1" in final
+    assert "reproduction 1: unfaithful test" in final
+    assert "app.py" not in final.split("<details>")[1]
+    assert "divides by zero" not in final

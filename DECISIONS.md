@@ -845,3 +845,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Why:** the us-stock-helper trials: `attest review` never ran reproduction and its note sent the operator to a command that certifies nothing; short ids reached the validator as `task_invalid`.
 - **Limits:** the local repository id is the literal `local`; the local policy digest is the caller-config digest, not a base-owned file.
 - **Reversal:** none foreseen; CI behaviour is byte-for-byte the previous inline code.
+
+
+### D-091 — Every run ends with a status: counts and reproduction failure categories, never a candidate
+
+- **Date/status/scope:** 2026-09-03 · owner instruction 2, item 6 · new `review/status.py` (`RunStatus`, `status_from_rows`, `categorise_failure`), `review/run.py` (`ReviewRun.status`), `review/report.py`, `cli/main.py`, `review/ci.py` (`_with_run_status`).
+- **Decision:** at the end of `attest review` and `attest ci` the task's ledger rows are folded into a status — change units read, candidates, eligible, reproductions attempted, certified, published, and one line per failed reproduction with its category (`no text returned`, `unfaithful test`, `environment or import failure`, `timeout`, `changed lines not executed`, `collection failure`, `other`) and a bounded reason. The CLI prints it under `run status:`; CI appends it to the final status comment (complete or deferred) as a collapsed `<details>` section. It is operational status, not a finding, so receipt-only publication does not bind it; it carries no claim, file or line of an uncertified candidate.
+- **Why:** the us-stock-helper trials were silent with no visible cause; the owner requires silence to be explained.
+- **Limits:** categories come from the recorded reason strings; a new failure shape lands in `other` until named.
+- **Reversal:** none foreseen; the section is additive.

@@ -77,6 +77,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             deferred_reason=review.deferred_reason,
             notes=review.notes,
             certified=review.published,
+            status=review.status,
         )
     )
     return 0
@@ -205,9 +206,7 @@ def cmd_stats(args: argparse.Namespace) -> int:
     ] + final_runs
     reviews = [e for e in entries if e.get("kind") == "review"]
     surfaced = ledger.surfaced_finding_ids(entries)
-    precision, n = ledger.surfaced_precision(
-        entries=entries, surfaced_ids=surfaced
-    )
+    precision, n = ledger.surfaced_precision(entries=entries, surfaced_ids=surfaced)
     surfaced_tasks = {
         str(entry.get("task_id", ""))
         for entry in reviews
@@ -231,8 +230,7 @@ def cmd_stats(args: argparse.Namespace) -> int:
     else:
         anomaly = " — ANOMALY (> 0.5)" if abstention_rate > 0.5 else ""
         print(
-            f"abstention rate: {abstention_rate:.6f} "
-            f"({abstentions}/{len(run_tasks)} runs){anomaly}"
+            f"abstention rate: {abstention_rate:.6f} ({abstentions}/{len(run_tasks)} runs){anomaly}"
         )
     print("silence precision: undefined (no labeled silent outcomes)")
     print(f"alpha now: {ledger.current_alpha(config.alpha)}")
@@ -305,25 +303,40 @@ def main(argv: list[str] | None = None) -> int:
     p_fb.add_argument("finding_id")
     fb_group = p_fb.add_mutually_exclusive_group(required=True)
     fb_group.add_argument(
-        "--fix", dest="label", action="store_const", const="fix",
+        "--fix",
+        dest="label",
+        action="store_const",
+        const="fix",
         help="finding was correct; the fix was applied (true label)",
     )
     fb_group.add_argument(
-        "--good", dest="label", action="store_const", const="good",
+        "--good",
+        dest="label",
+        action="store_const",
+        const="good",
         help="finding was correct (true label)",
     )
     fb_group.add_argument(
-        "--wrong", dest="label", action="store_const", const="wrong",
+        "--wrong",
+        dest="label",
+        action="store_const",
+        const="wrong",
         help="finding was incorrect: a genuine false positive (false label, "
         "counts against precision)",
     )
     fb_group.add_argument(
-        "--wontfix", dest="label", action="store_const", const="wontfix",
+        "--wontfix",
+        dest="label",
+        action="store_const",
+        const="wontfix",
         help="finding was correct but intentionally not acted on -- out of "
         "scope, known, or deferred (true label; the tool was right)",
     )
     fb_group.add_argument(
-        "--dismiss", dest="label", action="store_const", const="dismiss",
+        "--dismiss",
+        dest="label",
+        action="store_const",
+        const="dismiss",
         help="legacy label, ambiguous: prefer --wrong (false positive) or "
         "--wontfix (correct but not acted on). Excluded from precision.",
     )

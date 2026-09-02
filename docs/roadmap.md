@@ -601,6 +601,12 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — item 6 (silence receipt):** one commit
+  (`feat: report a run status with counts and reproduction failure categories`). The RED
+  failed on the unpatched path (no status section) and passes after: a fully silent CI run's
+  final comment carries a collapsed section with change units, candidates, eligible,
+  attempts and per-attempt failure categories, and no uncertified content. See D-091.
+
 - **2026-09-03 — fix-4 amendment:** one commit
   (`feat: rank test helpers by use and show representative tests to the generator`), from
   trial A runs 2-5 (paid check (a)); see D-089 amendment and

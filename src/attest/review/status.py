@@ -1,0 +1,151 @@
+"""Run status for silent and non-silent runs alike (owner item 6, 2026-09-03).
+
+A status is operational information about one review task, computed from the
+ledger rows the task wrote: how many change units were read, how many
+candidates were proposed, how many were eligible, how many reproductions were
+attempted and why each attempt failed, by category. It is not a finding and is
+not bound by receipt-only publication, so it may be shown on every run --
+but it never carries the claim, file or line of an uncertified candidate.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
+
+STATUS_SCHEMA_VERSION = "attest.run-status.v1"
+
+FAILURE_CATEGORIES = (
+    "no text returned",
+    "unfaithful test",
+    "environment or import failure",
+    "timeout",
+    "changed lines not executed",
+    "collection failure",
+    "other",
+)
+
+
+def categorise_failure(reason: str) -> str:
+    """The category of one reproduction failure, from its recorded reason."""
+    text = reason.lower()
+    if "generation_no_text" in text:
+        return "no text returned"
+    if "timed out" in text or "deadline" in text:
+        return "timeout"
+    if "unfaithful" in text or "stale" in text or "absent from head" in text:
+        return "unfaithful test"
+    if "imported from outside" in text or "none of the changed lines" in text:
+        return "changed lines not executed"
+    if "binding:" in text:
+        return "changed lines not executed"
+    if "collection" in text:
+        return "collection failure"
+    if any(
+        marker in text
+        for marker in (
+            "modulenotfounderror",
+            "importerror",
+            "interpreter",
+            "executor",
+            "process guard",
+            "containment",
+            "network guard",
+            "junit",
+        )
+    ):
+        return "environment or import failure"
+    return "other"
+
+
+@dataclass(frozen=True)
+class RunStatus:
+    task_id: str
+    units_read: int
+    candidates: int
+    eligible: int
+    attempts: int
+    certified: int
+    published: int
+    failures: tuple[tuple[str, str], ...] = ()  # (category, bounded reason), attempt order
+    counts: Mapping[str, int] = field(default_factory=dict)
+
+    def lines(self) -> list[str]:
+        out = [
+            f"change units read: {self.units_read}; candidates: {self.candidates}; "
+            f"eligible: {self.eligible}; reproductions attempted: {self.attempts}; "
+            f"certified: {self.certified}; published: {self.published}",
+        ]
+        for index, (category, reason) in enumerate(self.failures, 1):
+            out.append(f"reproduction {index}: {category} — {reason}")
+        return out
+
+    def render(self) -> str:
+        return "\n".join(self.lines())
+
+    def render_collapsed(self) -> str:
+        """A GitHub-collapsed section for the pull-request status comment."""
+        body = "\n".join(f"- {line}" for line in self.lines())
+        return f"<details>\n<summary>Run status</summary>\n\n{body}\n\n</details>"
+
+
+def _bounded(reason: str, limit: int = 200) -> str:
+    reason = " ".join(str(reason).split())
+    return reason if len(reason) <= limit else reason[: limit - 3] + "..."
+
+
+def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunStatus:
+    """Compute the status of one task from its ledger rows; unknown rows are
+    ignored, so an older ledger still yields a status."""
+    mine = [row for row in rows if row.get("task_id") == task_id]
+    units = 0
+    for row in mine:
+        if row.get("kind") == "review_plan":
+            plan_units = row.get("units")
+            units = len(plan_units) if isinstance(plan_units, list) else 0
+    candidates = {
+        str(row.get("finding_id"))
+        for row in mine
+        if row.get("kind") == "eligibility" and row.get("finding_id")
+    }
+    eligible = {
+        str(row.get("finding_id"))
+        for row in mine
+        if row.get("kind") == "eligibility" and row.get("eligibility") == "regression"
+    }
+    failures: list[tuple[str, str]] = []
+    attempts = 0
+    for row in mine:
+        if row.get("kind") != "verification":
+            continue
+        attempts += 1
+        outcome = str(row.get("outcome") or "")
+        if outcome == "reproduced":
+            continue
+        reason = _bounded(str(row.get("reason") or ""))
+        if outcome == "not_reproduced":
+            failures.append(("unfaithful test", reason or "the test passed on head"))
+        else:
+            failures.append((categorise_failure(reason), reason))
+    certified = sum(
+        1 for row in mine if row.get("kind") == "certification" and row.get("outcome") == "accepted"
+    )
+    published = 0
+    for row in mine:
+        if row.get("kind") == "publication_policy":
+            listed = row.get("published")
+            published = len(listed) if isinstance(listed, list) else 0
+    counts: dict[str, int] = {}
+    for category, _reason in failures:
+        counts[category] = counts.get(category, 0) + 1
+    return RunStatus(
+        task_id=task_id,
+        units_read=units,
+        candidates=len(candidates),
+        eligible=len(eligible),
+        attempts=attempts,
+        certified=certified,
+        published=published,
+        failures=tuple(failures),
+        counts=counts,
+    )

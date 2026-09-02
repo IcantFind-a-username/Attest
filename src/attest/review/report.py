@@ -11,6 +11,7 @@ from collections.abc import Sequence
 
 from attest.certification.types import CertifiedFinding
 from attest.review.gate import GateOutcome, GateResult
+from attest.review.status import RunStatus
 
 
 def _fmt_finding(idx: int, finding: CertifiedFinding) -> str:
@@ -39,17 +40,14 @@ def render(
     deferred_reason: str | None = None,
     notes: list[str] | None = None,
     certified: Sequence[CertifiedFinding] = (),
+    status: RunStatus | None = None,
 ) -> str:
     out: list[str] = []
     threshold = 1.0 / alpha
 
-    certified_ids = {
-        finding.accepted_receipt.receipt.candidate_id for finding in certified
-    }
+    certified_ids = {finding.accepted_receipt.receipt.candidate_id for finding in certified}
     drawer = [
-        result
-        for result in _candidates(outcome)
-        if result.finding.finding_id not in certified_ids
+        result for result in _candidates(outcome) if result.finding.finding_id not in certified_ids
     ]
     n_certified = len(certified)
     n_drawer = len(drawer)
@@ -83,6 +81,12 @@ def render(
                 f"  - [{f.finding_id}] {f.file}:{f.line} wealth {r.wealth:.1f} "
                 f"({r.action}): {f.claim}"
             )
+
+    if status is not None:
+        # operational status, not a finding: counts and failure reasons only,
+        # never the content or location of an uncertified candidate
+        out.append("run status:")
+        out.extend(f"  {line}" for line in status.lines())
 
     for note in notes or []:
         out.append(f"note: {note}")

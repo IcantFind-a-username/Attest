@@ -27,6 +27,7 @@ from attest.review.history import (
 from attest.review.ledger import REVIEW_AUTHORITY_RANKING, Ledger
 from attest.review.planner import plan_review
 from attest.review.proposer import Provider, propose_plan
+from attest.review.status import RunStatus, status_from_rows
 from attest.review.tier0 import collect_signals, signals_near, unresolved_identifiers
 
 if TYPE_CHECKING:
@@ -86,6 +87,8 @@ class ReviewRun:
     certified: list[CertifiedFinding] = field(default_factory=list)
     published: list[CertifiedFinding] = field(default_factory=list)
     verification_reasons: dict[str, str] = field(default_factory=dict)
+    # owner item 6: operational status of the run, readable when it is silent
+    status: RunStatus | None = None
 
 
 def resolve_full_sha(repo: Path, ref: str) -> str | None:
@@ -504,6 +507,9 @@ def run_review(
             candidate_count=len(results),
             provider_samples=provider_samples,
         )
+    status: RunStatus | None = None
+    with suppress(OSError, RuntimeError, ValueError):
+        status = status_from_rows(ledger.entries(), task_id)
     return ReviewRun(
         task_id=task_id,
         alpha=alpha,
@@ -517,4 +523,5 @@ def run_review(
         certified=certified,
         published=published,
         verification_reasons=verification_reasons,
+        status=status,
     )

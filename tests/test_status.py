@@ -1,0 +1,67 @@
+"""Owner item 6 (2026-09-03): a run status that is readable on a silent run."""
+
+from __future__ import annotations
+
+from attest.review.status import categorise_failure, status_from_rows
+
+
+def _rows() -> list[dict[str, object]]:
+    return [
+        {"kind": "review_plan", "task_id": "t1", "units": [{"unit_id": "u1"}, {"unit_id": "u2"}]},
+        {"kind": "eligibility", "task_id": "t1", "finding_id": "a", "eligibility": "regression"},
+        {"kind": "eligibility", "task_id": "t1", "finding_id": "b", "eligibility": "regression"},
+        {"kind": "eligibility", "task_id": "t1", "finding_id": "c", "eligibility": "new_code"},
+        {
+            "kind": "verification",
+            "task_id": "t1",
+            "finding_id": "a",
+            "outcome": "deferred",
+            "reason": (
+                "generation failed: GenerationNoText: generation_no_text "
+                "(stop_reason=max_tokens, blocks=thinking)"
+            ),
+        },
+        {
+            "kind": "verification",
+            "task_id": "t1",
+            "finding_id": "b",
+            "outcome": "deferred",
+            "reason": "unfaithful generated test: fails on base as well",
+        },
+        {"kind": "certification", "task_id": "t1", "finding_id": "a", "outcome": "not_attempted"},
+        {"kind": "publication_policy", "task_id": "t1", "published": []},
+        {"kind": "verification", "task_id": "other", "finding_id": "z", "outcome": "reproduced"},
+    ]
+
+
+def test_silent_run_status_names_counts_and_every_failure_reason() -> None:
+    status = status_from_rows(_rows(), "t1")
+    assert (status.units_read, status.candidates, status.eligible) == (2, 3, 2)
+    assert (status.attempts, status.certified, status.published) == (2, 0, 0)
+    assert [category for category, _ in status.failures] == ["no text returned", "unfaithful test"]
+    text = status.render()
+    assert "candidates: 3" in text
+    assert "reproduction 1: no text returned" in text
+    assert "reproduction 2: unfaithful test" in text
+    collapsed = status.render_collapsed()
+    assert collapsed.startswith("<details>") and "<summary>Run status</summary>" in collapsed
+    # never the content or location of an uncertified candidate
+    for forbidden in ("a", "b", "c"):
+        assert f"finding {forbidden}" not in text
+
+
+def test_failure_categories_cover_the_named_causes() -> None:
+    assert categorise_failure("generation failed: generation_no_text (...)") == "no text returned"
+    assert (
+        categorise_failure("unfaithful generated test: fails on base as well") == "unfaithful test"
+    )
+    assert categorise_failure("head run 1/3 deferred: ModuleNotFoundError: x") == (
+        "environment or import failure"
+    )
+    assert categorise_failure("reproduction timed out after 60s") == "timeout"
+    assert categorise_failure("binding: the reproduction exercises none of the changed lines") == (
+        "changed lines not executed"
+    )
+    assert categorise_failure("collection deferred: pytest collection failure") == (
+        "collection failure"
+    )
