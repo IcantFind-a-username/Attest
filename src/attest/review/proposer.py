@@ -100,6 +100,12 @@ def no_text_reason(result: ProviderResult) -> str:
     return f"generation_no_text (stop_reason={stop}, blocks={blocks})"
 
 
+def call_parameters(model: str) -> dict[str, Any]:
+    """What besides the prompt decides a sample: the model and how it is asked
+    to think. Part of the attempt cache identity."""
+    return {"model": model, **thinking_arguments(model)}
+
+
 def thinking_arguments(model: str) -> dict[str, Any]:
     """Structured generation buys text, not reasoning: on models that accept
     it, thinking is disabled so the whole output bound is available to the JSON
@@ -351,6 +357,7 @@ def propose(
             PROPOSER_MAX_OUTPUT_TOKENS,
             sample_offset + slot,
             attempt_index,
+            call_parameters(config.model),
         )
         cached = cache.get(digest)
         if cached is not None:
@@ -407,9 +414,7 @@ def propose(
         if replayed:
             budget.cancel(reservations[i])
         else:
-            budget.settle(
-                f"sample-{label}", reservations[i], res.input_tokens, res.output_tokens
-            )
+            budget.settle(f"sample-{label}", reservations[i], res.input_tokens, res.output_tokens)
         if res.text is None:
             # not an abstention: the model produced no document to read
             observations.append(

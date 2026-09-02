@@ -87,8 +87,12 @@ def attempt_digest(
     max_tokens: int,
     slot: int,
     attempt: int,
+    parameters: dict[str, Any] | None = None,
 ) -> str:
-    """Immutable identity of one paid attempt: inputs, sample slot, attempt index."""
+    """Immutable identity of one paid attempt: inputs, sample slot, attempt
+    index and, since 2026-09-03, the model call parameters (model id and the
+    thinking/effort arguments), so a changed call is a new attempt rather than
+    a replay of an old response."""
     material = json.dumps(
         {
             "schema_version": RECOVERY_SCHEMA_VERSION,
@@ -98,6 +102,7 @@ def attempt_digest(
             "max_tokens": max_tokens,
             "slot": slot,
             "attempt": attempt,
+            "parameters": parameters or {},
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -140,9 +145,7 @@ class AttemptCache:
                 text=None if raw.get("text") is None else str(raw["text"]),
                 input_tokens=int(raw["input_tokens"]),
                 output_tokens=int(raw["output_tokens"]),
-                stop_reason=(
-                    None if raw.get("stop_reason") is None else str(raw["stop_reason"])
-                ),
+                stop_reason=(None if raw.get("stop_reason") is None else str(raw["stop_reason"])),
                 content_types=(
                     ("text",)
                     if not isinstance(content_types, list)

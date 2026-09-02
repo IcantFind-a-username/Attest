@@ -88,3 +88,18 @@ def test_truncated_sample_is_salvaged_and_unusable_sample_gets_one_cached_repair
     )
     assert provider.calls == 3
     assert sorted(f.claim for f in again.candidates) == claims
+
+
+def test_attempt_identity_binds_the_model_and_its_call_parameters() -> None:
+    """A changed model or thinking setting is a new paid attempt, never a
+    replay of a response bought under different parameters (2026-09-03)."""
+    from attest.review.proposer import call_parameters
+    from attest.review.recovery import attempt_digest
+
+    base = attempt_digest("s", "p", {}, 100, 0, 0, call_parameters("claude-sonnet-5"))
+    assert base != attempt_digest("s", "p", {}, 100, 0, 0)
+    assert base != attempt_digest("s", "p", {}, 100, 0, 0, call_parameters("claude-opus-5"))
+    assert base != attempt_digest(
+        "s", "p", {}, 100, 0, 0, {**call_parameters("claude-sonnet-5"), "thinking": "on"}
+    )
+    assert base == attempt_digest("s", "p", {}, 100, 0, 0, call_parameters("claude-sonnet-5"))
