@@ -601,6 +601,14 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — paid check (a), us-stock-helper trial A/B re-run:** report
+  [`acceptance/2026-09-03-us-stock-helper-trial-rerun.md`](acceptance/2026-09-03-us-stock-helper-trial-rerun.md).
+  Trial B: 6 candidates, 3 certified, 1 published with a receipt from `attest review`
+  (the 3f6b67b defect), $0.2261. Trial A: the 375ab52 defect proposed 5/5 runs, generated,
+  executed with changed lines traced, never faithful (the breadth driver's availability
+  threshold), silent with the reason shown, $0.1812 over five runs. Spend $0.4073 of the
+  $1.00 reservation, settled.
+
 - **2026-09-03 — item 6 (silence receipt):** one commit
   (`feat: report a run status with counts and reproduction failure categories`). The RED
   failed on the unpatched path (no status section) and passes after: a fully silent CI run's

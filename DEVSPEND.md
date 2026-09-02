@@ -46,8 +46,9 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-08-29 | phase-3 acceptance run 33268350447 (https://github.com/IcantFind-a-username/attest-phase3-20260829-182756-f2446c) | $0.0272 |
 | 2026-09-02 | us-stock-helper trial A (revert 375ab52, market_brief sample wording): review K=4 $0.0746 (1 candidate, drawer); local differential drives with default model 2x $0.0848 (generator hit max_tokens with a thinking-only response both times); 1 diagnostic generator call $0.0424; 4 haiku-4-5 generator drives $0.0390 (all unfaithful) | $0.325598 |
 | 2026-09-02 | us-stock-helper trial B (revert 3f6b67b, nasdaq halt timestamps): review K=4 $0.1208 (2 candidates, drawer); local differential drive with default model $0.1621 (same thinking-only generator failure, 2 candidates x 2 attempts); 2 haiku-4-5 generator drives $0.0369 (all unfaithful) | $0.319734 |
+| 2026-09-03 | paid check (a): us-stock-helper trial A (5 runs across fixes: $0.0757 + $0.0249 + $0.0246 + $0.0276 + $0.0284) and trial B ($0.2261), `attest review --k 4` with the local differential stage; B published one receipt-backed finding, A stayed silent (unfaithful test) | $0.407300 |
 
-**Total API spend: $11.986682 of $30.00.** (39 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $12.393982 of $30.00.** (40 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
@@ -58,7 +59,7 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-02 | D-078 step c: re-run the dev slice 8 regressions + 8 controls, K=4, full product path | $2.50 | $1.107200 (row below); $1.392800 released |
 | 2026-09-02 | E-02 pilot (mainline §2 step 7): up to 8 dev-slice regression PRs + 8 controls (test-only and docs-only from the same repositories), full product path K=4 with verification; sample sized to the remaining cap; raised from $2.20 after environment retries consumed the first tranche | $3.00 | $1.860100 (row below); $1.139900 released |
 | 2026-09-02 | R-01 discovery trial: 5 SWE-bench Verified dev-slice regression PRs × 3 arms (diff-only, no-context repeat, planner context), K=4, discovery only, no verification | $1.00 | $0.872200 (3 rows below); $0.127800 released |
-| 2026-09-03 | paid check (a): us-stock-helper trial A/B re-run after owner fixes 1-5 (revert 375ab52 and 3f6b67b source changes as head, fixed main as base; `attest review --k 4` with the local differential stage) | $1.00 | pending |
+| 2026-09-03 | paid check (a): us-stock-helper trial A/B re-run after owner fixes 1-5 (revert 375ab52 and 3f6b67b source changes as head, fixed main as base; `attest review --k 4` with the local differential stage) | $1.00 | $0.407300 (row below); $0.592700 released |
 | 2026-09-03 | paid check (b): dev-slice re-run 8 regressions + 8 controls, K=4, full product path, table with no-text and true-abstention columns | $1.20 | pending |
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
