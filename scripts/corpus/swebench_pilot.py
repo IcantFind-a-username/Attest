@@ -30,8 +30,6 @@ import json
 import os
 import subprocess
 import sys
-import venv
-from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
@@ -69,7 +67,14 @@ def _upstream(repo: str) -> Path:
     if not (path / ".git").is_dir():
         path.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
-            ["git", "clone", "--filter=blob:none", "--no-checkout", f"https://github.com/{repo}.git", str(path)],
+            [
+                "git",
+                "clone",
+                "--filter=blob:none",
+                "--no-checkout",
+                f"https://github.com/{repo}.git",
+                str(path),
+            ],
             check=True,
         )
     return path
@@ -84,12 +89,26 @@ def _apply(worktree: Path, patch_text: str, *, reverse: bool = False) -> None:
     if reverse:
         args.append("-R")
     subprocess.run(
-        ["git", "-C", str(worktree), *args], input=patch_text, text=True, check=True, capture_output=True
+        ["git", "-C", str(worktree), *args],
+        input=patch_text,
+        text=True,
+        check=True,
+        capture_output=True,
     )
 
 
 def _commit(worktree: Path, message: str) -> str:
-    _git(worktree, "-c", "user.email=pilot@example.invalid", "-c", "user.name=Pilot", "commit", "-qm", message, "--allow-empty")
+    _git(
+        worktree,
+        "-c",
+        "user.email=pilot@example.invalid",
+        "-c",
+        "user.name=Pilot",
+        "commit",
+        "-qm",
+        message,
+        "--allow-empty",
+    )
     return _git(worktree, "rev-parse", "HEAD").stdout.strip()
 
 
@@ -110,11 +129,16 @@ def _docs_only_commit(upstream: Path, base_commit: str) -> tuple[str, str] | Non
 
 
 def _make_env(case: Path, worktree: Path) -> Path:
+    """Per-case virtualenv. PILOT_PYTHON selects the interpreter (older
+    projects cannot import on the newest Python); the choice is recorded."""
     env_dir = case / "env"
+    base_python = os.environ.get("PILOT_PYTHON", sys.executable)
     if not (env_dir / "bin" / "python").exists():
-        venv.EnvBuilder(with_pip=True, clear=True).create(env_dir)
+        subprocess.run([base_python, "-m", "venv", "--clear", str(env_dir)], check=True)
         py = env_dir / "bin" / "python"
-        subprocess.run([str(py), "-m", "pip", "install", "-q", "--upgrade", "pip", "pytest"], check=True)
+        subprocess.run(
+            [str(py), "-m", "pip", "install", "-q", "--upgrade", "pip", "pytest"], check=True
+        )
         # best effort: the product must survive an un-installable project as a DEFER
         subprocess.run([str(py), "-m", "pip", "install", "-q", "-e", str(worktree)], check=False)
     return env_dir / "bin" / "python"
@@ -129,7 +153,11 @@ def cmd_build(args: argparse.Namespace) -> int:
         print(f"exists: {worktree}")
         return 0
     case.mkdir(parents=True, exist_ok=True)
-    manifest: dict[str, object] = {"instance_id": args.instance_id, "repo": row["repo"], "control": args.control}
+    manifest: dict[str, object] = {
+        "instance_id": args.instance_id,
+        "repo": row["repo"],
+        "control": args.control,
+    }
     if args.control == "docs-only":
         found = _docs_only_commit(upstream, row["base_commit"])
         if found is None:
@@ -150,7 +178,9 @@ def cmd_build(args: argparse.Namespace) -> int:
             base_sha = _commit(worktree, "fixed: base_commit + gold code patch")
             _apply(worktree, row["patch"], reverse=True)
             head_sha = _commit(worktree, "regression: revert the fix")
-            manifest.update(base_sha=base_sha, head_sha=head_sha, shape="regression PR (revert of the gold fix)")
+            manifest.update(
+                base_sha=base_sha, head_sha=head_sha, shape="regression PR (revert of the gold fix)"
+            )
     manifest["project_python"] = str(_make_env(case, worktree))
     (case / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2))
@@ -250,7 +280,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         "reviews": github.reviews,
         "final_status": github.status_bodies[-1] if github.status_bodies else None,
     }
-    (RESULTS / f"{case.name}.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    (RESULTS / f"{case.name}.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
     print(json.dumps({k: v for k, v in summary.items() if k != "reviews"}, indent=2))
     return 0
 
@@ -261,20 +293,32 @@ def cmd_table(_args: argparse.Namespace) -> int:
         summary = json.loads(path.read_text(encoding="utf-8"))
         case = _case_dir(summary["case"].split("--")[0], summary["control"])
         ledger = case / "repo" / ".attest" / "ledger.jsonl"
-        entries = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()] if ledger.exists() else []
+        entries = (
+            [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
+            if ledger.exists()
+            else []
+        )
         task = summary["task_id"]
         mine = [e for e in entries if e.get("task_id") == task]
-        eligible = sum(1 for e in mine if e.get("kind") == "eligibility" and e.get("eligibility") == "regression")
+        eligible = sum(
+            1
+            for e in mine
+            if e.get("kind") == "eligibility" and e.get("eligibility") == "regression"
+        )
         ineligible = {}
         for e in mine:
             if e.get("kind") == "eligibility" and e.get("eligibility") != "regression":
                 ineligible[e["eligibility"]] = ineligible.get(e["eligibility"], 0) + 1
-        certified = sum(1 for e in mine if e.get("kind") == "certification" and e.get("outcome") == "accepted")
+        certified = sum(
+            1 for e in mine if e.get("kind") == "certification" and e.get("outcome") == "accepted"
+        )
         verifications = [e for e in mine if e.get("kind") == "verification"]
         outcomes = {}
         for e in verifications:
             outcomes[e.get("outcome")] = outcomes.get(e.get("outcome"), 0) + 1
-        reasons = sorted({str(e.get("reason", ""))[:80] for e in verifications if e.get("outcome") == "deferred"})
+        reasons = sorted(
+            {str(e.get("reason", ""))[:80] for e in verifications if e.get("outcome") == "deferred"}
+        )
         rows.append(
             {
                 "case": summary["case"],
@@ -308,12 +352,17 @@ def cmd_table(_args: argparse.Namespace) -> int:
         silent = sum(1 for r in defects if r["published"] == 0)
         print(f"\nsilence rate on defects: {silent}/{len(defects)}")
     if controls:
-        print(f"control false publications: {sum(r['published'] for r in controls)}/{len(controls)} cases")
+        print(
+,
+                f"control false publications: {sum(r['published'] for r in controls)}/{len(controls)} cases"
+        )
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     b = sub.add_parser("build")
     b.add_argument("instance_id")

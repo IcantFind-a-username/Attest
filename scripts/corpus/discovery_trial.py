@@ -63,7 +63,9 @@ def main(argv: list[str]) -> int:
                 for c in stored
             ],
         }
-        (out_dir / f"{instance_id}.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+        (out_dir / f"{instance_id}.json").write_text(
+            json.dumps(record, indent=2) + "\n", encoding="utf-8"
+        )
         total += review.budget.spent_usd
         print(
             f"{arm} {instance_id}: {len(stored)} candidates, "

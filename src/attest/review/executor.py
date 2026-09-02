@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import functools
 import hashlib
 import json
@@ -667,6 +668,46 @@ def _environment_digest(
     ).hexdigest()
 
 
+_COLLECT_COUNT_RE = re.compile(r"^(?P<path>\S+\.py): (?P<count>\d+)$")
+
+
+def _single_test_function(source: str) -> str | None:
+    """The one module-level test function in a generated file, else None."""
+    try:
+        tree = ast.parse(source)
+    except (ValueError, SyntaxError, RecursionError):
+        return None
+    names = [
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name.startswith("test")
+    ]
+    return names[0] if len(names) == 1 else None
+
+
+def _collected_nodes(stdout: str, source: str) -> tuple[int, str]:
+    """(collected count, node id) from a collect-only run.
+
+    pytest prints one node id per line under ``-q``; a project whose own
+    configuration adds a second ``-q`` prints ``path: count`` instead. In that
+    style the node name comes from the generated source, which by construction
+    holds exactly one test function.
+    """
+    nodes = [
+        line.strip()
+        for line in stdout.splitlines()
+        if "::" in line and not line.startswith(("=", " ", "<"))
+    ]
+    if nodes:
+        node = nodes[0].split("/")[-1] if len(nodes) == 1 else ""
+        return len(nodes), node
+    matches = (_COLLECT_COUNT_RE.match(line) for line in stdout.splitlines())
+    total = sum(int(m.group("count")) for m in matches if m)
+    name = _single_test_function(source)
+    return total, f"test_repro.py::{name}" if total == 1 and name else ""
+
+
 @functools.lru_cache(maxsize=8)
 def _interpreter_version(interpreter: str) -> str:
     """One probe per interpreter path per process; the receipt binds its text."""
@@ -1077,21 +1118,17 @@ def execute_repro(
                 stderr=stderr,
                 network_blocked=network_blocked,
             )
-        nodes = [
-            line.strip()
-            for line in stdout.splitlines()
-            if "::" in line and not line.startswith(("=", " ", "<"))
-        ]
+        collected, node_id = _collected_nodes(stdout, source)
         return ExecutionResult(
             outcome=ExecutionOutcome.NOT_REPRODUCED,
-            reason=f"collected {len(nodes)} node(s)",
+            reason=f"collected {collected} node(s)",
             exit_code=process.returncode,
             stdout=stdout,
             stderr=stderr,
             elapsed_s=time.monotonic() - started,
             network_blocked=network_blocked,
-            collected_count=len(nodes),
-            test_node=nodes[0].split("/")[-1] if len(nodes) == 1 else "",
+            collected_count=collected,
+            test_node=node_id,
             **identity,
         )
     try:
