@@ -29,6 +29,7 @@ from attest.github.presentation import (
 )
 from attest.review.candidates import CandidateStore
 from attest.review.certify import (
+    EXECUTOR_PROFILE,
     attempt_certification,
     certification_policy,
     certification_task,
@@ -1281,6 +1282,23 @@ def run_ci(
     certified_by_id: dict[str, CertifiedFinding] = {}
     verification_defers: list[str] = []
     for index, candidate in enumerate(candidates):
+        if candidate.eligibility != "regression":
+            # typed abstention before any paid generation; not a verification
+            # DEFER and never part of the eligible denominator
+            ledger.append(
+                {
+                    "kind": "certification",
+                    "task_id": task_id,
+                    "finding_id": candidate.finding.finding_id,
+                    "outcome": "not_attempted",
+                    "reason": (
+                        f"ineligible: {candidate.eligibility}: "
+                        f"{candidate.eligibility_reason}"
+                    ),
+                    "executor_profile": EXECUTOR_PROFILE,
+                }
+            )
+            continue
         remaining_s = max(0.0, deadline - clock())
         if remaining_s <= 0:
             reason = (

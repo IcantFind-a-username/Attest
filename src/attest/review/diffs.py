@@ -9,6 +9,7 @@ from pathlib import Path
 
 _HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 _FILE_RE = re.compile(r"^\+\+\+ b/(.+)$")
+_OLD_FILE_RE = re.compile(r"^--- (.+)$")
 
 
 def norm_path(path: str) -> str:
@@ -25,6 +26,10 @@ class DiffInfo:
     text: str
     # file path -> list of (start, end) inclusive new-file line ranges per hunk
     hunks: dict[str, list[tuple[int, int]]] = field(default_factory=dict)
+    # files whose old side is /dev/null: created by this change
+    new_files: set[str] = field(default_factory=set)
+    # file path -> new-file line numbers of '+' lines (added, not context)
+    added_lines: dict[str, set[int]] = field(default_factory=dict)
 
     def canonical_anchor(self, path: str, line: int) -> str | None:
         """Repository path the anchor names, or None. Proposer models often
@@ -58,18 +63,31 @@ def parse_diff(text: str) -> DiffInfo:
     untrusted (an added line reading `++ b/evil.py` renders as `+++ b/evil.py`
     and would otherwise poison the map)."""
     hunks: dict[str, list[tuple[int, int]]] = {}
+    new_files: set[str] = set()
+    added_lines: dict[str, set[int]] = {}
     current: str | None = None
     in_header = False
+    old_is_null = False
+    new_line: int | None = None
     for line in text.splitlines():
         if line.startswith("diff --git "):
             in_header = True
             current = None
+            old_is_null = False
+            new_line = None
             continue
-        m = _FILE_RE.match(line)
-        if m and in_header:
-            current = m.group(1).strip()
-            hunks.setdefault(current, [])
-            continue
+        if in_header:
+            old = _OLD_FILE_RE.match(line)
+            if old and not line.startswith("--- a/"):
+                old_is_null = old.group(1).strip() == "/dev/null"
+                continue
+            m = _FILE_RE.match(line)
+            if m:
+                current = m.group(1).strip()
+                hunks.setdefault(current, [])
+                if old_is_null:
+                    new_files.add(current)
+                continue
         m = _HUNK_RE.match(line)
         if m and current is not None:
             in_header = False
@@ -77,7 +95,24 @@ def parse_diff(text: str) -> DiffInfo:
             count = int(m.group(2)) if m.group(2) is not None else 1
             if count > 0:
                 hunks[current].append((start, start + count - 1))
-    return DiffInfo(text=text, hunks={k: v for k, v in hunks.items() if v})
+            new_line = start
+            continue
+        if current is None or in_header or new_line is None:
+            continue
+        # inside a hunk: '+' and ' ' advance the new-file counter, '-' does not
+        if line.startswith("+"):
+            added_lines.setdefault(current, set()).add(new_line)
+            new_line += 1
+        elif line.startswith("-") or line.startswith("\\"):
+            continue
+        else:
+            new_line += 1
+    return DiffInfo(
+        text=text,
+        hunks={k: v for k, v in hunks.items() if v},
+        new_files=new_files,
+        added_lines=added_lines,
+    )
 
 
 _SHA_RE = re.compile(r"[0-9a-f]{40}")

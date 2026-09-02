@@ -52,6 +52,16 @@ PROPOSAL_SCHEMA: dict[str, Any] = {
 }
 
 
+@dataclass(frozen=True)
+class ClusterMember:
+    """One validated sample finding retained as cluster provenance."""
+
+    sample_id: int
+    file: str
+    line: int
+    claim: str
+
+
 @dataclass
 class Finding:
     claim: str
@@ -61,6 +71,8 @@ class Finding:
     falsification_plan: str
     votes: int = 1  # samples independently asserting this finding
     sample_ids: list[int] = field(default_factory=list)
+    cluster_id: str = ""  # order-invariant discovery cluster identity (R-03)
+    members: list[ClusterMember] = field(default_factory=list)
 
     @property
     def finding_id(self) -> str:

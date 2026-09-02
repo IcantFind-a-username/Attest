@@ -15,6 +15,7 @@ from attest.review.candidates import CandidateStore
 from attest.review.channels import gate_feasibility
 from attest.review.config import ReviewConfig
 from attest.review.diffs import git_diff
+from attest.review.eligibility import classify_finding, executor_unavailable_reason
 from attest.review.gate import GateOutcome, GateResult, apply_gate, evaluate_finding
 from attest.review.history import (
     HISTORY_LOOKBACK_COMMITS,
@@ -275,6 +276,18 @@ def run_review(
                     "priced": False,
                 }
             )
+        # R-03: classify before any paid reproduction is bought. Facts only
+        # (diff, repository, executor host); the class is recorded per
+        # candidate and only `regression` may enter V.
+        phase = "eligibility"
+        executor_reason = executor_unavailable_reason()
+        eligibility: dict[str, tuple[str, str]] = {}
+        for candidate in proposal.candidates:
+            verdict = classify_finding(
+                repo, diff, base or "HEAD", candidate, executor_reason=executor_reason
+            )
+            eligibility[candidate.finding_id] = (verdict.eligibility.value, verdict.reason)
+            ledger.append(verdict.to_ledger_row(task_id))
         phase = "static_analysis"
         signals = (
             []
@@ -292,7 +305,7 @@ def run_review(
         )
         outcome = apply_gate(results, config.max_findings)
         phase = "candidate_persistence"
-        CandidateStore(repo).append(task_id, alpha, results)
+        CandidateStore(repo).append(task_id, alpha, results, eligibility)
 
         n_results = max(1, len(results))
         phase = "review_accounting"

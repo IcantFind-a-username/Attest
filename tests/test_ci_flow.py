@@ -733,7 +733,7 @@ def test_post_provider_persistence_failure_retains_spend_phase_and_task_accounti
     repo, base_sha, head_sha = planted_repo
     provider = RecordingProvider(_finding_payload(), '{"test_body":"assert False"}')
 
-    def fail_candidate_persistence(self, task_id, alpha, results):  # noqa: ANN001
+    def fail_candidate_persistence(self, task_id, alpha, results, eligibility=None):  # noqa: ANN001
         raise OSError("private persistence failure detail")
 
     monkeypatch.setattr(CandidateStore, "append", fail_candidate_persistence)

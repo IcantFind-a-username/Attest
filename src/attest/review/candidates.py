@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from attest.review.gate import GateResult
-from attest.review.schema import Finding
+from attest.review.schema import ClusterMember, Finding
 
 
 @dataclass(frozen=True)
@@ -19,6 +19,8 @@ class StoredCandidate:
     wealth: float
     action: str
     alpha: float
+    eligibility: str = "regression"  # R-03 class; legacy rows predate the classifier
+    eligibility_reason: str = ""
 
 
 class CandidateStore:
@@ -29,11 +31,21 @@ class CandidateStore:
     def path(self) -> Path:
         return self.repo / ".attest" / "candidates.jsonl"
 
-    def append(self, task_id: str, alpha: float, results: list[GateResult]) -> None:
+    def append(
+        self,
+        task_id: str,
+        alpha: float,
+        results: list[GateResult],
+        eligibility: dict[str, tuple[str, str]] | None = None,
+    ) -> None:
+        """Persist candidates; ``eligibility`` maps finding_id -> (class, reason)."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a", encoding="utf-8") as fh:
             for result in results:
                 finding = result.finding
+                cls, reason = (eligibility or {}).get(
+                    finding.finding_id, ("regression", "")
+                )
                 fh.write(
                     json.dumps(
                         {
@@ -46,6 +58,18 @@ class CandidateStore:
                             "falsification_plan": finding.falsification_plan,
                             "votes": finding.votes,
                             "sample_ids": finding.sample_ids,
+                            "cluster_id": finding.cluster_id,
+                            "members": [
+                                {
+                                    "sample_id": member.sample_id,
+                                    "file": member.file,
+                                    "line": member.line,
+                                    "claim": member.claim,
+                                }
+                                for member in finding.members
+                            ],
+                            "eligibility": cls,
+                            "eligibility_reason": reason,
                             "wealth": result.wealth,
                             "action": result.action,
                             "alpha": alpha,
@@ -84,6 +108,22 @@ class CandidateStore:
         sample_ids = record.get("sample_ids", [])
         if not isinstance(sample_ids, list):
             raise TypeError("sample_ids must be a list")
+        raw_members = record.get("members", [])
+        if not isinstance(raw_members, list):
+            raise TypeError("members must be a list")
+        members = [
+            ClusterMember(
+                sample_id=CandidateStore._integer(member, "sample_id"),
+                file=CandidateStore._string(member, "file"),
+                line=CandidateStore._integer(member, "line"),
+                claim=CandidateStore._string(member, "claim"),
+            )
+            for member in raw_members
+            if isinstance(member, dict)
+        ]
+        cluster_id = record.get("cluster_id", "")
+        if not isinstance(cluster_id, str):
+            raise TypeError("cluster_id must be a string")
         finding = Finding(
             claim=CandidateStore._string(record, "claim"),
             file=CandidateStore._string(record, "file"),
@@ -92,13 +132,21 @@ class CandidateStore:
             falsification_plan=CandidateStore._string(record, "falsification_plan"),
             votes=CandidateStore._integer(record, "votes"),
             sample_ids=[int(sample_id) for sample_id in sample_ids],
+            cluster_id=cluster_id,
+            members=members,
         )
+        eligibility = record.get("eligibility", "regression")
+        reason = record.get("eligibility_reason", "")
+        if not isinstance(eligibility, str) or not isinstance(reason, str):
+            raise TypeError("eligibility fields must be strings")
         return StoredCandidate(
             task_id=CandidateStore._string(record, "task_id"),
             finding=finding,
             wealth=CandidateStore._number(record, "wealth"),
             action=CandidateStore._string(record, "action"),
             alpha=CandidateStore._number(record, "alpha"),
+            eligibility=eligibility,
+            eligibility_reason=reason,
         )
 
     @staticmethod
