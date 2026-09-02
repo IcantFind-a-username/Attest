@@ -1035,6 +1035,7 @@ def run_ci(
     clock: Callable[[], float] = time.monotonic,
     publication_deadline_s: float | None = None,
     config_overrides: Mapping[str, object] | None = None,
+    merge_base_sha: str | None = None,
 ) -> CiRun:
     """Run a review whose candidate details remain private until verified.
 
@@ -1042,6 +1043,11 @@ def run_ci(
     base-owned ``.attest.toml`` at the resolved merge-base with
     ``config_overrides`` (protected Action inputs) applied on top. The head
     checkout's policy file is never read.
+
+    ``merge_base_sha`` lets a trusted harness that constructs its own task
+    (the benchmark's reverse historical pairs, whose head is an ancestor of
+    the base) declare the counterfactual it owns. The Action/CLI path never
+    passes it: a pull request's counterfactual is always resolved.
     """
     started = clock()
     ledger = Ledger(repo)
@@ -1102,7 +1108,11 @@ def run_ci(
 
     # INV-TASK-001 / INV-POLICY-001: the counterfactual is the merge-base and the
     # policy is whatever the destination owns there, never the head's file.
-    merge_base = resolve_merge_base(repo, context.base_sha, context.head_sha)
+    merge_base = (
+        merge_base_sha
+        if merge_base_sha is not None
+        else resolve_merge_base(repo, context.base_sha, context.head_sha)
+    )
     resolved = None
     if merge_base is not None:
         try:

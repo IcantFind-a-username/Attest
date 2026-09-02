@@ -1285,6 +1285,9 @@ class BenchmarkRunner:
             limits=self.limits,
             clock=self.clock,
             publication_deadline_s=deadline_s,
+            # historical pairs are replayed in reverse (head is an ancestor of
+            # the base), so the harness declares the counterfactual it built
+            merge_base_sha=base_sha,
         )
         task_id = ci.task_id
         product_classes = product_evidence_classes(repo, task_id) if task_id else {}
