@@ -106,3 +106,27 @@ def test_dockerfile_pretends_the_scm_version_and_keeps_nested_projects_best_effo
     assert (
         'RUN pip install /attest/build/examples || echo "attest: optional project examples' in text
     )
+
+
+def test_an_image_build_that_times_out_is_a_bootstrap_failure_not_a_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 30-minute `docker build` on pytest's own tree raised TimeoutExpired
+    straight out of select_backend, crashing the run instead of DEFERring with
+    the reason `failure-modes.md` promises the operator."""
+    import subprocess
+
+    from attest.execution import container_images
+
+    def timing_out(*args: object, **kwargs: object) -> object:
+        raise subprocess.TimeoutExpired(cmd=["docker", "build"], timeout=1800)
+
+    monkeypatch.setattr(container_images.subprocess, "run", timing_out)
+    monkeypatch.setattr(container_images, "docker_executable", lambda: "/usr/bin/docker")
+    monkeypatch.setattr(container_images, "image_digest", lambda *a, **k: None)
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
+
+    with pytest.raises(container_images.BootstrapFailed) as caught:
+        container_images.ensure_image(tmp_path)
+    assert str(caught.value).startswith("environment bootstrap failed")
+    assert "timed out" in str(caught.value)

@@ -195,6 +195,9 @@ def dockerfile(
     return "\n".join(lines) + "\n"
 
 
+IMAGE_BUILD_TIMEOUT_S = 1800
+
+
 def ensure_image(tree: Path, *, docker: str | None = None, rebuild: bool = False) -> ContainerImage:
     """Build (or reuse) the image for ``tree``; raise BootstrapFailed with the
     build log's tail when the environment cannot be constructed."""
@@ -225,21 +228,31 @@ def ensure_image(tree: Path, *, docker: str | None = None, rebuild: bool = False
             ignore=shutil.ignore_patterns(*_SKIP),
             symlinks=False,
         )
-        build = subprocess.run(
-            [
-                binary,
-                "build",
-                "--quiet",
-                "--tag",
-                tag,
-                "--file",
-                str(context_dir / "Dockerfile"),
-                str(context_dir),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=1800,
-        )
+        try:
+            build = subprocess.run(
+                [
+                    binary,
+                    "build",
+                    "--quiet",
+                    "--tag",
+                    tag,
+                    "--file",
+                    str(context_dir / "Dockerfile"),
+                    str(context_dir),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=IMAGE_BUILD_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired as exc:
+            # a build that never returns is a bootstrap failure like any other:
+            # the operator-facing contract is "environment bootstrap failed …"
+            # in the run status, never a traceback out of backend selection
+            raise BootstrapFailed(
+                f"environment bootstrap failed (python {version}, roots "
+                f"{[root.relative or '.' for root in roots]}): the image build timed out "
+                f"after {IMAGE_BUILD_TIMEOUT_S} s"
+            ) from exc
     if build.returncode != 0:
         tail = (build.stderr or build.stdout)[-1200:]
         raise BootstrapFailed(
