@@ -50,6 +50,7 @@ raised from $10 by the owner on 2026-09-02.
 
 | date | item | reserved | settled |
 |---|---|---|---|
+| 2026-09-02 | C-05 verification: dev-slice re-run 8 regressions + 8 controls, K=4, full product path with the family policy and the 3,200 proposal bound | $2.50 | pending |
 | 2026-09-02 | D-078 step a: regenerate reproductions for the 6 eligible-uncertified dev-slice candidates with generator context, differential execution only, no publication | $0.50 | $0.397800 (row below); $0.102200 released |
 | 2026-09-02 | D-078 step c: re-run the dev slice 8 regressions + 8 controls, K=4, full product path | $2.50 | $1.107200 (row below); $1.392800 released |
 | 2026-09-02 | E-02 pilot (mainline §2 step 7): up to 8 dev-slice regression PRs + 8 controls (test-only and docs-only from the same repositories), full product path K=4 with verification; sample sized to the remaining cap; raised from $2.20 after environment retries consumed the first tranche | $3.00 | $1.860100 (row below); $1.139900 released |
