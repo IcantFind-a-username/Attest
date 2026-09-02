@@ -30,6 +30,10 @@ FAILURE_CATEGORIES = (
 )
 
 
+def _as_int(value: object) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
 def categorise_failure(reason: str) -> str:
     """The category of one reproduction failure, from its recorded reason."""
     text = reason.lower()
@@ -77,6 +81,8 @@ class RunStatus:
     attempts: int
     certified: int
     published: int
+    units_planned: int = 0  # change units the plan held, read or not
+    budget_limited: bool = False  # the per-unit budget stopped the proposal
     failures: tuple[tuple[str, str], ...] = ()  # (category, bounded reason), attempt order
     counts: Mapping[str, int] = field(default_factory=dict)
     prompt_tokens: int = 0  # proposal prompt tokens: uncached + cache writes + cache reads
@@ -84,8 +90,14 @@ class RunStatus:
     behavior_changes: int = 0  # D-102: accepted receipts of the behavior-change class
 
     def lines(self) -> list[str]:
+        planned = self.units_planned or self.units_read
+        read = (
+            f"read {self.units_read} of {planned} units, budget-limited"
+            if self.budget_limited
+            else f"change units read: {self.units_read}"
+        )
         out = [
-            f"change units read: {self.units_read}; candidates: {self.candidates}; "
+            f"{read}; candidates: {self.candidates}; "
             f"eligible: {self.eligible}; reproductions attempted: {self.attempts}; "
             f"certified: {self.certified}; published: {self.published}"
             + (
@@ -119,10 +131,19 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
     ignored, so an older ledger still yields a status."""
     mine = [row for row in rows if row.get("task_id") == task_id]
     units = 0
+    planned = 0
+    budget_limited = False
     for row in mine:
         if row.get("kind") == "review_plan":
             plan_units = row.get("units")
             units = len(plan_units) if isinstance(plan_units, list) else 0
+            planned = units
+        if row.get("kind") == "proposal_coverage":
+            # the proposal knows how many units the budget funded; the plan row
+            # only knows how many it held
+            units = _as_int(row.get("units_read"))
+            planned = _as_int(row.get("units_planned")) or units
+            budget_limited = bool(row.get("budget_limited"))
     candidates = {
         str(row.get("finding_id"))
         for row in mine
@@ -190,6 +211,8 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
     return RunStatus(
         task_id=task_id,
         units_read=units,
+        units_planned=planned,
+        budget_limited=budget_limited,
         candidates=len(candidates),
         eligible=len(eligible),
         attempts=attempts,

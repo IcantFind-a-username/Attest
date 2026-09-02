@@ -508,12 +508,24 @@ def _bound_context(
     return tuple(kept), tuple(omissions)
 
 
+def _unit_order(path: str) -> tuple[int, str]:
+    """Source files first, then everything else; alphabetical within each rank.
+
+    D-105/E-04: a per-unit budget funds the units it reaches in plan order, so a
+    large commit whose paths sort documentation ahead of code used to spend the
+    whole budget on anchors that eligibility rejects for not being Python. Only
+    a Python file can carry an anchored, reproducible finding, so it is read
+    first. The rank is a property of the path alone, so the plan stays stable.
+    """
+    return (0 if path.endswith(".py") else 1, path)
+
+
 def plan_review(repo: Path, diff: DiffInfo, base_ref: str) -> ReviewPlan:
     """Stable units over the merge-base diff, each with bounded retrieved context."""
     blocks = split_diff_by_file(diff.text)
     corpus = _Corpus(repo)
     per_file: list[tuple[str, list[ContextSnippet], list[str]]] = []
-    for path in sorted(blocks):
+    for path in sorted(blocks, key=_unit_order):
         if path not in diff.hunks:
             continue  # no anchorable new-file lines (binary, mode-only)
         snippets, omissions = _file_context(repo, corpus, base_ref, path, blocks[path], diff)

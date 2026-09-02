@@ -325,11 +325,19 @@ def run_review(
         proposal = propose_plan(
             plan, config, budget, provider, cache_root=repo, shared_system=shared_system
         )
+        ledger.append(
+            {
+                "kind": "proposal_coverage",
+                "task_id": task_id,
+                "units_planned": proposal.units_planned,
+                "units_read": proposal.units_read,
+                "budget_limited": bool(proposal.omitted_units),
+            }
+        )
         if proposal.omitted_units:
-            reviewed = len(plan.units) - len(proposal.omitted_units)
             notes.append(
-                f"{reviewed} of {len(plan.units)} change units reviewed; omitted: "
-                + "; ".join(proposal.omitted_units[:3])
+                f"read {proposal.units_read} of {proposal.units_planned} units, "
+                "budget-limited; omitted: " + "; ".join(proposal.omitted_units[:3])
             )
         provider_samples = [asdict(sample) for sample in proposal.sample_observations]
         notes.append(count_samples(list(proposal.sample_observations)).note())

@@ -89,3 +89,26 @@ def test_status_reports_prompt_tokens_and_cache_reads() -> None:
     status = status_from_rows(rows, "t1")
     assert (status.prompt_tokens, status.cache_read_input_tokens) == (2000, 900)
     assert "cache_read_input_tokens: 900" in status.render()
+
+
+def test_a_budget_limited_run_says_how_many_units_it_read_of_how_many() -> None:
+    """E-04 next stratum: a silence bought by the per-unit budget says so.
+
+    Without the proposal's own coverage row the status reported the planned
+    unit count as "change units read", so a 13-unit commit whose budget funded
+    one unit read as if all thirteen had been reviewed.
+    """
+    rows = _rows() + [
+        {
+            "kind": "proposal_coverage",
+            "task_id": "t1",
+            "units_planned": 13,
+            "units_read": 1,
+            "budget_limited": True,
+        }
+    ]
+    status = status_from_rows(rows, "t1")
+    assert (status.units_read, status.units_planned, status.budget_limited) == (1, 13, True)
+    assert "read 1 of 13 units, budget-limited" in status.render()
+    # a run the budget did not stop keeps the plain wording
+    assert "budget-limited" not in status_from_rows(_rows(), "t1").render()

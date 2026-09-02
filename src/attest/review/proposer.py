@@ -328,6 +328,8 @@ class ProposalRun:
     sample_observations: list[SampleObservation]
     per_sample: list[list[Finding]] = field(default_factory=list)
     omitted_units: list[str] = field(default_factory=list)  # typed, never silent
+    units_planned: int = 0
+    units_read: int = 0  # units the budget actually funded
 
 
 CONTEXT_PREAMBLE = (
@@ -369,6 +371,7 @@ def propose_plan(
     observations: list[SampleObservation] = []
     successful = 0
     omitted: list[str] = []
+    units_read = 0
     for index, unit in enumerate(plan.units):
         try:
             run = propose(
@@ -395,6 +398,7 @@ def propose_plan(
         errors.extend(run.sample_errors)
         observations.extend(run.sample_observations)
         successful += run.successful_samples
+        units_read += 1
     return ProposalRun(
         candidates=cluster_findings(per_sample),
         rejected=rejected,
@@ -403,6 +407,8 @@ def propose_plan(
         sample_observations=observations,
         per_sample=per_sample,
         omitted_units=omitted,
+        units_planned=len(plan.units),
+        units_read=units_read,
     )
 
 

@@ -180,3 +180,35 @@ def test_package_block_is_the_anchored_package_and_its_tests_in_a_bounded_order(
     assert order == sorted(order)
     assert "unrelated.py" not in block
     assert block.startswith("Shared repository context")
+
+
+def test_source_units_are_planned_before_documentation_units(tmp_path: Path) -> None:
+    """E-04: the per-unit budget must reach code before prose.
+
+    A commit that touches `docs/a.md` and `src/z.py` used to plan the Markdown
+    unit first, because units were ordered by path alone; on a large commit the
+    budget was spent on anchors eligibility rejects for not being Python.
+    """
+    from attest.review.diffs import parse_diff
+    from attest.review.planner import plan_review
+
+    repo = tmp_path / "repo"
+    (repo / "docs").mkdir(parents=True)
+    (repo / "src").mkdir()
+    (repo / "docs" / "a.md").write_text("# a\nprose\n", encoding="utf-8")
+    (repo / "src" / "z.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    _git(repo, "add", "-A")
+    _git(repo, "-c", "user.email=t@e", "-c", "user.name=t", "commit", "-qm", "base")
+
+    diff = parse_diff(
+        "diff --git a/docs/a.md b/docs/a.md\n"
+        "--- a/docs/a.md\n+++ b/docs/a.md\n"
+        "@@ -1,2 +1,3 @@\n # a\n prose\n+more\n"
+        "diff --git a/src/z.py b/src/z.py\n"
+        "--- a/src/z.py\n+++ b/src/z.py\n"
+        "@@ -1,2 +1,3 @@\n def f():\n     return 1\n+    # tail\n"
+    )
+    plan = plan_review(repo, diff, "HEAD")
+    ordered = [file for unit in plan.units for file in unit.files]
+    assert ordered.index("src/z.py") < ordered.index("docs/a.md")
