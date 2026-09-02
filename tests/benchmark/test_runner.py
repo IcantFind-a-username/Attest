@@ -476,6 +476,23 @@ def test_overflow_surfaces_are_extracted_as_scored_predictions(
     from attest.review.tier0 import Tier0Signal
 
     repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    # both defects are regressions: the guards exist at base and vanish at head
+    git(repo, "checkout", "-q", "--detach", base_sha)
+    (repo / "app.py").write_text(
+        "def average(items):\n"
+        "    if not items:\n"
+        "        return 0\n"
+        "    return sum(items) / len(items)\n\n\n"
+        "# helpers below\n\n\n"
+        "def ratio(a, b):\n"
+        "    if b == 0:\n"
+        "        return 0\n"
+        "    return a / b\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", "app.py")
+    git(repo, "commit", "-m", "guarded ratio alongside guarded average")
+    base_sha = git(repo, "rev-parse", "HEAD")
     (repo / "app.py").write_text(
         "def average(items):\n"
         "    return sum(items) / len(items)\n\n\n"
@@ -485,7 +502,7 @@ def test_overflow_surfaces_are_extracted_as_scored_predictions(
         encoding="utf-8",
     )
     git(repo, "add", "app.py")
-    git(repo, "commit", "-m", "add an unguarded ratio")
+    git(repo, "commit", "-m", "drop both guards")
     head_sha = git(repo, "rev-parse", "HEAD")
     monkeypatch.setattr(
         tier0,
@@ -1371,12 +1388,26 @@ def test_inline_event_names_only_the_three_comments_actually_sent(
     from attest.review.tier0 import Tier0Signal
 
     repo, base_sha, head_sha = regression_repo(tmp_path / "project")
+    # four regressions across four files: guarded at base, unguarded at head
+    git(repo, "checkout", "-q", "--detach", base_sha)
     for index in range(4):
         (repo / f"module_{index}.py").write_text(
-            f"def defect_{index}():\n    return {index}\n", encoding="utf-8"
+            f"def defect_{index}(items):\n    if not items:\n        return 0\n"
+            f"    return {index} / len(items)\n",
+            encoding="utf-8",
         )
     git(repo, "add", *[f"module_{index}.py" for index in range(4)])
-    git(repo, "commit", "-m", "add four distinct changed files")
+    git(repo, "commit", "-m", "four guarded modules")
+    base_sha = git(repo, "rev-parse", "HEAD")
+    (repo / "app.py").write_text(
+        "def average(items):\n    return sum(items) / len(items)\n", encoding="utf-8"
+    )
+    for index in range(4):
+        (repo / f"module_{index}.py").write_text(
+            f"def defect_{index}(items):\n    return {index} / len(items)\n", encoding="utf-8"
+        )
+    git(repo, "add", "app.py", *[f"module_{index}.py" for index in range(4)])
+    git(repo, "commit", "-m", "drop every guard")
     head_sha = git(repo, "rev-parse", "HEAD")
     monkeypatch.setattr(
         tier0,
