@@ -85,7 +85,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     env = dict(**__import__("os").environ)
     if args.code:
         env["PYTHONPATH"] = str(Path(args.code) / "src")
+    only = set(args.only.split(",")) if args.only else None
     for iid, control in _jobs():
+        if only is not None and iid not in only:
+            continue
+        if args.defects_only and control:
+            continue
         argv = [
             sys.executable,
             str(pilot),
@@ -260,6 +265,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("build").set_defaults(func=cmd_build)
     run = sub.add_parser("run")
     run.add_argument("--code", default=None, help="fixed checkout whose attest code runs the cases")
+    run.add_argument("--only", default=None, help="comma-separated instance ids to (re-)run")
+    run.add_argument("--defects-only", action="store_true", help="skip the control cases")
     run.set_defaults(func=cmd_run)
     sub.add_parser("table").set_defaults(func=cmd_table)
     args = parser.parse_args(argv)

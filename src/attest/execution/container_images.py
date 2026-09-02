@@ -126,10 +126,49 @@ def manifest_digest(tree: Path, roots: list[ProjectRoot]) -> str:
     return digest.hexdigest()
 
 
-def dockerfile(python_version: str, roots: list[ProjectRoot]) -> str:
+_VERSION_FILE_RE = re.compile(r"""^\s*(?:__version__|version)\s*=\s*['"]([^'"]+)['"]""", re.M)
+
+
+def scm_pretend_version(tree: Path, roots: list[ProjectRoot]) -> str | None:
+    """For a project that versions itself with setuptools_scm: the version its
+    committed ``_version.py`` carries (the tree is copied without ``.git``, so
+    scm metadata is absent at build time); None when scm is not used."""
+    uses_scm = False
+    for root in roots:
+        for name in ("pyproject.toml", "setup.py", "setup.cfg"):
+            path = tree / root.relative / name if root.relative else tree / name
+            if path.is_file():
+                try:
+                    text = path.read_text(errors="replace")
+                except OSError:
+                    continue
+                if "setuptools_scm" in text or "setuptools-scm" in text:
+                    uses_scm = True
+    if not uses_scm:
+        return None
+    for candidate in sorted(tree.rglob("_version.py")):
+        if any(part in _SKIP for part in candidate.relative_to(tree).parts):
+            continue
+        try:
+            found = _VERSION_FILE_RE.search(candidate.read_text(errors="replace"))
+        except OSError:
+            continue
+        if found:
+            return found.group(1)
+    return "0.0.1"
+
+
+def dockerfile(
+    python_version: str, roots: list[ProjectRoot], scm_version: str | None = None
+) -> str:
     lines = [
         f"FROM python:{python_version}-slim",
         "ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1",
+    ]
+    if scm_version:
+        # setuptools_scm cannot see a repository inside the build context
+        lines.append(f"ENV SETUPTOOLS_SCM_PRETEND_VERSION={scm_version}")
+    lines += [
         "RUN pip install pytest",
         "COPY tree /attest/build",
     ]
@@ -145,7 +184,13 @@ def dockerfile(python_version: str, roots: list[ProjectRoot]) -> str:
                     f'echo "attest: optional requirements {root.relative or "."}/{name} failed"'
                 )
         if any(name in ("pyproject.toml", "setup.py", "setup.cfg") for name in root.manifests):
-            lines.append(f"RUN pip install {directory}")
+            if root.relative:
+                lines.append(
+                    f"RUN pip install {directory} || "
+                    f'echo "attest: optional project {root.relative} failed to install"'
+                )
+            else:
+                lines.append(f"RUN pip install {directory}")
     lines.append("RUN rm -rf /attest/build")
     return "\n".join(lines) + "\n"
 
@@ -158,18 +203,22 @@ def ensure_image(tree: Path, *, docker: str | None = None, rebuild: bool = False
         raise BootstrapFailed("docker is not installed on this host")
     version, _reason = project_python(tree)
     roots = discover_roots(tree)
+    scm_version = scm_pretend_version(tree, roots)
+    text = dockerfile(version, roots, scm_version)
     tag = (
         "attest-repro:"
-        + hashlib.sha256(
-            f"{version}\n{manifest_digest(tree, roots)}\n{dockerfile(version, roots)}".encode()
-        ).hexdigest()[:16]
+        + hashlib.sha256(f"{version}\n{manifest_digest(tree, roots)}\n{text}".encode()).hexdigest()[
+            :16
+        ]
     )
     existing = image_digest(tag, docker=binary)
     if existing and not rebuild:
         return ContainerImage(tag, existing)
     with tempfile.TemporaryDirectory(prefix="attest-image-") as context:
         context_dir = Path(context)
-        (context_dir / "Dockerfile").write_text(dockerfile(version, roots), encoding="utf-8")
+        (context_dir / "Dockerfile").write_text(
+            dockerfile(version, roots, scm_version), encoding="utf-8"
+        )
         shutil.copytree(
             tree,
             context_dir / "tree",

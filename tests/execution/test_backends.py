@@ -76,3 +76,33 @@ def test_project_python_honours_requires_python_and_classifiers(tmp_path: Path) 
     assert project_python(tmp_path)[0] == "3.12"
     (tmp_path / "setup.py").unlink()
     assert project_python(tmp_path)[0] == "3.9"
+
+
+def test_dockerfile_pretends_the_scm_version_and_keeps_nested_projects_best_effort(
+    tmp_path: Path,
+) -> None:
+    """Held-out bootstrap (2026-09-03): a setuptools_scm project builds with the
+    version its committed _version.py carries, the tree root's own install is
+    required, and nested example/docs projects cannot fail the image."""
+    from attest.execution.container_images import (
+        discover_roots,
+        dockerfile,
+        scm_pretend_version,
+    )
+
+    (tmp_path / "pyproject.toml").write_text(
+        '[build-system]\nrequires = ["setuptools", "setuptools-scm"]\n', encoding="utf-8"
+    )
+    (tmp_path / "src" / "pkg").mkdir(parents=True)
+    (tmp_path / "src" / "pkg" / "_version.py").write_text('version = "7.4.0"\n', encoding="utf-8")
+    (tmp_path / "examples").mkdir()
+    (tmp_path / "examples" / "setup.py").write_text("raise SystemExit(1)\n", encoding="utf-8")
+    roots = discover_roots(tmp_path)
+    scm = scm_pretend_version(tmp_path, roots)
+    assert scm == "7.4.0"
+    text = dockerfile("3.11", roots, scm)
+    assert "ENV SETUPTOOLS_SCM_PRETEND_VERSION=7.4.0" in text
+    assert "RUN pip install /attest/build\n" in text
+    assert (
+        'RUN pip install /attest/build/examples || echo "attest: optional project examples' in text
+    )
