@@ -36,7 +36,7 @@ from attest.review.executor import (
 )
 from attest.review.gate import GateResult
 from attest.review.ledger import Ledger
-from attest.review.proposer import PROPOSER_MAX_OUTPUT_TOKENS, ProviderResult
+from attest.review.proposer import ProviderResult
 from attest.review.schema import Finding
 
 VerifyWithDefaults = Callable[..., VerificationRun]
