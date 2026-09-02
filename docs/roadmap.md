@@ -601,6 +601,13 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-03 — paid check (b), dev-slice re-run after fixes 1-5:** report
+  [`acceptance/2026-09-03-e02-pilot-rerun-fixes.md`](acceptance/2026-09-03-e02-pilot-rerun-fixes.md).
+  Defects 8: 19 candidates, 6 certified on 5/8, 5 published, 0 samples without text, 5 true
+  abstentions; controls 8: 0 false publications, 28/32 true abstentions. Spend $0.8511,
+  settled. The condition for the held-out slice (zero control publications, explainable
+  abstentions) holds.
+
 - **2026-09-03 — items 9 and 10:** two commits (`feat: show the drawer in attest stats`,
   `refactor: user-facing wording without statistical terms`). Item 9's RED failed on the
   unpatched path (no `--drawer`) and passes after: an unverified candidate appears with its
