@@ -18,7 +18,7 @@ explicit, explained silence; there is no third outcome.
 ```bash
 git clone https://github.com/IcantFind-a-username/Attest.git
 cd Attest
-git checkout <the ref named in the release note>
+git checkout v0.1.0-pilot.1   # the ref in docs/operations/install-ref.md
 python -m venv .venv
 .venv/bin/python -m pip install -r requirements-toolchain.lock
 .venv/bin/python -m pip install --no-deps --no-build-isolation -e .
@@ -60,10 +60,14 @@ This recomputes every digest and the controller seal from the bundle alone.
 ## 4. Enable the Action on pull requests
 
 Copy [`examples/pull-request.yml`](../../examples/pull-request.yml) into
-`.github/workflows/`, pin `uses:` to the same ref you installed, and set the two secrets the
-workflow names. Fork pull requests are skipped before any credential or head code is touched.
+`.github/workflows/`, pin `uses:` to the same ref you installed
+(`IcantFind-a-username/Attest@v0.1.0-pilot.1`, see [`install-ref.md`](install-ref.md)), and
+set the two secrets the workflow names. Fork pull requests are skipped before any credential or head code is touched.
 The Action posts a running comment, then a final comment that is either the verified
 findings (each with its test) or an explicit abstention, always with a collapsed run status.
+
+The base branch owns the policy the review runs under; see
+[`base-policy.md`](base-policy.md) for every key and its factory default.
 
 ## 5. Turn it off without a deploy
 
