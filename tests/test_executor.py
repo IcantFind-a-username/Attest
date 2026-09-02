@@ -3065,3 +3065,34 @@ def test_a_regression_and_a_crash_on_a_changed_line_keep_the_regression_class(
     assert crash.intent is not None and not crash.intent.new_rejection
     assert (crash.intent.origin_line, crash.intent.origin_statement) == (2, "other")
     assert crash.intent.exception_type == "IndexError"
+
+
+def test_a_stdlib_module_sharing_the_anchored_basename_is_not_a_shadow(tmp_path: Path) -> None:
+    """The supplementary held-out run (2026-09-03): pytest's anchored file is
+    `src/_pytest/logging.py`, and the stdlib `logging` package -- a different
+    module that merely shares the basename -- was reported as a shadow of it,
+    turning a real regression into UNBOUND. A shadow is a module of a dotted
+    name the anchored file answers to from the tree's import roots."""
+    good = "import logging\n\n\ndef add(a, b):\n    logging.getLogger(__name__)\n    return a + b\n"
+    bad = "import logging\n\n\ndef add(a, b):\n    logging.getLogger(__name__)\n    return a - b\n"
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path,
+        {"pkg/__init__.py": "", "pkg/logging.py": good},
+        {"pkg/__init__.py": "", "pkg/logging.py": bad},
+    )
+    stored = candidate(file="pkg/logging.py", line=6)
+    body = (
+        "import logging\n"
+        "import pkg.logging as mod\n\n\n"
+        "def test_repro():\n"
+        "    logging.getLogger('probe')\n"
+        "    assert mod.add(2, 2) == 4\n"
+    )
+
+    result = execute_differential(
+        repo, stored, ReproSpec(body), ExecutorLimits(), base_sha=base_sha, head_sha=head_sha
+    )
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+    assert result.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    assert all(run.import_origins == () for run in result.head_runs)

@@ -589,18 +589,45 @@ def _record_exception(frame, arg):
     )
 
 
+def _expected_module_names():
+    # the dotted names under which the anchored file is importable from the
+    # tree's import roots (ATTEST_TREE_PATHS); a module of another name that
+    # merely shares the file's basename (stdlib ``logging`` beside
+    # ``_pytest/logging.py``) is not a shadow
+    names = set()
+    for root in os.environ.get("ATTEST_TREE_PATHS", "").split(os.pathsep):
+        if not root:
+            continue
+        root = os.path.realpath(root)
+        if not _trace_target.startswith(root + os.sep):
+            continue
+        relative = _trace_target[len(root) + 1 :]
+        if relative.endswith(os.sep + "__init__.py"):
+            relative = relative[: -len(os.sep + "__init__.py")]
+        elif relative.endswith(".py"):
+            relative = relative[:-3]
+        names.add(relative.replace(os.sep, "."))
+    return names
+
+
 def _record_import_origin():
-    # every loaded module whose dotted name maps onto the anchored file's path
-    # but whose file is a different one: the anchored module was shadowed
+    # every loaded module whose dotted name is one the anchored file answers
+    # to, but whose file is a different one: the anchored module was shadowed.
+    # Without a known import root the basename rule is the fallback.
     lines = []
+    expected = _expected_module_names()
     for name, module in list(sys.modules.items()):
         file = getattr(module, "__file__", None)
         if not isinstance(file, str) or not file:
             continue
-        as_path = name.replace(".", os.sep)
-        tails = (os.sep + as_path + ".py", os.sep + as_path + os.sep + "__init__.py")
-        if not any(_trace_target.endswith(tail) for tail in tails):
-            continue
+        if expected:
+            if name not in expected:
+                continue
+        else:
+            as_path = name.replace(".", os.sep)
+            tails = (os.sep + as_path + ".py", os.sep + as_path + os.sep + "__init__.py")
+            if not any(_trace_target.endswith(tail) for tail in tails):
+                continue
         real = os.path.realpath(file)
         if real != _trace_target:
             lines.append(name + "\\t" + real)
