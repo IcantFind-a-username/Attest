@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -140,11 +141,55 @@ def _commit_generated_version_file(worktree: Path) -> None:
         _commit(worktree, "pilot: commit the generated _pytest/_version.py")
 
 
+# Interpreters this host can offer, newest first. CPython 3.8 is excluded: its
+# eager platform.uname() shells out and trips the process guard (D-057).
+AVAILABLE_PYTHONS = {
+    (3, 11): "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11",
+    (3, 9): str(Path.home() / ".pyenv" / "versions" / "3.9.19" / "bin" / "python"),
+}
+_CLASSIFIER_RE = re.compile(r"Programming Language :: Python :: 3\.(\d+)")
+
+
+def _project_python(worktree: Path) -> tuple[str, str]:
+    """Interpreter by the project's own declaration, else the era fallback.
+
+    Rule (owner 2026-09-02, item 3): the highest available interpreter whose
+    minor version does not exceed the newest ``Programming Language :: Python
+    :: 3.X`` classifier the project declares; a project declaring nothing this
+    host can satisfy gets the oldest available interpreter (3.9).
+    """
+    declared: list[int] = []
+    for name in ("setup.py", "setup.cfg", "pyproject.toml"):
+        path = worktree / name
+        if path.exists():
+            declared.extend(
+                int(m) for m in _CLASSIFIER_RE.findall(path.read_text(errors="replace"))
+            )
+    available = sorted(AVAILABLE_PYTHONS, reverse=True)
+    if declared:
+        newest = max(declared)
+        for version in available:
+            if version[1] <= newest:
+                return AVAILABLE_PYTHONS[version], f"classifiers up to 3.{newest}"
+        return AVAILABLE_PYTHONS[available[-1]], f"classifiers up to 3.{newest}; fallback"
+    return AVAILABLE_PYTHONS[available[-1]], "no classifiers; era fallback"
+
+
 def _make_env(case: Path, worktree: Path) -> Path:
-    """Per-case virtualenv. PILOT_PYTHON selects the interpreter (older
-    projects cannot import on the newest Python); the choice is recorded."""
+    """Per-case virtualenv on the interpreter the project declares (or
+    PILOT_PYTHON when set); the choice and its reason are recorded."""
     env_dir = case / "env"
-    base_python = os.environ.get("PILOT_PYTHON", sys.executable)
+    chosen, reason = _project_python(worktree)
+    base_python = os.environ.get("PILOT_PYTHON", chosen)
+    (case / "interpreter.json").write_text(
+        json.dumps(
+            {
+                "python": base_python,
+                "reason": reason if "PILOT_PYTHON" not in os.environ else "PILOT_PYTHON override",
+            }
+        )
+        + "\n"
+    )
     if not (env_dir / "bin" / "python").exists():
         subprocess.run([base_python, "-m", "venv", "--clear", str(env_dir)], check=True)
         py = env_dir / "bin" / "python"
