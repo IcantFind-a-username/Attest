@@ -3,7 +3,7 @@
 Hard cap: **$45** API spend for all development including dogfood (handoff guardrail 4);
 raised from $10 to $30 by the owner on 2026-09-02, and from $30 to $45 on 2026-09-03
 (owner decision 1 of the seventh window: option A of the real-traffic corpus plan).
-Window cap for 2026-09-03g: **$14**.
+Window cap for 2026-09-03g: **$14**. Window cap for 2026-09-04: **$10** (owner instruction).
 
 ## API spend (counts against the cap)
 
@@ -76,7 +76,9 @@ Window cap for 2026-09-03g: **$14**.
 | 2026-09-03 | real-traffic corpus, one review whose driver was killed mid-case and which wrote no `review_run` row (`Corum` `d18`, first attempt, task `20260903-192628`): its S-channel rows total $0.039185 and it reached verification, so a conservative **$0.30** is charged for proposal and generation calls that were billed without a ledger row (AGENTS §9) | $0.300000 |
 | 2026-09-03 | `us-stock-helper` Action pilot (owner decision 3 of 2026-09-03g): two GitHub-runner runs of the Action on an outside repository, both refused at the credential gate before any model call (`INPUT_MODEL_API_KEY` empty). [Report](docs/acceptance/2026-09-03-us-stock-helper-action.md) | $0.000000 |
 
-**Total API spend: $31.468326 of $45.00.** (65 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+| 2026-09-04 | `us-stock-helper` Action, the re-run the owner unblocked (decision 3 of 2026-09-04): secret added and [#3](https://github.com/IcantFind-a-username/us-stock-helper/pull/3) merged by the owner, `gh run rerun 33749092145` succeeded and **the Action commented on an outside repository for the first time** — one candidate, eligible, reproduction deferred at collection, 0 certified, 0 published. [Report](docs/acceptance/2026-09-04-us-stock-helper-action-comment.md) | $0.044403 |
+
+**Total API spend: $31.512729 of $45.00.** (66 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
