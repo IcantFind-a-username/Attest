@@ -1062,15 +1062,21 @@ def test_head_policy_is_ignored_and_the_diff_is_merge_base_to_head(
 def test_pr_family_policy_caps_publication_and_counts_a_defect_once(
     planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
 ) -> None:
-    """G-CERT-004: with m eligible candidates in one PR, nothing below m/alpha is
-    published, two certified candidates for the same defect count once, and the
-    author sees at most the hard cap.
+    """G-CERT-004, under D-125: nothing below **its own change unit's**
+    m_u/alpha is published, certified candidates for the same defect count once,
+    and the author sees at most the hard cap.
 
-    Five candidates; two are asserted by both samples (votes 2), three by one
-    (votes 1). Every candidate is certified by the same reproduction, so all
-    five hold accepted receipts. At alpha 0.1 with m = 5 the family threshold is
-    50: wealth 2.64 x 20 = 52.8 clears it, 2.0 x 20 = 40 does not. The two
-    clearing candidates share one test digest and adjacent anchors: one defect.
+    Seven candidates in two files. `app.py` holds the two asserted by both
+    samples (votes 2, wealth 2.64 x 20 = 52.8); `util.py` holds five asserted by
+    one (votes 1, wealth 2.0 x 20 = 40). All seven are certified, so all seven
+    hold accepted receipts.
+
+    At alpha 0.1 the PR-wide bar is m/alpha = 70 and **would publish nothing**.
+    The bars actually applied are per unit: `app.py` has m_u = 2 and a bar of 20,
+    which 52.8 clears; `util.py` has m_u = 5 and a bar of 50, which 40 does not.
+    So one finding publishes and one whole unit stays suppressed -- both halves of
+    the decision in one run. The two `app.py` candidates share a test digest and
+    adjacent anchors: one defect, published once.
     """
     from attest.review.ci import run_ci
 
@@ -1132,6 +1138,18 @@ def test_pr_family_policy_caps_publication_and_counts_a_defect_once(
             "failure_scenario": "An archival checkpoint receives absent telemetry.",
             "falsification_plan": "Inspect the archival checkpoint path.",
         },
+        {
+            "claim": "An unpopulated interval breaks the retention sweep.",
+            "anchor": {"file": "util.py", "line": 2},
+            "failure_scenario": "The retention sweep runs over an unpopulated interval.",
+            "falsification_plan": "Sweep an interval that holds nothing.",
+        },
+        {
+            "claim": "A blank sampling frame stalls the export worker.",
+            "anchor": {"file": "util.py", "line": 2},
+            "failure_scenario": "The export worker is handed a blank sampling frame.",
+            "falsification_plan": "Export from a frame with no rows.",
+        },
     ]
 
     def repro_for(prompt: str) -> str:
@@ -1183,16 +1201,20 @@ def test_pr_family_policy_caps_publication_and_counts_a_defect_once(
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
 
-    assert result.candidate_count == 5
+    assert result.candidate_count == 7
     rows = _ledger_rows(repo)
     accepted = [
         row for row in rows if row["kind"] == "certification" and row["outcome"] == "accepted"
     ]
-    assert len(accepted) == 5  # every candidate holds a receipt ...
+    assert len(accepted) == 7  # every candidate holds a receipt ...
     policy = next(row for row in rows if row["kind"] == "publication_policy")
-    assert policy["eligible_count"] == 5
-    assert policy["family_threshold"] == 50.0
-    # ... but publication is family-controlled: one defect, once, above m/alpha
+    assert policy["eligible_count"] == 7
+    # the PR-wide bar is still recorded; D-125 no longer applies it
+    assert policy["family_threshold"] == 70.0
+    assert policy["unit_policy_version"] == "attest.change-unit.file.v1"
+    assert policy["eligible_units"] == {"app.py": 2, "util.py": 5}
+    assert policy["unit_thresholds"] == {"app.py": 20.0, "util.py": 50.0}
+    # ... but publication is family-controlled: one defect, once, above m_u/alpha
     assert result.surfaced_count == 1
     comments = github_server.review_bodies[0]["comments"]
     assert isinstance(comments, list) and len(comments) == 1
@@ -1202,9 +1224,13 @@ def test_pr_family_policy_caps_publication_and_counts_a_defect_once(
     final = next(row for row in rows if row["kind"] == "ci_final")
     published = [d for d in final["decisions"] if d["placement"] in {"inline", "overflow"}]
     assert len(published) == 1
-    assert all(d["wealth_final"] >= 50.0 for d in published)
+    assert all(d["wealth_final"] >= 20.0 for d in published)
     suppressed = {s["finding_id"]: s["reason"] for s in policy["suppressed"]}
+    # the whole `util.py` unit is below its own bar of 50; the second `app.py`
+    # candidate is the same defect as the one that published
     assert sorted(suppressed.values()) == [
+        "below family threshold",
+        "below family threshold",
         "below family threshold",
         "below family threshold",
         "below family threshold",

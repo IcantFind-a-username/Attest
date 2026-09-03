@@ -23,6 +23,7 @@ from attest.certification.selection import (
     select_for_publication,
 )
 from attest.certification.types import CertifiedFinding
+from attest.certification.units import unit_counts
 from attest.execution.backends import select_backend
 from attest.execution.controller import ExecutorAdapter
 from attest.review.candidates import CandidateStore
@@ -237,15 +238,16 @@ def run_verification_stage(
     # C-05 (INV-FAMILY-001): same-defect certified findings count once, a
     # finding publishes only at e-value >= m/alpha for the m eligible candidates
     # in this PR, and at most the hard cap is author-visible anywhere
-    eligible_ids = [
-        candidate.finding.finding_id
-        for candidate in candidates
-        if candidate.eligibility == "regression"
-    ]
+    eligible = [candidate for candidate in candidates if candidate.eligibility == "regression"]
+    eligible_ids = [candidate.finding.finding_id for candidate in eligible]
+    # D-125: the family is the change unit the candidate is anchored in, so the
+    # bar a finding clears is set by its own file's eligible count, not the PR's
+    units = unit_counts(candidate.finding.file for candidate in eligible)
     family = FamilyPolicy(
         alpha=review.alpha,
         eligible_count=len(eligible_ids),
         hard_cap=min(3, config.max_findings),
+        eligible_units=units,
     )
     selection = select_for_publication(
         [
@@ -263,7 +265,14 @@ def run_verification_stage(
             "method": PUBLICATION_METHOD,
             "alpha": review.alpha,
             "eligible_count": family.eligible_count,
+            # D-125: `family_threshold` remains the PR-wide bar, reported and no
+            # longer applied; `unit_thresholds` is what each cluster was judged by
             "family_threshold": round(selection.family_threshold, 6),
+            "unit_policy_version": family.unit_policy_version,
+            "eligible_units": dict(sorted(units.items())),
+            "unit_thresholds": {
+                unit: round(value, 6) for unit, value in sorted(selection.unit_thresholds.items())
+            },
             "hard_cap": family.hard_cap,
             "mean_e_value": (
                 None if selection.mean_e_value is None else round(selection.mean_e_value, 6)

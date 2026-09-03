@@ -15,12 +15,16 @@ the plan's cost model was about half the true price (§5).
 > **Correction, 2026-09-04 (D-124).** Two of this run's 18 accepted receipts have evidence
 > bundles that **do not verify offline** — the bundle's `test_repro.py` is not the test the
 > runs executed ([re-verification report](2026-09-04-bundle-reverification.md)). Under the fix
-> both would have been refused at certification and never counted. **The tables below are the
-> corrected ones**: certified 18 → **16**, published 7 → **6**, certified-but-below-threshold
-> 8 → **7**, in rows `d11` and `c02`. Every other row re-verified clean. The headline sentence
-> above is unchanged, because both counts are per *pair* and `d11` still certifies and
-> publishes; the false-publication count is unchanged, because the withdrawn publication is a
-> defect-pair receipt, not a control's.
+> both would have been refused at certification. **The tables below are the corrected ones**:
+> certified 18 → **16**, certified-but-below-threshold 8 → **7**, in rows `d11` and `c02`.
+> Every other row re-verified clean.
+>
+> Publication needs two numbers. **Six of the seven publications stand**: `d11`'s
+> `75ce7a3425` is withdrawn. But **the fixed product would still have published seven** — that
+> receipt is the representative of a three-member cluster on `d11`, and refusing it promotes
+> `38c316089d` (e = 52.78 against a bar of 40), a different finding about the same defect. The
+> `published` column below is what stands; the substitution is noted in the row. The headline
+> sentence above and the false-publication count are unchanged either way.
 
 ## 1. The population that ran
 
@@ -74,7 +78,7 @@ file-level rule because one unrelated test fails on both sides.
 | d08 (defect) | Attest | `7c8de5c624` | 8 | 0 | 0 | 0 | linux-container-v1 | $0.381701 | — |
 | d09 (defect) | us-stock-helper | `4aa74209ad` | 3 | 3 | 2 | 0 | linux-container-v1 | $0.293391 | — |
 | d10 (defect) | us-stock-helper | `6c724c1e19` | 2 | 1 | 1 | 0 | linux-container-v1 | $0.203562 | — |
-| d11 (defect) | us-stock-helper | `fa85b21778` | 4 | **3** (was 4; D-124) | **1** (was 2) | 0 | linux-container-v1 | $0.380718 | — |
+| d11 (defect) | us-stock-helper | `fa85b21778` | 4 | **3** (was 4; D-124) | **1** standing, **2** under the fix (was 2) | 0 | linux-container-v1 | $0.380718 | — |
 | d12 (defect) | us-stock-helper | `07a6946b7f` | 5 | 0 | 0 | 0 | linux-container-v1 | $0.433821 | — |
 | d13 (defect) | us-stock-helper | `801fb292ce` | 8 | 1 | 0 | 1 | linux-container-v1 | $0.427183 | — |
 | d14 (defect) | us-stock-helper | `381c0a051c` | — | — | — | — | — | dropped: not qualified | — |
@@ -95,15 +99,15 @@ information: 9 of the 25 would have passed it, 5 fail it outright, and for 11 it
 because the commit sits on an unmerged branch or is newer than the clone. Requalified by
 [`scripts/corpus/qualify_controls.py`](../../scripts/corpus/qualify_controls.py), no model call.
 
-43 reviewed (mis-stratified rows excluded); eligible 124; **certified 16; published 6; certified-but-below-threshold 7**; spend $9.311558 (mis-stratified spend excluded). The pre-D-124 figures were 18, 7 and 8. Spend is unchanged: the two withdrawn receipts were bought and their runs happened; only the certificate is withdrawn.
+43 reviewed (mis-stratified rows excluded); eligible 124; **certified 16; published 6 standing (7 under the fix, via the `d11` substitution); certified-but-below-threshold 7**; spend $9.311558 (mis-stratified spend excluded). The pre-D-124 figures were 18, 7 and 8. Spend is unchanged: the two withdrawn receipts were bought and their runs happened; only the certificate is withdrawn.
 
 ## 3. What the numbers say, by population
 
 | population | n | eligible `m` | certified | published | certified, below family threshold | spend | mean |
 |---|---|---|---|---|---|---|---|
-| **defect pairs** | 19 | 92 | **14** | **5** | 6 | $5.9581 | $0.3136 |
+| **defect pairs** | 19 | 92 | **14** | **5** (6 under the fix) | 6 | $5.9581 | $0.3136 |
 | — `Attest` (self-review, disclosed conflict) | 8 | 50 | 6 | 1 | 5 | $2.9122 | $0.3640 |
-| — **`us-stock-helper` (outside)** | 7 | 34 | **8** | **4** | 1 | $2.4837 | $0.3548 |
+| — **`us-stock-helper` (outside)** | 7 | 34 | **8** | **4** (5 under the fix) | 1 | $2.4837 | $0.3548 |
 | — `Corum` (outside) | 4 | 8 | 0 | 0 | 0 | $0.5622 | $0.1406 |
 | **controls** | 24 | 32 | 2 | **1** | 1 | $3.3535 | $0.1397 |
 | — refactor | 5 | 23 | 2 | 1 | 1 | $1.7134 | $0.3427 |

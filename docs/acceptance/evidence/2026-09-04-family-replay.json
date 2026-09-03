@@ -1,0 +1,1196 @@
+{
+ "clones": [
+  "attest",
+  "corum",
+  "us-stock-helper"
+ ],
+ "comparable": 66,
+ "exclude_unverifiable": true,
+ "new_published_total": 17,
+ "old_published_total": 12,
+ "rows": [
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-055602-6447df41",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-055628-a440ec83",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 8,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-192807-7376633c",
+   "units": {
+    "src/attest/review/executor.py": 5,
+    "src/attest/review/proposer.py": 1,
+    "tests/test_proposer.py": 2
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 8,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193003-2cadd8db",
+   "units": {
+    "scripts/corpus/swebench_pilot.py": 3,
+    "src/attest/review/proposer.py": 3,
+    "src/attest/review/run.py": 1,
+    "tests/test_proposer.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 14,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193215-4e7f19c6",
+   "units": {
+    "src/attest/execution/backends.py": 1,
+    "src/attest/execution/container_images.py": 7,
+    "src/attest/review/verification.py": 2,
+    "tests/execution/test_backends.py": 3,
+    "tests/test_ci_flow.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 3,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193429-fde75fa9",
+   "units": {
+    "src/attest/review/certify.py": 2,
+    "tests/test_ci_flow.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 7,
+   "head_sha": "e002bd66799bf3aa5825f4f1f0d76dd652f8cf30",
+   "new_published": [
+    "103aa42a3c",
+    "a47e7a8fa9",
+    "db100c9818"
+   ],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193709-f014bd70",
+   "units": {
+    "src/attest/execution/container_adapter.py": 1,
+    "src/attest/execution/container_images.py": 5,
+    "tests/test_status.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 1,
+   "head_sha": "260e8d9c516ba9ac48b0cd7b77a9501909ffbfea",
+   "new_published": [
+    "fbe81da1ec"
+   ],
+   "old_published": [
+    "fbe81da1ec"
+   ],
+   "record_replay": [
+    "fbe81da1ec"
+   ],
+   "recorded_published": [
+    "fbe81da1ec"
+   ],
+   "replayable": true,
+   "task_id": "20260903-193859-d3035038",
+   "units": {
+    "src/attest/execution/container_images.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 1,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193923-6f6d09ee",
+   "units": {
+    "src/attest/cli/main.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 8,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193946-25ba40a6",
+   "units": {
+    "src/attest/benchmark/prospective.py": 8
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 1,
+   "head_sha": "445c5a1e28a3e0f3441bbd0f52f4a19f3e4acfdd",
+   "new_published": [
+    "1073218238"
+   ],
+   "old_published": [
+    "1073218238"
+   ],
+   "record_replay": [
+    "1073218238"
+   ],
+   "recorded_published": [
+    "1073218238"
+   ],
+   "replayable": true,
+   "task_id": "20260903-194151-26405375",
+   "units": {
+    "src/attest/benchmark/matcher.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 5,
+   "head_sha": "506aae1a134a4f6d249eb44d3a0325b9324887dd",
+   "new_published": [
+    "2878d4012e"
+   ],
+   "old_published": [
+    "2878d4012e"
+   ],
+   "record_replay": [
+    "2878d4012e"
+   ],
+   "recorded_published": [
+    "2878d4012e"
+   ],
+   "replayable": true,
+   "task_id": "20260903-194734-7af85e43",
+   "units": {
+    "scripts/corpus/heldout_run.py": 5
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 8,
+   "head_sha": "9b610f6a5a814d521ff4ef0539b5064c00b25d7f",
+   "new_published": [
+    "8f3851fe4b"
+   ],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260904-004116-2cadd8db",
+   "units": {
+    "scripts/corpus/swebench_pilot.py": 3,
+    "src/attest/review/proposer.py": 3,
+    "src/attest/review/run.py": 1,
+    "tests/test_proposer.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "attest",
+   "eligible": 14,
+   "head_sha": "ad4c5fe1e334e18c74e91ab772020c502298c52a",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260904-004449-4e7f19c6",
+   "units": {
+    "src/attest/execution/backends.py": 1,
+    "src/attest/execution/container_images.py": 7,
+    "src/attest/review/verification.py": 2,
+    "tests/execution/test_backends.py": 3,
+    "tests/test_ci_flow.py": 1
+   },
+   "unverifiable_dropped": [
+    "b89a422892"
+   ]
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 2,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-192501-5e155507",
+   "units": {
+    "src/corum/dependence.py": 1,
+    "tests/test_dependence.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 4,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-192801-b6f6dffd",
+   "units": {
+    "src/corum/models.py": 4
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 1,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-192904-4f8a57e5",
+   "units": {
+    "src/corum/models.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 1,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-192933-aa27db03",
+   "units": {
+    "src/corum/models.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193003-db6525b0",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193029-d412db4f",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193107-17e6d918",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193130-ed9ba5e2",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193149-210604c2",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193236-e78d0248",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193257-d61cc9e0",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 2,
+   "head_sha": "6eba7422355fd5448370f24f2e6b2722302ee45d",
+   "new_published": [
+    "425cafff10"
+   ],
+   "old_published": [
+    "425cafff10"
+   ],
+   "record_replay": [
+    "425cafff10"
+   ],
+   "recorded_published": [
+    "425cafff10"
+   ],
+   "replayable": true,
+   "task_id": "20260904-004807-5e155507",
+   "units": {
+    "src/corum/dependence.py": 1,
+    "tests/test_dependence.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 4,
+   "head_sha": "ba8fddb95206f1e69a153850bf4cc07b263f5340",
+   "new_published": [
+    "c25c7fbb4c"
+   ],
+   "old_published": [
+    "c25c7fbb4c"
+   ],
+   "record_replay": [
+    "c25c7fbb4c"
+   ],
+   "recorded_published": [
+    "c25c7fbb4c"
+   ],
+   "replayable": true,
+   "task_id": "20260904-004851-b6f6dffd",
+   "units": {
+    "src/corum/models.py": 4
+   },
+   "unverifiable_dropped": [
+    "a8a27ddfd7"
+   ]
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 1,
+   "head_sha": "515998fac1aa9d5f22293e3b9da0eee36860b2a1",
+   "new_published": [
+    "88bf14caf7"
+   ],
+   "old_published": [
+    "88bf14caf7"
+   ],
+   "record_replay": [
+    "88bf14caf7"
+   ],
+   "recorded_published": [
+    "88bf14caf7"
+   ],
+   "replayable": true,
+   "task_id": "20260904-004932-4f8a57e5",
+   "units": {
+    "src/corum/models.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "corum",
+   "eligible": 1,
+   "head_sha": "5be583d6143f1a59011aed718316bf6114850244",
+   "new_published": [
+    "1f9925f1c2"
+   ],
+   "old_published": [
+    "1f9925f1c2"
+   ],
+   "record_replay": [
+    "1f9925f1c2"
+   ],
+   "recorded_published": [
+    "1f9925f1c2"
+   ],
+   "replayable": true,
+   "task_id": "20260904-004943-aa27db03",
+   "units": {
+    "src/corum/models.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 1,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-010906-b302e7c2",
+   "units": {
+    "services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 1,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-011402-b302e7c2",
+   "units": {
+    "services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 1,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-011531-b302e7c2",
+   "units": {
+    "services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 6,
+   "head_sha": "07485beafe243cb24c3e1d66d52d3db01290d290",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [
+    "9ed6a71d7b"
+   ],
+   "recorded_published": [
+    "9ed6a71d7b"
+   ],
+   "replayable": true,
+   "task_id": "20260903-011606-ab8fcc37",
+   "units": {
+    "services/information_layer/information_layer/feeds/nasdaq.py": 6
+   },
+   "unverifiable_dropped": [
+    "9ed6a71d7b",
+    "52403c1e42",
+    "f118070241"
+   ]
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 1,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-011833-b302e7c2",
+   "units": {
+    "services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 1,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-012034-b302e7c2",
+   "units": {
+    "services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-020556-a940f91c",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-020624-9fd82254",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-020647-147101b1",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 9,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-020657-8bb9bb7e",
+   "units": {
+    "scripts/tests/test_smoke_live.py": 9
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 3,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-020746-684eba8a",
+   "units": {
+    "services/information_layer/information_layer/feeds/generic.py": 3
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 2,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-020810-312a919d",
+   "units": {
+    "services/information_layer/information_layer/feeds/registry.py": 2
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 8,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-020835-05e17cd3",
+   "units": {
+    "services/information_layer/information_layer/cik_registry.py": 3,
+    "services/information_layer/information_layer/feeds/__init__.py": 1,
+    "services/information_layer/information_layer/feeds/registry.py": 4
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 3,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-020859-af3b3ea7",
+   "units": {
+    "services/analysis_core/us_stock_helper_core/patterns_shapes.py": 3
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-020921-5725bfd4",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 9,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-021326-8bb9bb7e",
+   "units": {
+    "scripts/tests/test_smoke_live.py": 9
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 12,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-021441-684eba8a",
+   "units": {
+    "services/information_layer/information_layer/feeds/generic.py": 3,
+    "services/information_layer/information_layer/feeds/registry.py": 9
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 2,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-021558-312a919d",
+   "units": {
+    "services/information_layer/information_layer/feeds/registry.py": 2
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 14,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-021632-05e17cd3",
+   "units": {
+    "services/information_layer/information_layer/cik_registry.py": 3,
+    "services/information_layer/information_layer/feeds/__init__.py": 1,
+    "services/information_layer/information_layer/feeds/registry.py": 4,
+    "services/information_layer/information_layer/feeds/sec.py": 6
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 3,
+   "head_sha": "3a32c923a992796ee379ec135deb3b98fc47fdcc",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [
+    "7ecf2fb275"
+   ],
+   "recorded_published": [
+    "7ecf2fb275"
+   ],
+   "replayable": true,
+   "task_id": "20260903-021750-af3b3ea7",
+   "units": {
+    "services/analysis_core/us_stock_helper_core/patterns_shapes.py": 3
+   },
+   "unverifiable_dropped": [
+    "7ecf2fb275"
+   ]
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-072654-563a2ce0",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 3,
+   "head_sha": "4aa74209ad31878bcabd4941f011295fb82da3c6",
+   "new_published": [
+    "d7c64badcc",
+    "e1bd193a8f"
+   ],
+   "old_published": [
+    "d7c64badcc",
+    "e1bd193a8f"
+   ],
+   "record_replay": [
+    "d7c64badcc",
+    "e1bd193a8f"
+   ],
+   "recorded_published": [
+    "d7c64badcc",
+    "e1bd193a8f"
+   ],
+   "replayable": true,
+   "task_id": "20260903-192803-d0a28a7a",
+   "units": {
+    "services/market_gateway/src/us_stock_helper_market_gateway/opend_adapter.py": 3
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 2,
+   "head_sha": "6c724c1e199baf912d12c4c835172b0a7f4a346a",
+   "new_published": [
+    "63dcec91ff"
+   ],
+   "old_published": [
+    "63dcec91ff"
+   ],
+   "record_replay": [
+    "63dcec91ff"
+   ],
+   "recorded_published": [
+    "63dcec91ff"
+   ],
+   "replayable": true,
+   "task_id": "20260903-192916-eb65bec0",
+   "units": {
+    "services/market_gateway/src/us_stock_helper_market_gateway/opend_adapter.py": 2
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 4,
+   "head_sha": "fa85b217782ba469c30a4edfe4636e8b80441db8",
+   "new_published": [
+    "38c316089d",
+    "f365104ad4"
+   ],
+   "old_published": [
+    "38c316089d",
+    "f365104ad4"
+   ],
+   "record_replay": [
+    "75ce7a3425",
+    "f365104ad4"
+   ],
+   "recorded_published": [
+    "75ce7a3425",
+    "f365104ad4"
+   ],
+   "replayable": true,
+   "task_id": "20260903-193007-1e72431e",
+   "units": {
+    "services/information_layer/information_layer/feeds/nasdaq.py": 4
+   },
+   "unverifiable_dropped": [
+    "75ce7a3425"
+   ]
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 5,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193156-f5ef3738",
+   "units": {
+    "services/information_layer/information_layer/clustering.py": 3,
+    "services/information_layer/information_layer/feeds/sec.py": 1,
+    "services/information_layer/tests/test_adapters.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 8,
+   "head_sha": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+   "new_published": [
+    "c5b90ad887"
+   ],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193354-4c8189d3",
+   "units": {
+    "scripts/local_runtime_support.py": 1,
+    "scripts/tests/test_local_runtime_environment.py": 1,
+    "services/analysis_api/src/us_stock_helper_analysis_api/__main__.py": 1,
+    "services/analysis_api/src/us_stock_helper_analysis_api/evidence_provider.py": 2,
+    "services/analysis_api/tests/test_evidence_provider.py": 2,
+    "services/information_layer/information_layer/feeds/collector.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 3,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193547-8c96c142",
+   "units": {
+    "services/analysis_core/tests/test_patterns_shapes.py": 2,
+    "services/analysis_core/us_stock_helper_core/patterns_shapes.py": 1
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 9,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193710-9b14404e",
+   "units": {
+    "services/analysis_core/tests/test_scoring.py": 1,
+    "services/analysis_core/us_stock_helper_core/patterns_shapes.py": 2,
+    "services/analysis_core/us_stock_helper_core/scoring.py": 6
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 10,
+   "head_sha": "ab02a62ac152733fc6d916eff0609515107f8191",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-193901-ee27b253",
+   "units": {
+    "scripts/smoke_live.py": 10
+   },
+   "unverifiable_dropped": [
+    "1d0af73c3e"
+   ]
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 5,
+   "head_sha": "1b8cc4aab1c97f831e344889064ce4791a7c653b",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-194031-f10f0463",
+   "units": {
+    "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py": 5
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 3,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-194203-68081bd0",
+   "units": {
+    "services/analysis_core/us_stock_helper_core/models.py": 1,
+    "services/analysis_core/us_stock_helper_core/participation.py": 2
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-194354-67341294",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-194416-9fd82254",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 0,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-194418-147101b1",
+   "units": {},
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 9,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-194419-8bb9bb7e",
+   "units": {
+    "scripts/tests/test_smoke_live.py": 9
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 9,
+   "head_sha": "",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260903-194732-8bb9bb7e",
+   "units": {
+    "scripts/tests/test_smoke_live.py": 9
+   },
+   "unverifiable_dropped": []
+  },
+  {
+   "alpha": 0.1,
+   "clone": "us-stock-helper",
+   "eligible": 9,
+   "head_sha": "d7be758c2f1fa63df3910945b7af49738ed6bd8b",
+   "new_published": [],
+   "old_published": [],
+   "record_replay": [],
+   "recorded_published": [],
+   "replayable": true,
+   "task_id": "20260904-005029-9b14404e",
+   "units": {
+    "services/analysis_core/tests/test_scoring.py": 1,
+    "services/analysis_core/us_stock_helper_core/patterns_shapes.py": 2,
+    "services/analysis_core/us_stock_helper_core/scoring.py": 6
+   },
+   "unverifiable_dropped": []
+  }
+ ],
+ "schema_version": "attest.family-replay.v1",
+ "tasks": 66,
+ "unreplayable": []
+}
