@@ -180,7 +180,17 @@ inside it. Caveat: this run used the host adapter, because this machine's docker
   proposal samples were bought once; a repeat would replay from the attempt cache and prove
   only determinism.
 
-## 5. Limits
+## 5. Artifacts
+
+| what | where (all gitignored, on the owner's machine) |
+|---|---|
+| human-test worktrees, both sides of both pairs | `.attest/pilot/humantests/{d7be758,375ab52,e17c686,8d2257a}` |
+| the sonnet PR #8 run | GitHub Actions artifact `attest-ledger-pr-8-run-33715576314` of run [33715576314](https://github.com/IcantFind-a-username/Attest/actions/runs/33715576314) |
+| the sonnet `pytest-10051` run | `.attest/corpora/swebench/cases/pytest-dev__pytest-10051/repo/.attest/`, task `20260903-124803-57ac8808` |
+| the opus `pytest-10051` run | same ledger, task `20260903-150320-1353e957`; results `.attest/corpora/swebench/results/pytest-dev__pytest-10051.opus5.json`; bundles `.attest/evidence/20260903-150320-1353e957/{4264f8fd6e,d7de745a85}` |
+| the opus PR #8 run | worktree `.attest/pilot/opus-pr8`, task `20260903-150510-26405375` |
+
+## 6. Limits
 
 - Human tests were run on the host, not in a container; `analysis_core` has no dependencies, so
   the environment is the interpreter alone.

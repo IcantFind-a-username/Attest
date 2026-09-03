@@ -60,7 +60,14 @@ deselection** (D-112).
 
 **The third run is green end to end — ruff, mypy, `git diff --check`, 1,766 tests and the
 coverage floor, in 20 minutes on `ubuntu-latest` with docker 28.0.4.** This is the first time
-the repository's own gate has passed anywhere since the owner's docker VM lost registry egress. The failures the runner found were
+the repository's own gate has passed anywhere since the owner's docker VM lost registry egress.
+
+On the owner's host the same suite is **exit 0** with the two host-condition deselections that
+last window recorded (`test_linux_isolation.py`, which cannot pull a base image, and the replay
+test that spawns `docker build`); ruff, mypy and `git diff --check` are clean. The M-01 probe
+also fails on this host whenever a commit lands **while it is running** — it records the HEAD
+tree at run time and the aggregate re-reads it — which is what produced the mid-window
+`aggregate … mismatch` noise; run it with the tree quiet. The failures the runner found were
 host assumptions the owner's machine hid, all now fixed: a hardcoded `.venv/bin/python` and a
 hardcoded `/private/tmp` in the M-01 probe, a shallow tagless checkout, and — the important
 one — the release drill catching that D-111's first form broke the product at its own
