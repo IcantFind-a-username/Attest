@@ -90,12 +90,15 @@ class RunStatus:
     behavior_changes: int = 0  # D-102: accepted receipts of the behavior-change class
 
     def lines(self) -> list[str]:
+        # A silence covers exactly the change units it read, so it says so
+        # always -- not only when the budget was what stopped it (owner
+        # instruction 5 of 2026-09-04). "read 1 of 13 units" and "read 13 of 13
+        # units" are different claims, and the reader cannot infer which from a
+        # bare count.
         planned = self.units_planned or self.units_read
-        read = (
-            f"read {self.units_read} of {planned} units, budget-limited"
-            if self.budget_limited
-            else f"change units read: {self.units_read}"
-        )
+        read = f"read {self.units_read} of {planned} units"
+        if self.budget_limited:
+            read += ", budget-limited"
         out = [
             f"{read}; candidates: {self.candidates}; "
             f"eligible: {self.eligible}; reproductions attempted: {self.attempts}; "

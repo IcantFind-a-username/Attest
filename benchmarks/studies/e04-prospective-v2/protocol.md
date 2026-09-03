@@ -52,7 +52,17 @@ short history contributes what it has and the remainder is taken from the others
    would-publish candidate ids, the DEFER reason, cost and latency.
 4. **Every silence carries `read N of M units`.** A review that read fewer change units than the
    commit contains covers only what it read, and the record says which — a silence over a
-   partly-read commit is not evidence about the part that was never priced.
+   partly-read commit is not evidence about the part that was never priced. Both the
+   author-visible status line and each trial record carry `N`, `M` and whether the budget was
+   what stopped the run.
+
+> **Restart, recorded.** Eleven units had run ($1.51036) when it was found that the status line
+> printed the "of M" **only** when the budget stopped the run — so an unbudget-limited silence
+> did not say how much of the change it covered, which this protocol requires. The product was
+> fixed to print it unconditionally, this protocol was re-frozen, `trials.jsonl` was deleted,
+> and the stratum restarted from zero under the corrected code. The eleven discarded trials
+> produced **no would-publish finding**; their spend is charged to the reservation and is not
+> reported as a result. This is the "no code change mid-stratum" rule being obeyed, not waived.
 5. Truth: every would-publish finding is adjudicated product-blind. With zero findings there is
    nothing to adjudicate and eligible detection stays `INSUFFICIENT`.
 

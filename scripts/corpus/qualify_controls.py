@@ -32,6 +32,7 @@ import json
 import re
 import subprocess
 import sys
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -119,18 +120,44 @@ def added_lines(repo: Path, sha: str, path: str) -> int:
     return total
 
 
+# Blaming a path at a tip is the cost of this whole screen, and the answer does
+# not depend on which commit is being judged: it is the same file at the same
+# revision. Screening a population re-asks it constantly -- the commits that
+# touch a repository's hot files are exactly the ones that keep coming up -- so
+# the per-commit line counts are memoised per (repository, tip, path).
+_BLAME_CACHE: dict[tuple[str, str, str], Counter[str]] = {}
+
+
+def _blamed_line_counts(repo: Path, path: str, tip: str) -> Counter[str] | None:
+    """Commit -> number of lines of ``path`` at ``tip`` blamed to it, or None
+    when the path is gone at the tip."""
+    key = (str(repo), tip, path)
+    cached = _BLAME_CACHE.get(key)
+    if cached is not None:
+        return cached
+    listing = git(repo, "ls-tree", "-r", "--name-only", tip, "--", path).strip()
+    if not listing:
+        return None
+    counts: Counter[str] = Counter()
+    for line in git(repo, "blame", "--line-porcelain", tip, "--", path).splitlines():
+        head = line.split(" ", 1)[0]
+        if len(head) == 40 and all(c in "0123456789abcdef" for c in head):
+            counts[head] += 1
+    _BLAME_CACHE[key] = counts
+    return counts
+
+
 def surviving_lines(repo: Path, sha: str, path: str, tip: str) -> tuple[int, str]:
     """How many lines of ``path`` at ``tip`` are still blamed to ``sha``.
 
     A file that no longer exists at the tip is not a survivor: something removed
     or renamed it, which is exactly what disqualifies the control.
     """
-    listing = git(repo, "ls-tree", "-r", "--name-only", tip, "--", path).strip()
-    if not listing:
+    counts = _blamed_line_counts(repo, path, tip)
+    if counts is None:
         return 0, "the file does not exist at the branch tip"
-    blame = git(repo, "blame", "--line-porcelain", tip, "--", path)
     full = git(repo, "rev-parse", sha).strip()
-    return sum(1 for line in blame.splitlines() if line.startswith(full + " ")), ""
+    return counts[full], ""
 
 
 def changed_text_files(repo: Path, sha: str) -> list[str]:

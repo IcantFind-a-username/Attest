@@ -378,6 +378,11 @@ class ShadowTrial:
     behavior_changes_verified: int
     behavior_changes_intent_unknown: int
     failure_categories: dict[str, int] = field(default_factory=dict)
+    # a silence covers only the change units the review read; the trial carries
+    # the same "N of M" the author-visible status does
+    units_read: int = 0
+    units_planned: int = 0
+    budget_limited: bool = False
     deferred_reason: str | None = None
     spend_usd: float = 0.0
     elapsed_s: float = 0.0
@@ -426,6 +431,9 @@ def trial_from_ledger(
         behavior_changes_verified=status.behavior_changes,
         behavior_changes_intent_unknown=intent_unknown,
         failure_categories=dict(status.counts),
+        units_read=status.units_read,
+        units_planned=status.units_planned or status.units_read,
+        budget_limited=status.budget_limited,
         deferred_reason=deferred_reason,
         spend_usd=round(spend_usd, 6),
         elapsed_s=round(elapsed_s, 3),

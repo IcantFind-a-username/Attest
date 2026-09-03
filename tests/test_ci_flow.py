@@ -1267,7 +1267,7 @@ def test_silent_run_status_comment_names_counts_and_every_failure_reason(
     assert result.surfaced_count == 0
     final = github_server.status_bodies[-1]
     assert "<summary>Run status</summary>" in final
-    assert "change units read: 1; candidates: 1; eligible: 1; reproductions attempted: 1" in final
+    assert "read 1 of 1 units; candidates: 1; eligible: 1; reproductions attempted: 1" in final
     assert "reproduction 1: unfaithful test" in final
     assert "app.py" not in final.split("<details>")[1]
     assert "divides by zero" not in final

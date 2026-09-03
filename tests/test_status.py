@@ -97,6 +97,11 @@ def test_a_budget_limited_run_says_how_many_units_it_read_of_how_many() -> None:
     Without the proposal's own coverage row the status reported the planned
     unit count as "change units read", so a 13-unit commit whose budget funded
     one unit read as if all thirteen had been reviewed.
+
+    Owner instruction 5 of 2026-09-04: the "of M" is now unconditional. A
+    silence covers exactly the units it read, and "read 1 of 13" and "read 13 of
+    13" are different claims the reader cannot tell apart from a bare count;
+    only the "budget-limited" suffix depends on what stopped the run.
     """
     rows = _rows() + [
         {
@@ -110,8 +115,10 @@ def test_a_budget_limited_run_says_how_many_units_it_read_of_how_many() -> None:
     status = status_from_rows(rows, "t1")
     assert (status.units_read, status.units_planned, status.budget_limited) == (1, 13, True)
     assert "read 1 of 13 units, budget-limited" in status.render()
-    # a run the budget did not stop keeps the plain wording
-    assert "budget-limited" not in status_from_rows(_rows(), "t1").render()
+    # a run the budget did not stop still says how much of the change it read
+    unlimited = status_from_rows(_rows(), "t1").render()
+    assert "budget-limited" not in unlimited
+    assert "read 2 of 2 units" in unlimited
 
 
 def test_a_timed_out_image_build_is_categorised_as_a_bootstrap_failure() -> None:
