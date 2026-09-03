@@ -185,7 +185,9 @@ def _run(args: argparse.Namespace) -> int:
             return ProviderResult(text=_text(row, "response"),
                 input_tokens=_count(row, "input_tokens"), output_tokens=_count(row, "output_tokens"))
 
-    with tempfile.TemporaryDirectory(prefix="attest-m01-", dir="/private/tmp") as temporary:
+    # TMPDIR, not a hardcoded macOS path: /private/tmp does not exist on Linux,
+    # and TMPDIR is already one of the environment names this probe allows through
+    with tempfile.TemporaryDirectory(prefix="attest-m01-") as temporary:
         root = Path(temporary); repo, buggy, fixed = _repository(
             root, cast(Mapping[str, object], doc["fixture"]))
         truth = TruthDefect("defect-1", CASE_ID, "calc.py", 2, 2)

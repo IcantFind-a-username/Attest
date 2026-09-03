@@ -1,5 +1,18 @@
 # L-01 receipt pilot: three later-repaired `us-stock-helper` commits
 
+> **Erratum, 2026-09-03 (D-113).** The commit selection below is wrong for
+> `d7be758`. The repairing commit's own human-written test fails *identically*
+> on `d7be758` and on its parent, and `git blame` shows `d7be758` only rewrote
+> `touch_ma5` as `ma5[touch_index]` on the offending line: the defect
+> `2d4a0d8` repaired was introduced two commits earlier, by `e17c686`. Blaming
+> the lines a fix removes finds the last commit to *touch* them, not the one
+> that introduced the defect. Both reproductions this pilot executed on
+> `d7be758` therefore ran against a pair with no regression, and their
+> `pytest passed on head in 3/3 runs` was the correct answer. `e17c686` does
+> carry a real regression (three of the fix's five tests discriminate), but the
+> run never read the two units that carry it. See
+> [the classification report](2026-09-03-generation-classification.md).
+
 Owner decision 2 of 2026-09-03: pick three commits a later `fix:` commit
 repaired, review each with `head` = the buggy commit and `base` = its parent,
 and try to produce the receipt-backed comment the six-silence pilot never did.

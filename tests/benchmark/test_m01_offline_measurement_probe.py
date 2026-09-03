@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -63,6 +64,12 @@ def _aggregate_command(source: Path, inputs: Path, output: Path) -> list[str]:
     ]
 
 
+# the macOS real path for /tmp when it exists, so a run on the owner's machine
+# keeps the environment the recorded evidence was taken under; anything else
+# follows TMPDIR (a Linux runner has no /private/tmp at all)
+_TMPDIR = "/private/tmp" if Path("/private/tmp").is_dir() else tempfile.gettempdir()
+
+
 def _environment(home: Path, **extra: str) -> dict[str, str]:
     home.mkdir(parents=True, exist_ok=True)
     return {
@@ -72,7 +79,7 @@ def _environment(home: Path, **extra: str) -> dict[str, str]:
         "LC_ALL": "C",
         "PATH": os.environ["PATH"],
         "PYTHONDONTWRITEBYTECODE": "1",
-        "TMPDIR": "/private/tmp",
+        "TMPDIR": _TMPDIR,
         **extra,
     }
 
