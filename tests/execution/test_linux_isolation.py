@@ -202,3 +202,49 @@ def test_docker_argv_is_the_declared_profile(tmp_path: Path, adapter: ContainerA
     ):
         assert flag in joined, flag
     assert "ATTEST_OUTPUTS=/attest/outputs" in argv
+
+
+NUMPY_BODY = (
+    "import numpy\nimport mod\n\n"
+    "def test_repro():\n"
+    "    assert mod.add(2, 2) == int(numpy.array([4]).sum())\n"
+)
+
+
+NUMPY_MANIFEST = (
+    "[project]\n"
+    'name = "numpy-fixture"\n'
+    'version = "0"\n'
+    'requires-python = ">=3.12"\n'
+    "classifiers = [\"Programming Language :: Python :: 3.12\"]\n"
+)
+
+
+@pytest.fixture
+def numpy_adapter(tmp_path: Path) -> ContainerAdapter:
+    """The image for a tree that declares numpy: the smallest project whose
+    import spawns OpenBLAS threads the run is not allowed to create. The
+    interpreter is pinned to one numpy ships a wheel for, so the fixture is an
+    image pull and not a source build."""
+    scratch = tmp_path / "numpy-image-source"
+    scratch.mkdir()
+    (scratch / "pyproject.toml").write_text(NUMPY_MANIFEST, encoding="utf-8")
+    (scratch / "requirements.txt").write_text("numpy\n", encoding="utf-8")
+    return ContainerAdapter(ensure_image(scratch))
+
+
+def test_a_project_that_imports_numpy_runs_inside_the_container(
+    tmp_path: Path, numpy_adapter: ContainerAdapter
+) -> None:
+    """RLIMIT_NPROC = 0 is the containment the backend is built on, so OpenBLAS
+    cannot have its twelve threads. It has to be told to want one instead, or
+    every candidate in a numpy project DEFERs before any evidence is bought."""
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    (repo / "pyproject.toml").write_text(NUMPY_MANIFEST, encoding="utf-8")
+    (repo / "requirements.txt").write_text("numpy\n", encoding="utf-8")
+
+    result = _differential(repo, NUMPY_BODY, numpy_adapter, base_sha, head_sha)
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+    joined = "".join(run.stdout + run.stderr for run in result.head_runs + result.base_runs)
+    assert "blas_thread_init" not in joined, joined[:2000]

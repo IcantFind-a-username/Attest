@@ -1110,8 +1110,9 @@ def _reproduction_environment(
 ) -> dict[str, str]:
     """The explicit, secret-free job environment. Nothing is inherited from the
     controller: the request names every variable, and the mounts are the
-    placeholders the adapter resolves. Tree entries come first so the revision
-    under test shadows any installed copy; the guard sitecustomize is resolved
+    placeholders the adapter resolves. The three thread-count variables are the
+    2026-09-04 numpy fix (D-123); see the comment beside them. Tree entries come
+    first so the revision under test shadows any installed copy; the guard sitecustomize is resolved
     from the inputs mount via the remainder of the path scan (a tree-level
     shadow fails closed on markers). PYTHONPATH is necessary but not sufficient
     for import steering: pytest prepends the directories it collects from, so
@@ -1122,6 +1123,15 @@ def _reproduction_environment(
     environment = {
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTHONSAFEPATH": "1",
+        # the backend runs with RLIMIT_NPROC = 0, which is the containment the
+        # process guard is built on, so a native BLAS asking the kernel for one
+        # thread per core gets EAGAIN and numpy dies at import
+        # (`OpenBLAS blas_thread_init: pthread_create failed ... RLIMIT_NPROC 0
+        # current, 0 max`). Telling it to want a single thread costs nothing and
+        # relaxes no boundary; raising the limit would relax the boundary.
+        "OPENBLAS_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
         # no __pycache__ inside the revision under test: it would dirty the
         # worktree, and a cached test_repro of the same size written in the
         # same mtime second would otherwise be replayed instead of the

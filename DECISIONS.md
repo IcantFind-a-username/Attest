@@ -1144,3 +1144,15 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Cost:** $0.00. Nothing was run.
 - **Reversal:** delete the amendment and `G-NULL-001a`; the corpus returns to subject-based strata, which `c03` and `c05` already refuted.
 - **Trace:** `INV-MEASURE-001`, `INV-TRUTH-001`; `G-NULL-001`, `G-NULL-001a`; E-01.
+
+### D-123 — A native BLAS is told to want one thread; the thread limit stays at zero
+
+- **Date/status/scope:** 2026-09-04 · active, owner-directed (instruction 4 of 2026-09-04) · `src/attest/review/executor.py` (`_reproduction_environment`), `tests/execution/test_linux_isolation.py`; [report](docs/acceptance/2026-09-04-numpy-under-the-thread-cap.md).
+- **Decision:** the reproduction environment names `OPENBLAS_NUM_THREADS=1`, `OMP_NUM_THREADS=1` and `MKL_NUM_THREADS=1`. `RLIMIT_NPROC` stays at 0.
+- **Why this option and not the other:** the owner offered either the variables or a raised thread limit. `RLIMIT_NPROC = 0` is the containment `linux-container-v1` and the language guard's kernel-containment check are built on (`INV-SEC-001`); raising it to let OpenBLAS have twelve threads would relax a security boundary to fix an import. Telling a BLAS to want one thread asks the kernel for nothing and relaxes nothing.
+- **Result:** on the four `Corum` defect pairs the corpus lost entirely to this cause — 9 verifications, 0 reproduced, 0 receipts on 2026-09-03 — the re-run at the same `--budget 0.60` through `linux-container-v1` gives **8 verifications, 7 reproduced, 7 accepted receipts and 4 published, for $0.4046 against $0.5622.** `import numpy`, `import scipy` and `import corum` all succeed under the three variables and all fail without them. No `blas_thread_init` line survives in the new ledger.
+- **Limits:** four pairs in one repository, selected *because* they were blocked by one known cause and then unblocked — the most favourable sample there is. It measures no recall and no null rate. `NUMEXPR_NUM_THREADS` and `VECLIB_MAXIMUM_THREADS` are the same class of knob and are **not** set, because nothing measured here needed them; a project that pulls numexpr will hit the same wall. The variables change `environment_digest`, so a receipt's digest is the one recorded with it (D-121 keeps older bundles verifiable).
+- **Evidence for the fix, stated exactly:** a direct container reproduction with the adapter's own flags, plus the end-to-end re-run. The committed fixture `tests/execution/test_linux_isolation.py::test_a_project_that_imports_numpy_runs_inside_the_container` did **not** finish on this host inside the window — its image build (a tree declaring numpy) did not complete — so it is a regression guard for the next run, not this decision's evidence.
+- **Cost:** $0.4046 for the re-run; the fix itself is free.
+- **Reversal:** delete the three entries; `Corum` returns to 0 of 4.
+- **Trace:** `INV-SEC-001`, `INV-EVIDENCE-001`; `G-SEC-002`, `G-RECALL-002` (untouched).
