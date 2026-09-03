@@ -59,7 +59,7 @@ def _compatible(prediction: Prediction, truth: TruthDefect, line_slack: int) -> 
 
 
 def _normal_path(path: str) -> str:
-    return PurePosixPath(path.replace("\\", "/")).as_posix()
+    return PurePosixPath(path).as_posix()
 
 
 def _anchor_distance(line: int, truth: TruthDefect) -> int:
