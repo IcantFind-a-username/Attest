@@ -3009,32 +3009,45 @@ GUARD_WITNESS = (
     "    assert Signal('the buyback plan raises the floor').summary\n"
 )
 CRASH_MODULE = "def add(a, b):\n    return a + b + [][0]\n"
-VERSION_BASE_MODULE = 'def describe():\n    version = "v2"\n    return {"method_version": version}\n'
-VERSION_HEAD_MODULE = 'def describe():\n    version = "v1"\n    return {"method_version": version}\n'
+VERSION_BASE_MODULE = (
+    'def describe():\n'
+    '    return "v2"\n'
+    "\n"
+    "\n"
+    "def total(values):\n"
+    "    return sum(values)\n"
+)
+VERSION_HEAD_MODULE = (
+    'def describe():\n'
+    '    return "v1"\n'
+    "\n"
+    "\n"
+    "def total(values):\n"
+    "    return sum(values) - 1\n"
+)
 VERSION_BODY = (
     "import mod\n"
     "\n"
     "\n"
     "def test_repro():\n"
-    '    assert mod.describe()["method_version"] == "v2"\n'
+    '    assert mod.describe() == "v2", "the disclosed version must stay v2"\n'
 )
-# the same version bump, but the head also drops a branch: real behaviour moved,
-# so the change is not confined to constants and the receipt still certifies
-RETUNE_HEAD_MODULE = (
-    'def describe():\n'
-    '    version = "v1"\n'
-    '    if version:\n'
-    '        return {"method_version": version}\n'
-    '    return {}\n'
+TOTAL_BODY = (
+    "import mod\n"
+    "\n"
+    "\n"
+    "def test_repro():\n"
+    "    assert mod.total([1, 2]) == 3\n"
 )
 
 
-def test_a_change_confined_to_literal_constants_goes_to_the_drawer(tmp_path: Path) -> None:
-    """D-120: head and base differ only in the value of a string constant and the
-    generated test's assertion pins the value the change removed. The differential
-    holds (head FAIL, base PASS, the changed line executed) but it proves that the
-    author edited a constant, not that the code misbehaves, so it buys no receipt
-    and carries the constant-change label into the drawer."""
+def test_an_assertion_on_a_substituted_constant_goes_to_the_drawer(tmp_path: Path) -> None:
+    """D-120: the change replaces one version string with another and the generated
+    test's assertion pins the old one. The differential holds (head FAIL, base PASS,
+    the changed line executed) but everything the assertion rests on is a literal the
+    author replaced, so it proves an edit and not a defect: no receipt, and the
+    constant-change label goes to the drawer. The assertion's *message* mentions the
+    same string and is prose, not evidence -- it is not read."""
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path, {"mod.py": VERSION_BASE_MODULE}, {"mod.py": VERSION_HEAD_MODULE}
     )
@@ -3059,24 +3072,25 @@ def test_a_change_confined_to_literal_constants_goes_to_the_drawer(tmp_path: Pat
     assert result.binding is not None and 2 in result.binding.executed_changed_lines
     intent = result.intent
     assert intent is not None
-    assert intent.constant_only_diff
+    assert intent.constant_substitution
     assert intent.asserted_constants == ("'v2'",)
     assert not intent.new_rejection
 
 
-def test_a_constant_change_that_also_moves_code_still_certifies(tmp_path: Path) -> None:
-    """The negative control for D-120: the same constant edit plus a real change of
-    shape. The anchored change is no longer confined to constant values, so the
-    drawer rule does not fire and the regression certifies as it always did."""
+def test_an_assertion_on_a_computed_value_still_certifies(tmp_path: Path) -> None:
+    """The negative control for D-120: the same commit, whose other half is a real
+    defect. The assertion pins the value the code computes, not the constant the
+    change replaced, so the drawer rule does not fire and the regression certifies
+    exactly as it did before."""
     repo, base_sha, head_sha = two_commit_repo(
-        tmp_path, {"mod.py": VERSION_BASE_MODULE}, {"mod.py": RETUNE_HEAD_MODULE}
+        tmp_path, {"mod.py": VERSION_BASE_MODULE}, {"mod.py": VERSION_HEAD_MODULE}
     )
-    stored = candidate(file="mod.py", line=2)
+    stored = candidate(file="mod.py", line=6)
 
     result = execute_differential(
         repo,
         stored,
-        ReproSpec(VERSION_BODY),
+        ReproSpec(TOTAL_BODY),
         ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
@@ -3084,7 +3098,7 @@ def test_a_constant_change_that_also_moves_code_still_certifies(tmp_path: Path) 
 
     assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
     assert result.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
-    assert result.intent is not None and not result.intent.constant_only_diff
+    assert result.intent is not None and not result.intent.constant_substitution
 
 
 def test_a_new_rejection_of_a_fabricated_input_goes_to_the_drawer(tmp_path: Path) -> None:

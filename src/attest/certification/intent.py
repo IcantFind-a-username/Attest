@@ -14,12 +14,12 @@ attested by the base tree -- it occurs verbatim in the base tree's tests,
 fixtures or documentation examples -- and otherwise goes to the drawer with the
 label "behavior change confirmed, intent unknown". Pure: values in, verdict out.
 
-A second shape reaches the same drawer (D-120): when the anchored file's base
--> head difference is confined to **literal constant values** -- a version
-string, a tuned constant, changelog copy -- and the failing assertion pins a
-constant the diff removed, the differential proves the author changed a
-constant and nothing else. That is a behaviour change by construction, not a
-regression, and no witness publishes it.
+A second shape reaches the same drawer (D-120): when every literal constant the
+failing assertion rests on is a constant the change **substituted** -- a version
+string, a tuned constant, changelog copy: removed from the anchored file and
+replaced by another of the same type -- the differential proves that the author
+edited a literal and that the test restates the old one. That is a behaviour
+change by construction, not a regression, and no witness publishes it.
 """
 
 from __future__ import annotations
@@ -52,11 +52,11 @@ class IntentObservation:
     rejected_inputs: tuple[str, ...]  # test string literals that reached the raising frame
     witnesses: tuple[tuple[str, str], ...]  # (rejected input, base-tree path it occurs in)
     head_runs_observed: int
-    # D-120: the anchored file's base -> head difference is confined to literal
-    # constant values (the constant-erased syntax of the two revisions is equal)
-    constant_only_diff: bool = False
-    # repr() of the constants the diff removed that the generated test asserts on
-    asserted_constants: tuple[str, ...] = ()
+    # D-120: every constant the generated test's assertions rest on is one the
+    # change substituted in the anchored file (removed, and one of the same type
+    # added in its place)
+    constant_substitution: bool = False
+    asserted_constants: tuple[str, ...] = ()  # repr() of those constants
 
     def digest(self) -> str:
         return hashlib.sha256(
@@ -67,9 +67,8 @@ class IntentObservation:
 
 
 def constant_change(observation: IntentObservation) -> bool:
-    """D-120: the diff changed literal constants only, and the failing assertion
-    rests on one the diff removed."""
-    return observation.constant_only_diff and bool(observation.asserted_constants)
+    """D-120: the failing assertion rests only on constants the change substituted."""
+    return observation.constant_substitution and bool(observation.asserted_constants)
 
 
 def evidence_class_for(observation: IntentObservation) -> str:
@@ -93,13 +92,13 @@ def intent_verdict(observation: IntentObservation) -> str | None:
         or observation.origin_line not in observation.changed_lines
     ):
         return "new rejection recorded without a rejecting statement on a changed line"
-    # D-120 precedes the witness rule: when the whole anchored change is a
-    # constant value, no base-tree witness can tell a defect from a retuning.
+    # D-120 precedes the witness rule: when everything the assertion pins is a
+    # literal the change replaced, no base-tree witness can tell a defect from a
+    # deliberate edit -- the test restates the old constant and nothing else.
     if constant_change(observation):
         return (
-            f"{CONSTANT_CHANGE_LABEL}: the change to the anchored file is confined to "
-            f"literal constant values and the failing assertion rests on one the change "
-            f"removed ({CONSTANT_CHANGE_LABEL_ZH})"
+            f"{CONSTANT_CHANGE_LABEL}: every literal the failing assertion rests on is "
+            f"a constant this change replaced ({CONSTANT_CHANGE_LABEL_ZH})"
         )
     if not observation.new_rejection:
         return None

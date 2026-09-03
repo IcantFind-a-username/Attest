@@ -1,9 +1,9 @@
 """Observing the intent of a head failure (D-102, tightened after the D-049 review):
 the raise origins the tracer recorded, the statement kind from the head source, the
 rejected inputs from the generated test's literals, and their witnesses in the base
-tree. D-120 adds one more file read: the base revision of the anchored file, so that a
-change confined to literal constant values can be recognised as such. File reads only:
-no execution, no model, no repository command.
+tree. D-120 adds one more file read: the base revision of the anchored file, so that an
+assertion resting only on constants the change substituted can be recognised as such.
+File reads only: no execution, no model, no repository command.
 
 Fail closed at every step: an unreadable or unparsable anchored file, a truncated
 origin record, or head runs that disagree all DEFER instead of classifying.
@@ -260,62 +260,82 @@ def find_witnesses(base_tree: Path, literals: tuple[str, ...]) -> tuple[tuple[st
 
 
 def constant_values(source: str) -> tuple[tuple[str, str], ...] | None:
-    """Every literal constant of ``source`` as (type name, repr), or ``None``
-    when the source cannot be parsed. Docstrings included: a docstring is a
-    constant like any other, and the D-120 rule only ever moves a receipt into
-    the drawer."""
+    """Every literal constant of ``source`` as (type name, repr), or ``None`` when
+    the source cannot be parsed. The type is carried so that ``"1"`` and ``1`` are
+    never the same constant."""
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
         return None
     found: set[tuple[str, str]] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.Constant) and not isinstance(node.value, type(Ellipsis)):
+        if isinstance(node, ast.Constant) and node.value is not Ellipsis:
             found.add((type(node.value).__name__, repr(node.value)[:MAX_VALUE_CHARS]))
             if len(found) > MAX_CONSTANTS:
                 return None
     return tuple(sorted(found))
 
 
-class _EraseConstants(ast.NodeTransformer):
-    """Replace every constant's value with its type name, keeping the syntax."""
-
-    def visit_Constant(self, node: ast.Constant) -> ast.Constant:  # noqa: N802 - ast API
-        return ast.copy_location(ast.Constant(value=type(node.value).__name__), node)
-
-
-def constant_erased_syntax(source: str) -> str | None:
-    """``ast.dump`` of ``source`` with every constant value replaced by its type
-    name, or ``None`` when the source cannot be parsed. Two revisions with equal
-    syntax differ only in constant values (and in comments and formatting, which
-    the parse already drops)."""
+def assertion_constants(test_source: str) -> tuple[tuple[str, str], ...] | None:
+    """The literal constants the generated test's ``assert`` statements rest on:
+    every constant of an ``assert``'s *condition*, minus the ones that only
+    *address* a value -- dictionary keys and subscripts -- which name a field
+    rather than pin its content. An assertion's message is prose the generator
+    wrote about the failure, not part of what the assertion proves, so it is not
+    read. ``None`` when the test cannot be parsed."""
     try:
-        tree = ast.parse(source)
+        tree = ast.parse(test_source)
     except (SyntaxError, ValueError):
         return None
-    return ast.dump(ast.fix_missing_locations(_EraseConstants().visit(tree)))
+    addressing: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            addressing.update(id(key) for key in node.keys if key is not None)
+        elif isinstance(node, ast.Subscript):
+            addressing.add(id(node.slice))
+    found: set[tuple[str, str]] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assert):
+            continue
+        for inner in ast.walk(node.test):
+            if (
+                isinstance(inner, ast.Constant)
+                and inner.value is not Ellipsis
+                and id(inner) not in addressing
+                and not (isinstance(inner.value, str) and len(inner.value.strip()) == 0)
+            ):
+                found.add((type(inner.value).__name__, repr(inner.value)[:MAX_VALUE_CHARS]))
+                if len(found) > MAX_CONSTANTS:
+                    return None
+    return tuple(sorted(found))
 
 
-def observe_constant_change(
+def observe_constant_substitution(
     *, base_source: str, head_source: str, test_source: str
 ) -> tuple[bool, tuple[str, ...]]:
-    """(the anchored change is confined to constant values, the removed constants
-    the generated test asserts on). Fails closed on an unparsable revision by
-    reporting no constant change, which leaves the existing classification alone."""
-    base_syntax = constant_erased_syntax(base_source)
-    head_syntax = constant_erased_syntax(head_source)
-    if base_syntax is None or head_syntax is None or base_syntax != head_syntax:
-        return False, ()
+    """D-120: (the failing assertion rests only on constants this change
+    substituted, those constants).
+
+    A constant is *substituted* when the change removed it from the anchored file
+    -- it occurs in the base revision and nowhere in the head revision -- and put
+    one of the same type in its place. A constant merely deleted (nothing of its
+    type added) is not a substitution: losing a validation message is a
+    regression, not a retuning. Fails closed on an unparsable revision by
+    reporting no substitution, which leaves the D-102 classification alone.
+    """
     base_constants = constant_values(base_source)
     head_constants = constant_values(head_source)
-    test_constants = constant_values(test_source)
-    if base_constants is None or head_constants is None or test_constants is None:
+    asserted = assertion_constants(test_source)
+    if base_constants is None or head_constants is None or not asserted:
         return False, ()
     removed = set(base_constants) - set(head_constants)
-    if not removed:
+    added_types = {kind for kind, _value in set(head_constants) - set(base_constants)}
+    substituted = {
+        (kind, value) for kind, value in removed if kind in added_types
+    }
+    if not substituted or not set(asserted) <= substituted:
         return False, ()
-    asserted = sorted(value for _kind, value in removed & set(test_constants))
-    return True, tuple(asserted)
+    return True, tuple(sorted(value for _kind, value in asserted))
 
 
 def failure_type(failure_message: str) -> str:
@@ -371,8 +391,8 @@ def observe_intent(
     test_level = all(
         failure_type(failure).rsplit(".", 1)[-1] in TEST_LEVEL_FAILURES for failure in failures
     )
-    constant_only, asserted = (
-        observe_constant_change(
+    substitution, asserted = (
+        observe_constant_substitution(
             base_source=base_source, head_source=head_source, test_source=test_source
         )
         if test_level
@@ -408,7 +428,7 @@ def observe_intent(
             rejected_inputs=(),
             witnesses=(),
             head_runs_observed=len(head_origins),
-            constant_only_diff=constant_only,
+            constant_substitution=substitution,
             asserted_constants=asserted,
         )
     signatures = {(origin.line, origin.exception_type) for origin in present}
@@ -432,6 +452,6 @@ def observe_intent(
         rejected_inputs=rejected,
         witnesses=find_witnesses(base_tree, rejected) if rejected else (),
         head_runs_observed=len(head_origins),
-        constant_only_diff=constant_only,
+        constant_substitution=substitution,
         asserted_constants=asserted,
     )

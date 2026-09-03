@@ -9,10 +9,12 @@ from attest.certification.intent import IntentObservation
 from attest.review.intent import (
     RaiseOrigin,
     RaiseRecord,
+    assertion_constants,
     failure_type,
     find_witnesses,
     identify_rejected_inputs,
     is_witness_file,
+    observe_constant_substitution,
     observe_intent,
     parse_raise_origins,
     parse_raise_record,
@@ -373,3 +375,42 @@ def test_observe_intent_refuses_head_runs_that_disagree(tmp_path: Path) -> None:
         base_tree=tmp_path,
     )
     assert isinstance(other_line, str) and "disagree" in other_line
+
+
+VERSION_BASE = 'BANNER = "release notes for v2"\n\n\ndef version():\n    return "v2"\n'
+VERSION_HEAD = 'BANNER = "release notes for v3"\n\n\ndef version():\n    return "v3"\n'
+DELETION_HEAD = 'def version():\n    return None\n'
+
+
+def test_an_assertion_rests_on_its_condition_and_never_on_its_message() -> None:
+    """D-120: the generator's explanatory message repeats the value it expected;
+    reading it would make every assertion rest on prose."""
+    source = (
+        "import mod\n\n\ndef test_repro():\n"
+        '    assert mod.version() == "v2", "expected v2, the disclosed version"\n'
+    )
+
+    assert assertion_constants(source) == (("str", "'v2'"),)
+
+
+def test_a_substituted_constant_is_a_constant_change_and_a_deleted_one_is_not() -> None:
+    """A version bump replaces one string with another: the assertion that pins the
+    old one proves an edit. A change that merely *removes* a string -- a dropped
+    validation message, say -- is a regression, and nothing of its type replaces it,
+    so the rule stays silent."""
+    test = 'import mod\n\n\ndef test_repro():\n    assert mod.version() == "v2"\n'
+
+    assert observe_constant_substitution(
+        base_source=VERSION_BASE, head_source=VERSION_HEAD, test_source=test
+    ) == (True, ("'v2'",))
+    assert observe_constant_substitution(
+        base_source=VERSION_BASE, head_source=DELETION_HEAD, test_source=test
+    ) == (False, ())
+    # an assertion that pins anything else is not a constant change
+    other = (
+        "import mod\n\n\ndef test_repro():\n"
+        '    assert mod.version() == "v2" or len("ab") == 2\n'
+    )
+    assert observe_constant_substitution(
+        base_source=VERSION_BASE, head_source=VERSION_HEAD, test_source=other
+    ) == (False, ())
