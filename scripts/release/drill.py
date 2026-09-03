@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -275,7 +276,107 @@ def drill_rollback(workspace: Path) -> Drill:
     return drill
 
 
-DRILLS = {"kill-switch": drill_kill_switch, "rollback": drill_rollback}
+
+class FailingProvider:
+    """A provider that always raises, with the message a real outage returns."""
+
+    def __init__(self, message: str) -> None:
+        self.message = message
+        self.calls = 0
+
+    def sample(
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, object],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
+    ) -> ProviderResult:
+        self.calls += 1
+        raise RuntimeError(self.message)
+
+
+def _bundles(repo: Path) -> list[Path]:
+    evidence = repo / ".attest" / "evidence"
+    return sorted(p for p in evidence.glob("*/*") if p.is_dir()) if evidence.is_dir() else []
+
+
+def _ledger_text(repo: Path) -> str:
+    path = repo / ".attest" / "ledger.jsonl"
+    return path.read_text(encoding="utf-8") if path.is_file() else ""
+
+
+def drill_revoked_credential(workspace: Path) -> Drill:
+    """The model credential is revoked mid-flight. The review must defer with a
+    stated reason rather than raise, publish nothing, execute no head code, and
+    never write the credential's value anywhere a human or a log can read it."""
+    drill = Drill("revoked credential")
+
+    secret = "sk-ant-drill-0000000000000000000000000000"
+    repo = workspace / "revoked-credential"
+    repo.mkdir()
+    base_sha, _head_sha = _planted_repo(repo, base_policy=None, head_policy=None)
+    provider = FailingProvider(f"401 authentication_error: invalid x-api-key {secret}")
+
+    previous = os.environ.get("ANTHROPIC_API_KEY")
+    os.environ["ANTHROPIC_API_KEY"] = secret
+    try:
+        run = run_review(
+            repo, base_sha, ReviewConfig(k_samples=2, tier0_commands=[]), provider, verify=True
+        )
+    finally:
+        if previous is None:
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+        else:
+            os.environ["ANTHROPIC_API_KEY"] = previous
+
+    drill.check(
+        "the review defers with a stated reason, it does not raise",
+        run.deferred_reason is not None,
+        str(run.deferred_reason),
+    )
+    drill.check("the credential was actually used", provider.calls > 0, f"{provider.calls} call(s)")
+    drill.check("nothing is published", not run.published, f"{len(run.published)} published")
+    drill.check("no evidence bundle is written", not _bundles(repo), f"{len(_bundles(repo))}")
+    drill.check(
+        "no head code is executed",
+        not (repo / ".attest" / "repro").exists(),
+        ".attest/repro does not exist",
+    )
+    rendered = str(run.deferred_reason) + " ".join(run.notes)
+    drill.check(
+        "the credential value is in neither the ledger nor the author-visible text",
+        secret not in _ledger_text(repo) and secret not in rendered,
+        "redacted",
+    )
+
+    # negative control: the same repository with a working provider must reach a
+    # receipt, or every check above would pass for the wrong reason
+    control = workspace / "revoked-credential-control"
+    control.mkdir()
+    control_base, _ = _planted_repo(control, base_policy=None, head_policy=None)
+    control_run = run_review(
+        control,
+        control_base,
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ScriptedProvider(),
+        verify=True,
+        verification_timeout_s=180.0,
+    )
+    drill.check(
+        "negative control: a working credential reaches a receipt",
+        bool(control_run.certified) and bool(_bundles(control)),
+        f"{len(control_run.certified)} certified, {len(_bundles(control))} bundle(s)",
+    )
+    return drill
+
+
+DRILLS = {
+    "kill-switch": drill_kill_switch,
+    "rollback": drill_rollback,
+    "revoked-credential": drill_revoked_credential,
+}
 
 
 def main(argv: list[str] | None = None) -> int:
