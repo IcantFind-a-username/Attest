@@ -415,6 +415,8 @@ def test_generate_uses_literal_schema_and_candidate_details(tmp_path: Path) -> N
     assert budget.calls == [
         {
             "label": f"verify-{candidate().finding.finding_id}-attempt-1",
+            # D-115: every call row names the model that answered it
+            "model": DEFAULT_MODEL,
             "input_tokens": 9,
             "cache_creation_input_tokens": 0,
             "cache_read_input_tokens": 0,
