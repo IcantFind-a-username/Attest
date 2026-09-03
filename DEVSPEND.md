@@ -1,9 +1,11 @@
 # Development spend ledger
 
-Hard cap: $30 API spend for all development including dogfood (handoff guardrail 4);
-raised from $10 by the owner on 2026-09-02.
+Hard cap: **$45** API spend for all development including dogfood (handoff guardrail 4);
+raised from $10 to $30 by the owner on 2026-09-02, and from $30 to $45 on 2026-09-03
+(owner decision 1 of the seventh window: option A of the real-traffic corpus plan).
+Window cap for 2026-09-03g: **$14**.
 
-## API spend (counts against the $10 cap)
+## API spend (counts against the cap)
 
 | date | item | cost |
 |---|---|---|
@@ -70,7 +72,7 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-03 | D-114 re-run, the Attest PR #8 pair, completed on `ATTEST_EXECUTOR=local` (`local_development_best_effort`; the container backend is unavailable on this host), K=4, `--budget 0.60` (non-default): 1 candidate, 1 eligible, 1 reproduction, **1 certified, 1 published** — head FAIL 3/3, base PASS 3/3. The generated file imports every name it uses, which is what both models failed to do before | $0.033891 |
 | 2026-09-03 | L-01 receipt pilot on the **corrected** pair (D-116): `us-stock-helper` head `d7be758`, base `8ed7811`, K=4, `--budget 0.60` (non-default), `linux-container-v1`: 3 of 3 units read, 12 candidates, 9 eligible, 9 reproductions attempted, **1 certified — the first receipt on real third-party traffic — and 0 published**, suppressed below the C-05 family threshold of 90 for 9 eligible candidates. Six reproductions never generated a test (`BudgetExceeded` on the second attempt); two more failed on base as well. Receipt `c229fb6992bb…`, bundle `e6626dc16283…`, `attest verify --require-seal` accepted | $0.437427 |
 
-**Total API spend: $21.371668 of $30.00.** (62 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $21.371668 of $45.00.** (62 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
@@ -99,7 +101,8 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-03 | model-variation check on the two remaining real generation failures (owner instruction 1c, 2026-09-03e): the Attest PR #8 pair (head `445c5a1`, base `e0867eb`) and `pytest-dev__pytest-10051`, each re-reviewed once with **`claude-opus-5`**, K=4, to record whether the generated test's failure mode changes with the model. The owner's $0.50 is the **spend** reservation and is enforced cumulatively between the two runs; the per-review `--budget` knob is raised to **0.60** because at opus prices four proposal samples estimate $0.3517, which does not fit the 60% discovery share of a $0.50 budget (the first attempt DEFERred on exactly that, spending $0.00). The runner review of the same pair used `claude-sonnet-5`. Window cap $2 | $0.50 | $0.272332 (row below); $0.227668 released |
 | 2026-09-03 | D-114 re-run of the two real generation failures (owner instruction 1, 2026-09-03f): the Attest PR #8 pair (head `445c5a1`, base `e0867eb`) and `pytest-dev__pytest-10051`, each reviewed once under the self-containment prompt, the test-module rejection and the collection gate, with proposals on the default model and reproduction generation on `generation_model` (D-115). K=4; the per-review `--budget` is **0.60, not the product default 0.25**, so the measurement is about the generated test and not about the budget — every result row says so. The owner's $0.50 is the spend reservation and is enforced cumulatively across the two runs. Window cap $2.50 | $0.50 | $0.104933 (three rows above); $0.395067 released |
 | 2026-09-03 | receipt pilot, corrected pair (owner instruction 6, 2026-09-03f): `us-stock-helper` **head `d7be758`, base `8ed7811`** — the D-116 construction (head = the repairing commit's parent, base = the repairing commit), verified free of charge before the run: 4 of the fix's 5 own tests fail on head and all 5 pass on base. One review, K=4, `--budget 0.60` (**non-default**, marked as such in every table), containers, local review only, no GitHub write | $0.60 | $0.437427 (row above); $0.162573 released |
-| 2026-09-03 | **PROPOSED, NOT APPROVED AND NOT CHARGED** — real-traffic corpus ([plan](docs/corpus/real-traffic-plan.md), mainline §5 decision C): 20 defect pairs and 50 controls across `Attest`, `us-stock-helper` and `Corum`, K=4, `--budget 0.60`, containers, local review only. Central estimate **$8.40**, **$10.90** with a 30% margin for the large-diff tail, against **$8.628332** of headroom — so option A in the plan needs the cap raised from $30 to about $35. Nothing is pre-charged by this row and nothing has run; it becomes a real reservation only when the owner answers | — (proposed $8.40–$10.90) | not started |
+| 2026-09-03 | **real-traffic corpus, option A (owner decision 1 of 2026-09-03g)** — [plan](docs/corpus/real-traffic-plan.md), mainline §5 decision C: 20 defect pairs and 50 controls across `Attest`, `us-stock-helper` and `Corum`, built by D-116 (head = the repairing commit's parent, base = the repairing commit), qualified free of charge before any paid call. K=4, `--budget 0.60` per review (**not** the $0.25 default; every result row says so), proposals `claude-sonnet-5`, reproduction `claude-opus-5`, containers, **local review only — no GitHub write**. The driver enforces a hard cumulative `--cap`. Any control publication stops the run at once and is root-caused under `RISK-CERT-01` | $11.00 | in progress |
+| 2026-09-03 | **`us-stock-helper` Action pilot (owner decision 3 of 2026-09-03g)** — the three authorized remote writes and nothing else: a workflow pull request adding the Action at `@v0.1.0-pilot.1` (same-repository branches only, for the owner to merge), a throwaway pull request carrying one planted known regression so the Action comments once, and the closing of that throwaway pull request and the deletion of its branch. `budget-usd` 0.60, `samples` 4; the API spend is the Action's own review on a GitHub runner | $0.60 | in progress |
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 
