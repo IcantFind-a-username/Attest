@@ -40,6 +40,8 @@ from attest.execution.container_adapter import CONTAINER_PROFILE  # noqa: E402
 from attest.execution.types import LOCAL_DEVELOPMENT_PROFILE  # noqa: E402
 from attest.github.client import GitHubClient  # noqa: E402
 from attest.github.context import PullRequestContext  # noqa: E402
+from attest.review.budget import Budget  # noqa: E402
+from attest.review.candidates import StoredCandidate  # noqa: E402
 from attest.review.ci import run_ci  # noqa: E402
 from attest.review.config import (  # noqa: E402
     DISABLED_REASON,
@@ -47,8 +49,15 @@ from attest.review.config import (  # noqa: E402
     resolve_review_policy,
 )
 from attest.review.evidence import verify_bundle  # noqa: E402
+from attest.review.executor import (  # noqa: E402
+    ExecutionOutcome,
+    ExecutorLimits,
+    verify_candidate,
+)
+from attest.review.gate import GateResult  # noqa: E402
 from attest.review.proposer import ProviderResult  # noqa: E402
 from attest.review.run import run_review  # noqa: E402
+from attest.review.schema import Finding  # noqa: E402
 
 
 @dataclass
@@ -628,7 +637,6 @@ def drill_executor_unavailable(workspace: Path) -> Drill:
     return drill
 
 
-
 def drill_budget_exhaustion(workspace: Path) -> Drill:
     """The per-review budget is spent. The review must stop with an explicit
     budget reason before the call it cannot afford, publish nothing, and never
@@ -680,6 +688,100 @@ def drill_budget_exhaustion(workspace: Path) -> Drill:
     return drill
 
 
+def drill_superseded_pull_request(workspace: Path) -> Drill:
+    """The head moves while the review is running. Differential evidence is only
+    meaningful against the revision it was collected on, so the verification must
+    refuse rather than attribute the old evidence to the new head."""
+    drill = Drill("superseded pull request")
+
+    repo = workspace / "superseded"
+    repo.mkdir()
+    base_sha, head_sha = _planted_repo(repo, base_policy=None, head_policy=None)
+
+    # the review is asked for evidence about a head that is no longer checked out
+    stored = _stored_candidate(repo)
+    superseded = verify_candidate(
+        repo,
+        stored,
+        _gate(stored),
+        ScriptedProvider(),
+        Budget(limit_usd=1.0, model=ReviewConfig().model),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=base_sha,  # not the checked-out head: the pull request moved
+    )
+    drill.check(
+        "evidence is refused when the workspace head is not the reviewed head",
+        superseded.execution.outcome is ExecutionOutcome.DEFERRED,
+        str(superseded.execution.reason),
+    )
+    drill.check(
+        "the reason names the mismatch",
+        "HEAD does not match" in superseded.execution.reason,
+        superseded.execution.reason,
+    )
+
+    # a dirty tree is the same failure by another route: the revision under
+    # review is no longer immutable
+    (repo / "app.py").write_text("# superseded\n", encoding="utf-8")
+    dirty = verify_candidate(
+        repo,
+        stored,
+        _gate(stored),
+        ScriptedProvider(),
+        Budget(limit_usd=1.0, model=ReviewConfig().model),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+    drill.check(
+        "a dirty working tree buys no evidence either",
+        dirty.execution.outcome is ExecutionOutcome.DEFERRED
+        and "dirty" in dirty.execution.reason,
+        dirty.execution.reason,
+    )
+    _git(repo, "checkout", "--", "app.py")
+
+    # negative control: the same candidate against the head actually checked out
+    control_provider = ScriptedProvider()
+    control = verify_candidate(
+        repo,
+        stored,
+        _gate(stored),
+        control_provider,
+        Budget(limit_usd=1.0, model=ReviewConfig().model),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+    drill.check(
+        "negative control: the reviewed head reproduces",
+        control.execution.outcome is ExecutionOutcome.REPRODUCED,
+        control.execution.reason,
+    )
+    return drill
+
+
+def _stored_candidate(repo: Path) -> StoredCandidate:
+    return StoredCandidate(
+        task_id="drill-superseded",
+        finding=Finding(
+            claim="average() divides by zero when items is empty.",
+            file="app.py",
+            line=6,
+            failure_scenario="average([]) raises ZeroDivisionError",
+            falsification_plan="call average([]) and require a safe empty result",
+        ),
+        wealth=8.0,
+        action="drawer",
+        alpha=0.1,
+    )
+
+
+def _gate(stored: StoredCandidate) -> GateResult:
+    return GateResult(finding=stored.finding, wealth=stored.wealth, purchases=[], decision=None)
+
+
 DRILLS = {
     "kill-switch": drill_kill_switch,
     "rollback": drill_rollback,
@@ -687,6 +789,7 @@ DRILLS = {
     "github-outage": drill_github_outage,
     "executor-unavailable": drill_executor_unavailable,
     "budget-exhaustion": drill_budget_exhaustion,
+    "superseded-pull-request": drill_superseded_pull_request,
 }
 
 
