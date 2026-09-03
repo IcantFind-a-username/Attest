@@ -19,7 +19,7 @@ superseded runs for the same PR, and retains `.attest/ledger.jsonl` as evidence.
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-    budget-usd: "0.25"
+    budget-usd: "1.00"
     samples: "5"
     verification-timeout: "600"
 ```
@@ -27,6 +27,15 @@ superseded runs for the same PR, and retains `.attest/ledger.jsonl` as evidence.
 The action installs attest from the action checkout into a temporary `uv` virtual
 environment; it does not install a published package. `budget-usd`, `samples`, and
 `verification-timeout` shown above are the defaults.
+
+**Typical cost per review.** `budget-usd` is a hard cap, not a price. Measured over the
+2026-09-03 real-traffic corpus (43 reviews), a review's mean spend was **$0.22**: about **$0.31**
+on a pull request with real code changes, $0.12 on a test-only change and $0.06 on a
+documentation-only one. The three largest changes ever measured spent **$0.91 on average, at
+most $1.03**, with the cap set to $1.20. The default was raised from $0.25 to **$1.00** on
+2026-09-04 (D-126) after two independent measurements showed reviews stopping at the budget
+before they could generate a reproduction. Full table and sources:
+[`operations/quickstart.md`](operations/quickstart.md).
 
 Reproduction tests use the action interpreter by default. If the reviewed project
 needs dependencies from its own prepared environment, set `ATTEST_PROJECT_PYTHON`

@@ -55,19 +55,24 @@ from attest.review.schema import PROPOSAL_SCHEMA, Finding, validate_finding
 # truncation destroys the JSON and voids the whole sample.
 #
 # Product constraint (default model per pricing.toml: $2/MTok in, $10/MTok
-# out; default $0.25 budget; K=5). The K up-front reservations cost
+# out; K=5). The K up-front reservations cost
 #   5 x (input_chars/3 x $2e-6 + 2,400 x $1e-5)
 #     = input_chars x $3.33e-6 + $0.12
-# so input_chars may reach (0.25 - 0.12) / 3.33e-6 = 39,000 chars — a diff
-# boundary of ~38,150 chars after prompt overhead. That explicit conservative
-# boundary is the cost of reserving the provider-enforced allowance up front.
+# so at the $0.25 budget of the time input_chars could reach
+# (0.25 - 0.12) / 3.33e-6 = 39,000 chars — a diff boundary of ~38,150 chars
+# after prompt overhead. That explicit conservative boundary is the cost of
+# reserving the provider-enforced allowance up front.
 #
 # 2026-09-02 (owner, after the dev-slice re-run): on the eight regression PRs 9 of
 # the 13 empty proposal samples had stopped at the 2,400 bound with the allowance
 # consumed by reasoning, so the bound is raised to 3,200. It is a runtime output
 # parameter, not a statistical constant; the reservation arithmetic above now
 # reads 5 x (input_chars/3 x $2e-6 + 3,200 x $1e-5) = input_chars x $3.33e-6 +
-# $0.16, a default-budget diff boundary of about 26,000 chars.
+# $0.16, which was a diff boundary of about 26,000 chars at the $0.25 default.
+#
+# 2026-09-04 (D-126): the default budget is $1.00, so the same arithmetic gives
+# (1.00 - 0.16) / 3.33e-6 = about 252,000 chars. The reservation is unchanged;
+# what moved is how large a change can be read before it binds.
 PROPOSER_MAX_OUTPUT_TOKENS = 3200
 MAX_RESPONSE_FRAGMENT_CHARS = 500
 

@@ -32,7 +32,7 @@ then:
 
 ```bash
 cd /path/to/your-repo
-ANTHROPIC_API_KEY=... /path/to/Attest/.venv/bin/attest review --base main --k 4 --budget 0.25
+ANTHROPIC_API_KEY=... /path/to/Attest/.venv/bin/attest review --base main --k 4 --budget 1.00
 ```
 
 `attest review` proposes candidates, runs the differential reproduction stage (the generated
@@ -57,21 +57,48 @@ documentation, so the budget reaches code first.
 Nothing else is a finding. `attest stats --drawer` lists what was held back and why;
 `attest feedback <id> --fix|--good|--dismiss` labels it.
 
-### Raising the budget
+### What a review typically costs
 
-The factory default is **$0.25 per review** and it is deliberate: it is what a small change
-costs, and every consuming repository pays whatever it is raised to. A larger change can
-exhaust it — the run status says so in as many words (`read N of M units, budget-limited`, or
-a reproduction line reading `budget:`). Two ways to give a review more:
+Measured, not estimated. Every figure is a per-review mean over reviews that actually ran, at
+the budget named; a review never spends more than its budget, and most spend far less.
 
-- **one local run**: `--budget 0.60` on the command line above;
+| population | budget it ran at | reviews | **mean spend per review** | source |
+|---|---|---|---|---|
+| real pull-request traffic, all strata | $0.60 | 43 | **$0.22** | [corpus](../acceptance/2026-09-03-real-traffic-corpus.md) |
+| — defect pairs (a change with something in it) | $0.60 | 19 | **$0.31** | same |
+| — refactor commits | $0.60 | 5 | $0.34 | same |
+| — test-only commits | $0.60 | 9 | $0.12 | same |
+| — documentation-only commits | $0.60 | 10 | $0.06 | same |
+| the three largest changes measured, unconstrained | $1.20 | 3 | **$0.91** (max $1.03) | [budget wall](../acceptance/2026-09-04-budget-wall.md) |
+
+**So: a typical review costs about $0.20–$0.35, and the $1.00 default is the ceiling for the
+few large changes that need it, not the price of an ordinary one.** A documentation-only pull
+request costs a few cents. You are billed by your model provider for what is actually spent;
+attest never spends past the cap and says so explicitly when it stops.
+
+### Changing the budget
+
+The factory default is **$1.00 per review** (raised from $0.25 on 2026-09-04, D-126). It is a
+*cap*, not a price: the table above is what reviews actually cost, and the cap exists so that
+the few large changes that need more evidence can buy it. Below $0.60, real reviews stopped
+before generating a reproduction they could otherwise have produced — that is the measurement
+the default rests on.
+
+A change larger than anything yet measured can still exhaust it, and the run status says so in
+as many words (`read N of M units, budget-limited`, or a reproduction line reading `budget:`).
+Two ways to change what a review may spend:
+
+- **one local run**: `--budget 1.20` on the command line above;
 - **every review of a branch**: `budget_usd` in `.attest.toml` **on the base branch**, which
   is where CI reads it from (the head of a pull request cannot raise its own budget):
 
 ```toml
 # .attest.toml on the base branch
-budget_usd = 0.60
+budget_usd = 1.20
 ```
+
+Lowering it is equally supported and equally explicit: at a smaller cap the product abstains
+sooner and says which units it did not read.
 
 Every key and its factory default is in [`base-policy.md`](base-policy.md). Spend is capped
 before each call, never truncated mid-answer, so raising the budget buys more units read and

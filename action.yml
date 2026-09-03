@@ -10,7 +10,7 @@ inputs:
   budget-usd:
     description: Maximum model spend for this review, in USD.
     required: false
-    default: "0.25"
+    default: "1.00"
   samples:
     description: Number of model proposal samples.
     required: false

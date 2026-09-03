@@ -11,7 +11,8 @@ from attest.review.schema import Finding
 def test_factory_defaults() -> None:
     c = ReviewConfig()
     assert c.alpha == 0.1
-    assert c.budget_usd == 0.25
+    # D-126 (2026-09-04): raised from 0.25 on the budget-wall measurement
+    assert c.budget_usd == 1.00
     assert c.k_samples == 5
     assert c.max_findings == 3
     assert c.model == load_pricing()["default_model"]

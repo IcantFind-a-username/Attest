@@ -20,7 +20,7 @@ execution, not a silent fallback.
 | key | factory default | meaning |
 |---|---|---|
 | `enabled` | `true` | `false` stops every review of a pull request into this branch before any model call or head-code execution, with the status `disabled by the base policy (.attest.toml enabled = false)`. See [`kill-switch-and-rollback.md`](kill-switch-and-rollback.md). |
-| `budget_usd` | `0.25` | hard model spend cap for one review. Reaching it is an explicit `DEFER: budget: …`, never a truncated answer. |
+| `budget_usd` | `1.00` | hard model spend cap for one review. Reaching it is an explicit `DEFER: budget: …`, never a truncated answer. A cap, not a price: measured reviews average $0.22 and the largest measured spent $1.03 — see [`quickstart.md`](quickstart.md). Raised from `0.25` on 2026-09-04 (D-126). |
 | `k_samples` | `5` | proposal samples per change unit. |
 | `max_findings` | `3` | hard cap on author-visible findings in one pull request, across inline and summary. |
 | `alpha` | `0.1` | the evidence threshold. **A factory statistical constant: changing it is an owner decision, not a repository setting.** A value that makes the gate unreachable refuses the run instead of relaxing it. |
@@ -47,7 +47,7 @@ execution, not a silent fallback.
 ```toml
 # .attest.toml on the base branch
 enabled = true
-budget_usd = 0.25
+budget_usd = 1.00
 k_samples = 4
 max_findings = 3
 ```

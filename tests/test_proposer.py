@@ -436,11 +436,16 @@ def test_shared_system_block_leads_every_role_request_identically() -> None:
 def test_the_discovery_share_bounds_breadth_and_never_the_first_unit() -> None:
     """D-111: what starved verification on `d7be758` was *breadth* -- twelve
     candidates from four change units. The share therefore bounds every unit
-    after the first, and not the first: at the shipped defaults (K=5, $0.25)
-    five samples reserve $0.16 at the proposal token bound before a single
-    character of diff is priced, so a share applied to the first unit as well
-    would DEFER every review the product ships with, which the release drill
-    caught."""
+    after the first, and not the first: at K=5 and a $0.25 budget five samples
+    reserve $0.16 at the proposal token bound before a single character of diff
+    is priced, so a share applied to the first unit as well would DEFER every
+    such review, which the release drill caught.
+
+    D-126 raised the shipped default to $1.00, where both of these units fit.
+    The budget here is therefore **pinned at $0.25**: the test is about the
+    share bounding breadth, and it needs a budget the second unit cannot fit
+    into. The property it protects -- the first unit is never bounded -- holds
+    at every budget, and the release drill covers the shipped one."""
     from types import SimpleNamespace
 
     from attest.review.budget import PROPOSAL_SHARE, Budget
@@ -472,8 +477,9 @@ def test_the_discovery_share_bounds_breadth_and_never_the_first_unit() -> None:
             prompt_context=lambda: "",
         )
 
-    config = ReviewConfig(k_samples=5, tier0_commands=[])
+    config = ReviewConfig(budget_usd=0.25, k_samples=5, tier0_commands=[])
     assert (config.budget_usd, config.k_samples) == (0.25, 5)
+    assert ReviewConfig().budget_usd == 1.00  # the shipped default (D-126)
     budget = Budget(limit_usd=config.budget_usd, model=config.model)
     provider = Abstaining()
 

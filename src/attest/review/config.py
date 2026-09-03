@@ -29,7 +29,10 @@ def load_pricing() -> dict[str, Any]:
 @dataclass
 class ReviewConfig:
     alpha: float = 0.1
-    budget_usd: float = 0.25  # hard cap per review; over-limit -> explicit DEFER
+    # D-126 (2026-09-04): raised from $0.25 on two independent measurements of the
+    # budget wall. Hard cap per review; over-limit -> explicit DEFER, never a
+    # truncated answer.
+    budget_usd: float = 1.00
     model: str = ""  # empty -> pricing.toml default_model
     # the reproduction generator's model; empty -> pricing.toml generation_model
     generation_model: str = ""
