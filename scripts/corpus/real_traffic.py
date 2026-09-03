@@ -39,6 +39,17 @@ PLAN = ROOT / "benchmarks" / "attest-v2" / "runs" / "2026-09-03-real-traffic-pla
 REPO_DIR = {"Attest": "attest", "us-stock-helper": "us-stock-helper", "Corum": "corum"}
 TEST_NAME = re.compile(r"(^|/)(test_[^/]+\.py|[^/]+_test\.py)$")
 MAX_TEST_FILES = 3  # bound the free discrimination check per pair
+# RISK-CERT-01 root cause, 2026-09-03: control c03 published, and it should have.
+# `445c5a1` is the planted regression from the 2026-09-03d Action drill -- it removes
+# the backslash normalisation in the benchmark matcher and its message calls that a
+# redundant-replace cleanup, on purpose. The plan's control filter reads the subject
+# and walks every ref, so a throwaway drill branch entered the control population. A
+# commit reachable **only** from a `throwaway/` branch is a drill, not traffic.
+MIS_STRATIFIED = {
+    "c03": "a planted regression from the 2026-09-03d Action drill, reachable only from "
+    "`throwaway/runner-check-2026-09-03`; its publication is a true positive and it is "
+    "not in the control denominator"
+}
 
 
 def repo_path(repo: str) -> Path:
@@ -284,6 +295,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     for case in order:
         if case["id"] in done:
             continue
+        if case["id"] in MIS_STRATIFIED:
+            log.write(
+                f"=== rt {case['id']} {args.repo} {case['head']} "
+                f"[dropped: mis-stratified — {MIS_STRATIFIED[case['id']]}]\n"
+            )
+            continue
         if case["population"] == "defect" and case["id"] not in qualified:
             log.write(f"=== rt {case['id']} {args.repo} {case['head']} [dropped: not qualified]\n")
             continue
@@ -431,7 +448,13 @@ def cmd_table(args: argparse.Namespace) -> int:
         case_id, repo_name, sha = parts[0], parts[1], parts[2]
         stratum = cases.get(case_id, {}).get("stratum", "defect")
         if "[dropped" in head or "[skipped" in body:
-            note = "dropped: not qualified" if "[dropped" in head else "skipped: cap"
+            note = (
+                "dropped: mis-stratified"
+                if "mis-stratified" in head
+                else "dropped: not qualified"
+                if "[dropped" in head
+                else "skipped: cap"
+            )
             print(
                 f"| {case_id} ({stratum}) | {repo_name} | `{sha[:10]}` | — | — | — | — "
                 f"| — | {note} |"
@@ -450,20 +473,24 @@ def cmd_table(args: argparse.Namespace) -> int:
                 "spend": 0.0,
             }
         )
-        counted += 1
-        for key in ("m", "certified", "published", "below", "spend"):
-            if isinstance(stats[key], (int, float)):
-                totals[key] += stats[key]
+        mis = case_id in MIS_STRATIFIED
+        if not mis:  # a drill commit's numbers are real but belong to no population
+            counted += 1
+            for key in ("m", "certified", "published", "below", "spend"):
+                if isinstance(stats[key], (int, float)):
+                    totals[key] += stats[key]
+        label = f"{case_id} (**mis-stratified**)" if mis else f"{case_id} ({stratum})"
         print(
-            f"| {case_id} ({stratum}) | {repo_name} | `{sha[:10]}` | {stats['m']} "
+            f"| {label} | {repo_name} | `{sha[:10]}` | {stats['m']} "
             f"| {stats['certified']} "
             f"| {stats['published']} | {stats['below']} | {stats['backend']} "
             f"| ${stats['spend']:.6f} |"
         )
     print(
-        f"\n{counted} reviewed; eligible {totals['m']}; certified {totals['certified']}; "
+        f"\n{counted} reviewed (mis-stratified rows excluded); eligible {totals['m']}; "
+        f"certified {totals['certified']}; "
         f"published {totals['published']}; certified-but-below-threshold {totals['below']}; "
-        f"spend ${totals['spend']:.6f}"
+        f"spend ${totals['spend']:.6f} (mis-stratified spend excluded)"
     )
     return 0
 
