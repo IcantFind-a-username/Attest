@@ -1,0 +1,612 @@
+[
+  {
+    "id": "d01",
+    "population": "defect",
+    "repo": "Attest",
+    "head": "04a86b25a4d3c5438e03f787884bb1f048ac5242",
+    "base": "b764cfb926c701c0d576276eecf2ba5d57b0b51e",
+    "subject": "fix(review): a provider error never carries a credential into visible text"
+  },
+  {
+    "id": "d02",
+    "population": "defect",
+    "repo": "Attest",
+    "head": "9b610f6a5a814d521ff4ef0539b5064c00b25d7f",
+    "base": "241bb6fa679b281d4cf06869588797277fb5d1aa",
+    "subject": "fix(review): the discovery share bounds breadth, not the first unit"
+  },
+  {
+    "id": "d03",
+    "population": "defect",
+    "repo": "Attest",
+    "head": "ad4c5fe1e334e18c74e91ab772020c502298c52a",
+    "base": "61d9695453d3e5e5d3b260f1aa740d79711352ab",
+    "subject": "fix(execution): cap an image build at the verification budget, reuse by image id"
+  },
+  {
+    "id": "d04",
+    "population": "defect",
+    "repo": "Attest",
+    "head": "e0867eb188500ee7da6138c7d798414db259e144",
+    "base": "d62bcd6327a5953c23ba4c46c8cfae822e23f624",
+    "subject": "fix: an unattempted certification names the profile the runs actually used"
+  },
+  {
+    "id": "d05",
+    "population": "defect",
+    "repo": "Attest",
+    "head": "e002bd66799bf3aa5825f4f1f0d76dd652f8cf30",
+    "base": "34affaf7a69d98c94ea6470cd8b7fe244ea62157",
+    "subject": "fix: every way the environment bootstrap fails is typed, and the image probe is bounded"
+  },
+  {
+    "id": "d06",
+    "population": "defect",
+    "repo": "Attest",
+    "head": "260e8d9c516ba9ac48b0cd7b77a9501909ffbfea",
+    "base": "9df938f8aa96c3f5b5d872497fb3501741a2f6b8",
+    "subject": "fix: an image build that times out is a typed bootstrap failure, not a traceback"
+  },
+  {
+    "id": "d07",
+    "population": "defect",
+    "repo": "Attest",
+    "head": "17d5c770c773a1843347faf1d9e6454f9a813834",
+    "base": "3ace7e52d0f04d646c5dabc8cd1fada35dea61a6",
+    "subject": "fix: the CLI help must point an operator at the offline bundle verifier"
+  },
+  {
+    "id": "d08",
+    "population": "defect",
+    "repo": "Attest",
+    "head": "7c8de5c6245be2c0438fc51c14357a2b3f49756f",
+    "base": "0fee3a95e5641d88b96052a4ba743268639fa975",
+    "subject": "fix: E-04 preflight — selection must precede its own outcome, not every outcome"
+  },
+  {
+    "id": "d09",
+    "population": "defect",
+    "repo": "us-stock-helper",
+    "head": "4aa74209ad31878bcabd4941f011295fb82da3c6",
+    "base": "ff77bf4d14e374b77c30023cb6479524302325d7",
+    "subject": "fix(market_gateway): capital_flow/institutional_holdings 乱序行不再静默重排，改为显式报错"
+  },
+  {
+    "id": "d10",
+    "population": "defect",
+    "repo": "us-stock-helper",
+    "head": "6c724c1e199baf912d12c4c835172b0a7f4a346a",
+    "base": "30c49d7e562772b4f004737e4b705c7fc759f275",
+    "subject": "fix(market_gateway): K线跨页/跨行乱序不再静默重排，改为显式报错"
+  },
+  {
+    "id": "d11",
+    "population": "defect",
+    "repo": "us-stock-helper",
+    "head": "fa85b217782ba469c30a4edfe4636e8b80441db8",
+    "base": "3f6b67b0b6dcbb9660890552edb0f1c6939b9ee5",
+    "subject": "fix: stamp nasdaq halts at the halt time, not midnight"
+  },
+  {
+    "id": "d12",
+    "population": "defect",
+    "repo": "us-stock-helper",
+    "head": "07a6946b7f84f89b27409326cfcfba44b66a5d67",
+    "base": "ead0bd75d42e1bf8a12d53a8d5847cd8095e5e4f",
+    "subject": "fix: stop republishing multi-party filings as fake revisions"
+  },
+  {
+    "id": "d13",
+    "population": "defect",
+    "repo": "us-stock-helper",
+    "head": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+    "base": "4ef2226bcf2405129a38ad81e65130a3d3c989eb",
+    "subject": "fix: remember what each feed already published across restarts"
+  },
+  {
+    "id": "d14",
+    "population": "defect",
+    "repo": "us-stock-helper",
+    "head": "381c0a051c4fd0855d7c1226895efd94166689e7",
+    "base": "4b1ad18ab913f886f836f0d400580a625704383c",
+    "subject": "fix(analysis_core): use fsum in moving_average_series to kill sum() order noise"
+  },
+  {
+    "id": "d15",
+    "population": "defect",
+    "repo": "us-stock-helper",
+    "head": "8ed78113d1d2195fca42c3aef48d55cb58f4c01d",
+    "base": "2d4a0d8ab042b4dc0ac5e5157fe2d7786939b9bf",
+    "subject": "fix: serve the ma5 break rule, not a stale touch-bar number"
+  },
+  {
+    "id": "d16",
+    "population": "defect",
+    "repo": "us-stock-helper",
+    "head": "d7be758c2f1fa63df3910945b7af49738ed6bd8b",
+    "base": "8ed78113d1d2195fca42c3aef48d55cb58f4c01d",
+    "subject": "fix: only in-force confirmed patterns vote in the score"
+  },
+  {
+    "id": "d17",
+    "population": "defect",
+    "repo": "Corum",
+    "head": "6eba7422355fd5448370f24f2e6b2722302ee45d",
+    "base": "f84fbb4699a16abc07faaa16d00e1b1083f08d1f",
+    "subject": "fix: make dependence shrinkage evidence-aware"
+  },
+  {
+    "id": "d18",
+    "population": "defect",
+    "repo": "Corum",
+    "head": "ba8fddb95206f1e69a153850bf4cc07b263f5340",
+    "base": "c12fc1355953ea3131ffb68b0ee14415183a5197",
+    "subject": "fix: reject unrepresentable numeric metadata"
+  },
+  {
+    "id": "d19",
+    "population": "defect",
+    "repo": "Corum",
+    "head": "515998fac1aa9d5f22293e3b9da0eee36860b2a1",
+    "base": "ba8fddb95206f1e69a153850bf4cc07b263f5340",
+    "subject": "fix: handle overflowing real validation"
+  },
+  {
+    "id": "d20",
+    "population": "defect",
+    "repo": "Corum",
+    "head": "5be583d6143f1a59011aed718316bf6114850244",
+    "base": "515998fac1aa9d5f22293e3b9da0eee36860b2a1",
+    "subject": "fix: validate consensus numeric metadata"
+  },
+  {
+    "id": "c01",
+    "population": "control",
+    "repo": "Attest",
+    "head": "0d0e098b46bfa8ef1e355cf88c5e0144ec03ac02",
+    "base": "241bb6fa679b281d4cf06869588797277fb5d1aa",
+    "stratum": "refactor",
+    "subject": "test: the M-01 probe follows TMPDIR instead of a macOS path"
+  },
+  {
+    "id": "c02",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "ab02a62ac152733fc6d916eff0609515107f8191",
+    "base": "874f3274ffc10a23038f97f0094fbe23fd50a36b",
+    "stratum": "refactor",
+    "subject": "test: verify sectioned snapshots across live watchlist"
+  },
+  {
+    "id": "c03",
+    "population": "control",
+    "repo": "Attest",
+    "head": "445c5a1e28a3e0f3441bbd0f52f4a19f3e4acfdd",
+    "base": "e0867eb188500ee7da6138c7d798414db259e144",
+    "stratum": "refactor",
+    "subject": "refactor: simplify path normalisation in the benchmark matcher"
+  },
+  {
+    "id": "c04",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "1b8cc4aab1c97f831e344889064ce4791a7c653b",
+    "base": "706ebfefe7bed7ad7fc6873d22ca1da58547a7e2",
+    "stratum": "refactor",
+    "subject": "test: assert the copy the product actually ships"
+  },
+  {
+    "id": "c05",
+    "population": "control",
+    "repo": "Attest",
+    "head": "506aae1a134a4f6d249eb44d3a0325b9324887dd",
+    "base": "69921e0a3c520b80a82dc7ffb60b6065181fe3bf",
+    "stratum": "refactor",
+    "subject": "docs: supplementary held-out run (owner decision 2), erratum, spend, and the ..."
+  },
+  {
+    "id": "c06",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "45674d563670ab27a6439cdec233e9b98c528268",
+    "base": "04d1d31037448036d61a3fc4de390c1b36547f5f",
+    "stratum": "refactor",
+    "subject": "test: prove the real market mobile slice"
+  },
+  {
+    "id": "c07",
+    "population": "control",
+    "repo": "Attest",
+    "head": "50c21d2ab624573a4ec81c09f43f914d4348b24a",
+    "base": "5fc03fa594eda32aca2ff6af05ee1be11e2ec20e",
+    "stratum": "refactor",
+    "subject": "docs: E-04 stratum v1 result, D-103, and the supplementary held-out run's fix..."
+  },
+  {
+    "id": "c08",
+    "population": "control",
+    "repo": "Attest",
+    "head": "7838294beb241957972eed3660b3446f89da1392",
+    "base": "ddfce64f39d75744215f450663c0c1d6e807e01e",
+    "stratum": "refactor",
+    "subject": "style: lint the corpus drivers"
+  },
+  {
+    "id": "c09",
+    "population": "control",
+    "repo": "Attest",
+    "head": "a1624d2813150dca353282e1843be5ab33dbc6dd",
+    "base": "c63871419840dd57a09706c4bd0c582235124f2f",
+    "stratum": "refactor",
+    "subject": "chore: pilot builds without a host virtualenv; reserve the held-out and natur..."
+  },
+  {
+    "id": "c10",
+    "population": "control",
+    "repo": "Attest",
+    "head": "c17c46ef5bdfa4eb5df9f13a26f5a548e55317b8",
+    "base": "1724edb7e24fbe2dbff66998ae993414b9056c91",
+    "stratum": "refactor",
+    "subject": "perf: cache the shared prompt prefix, stagger the fan-out on the first token,..."
+  },
+  {
+    "id": "c11",
+    "population": "control",
+    "repo": "Attest",
+    "head": "c4bd53df8e4b8eb287eb103dcb7c83b690b1e058",
+    "base": "075387446bc67363d6ef3a79f93d728b9fdf67d9",
+    "stratum": "refactor",
+    "subject": "refactor: user-facing wording without statistical terms"
+  },
+  {
+    "id": "c12",
+    "population": "control",
+    "repo": "Attest",
+    "head": "8c3513eb9dea41a7c664188569adf991913b4b0d",
+    "base": "cca77d47f2f3b4808a6b482f3170afa5e638a351",
+    "stratum": "refactor",
+    "subject": "perf: confine the V-02 line tracer to the reproduction window"
+  },
+  {
+    "id": "c13",
+    "population": "control",
+    "repo": "Attest",
+    "head": "47229a86cdd91d247f50fae8a5b23dd46574ea3e",
+    "base": "3cbe421854af7b4c76debcd2c9bd72e099924ba6",
+    "stratum": "refactor",
+    "subject": "chore: M-01 probe and its tests follow the product's publication policy"
+  },
+  {
+    "id": "c14",
+    "population": "control",
+    "repo": "Attest",
+    "head": "3cbe421854af7b4c76debcd2c9bd72e099924ba6",
+    "base": "859c3b453416aa92c61212881d509cdf19a202c5",
+    "stratum": "refactor",
+    "subject": "chore: let the M-01 probe's aggregate restate the run's own counts"
+  },
+  {
+    "id": "c15",
+    "population": "control",
+    "repo": "Attest",
+    "head": "859c3b453416aa92c61212881d509cdf19a202c5",
+    "base": "6b3b1d217a6ae30d894e5a4b853d9a922a0f63c0",
+    "stratum": "refactor",
+    "subject": "chore: make the M-01 probe's product guard follow the family policy"
+  },
+  {
+    "id": "c16",
+    "population": "control",
+    "repo": "Attest",
+    "head": "e23e333692df2927655d4779be36314d94fa0419",
+    "base": "927becef46978a6d28bf2878f65807929fa4428e",
+    "stratum": "refactor",
+    "subject": "chore: report pilot certification per defect and per candidate"
+  },
+  {
+    "id": "c17",
+    "population": "control",
+    "repo": "Attest",
+    "head": "5520d61bf72551165f093ada16d4ae067c6fe6bd",
+    "base": "07e48fdd43a074ddf36a71bab71d523f848e2992",
+    "stratum": "refactor",
+    "subject": "chore: choose the pilot interpreter from the project's declared Python support"
+  },
+  {
+    "id": "c18",
+    "population": "control",
+    "repo": "Attest",
+    "head": "07e48fdd43a074ddf36a71bab71d523f848e2992",
+    "base": "98465a72772cb7760cf7f324096bf4e0b1ad1177",
+    "stratum": "refactor",
+    "subject": "chore: give pilot pytest trees a version that satisfies their own minversion"
+  },
+  {
+    "id": "c19",
+    "population": "control",
+    "repo": "Attest",
+    "head": "1a4d96553fab9d62b3c0c722baabb27e74e260ba",
+    "base": "0e4ab3b31449ea8f06139f874146c58cc93edabc",
+    "stratum": "refactor",
+    "subject": "chore: restore tracked files after the pilot's editable install"
+  },
+  {
+    "id": "c20",
+    "population": "control",
+    "repo": "Attest",
+    "head": "9320cd579d79580383e7c24b4e92efcbe253a259",
+    "base": "4561686d179035574c30d793dc153971c0bc9818",
+    "stratum": "refactor",
+    "subject": "chore: commit pytest's generated version file into pilot cases"
+  },
+  {
+    "id": "c21",
+    "population": "control",
+    "repo": "Attest",
+    "head": "9b610f6a5a814d521ff4ef0539b5064c00b25d7f",
+    "base": "dc8ae56a1e439b3ceaa513d099dba1bd2bcc8b21",
+    "stratum": "test-only",
+    "subject": "test: the M-01 probe runs under the interpreter running the gate"
+  },
+  {
+    "id": "c22",
+    "population": "control",
+    "repo": "Corum",
+    "head": "80ee1b3957bc6bfb92a85c868ee2cd59d2bb85ea",
+    "base": "044edd5c29fe81d4d0cefe45a45e445273bf4738",
+    "stratum": "test-only",
+    "subject": "test: lock convergence resolution gate"
+  },
+  {
+    "id": "c23",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "58bf76382b559b0b728c4dfd28f1fc6442e17598",
+    "base": "9c023e6b163f2a5f70f2777e6d1666297b995e15",
+    "stratum": "test-only",
+    "subject": "test: pin agency positive attribution and 13g amendment forms"
+  },
+  {
+    "id": "c24",
+    "population": "control",
+    "repo": "Attest",
+    "head": "67703a6d6c9ef18b3d4497777eacc99c63844998",
+    "base": "34affaf7a69d98c94ea6470cd8b7fe244ea62157",
+    "stratum": "test-only",
+    "subject": "ci: review Attest's own pull requests, same-repository branches only"
+  },
+  {
+    "id": "c25",
+    "population": "control",
+    "repo": "Corum",
+    "head": "6d03f4cf18c43decff3ae1bffde277279ff25d31",
+    "base": "0e4dcc34b621657b4ecb668143c0018bf6be4fa3",
+    "stratum": "test-only",
+    "subject": "test: lock JudgeBench external value gate"
+  },
+  {
+    "id": "c26",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "facf699a45cd7d40b169bcd705d77447a0b90db3",
+    "base": "835cd1d858d8cf66082890c4edae0061b891d775",
+    "stratum": "test-only",
+    "subject": "test: pin a generated, byte-equal v2/v3 snapshot contract across languages"
+  },
+  {
+    "id": "c27",
+    "population": "control",
+    "repo": "Attest",
+    "head": "495966ecd3f58c8287fed211adbc3f80f536e556",
+    "base": "47229a86cdd91d247f50fae8a5b23dd46574ea3e",
+    "stratum": "test-only",
+    "subject": "style: lint the probe test"
+  },
+  {
+    "id": "c28",
+    "population": "control",
+    "repo": "Corum",
+    "head": "bcbf287ccebaa9572c0cc22f25143aaa064ef4cc",
+    "base": "5fcd1bdb3480d616a96842932b9d02aadaf6ccbd",
+    "stratum": "test-only",
+    "subject": "test: lock pair-block value gate"
+  },
+  {
+    "id": "c29",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "d1fd50f8b9589d1a1b13dd83042136215154d6bd",
+    "base": "a782f215132620920999479a8078356b9c60359d",
+    "stratum": "test-only",
+    "subject": "test: execute analysis_api's documented test command verbatim"
+  },
+  {
+    "id": "c30",
+    "population": "control",
+    "repo": "Attest",
+    "head": "2fc523b5a4ca16f03dd4fbcc10093709d3c7eed9",
+    "base": "e23e333692df2927655d4779be36314d94fa0419",
+    "stratum": "test-only",
+    "subject": "test: count same-defect certified findings once under the family policy"
+  },
+  {
+    "id": "c31",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "e953086c1494ce2536018cde5d14e9e79d8303e3",
+    "base": "4570e500d720f75e18df7ec1a4b733fa0dfa85dc",
+    "stratum": "test-only",
+    "subject": "test: pin gateway macd/rsi series to an independent reference"
+  },
+  {
+    "id": "c32",
+    "population": "control",
+    "repo": "Attest",
+    "head": "98465a72772cb7760cf7f324096bf4e0b1ad1177",
+    "base": "4db546c48a88727295a8a6111c96922727653a04",
+    "stratum": "test-only",
+    "subject": "style: wrap the sample observation expectation"
+  },
+  {
+    "id": "c33",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "96487d90140c5cdeea74aa4331dd7f4a3f9d8a00",
+    "base": "4524d27265532e8c02eabdbfa1cb038c5eacc09d",
+    "stratum": "test-only",
+    "subject": "test: pin the adviser cap across languages"
+  },
+  {
+    "id": "c34",
+    "population": "control",
+    "repo": "Attest",
+    "head": "2a94a94126774ce8de12fb1ad7438d7b0c47493f",
+    "base": "cf5c3560a04d8da9d30b3c13d116a103b57f7043",
+    "stratum": "test-only",
+    "subject": "test: expect the exact-node collection run in case artifacts"
+  },
+  {
+    "id": "c35",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "034b650a1c2c5b888971e671ae3005d1412a26dc",
+    "base": "8fe050a4013cf0037756cb15275e675a2509c210",
+    "stratum": "test-only",
+    "subject": "test: guard live candle semantic validation"
+  },
+  {
+    "id": "c36",
+    "population": "control",
+    "repo": "Attest",
+    "head": "04a86b25a4d3c5438e03f787884bb1f048ac5242",
+    "base": "4c8947e837bc9a56ca2cdcd2ca7977e0fd0390a4",
+    "stratum": "docs-only",
+    "subject": "docs: three certified receipts, one of them on real traffic"
+  },
+  {
+    "id": "c37",
+    "population": "control",
+    "repo": "Corum",
+    "head": "666ceafb21f689ec40858899e29f8ac78b95e3e8",
+    "base": "80ee1b3957bc6bfb92a85c868ee2cd59d2bb85ea",
+    "stratum": "docs-only",
+    "subject": "docs: record convergence resolution gate result"
+  },
+  {
+    "id": "c38",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "86876254717aa8ddf18686e21750d0dac8ebf365",
+    "base": "f57fc3952805145b1f25e054afb5956284f3b62a",
+    "stratum": "docs-only",
+    "subject": "docs: log the commit-authorship verification lesson from tonight's slip"
+  },
+  {
+    "id": "c39",
+    "population": "control",
+    "repo": "Attest",
+    "head": "4c8947e837bc9a56ca2cdcd2ca7977e0fd0390a4",
+    "base": "2bba19a5538f950ce6645d7c1a9ed4cfbb99ec6a",
+    "stratum": "docs-only",
+    "subject": "docs: reserve the two paid items of this window"
+  },
+  {
+    "id": "c40",
+    "population": "control",
+    "repo": "Corum",
+    "head": "044edd5c29fe81d4d0cefe45a45e445273bf4738",
+    "base": "b34e0896c3cb80c325288d7057247f8b25fa72ab",
+    "stratum": "docs-only",
+    "subject": "docs: register convergence resolution gate"
+  },
+  {
+    "id": "c41",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "34b01ce94669fe511509f35d01eb0b1effcb7a18",
+    "base": "8769126ef99f4e02984cd0ea4b07b6e0bbd57d81",
+    "stratum": "docs-only",
+    "subject": "docs: 补充全新容器门禁前置步骤经验教训（pytest/npm ci）"
+  },
+  {
+    "id": "c42",
+    "population": "control",
+    "repo": "Attest",
+    "head": "2bba19a5538f950ce6645d7c1a9ed4cfbb99ec6a",
+    "base": "69f347bc487b3040c552b337234459d53cce7eeb",
+    "stratum": "docs-only",
+    "subject": "docs: record D-114..D-117 and the policy surface they change"
+  },
+  {
+    "id": "c43",
+    "population": "control",
+    "repo": "Corum",
+    "head": "b34e0896c3cb80c325288d7057247f8b25fa72ab",
+    "base": "c85a8200f74db73f948c08d688b6a3b58c12003e",
+    "stratum": "docs-only",
+    "subject": "docs: record daily use acquisition block"
+  },
+  {
+    "id": "c44",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "9a68477722be7bf5f4c99d822b218ec3ed360386",
+    "base": "aa2a4cff8cdd4796df032af76730aad5053a2835",
+    "stratum": "docs-only",
+    "subject": "docs: verify dual-entry fix in production and refresh Task 7 closeout"
+  },
+  {
+    "id": "c45",
+    "population": "control",
+    "repo": "Attest",
+    "head": "ff242aefd0a65549e9f5a2eeb2121259972b9a1b",
+    "base": "730ca9212d850ff7d38ba84af67f9d7ef190f1a8",
+    "stratum": "docs-only",
+    "subject": "docs: the handoff names its own end SHA"
+  },
+  {
+    "id": "c46",
+    "population": "control",
+    "repo": "Corum",
+    "head": "c85a8200f74db73f948c08d688b6a3b58c12003e",
+    "base": "29dbc129d13f307ac0633510feefb1e0c2b6684b",
+    "stratum": "docs-only",
+    "subject": "docs: register daily use value gate"
+  },
+  {
+    "id": "c47",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "aa2a4cff8cdd4796df032af76730aad5053a2835",
+    "base": "3f6b67b0b6dcbb9660890552edb0f1c6939b9ee5",
+    "stratum": "docs-only",
+    "subject": "docs: log nasdaq halt-timestamp fix in adapters progress ledger"
+  },
+  {
+    "id": "c48",
+    "population": "control",
+    "repo": "Attest",
+    "head": "730ca9212d850ff7d38ba84af67f9d7ef190f1a8",
+    "base": "10036f7c9855ce901f0506643a476e5980737c17",
+    "stratum": "docs-only",
+    "subject": "docs: the window-end gates, on the runner and on the host"
+  },
+  {
+    "id": "c49",
+    "population": "control",
+    "repo": "Corum",
+    "head": "29dbc129d13f307ac0633510feefb1e0c2b6684b",
+    "base": "6d03f4cf18c43decff3ae1bffde277279ff25d31",
+    "stratum": "docs-only",
+    "subject": "docs: record JudgeBench external gate result"
+  },
+  {
+    "id": "c50",
+    "population": "control",
+    "repo": "us-stock-helper",
+    "head": "fa85b217782ba469c30a4edfe4636e8b80441db8",
+    "base": "44d396cabf9a12993a6354d8e8a09d30faa4e044",
+    "stratum": "docs-only",
+    "subject": "docs: hand the branch over to a sonnet-tier agent"
+  }
+]
