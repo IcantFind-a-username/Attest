@@ -3,8 +3,12 @@
 **Window spend $13.187897 of $45; cumulative $47.837626 of the owner's new $90.** Product code
 touched in four places (D-124, D-125, D-126, the silence line); everything else is measurement.
 Remote writes: **none**. Gates at the tip: `ruff` clean, `mypy` clean over 80 files,
-`git diff --check` clean, `pytest` exit 0 over the suite minus the docker-gated isolation and
-benchmark modules.
+`git diff --check` clean, `pytest` exit 0 over the suite minus the docker-gated isolation
+module, **and `tests/benchmark` green as well** — run exclusively. Run *concurrently* with the
+`G-NULL-001a` study it produced three `test_m01_offline_measurement_probe` module-fixture errors
+that vanish when nothing else touches the checkout; the same suite is green at `5ebcf88` in a
+separate worktree and green at this tip when run alone. That is the 2026-09-02 backlog item —
+**keep full-suite gates exclusive** — reproduced, not a regression from this window.
 
 ## 1. Product condition 2 was failing in the field (D-124)
 
