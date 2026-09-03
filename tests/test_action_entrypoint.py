@@ -323,3 +323,16 @@ def test_action_uses_primary_python_and_the_audited_lock() -> None:
     assert 'requirements-toolchain.lock' in command
     assert '--no-deps' in command
     assert '--no-build-isolation' in command
+
+
+def test_this_repository_workflow_runs_only_for_same_repository_branches() -> None:
+    """The first workflow that ever runs this action on a GitHub-hosted runner
+    runs it on Attest itself, with a real key in `secrets`. A fork pull request
+    must not reach a step whose environment holds that key: the action's gate
+    refuses one, and the job must not start for one either."""
+    workflow = (ROOT / ".github" / "workflows" / "pull-request.yml").read_text(encoding="utf-8")
+    assert "if: github.event.pull_request.head.repo.full_name == github.repository" in workflow
+    # pull_request_target would run a fork's head with the base repository's secrets
+    assert "pull_request_target" not in workflow
+    assert "ref: ${{ github.event.pull_request.head.sha }}" in workflow
+    assert "pull-requests: write" in workflow
