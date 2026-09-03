@@ -1,7 +1,12 @@
 # Real-traffic corpus: 20 defect pairs and 50 controls from the owner's repositories
 
-**Status: proposed, not run. This is mainline §5 decision C and it needs the owner's word
-before a single call.** No commit below has been reviewed; nothing here has been spent.
+**Status: approved as option A and RUN on 2026-09-03 (owner decision 1 of 2026-09-03g).**
+43 of the 70 cases ran; the [result](../acceptance/2026-09-03-real-traffic-corpus.md) supersedes
+every estimate below. **This file is kept as the frozen population it was**, including two
+selection defects it turned out to have — control #3 (`445c5a1`) is a planted regression from
+the 2026-09-03d Action drill rather than traffic, and the control strata classify commits by
+what they are *about* rather than by any evidence that they are defect-free. §6's price model
+was about half the measured one.
 
 ## 1. Why this population and not another
 
