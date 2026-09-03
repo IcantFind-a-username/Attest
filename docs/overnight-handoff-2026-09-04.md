@@ -1,7 +1,7 @@
-# Handoff — 2026-09-04 (`8a8d31a` → this commit): the budget was the wall, and the boundary held
+# Handoff — 2026-09-04 (`8a8d31a` → `52e9d3b`, plus this line): the budget was the wall, and the boundary held
 
-**Window spend $3.181403 of $10; cumulative $34.649729 of $45.** Gates green on the GitHub
-runner for the sync push (`33777373652`, 20m14s). Remote writes: `push main`, and the four
+**Window spend $3.181403 of $10; cumulative $34.649729 of $45.** Gates **green on the GitHub
+runner at the window's tip** — [`33782715874`](https://github.com/IcantFind-a-username/Attest/actions/runs/33782715874) on `52e9d3b`, after [`33780014934`](https://github.com/IcantFind-a-username/Attest/actions/runs/33780014934) on `e4915ef` and [`33777373652`](https://github.com/IcantFind-a-username/Attest/actions/runs/33777373652) on the sync push. Locally: `ruff` and `mypy` clean, `git diff --check` clean, and `pytest` exit 0 over the suite minus the docker-gated isolation and benchmark modules. Remote writes: `push main`, and the four
 authorised `us-stock-helper` writes — nothing else.
 
 ## 1. Sync
