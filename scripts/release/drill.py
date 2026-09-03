@@ -10,9 +10,12 @@ fail proves nothing.
     python scripts/release/drill.py --all
     python scripts/release/drill.py --all --record docs/acceptance/<date>-drills.md
 
-The remaining seven drills named by G-RELEASE-001 (revoked credential, GitHub
-outage, executor unavailable, budget exhaustion, superseded pull request,
-malicious same-repository change, verifier failure) are not implemented here.
+All nine drills G-RELEASE-001 names are implemented: kill switch, rollback,
+revoked credential, GitHub outage, executor unavailable, budget exhaustion,
+superseded pull request, malicious same-repository change, verifier failure.
+Two of them (GitHub outage, malicious change) run a real container and therefore
+need the same docker the isolation tests need; on a host without one they fail,
+which is the honest answer for a host that cannot run the production backend.
 """
 
 from __future__ import annotations
@@ -1017,10 +1020,10 @@ def main(argv: list[str] | None = None) -> int:
             ["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True
         ).stdout.strip()
         lines = [
-            "# G-RELEASE-001 operational drills (kill switch, rollback)",
+            "# G-RELEASE-001 operational drills",
             "",
             f"Run {stamp} at `{head[:7]}` by `scripts/release/drill.py`. Offline: no model call,",
-            "no credential, no network. Seven of the nine named drills are not implemented.",
+            "no real credential, no network beyond loopback. All nine named drills run.",
             "",
             "| drill | check | result | detail |",
             "|---|---|---|---|",

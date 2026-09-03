@@ -8,7 +8,16 @@ import json
 from pathlib import Path
 
 import pytest
-from scripts.release.drill import drill_kill_switch, drill_rollback
+from scripts.release.drill import (
+    drill_budget_exhaustion,
+    drill_executor_unavailable,
+    drill_kill_switch,
+    drill_malicious_change,
+    drill_revoked_credential,
+    drill_rollback,
+    drill_superseded_pull_request,
+    drill_verifier_failure,
+)
 
 
 def test_the_kill_switch_and_rollback_drills_pass_offline(tmp_path: Path) -> None:
@@ -16,6 +25,30 @@ def test_the_kill_switch_and_rollback_drills_pass_offline(tmp_path: Path) -> Non
     assert kill_switch.passed, kill_switch.checks
     rollback = drill_rollback(tmp_path.resolve())
     assert rollback.passed, rollback.checks
+
+
+@pytest.mark.parametrize(
+    "drill",
+    [
+        drill_revoked_credential,
+        # the only one that must see the product's real backend selection: the
+        # suite's autouse fixture hands every other test a host adapter, which
+        # is the exact thing this drill asserts production never does
+        pytest.param(drill_executor_unavailable, marks=pytest.mark.real_backend),
+        drill_budget_exhaustion,
+        drill_superseded_pull_request,
+        drill_malicious_change,
+        drill_verifier_failure,
+    ],
+    ids=lambda f: getattr(f, "__name__", "executor_unavailable").removeprefix("drill_"),
+)
+def test_the_remaining_offline_drills_pass(drill, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    """Every G-RELEASE-001 drill that needs no container. The GitHub-outage
+    drill is the one exception: it runs `attest ci`, which never falls back off
+    the production backend, so it is exercised by the recorded run rather than
+    by this gate."""
+    result = drill(tmp_path.resolve())
+    assert result.passed, result.checks
 
 
 def test_the_kill_switch_drill_fails_when_the_head_can_flip_the_switch(
