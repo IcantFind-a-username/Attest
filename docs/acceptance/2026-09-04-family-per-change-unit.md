@@ -102,7 +102,33 @@ Three of the five are in `Attest`'s own repository — a **disclosed conflict of
 same one the corpus reports for every `Attest` row. One is in `us-stock-helper`, an outside
 repository.
 
-## 6. What this replay does not establish
+## 6. The rule ran, on 100 units it had never seen
+
+The replay above is a counterfactual over recorded reviews. Later the same night the rule ran
+for real: **E-04 stratum v2, 100 units of the owner's most recent traffic**
+([report](2026-09-04-e04-stratum-v2.md)). It produced **21 accepted receipts and 7 shadow
+findings on 3 units**.
+
+Replaying those three units through the PR-wide bar — the same offline replay, now validating
+121 of 121 recorded reviews — publishes **nothing**:
+
+| unit | eligible `m` | units | PR-wide bar | old rule | **new rule** |
+|---|---|---|---|---|---|
+| `Attest@34affaf` | 7 | 3 | 70 | 0 | **1** |
+| `us-stock-helper@7245680` | 20 | 8 | 200 | 0 | **3** |
+| `us-stock-helper@cdf221f` | 16 | 5 | 160 | 0 | **3** |
+
+**Under the previous rule that entire 100-unit run would have been silent** — 21 receipts, none
+of them author-visible. That is the backlog item's claim, observed rather than argued.
+
+It also moves the risk. A product that publishes nothing cannot be wrong in public. This one now
+can, and **none of the seven has been adjudicated**: the shadow study's `semantic_precision` is
+`INSUFFICIENT` and its safety stop, which is defined on *wrong* findings, cannot be evaluated
+until someone product-blind reads them. The corpus replay's control condition (§3) is evidence
+that the rule does not fire on commits believed defect-free; it is not evidence that these seven
+are right.
+
+## 7. What this replay does not establish
 
 - **It is not a precision measurement.** Five findings on three reviews, on a population where
   the defect pairs were constructed by reversing known fixes. That the receipts are valid says

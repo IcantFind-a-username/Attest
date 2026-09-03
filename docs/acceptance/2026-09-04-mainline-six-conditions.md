@@ -91,12 +91,18 @@ E-04 has two strata and neither is a prospective run at scale.
 - **Stratum v1 is prospective and tiny:** 2 units, 22 candidates, 0 eligible, 0 shadow findings
   ([report](2026-09-03-e04-prospective-v1.md)). Zero false publications out of zero
   publications is a mechanism check.
-- **Stratum v2 is 100 units and is not prospective.** Its units already existed when its
-  protocol was frozen; the preregistration, every sample row and the report all carry
-  `prospective: false`, and the protocol says in its first section that it cannot supply
-  `G-SHADOW-001`'s prospective claim ([report](2026-09-04-e04-stratum-v2.md)). It buys volume on
-  real recent changes the product had never seen, which is what the owner asked for and what
-  v1's n = 2 could not give. It does not buy the word "prospective".
+- **Stratum v2 is 100 units, is not prospective, and is not adjudicated.** All 100 units ran,
+  none deferred, $11.089240: 495 candidates, 129 eligible, **21 accepted receipts and 7 shadow
+  findings on 3 units** ([report](2026-09-04-e04-stratum-v2.md)). Its units already existed when
+  its protocol was frozen; the preregistration, every sample row and the report all carry
+  `prospective: false`. It buys volume on real recent changes the product had never seen — which
+  is what the owner asked for and what v1's n = 2 could not give — and it does not buy the word
+  "prospective".
+
+  It also cannot yet say the run had **no false publication**, which is what the condition asks.
+  All seven findings are `unresolved`: `G-SHADOW-001` requires a product-blind audit on evidence
+  independent of the product, and the agent that produced them is neither blind nor independent.
+  `safety_stop_reached: false` means "none has been adjudicated wrong", not "none is wrong".
 
 `G-SHADOW-001` additionally asks for ≥500 PRs across ≥30 repositories and ≥100 adjudicated
 shadow findings. Both strata together are 102 units across 4 repositories.
