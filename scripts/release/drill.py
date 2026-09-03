@@ -24,14 +24,20 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from attest.certification.types import AcceptedReceipt  # noqa: E402
+from attest.github.client import GitHubClient  # noqa: E402
+from attest.github.context import PullRequestContext  # noqa: E402
+from attest.review.ci import run_ci  # noqa: E402
 from attest.review.config import (  # noqa: E402
     DISABLED_REASON,
     ReviewConfig,
@@ -372,10 +378,186 @@ def drill_revoked_credential(workspace: Path) -> Drill:
     return drill
 
 
+class _StubGitHub:
+    """A GitHub API on localhost that either answers or is down. Offline: the
+    socket never leaves the loopback interface."""
+
+    def __init__(self, status: int = 200, fail_after: int | None = None) -> None:
+        self.status = status
+        self.fail_after = fail_after  # writes succeed until this many have been made
+        self.writes: list[str] = []
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
+        self.thread = Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    @property
+    def url(self) -> str:
+        host, port = self.server.server_address
+        return f"http://{host}:{port}"
+
+    def close(self) -> None:
+        self.server.shutdown()
+        self.thread.join()
+        self.server.server_close()
+
+    def _handler(self) -> type[BaseHTTPRequestHandler]:
+        stub = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *args: object) -> None:
+                return
+
+            def do_GET(self) -> None:  # noqa: N802
+                self._respond([])
+
+            def do_POST(self) -> None:  # noqa: N802
+                self._respond({"id": 1, "body": ""})
+
+            def do_PATCH(self) -> None:  # noqa: N802
+                self._respond({"id": 1, "body": ""})
+
+            def _respond(self, payload: object) -> None:
+                length = int(self.headers.get("Content-Length", "0"))
+                self.rfile.read(length)
+                status = 200
+                if self.command != "GET":
+                    stub.writes.append(f"{self.command} {self.path}")
+                    if stub.fail_after is None or len(stub.writes) > stub.fail_after:
+                        status = stub.status
+                elif stub.fail_after is None:
+                    status = stub.status
+                body = json.dumps(payload if status < 400 else {"message": "unavailable"})
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body.encode("utf-8"))
+
+        return Handler
+
+
+def _ci_context(base_sha: str, head_sha: str) -> PullRequestContext:
+    return PullRequestContext(
+        repository="owner/drill",
+        number=1,
+        base_sha=base_sha,
+        head_sha=head_sha,
+        is_fork=False,
+    )
+
+
+def drill_github_outage(workspace: Path) -> Drill:
+    """GitHub is unreachable while a review is publishing. The run must not
+    raise, must not record a delivery it did not make, and must keep the
+    evidence it earned: the receipt is local, the comment is not."""
+    drill = Drill("GitHub outage")
+
+    # the interesting outage is the one that arrives *after* the review has
+    # earned its receipt. run_ci writes the running comment, then the
+    # discovery-progress comment, then verifies, then publishes: letting the
+    # first two writes through and failing every later one puts the 503 exactly
+    # on publication. (This branch runs a container, so it needs the same docker
+    # the isolation tests need; without one it fails, which is the honest
+    # answer for a host that cannot run the production backend.)
+    repo = workspace / "github-outage"
+    repo.mkdir()
+    base_sha, head_sha = _planted_repo(repo, base_policy=None, head_policy=None)
+    down = _StubGitHub(status=503, fail_after=2)
+    try:
+        run = run_ci(
+            repo,
+            _ci_context(base_sha, head_sha),
+            GitHubClient("drill-token", down.url),
+            ReviewConfig(k_samples=2, tier0_commands=[]),
+            ScriptedProvider(),
+            verification_timeout_s=180.0,
+        )
+    except Exception as exc:  # noqa: BLE001 - the drill's whole point
+        drill.check("the run does not raise on an outage", False, f"{type(exc).__name__}: {exc}")
+        down.close()
+        return drill
+    finally:
+        with suppress(Exception):
+            down.close()
+
+    drill.check("the run does not raise on an outage", True, f"task {run.task_id}")
+    settled = [e for e in run.publication_events if e.outcome == "settled"]
+    drill.check(
+        "no delivery is recorded as settled",
+        not settled,
+        f"{len(run.publication_events)} event(s), {len(settled)} settled",
+    )
+    drill.check(
+        "the receipt it earned is still on disk",
+        bool(_bundles(repo)),
+        f"{len(_bundles(repo))} bundle(s)",
+    )
+    drill.check(
+        "the ledger names the outage",
+        "503" in _ledger_text(repo) or "unavailable" in _ledger_text(repo).lower(),
+        "delivery failure recorded",
+    )
+
+    # an outage that is already there when the run starts must stop it before it
+    # buys anything at all
+    cold = workspace / "github-outage-cold"
+    cold.mkdir()
+    cold_base, cold_head = _planted_repo(cold, base_policy=None, head_policy=None)
+    dead = _StubGitHub(status=503)
+    cold_provider = ScriptedProvider()
+    try:
+        cold_run = run_ci(
+            cold,
+            _ci_context(cold_base, cold_head),
+            GitHubClient("drill-token", dead.url),
+            ReviewConfig(k_samples=2, tier0_commands=[]),
+            cold_provider,
+            verification_timeout_s=180.0,
+        )
+        cold_raised = ""
+    except Exception as exc:  # noqa: BLE001 - recorded, not swallowed
+        cold_run = None
+        cold_raised = f"{type(exc).__name__}: {exc}"
+    finally:
+        dead.close()
+    drill.check(
+        "an outage present at the start buys nothing",
+        cold_provider.calls == 0,
+        f"{cold_provider.calls} model call(s); "
+        + (cold_raised or f"deferred={cold_run.deferred_reason!r}"),
+    )
+
+    # negative control: the same run against a GitHub that answers must deliver,
+    # or "no delivery recorded" above would pass for the wrong reason
+    control = workspace / "github-outage-control"
+    control.mkdir()
+    control_base, control_head = _planted_repo(control, base_policy=None, head_policy=None)
+    up = _StubGitHub(status=200)
+    try:
+        control_run = run_ci(
+            control,
+            _ci_context(control_base, control_head),
+            GitHubClient("drill-token", up.url),
+            ReviewConfig(k_samples=2, tier0_commands=[]),
+            ScriptedProvider(),
+            verification_timeout_s=180.0,
+        )
+        writes = list(up.writes)
+    finally:
+        up.close()
+    drill.check(
+        "negative control: a reachable GitHub is written to",
+        bool(writes) and control_run.task_id is not None,
+        f"{len(writes)} write(s)",
+    )
+    return drill
+
+
 DRILLS = {
     "kill-switch": drill_kill_switch,
     "rollback": drill_rollback,
     "revoked-credential": drill_revoked_credential,
+    "github-outage": drill_github_outage,
 }
 
 
