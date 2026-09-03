@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -884,6 +885,90 @@ def drill_malicious_change(workspace: Path) -> Drill:
     return drill
 
 
+
+def drill_verifier_failure(workspace: Path) -> Drill:
+    """The offline verifier is the last line: a receipt is only worth what an
+    independent reader can recompute. Every way a bundle can be wrong must be a
+    rejection with a reason, never a quiet acceptance."""
+    drill = Drill("verifier failure")
+
+    repo = workspace / "verifier-failure"
+    repo.mkdir()
+    base_sha, _head_sha = _planted_repo(repo, base_policy=None, head_policy=None)
+    run = run_review(
+        repo,
+        base_sha,
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ScriptedProvider(),
+        verify=True,
+        verification_timeout_s=180.0,
+    )
+    bundles = _bundles(repo)
+    drill.check(
+        "a review of a real regression writes a bundle to verify",
+        bool(bundles),
+        f"{len(bundles)} bundle(s); deferred={run.deferred_reason!r}",
+    )
+    if not bundles:
+        return drill
+    bundle = bundles[0]
+    drill.check(
+        "the intact bundle is accepted",
+        isinstance(verify_bundle(bundle), AcceptedReceipt),
+        type(verify_bundle(bundle)).__name__,
+    )
+
+    def rejected(name: str, mutate: Callable[[Path], None]) -> None:
+        copy = workspace / f"verifier-{name}"
+        shutil.rmtree(copy, ignore_errors=True)
+        shutil.copytree(bundle, copy)
+        mutate(copy)
+        verdict = verify_bundle(copy)
+        drill.check(
+            f"rejected: {name}",
+            not isinstance(verdict, AcceptedReceipt),
+            type(verdict).__name__,
+        )
+
+    def drop_manifest(copy: Path) -> None:
+        (copy / "manifest.json").unlink()
+
+    def drop_runs(copy: Path) -> None:
+        shutil.rmtree(copy / "runs")
+
+    def rewrite_outcome(copy: Path) -> None:
+        path = copy / "receipt.json"
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        for side in ("base_runs", "head_runs"):
+            runs = receipt.get(side)
+            if isinstance(runs, list) and runs:
+                receipt[side] = list(reversed(runs))
+        path.write_text(json.dumps(receipt), encoding="utf-8")
+
+    def swap_test(copy: Path) -> None:
+        (copy / "test_repro.py").write_text(
+            "def test_repro():\n    assert True\n", encoding="utf-8"
+        )
+
+    rejected("a bundle with no manifest", drop_manifest)
+    rejected("a bundle whose run records were removed", drop_runs)
+    rejected("a receipt whose run outcomes were rewritten", rewrite_outcome)
+    rejected("a bundle whose test was swapped for a passing one", swap_test)
+
+    # the seal: a bundle verified without the controller key must not be
+    # reported as sealed, and --require-seal must refuse it outright
+    unsealed = workspace / "verifier-unsealed"
+    shutil.rmtree(unsealed, ignore_errors=True)
+    shutil.copytree(bundle, unsealed)
+    verdict = verify_bundle(unsealed, require_seal=True)
+    drill.check(
+        "a copied bundle is refused when the seal is required and no key is present",
+        not isinstance(verdict, AcceptedReceipt),
+        type(verdict).__name__,
+    )
+    return drill
+
+
 DRILLS = {
     "kill-switch": drill_kill_switch,
     "rollback": drill_rollback,
@@ -893,6 +978,7 @@ DRILLS = {
     "budget-exhaustion": drill_budget_exhaustion,
     "superseded-pull-request": drill_superseded_pull_request,
     "malicious-change": drill_malicious_change,
+    "verifier-failure": drill_verifier_failure,
 }
 
 
