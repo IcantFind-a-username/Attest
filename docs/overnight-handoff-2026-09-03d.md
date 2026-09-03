@@ -1,4 +1,4 @@
-# Handoff — 2026-09-03, fourth window (`6364010` → PENDING): three owner decisions, the runner, and the wall
+# Handoff — 2026-09-03, fourth window (`6364010` → `f4e201b`): three owner decisions, the runner, and the wall
 
 Status: **the three owner decisions are done. Privacy/retention is approved (D-107). The
 Action has run on a GitHub-hosted runner for the first time and posted one comment (D-108).
