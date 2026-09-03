@@ -24,7 +24,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-STUDY = ROOT / "benchmarks" / "studies" / "e04-prospective-v1"
+STUDIES = ROOT / "benchmarks" / "studies"
+# stratum v1 stays the default so every recorded command keeps meaning what it
+# meant; `--study` selects another stratum (v2 is the 100-unit run of 2026-09-04)
+STUDY = STUDIES / "e04-prospective-v1"
 CORPORA = ROOT / ".attest" / "corpora"
 
 from attest.benchmark import prospective  # noqa: E402
@@ -36,9 +39,13 @@ def _git(repo: Path, *args: str) -> str:
     ).stdout.strip()
 
 
-def cmd_freeze(_args: argparse.Namespace) -> int:
-    print(prospective.freeze(STUDY))
+def cmd_freeze(args: argparse.Namespace) -> int:
+    print(prospective.freeze(_study(args)))
     return 0
+
+
+def _study(args: argparse.Namespace) -> Path:
+    return STUDIES / args.study if getattr(args, "study", None) else STUDY
 
 
 def _clone_name(repository: str) -> str:
@@ -46,7 +53,15 @@ def _clone_name(repository: str) -> str:
 
 
 def cmd_select(args: argparse.Namespace) -> int:
-    preregistration = prospective.load_preregistration(STUDY)
+    study = _study(args)
+    preregistration = prospective.load_preregistration(study)
+    raw = json.loads((study / "preregistration.json").read_text(encoding="utf-8"))
+    # stratum v2 (2026-09-04): the units are the most recent commits, not the
+    # ones made after the freeze. `prospective: false` in the preregistration is
+    # what selects this mode, and the protocol says out loud that a claim from
+    # such a stratum may not be called prospective.
+    recent = raw.get("prospective") is False
+    target = int(raw.get("target_units", 0))
     freeze_at = datetime.fromisoformat(preregistration.freeze_at)
     units: list[prospective.TrafficUnit] = []
     for repository in preregistration.population:
@@ -56,17 +71,26 @@ def cmd_select(args: argparse.Namespace) -> int:
             continue
         if not args.no_fetch:
             subprocess.run(["git", "-C", str(repo), "fetch", "--all", "-q"], check=False)
-        log = _git(
-            repo,
-            "log",
-            "--all",
-            "--no-merges",
-            f"--since={freeze_at.isoformat()}",
-            "--format=%H|%cI|%s",
-        )
+        if recent:
+            # the protocol's rule is "newest first, up to target_units" over the
+            # population as a whole: take at most `target` from each repository
+            # here and cut to the newest `target` across all of them below, so a
+            # repository with a short history does not shrink the sample
+            log = _git(
+                repo, "log", "--no-merges", f"--max-count={target}", "--format=%H|%cI|%s"
+            )
+        else:
+            log = _git(
+                repo,
+                "log",
+                "--all",
+                "--no-merges",
+                f"--since={freeze_at.isoformat()}",
+                "--format=%H|%cI|%s",
+            )
         for line in log.splitlines():
             sha, committed, subject = line.split("|", 2)
-            if datetime.fromisoformat(committed) < freeze_at:
+            if not recent and datetime.fromisoformat(committed) < freeze_at:
                 continue
             try:
                 parent = _git(repo, "rev-parse", f"{sha}^")
@@ -85,10 +109,29 @@ def cmd_select(args: argparse.Namespace) -> int:
                     pushed_at=committed,
                 )
             )
-    rows = prospective.record_sample(STUDY, units, recorded_at=datetime.now(UTC).isoformat())
+    if recent and target:
+        # newest first within each repository, round-robin across repositories in
+        # name order: breadth first, and a short history costs only its own share
+        per_repo: dict[str, list[prospective.TrafficUnit]] = {}
+        for unit in units:
+            per_repo.setdefault(unit.repository, []).append(unit)
+        for group in per_repo.values():
+            group.sort(key=lambda unit: unit.pushed_at, reverse=True)
+        allocated: list[prospective.TrafficUnit] = []
+        index = 0
+        while len(allocated) < target and any(index < len(g) for g in per_repo.values()):
+            for name in sorted(per_repo):
+                if len(allocated) >= target:
+                    break
+                group = per_repo[name]
+                if index < len(group):
+                    allocated.append(group[index])
+            index += 1
+        units = allocated
+    rows = prospective.record_sample(study, units, recorded_at=datetime.now(UTC).isoformat())
     print(
-        f"{len(units)} prospective units seen, {len(rows)} newly recorded -> "
-        f"{STUDY / 'sample.jsonl'}"
+        f"{len(units)} units seen ({'recent' if recent else 'prospective'}), "
+        f"{len(rows)} newly recorded -> {study / 'sample.jsonl'}"
     )
     return 0
 
@@ -98,15 +141,16 @@ def cmd_run(args: argparse.Namespace) -> int:
     from attest.review.proposer import ApiProvider
     from attest.review.run import run_review
 
-    preregistration = prospective.load_preregistration(STUDY)
-    samples = prospective._read_jsonl(STUDY / prospective.SAMPLE_FILE)
-    done = {row["unit_id"] for row in prospective._read_jsonl(STUDY / prospective.TRIALS_FILE)}
+    study = _study(args)
+    preregistration = prospective.load_preregistration(study)
+    samples = prospective._read_jsonl(study / prospective.SAMPLE_FILE)
+    done = {row["unit_id"] for row in prospective._read_jsonl(study / prospective.TRIALS_FILE)}
     pending = [row for row in samples if row["unit_id"] not in done]
     if args.limit:
         pending = pending[: args.limit]
     reserve = len(pending) * preregistration.per_pr_budget_usd
     preflight = prospective.preflight_prospective(
-        STUDY,
+        study,
         devspend_path=ROOT / "DEVSPEND.md",
         env=os.environ,
         allow_paid_api=args.allow_paid_api,
@@ -115,7 +159,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(json.dumps(preflight.to_json_dict()), flush=True)
     spent = sum(
         float(row.get("spend_usd", 0.0))
-        for row in prospective._read_jsonl(STUDY / prospective.TRIALS_FILE)
+        for row in prospective._read_jsonl(study / prospective.TRIALS_FILE)
     )
     for row in pending:
         if spent >= preregistration.cost_cap_usd:
@@ -156,15 +200,16 @@ def cmd_run(args: argparse.Namespace) -> int:
             spend_usd=review.budget.spent_usd,
             elapsed_s=review.elapsed_s,
         )
-        prospective.record_trial(STUDY, trial)
+        prospective.record_trial(study, trial)
         spent += trial.spend_usd
         print(json.dumps(trial.to_json_dict(), ensure_ascii=False), flush=True)
     return 0
 
 
-def cmd_report(_args: argparse.Namespace) -> int:
-    result = prospective.report(STUDY)
-    (STUDY / "report.json").write_text(json.dumps(result, indent=2, ensure_ascii=False))
+def cmd_report(args: argparse.Namespace) -> int:
+    study = _study(args)
+    result = prospective.report(study)
+    (study / "report.json").write_text(json.dumps(result, indent=2, ensure_ascii=False))
     for key, value in result.items():
         print(f"{key}: {value}")
     return 0
@@ -173,6 +218,9 @@ def cmd_report(_args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--study", default="", help="study directory name under benchmarks/studies"
     )
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("freeze").set_defaults(func=cmd_freeze)

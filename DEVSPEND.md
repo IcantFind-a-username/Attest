@@ -1,9 +1,13 @@
 # Development spend ledger
 
-Hard cap: **$45** API spend for all development including dogfood (handoff guardrail 4);
-raised from $10 to $30 by the owner on 2026-09-02, and from $30 to $45 on 2026-09-03
-(owner decision 1 of the seventh window: option A of the real-traffic corpus plan).
-Window cap for 2026-09-03g: **$14**. Window cap for 2026-09-04: **$10** (owner instruction).
+Hard cap: **$90** API spend for all development including dogfood (handoff guardrail 4);
+raised from $10 to $30 by the owner on 2026-09-02, from $30 to $45 on 2026-09-03
+(owner decision 1 of the seventh window: option A of the real-traffic corpus plan), and
+from $45 to **$90** on 2026-09-04 (owner decision C of the ninth window, to fund
+`G-NULL-001a` and E-04's 100 units side by side).
+Window cap for 2026-09-03g: $14. Window cap for 2026-09-04 (eighth window): $10.
+**Window cap for 2026-09-04b (this window): $45** (owner instruction).
+Cumulative before this window: **$34.649729**.
 
 ## API spend (counts against the cap)
 
@@ -81,7 +85,7 @@ Window cap for 2026-09-03g: **$14**. Window cap for 2026-09-04: **$10** (owner i
 | 2026-09-04 | **numpy fix re-run (owner instruction 4)** — the four `Corum` defect pairs the corpus lost to `blas_thread_init`, re-run at the same `--budget 0.60` (**non-default**) through `linux-container-v1` with the three thread-count variables set (D-123): **7 of 8 verifications reproduced, 7 accepted receipts, 4 published**, against 0 of 9 the day before. [Report](docs/acceptance/2026-09-04-numpy-under-the-thread-cap.md) | $0.404600 |
 | 2026-09-04 | **budget-wall measurement (owner instruction 5)** — `d02`, `d03` and `d16` re-run at **`--budget 1.20`** (**non-default**; the product default is $0.25 and the corpus standard was $0.60), product code frozen at `fc2014f`, cap $8. `BudgetExceeded` falls from 25 of 31 verifications to **0 of 31**; certification goes from 0 of 3 pairs to **3 of 3** (5 receipts); **0 published**, all suppressed by the family threshold. [Report](docs/acceptance/2026-09-04-budget-wall.md) | $2.732400 |
 
-**Total API spend: $34.649729 of $45.00.** (68 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $34.649729 of $90.00.** (68 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.) The cap is the owner's $90 of 2026-09-04b; **this window's own limit is $45**, which the drivers enforce with their hard cumulative caps ($26 for `G-NULL-001a`, $14 for E-04 v2).
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
@@ -112,6 +116,9 @@ Window cap for 2026-09-03g: **$14**. Window cap for 2026-09-04: **$10** (owner i
 | 2026-09-03 | receipt pilot, corrected pair (owner instruction 6, 2026-09-03f): `us-stock-helper` **head `d7be758`, base `8ed7811`** — the D-116 construction (head = the repairing commit's parent, base = the repairing commit), verified free of charge before the run: 4 of the fix's 5 own tests fail on head and all 5 pass on base. One review, K=4, `--budget 0.60` (**non-default**, marked as such in every table), containers, local review only, no GitHub write | $0.60 | $0.437427 (row above); $0.162573 released |
 | 2026-09-03 | **real-traffic corpus, option A (owner decision 1 of 2026-09-03g)** — [plan](docs/corpus/real-traffic-plan.md), mainline §5 decision C: 20 defect pairs and 50 controls across `Attest`, `us-stock-helper` and `Corum`, built by D-116 (head = the repairing commit's parent, base = the repairing commit), qualified free of charge before any paid call. K=4, `--budget 0.60` per review (**not** the $0.25 default; every result row says so), proposals `claude-sonnet-5`, reproduction `claude-opus-5`, containers, **local review only — no GitHub write**. The driver enforces a hard cumulative `--cap`. Any control publication stops the run at once and is root-caused under `RISK-CERT-01` | $11.00 | **$10.096658** (two rows below); $0.903342 released. 43 of 70 reviews ran; the run stopped twice under the RISK-CERT-01 rule and the plan's price model was about half the measured one |
 | 2026-09-03 | **`us-stock-helper` Action pilot (owner decision 3 of 2026-09-03g)** — the three authorized remote writes and nothing else: a workflow pull request adding the Action at `@v0.1.0-pilot.1` (same-repository branches only, for the owner to merge), a throwaway pull request carrying one planted known regression so the Action comments once, and the closing of that throwaway pull request and the deletion of its branch. `budget-usd` 0.60, `samples` 4; the API spend is the Action's own review on a GitHub runner | $0.60 | **$0.00** — the Action refused before any model call: `us-stock-helper` has no `ANTHROPIC_API_KEY`. $0.60 released |
+
+| 2026-09-04 | **`G-NULL-001a` (owner instruction 4 of 2026-09-04b)** — the affordable null study the 2026-09-04 amendment defined (D-122). Population: **read-only clones of eight public Python repositories** under `.attest/corpora/gnull/` (`click`, `jinja`, `itsdangerous`, `attrs`, `packaging`, `python-dotenv`, `more-itertools`, `urllib3`), because this account owns no commit six months old. Controls qualified free of charge by `scripts/corpus/qualify_controls.py` (age ≥ 6 months **and** no later commit on the default branch touches a line the commit added), from a preregistered cutoff, seed and per-repository quota; the manifest is written and reviewed **before** any paid call. One `attest review` per control, head = the control commit, base = its parent, K=4, `--budget 1.00` (**the product default as of D-126**), containers, local review only — no GitHub write. **Pricing basis: the owner's conservative $1.20 per review**, so this reservation guarantees at least 21 controls; at the corpus's measured price it buys far more, and the driver's hard cumulative `--cap` decides the achieved n. Target n = 100. **Any publication stops the run at once** and is root-caused under `RISK-CERT-01` before anything else proceeds | $26.00 | *pending* |
+| 2026-09-04 | **E-04 shadow, stratum v2 (owner instruction 5 of 2026-09-04b)** — 100 units on the owner's most recent traffic, `benchmarks/studies/e04-prospective-v2`, protocol frozen at `57d37fc9` before any unit ran. Population: the four authorized owner repositories, newest first within each and round-robin across them (40 `Attest`, 40 `us-stock-helper`, 15 `IcantFind-a-username`, 5 `Corum`). Head = the commit, base = its parent, K=4, `--budget 1.00`, containers, **local review path only — no GitHub client is constructed, so no publication surface exists**. Every silent unit records `read N of M units`. **This stratum is not prospective** — the units existed when the protocol was frozen — and the preregistration, every sample row and the report all carry `prospective: false` | $14.00 | *pending* |
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 

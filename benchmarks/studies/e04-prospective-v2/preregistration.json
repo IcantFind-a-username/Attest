@@ -1,0 +1,37 @@
+{
+  "study_id": "attest.e04-prospective.v2",
+  "freeze_at": "2026-09-03T19:24:00+00:00",
+  "prospective": false,
+  "prospective_note": "the units already existed when this protocol was frozen; this stratum is a shadow over the owner's most recent traffic, not a prospective run, and no claim from it may say otherwise",
+  "population": [
+    "IcantFind-a-username/Attest",
+    "IcantFind-a-username/us-stock-helper",
+    "IcantFind-a-username/Corum",
+    "IcantFind-a-username/IcantFind-a-username"
+  ],
+  "unit": "one non-merge commit reachable from the default branch, newest first; head = commit, base = parent",
+  "target_units": 100,
+  "strata": [
+    "docs",
+    "refactor",
+    "feature",
+    "fix",
+    "other"
+  ],
+  "per_pr_budget_usd": 1.0,
+  "k_samples": 4,
+  "context_strategy": "r01 (default)",
+  "proposal_bound_tokens": 3200,
+  "executor_profile": "linux-container-v1",
+  "silent_audit_inclusion_probability": 1.0,
+  "silent_audit_seed": 20260904,
+  "cost_cap_usd": 14.0,
+  "safety_stop_wrong_findings": 1,
+  "minimum_adjudicated_findings": 100,
+  "minimum_confirmed_opportunities": 100,
+  "truth": "product-blind adjudication into adjudication.jsonl (unit_id, finding_id or empty, label defect|not_defect|unresolved, reviewer, evidence); unknown truth stays unresolved",
+  "retries": "none; a unit that cannot run is recorded with its DEFER reason",
+  "exclusions": "none after recording",
+  "silence_reporting": "every silent unit records units_read and units_total; a silence over a partly-read commit covers only what was read",
+  "code": "the window tip including D-124, D-125 and D-126; stratum v1 ran before all three and is reported apart"
+}

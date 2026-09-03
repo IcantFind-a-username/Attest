@@ -74,6 +74,7 @@ class Verdict:
     age_ok: bool
     files: list[FileVerdict] = field(default_factory=list)
     error: str = ""
+    truncated: bool = False  # blame stopped at the first disqualifying file
 
     @property
     def added(self) -> int:
@@ -141,7 +142,13 @@ def changed_text_files(repo: Path, sha: str) -> list[str]:
     return [name for name in names if name and name not in binary]
 
 
-def qualify(repo: Path, sha: str, *, as_of: datetime, tip: str) -> Verdict:
+def qualify(
+    repo: Path, sha: str, *, as_of: datetime, tip: str, early_stop: bool = False
+) -> Verdict:
+    """``early_stop`` stops blaming after the first file that disqualifies the
+    commit. The verdict is identical -- one touched file is enough -- but the
+    per-file detail is then partial, and the verdict says so in ``truncated``.
+    It exists because blame dominates the cost of screening a large population."""
     try:
         subject = git(repo, "log", "-1", "--format=%s", sha).strip()
         stamp = git(repo, "log", "-1", "--format=%cI", sha).strip()
@@ -165,7 +172,12 @@ def qualify(repo: Path, sha: str, *, as_of: datetime, tip: str) -> Verdict:
             if added == 0:
                 continue
             survived, reason = surviving_lines(repo, sha, path, tip)
-            verdict.files.append(FileVerdict(path, added, survived, reason))
+            file_verdict = FileVerdict(path, added, survived, reason)
+            verdict.files.append(file_verdict)
+            if early_stop and not file_verdict.untouched:
+                # one touched file disqualifies; the rest cannot change that
+                verdict.truncated = True
+                break
     except RuntimeError as exc:
         verdict.error = str(exc)
     return verdict

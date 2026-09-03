@@ -114,6 +114,12 @@ class Preregistration:
     silent_audit_seed: int
     cost_cap_usd: float
     safety_stop_wrong_findings: int
+    # A stratum whose units already existed when the protocol was frozen is not
+    # prospective, and saying so is the point: `G-SHADOW-001` asks for units the
+    # product could not have seen. A stratum must declare `prospective: false`
+    # explicitly to record such units; the default stays the strong reading, and
+    # every sample row and report carries the flag so no reader can lose it.
+    prospective: bool = True
 
     @classmethod
     def from_json(cls, raw: Mapping[str, Any]) -> Preregistration:
@@ -127,6 +133,7 @@ class Preregistration:
                 silent_audit_seed=int(raw["silent_audit_seed"]),
                 cost_cap_usd=float(raw["cost_cap_usd"]),
                 safety_stop_wrong_findings=int(raw["safety_stop_wrong_findings"]),
+                prospective=bool(raw.get("prospective", True)),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ProspectivePreflightError(
@@ -340,12 +347,13 @@ def record_sample(
     for unit in units:
         if unit.unit_id in known:
             continue
-        if _utc(unit.pushed_at) < freeze_at:
+        if preregistration.prospective and _utc(unit.pushed_at) < freeze_at:
             raise ValueError(f"{unit.unit_id} predates the freeze; it is not prospective")
         draw = random.Random(f"{preregistration.silent_audit_seed}:{unit.unit_id}").random()
         row: dict[str, object] = {
             **asdict(unit),
             "recorded_at": recorded_at,
+            "prospective": preregistration.prospective,
             "silent_audit_inclusion_probability": (
                 preregistration.silent_audit_inclusion_probability
             ),
@@ -489,6 +497,9 @@ def report(study_dir: Path) -> dict[str, object]:
     return {
         "schema_version": STUDY_SCHEMA_VERSION,
         "freeze_at": preregistration.freeze_at,
+        # a stratum whose units predate its freeze cannot support a prospective
+        # claim, and the report says so rather than leaving it to the reader
+        "prospective": preregistration.prospective,
         "population": list(preregistration.population),
         "units_sampled": len(samples),
         "units_run": len(trials),
