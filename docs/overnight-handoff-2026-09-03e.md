@@ -1,4 +1,4 @@
-# Handoff — 2026-09-03, fifth window (`e60e6ed` → see the last line): the population was wrong, and the model matters
+# Handoff — 2026-09-03, fifth window (`e60e6ed` → `730ca92`, plus this line): the population was wrong, and the model matters
 
 Status: **the "generation wall" was mostly an artefact of how the pilot population was
 chosen. Four of the six reproductions in the last §5 table ran against pairs with no
