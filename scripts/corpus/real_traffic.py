@@ -365,12 +365,10 @@ def _ledger_rows(repo: Path) -> list[dict]:
     return rows
 
 
-def _completed_tasks(repo: Path) -> list[str]:
-    """Task ids that finished a review, in ledger order. A review killed before it
-    ended writes no ``review_run`` row and is absent, which is what makes the
-    ordinal alignment in ``cmd_table`` sound."""
+def _completed_runs(repo: Path) -> list[tuple[str, float]]:
+    """(task id, spend) for every review that finished, in ledger order."""
     return [
-        str(row["task_id"])
+        (str(row["task_id"]), float(row.get("spend_usd") or 0.0))
         for row in _ledger_rows(repo)
         if row.get("kind") == "review_run" and row.get("task_id")
     ]
@@ -417,7 +415,6 @@ def cmd_table(args: argparse.Namespace) -> int:
     totals = {"m": 0, "certified": 0, "published": 0, "below": 0, "spend": 0.0}
     counted = 0
     blocks: dict[str, tuple[str, str]] = {}  # case id -> its LAST block: a cap-skipped
-    reviewed: dict[str, list[str]] = {}  # case that was re-run is read once, as run
     position: dict[str, int] = {}  # execution order, which is what the ledger records
     for log_path in args.log:
         text = Path(log_path).read_text(encoding="utf-8")
@@ -428,21 +425,31 @@ def cmd_table(args: argparse.Namespace) -> int:
                 continue
             blocks[parts[0]] = (head, body)
             position[parts[0]] = len(position) + len(blocks)  # last occurrence wins
-    # The log carries no task id, so each repository's completed reviews are matched
-    # to its finished ledger runs in order, newest N against the N blocks that ended
-    # with a spend line. Anything else in that ledger is older than this corpus.
+    # The log carries no task id. Each repository's completed reviews are matched to
+    # its ledger runs in order, keyed on the spend the log printed: a review whose
+    # driver was killed still finishes and still writes a ledger row, so position
+    # alone is not enough.
     finished = [
         (key, blocks[key])
         for key in sorted(blocks, key=lambda name: position[name])
         if "budget;" in blocks[key][1] and "[dropped" not in blocks[key][0]
     ]
     for repo_name in {head.split()[1] for _key, (head, _body) in finished}:
-        ordered = [key for key, (head, _body) in finished if head.split()[1] == repo_name]
-        tasks = _completed_tasks(repo_path(repo_name))
-        reviewed[repo_name] = tasks[-len(ordered) :] if ordered else []
-        for offset, key in enumerate(ordered):
+        rows = [
+            (key, float(re.search(r"spend \$([0-9.]+) of", body).group(1)))
+            for key, (head, body) in finished
+            if head.split()[1] == repo_name
+        ]
+        tasks = _completed_runs(repo_path(repo_name))
+        cursor = 0
+        for key, logged in rows:
+            while cursor < len(tasks) and round(tasks[cursor][1], 4) != round(logged, 4):
+                cursor += 1
+            if cursor >= len(tasks):  # no run with that spend: leave the row unmatched
+                continue
             head, body = blocks[key]
-            blocks[key] = (f"{head} [task {reviewed[repo_name][offset]}]", body)
+            blocks[key] = (f"{head} [task {tasks[cursor][0]}]", body)
+            cursor += 1
     for head, body in [blocks[key] for key in sorted(blocks)]:
         parts = head.split()
         case_id, repo_name, sha = parts[0], parts[1], parts[2]
