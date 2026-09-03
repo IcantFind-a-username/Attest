@@ -1,0 +1,66 @@
+name: gates
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gates-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gates:
+    # An ordinary work-order gate runs one supported Python (AGENTS.md §13);
+    # 3.12 is the toolchain's primary. The point of running here rather than on
+    # a development host is `tests/execution/test_linux_isolation.py`: it needs a
+    # docker daemon that can pull `python:3.9-slim`, which the owner's machine
+    # cannot, and it is the only test that covers `ContainerAdapter.run` — the
+    # whole of the kernel coverage shortfall measured locally.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install the locked toolchain
+        run: |
+          python -m pip install -r requirements-toolchain.lock
+          python -m pip install --no-deps --no-build-isolation -e .
+          python -m pip check
+
+      - name: Record the environment
+        run: |
+          python -V
+          python -c "import hashlib,pathlib;print('lock sha256:',hashlib.sha256(pathlib.Path('requirements-toolchain.lock').read_bytes()).hexdigest())"
+          docker info --format 'docker {{.ServerVersion}}' || echo "no docker daemon"
+
+      - name: Ruff
+        run: python -m ruff check .
+
+      - name: Mypy
+        run: python -m mypy src/attest
+
+      - name: git diff --check
+        run: git diff --check
+
+      # No deselection: the isolation tests are the reason this job exists. The
+      # coverage floor (`fail_under = 90`) binds attest.certification and
+      # attest.execution only; the other packages print as observations.
+      - name: Pytest with coverage
+        run: python -m pytest --cov=src/attest --cov-report=term-missing
+
+      - name: Informational package coverage
+        if: always()
+        run: |
+          for package in review cli github benchmark core; do
+            echo "--- attest.$package"
+            python -m coverage report --include="src/attest/$package/*" --fail-under=0
+          done
