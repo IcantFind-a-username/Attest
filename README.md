@@ -69,7 +69,7 @@ Important limits:
   | **real-traffic corpus, defects** | 19 defect pairs on 3 repositories, D-116 construction ([report](docs/acceptance/2026-09-03-real-traffic-corpus.md)) | **6 of 19 pairs certified (32%)**, 4 of 19 published (21%); 16 receipts, 6 publications standing after the D-124 correction | **$0.60** (not the default) | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-03 |
   | **real-traffic corpus, controls** | 24 controls from the same repositories | **0 false publications** — but two controls carried real defects, so this population cannot support a false-publication *rate* | **$0.60** | same | 2026-09-03 |
   | **natural null (E-01)** | 20 real commits, one repository | 1 publication, since reclassified to the drawer by D-102 ([report](docs/acceptance/2026-09-03-e01-natural-null.md)) | $0.25 | S `claude-sonnet-5` | 2026-09-03 |
-  | **`G-NULL-001a`** | G_NULL_ROW | | **$1.00** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-04 |
+  | **`G-NULL-001a`** | 15 of 58 preregistered qualified null commits, 5 public repositories ([report](docs/acceptance/2026-09-04-g-null-001a.md)) | **1 wrong publication** — the gate **does not pass**, the run stopped under `RISK-CERT-01` on the fifteenth control, and the cause is structural (D-127) | **$1.00** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-04 |
   | **shadow (E-04 v1)** | 2 prospective units | 22 candidates, 0 eligible, **0 shadow findings** ([report](docs/acceptance/2026-09-03-e04-prospective-v1.md)) | $0.25 | S `claude-sonnet-5` | 2026-09-03 |
   | **shadow (E-04 v2)** | **100 units** of the owner's most recent traffic, 4 repositories ([report](docs/acceptance/2026-09-04-e04-stratum-v2.md)) | 495 candidates, 129 eligible, **21 receipts, 7 shadow findings, 0 published**; all 7 **unadjudicated** | **$1.00** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-04 |
   | **outside repository, in production** | **1** pull-request comment on a repository this project does not develop in ([report](docs/acceptance/2026-09-04-us-stock-helper-action-comment.md)) | the Action installed at `@v0.1.0-pilot.1`, built the container on a GitHub runner, ran a reproduction and **posted one comment — a `DEFER`** | **$0.60** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-04 |
@@ -78,6 +78,16 @@ Important limits:
   reverse-fix corpus is not natural pull-request traffic; `Attest`'s own repository appears in
   the corpus and shadow populations and is a **disclosed conflict of interest**; and the
   earlier dev-slice figures are a development record, not a claim.
+- **the product publishes false claims, and one has been measured.** On 2026-09-04 a properly
+  qualified null control published a defect claim about a change its author made deliberately
+  and documented in the same diff (D-127,
+  [report](docs/acceptance/2026-09-04-g-null-001a.md)). The receipt was mechanically perfect —
+  head fails, base passes, changed lines executed, bundle verifies. **Every rule in the chain
+  asks whether the behaviour changed and whether the change is bound to the diff; only one
+  narrow rule (D-102) asks whether the author meant it, and it covers new rejections only.** An
+  intended change of a returned value is invisible to every discriminator the product owns. The
+  earlier "0 false publications" rows above are counts on their own populations, not a rate, and
+  they do not survive this as a general claim.
 - **the evidence bundles are not all verifiable.** 86 bundles on this host were re-verified on
   2026-09-04: **44 accept, 42 do not** ([report](docs/acceptance/2026-09-04-bundle-reverification.md)).
   Four carried a `test_repro.py` that was not the test the runs executed — one of them

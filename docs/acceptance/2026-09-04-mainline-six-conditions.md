@@ -5,14 +5,16 @@ against what this window built and measured. Each condition is answered **holds 
 hold** with the evidence that decides it, and the answer to "do we tag `v0.1.0-pilot.2`?"
 follows mechanically: **all six must hold, and three do not.**
 
-**Answer: three of six hold. `v0.1.0-pilot.2` was not tagged.**
+**Answer: three of six hold. `v0.1.0-pilot.2` was not tagged.** The window's most important
+result is not on this list's plus side: `G-NULL-001a` ran and **failed** on a false publication
+whose cause is structural (D-127), which moves condition 4 further away rather than closer.
 
 | # | condition | 2026-09-03 | **now** |
 |---|---|---|---|
 | 1 | an outside repository installs from a stable ref, adds the Action, and receives PR comments | does not hold | **holds** |
 | 2 | every author-visible finding carries a differential receipt an offline verifier accepts | holds | **holds** — and it did **not** hold when that was last claimed |
 | 3 | head code cannot read secrets, reach the network, or forge a result | does not hold | **does not hold** (unchanged) |
-| 4 | on a held-out corpus: silent on every control, a stated share of eligible defects certified | does not hold | **does not hold** |
+| 4 | on a held-out corpus: silent on every control, a stated share of eligible defects certified | does not hold | **does not hold — and further from holding than it was** |
 | 5 | one prospective shadow run with no false publication | does not hold | **does not hold** |
 | 6 | the roadmap's L-01 exit list is done | holds | **holds** |
 
@@ -71,11 +73,14 @@ sandbox ([red-team matrix](2026-09-03-redteam-matrix.md)). Real evidence; not th
 
 The condition names `G-RECALL-002` and `G-NULL-001`, and neither passes.
 
-- **`G-NULL-001` is unpassed and was not attempted.** It needs at least 600 adjudicated null
-  candidates across at least 30 repositories, and ≥300 reviews for its ≤1% bound whatever they
-  cost. This window ran `G-NULL-001a` instead — a different, weaker gate whose claim must carry
-  its own n and bound ([report](2026-09-04-g-null-001a.md)). Passing it is never a pass of
-  `G-NULL-001`, and the gate file says so in those words.
+- **`G-NULL-001` is unpassed and was not attempted**, and **`G-NULL-001a` was attempted and
+  failed.** On the fifteenth of 58 preregistered controls the product published a defect claim
+  about a change its author made deliberately and documented in the same diff; the run stopped
+  under `RISK-CERT-01` and was not resumed ([report](2026-09-04-g-null-001a.md), D-127). The
+  condition asks the product to be **silent on every control**, and this is the first properly
+  qualified control it has not been silent on. The cause is structural: every rule asks whether
+  the behaviour changed and whether the change is bound to the diff, and only D-102's narrow
+  new-rejection rule asks whether the author meant it.
 - **`G-RECALL-002` needs point detection ≥70% with a 95% lower bound ≥50%** on the hidden
   semantic corpus. The measured figure is 5 of 29 held-out defects in one pass, with a
   supplementary 10 of 19 after the bootstrap fix ([held-out](2026-09-03-e02-heldout.md)).
@@ -129,7 +134,7 @@ re-derive it:
 | condition | what is missing | is it a matter of doing, or of scale? |
 |---|---|---|
 | 3 | the rest of `G-SEC-002`'s fixture list and an external observer proving OS denial | **doing** — engineering, no model spend |
-| 4 | `G-NULL-001`'s 600 candidates / 30 repositories, and `G-RECALL-002`'s ≥70% detection | **scale**, and a recall problem the budget raise does not solve |
+| 4 | a discriminator that can tell an intended change from a regression (D-127) — **before** n matters at all — then `G-NULL-001`'s 600 candidates / 30 repositories and `G-RECALL-002`'s ≥70% detection | **neither**: it is a design question the product has never answered, and no sample size substitutes for it |
 | 5 | a genuinely prospective run at `G-SHADOW-001`'s n | **scale, and calendar time** — prospective means waiting for traffic that does not exist yet |
 
 Condition 5 is the one no amount of money buys in a night: a prospective stratum needs commits
