@@ -168,6 +168,14 @@ inside it. Caveat: this run used the host adapter, because this machine's docker
   real cases: no imports, a non-importable import, a missing `caplog.set_level`. The
   reproduction prompt is where that is fixed — the generated file must be self-contained and
   must exercise the anchored call.
+- **The opus import failure is D-089 working, half way.** That decision put the nearest test
+  module's imports, fixtures and helpers into the generation context precisely because the
+  generator was inventing constructor arguments and package paths ("six of six haiku
+  reproductions … guessed"). Opus used what it was shown — `_prediction` and `_truth` are real
+  helpers in `tests/benchmark/test_matcher.py` — and then `import`ed them, which cannot work
+  from `.attest-repro/`. The context says *these helpers exist*; nothing says *your file must
+  stand alone*. That sentence is the smallest next product change, and this window did not make
+  it (instruction 1d: no product code).
 - **n = 2, one run each.** Nothing here is a rate. The opus result is a single run whose
   proposal samples were bought once; a repeat would replay from the attempt cache and prove
   only determinism.
