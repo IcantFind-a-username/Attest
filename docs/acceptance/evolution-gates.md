@@ -534,6 +534,16 @@ repo-cluster analysis reported (not passed — it is uninformative below ~10 clu
 **Safety stop:** unchanged from `G-NULL-001` — a wrong publication stops the run and is
 root-caused before anything else is bought.
 
+**Result, 2026-09-04: the stop fired and the gate does not pass.** On the fifteenth of 58
+preregistered controls, `jinja` `ac3ac6c9` published a defect claim about a change its author
+made deliberately and documented in the same diff. The run stopped at once and was root-caused
+as **D-127** — every rule asks whether the behaviour changed and whether the change is bound to
+the diff; only D-102's new-rejection rule asks whether the author meant it, and an intended
+change of a returned value is invisible to all of them. The gate **cannot be re-attempted until
+an owner decision lands on that discriminator**: re-running the same population against the same
+blind spot would only buy the same failure again.
+[Report](2026-09-04-g-null-001a.md).
+
 **Permitted claim:** “On n preregistered qualified null commits across k repositories, zero
 wrong publications were observed; the 95% upper bound on the per-review wrong-publication rate
 is B%.” It is **not** a release-grade null result, it does not transfer to all pull requests,

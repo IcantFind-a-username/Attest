@@ -1,5 +1,9 @@
 # Backlog
 
+- **2026-09-04 (D-127), the window's most important open item.** An intended change of a returned *value* is invisible to every discriminator the product owns, and it published on a properly qualified null control (`jinja` `ac3ac6c9`: the commit takes `__name__` from the async function on purpose and says so in its own comment; the generated test asserts the sync name). D-102's intent rule covers a `raise`/`assert` in changed lines only, and the receipt records its silence verbatim — `new_rejection: false`, `exception_type: ""`, `witnesses: []`. Three shapes, none touching alpha, the LR, K or the cap: (a) extend the intent policy from new rejections to any changed-line-bound behavioural difference, requiring a base-tree witness exactly as D-102 does; (b) publish only when the head failure is a crash rather than a value mismatch; (c) require the claim's prose and the test's failing assertion to agree before publication. (c) also fixes the separate defect in the same receipt: the published sentence said `__wrapped__` pointed at the wrong function, the test asserted the opposite and *passed* that assertion, and nothing checks that the two agree. **§16 owner decision; `G-NULL-001a` cannot be resumed and mainline condition 4 cannot move until one lands.**
+
+- **2026-09-04.** `G-NULL-001a`'s control definition (D-122) is applied to *every* changed text file, so a commit that also edited a changelog is disqualified the moment that changelog is rewritten or deleted — which every one of the eight public clones has done. Measured qualification rate: **58 of 903 (6.4%)**, `click` 3 of 120. Restricting the untouched check to the files a review can anchor in (Python) would raise the yield sharply without loosening what "untouched" means for the reviewed code. A change to D-122, not to the study.
+
 Findings that did not earn a fix, one line each: `file:line — what, and why it
 was not fixed now`.
 

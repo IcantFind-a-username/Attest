@@ -487,6 +487,12 @@ replayable evidence on the current code.
   `G-RECALL-002`.
 - [ ] **E-03 — heterogeneous stability.** Execute the nontrivial repeated-case design in
   `G-STAB-001`; repeats remain operational only.
+- **BLOCKED 2026-09-04 (D-127).** `G-NULL-001a` ran and failed: a properly qualified null
+  control published a defect claim about a change its author made deliberately and documented in
+  the same diff. Root cause is structural — every rule asks whether the behaviour changed and
+  whether the change is bound to the diff, and only D-102's new-rejection rule asks whether the
+  author meant it. **E-01 and E-04 cannot produce a null or safety claim until an owner decision
+  lands on that discriminator.**
 - [ ] **E-04 — prospective natural-PR shadow.** Execute the authorized traffic, blind
   adjudication, silent sampling, safety, utility, cost, and latency design in
   `G-SHADOW-001`.
