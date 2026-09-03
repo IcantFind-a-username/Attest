@@ -291,6 +291,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         spent = float(cumulative[-1]) if cumulative else 0.0
     log = log_path.open("a", encoding="utf-8")  # noqa: SIM115 - appended across the loop
     order = [case for case in cases if case["repo"] == args.repo]
+    if args.only:
+        # a named re-run (owner instruction 5 of 2026-09-04): the budget-wall
+        # measurement re-runs exactly the cases whose every reproduction failed
+        # for BudgetExceeded, and nothing else
+        wanted = set(args.only)
+        order = [case for case in order if case["id"] in wanted]
     order.sort(key=lambda case: (case["population"] != "defect", case["id"]))
     for case in order:
         if case["id"] in done:
@@ -323,7 +329,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 "--k",
                 "4",
                 "--budget",
-                "0.60",
+                f"{args.budget:.2f}",
                 "--verification-timeout",
                 "1800",
             ],
@@ -518,6 +524,13 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--log", required=True)
     run.add_argument("--qualified", required=True)
     run.add_argument("--cap", type=float, required=True)
+    run.add_argument(
+        "--budget",
+        type=float,
+        default=0.60,
+        help="per-review budget; 0.60 is this corpus's standard, not the $0.25 product default",
+    )
+    run.add_argument("--only", nargs="+", default=None, help="run only these case ids")
     run.add_argument("--code", default=None, help="fixed checkout whose attest code runs")
     run.set_defaults(func=cmd_run)
     table = sub.add_parser("table")
