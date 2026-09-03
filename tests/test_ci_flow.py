@@ -1669,6 +1669,12 @@ def test_reproductions_are_bought_in_ranking_order(
         for call in provider.calls
         if "focused pytest reproduction" in str(call["system"])
     ]
-    assert len(generations) == 2, "both eligible candidates should have been attempted"
-    assert str(stronger["claim"]) in generations[0]
-    assert str(weaker["claim"]) in generations[1]
+    # both eligible candidates are attempted; each is generated more than once
+    # because `assert False` does not collect (D-114), so the ranking is read
+    # from the order the candidates are first reached, not the call count
+    first_reached: list[str] = []
+    for prompt in generations:
+        claim = str(stronger["claim"]) if str(stronger["claim"]) in prompt else str(weaker["claim"])
+        if claim not in first_reached:
+            first_reached.append(claim)
+    assert first_reached == [str(stronger["claim"]), str(weaker["claim"])]

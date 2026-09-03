@@ -51,6 +51,21 @@ NEW_FUNCTION_BODY = 'import mod\n\ndef test_repro():\n    assert mod.parse("a,b"
 NEW_MODULE = 'def parse(text):\n    return text.split(",")[-1]\n'
 NEW_MODULE_BODY = 'import newmod\n\ndef test_repro():\n    assert newmod.parse("a,b") == "a"\n'
 FABRICATED_BODY = "import mod\n\ndef test_repro():\n    assert mod.totally_absent_symbol(2) == 4\n"
+# D-114: two reproductions that do not stand alone. The first imports a test
+# module, which the generator rejects without executing anything; the second
+# imports a module that does not exist, which fails collection on head.
+TEST_MODULE_IMPORT_BODY = (
+    "from test_helpers import build\n"
+    "import mod\n\n"
+    "def test_repro():\n"
+    "    assert mod.add(2, 2) == build()\n"
+)
+UNCOLLECTABLE_BODY = (
+    "import mod\n"
+    "import a_module_that_does_not_exist\n\n"
+    "def test_repro():\n"
+    "    assert mod.add(2, 2) == 4\n"
+)
 # The live acceptance case: base ships only total(); head adds average() with no
 # empty-input guard, and the reproduction crashes rather than asserting.
 TOTAL_ONLY_MODULE = "def total(items):\n    return sum(items)\n"
@@ -1708,6 +1723,55 @@ def test_verify_candidate_unfaithful_test_failing_on_base_is_deferred(
     assert row["outcome"] == "deferred"
     assert "unfaithful" in row["reason"]
     assert row["evidence_class"] == "unfaithful"
+    assert_worktrees_cleaned(repo, stored)
+
+
+def test_verify_candidate_regenerates_a_reproduction_that_does_not_stand_alone(
+    tmp_path: Path,
+    verify_with_defaults: VerifyWithDefaults,
+) -> None:
+    """D-114. A generated file that imports a test module is refused before it is
+    written anywhere, and one that does not collect on head is refused before any
+    behavioural run is bought; the generator is asked again, and the reproduction
+    that does stand alone is the only one that ever executes the diff."""
+
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    stored = candidate(file="mod.py", line=1)
+    gate = original_gate(stored)
+    provider = RecordingProvider(
+        [
+            ProviderResult(
+                text=json.dumps({"test_body": body}), input_tokens=2, output_tokens=3
+            )
+            for body in (TEST_MODULE_IMPORT_BODY, UNCOLLECTABLE_BODY, DIFFERENTIAL_BODY)
+        ]
+    )
+
+    verification = verify_with_defaults(
+        repo,
+        stored,
+        gate,
+        provider,
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert verification.execution.outcome is ExecutionOutcome.REPRODUCED
+    assert len(provider.requests) == 3
+    assert [run.outcome.value for run in verification.execution.head_runs] == ["reproduced"] * 3
+    assert [run.outcome.value for run in verification.execution.base_runs] == ["not_reproduced"] * 3
+    # what actually reached the executor: the test-module import nowhere at all,
+    # the uncollectable file only in the collection round that refused it, and
+    # the self-contained reproduction in every behavioural run
+    work = repo / ".attest" / "repro" / stored.task_id / stored.finding.finding_id
+    written = {
+        path.parent.name: path.read_text(encoding="utf-8")
+        for path in work.glob("*/test_repro.py")
+    }
+    assert not any(body.startswith("from test_helpers") for body in written.values())
+    assert written["collect"] == UNCOLLECTABLE_BODY
+    assert written["collect-1"].strip() == DIFFERENTIAL_BODY.strip()
+    assert written["head-1"].strip() == DIFFERENTIAL_BODY.strip()
     assert_worktrees_cleaned(repo, stored)
 
 

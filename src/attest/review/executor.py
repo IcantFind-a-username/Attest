@@ -41,6 +41,9 @@ from attest.review.proposer import Provider, call_provider, no_text_reason, resp
 MAX_CONTEXT_LINES = 200
 REPRO_MAX_OUTPUT_TOKENS = 3_000
 MAX_REPRO_ATTEMPTS = 2
+# D-114: extra generations bought when the reproduction does not collect on
+# head. One: a second scaffolding failure is a signal, not a budget to spend.
+COLLECTION_REGENERATIONS = 1
 CLEANUP_TIMEOUT_S = 1.0
 GIT_TIMEOUT_S = 60.0
 MAX_REASON_CHARS = 300
@@ -67,10 +70,14 @@ test must FAIL on the current version because of the claimed defect and PASS on 
 version: assert the merge-base behaviour concretely, not merely the absence of a crash. Exactly
 one module-level test function; import the project the way its existing tests do; no network,
 subprocesses, threads, or mocks of the code under test. If the defect only shows through
-pytest's own runner, use the project's test fixtures as the shown tests do. The directory of the
-nearest existing test module is importable, so its helpers can be imported by that module's
-name (for example ``from test_module import helper``); fixtures cannot be imported, only
-helpers and constants."""
+pytest's own runner, use the project's test fixtures as the shown tests do.
+
+The file must stand alone. It runs by itself, outside the project's test directory: import
+every name it uses, and import only the standard library and the project's own packages --
+never a test module, a conftest, or anything under a tests package. Helpers you were shown
+from an existing test module are there to be copied into the file, not imported. When the
+assertion is about log records, set the level first (``caplog.set_level(logging.INFO)``, or
+whatever level the code logs at), or the records will be absent for the wrong reason."""
 
 SITECUSTOMIZE = """import _thread
 import os
@@ -496,6 +503,34 @@ def _generation_prompt(repo: Path, candidate: StoredCandidate, base_ref: str | N
     )
 
 
+def imported_test_modules(source: str) -> tuple[str, ...]:
+    """Test modules the generated reproduction imports, sorted.
+
+    D-114: the reproduction runs from its own directory, outside the project's
+    test tree, so an import of a test module, a conftest or a tests package
+    cannot resolve there -- the file must carry its helpers itself. A source
+    that does not parse yields no names; the collection gate answers for it.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return ()
+    dotted: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            dotted.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and not node.level and node.module:
+            dotted.append(node.module)
+    return tuple(sorted({name for name in dotted if _names_a_test_module(name)}))
+
+
+def _names_a_test_module(dotted: str) -> bool:
+    return any(
+        part == "conftest" or part == "tests" or part.startswith("test_") or part.endswith("_test")
+        for part in dotted.split(".")
+    )
+
+
 class GenerationNoText(ValueError):
     """The model answered without a text block: nothing to parse, and never a
     schema mismatch (owner fix 1, 2026-09-03)."""
@@ -785,6 +820,15 @@ def generate_repro(
             spec = _parse_repro(result.text)
         except ValueError as exc:
             last_schema_error = exc
+            continue
+        imported = imported_test_modules(spec.test_body)
+        if imported:
+            # never written, never executed: a reproduction that borrows from
+            # the project's test tree proves nothing about the diff
+            last_schema_error = ValueError(
+                "generated reproduction imports test module(s) "
+                f"{', '.join(imported)}; it must be self-contained"
+            )
             continue
         for unused in reservations[index + 1 :]:
             budget.cancel(unused)
@@ -1551,6 +1595,7 @@ def execute_differential(
     deadline: float | None = None,
     clock: Callable[[], float] = time.monotonic,
     adapter: ExecutorAdapter | None = None,
+    regenerate: Callable[[], ReproSpec] | None = None,
 ) -> DifferentialExecution:
     """Run the same reproduction repeatedly against detached head/base
     worktrees. Only a deterministic head failure that shows the code
@@ -1586,7 +1631,7 @@ def execute_differential(
             elapsed_s=time.monotonic() - started,
             network_blocked=bool(runs) and all(run.network_blocked for run in runs),
             evidence_class=evidence_class,
-            collection_run=collection_runs[0] if collection_runs else None,
+            collection_run=collection_runs[-1] if collection_runs else None,
             binding=bindings[0] if bindings else None,
             intent=intents[0] if intents else None,
         )
@@ -1619,13 +1664,17 @@ def execute_differential(
             if remaining <= 0:
                 return None
             effective = replace(limits, wall_timeout_s=min(limits.wall_timeout_s, remaining))
+        if collect_only:
+            label = "collect" if index == 0 else f"collect-{index}"
+        else:
+            label = f"{side}-{index}"
         return execute_repro(
             repo_root,
             candidate,
             spec,
             effective,
             tree=tree,
-            run_label=f"{side}-{index}" if not collect_only else "collect",
+            run_label=label,
             node=node,
             collect_only=collect_only,
             revision_sha=revisions.get(side, revisions["head"]),
@@ -1655,19 +1704,40 @@ def execute_differential(
             created.append(trees_dir / side)
 
         # V-01: collect first, under the same guards, and demand exactly one
-        # node; every behavioural run then selects that node explicitly
-        collection = run_once("collect", 0, trees_dir / "head", collect_only=True)
-        if collection is None:
-            return deferred(DEADLINE_REASON)
-        collection_runs.append(collection)
-        if collection.outcome is ExecutionOutcome.DEFERRED:
-            return deferred(f"collection deferred: {collection.reason}")
-        if collection.collected_count != 1 or not collection.test_node:
-            return deferred(
-                f"collection produced {collection.collected_count} test node(s); "
-                "exactly one is required"
-            )
-        node = collection.test_node.split("::", 1)[1]
+        # node; every behavioural run then selects that node explicitly.
+        # D-114: a file that does not collect is a scaffolding failure, not
+        # evidence about the diff, so the generator is asked again before any
+        # behavioural run is bought.
+        rounds = 1 if regenerate is None else 1 + COLLECTION_REGENERATIONS
+        collected: ExecutionResult | None = None
+        failures: list[str] = []
+        for round_index in range(rounds):
+            if round_index:
+                try:
+                    spec = regenerate()  # type: ignore[misc]
+                except Exception as exc:  # noqa: BLE001 - budget/deadline/provider
+                    return deferred(
+                        f"{failures[-1]}; regeneration failed: {type(exc).__name__}: {exc}"
+                    )
+            collection = run_once("collect", round_index, trees_dir / "head", collect_only=True)
+            if collection is None:
+                return deferred(DEADLINE_REASON)
+            collection_runs.append(collection)
+            if collection.outcome is ExecutionOutcome.DEFERRED:
+                failures.append(f"collection deferred: {collection.reason}")
+                continue
+            if collection.collected_count != 1 or not collection.test_node:
+                failures.append(
+                    f"collection produced {collection.collected_count} test node(s); "
+                    "exactly one is required"
+                )
+                continue
+            collected = collection
+            break
+        if collected is None or not collected.test_node:
+            suffix = "" if len(failures) < 2 else f" (after {len(failures)} generations)"
+            return deferred(f"{failures[-1]}{suffix}")
+        node = collected.test_node.split("::", 1)[1]
         for index in range(1, repeats + 1):
             run = run_once("head", index, trees_dir / "head")
             if run is None:
@@ -1906,19 +1976,22 @@ def verify_candidate(
     if violation is not None:
         execution = deferred_execution(violation)
     else:
-        remaining_before_generation = None if deadline is None else max(0.0, deadline - clock())
-        try:
-            if remaining_before_generation is not None and remaining_before_generation <= 0:
+        def generate() -> ReproSpec:
+            remaining = None if deadline is None else max(0.0, deadline - clock())
+            if remaining is not None and remaining <= 0:
                 raise TimeoutError("shared verification deadline exceeded before generation")
-            spec = generate_repro(
+            return generate_repro(
                 repo,
                 candidate,
                 provider,
                 budget,
-                timeout_s=remaining_before_generation,
+                timeout_s=remaining,
                 base_ref=resolved_base,
                 shared_system=shared_system,
             )
+
+        try:
+            spec = generate()
         except Exception as exc:  # noqa: BLE001 - generation failures are ternary DEFER
             execution = deferred_execution(f"generation failed: {type(exc).__name__}: {exc}")
         else:
@@ -1933,6 +2006,7 @@ def verify_candidate(
                 deadline=deadline,
                 clock=clock,
                 adapter=adapter,
+                regenerate=generate,
             )
 
     Ledger(repo).record_verification(
