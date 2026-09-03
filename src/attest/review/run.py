@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 
 from attest.certification.types import CertifiedFinding
-from attest.review.budget import Budget, BudgetExceeded
+from attest.review.budget import PROPOSAL_SHARE, Budget, BudgetExceeded
 from attest.review.candidates import CandidateStore
 from attest.review.channels import gate_feasibility
 from attest.review.config import DISABLED_REASON, ReviewConfig, resolve_review_policy
@@ -322,9 +322,13 @@ def run_review(
             # whole PR -- the package of the first unit's first changed file
             # and its tests -- reused by every sample, generation and repair
             shared_system = package_block(repo, plan.units[0].files[0])
-        proposal = propose_plan(
-            plan, config, budget, provider, cache_root=repo, shared_system=shared_system
-        )
+        # D-111: discovery may spend at most PROPOSAL_SHARE of the review's
+        # budget, so breadth cannot leave every reproduction unable to generate
+        # a test. What it does not spend stays available to verification.
+        with budget.stage("proposal", PROPOSAL_SHARE):
+            proposal = propose_plan(
+                plan, config, budget, provider, cache_root=repo, shared_system=shared_system
+            )
         ledger.append(
             {
                 "kind": "proposal_coverage",

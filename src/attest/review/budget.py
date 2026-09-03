@@ -8,10 +8,18 @@ Actual usage replaces the estimate once known.
 from __future__ import annotations
 
 import math
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
 from attest.review.config import load_pricing
+
+# Discovery may spend at most this share of a review's budget, so breadth
+# cannot starve every reproduction (owner decision 3 of 2026-09-03d). On
+# `d7be758` the proposal stage produced 12 candidates from a 210-line change and
+# left nine of eleven reproductions with no budget to generate a test at all.
+PROPOSAL_SHARE = 0.6
 
 # rough chars-per-token for preflight estimates (conservative: low divisor
 # overestimates tokens and cost)
@@ -30,6 +38,8 @@ class Budget:
     spent_usd: float = 0.0
     reserved_usd: float = 0.0
     calls: list[dict[str, Any]] = field(default_factory=list)
+    stage_label: str = ""  # the stage whose share is in force, "" for none
+    stage_ceiling_usd: float | None = None
     _prices: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -60,10 +70,31 @@ class Budget:
         in_tokens = input_chars / CHARS_PER_TOKEN
         return in_tokens * self._prices["in"] + max_output_tokens * self._prices["out"]
 
+    @contextmanager
+    def stage(self, label: str, share: float) -> Iterator[None]:
+        """Inside the block, reservations may not exceed ``share`` of the limit.
+
+        One stage at a time: the block restores whatever was in force before it.
+        """
+        previous = (self.stage_label, self.stage_ceiling_usd)
+        self.stage_label = label
+        self.stage_ceiling_usd = self.limit_usd * share
+        try:
+            yield
+        finally:
+            self.stage_label, self.stage_ceiling_usd = previous
+
     def reserve(self, label: str, input_chars: int, max_output_tokens: int) -> float:
         """Pre-debit a planned call; raises BudgetExceeded instead of calling."""
         est = self.estimate_cost(input_chars, max_output_tokens)
         projected = self.spent_usd + self.reserved_usd + est
+        ceiling = self.stage_ceiling_usd
+        if ceiling is not None and projected > ceiling:
+            raise BudgetExceeded(
+                f"call '{label}' estimated ${est:.4f}; projected total "
+                f"${projected:.4f} exceeds the {self.stage_label} share "
+                f"${ceiling:.4f} of budget ${self.limit_usd:.2f}"
+            )
         if projected > self.limit_usd:
             raise BudgetExceeded(
                 f"call '{label}' estimated ${est:.4f}; projected total "

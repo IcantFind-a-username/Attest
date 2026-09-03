@@ -93,6 +93,11 @@ def run_verification_stage(
         for candidate in CandidateStore(repo).load(task_id)
         if candidate.action != "discard"
     ]
+    # D-111: reproductions are bought in ranking order, so a shared deadline or
+    # an exhausted budget stops at the *weakest* candidate rather than at
+    # whichever the store happened to hold last. The key is the one C-05
+    # already uses for publication: score first, candidate id to break ties.
+    candidates.sort(key=lambda item: (-item.wealth, item.finding.finding_id))
     eligible_candidates = [c for c in candidates if c.eligibility == "regression"]
     backend_reason = "caller-supplied adapter"
     if adapter is None and eligible_candidates:

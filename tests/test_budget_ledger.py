@@ -802,3 +802,33 @@ def test_auto_tighten_never_relaxes_alpha_below_the_floor(tmp_path: Path) -> Non
         led.record_feedback(finding_id, "wrong")
 
     assert led.maybe_tighten_alpha(0.005, enabled=True) == (0.005, None)
+
+
+def test_discovery_cannot_spend_more_than_its_share_of_the_review_budget() -> None:
+    """D-111: on `d7be758` the proposal stage produced 12 candidates from a
+    210-line change and left nine of eleven reproductions unable to afford a
+    single generation attempt — the budget went to breadth, not to difficulty.
+    Discovery is now capped at PROPOSAL_SHARE of the limit, and what it does
+    not spend stays available to verification."""
+    from attest.review.budget import PROPOSAL_SHARE
+
+    b = Budget(limit_usd=0.25, model=DEFAULT_MODEL)
+    assert PROPOSAL_SHARE == 0.6
+    # 4 samples of 3,200 output tokens each: $0.032 apiece at $10/Mtok
+    with b.stage("proposal", PROPOSAL_SHARE):
+        for i in range(4):
+            b.reserve(f"sample-{i}", 0, 3200)
+        with pytest.raises(BudgetExceeded) as exc:
+            b.reserve("sample-4", 0, 3200)
+    assert "proposal share $0.1500" in exc.value.reason
+    assert "budget $0.25" in exc.value.reason
+    assert b.reserved_usd == pytest.approx(0.128)
+
+    # outside the stage the rest of the budget is still reservable: the share
+    # bounds discovery, it does not shrink the review
+    for i in range(3):
+        b.reserve(f"generation-{i}", 0, 3200)
+    assert b.reserved_usd == pytest.approx(0.224)
+    with pytest.raises(BudgetExceeded) as spent:
+        b.reserve("generation-3", 0, 3200)
+    assert "exceeds budget" in spent.value.reason

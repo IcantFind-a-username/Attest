@@ -1602,3 +1602,73 @@ def test_an_unattempted_certification_names_the_profile_that_actually_ran(
     certification = next(row for row in rows if row["kind"] == "certification")
     assert certification["outcome"] == "not_attempted"
     assert certification["executor_profile"] == backend["profile"]
+
+
+def test_reproductions_are_bought_in_ranking_order(
+    planted_repo: tuple[Path, str, str], github_server: RecordingGitHub
+) -> None:
+    """D-111: verification walked the candidate store in storage order, which
+    is the dedup clustering's (file, line, claim) order and carries no ranking.
+    A shared deadline or an exhausted budget therefore stopped at whichever
+    candidate happened to be last in the file rather than at the weakest one.
+    Reproductions are now attempted best-first, by the same key C-05 already
+    uses to publish: score first, candidate id to break ties."""
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = planted_repo
+    weaker = {
+        "claim": "A missing numeric result aborts availability checks.",
+        "anchor": {"file": "app.py", "line": 5},
+        "failure_scenario": "The service passes no measurements to the helper.",
+        "falsification_plan": "Exercise the no-measurements service path.",
+    }
+    stronger = {
+        "claim": "Empty input divides the batch total by zero.",
+        "anchor": {"file": "app.py", "line": 6},
+        "failure_scenario": "An empty batch reaches a zero divisor.",
+        "falsification_plan": "Run the helper with an empty batch.",
+    }
+
+    class TwoSampleProvider(RecordingProvider):
+        """One sample sees both findings, the other only the stronger one, so
+        the two candidates differ in votes and therefore in wealth. The store
+        order is the opposite of the ranking: line 5 sorts before line 6."""
+
+        def __init__(self) -> None:
+            super().__init__("", '{"test_body":"assert False"}')
+            self._remaining = [_payload(weaker, stronger), _payload(stronger)]
+
+        def sample(
+            self,
+            system: str,
+            prompt: str,
+            schema: dict[str, object],
+            max_tokens: int,
+            *,
+            timeout_s: float | None = None,
+        ) -> ProviderResult:
+            with self._lock:
+                self.calls.append({"system": system, "prompt": prompt})
+                if "focused pytest reproduction" in system:
+                    return ProviderResult(text=self.repro, input_tokens=10, output_tokens=10)
+                payload = self._remaining.pop(0)
+            return ProviderResult(text=payload, input_tokens=10, output_tokens=10)
+
+    provider = TwoSampleProvider()
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        provider,
+    )
+
+    assert result.candidate_count == 2
+    generations = [
+        str(call["prompt"])
+        for call in provider.calls
+        if "focused pytest reproduction" in str(call["system"])
+    ]
+    assert len(generations) == 2, "both eligible candidates should have been attempted"
+    assert str(stronger["claim"]) in generations[0]
+    assert str(weaker["claim"]) in generations[1]
