@@ -629,12 +629,64 @@ def drill_executor_unavailable(workspace: Path) -> Drill:
 
 
 
+def drill_budget_exhaustion(workspace: Path) -> Drill:
+    """The per-review budget is spent. The review must stop with an explicit
+    budget reason before the call it cannot afford, publish nothing, and never
+    truncate an answer to fit."""
+    drill = Drill("budget exhaustion")
+
+    repo = workspace / "budget-exhaustion"
+    repo.mkdir()
+    base_sha, _head_sha = _planted_repo(repo, base_policy=None, head_policy=None)
+    provider = ScriptedProvider()
+    # small enough that the first proposal sample cannot be reserved
+    run = run_review(
+        repo,
+        base_sha,
+        ReviewConfig(k_samples=2, tier0_commands=[], budget_usd=0.000001),
+        provider,
+        verify=True,
+    )
+
+    reason = str(run.deferred_reason)
+    drill.check("the review defers on budget", reason.startswith("budget:"), reason)
+    drill.check("no call was made", provider.calls == 0, f"{provider.calls} call(s)")
+    drill.check("nothing was spent", run.budget.spent_usd == 0.0, f"${run.budget.spent_usd:.6f}")
+    drill.check("nothing is published", not run.published, f"{len(run.published)} published")
+    drill.check("no evidence bundle is written", not _bundles(repo), f"{len(_bundles(repo))}")
+    drill.check(
+        "the reason names the limit it hit",
+        "exceeds budget" in reason or "share" in reason,
+        reason,
+    )
+
+    # negative control: the product default funds the same review to a receipt
+    control = workspace / "budget-exhaustion-control"
+    control.mkdir()
+    control_base, _ = _planted_repo(control, base_policy=None, head_policy=None)
+    control_run = run_review(
+        control,
+        control_base,
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ScriptedProvider(),
+        verify=True,
+        verification_timeout_s=180.0,
+    )
+    drill.check(
+        "negative control: the default budget reaches a receipt",
+        bool(control_run.certified),
+        f"{len(control_run.certified)} certified at ${control_run.budget.spent_usd:.6f}",
+    )
+    return drill
+
+
 DRILLS = {
     "kill-switch": drill_kill_switch,
     "rollback": drill_rollback,
     "revoked-credential": drill_revoked_credential,
     "github-outage": drill_github_outage,
     "executor-unavailable": drill_executor_unavailable,
+    "budget-exhaustion": drill_budget_exhaustion,
 }
 
 
