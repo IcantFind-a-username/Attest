@@ -36,6 +36,19 @@ HEAD_SOURCE = (
     "        self.summary = summary\n"
 )
 
+# the base of the same file: the guard loop is absent, so the two revisions
+# differ in shape and not merely in constant values (D-120 does not fire)
+BASE_SOURCE = (
+    "BANNED = ('buy',)\n"
+    "\n"
+    "class Signal:\n"
+    "    def __init__(self, summary):\n"
+    "        assert isinstance(summary, str), (\n"
+    "            'summary must be text'\n"
+    "        )\n"
+    "        self.summary = summary\n"
+)
+
 TEST_SOURCE = (
     '"""A docstring is prose, never an input."""\n'
     "import mod\n"
@@ -194,6 +207,7 @@ def test_observe_intent_reads_a_consistent_new_rejection(tmp_path: Path) -> None
         path="mod.py",
         changed_lines=(8, 9, 10, 11, 12),
         head_source=HEAD_SOURCE,
+        base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(_origin(),), (_origin(),), (_origin(),)],
         head_failures=[FAILURE] * 3,
@@ -213,6 +227,7 @@ def test_observe_intent_reads_a_consistent_new_rejection(tmp_path: Path) -> None
         path="mod.py",
         changed_lines=(8, 9, 10, 11, 12),
         head_source=HEAD_SOURCE,
+        base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(_origin(),)] * 3,
         head_failures=["AssertionError: assert not raised"] * 3,
@@ -228,6 +243,7 @@ def test_observe_intent_refuses_to_classify_what_it_cannot_read(tmp_path: Path) 
         path="mod.py",
         changed_lines=(10,),
         head_source=HEAD_SOURCE,
+        base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(_origin(),)] * 3,
         base_tree=tmp_path,
@@ -239,6 +255,7 @@ def test_observe_intent_refuses_to_classify_what_it_cannot_read(tmp_path: Path) 
         path="mod.py",
         changed_lines=(10,),
         head_source="def broken(:\n",
+        base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(_origin(),)] * 3,
         base_tree=tmp_path,
@@ -250,6 +267,7 @@ def test_observe_intent_refuses_to_classify_what_it_cannot_read(tmp_path: Path) 
         path="mod.py",
         changed_lines=(13,),
         head_source="",
+        base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(), (), ()],
         base_tree=tmp_path,
@@ -266,6 +284,7 @@ def test_a_caught_or_unrelated_raise_on_a_changed_line_is_not_the_rejection(
         path="mod.py",
         changed_lines=(8, 9, 10, 11, 12),
         head_source=HEAD_SOURCE,
+        base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(_origin(escaped=False),)] * 3,
         head_failures=["AssertionError: assert 1 == 0"] * 3,
@@ -277,6 +296,7 @@ def test_a_caught_or_unrelated_raise_on_a_changed_line_is_not_the_rejection(
         path="mod.py",
         changed_lines=(8, 9, 10, 11, 12),
         head_source=HEAD_SOURCE,
+        base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(_origin(),)] * 3,
         head_failures=["TypeError: unsupported operand"] * 3,
@@ -296,6 +316,7 @@ def test_observe_intent_records_a_regression_and_a_crash_without_a_rejection(
         path="mod.py",
         changed_lines=(13,),
         head_source=HEAD_SOURCE,
+        base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(), (), ()],
         base_tree=tmp_path,
@@ -308,6 +329,7 @@ def test_observe_intent_records_a_regression_and_a_crash_without_a_rejection(
         path="mod.py",
         changed_lines=(13,),
         head_source=HEAD_SOURCE,
+        base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(_origin(line=13, exception_type="AttributeError"),)] * 3,
         base_tree=tmp_path,
@@ -320,6 +342,7 @@ def test_observe_intent_records_a_regression_and_a_crash_without_a_rejection(
         path="mod.py",
         changed_lines=(13,),
         head_source=HEAD_SOURCE,
+        base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(_origin(line=10),)] * 3,
         base_tree=tmp_path,
@@ -333,6 +356,7 @@ def test_observe_intent_refuses_head_runs_that_disagree(tmp_path: Path) -> None:
         path="mod.py",
         changed_lines=(8, 9, 10, 11, 12),
         head_source=HEAD_SOURCE,
+        base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(_origin(),), (), (_origin(),)],
         base_tree=tmp_path,
@@ -343,6 +367,7 @@ def test_observe_intent_refuses_head_runs_that_disagree(tmp_path: Path) -> None:
         path="mod.py",
         changed_lines=(5, 6, 7, 8, 9, 10, 11, 12),
         head_source=HEAD_SOURCE,
+        base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(_origin(),), (_origin(line=5, exception_type="AssertionError"),)],
         base_tree=tmp_path,

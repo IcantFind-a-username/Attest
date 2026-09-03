@@ -3009,6 +3009,82 @@ GUARD_WITNESS = (
     "    assert Signal('the buyback plan raises the floor').summary\n"
 )
 CRASH_MODULE = "def add(a, b):\n    return a + b + [][0]\n"
+VERSION_BASE_MODULE = 'def describe():\n    version = "v2"\n    return {"method_version": version}\n'
+VERSION_HEAD_MODULE = 'def describe():\n    version = "v1"\n    return {"method_version": version}\n'
+VERSION_BODY = (
+    "import mod\n"
+    "\n"
+    "\n"
+    "def test_repro():\n"
+    '    assert mod.describe()["method_version"] == "v2"\n'
+)
+# the same version bump, but the head also drops a branch: real behaviour moved,
+# so the change is not confined to constants and the receipt still certifies
+RETUNE_HEAD_MODULE = (
+    'def describe():\n'
+    '    version = "v1"\n'
+    '    if version:\n'
+    '        return {"method_version": version}\n'
+    '    return {}\n'
+)
+
+
+def test_a_change_confined_to_literal_constants_goes_to_the_drawer(tmp_path: Path) -> None:
+    """D-120: head and base differ only in the value of a string constant and the
+    generated test's assertion pins the value the change removed. The differential
+    holds (head FAIL, base PASS, the changed line executed) but it proves that the
+    author edited a constant, not that the code misbehaves, so it buys no receipt
+    and carries the constant-change label into the drawer."""
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": VERSION_BASE_MODULE}, {"mod.py": VERSION_HEAD_MODULE}
+    )
+    stored = candidate(file="mod.py", line=2)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(VERSION_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert [run.outcome.value for run in result.head_runs] == ["reproduced"] * 3
+    assert [run.outcome.value for run in result.base_runs] == ["not_reproduced"] * 3
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.evidence_class is EvidenceClass.BEHAVIOR_CHANGE
+    assert "constant change confirmed, intent unknown" in result.reason
+    assert "常量改动已证实，意图未知" in result.reason
+    assert "mod.py" not in result.reason and "v2" not in result.reason
+    assert result.binding is not None and 2 in result.binding.executed_changed_lines
+    intent = result.intent
+    assert intent is not None
+    assert intent.constant_only_diff
+    assert intent.asserted_constants == ("'v2'",)
+    assert not intent.new_rejection
+
+
+def test_a_constant_change_that_also_moves_code_still_certifies(tmp_path: Path) -> None:
+    """The negative control for D-120: the same constant edit plus a real change of
+    shape. The anchored change is no longer confined to constant values, so the
+    drawer rule does not fire and the regression certifies as it always did."""
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": VERSION_BASE_MODULE}, {"mod.py": RETUNE_HEAD_MODULE}
+    )
+    stored = candidate(file="mod.py", line=2)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(VERSION_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+    assert result.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    assert result.intent is not None and not result.intent.constant_only_diff
 
 
 def test_a_new_rejection_of_a_fabricated_input_goes_to_the_drawer(tmp_path: Path) -> None:

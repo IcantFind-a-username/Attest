@@ -13,6 +13,13 @@ the base accepted. Such a receipt may publish only when the rejected input is
 attested by the base tree -- it occurs verbatim in the base tree's tests,
 fixtures or documentation examples -- and otherwise goes to the drawer with the
 label "behavior change confirmed, intent unknown". Pure: values in, verdict out.
+
+A second shape reaches the same drawer (D-120): when the anchored file's base
+-> head difference is confined to **literal constant values** -- a version
+string, a tuned constant, changelog copy -- and the failing assertion pins a
+constant the diff removed, the differential proves the author changed a
+constant and nothing else. That is a behaviour change by construction, not a
+regression, and no witness publishes it.
 """
 
 from __future__ import annotations
@@ -21,11 +28,13 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
-INTENT_POLICY_VERSION = "attest.intent.new-rejection.v1"
+INTENT_POLICY_VERSION = "attest.intent.v2"
 EVIDENCE_CLASS_REGRESSION = "regression_reproduced"
 EVIDENCE_CLASS_BEHAVIOR_CHANGE = "behavior_change"
 INTENT_UNKNOWN_LABEL = "behavior change confirmed, intent unknown"
 INTENT_UNKNOWN_LABEL_ZH = "行为变化已证实，意图未知"
+CONSTANT_CHANGE_LABEL = "constant change confirmed, intent unknown"
+CONSTANT_CHANGE_LABEL_ZH = "常量改动已证实，意图未知"
 REJECTING_STATEMENTS = ("raise", "assert")
 
 
@@ -43,6 +52,11 @@ class IntentObservation:
     rejected_inputs: tuple[str, ...]  # test string literals that reached the raising frame
     witnesses: tuple[tuple[str, str], ...]  # (rejected input, base-tree path it occurs in)
     head_runs_observed: int
+    # D-120: the anchored file's base -> head difference is confined to literal
+    # constant values (the constant-erased syntax of the two revisions is equal)
+    constant_only_diff: bool = False
+    # repr() of the constants the diff removed that the generated test asserts on
+    asserted_constants: tuple[str, ...] = ()
 
     def digest(self) -> str:
         return hashlib.sha256(
@@ -52,10 +66,18 @@ class IntentObservation:
         ).hexdigest()
 
 
+def constant_change(observation: IntentObservation) -> bool:
+    """D-120: the diff changed literal constants only, and the failing assertion
+    rests on one the diff removed."""
+    return observation.constant_only_diff and bool(observation.asserted_constants)
+
+
 def evidence_class_for(observation: IntentObservation) -> str:
     """The evidence class the observation supports."""
     return (
-        EVIDENCE_CLASS_BEHAVIOR_CHANGE if observation.new_rejection else EVIDENCE_CLASS_REGRESSION
+        EVIDENCE_CLASS_BEHAVIOR_CHANGE
+        if observation.new_rejection or constant_change(observation)
+        else EVIDENCE_CLASS_REGRESSION
     )
 
 
@@ -71,6 +93,14 @@ def intent_verdict(observation: IntentObservation) -> str | None:
         or observation.origin_line not in observation.changed_lines
     ):
         return "new rejection recorded without a rejecting statement on a changed line"
+    # D-120 precedes the witness rule: when the whole anchored change is a
+    # constant value, no base-tree witness can tell a defect from a retuning.
+    if constant_change(observation):
+        return (
+            f"{CONSTANT_CHANGE_LABEL}: the change to the anchored file is confined to "
+            f"literal constant values and the failing assertion rests on one the change "
+            f"removed ({CONSTANT_CHANGE_LABEL_ZH})"
+        )
     if not observation.new_rejection:
         return None
     # The verdict is what an author reads in the run status and the drawer, so

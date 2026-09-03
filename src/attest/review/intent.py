@@ -1,7 +1,9 @@
 """Observing the intent of a head failure (D-102, tightened after the D-049 review):
 the raise origins the tracer recorded, the statement kind from the head source, the
 rejected inputs from the generated test's literals, and their witnesses in the base
-tree. File reads only: no execution, no model, no repository command.
+tree. D-120 adds one more file read: the base revision of the anchored file, so that a
+change confined to literal constant values can be recognised as such. File reads only:
+no execution, no model, no repository command.
 
 Fail closed at every step: an unreadable or unparsable anchored file, a truncated
 origin record, or head runs that disagree all DEFER instead of classifying.
@@ -26,6 +28,7 @@ MAX_MESSAGE_CHARS = 2_000
 MAX_VALUE_CHARS = 500
 MAX_VALUES = 16
 MIN_LITERAL_CHARS = 2
+MAX_CONSTANTS = 4_000  # bound on the constants read from one revision of one file
 MAX_WITNESS_FILES = 5_000
 MAX_WITNESS_FILE_BYTES = 1_000_000
 MAX_WITNESS_TOTAL_BYTES = 64_000_000
@@ -256,6 +259,65 @@ def find_witnesses(base_tree: Path, literals: tuple[str, ...]) -> tuple[tuple[st
     return tuple(sorted(found.items()))
 
 
+def constant_values(source: str) -> tuple[tuple[str, str], ...] | None:
+    """Every literal constant of ``source`` as (type name, repr), or ``None``
+    when the source cannot be parsed. Docstrings included: a docstring is a
+    constant like any other, and the D-120 rule only ever moves a receipt into
+    the drawer."""
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return None
+    found: set[tuple[str, str]] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and not isinstance(node.value, type(Ellipsis)):
+            found.add((type(node.value).__name__, repr(node.value)[:MAX_VALUE_CHARS]))
+            if len(found) > MAX_CONSTANTS:
+                return None
+    return tuple(sorted(found))
+
+
+class _EraseConstants(ast.NodeTransformer):
+    """Replace every constant's value with its type name, keeping the syntax."""
+
+    def visit_Constant(self, node: ast.Constant) -> ast.Constant:  # noqa: N802 - ast API
+        return ast.copy_location(ast.Constant(value=type(node.value).__name__), node)
+
+
+def constant_erased_syntax(source: str) -> str | None:
+    """``ast.dump`` of ``source`` with every constant value replaced by its type
+    name, or ``None`` when the source cannot be parsed. Two revisions with equal
+    syntax differ only in constant values (and in comments and formatting, which
+    the parse already drops)."""
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return None
+    return ast.dump(ast.fix_missing_locations(_EraseConstants().visit(tree)))
+
+
+def observe_constant_change(
+    *, base_source: str, head_source: str, test_source: str
+) -> tuple[bool, tuple[str, ...]]:
+    """(the anchored change is confined to constant values, the removed constants
+    the generated test asserts on). Fails closed on an unparsable revision by
+    reporting no constant change, which leaves the existing classification alone."""
+    base_syntax = constant_erased_syntax(base_source)
+    head_syntax = constant_erased_syntax(head_source)
+    if base_syntax is None or head_syntax is None or base_syntax != head_syntax:
+        return False, ()
+    base_constants = constant_values(base_source)
+    head_constants = constant_values(head_source)
+    test_constants = constant_values(test_source)
+    if base_constants is None or head_constants is None or test_constants is None:
+        return False, ()
+    removed = set(base_constants) - set(head_constants)
+    if not removed:
+        return False, ()
+    asserted = sorted(value for _kind, value in removed & set(test_constants))
+    return True, tuple(asserted)
+
+
 def failure_type(failure_message: str) -> str:
     """The exception type a JUnit failure message names ("Type: text"), or ""."""
     head = failure_message.split(":", 1)[0].strip() if failure_message else ""
@@ -288,6 +350,7 @@ def observe_intent(
     path: str,
     changed_lines: tuple[int, ...],
     head_source: str,
+    base_source: str,
     test_source: str,
     head_origins: list[tuple[RaiseOrigin, ...]],
     base_tree: Path,
@@ -305,6 +368,16 @@ def observe_intent(
     failures = list(head_failures or [""] * len(head_origins))
     if len(failures) < len(head_origins):
         failures += [""] * (len(head_origins) - len(failures))
+    test_level = all(
+        failure_type(failure).rsplit(".", 1)[-1] in TEST_LEVEL_FAILURES for failure in failures
+    )
+    constant_only, asserted = (
+        observe_constant_change(
+            base_source=base_source, head_source=head_source, test_source=test_source
+        )
+        if test_level
+        else (False, ())
+    )
     kinds = statement_kinds(head_source)
     any_on_changed = any(
         origin.line in changed for origins in head_origins for origin in origins
@@ -335,6 +408,8 @@ def observe_intent(
             rejected_inputs=(),
             witnesses=(),
             head_runs_observed=len(head_origins),
+            constant_only_diff=constant_only,
+            asserted_constants=asserted,
         )
     signatures = {(origin.line, origin.exception_type) for origin in present}
     if len(signatures) != 1:
@@ -357,4 +432,6 @@ def observe_intent(
         rejected_inputs=rejected,
         witnesses=find_witnesses(base_tree, rejected) if rejected else (),
         head_runs_observed=len(head_origins),
+        constant_only_diff=constant_only,
+        asserted_constants=asserted,
     )

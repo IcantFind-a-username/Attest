@@ -25,7 +25,7 @@ from attest.certification.binding import (
     BindingObservation,
     binding_verdict,
 )
-from attest.certification.intent import IntentObservation, intent_verdict
+from attest.certification.intent import IntentObservation, constant_change, intent_verdict
 from attest.execution.controller import Controller, ExecutorAdapter
 from attest.execution.local_adapter import LocalDevelopmentAdapter
 from attest.execution.types import ResourceLimits
@@ -1847,16 +1847,24 @@ def execute_differential(
         # generated test that reached the raising frame -- occurs verbatim in
         # the base tree's tests, fixtures or documentation; otherwise it goes
         # to the drawer with the label "behavior change confirmed, intent unknown".
-        try:
-            head_source = (trees_dir / "head" / candidate.finding.file).read_text(
-                encoding="utf-8", errors="replace"
-            )
-        except OSError:
-            head_source = ""
+        # D-120: independently of the raise origin, a change to the anchored file
+        # confined to literal constant values, with the failing assertion resting
+        # on a constant the change removed, is a constant change and goes to the
+        # same drawer -- no witness publishes it.
+        def _anchored(side: str) -> str:
+            try:
+                return (trees_dir / side / candidate.finding.file).read_text(
+                    encoding="utf-8", errors="replace"
+                )
+            except OSError:
+                return ""
+
+        head_source, base_source = _anchored("head"), _anchored("base")
         observed = observe_intent(
             path=candidate.finding.file,
             changed_lines=changed,
             head_source=head_source,
+            base_source=base_source,
             test_source=spec.test_body,
             head_origins=[run.raise_origins for run in head_runs],
             head_failures=[run.failure_message for run in head_runs],
@@ -1867,7 +1875,7 @@ def execute_differential(
             return deferred(f"intent: {observed}")
         intents.append(observed)
         differential = f"head FAIL {repeats}/{repeats}, base PASS {repeats}/{repeats}"
-        if observed.new_rejection:
+        if observed.new_rejection or constant_change(observed):
             intent_reason = intent_verdict(observed)
             if intent_reason is not None:
                 return deferred(f"intent: {intent_reason}", EvidenceClass.BEHAVIOR_CHANGE)

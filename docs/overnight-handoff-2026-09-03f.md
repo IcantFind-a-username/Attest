@@ -80,10 +80,14 @@ conclusion success ([report](acceptance/2026-09-03-redteam-matrix.md)):
 ## 4b. The gates at the window's end
 
 Local host: `pytest` exit 0 (no deselection; this host's docker has the `python:3.9-slim`
-image cached, so the isolation tests ran), ruff, mypy and `git diff --check` clean. GitHub
-runner: [run 33741200524](https://github.com/IcantFind-a-username/Attest/actions/runs/33741200524)
-at `34a3262` **success** end to end. The runner gate for this line's own tip runs on the push
-that carries it.
+image cached, so the isolation tests ran), ruff, mypy and `git diff --check` clean.
+
+GitHub runner, three consecutive **successes** on this window's pushes — `34a3262` (every
+source change of the window),
+[`5acdd65`](https://github.com/IcantFind-a-username/Attest/actions/runs/33743772117) and
+[`835b996`](https://github.com/IcantFind-a-username/Attest/actions/runs/33743788847), the last
+of them this line's own tip: ruff, mypy, `git diff --check`, **1,776 passed, 9 skipped, 0
+failed** in 19m51s, kernel coverage **91.87%** against the 90% floor.
 
 ## 5. For the owner — three questions, defaults in brackets
 
