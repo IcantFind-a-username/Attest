@@ -71,6 +71,7 @@ class TaskReplay:
     old_published: list[str]
     new_published: list[str]
     old_matches_record: bool
+    recorded_under_new_rule: bool
     unverifiable_dropped: list[str]
 
 
@@ -180,6 +181,12 @@ def replay_clone(clone: Path, unverifiable: set[str], exclude: bool) -> list[Tas
             return sorted(f.accepted_receipt.receipt.candidate_id for f in selection.published)
 
         recorded = sorted(str(x) for x in row["published"])
+        # A row written under publication-policy v2 was produced by the new rule,
+        # so it is the *new* replay that must reproduce it. Validating such a row
+        # against the old rule reports a disagreement that is the decision, not a
+        # replay failure -- and on the E-04 stratum-v2 units that disagreement is
+        # exactly the finding: the old rule publishes nothing there.
+        under_new_rule = str(row.get("schema_version", "")) == "attest.publication-policy.v2"
         out.append(
             TaskReplay(
                 task_id=task_id,
@@ -192,7 +199,10 @@ def replay_clone(clone: Path, unverifiable: set[str], exclude: bool) -> list[Tas
                 record_replay=ids(record),
                 old_published=ids(old),
                 new_published=ids(new),
-                old_matches_record=ids(record) == recorded,
+                old_matches_record=(
+                    ids(new) == recorded if under_new_rule else ids(record) == recorded
+                ),
+                recorded_under_new_rule=under_new_rule,
                 unverifiable_dropped=dropped,
             )
         )
@@ -252,6 +262,7 @@ def main(argv: list[str] | None = None) -> int:
                 "old_published": r.old_published,
                 "new_published": r.new_published,
                 "replayable": r.old_matches_record,
+                "recorded_under_new_rule": r.recorded_under_new_rule,
                 "unverifiable_dropped": r.unverifiable_dropped,
             }
             for r in replays
