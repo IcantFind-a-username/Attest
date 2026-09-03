@@ -78,7 +78,10 @@ Window cap for 2026-09-03g: **$14**. Window cap for 2026-09-04: **$10** (owner i
 
 | 2026-09-04 | `us-stock-helper` Action, the re-run the owner unblocked (decision 3 of 2026-09-04): secret added and [#3](https://github.com/IcantFind-a-username/us-stock-helper/pull/3) merged by the owner, `gh run rerun 33749092145` succeeded and **the Action commented on an outside repository for the first time** — one candidate, eligible, reproduction deferred at collection, 0 certified, 0 published. [Report](docs/acceptance/2026-09-04-us-stock-helper-action-comment.md) | $0.044403 |
 
-**Total API spend: $31.512729 of $45.00.** (66 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+| 2026-09-04 | **numpy fix re-run (owner instruction 4)** — the four `Corum` defect pairs the corpus lost to `blas_thread_init`, re-run at the same `--budget 0.60` (**non-default**) through `linux-container-v1` with the three thread-count variables set (D-123): **7 of 8 verifications reproduced, 7 accepted receipts, 4 published**, against 0 of 9 the day before. [Report](docs/acceptance/2026-09-04-numpy-under-the-thread-cap.md) | $0.404600 |
+| 2026-09-04 | **budget-wall measurement (owner instruction 5)** — `d02`, `d03` and `d16` re-run at **`--budget 1.20`** (**non-default**; the product default is $0.25 and the corpus standard was $0.60), product code frozen at `fc2014f`, cap $8. `BudgetExceeded` falls from 25 of 31 verifications to **0 of 31**; certification goes from 0 of 3 pairs to **3 of 3** (5 receipts); **0 published**, all suppressed by the family threshold. [Report](docs/acceptance/2026-09-04-budget-wall.md) | $2.732400 |
+
+**Total API spend: $34.649729 of $45.00.** (68 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 

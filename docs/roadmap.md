@@ -543,10 +543,15 @@ measured together.
   GitHub runner ([matrix](acceptance/2026-09-03-redteam-matrix.md)). **A pilot has now
   produced a receipt** on real third-party traffic (D-116 pair,
   [report](acceptance/2026-09-03-d114-selfcontained-reproductions.md)) — and published
-  nothing, because the family threshold for nine eligible candidates is 90. Still open:
-  `G-SEC-002`'s remaining fixture classes with an external observer, and the exit condition
-  itself — **no outside repository has ever received an Action comment**
-  ([six conditions](acceptance/2026-09-03-mainline-six-conditions.md), D-119).
+  nothing, because the family threshold for nine eligible candidates is 90. **Mainline §1
+  condition 1 now holds** (2026-09-04): with the owner's secret in place,
+  `us-stock-helper`'s runner installed the Action at `@v0.1.0-pilot.1`, built the production
+  container image, ran a reproduction in it and **posted an author-visible comment** — an
+  abstention, because the generated reproduction did not collect
+  ([report](acceptance/2026-09-04-us-stock-helper-action-comment.md)). Still open:
+  `G-SEC-002`'s remaining fixture classes with an external observer, and conditions 3, 4 and
+  5 ([six conditions](acceptance/2026-09-03-mainline-six-conditions.md), D-119, whose
+  reading of condition 1 is superseded).
 
 ### Mandatory prerequisites
 
