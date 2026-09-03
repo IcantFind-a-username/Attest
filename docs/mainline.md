@@ -56,7 +56,7 @@ pass once at the end, and the roadmap checkbox and a `DECISIONS.md` entry exist.
 | 13 | E-02 held-out | the full protocol on the held-out slice of §3; blind semantic truth, controls, precision, eligible detection | none — numbers | `G-RECALL-002`, `G-MEASURE-004`, `G-CORPUS-001` |
 | 14 | E-01 | natural-null study on the owner's repositories' real recent PRs (no known defect) | none — numbers | `G-NULL-001` |
 | 15 | E-04 | prospective shadow on the owner's live repositories, blind, no publication | none — numbers | `G-SHADOW-001` |
-| 16 | L-01 | stable install ref, quickstart, base-owned policy docs, executor support matrix, privacy/retention, failure-mode copy, kill switch and rollback, private pilot on one outside repository | the quickstart executed verbatim on a fresh clone of an outside repository yields a receipt-backed comment or a documented silence | L-01 exit; §5 decision D |
+| 16 | L-01 | stable install ref, quickstart, base-owned policy docs, executor support matrix, privacy/retention, failure-mode copy, kill switch and rollback, private pilot on one outside repository | the quickstart executed verbatim on a fresh clone of an outside repository yields a receipt-backed comment or a documented silence — **the silence branch is met on nine commits; the receipt branch has never been taken** (D-109) | L-01 exit; §5 decision D |
 
 R-02 (structured-output recovery) is pulled forward between steps 7 and 8 only if the
 step-7 table shows schema/parse failure as the largest loss between "candidates" and
