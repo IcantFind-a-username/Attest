@@ -198,6 +198,26 @@ def dockerfile(
 IMAGE_BUILD_TIMEOUT_S = 1800
 
 
+def _log_tail(raw: str | bytes | None) -> str:
+    """The end of a build log, as text. ``capture_output=True`` leaves the
+    attributes of a ``TimeoutExpired`` as bytes even under ``text=True``, so a
+    tail taken straight from the exception would splice a ``b'...'`` repr into
+    the operator's status line."""
+    if raw is None:
+        return ""
+    text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
+    return text[-1200:]
+
+
+def _bootstrap_failure(version: str, roots: list[ProjectRoot], detail: str) -> BootstrapFailed:
+    """Every way this module fails wears the one sentence `failure-modes.md`
+    promises the operator, so no path out of here is a traceback."""
+    return BootstrapFailed(
+        f"environment bootstrap failed (python {version}, roots "
+        f"{[root.relative or '.' for root in roots]}): {detail}"
+    )
+
+
 def ensure_image(tree: Path, *, docker: str | None = None, rebuild: bool = False) -> ContainerImage:
     """Build (or reuse) the image for ``tree``; raise BootstrapFailed with the
     build log's tail when the environment cannot be constructed."""
@@ -219,15 +239,23 @@ def ensure_image(tree: Path, *, docker: str | None = None, rebuild: bool = False
         return ContainerImage(tag, existing)
     with tempfile.TemporaryDirectory(prefix="attest-image-") as context:
         context_dir = Path(context)
-        (context_dir / "Dockerfile").write_text(
-            dockerfile(version, roots, scm_version), encoding="utf-8"
-        )
-        shutil.copytree(
-            tree,
-            context_dir / "tree",
-            ignore=shutil.ignore_patterns(*_SKIP),
-            symlinks=False,
-        )
+        try:
+            # ``text`` is what the tag digests; writing it (rather than a
+            # second ``dockerfile()`` call) keeps the two from ever diverging
+            (context_dir / "Dockerfile").write_text(text, encoding="utf-8")
+            shutil.copytree(
+                tree,
+                context_dir / "tree",
+                ignore=shutil.ignore_patterns(*_SKIP),
+                symlinks=False,
+            )
+        except OSError as exc:
+            # a dangling symlink raises shutil.Error (an OSError) at the end of
+            # the copy, and a full or unwritable /tmp raises here too: assembling
+            # the context is part of the bootstrap, so it fails like the rest of it
+            raise _bootstrap_failure(
+                version, roots, f"build context could not be assembled: {exc}"
+            ) from exc
         try:
             build = subprocess.run(
                 [
@@ -247,18 +275,17 @@ def ensure_image(tree: Path, *, docker: str | None = None, rebuild: bool = False
         except subprocess.TimeoutExpired as exc:
             # a build that never returns is a bootstrap failure like any other:
             # the operator-facing contract is "environment bootstrap failed …"
-            # in the run status, never a traceback out of backend selection
-            raise BootstrapFailed(
-                f"environment bootstrap failed (python {version}, roots "
-                f"{[root.relative or '.' for root in roots]}): the image build timed out "
-                f"after {IMAGE_BUILD_TIMEOUT_S} s"
+            # in the run status, never a traceback out of backend selection.
+            # The tail names the step that was still running, which is the
+            # difference between "raise the cap" and "this will never install"
+            raise _bootstrap_failure(
+                version,
+                roots,
+                f"the image build timed out after {IMAGE_BUILD_TIMEOUT_S} s: "
+                f"{_log_tail(exc.stderr or exc.stdout)}",
             ) from exc
     if build.returncode != 0:
-        tail = (build.stderr or build.stdout)[-1200:]
-        raise BootstrapFailed(
-            f"environment bootstrap failed (python {version}, roots "
-            f"{[root.relative or '.' for root in roots]}): {tail}"
-        )
+        raise _bootstrap_failure(version, roots, _log_tail(build.stderr or build.stdout))
     digest = image_digest(tag, docker=binary)
     if not digest:
         raise BootstrapFailed(

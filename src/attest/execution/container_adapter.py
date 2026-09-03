@@ -45,6 +45,7 @@ CONTAINER_PATH = "/usr/local/bin:/usr/bin:/bin"
 DEFAULT_PIDS_LIMIT = 16
 DEFAULT_TMPFS_MB = 256
 KILL_GRACE_S = 2.0
+IMAGE_PROBE_TIMEOUT_S = 60
 NPROC_LAUNCHER = (
     "import os, resource, sys; "
     "resource.setrlimit(resource.RLIMIT_NPROC, (0, 0)); "
@@ -71,11 +72,19 @@ def image_digest(reference: str, *, docker: str | None = None) -> str:
     binary = docker or docker_executable()
     if binary is None:
         return ""
-    probe = subprocess.run(
-        [binary, "image", "inspect", "--format", "{{.Id}}", reference],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        probe = subprocess.run(
+            [binary, "image", "inspect", "--format", "{{.Id}}", reference],
+            capture_output=True,
+            text=True,
+            timeout=IMAGE_PROBE_TIMEOUT_S,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        # a daemon that will not answer is *unknown*, which is what '' already
+        # means to both callers: one rebuilds (and a build that cannot reach
+        # the daemon either fails closed with a typed bootstrap failure), the
+        # other raises. Waiting forever is the one answer with no way out.
+        return ""
     if probe.returncode != 0:
         return ""
     return probe.stdout.strip()

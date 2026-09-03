@@ -118,15 +118,111 @@ def test_an_image_build_that_times_out_is_a_bootstrap_failure_not_a_traceback(
 
     from attest.execution import container_images
 
-    def timing_out(*args: object, **kwargs: object) -> object:
-        raise subprocess.TimeoutExpired(cmd=["docker", "build"], timeout=1800)
+    real_run = subprocess.run
+
+    def timing_out(args: object, **kwargs: object) -> object:
+        # only the build: `container_images.subprocess` *is* the stdlib module,
+        # so an unconditional stub would refuse every other subprocess in the
+        # process for the duration of this test
+        if isinstance(args, list) and args[1:2] == ["build"]:
+            raise subprocess.TimeoutExpired(
+                cmd=args, timeout=container_images.IMAGE_BUILD_TIMEOUT_S
+            )
+        return real_run(args, **kwargs)  # type: ignore[arg-type]
 
     monkeypatch.setattr(container_images.subprocess, "run", timing_out)
     monkeypatch.setattr(container_images, "docker_executable", lambda: "/usr/bin/docker")
-    monkeypatch.setattr(container_images, "image_digest", lambda *a, **k: None)
+    monkeypatch.setattr(container_images, "image_digest", lambda *a, **k: "")
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
 
     with pytest.raises(container_images.BootstrapFailed) as caught:
         container_images.ensure_image(tmp_path)
-    assert str(caught.value).startswith("environment bootstrap failed")
+    assert str(caught.value).startswith("environment bootstrap failed (python 3.")
+    assert "roots ['.']" in str(caught.value)
     assert "timed out" in str(caught.value)
+
+
+def test_a_build_context_that_cannot_be_assembled_is_a_bootstrap_failure_not_a_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A dangling symlink anywhere in the tree makes `shutil.copytree` raise
+    `shutil.Error` out of `ensure_image`, so the same crash the timeout fix
+    removed comes back through the line above it: the operator gets a
+    traceback where `failure-modes.md` promises a bootstrap failure."""
+    from attest.execution import container_images
+
+    monkeypatch.setattr(container_images, "docker_executable", lambda: "/usr/bin/docker")
+    monkeypatch.setattr(container_images, "image_digest", lambda *a, **k: "")
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
+    (tmp_path / "broken-link").symlink_to(tmp_path / "no-such-target")
+
+    with pytest.raises(container_images.BootstrapFailed) as caught:
+        container_images.ensure_image(tmp_path)
+    assert str(caught.value).startswith("environment bootstrap failed")
+    assert "build context" in str(caught.value)
+
+
+def test_a_timed_out_build_reports_the_tail_of_its_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`TimeoutExpired` carries what the build printed before it was killed --
+    the only signal naming which step was still running after 30 minutes.
+    The message dropped it, and `capture_output=True` leaves those attributes
+    as *bytes*, so copying the sibling branch would splice a b'...' repr into
+    the operator's status line."""
+    import subprocess
+
+    from attest.execution import container_images
+
+    real_run = subprocess.run
+
+    def timing_out(args: object, **kwargs: object) -> object:
+        if isinstance(args, list) and args[1:2] == ["build"]:
+            raise subprocess.TimeoutExpired(
+                cmd=args,
+                timeout=container_images.IMAGE_BUILD_TIMEOUT_S,
+                output=b"#8 [4/6] RUN pip install -r requirements.txt\n",
+                stderr=b"#8 12.3 Collecting numpy\n",
+            )
+        return real_run(args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(container_images.subprocess, "run", timing_out)
+    monkeypatch.setattr(container_images, "docker_executable", lambda: "/usr/bin/docker")
+    monkeypatch.setattr(container_images, "image_digest", lambda *a, **k: "")
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
+
+    with pytest.raises(container_images.BootstrapFailed) as caught:
+        container_images.ensure_image(tmp_path)
+    message = str(caught.value)
+    assert "Collecting numpy" in message
+    assert "b'" not in message and "b\"" not in message
+
+
+def test_the_image_probe_is_bounded_and_answers_unknown_when_docker_will_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`image_digest` is the only other subprocess on the `select_backend`
+    path and it had no timeout at all: a wedged daemon -- the same condition
+    that makes a build time out -- hung the review forever with no DEFER, no
+    status line and no traceback, which is worse than the crash that was
+    fixed. Unknown is this function's existing contract ('' at both call
+    sites), so a probe that cannot answer must return it."""
+    import subprocess
+
+    from attest.execution import container_adapter
+
+    seen: dict[str, object] = {}
+
+    def refusing(args: object, **kwargs: object) -> object:
+        seen.update(kwargs)
+        raise subprocess.TimeoutExpired(cmd=args, timeout=1.0)
+
+    monkeypatch.setattr(container_adapter.subprocess, "run", refusing)
+    assert container_adapter.image_digest("attest-repro:deadbeef", docker="/usr/bin/docker") == ""
+    assert seen.get("timeout"), "the probe must carry a timeout"
+
+    def missing(args: object, **kwargs: object) -> object:
+        raise OSError(13, "permission denied")
+
+    monkeypatch.setattr(container_adapter.subprocess, "run", missing)
+    assert container_adapter.image_digest("attest-repro:deadbeef", docker="/usr/bin/docker") == ""

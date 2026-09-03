@@ -112,3 +112,16 @@ def test_a_budget_limited_run_says_how_many_units_it_read_of_how_many() -> None:
     assert "read 1 of 13 units, budget-limited" in status.render()
     # a run the budget did not stop keeps the plain wording
     assert "budget-limited" not in status_from_rows(_rows(), "t1").render()
+
+
+def test_a_timed_out_image_build_is_categorised_as_a_bootstrap_failure() -> None:
+    """The timeout reason contains both 'environment bootstrap failed' and
+    'timed out'; only the order of the checks keeps it out of the 'timeout'
+    bucket, which has no row in failure-modes.md and which the operator reads
+    as 'the reproduction timed out' rather than 'the environment could not be
+    built'. Reordering those two lines must fail here."""
+    reason = (
+        "isolation backend unavailable: environment bootstrap failed "
+        "(python 3.10, roots ['.']): the image build timed out after 1800 s"
+    )
+    assert categorise_failure(reason) == "environment bootstrap failed"
