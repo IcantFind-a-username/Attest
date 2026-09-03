@@ -1554,3 +1554,51 @@ def test_a_new_rejection_the_base_tests_attest_publishes_as_a_behavior_change(
     verdict = verify_bundle(mutant)
     assert isinstance(verdict, BundleRejection)
     assert any("intent observation forbids publication" in reason for reason in verdict.reasons)
+
+
+def test_an_unattempted_certification_names_the_profile_that_actually_ran(
+    tmp_path: Path, github_server: RecordingGitHub, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Found on the first GitHub-hosted runner review (PR #8): the runs executed
+    under `linux-container-v1` and the `executor_backend` ledger row said so,
+    but the `certification` row for the same task reported
+    `local_development_best_effort` -- the dataclass default, because the
+    not-attempted path is the one construction that never passes the profile.
+    It buys nothing, so nothing is overclaimed; it is still a ledger row that
+    names the wrong isolation boundary to anyone auditing the run."""
+    from attest.execution.backends import BackendSelection
+    from attest.execution.container_adapter import CONTAINER_PROFILE
+    from attest.execution.local_adapter import LocalDevelopmentAdapter
+    from attest.review import verification as verification_module
+    from attest.review.ci import run_ci
+
+    # the runner's condition without a docker daemon: the runs record the
+    # container profile, so the certification row must not answer with the host
+    class ContainerProfileAdapter(LocalDevelopmentAdapter):
+        profile = CONTAINER_PROFILE
+
+    monkeypatch.setattr(
+        verification_module,
+        "select_backend",
+        lambda tree, *, production: BackendSelection(
+            ContainerProfileAdapter(), CONTAINER_PROFILE, "image attest-repro:testdouble"
+        ),
+    )
+
+    repo, base_sha, head_sha = _guarded_repo(tmp_path, witness=False)
+    provider = RecordingProvider(_guard_finding_payload(), GUARD_REPRO)
+
+    run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    rows = _ledger_rows(repo)
+    backend = next(row for row in rows if row["kind"] == "executor_backend")
+    certification = next(row for row in rows if row["kind"] == "certification")
+    assert certification["outcome"] == "not_attempted"
+    assert certification["executor_profile"] == backend["profile"]

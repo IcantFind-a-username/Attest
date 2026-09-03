@@ -189,6 +189,11 @@ def attempt_certification(
             receipt_digest=None,
             rejection_codes=(),
             finding=None,
+            # the runs' own profile, not the dataclass default: this row buys
+            # nothing, but it is read as the record of where the code ran
+            executor_profile=_single(
+                {run.executor_profile for run in (*execution.head_runs, *execution.base_runs)}
+            ),
         )
 
     all_runs = (*execution.head_runs, *execution.base_runs)
