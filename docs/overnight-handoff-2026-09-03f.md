@@ -1,4 +1,4 @@
-# Handoff — 2026-09-03, sixth window (`ff242ae` → `bf1f679`, plus this line): the generation wall came down, and the family policy held
+# Handoff — 2026-09-03, sixth window (`ff242ae` → `5acdd65`, plus this line): the generation wall came down, and the family policy held
 
 Status: **the three reproductions that had ever really failed now all certify.** Two of them
 publish. The third is the first receipt this product has produced on a real third-party
@@ -76,6 +76,14 @@ conclusion success ([report](acceptance/2026-09-03-redteam-matrix.md)):
   two generation attempts at the generation model's price reserve about $0.18, so a review
   that spends much on discovery may not afford one — the pilot run exhausted $0.60 with six
   reproductions unattempted.
+
+## 4b. The gates at the window's end
+
+Local host: `pytest` exit 0 (no deselection; this host's docker has the `python:3.9-slim`
+image cached, so the isolation tests ran), ruff, mypy and `git diff --check` clean. GitHub
+runner: [run 33741200524](https://github.com/IcantFind-a-username/Attest/actions/runs/33741200524)
+at `34a3262` **success** end to end. The runner gate for this line's own tip runs on the push
+that carries it.
 
 ## 5. For the owner — three questions, defaults in brackets
 
