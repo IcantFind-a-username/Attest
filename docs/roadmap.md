@@ -102,7 +102,7 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | why a generated reproduction is never faithful. Six of six reproductions that have ever executed on real traffic were rejected as unfaithful — three that pass on head, two that fail on base as well, one naming an absent symbol (D-109); until that is understood, more pilot spend buys more of the same silence. Behind it: the seven unimplemented `G-RELEASE-001` drills | privacy/retention is approved (D-107), the kill-switch and rollback drills exist and pass, and the Action has now run on a GitHub-hosted runner (D-108); `G-SEC-002`'s full red-team matrix on the CI platform is the open security item |
+| **NOW** | **an outside repository has never received an Action comment.** Generation was the wall and is no longer one: the self-containment gate (D-114) and the split generation model (D-115) turned the three known real failures into three certified receipts, one of them the first on real third-party traffic. What that receipt did *not* do is publish — nine eligible candidates put the C-05 family threshold at 90 — and mainline §1 condition 1 still has no outside-repository comment behind it ([six conditions](acceptance/2026-09-03-mainline-six-conditions.md)) | all nine `G-RELEASE-001` drills now pass with negative controls, and four `G-SEC-002` fixture classes are marked on the production backend on a GitHub runner; what remains for release is population (conditions 4 and 5) and one outside-repository installation (condition 1) |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
@@ -533,17 +533,20 @@ measured together.
 - [~] **L-01 — release candidate.** Stable install ref (`v0.1.0-pilot.1`), minimal
   quickstart, base-owned policy docs, executor support matrix, privacy/retention policy,
   failure-mode copy, rollback/kill switch, and private-user pilot. The **document and pilot
-  list is done** — private pilot on `IcantFind-a-username/us-stock-helper`, six commits, six
-  documented silences, four wiring fixes
-  ([report](acceptance/2026-09-03-l01-private-pilot.md), D-106). Privacy/retention is
-  **approved** (D-107); the **kill-switch and rollback drills** exist, carry negative
-  controls and pass offline ([record](acceptance/2026-09-03-release-drills.md)); the Action
-  has run once on a **GitHub-hosted runner** (D-108,
-  [report](acceptance/2026-09-03-first-runner-review.md)). Still open for `G-RELEASE-001`:
-  the other **seven** named drills (revoked credential, GitHub outage, executor unavailable,
-  budget exhaustion, superseded pull request, malicious same-repository change, verifier
-  failure), `G-SEC-002`'s red-team matrix on the CI platform, and the exit condition itself
-  — **no pilot has yet produced a receipt**, across nine reviewed commits (D-109).
+  list is done** — private pilot on `IcantFind-a-username/us-stock-helper`
+  ([report](acceptance/2026-09-03-l01-private-pilot.md), D-106); privacy/retention
+  **approved** (D-107); the Action has run on a **GitHub-hosted runner** (D-108,
+  [report](acceptance/2026-09-03-first-runner-review.md)). **All nine `G-RELEASE-001` drills
+  are now implemented and pass** — 56 checks, each with a negative control
+  ([record](acceptance/2026-09-03-release-drills-all-nine.md), D-118) — and four
+  `G-SEC-002` fixture classes are marked and never certified on the production backend on a
+  GitHub runner ([matrix](acceptance/2026-09-03-redteam-matrix.md)). **A pilot has now
+  produced a receipt** on real third-party traffic (D-116 pair,
+  [report](acceptance/2026-09-03-d114-selfcontained-reproductions.md)) — and published
+  nothing, because the family threshold for nine eligible candidates is 90. Still open:
+  `G-SEC-002`'s remaining fixture classes with an external observer, and the exit condition
+  itself — **no outside repository has ever received an Action comment**
+  ([six conditions](acceptance/2026-09-03-mainline-six-conditions.md), D-119).
 
 ### Mandatory prerequisites
 
