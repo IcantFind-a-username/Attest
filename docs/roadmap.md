@@ -102,7 +102,7 @@ These are P0 even though many happy-path tests pass:
 
 | Horizon | Work | Why now |
 |---|---|---|
-| **NOW** | L-01's remaining release evidence: the offline drill script and its tests, and owner approval of the privacy/retention defaults. Steps 1-15 and the L-01 document and private-pilot list are done (D-106) | steps 1-12 and the owner-free L-01 parts are done; every paid run goes through `linux-container-v1`; `G-SEC-002`'s full red-team matrix on the CI platform is the open security item |
+| **NOW** | why a generated reproduction passes on head. Six consecutive executed reproductions across three populations were lost at that one stage (D-109); until that is understood, more pilot spend buys more of the same silence. Behind it: the seven unimplemented `G-RELEASE-001` drills | privacy/retention is approved (D-107), the kill-switch and rollback drills exist and pass, and the Action has now run on a GitHub-hosted runner (D-108); `G-SEC-002`'s full red-team matrix on the CI platform is the open security item |
 | **NEXT** | remaining C/V/X work in dependency order | make receipt-only publication structural, define an authenticated execution channel, and upgrade differential behavior into a real certificate |
 | **PARALLEL AFTER SEAMS** | S-01/S-02 shadow instrumentation | it can collect/log without changing certification once measurement and type boundaries exist |
 | **LATER** | R-*, X-02/X-03, S-03/S-04, E-*, N-01, L-01 | recall, learned scheduling, class-specific new-code research, and release require the safety/instrumentation spine first |
@@ -535,10 +535,15 @@ measured together.
   failure-mode copy, rollback/kill switch, and private-user pilot. The **document and pilot
   list is done** — private pilot on `IcantFind-a-username/us-stock-helper`, six commits, six
   documented silences, four wiring fixes
-  ([report](acceptance/2026-09-03-l01-private-pilot.md), D-106). Still open for
-  `G-RELEASE-001`: the offline drill script (`scripts/release/drill.py --offline --all`) and
-  its release tests, owner approval of the privacy/retention defaults, and `G-SEC-002`'s
-  red-team matrix on the CI platform.
+  ([report](acceptance/2026-09-03-l01-private-pilot.md), D-106). Privacy/retention is
+  **approved** (D-107); the **kill-switch and rollback drills** exist, carry negative
+  controls and pass offline ([record](acceptance/2026-09-03-release-drills.md)); the Action
+  has run once on a **GitHub-hosted runner** (D-108,
+  [report](acceptance/2026-09-03-first-runner-review.md)). Still open for `G-RELEASE-001`:
+  the other **seven** named drills (revoked credential, GitHub outage, executor unavailable,
+  budget exhaustion, superseded pull request, malicious same-repository change, verifier
+  failure), `G-SEC-002`'s red-team matrix on the CI platform, and the exit condition itself
+  — **no pilot has yet produced a receipt**, across nine reviewed commits (D-109).
 
 ### Mandatory prerequisites
 
