@@ -455,6 +455,73 @@ gate still uses intervals; stopping does not turn partial data into a pass.
 **Permitted claim:** “On the preregistered current-code null population, the upper bound was
 X.” It does not prove e-process validity or transfer to all PRs.
 
+**Amendment 2026-09-04 (D-122): the control definition is evidence-based.** The 2026-09-03
+real-traffic corpus chose its controls by what a commit was *about* (a `docs:` or `chore:`
+subject), which is not evidence of anything, and two of them carried real defects. Under the
+amendment a control commit qualifies only when **both** hold, and both are checked
+positively, per file, before any paid call:
+
+1. its committer date is **at least six months** before the measurement date; and
+2. **no later commit reachable from the default branch touches any line it changed.** For
+   every file `f` and every changed hunk `a,b` of `f` in the commit's own tree,
+   `git log -L a,b:f <commit>..HEAD` must name no commit but the candidate itself.
+
+A control that fails either check is dropped, not reclassified. Any later commit disqualifies
+it, whether or not that commit looks like a fix: adjudicating "was that a fix?" is exactly the
+subjective judgement the amendment exists to remove, and the conservative reading only ever
+drops controls. The qualification is recorded per control in the run's immutable trial record
+(the ranges checked, the `git log -L` output length, and the commit dates), and it costs no
+API spend.
+
+**What the amendment buys, and what it costs.** A control now carries positive evidence that
+the code it changed survived six months of the project's own maintenance untouched — the
+nearest thing to "defect-free" that history can supply. It also selects for **cold code**: a
+line nobody has revisited in six months is a line nobody has needed to fix *and* a line nobody
+exercises much. That biases the measured false-publication rate **downward**, and the bias is
+not estimated by the design. Every run under this amendment must therefore report the mean
+eligible candidates per control beside the corpus baseline (2.9 per review on 2026-09-03), so
+a reader can see how quiet the population is.
+
+**Population (owner-authorised 2026-09-04):** the owner's own repositories plus **read-only
+clones of public repositories**, brought in under AGENTS.md §7 — cloned into
+`.attest/corpora/<name>/` at a recorded commit, never a local checkout, and never written to
+(AGENTS.md §8: no comment, issue, pull request or reaction on a repository the owner does not
+own). This removes the ≥30-repository blocker; it does not remove the sample-size floor.
+
+### G-NULL-001a — Affordable current-code natural-null safety
+
+**Applies to:** any run of the amended population that cannot reach `G-NULL-001`'s n.
+
+`G-NULL-001` asks for a 95% upper bound ≤1% on PR-any-wrong-publication. With zero observed
+errors that bound is `1 - 0.05^(1/n)`, so **n ≥ 300 reviews whatever they cost**. At the
+measured unit price of $0.2177 per review (2026-09-03 corpus; $0.1397–$0.3427) that is $65.31,
+above the whole approved cap. No amendment to the *control definition* changes this: the floor
+is arithmetic.
+
+`G-NULL-001a` is therefore a **different and weaker gate**, and passing it is never a pass of
+`G-NULL-001`:
+
+| n reviews | 95% upper bound, 0 errors | at $0.1397 | **at $0.2177** | at $0.3427 |
+|---|---|---|---|---|
+| 60 | 4.87% | $8.38 | **$13.06** | $20.56 |
+| 100 | 2.95% | $13.97 | **$21.77** | $34.27 |
+| 150 | 1.98% | $20.95 | **$32.66** | $51.41 |
+| 200 | 1.49% | $27.94 | **$43.54** | $68.54 |
+| 300 | **0.99%** — `G-NULL-001`'s bound | $41.91 | **$65.31** | $102.81 |
+| 381 | 0.78% — `G-NULL-001` as written | $53.23 | **$82.94** | $130.57 |
+
+**Pass:** the preregistered n is reached with zero wrong publications, every control qualified
+by the amendment's two checks, every trial carrying a replayable evidence bundle, and the
+repo-cluster analysis reported (not passed — it is uninformative below ~10 clusters).
+
+**Safety stop:** unchanged from `G-NULL-001` — a wrong publication stops the run and is
+root-caused before anything else is bought.
+
+**Permitted claim:** “On n preregistered qualified null commits across k repositories, zero
+wrong publications were observed; the 95% upper bound on the per-review wrong-publication rate
+is B%.” It is **not** a release-grade null result, it does not transfer to all pull requests,
+and it may not be reported without B and n in the same sentence.
+
 ### G-CORPUS-001 — Hidden semantic corpus validity
 
 **Applies to:** E-02.

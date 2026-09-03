@@ -27,53 +27,63 @@ file-level rule because one unrelated test fails on both sides.
 
 ## 2. The table
 
-| # | repo | SHA | m | certified | published | certified, below family threshold | backend | spend |
-|---|---|---|---|---|---|---|---|---|
-| c01 (refactor) | Attest | `0d0e098b46` | 0 | 0 | 0 | 0 | — | $0.039151 |
-| c02 (refactor) | us-stock-helper | `ab02a62ac1` | 10 | 1 | 0 | 1 | linux-container-v1 | $0.412134 |
-| c03 (**mis-stratified**) | Attest | `445c5a1e28` | 1 | 1 | 1 | 0 | linux-container-v1 | $0.048866 |
-| c04 (refactor) | us-stock-helper | `1b8cc4aab1` | 5 | 1 | 0 | 1 | linux-container-v1 | $0.405849 |
-| c05 (refactor) | Attest | `506aae1a13` | 5 | 1 | 1 | 0 | linux-container-v1 | $0.416048 |
-| c06 (refactor) | us-stock-helper | `45674d5636` | 3 | 0 | 0 | 0 | linux-container-v1 | $0.440228 |
-| c22 (test-only) | Corum | `80ee1b3957` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.265066 |
-| c23 (test-only) | us-stock-helper | `58bf76382b` | 0 | 0 | 0 | 0 | — | $0.000000 |
-| c25 (test-only) | Corum | `6d03f4cf18` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.185380 |
-| c26 (test-only) | us-stock-helper | `facf699a45` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.067311 |
-| c28 (test-only) | Corum | `bcbf287cce` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.155759 |
-| c29 (test-only) | us-stock-helper | `d1fd50f8b9` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.000000 |
-| c31 (test-only) | us-stock-helper | `e953086c14` | 0 | 0 | 0 | 0 | — | $0.000000 |
-| c33 (test-only) | us-stock-helper | `96487d9014` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.000000 |
-| c35 (test-only) | us-stock-helper | `034b650a1c` | 9 | 0 | 0 | 0 | linux-container-v1 | $0.404390 |
-| c37 (docs-only) | Corum | `666ceafb21` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.108051 |
-| c38 (docs-only) | us-stock-helper | `8687625471` | 0 | 0 | 0 | 0 | — | $0.005305 |
-| c40 (docs-only) | Corum | `044edd5c29` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.161750 |
-| c41 (docs-only) | us-stock-helper | `34b01ce946` | 0 | 0 | 0 | 0 | — | $0.005345 |
-| c43 (docs-only) | Corum | `b34e0896c3` | 0 | 0 | 0 | 0 | — | $0.018281 |
-| c44 (docs-only) | us-stock-helper | `9a68477722` | 0 | 0 | 0 | 0 | — | $0.021322 |
-| c46 (docs-only) | Corum | `c85a8200f7` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.076397 |
-| c47 (docs-only) | us-stock-helper | `aa2a4cff8c` | 0 | 0 | 0 | 0 | — | $0.000000 |
-| c49 (docs-only) | Corum | `29dbc129d1` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.165697 |
-| c50 (docs-only) | us-stock-helper | `fa85b21778` | 0 | 0 | 0 | 0 | — | $0.000000 |
-| d01 (defect) | Attest | `04a86b25a4` | 8 | 0 | 0 | 0 | linux-container-v1 | $0.439458 |
-| d02 (defect) | Attest | `9b610f6a5a` | 8 | 0 | 0 | 0 | linux-container-v1 | $0.450488 |
-| d03 (defect) | Attest | `ad4c5fe1e3` | 14 | 0 | 0 | 0 | linux-container-v1 | $0.451644 |
-| d04 (defect) | Attest | `e0867eb188` | 3 | 0 | 0 | 0 | linux-container-v1 | $0.576727 |
-| d05 (defect) | Attest | `e002bd6679` | 7 | 5 | 0 | 5 | linux-container-v1 | $0.412410 |
-| d06 (defect) | Attest | `260e8d9c51` | 1 | 1 | 1 | 0 | linux-container-v1 | $0.084120 |
-| d07 (defect) | Attest | `17d5c770c7` | 1 | 0 | 0 | 0 | linux-container-v1 | $0.115604 |
-| d08 (defect) | Attest | `7c8de5c624` | 8 | 0 | 0 | 0 | linux-container-v1 | $0.381701 |
-| d09 (defect) | us-stock-helper | `4aa74209ad` | 3 | 3 | 2 | 0 | linux-container-v1 | $0.293391 |
-| d10 (defect) | us-stock-helper | `6c724c1e19` | 2 | 1 | 1 | 0 | linux-container-v1 | $0.203562 |
-| d11 (defect) | us-stock-helper | `fa85b21778` | 4 | 4 | 2 | 0 | linux-container-v1 | $0.380718 |
-| d12 (defect) | us-stock-helper | `07a6946b7f` | 5 | 0 | 0 | 0 | linux-container-v1 | $0.433821 |
-| d13 (defect) | us-stock-helper | `801fb292ce` | 8 | 1 | 0 | 1 | linux-container-v1 | $0.427183 |
-| d14 (defect) | us-stock-helper | `381c0a051c` | — | — | — | — | — | dropped: not qualified |
-| d15 (defect) | us-stock-helper | `8ed78113d1` | 3 | 0 | 0 | 0 | linux-container-v1 | $0.304462 |
-| d16 (defect) | us-stock-helper | `d7be758c2f` | 9 | 0 | 0 | 0 | linux-container-v1 | $0.440577 |
-| d17 (defect) | Corum | `6eba742235` | 2 | 0 | 0 | 0 | linux-container-v1 | $0.259564 |
-| d18 (defect) | Corum | `ba8fddb952` | 4 | 0 | 0 | 0 | linux-container-v1 | $0.113446 |
-| d19 (defect) | Corum | `515998fac1` | 1 | 0 | 0 | 0 | linux-container-v1 | $0.065960 |
-| d20 (defect) | Corum | `5be583d614` | 1 | 0 | 0 | 0 | linux-container-v1 | $0.123258 |
+| # | repo | SHA | m | certified | published | certified, below family threshold | backend | spend | still a control (2026-09-04 rule) |
+|---|---|---|---|---|---|---|---|---|---|
+| c01 (refactor) | Attest | `0d0e098b46` | 0 | 0 | 0 | 0 | — | $0.039151 | **no** — age, not on the tip's history |
+| c02 (refactor) | us-stock-helper | `ab02a62ac1` | 10 | 1 | 0 | 1 | linux-container-v1 | $0.412134 | **no** — age, lines touched since |
+| c03 (**mis-stratified**) | Attest | `445c5a1e28` | 1 | 1 | 1 | 0 | linux-container-v1 | $0.048866 | **no** — age, not on the tip's history |
+| c04 (refactor) | us-stock-helper | `1b8cc4aab1` | 5 | 1 | 0 | 1 | linux-container-v1 | $0.405849 | **no** — age, lines touched since |
+| c05 (refactor) | Attest | `506aae1a13` | 5 | 1 | 1 | 0 | linux-container-v1 | $0.416048 | **no** — age |
+| c06 (refactor) | us-stock-helper | `45674d5636` | 3 | 0 | 0 | 0 | linux-container-v1 | $0.440228 | **no** — age, lines touched since |
+| c22 (test-only) | Corum | `80ee1b3957` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.265066 | **no** — age, not on the tip's history |
+| c23 (test-only) | us-stock-helper | `58bf76382b` | 0 | 0 | 0 | 0 | — | $0.000000 | **no** — age |
+| c25 (test-only) | Corum | `6d03f4cf18` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.185380 | **no** — age |
+| c26 (test-only) | us-stock-helper | `facf699a45` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.067311 | **no** — age, lines touched since |
+| c28 (test-only) | Corum | `bcbf287cce` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.155759 | **no** — age |
+| c29 (test-only) | us-stock-helper | `d1fd50f8b9` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.000000 | **no** — age |
+| c31 (test-only) | us-stock-helper | `e953086c14` | 0 | 0 | 0 | 0 | — | $0.000000 | **no** — age |
+| c33 (test-only) | us-stock-helper | `96487d9014` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.000000 | **no** — age, lines touched since |
+| c35 (test-only) | us-stock-helper | `034b650a1c` | 9 | 0 | 0 | 0 | linux-container-v1 | $0.404390 | **no** — age |
+| c37 (docs-only) | Corum | `666ceafb21` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.108051 | **no** — age, not on the tip's history |
+| c38 (docs-only) | us-stock-helper | `8687625471` | 0 | 0 | 0 | 0 | — | $0.005305 | **no** — age, not on the tip's history |
+| c40 (docs-only) | Corum | `044edd5c29` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.161750 | **no** — age, not on the tip's history |
+| c41 (docs-only) | us-stock-helper | `34b01ce946` | 0 | 0 | 0 | 0 | — | $0.005345 | **no** — age, not on the tip's history |
+| c43 (docs-only) | Corum | `b34e0896c3` | 0 | 0 | 0 | 0 | — | $0.018281 | **no** — age, not on the tip's history |
+| c44 (docs-only) | us-stock-helper | `9a68477722` | 0 | 0 | 0 | 0 | — | $0.021322 | **no** — age, not on the tip's history |
+| c46 (docs-only) | Corum | `c85a8200f7` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.076397 | **no** — age, not on the tip's history |
+| c47 (docs-only) | us-stock-helper | `aa2a4cff8c` | 0 | 0 | 0 | 0 | — | $0.000000 | **no** — age, not on the tip's history |
+| c49 (docs-only) | Corum | `29dbc129d1` | 0 | 0 | 0 | 0 | local_development_best_effort | $0.165697 | **no** — age |
+| c50 (docs-only) | us-stock-helper | `fa85b21778` | 0 | 0 | 0 | 0 | — | $0.000000 | **no** — age |
+| d01 (defect) | Attest | `04a86b25a4` | 8 | 0 | 0 | 0 | linux-container-v1 | $0.439458 | — |
+| d02 (defect) | Attest | `9b610f6a5a` | 8 | 0 | 0 | 0 | linux-container-v1 | $0.450488 | — |
+| d03 (defect) | Attest | `ad4c5fe1e3` | 14 | 0 | 0 | 0 | linux-container-v1 | $0.451644 | — |
+| d04 (defect) | Attest | `e0867eb188` | 3 | 0 | 0 | 0 | linux-container-v1 | $0.576727 | — |
+| d05 (defect) | Attest | `e002bd6679` | 7 | 5 | 0 | 5 | linux-container-v1 | $0.412410 | — |
+| d06 (defect) | Attest | `260e8d9c51` | 1 | 1 | 1 | 0 | linux-container-v1 | $0.084120 | — |
+| d07 (defect) | Attest | `17d5c770c7` | 1 | 0 | 0 | 0 | linux-container-v1 | $0.115604 | — |
+| d08 (defect) | Attest | `7c8de5c624` | 8 | 0 | 0 | 0 | linux-container-v1 | $0.381701 | — |
+| d09 (defect) | us-stock-helper | `4aa74209ad` | 3 | 3 | 2 | 0 | linux-container-v1 | $0.293391 | — |
+| d10 (defect) | us-stock-helper | `6c724c1e19` | 2 | 1 | 1 | 0 | linux-container-v1 | $0.203562 | — |
+| d11 (defect) | us-stock-helper | `fa85b21778` | 4 | 4 | 2 | 0 | linux-container-v1 | $0.380718 | — |
+| d12 (defect) | us-stock-helper | `07a6946b7f` | 5 | 0 | 0 | 0 | linux-container-v1 | $0.433821 | — |
+| d13 (defect) | us-stock-helper | `801fb292ce` | 8 | 1 | 0 | 1 | linux-container-v1 | $0.427183 | — |
+| d14 (defect) | us-stock-helper | `381c0a051c` | — | — | — | — | — | dropped: not qualified | — |
+| d15 (defect) | us-stock-helper | `8ed78113d1` | 3 | 0 | 0 | 0 | linux-container-v1 | $0.304462 | — |
+| d16 (defect) | us-stock-helper | `d7be758c2f` | 9 | 0 | 0 | 0 | linux-container-v1 | $0.440577 | — |
+| d17 (defect) | Corum | `6eba742235` | 2 | 0 | 0 | 0 | linux-container-v1 | $0.259564 | — |
+| d18 (defect) | Corum | `ba8fddb952` | 4 | 0 | 0 | 0 | linux-container-v1 | $0.113446 | — |
+| d19 (defect) | Corum | `515998fac1` | 1 | 0 | 0 | 0 | linux-container-v1 | $0.065960 | — |
+| d20 (defect) | Corum | `5be583d614` | 1 | 0 | 0 | 0 | linux-container-v1 | $0.123258 | — |
+
+**None of the 24 controls is a control under the 2026-09-04 rule** (`G-NULL-001` amendment,
+D-122): a control must be at least six months old and no later commit on the branch tip may
+touch a line it added. **The age check alone drops all 25 rows** — the oldest control commit in
+this corpus is 41 days, and the three repositories' whole histories are 6 days (`Attest`),
+7 days (`Corum`) and 6 weeks (`us-stock-helper`). The "lines touched since" and "not on the
+tip's history" notes are the *second* check, run against each clone's own tip and reported for
+information: 9 of the 25 would have passed it, 5 fail it outright, and for 11 it is undefined
+because the commit sits on an unmerged branch or is newer than the clone. Requalified by
+[`scripts/corpus/qualify_controls.py`](../../scripts/corpus/qualify_controls.py), no model call.
 
 43 reviewed (mis-stratified rows excluded); eligible 124; certified 18; published 7; certified-but-below-threshold 8; spend $9.311558 (mis-stratified spend excluded)
 
