@@ -20,6 +20,14 @@ string, a tuned constant, changelog copy: removed from the anchored file and
 replaced by another of the same type -- the differential proves that the author
 edited a literal and that the test restates the old one. That is a behaviour
 change by construction, not a regression, and no witness publishes it.
+
+A receipt is judged under the policy version **it records**, not under the one
+in force today (D-121). Bumping the version is a promise to future readers of
+the audit chain, not a way to void every receipt already issued: an observation
+written under ``attest.intent.new-rejection.v1`` still names its own fields, its
+own digest and its own rules here, and D-120's constant rule -- which did not
+exist then -- is not applied to it. A version this module does not know still
+fails closed.
 """
 
 from __future__ import annotations
@@ -29,6 +37,7 @@ import json
 from dataclasses import asdict, dataclass
 
 INTENT_POLICY_VERSION = "attest.intent.v2"
+INTENT_POLICY_V1 = "attest.intent.new-rejection.v1"  # D-102, before D-120
 EVIDENCE_CLASS_REGRESSION = "regression_reproduced"
 EVIDENCE_CLASS_BEHAVIOR_CHANGE = "behavior_change"
 INTENT_UNKNOWN_LABEL = "behavior change confirmed, intent unknown"
@@ -59,15 +68,45 @@ class IntentObservation:
     asserted_constants: tuple[str, ...] = ()  # repr() of those constants
 
     def digest(self) -> str:
+        """Over exactly the fields the recorded policy version defines, so that a
+        receipt's digest never moves when a later version adds a field. An
+        unknown version is digested whole; it cannot publish either way."""
+        values = asdict(self)
+        fields = POLICY_FIELDS.get(self.policy_version)
+        if fields is not None:
+            values = {name: values[name] for name in values if name in fields}
         return hashlib.sha256(
             json.dumps(
-                asdict(self), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+                values, sort_keys=True, separators=(",", ":"), ensure_ascii=False
             ).encode("utf-8")
         ).hexdigest()
 
 
+_V1_FIELDS = (
+    "policy_version",
+    "path",
+    "changed_lines",
+    "origin_line",
+    "origin_statement",
+    "exception_type",
+    "new_rejection",
+    "rejected_inputs",
+    "witnesses",
+    "head_runs_observed",
+)
+# The observation each policy version records. v2 adds D-120's two constant
+# fields; a version absent from this table is unknown and never publishes.
+POLICY_FIELDS: dict[str, tuple[str, ...]] = {
+    INTENT_POLICY_V1: _V1_FIELDS,
+    INTENT_POLICY_VERSION: (*_V1_FIELDS, "constant_substitution", "asserted_constants"),
+}
+
+
 def constant_change(observation: IntentObservation) -> bool:
-    """D-120: the failing assertion rests only on constants the change substituted."""
+    """D-120: the failing assertion rests only on constants the change
+    substituted. The rule is v2's; a v1 receipt was never judged by it."""
+    if observation.policy_version != INTENT_POLICY_VERSION:
+        return False
     return observation.constant_substitution and bool(observation.asserted_constants)
 
 
@@ -83,7 +122,7 @@ def evidence_class_for(observation: IntentObservation) -> str:
 def intent_verdict(observation: IntentObservation) -> str | None:
     """None when the receipt may publish under its evidence class; otherwise why
     a behavior-change receipt stays in the drawer."""
-    if observation.policy_version != INTENT_POLICY_VERSION:
+    if observation.policy_version not in POLICY_FIELDS:
         return "unknown intent policy"
     if observation.head_runs_observed < 1:
         return "no head run observed"
