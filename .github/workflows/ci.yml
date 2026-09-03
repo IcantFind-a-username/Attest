@@ -23,7 +23,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      # full history and tags: the M-01 probe test builds a worktree at a fixed
+      # baseline commit, and the rollback drill resolves the documented oldest
+      # install ref (a tag). A shallow checkout has neither.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up Python
         uses: actions/setup-python@v6

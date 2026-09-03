@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -13,7 +14,9 @@ import pytest
 from attest.benchmark.artifacts import canonical_json_bytes, sha256_bytes
 
 ROOT = Path(__file__).parents[2]
-PYTHON = ROOT / ".venv" / "bin" / "python"
+# the interpreter running the gate, whatever it is: a hardcoded `.venv/bin/python`
+# is a host assumption (AGENTS.md §13) and does not exist on a CI runner
+PYTHON = Path(sys.executable)
 PROBE = ROOT / "scripts" / "acceptance" / "m01_offline_measurement_probe.py"
 CASSETTE = ROOT / "benchmarks" / "attest-v2" / "cassettes" / "m01-mixed-5-v1.json"
 BASELINE = "0e58cd61a1a63c51a329d5c1a5509181be32adfa"
