@@ -35,10 +35,12 @@ from attest.execution.provenance import load_or_create_key
 from attest.execution.types import LOCAL_DEVELOPMENT_PROFILE
 from attest.review.candidates import StoredCandidate
 from attest.review.evidence import (
+    BundleRejection,
     WrittenBundle,
     execution_run_from_record,
     provenance_digest,
     run_record,
+    verify_bundle,
     write_bundle,
 )
 from attest.review.executor import (
@@ -289,9 +291,33 @@ def attempt_certification(
         verdict,
         (FindingAnchor(path=candidate.finding.file, line=candidate.finding.line),),
     )
+
+    def refuse(reason: str, code: str) -> CertificationAttempt:
+        """D-124: a receipt the validator accepted but whose evidence bundle
+        cannot be produced or re-verified buys nothing. The finding is dropped
+        here, before any author-visible material exists."""
+        return CertificationAttempt(
+            candidate_id=candidate_id,
+            outcome="rejected",
+            reason=reason,
+            receipt_digest=provenance,
+            rejection_codes=(code,),
+            finding=None,
+            executor_profile=subject.executor_profile,
+        )
+
     bundle = None
     if bundle_root is not None:
         test_bytes = (verification.spec.test_body.rstrip("\n") + "\n").encode("utf-8")
+        # D-124: the bundle's test bytes are the receipt's subject. Writing any
+        # other bytes produces a bundle no offline verifier can accept, so the
+        # mismatch is refused here rather than published and discovered later.
+        if hashlib.sha256(test_bytes).hexdigest() != subject.test_digest:
+            return refuse(
+                "bundle test bytes do not match the receipt's test digest",
+                "bundle_test_digest_mismatch",
+            )
+        key = load_or_create_key(bundle_root)
         bundle = write_bundle(
             bundle_root,
             task=task,
@@ -302,8 +328,21 @@ def attempt_certification(
             runs=[(side, index, run, revision) for side, index, run, revision in sided],
             binding=execution.binding,
             intent=execution.intent,
-            key=load_or_create_key(bundle_root),
+            key=key,
         )
+        # D-124: certification verifies its own output once, offline, exactly as
+        # a reader would. Nothing is author-visible unless that pass accepts.
+        self_check = verify_bundle(bundle.path, key=key, require_seal=True)
+        if not isinstance(self_check, AcceptedReceipt):
+            detail = (
+                "; ".join(self_check.reasons)
+                if isinstance(self_check, BundleRejection)
+                else "; ".join(code.value for code in self_check.codes)
+            )
+            return refuse(
+                f"evidence bundle failed its own offline verification: {detail}",
+                "bundle_self_verification_failed",
+            )
     return CertificationAttempt(
         candidate_id=candidate_id,
         outcome="accepted",

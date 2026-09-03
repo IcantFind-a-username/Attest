@@ -71,3 +71,12 @@ the generation that produced the test. Every run went through `linux-container-v
   did not finish building here inside the window. The fix's evidence is §1's direct container
   reproduction and §3's end-to-end re-run, not a green fixture — stated plainly rather than
   implied.
+
+## Correction, 2026-09-04 (D-124)
+
+One of the seven receipts — `Corum` `a8a27ddfd7` on `d18`, certified and suppressed below the
+family threshold — has an evidence bundle that does not verify offline: its `test_repro.py` is a
+single newline, the first generation's empty output, while the receipt names the test that ran
+([re-verification](2026-09-04-bundle-reverification.md)). Under the fix it would have been
+refused. The corrected count is **6 verifiable receipts, not 7**; **all four published receipts
+verify**, so `0 of 4 pairs → 4 of 4` and `0 → 4 published` are unchanged.

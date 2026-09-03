@@ -218,6 +218,15 @@ def run_verification_stage(
             bundle_root=repo,
         )
         ledger.append(attempt.to_ledger_row(task_id))
+        if (
+            attempt.outcome == "rejected"
+            and attempt.rejection_codes
+            and attempt.rejection_codes[0].startswith("bundle_")
+        ):
+            # D-124: the receipt validated but its bundle did not; that is an
+            # abstention, not a finding, and the author sees the reason
+            verification_defers.append(attempt.reason)
+            reasons[candidate.finding.finding_id] = attempt.reason
         if attempt.finding is not None:
             certified_by_id[candidate.finding.finding_id] = attempt.finding
             if attempt.bundle is not None:

@@ -357,6 +357,11 @@ class DifferentialExecution:
     collection_run: ExecutionResult | None = None  # the collect-only run (V-01)
     binding: BindingObservation | None = None  # changed-line binding (V-02)
     intent: IntentObservation | None = None  # regression or new rejection (D-102)
+    # D-124: the spec whose bytes the recorded runs actually executed. The
+    # collection loop may replace the generated test (D-114), so the caller's
+    # first spec is not in general the one the receipt is about; the evidence
+    # bundle must be written from this one.
+    executed_spec: ReproSpec | None = None
 
 
 @dataclass(frozen=True)
@@ -1658,6 +1663,9 @@ def execute_differential(
             collection_run=collection_runs[-1] if collection_runs else None,
             binding=bindings[0] if bindings else None,
             intent=intents[0] if intents else None,
+            # read at call time: after a D-114 regeneration this is the round's
+            # spec, not the one the caller passed in
+            executed_spec=spec,
         )
 
     def deferred(
@@ -2064,11 +2072,14 @@ def verify_candidate(
         run_evidence=_differential_run_evidence(execution),
         intent=None if execution.intent is None else asdict(execution.intent),
     )
+    # D-124: the differential may have regenerated the test (D-114); the spec
+    # that produced the recorded runs is the only one a receipt is about
+    executed = execution.executed_spec or spec
     if execution.outcome is ExecutionOutcome.DEFERRED:
-        return VerificationRun(execution=execution, gate_result=gate_result, spec=spec)
+        return VerificationRun(execution=execution, gate_result=gate_result, spec=executed)
     verified = apply_verification(
         gate_result,
         candidate.alpha,
         reproduced=execution.outcome is ExecutionOutcome.REPRODUCED,
     )
-    return VerificationRun(execution=execution, gate_result=verified, spec=spec)
+    return VerificationRun(execution=execution, gate_result=verified, spec=executed)

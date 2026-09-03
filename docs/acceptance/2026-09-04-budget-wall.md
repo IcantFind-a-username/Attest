@@ -73,6 +73,12 @@ complete where the run log's tail is not.
 $1.20, `BudgetExceeded` appears **zero** times, against 25 of 31 at $0.60. Nothing else was
 changed.
 
+> **Correction, 2026-09-04 (D-124).** One of the five receipts at $1.20 — `Attest` `b89a422892`
+> on `d03` — has an evidence bundle that does not verify offline
+> ([re-verification](2026-09-04-bundle-reverification.md)). Under the fix it would have been
+> refused, so the $1.20 row is **4 verifiable receipts, not 5**. What the paper is about is
+> unchanged: 0 at $0.60 against 4 at $1.20, 3 of 3 pairs certifying, and 0 published either way.
+
 **Certification rate, on these pairs: 0 of 3 → 3 of 3.** Five accepted receipts appear where
 there had been none. No review exhausted its budget ($0.7532, $1.0338 and $0.9454 of $1.20),
 so $1.20 is a ceiling with room, not a new wall.
