@@ -40,7 +40,9 @@ class Budget:
     calls: list[dict[str, Any]] = field(default_factory=list)
     stage_label: str = ""  # the stage whose share is in force, "" for none
     stage_ceiling_usd: float | None = None
-    _prices: dict[str, float] = field(default_factory=dict)
+    # model id -> its price table; one review may buy from more than one model
+    # (D-115: proposals on the default, reproductions on the generation model)
+    _prices: dict[str, dict[str, float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if (
@@ -50,25 +52,38 @@ class Budget:
             or self.limit_usd <= 0
         ):
             raise ValueError("budget limit must be a finite positive number")
+        self.prices(self.model)
+
+    def prices(self, model: str | None = None) -> dict[str, float]:
+        """The price table for ``model``; the budget's own model by default.
+
+        An unpriced model raises here rather than being charged at another
+        model's rate: a cost the ledger cannot justify is not a cost.
+        """
+        name = model or self.model
+        cached = self._prices.get(name)
+        if cached is not None:
+            return cached
         pricing = load_pricing()
         try:
-            m = pricing["models"][self.model]
+            m = pricing["models"][name]
         except KeyError:
-            raise ValueError(f"no pricing for model {self.model!r}") from None
-        self._prices = {
+            raise ValueError(f"no pricing for model {name!r}") from None
+        table = {
             "in": float(m["input_per_mtok"]) / 1e6,
             "out": float(m["output_per_mtok"]) / 1e6,
         }
-        self._prices["cache_write"] = self._prices["in"] * float(
-            pricing.get("cache_write_multiplier", 1.25)
-        )
-        self._prices["cache_read"] = self._prices["in"] * float(
-            pricing.get("cache_read_multiplier", 0.10)
-        )
+        table["cache_write"] = table["in"] * float(pricing.get("cache_write_multiplier", 1.25))
+        table["cache_read"] = table["in"] * float(pricing.get("cache_read_multiplier", 0.10))
+        self._prices[name] = table
+        return table
 
-    def estimate_cost(self, input_chars: int, max_output_tokens: int) -> float:
+    def estimate_cost(
+        self, input_chars: int, max_output_tokens: int, model: str | None = None
+    ) -> float:
+        prices = self.prices(model)
         in_tokens = input_chars / CHARS_PER_TOKEN
-        return in_tokens * self._prices["in"] + max_output_tokens * self._prices["out"]
+        return in_tokens * prices["in"] + max_output_tokens * prices["out"]
 
     @contextmanager
     def stage(self, label: str, share: float) -> Iterator[None]:
@@ -84,9 +99,15 @@ class Budget:
         finally:
             self.stage_label, self.stage_ceiling_usd = previous
 
-    def reserve(self, label: str, input_chars: int, max_output_tokens: int) -> float:
+    def reserve(
+        self,
+        label: str,
+        input_chars: int,
+        max_output_tokens: int,
+        model: str | None = None,
+    ) -> float:
         """Pre-debit a planned call; raises BudgetExceeded instead of calling."""
-        est = self.estimate_cost(input_chars, max_output_tokens)
+        est = self.estimate_cost(input_chars, max_output_tokens, model)
         projected = self.spent_usd + self.reserved_usd + est
         ceiling = self.stage_ceiling_usd
         if ceiling is not None and projected > ceiling:
@@ -112,20 +133,23 @@ class Budget:
         *,
         cache_creation_input_tokens: int = 0,
         cache_read_input_tokens: int = 0,
+        model: str | None = None,
     ) -> float:
         """Replace a reservation with actual usage-based cost. ``input_tokens``
         is the uncached remainder; cache writes and reads are priced apart."""
+        prices = self.prices(model)
         actual = (
-            input_tokens * self._prices["in"]
-            + cache_creation_input_tokens * self._prices["cache_write"]
-            + cache_read_input_tokens * self._prices["cache_read"]
-            + output_tokens * self._prices["out"]
+            input_tokens * prices["in"]
+            + cache_creation_input_tokens * prices["cache_write"]
+            + cache_read_input_tokens * prices["cache_read"]
+            + output_tokens * prices["out"]
         )
         self.reserved_usd = max(0.0, self.reserved_usd - reserved)
         self.spent_usd += actual
         self.calls.append(
             {
                 "label": label,
+                "model": model or self.model,
                 "input_tokens": input_tokens,
                 "cache_creation_input_tokens": cache_creation_input_tokens,
                 "cache_read_input_tokens": cache_read_input_tokens,

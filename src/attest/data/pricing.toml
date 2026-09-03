@@ -2,6 +2,10 @@
 # Data file: model identifiers here are configuration, not code.
 
 default_model = "claude-sonnet-5"
+# owner decision 2 (2026-09-03f): the reproduction generator runs on the larger
+# model, proposals stay on the default. On the one comparable case this turned
+# zero receipts into two; it is the generation stage only, and n = 1.
+generation_model = "claude-opus-5"
 # prompt-cache pricing relative to the input price (owner instruction 3, 2026-09-03):
 # a cache write costs 1.25x the input price, a cache read 0.1x
 cache_write_multiplier = 1.25

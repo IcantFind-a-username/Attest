@@ -43,6 +43,7 @@ from attest.review.schema import Finding
 VerifyWithDefaults = Callable[..., VerificationRun]
 
 DEFAULT_MODEL = str(load_pricing()["default_model"])
+GENERATION_MODEL = str(load_pricing()["generation_model"])
 GOOD_MODULE = "def add(a, b):\n    return a + b\n"
 BUGGY_MODULE = "def add(a, b):\n    return a - b\n"
 DIFFERENTIAL_BODY = "import mod\n\ndef test_repro():\n    assert mod.add(2, 2) == 4"
@@ -3231,3 +3232,54 @@ def test_a_stdlib_module_sharing_the_anchored_basename_is_not_a_shadow(tmp_path:
     assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
     assert result.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
     assert all(run.import_origins == () for run in result.head_runs)
+
+
+def test_the_reproduction_generator_runs_on_its_own_model_and_is_priced_there(
+    tmp_path: Path,
+) -> None:
+    """D-115: proposals rank, the reproduction is the evidence, and the two need
+    not be answered by the same model. The generation call carries the
+    generation model and settles at that model's price; a call charged at
+    another model's rate is a cost the ledger cannot justify."""
+
+    class ModelRecordingProvider:
+        supports_cache_control = True
+        supports_model_override = True
+
+        def __init__(self) -> None:
+            self.models: list[str] = []
+
+        def sample(
+            self,
+            system: str,
+            prompt: str,
+            schema: dict[str, Any],
+            max_tokens: int,
+            *,
+            timeout_s: float | None = None,
+            shared_prefix: str = "",
+            on_first_token: Callable[[], None] | None = None,
+            shared_system: str = "",
+            model: str = "",
+        ) -> ProviderResult:
+            self.models.append(model)
+            return ProviderResult(
+                text=json.dumps({"test_body": DIFFERENTIAL_BODY}),
+                input_tokens=1_000_000,
+                output_tokens=0,
+            )
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_anchor_file(repo)
+    provider = ModelRecordingProvider()
+    budget = Budget(limit_usd=10.0, model=DEFAULT_MODEL)
+
+    generate_repro(repo, candidate(), provider, budget, model=GENERATION_MODEL)
+
+    prices = load_pricing()["models"]
+    assert GENERATION_MODEL != DEFAULT_MODEL
+    assert provider.models == [GENERATION_MODEL]
+    assert budget.calls[-1]["model"] == GENERATION_MODEL
+    assert budget.spent_usd == pytest.approx(float(prices[GENERATION_MODEL]["input_per_mtok"]))
+    assert budget.spent_usd != pytest.approx(float(prices[DEFAULT_MODEL]["input_per_mtok"]))

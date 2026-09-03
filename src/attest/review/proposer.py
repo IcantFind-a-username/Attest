@@ -111,6 +111,7 @@ def call_provider(
     shared_prefix: str = "",
     on_first_token: FirstTokenCallback | None = None,
     shared_system: str = "",
+    model: str = "",
 ) -> ProviderResult:
     """One provider call. A provider that understands prompt caching gets the
     shared prefix (the cacheable head of the user prompt), the first-token
@@ -119,6 +120,13 @@ def call_provider(
     provider gets the plain call with the shared block folded into the
     system text."""
     if getattr(provider, "supports_cache_control", False):
+        # D-115: a role may be answered by a model other than the review's, and
+        # only a provider that says it understands the override is given one
+        override = (
+            {"model": model}
+            if model and getattr(provider, "supports_model_override", False)
+            else {}
+        )
         return provider.sample(  # type: ignore[call-arg]
             system,
             prompt,
@@ -128,6 +136,7 @@ def call_provider(
             shared_prefix=shared_prefix,
             on_first_token=on_first_token,
             shared_system=shared_system,
+            **override,
         )
     folded = f"{shared_system}\n\n{system}" if shared_system else system
     if timeout_s is None:
@@ -208,6 +217,7 @@ class ApiProvider:
     """
 
     supports_cache_control = True
+    supports_model_override = True
 
     def __init__(self, model: str, timeout: float = 120.0):
         self.model = model
@@ -235,7 +245,9 @@ class ApiProvider:
         shared_prefix: str = "",
         on_first_token: FirstTokenCallback | None = None,
         shared_system: str = "",
+        model: str = "",
     ) -> ProviderResult:
+        requested = model or self.model
         cache_control = {"type": "ephemeral"}
         content: list[dict[str, Any]]
         if shared_prefix and prompt.startswith(shared_prefix):
@@ -254,14 +266,14 @@ class ApiProvider:
             )
         system_blocks.append({"type": "text", "text": system, "cache_control": cache_control})
         arguments: dict[str, Any] = {
-            "model": self.model,
+            "model": requested,
             "max_tokens": max_tokens,
             "system": system_blocks,
             "messages": [{"role": "user", "content": content}],
             "output_config": {"format": {"type": "json_schema", "schema": schema}},
             "timeout": self.timeout if timeout_s is None else timeout_s,
         }
-        for key, value in thinking_arguments(self.model).items():
+        for key, value in thinking_arguments(requested).items():
             if key == "output_config":
                 arguments["output_config"].update(value)
             else:

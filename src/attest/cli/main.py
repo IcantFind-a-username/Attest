@@ -117,8 +117,11 @@ def cmd_ci(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     # the model is a protected field: the provider is built before the base
-    # policy is read, so the Action input (or factory default) always wins
+    # policy is read, so the Action input (or factory default) always wins. The
+    # generation model travels with it -- a head that could name it could point
+    # the reproduction stage at an unpriced model.
     overrides["model"] = protected.model
+    overrides["generation_model"] = protected.generation_model
 
     provider: Provider
     if args.mock is not None:

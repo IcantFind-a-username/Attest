@@ -15,6 +15,10 @@ def test_factory_defaults() -> None:
     assert c.k_samples == 5
     assert c.max_findings == 3
     assert c.model == load_pricing()["default_model"]
+    # D-115: the reproduction generator has its own model, also from the
+    # versioned pricing table, and it is not the proposal model
+    assert c.generation_model == load_pricing()["generation_model"]
+    assert c.generation_model != c.model
 
 
 def test_config_validation() -> None:

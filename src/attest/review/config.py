@@ -31,6 +31,8 @@ class ReviewConfig:
     alpha: float = 0.1
     budget_usd: float = 0.25  # hard cap per review; over-limit -> explicit DEFER
     model: str = ""  # empty -> pricing.toml default_model
+    # the reproduction generator's model; empty -> pricing.toml generation_model
+    generation_model: str = ""
     k_samples: int = 5
     max_findings: int = 3  # formal findings cap (formatting only, not a gate)
     auto_tighten_alpha: bool = True
@@ -49,6 +51,8 @@ class ReviewConfig:
         validate_review_config(self)
         if not self.model:
             self.model = str(load_pricing()["default_model"])
+        if not self.generation_model:
+            self.generation_model = str(load_pricing().get("generation_model", self.model))
 
 
 def validate_review_config(config: ReviewConfig) -> None:
@@ -93,6 +97,7 @@ _KNOWN_POLICY_KEYS = {
     "alpha",
     "budget_usd",
     "model",
+    "generation_model",
     "k_samples",
     "max_findings",
     "auto_tighten_alpha",

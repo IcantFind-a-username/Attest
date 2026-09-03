@@ -157,6 +157,7 @@ def _review_run_entry(
         "elapsed_s": round(elapsed_s, 2),
         "spend_usd": round(budget.spent_usd, 6),
         "model": config.model,
+        "generation_model": config.generation_model,
         "alpha": alpha,
         "files": files,
     }

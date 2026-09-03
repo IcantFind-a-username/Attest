@@ -763,6 +763,7 @@ def generate_repro(
     timeout_s: float | None = None,
     base_ref: str | None = None,
     shared_system: str = "",
+    model: str = "",
 ) -> ReproSpec:
     prompt = _generation_prompt(repo, candidate, base_ref)
     labels = [
@@ -777,6 +778,7 @@ def generate_repro(
                     label,
                     len(GENERATOR_SYSTEM) + len(prompt),
                     REPRO_MAX_OUTPUT_TOKENS,
+                    model or None,
                 )
             )
     except Exception:
@@ -798,6 +800,7 @@ def generate_repro(
                 timeout_s=timeout_s,
                 shared_prefix=prompt,
                 shared_system=shared_system,
+                model=model,
             )
         except Exception:
             for unused in reservations[index:]:
@@ -810,6 +813,7 @@ def generate_repro(
             result.output_tokens,
             cache_creation_input_tokens=result.cache_creation_input_tokens,
             cache_read_input_tokens=result.cache_read_input_tokens,
+            model=model or None,
         )
         if result.text is None:
             # the honest reason travels as-is: stop reason and block types,
@@ -1944,6 +1948,7 @@ def verify_candidate(
     clock: Callable[[], float] = time.monotonic,
     adapter: ExecutorAdapter | None = None,
     shared_system: str = "",
+    generation_model: str = "",
 ) -> VerificationRun:
     started = time.monotonic()
     resolved_base = _resolve_commit(repo, base_sha)
@@ -1988,6 +1993,7 @@ def verify_candidate(
                 timeout_s=remaining,
                 base_ref=resolved_base,
                 shared_system=shared_system,
+                model=generation_model,
             )
 
         try:
