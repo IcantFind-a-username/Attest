@@ -1,4 +1,4 @@
-# Handoff — 2026-09-03, seventh window (`d3ec1b8` → this line): the corpus ran, and it found the corpus
+# Handoff — 2026-09-03, seventh window (`d3ec1b8` → `e2c15f4`, plus this line): the corpus ran, and it found the corpus
 
 Status: **the product certified real defects in a repository it does not own, and the run
 stopped twice on its own stop rule — both times because the *corpus* was wrong, not the
