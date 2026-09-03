@@ -282,6 +282,13 @@ direct presentation calls.
 prevents publication. S/T/Core alone produce zero findings at alpha .15, .4, or any allowed
 value. A true fixture still publishes through the receipt path.
 
+**Amended 2026-09-04 (D-124).** An accepted receipt is not enough: the **evidence bundle it is
+written to must itself pass the shipped offline verifier**, seal included, before anything is
+author-visible. The gate was structurally satisfied while four bundles on this host — one of
+them published — carried a `test_repro.py` that was not the test the runs executed, because
+nothing ever ran the verifier on the product's own output. The self-check closes that: a bundle
+that does not verify buys a DEFER carrying the verifier's own reasons, never a finding.
+
 **Fail/stop:** any bypass is P0 and blocks all recall/scheduler release work.
 
 ### G-CERT-002 — Merge-base and base-owned policy
@@ -318,6 +325,16 @@ findings stay private with reasons; permutation/tie tests are deterministic; ben
 reports PR-any-wrong exposure.
 
 **Fail:** a fourth claim is visible anywhere, or max-findings remains layout-only.
+
+**Amended 2026-09-04 (D-125).** The family is the **change unit** — the changed file the
+candidate's anchor names — not the pull request: a certified finding publishes at
+`e >= m_u / alpha` for the `m_u` eligible candidates in its own unit. The guarantee is therefore
+`alpha` **within a unit**, and `hard_cap * alpha` across a pull request, since at most the hard
+cap is ever author-visible. The hard cap, `alpha`, the likelihood ratio and `K` are unchanged.
+The unit definition lives alone in `attest/certification/units.py` behind
+`CHANGE_UNIT_POLICY_VERSION`; each ledger row records `eligible_units` and the `unit_thresholds`
+applied, so a row says which rule produced it. Permutation and tie determinism are unchanged and
+are re-checked over the unit partition itself.
 
 ## 8. Semantic receipt gates
 

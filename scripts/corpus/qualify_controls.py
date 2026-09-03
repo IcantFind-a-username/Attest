@@ -130,7 +130,13 @@ _BLAME_CACHE: dict[tuple[str, str, str], Counter[str]] = {}
 
 def _blamed_line_counts(repo: Path, path: str, tip: str) -> Counter[str] | None:
     """Commit -> number of lines of ``path`` at ``tip`` blamed to it, or None
-    when the path is gone at the tip."""
+    when the path is gone at the tip.
+
+    ``--incremental`` rather than ``--line-porcelain``: the same attribution,
+    one header line per contiguous run instead of per line, and none of the file
+    content. On a three-thousand-line module with three thousand commits of
+    history that is the difference between megabytes of output and kilobytes.
+    """
     key = (str(repo), tip, path)
     cached = _BLAME_CACHE.get(key)
     if cached is not None:
@@ -139,20 +145,41 @@ def _blamed_line_counts(repo: Path, path: str, tip: str) -> Counter[str] | None:
     if not listing:
         return None
     counts: Counter[str] = Counter()
-    for line in git(repo, "blame", "--line-porcelain", tip, "--", path).splitlines():
-        head = line.split(" ", 1)[0]
-        if len(head) == 40 and all(c in "0123456789abcdef" for c in head):
-            counts[head] += 1
+    for line in git(repo, "blame", "--incremental", tip, "--", path).splitlines():
+        head = line.split(" ")
+        if len(head) == 4 and len(head[0]) == 40 and all(c in "0123456789abcdef" for c in head[0]):
+            counts[head[0]] += int(head[3])
     _BLAME_CACHE[key] = counts
     return counts
 
 
-def surviving_lines(repo: Path, sha: str, path: str, tip: str) -> tuple[int, str]:
+def _later_commits_touching(repo: Path, sha: str, path: str, tip: str) -> int:
+    """How many commits between ``sha`` and ``tip`` touched ``path`` at all.
+
+    Zero is the cheap sufficient condition for "untouched": if nothing later
+    changed the file, nothing later changed a line the commit added, and no
+    blame is needed. On cold code -- which is what this rule selects -- that is
+    the common case, and blame is the entire cost of the screen.
+    """
+    out = git(repo, "rev-list", "--count", f"{sha}..{tip}", "--", path).strip()
+    return int(out or "0")
+
+
+def surviving_lines(
+    repo: Path, sha: str, path: str, tip: str, *, added: int | None = None
+) -> tuple[int, str]:
     """How many lines of ``path`` at ``tip`` are still blamed to ``sha``.
 
     A file that no longer exists at the tip is not a survivor: something removed
-    or renamed it, which is exactly what disqualifies the control.
+    or renamed it, which is exactly what disqualifies the control. With ``added``
+    given, a file no later commit touched at all short-circuits: every added line
+    necessarily survives, and the expensive blame is skipped.
     """
+    if added is not None and _later_commits_touching(repo, sha, path, tip) == 0:
+        listing = git(repo, "ls-tree", "-r", "--name-only", tip, "--", path).strip()
+        if not listing:
+            return 0, "the file does not exist at the branch tip"
+        return added, ""
     counts = _blamed_line_counts(repo, path, tip)
     if counts is None:
         return 0, "the file does not exist at the branch tip"
@@ -194,17 +221,42 @@ def qualify(
         if not _reachable(repo, sha, tip):
             verdict.error = f"not reachable from {tip}"
             return verdict
+        # Two passes, same verdict, very different cost. The cheap pass answers
+        # two questions with git plumbing alone: is the file still at the tip
+        # (gone means disqualified outright), and did any later commit touch it
+        # (none means every added line necessarily survives). Only a file that is
+        # both still present and touched afterwards needs a blame, and on an
+        # actively maintained repository a deleted changelog disqualifies the
+        # commit before a single blame is paid for.
+        needs_blame: list[tuple[str, int]] = []
+        disqualified = False
         for path in changed_text_files(repo, sha):
             added = added_lines(repo, sha, path)
             if added == 0:
                 continue
-            survived, reason = surviving_lines(repo, sha, path, tip)
-            file_verdict = FileVerdict(path, added, survived, reason)
-            verdict.files.append(file_verdict)
-            if early_stop and not file_verdict.untouched:
-                # one touched file disqualifies; the rest cannot change that
-                verdict.truncated = True
-                break
+            if not git(repo, "ls-tree", "-r", "--name-only", tip, "--", path).strip():
+                verdict.files.append(
+                    FileVerdict(path, added, 0, "the file does not exist at the branch tip")
+                )
+                disqualified = True
+                if early_stop:
+                    verdict.truncated = True
+                    break
+                continue
+            if _later_commits_touching(repo, sha, path, tip) == 0:
+                verdict.files.append(FileVerdict(path, added, added))
+                continue
+            needs_blame.append((path, added))
+        if not (disqualified and early_stop):
+            # smallest first: a cheap blame that disqualifies saves an expensive one
+            needs_blame.sort(key=lambda item: item[1])
+            for path, added in needs_blame:
+                survived, reason = surviving_lines(repo, sha, path, tip)
+                file_verdict = FileVerdict(path, added, survived, reason)
+                verdict.files.append(file_verdict)
+                if early_stop and not file_verdict.untouched:
+                    verdict.truncated = True
+                    break
     except RuntimeError as exc:
         verdict.error = str(exc)
     return verdict
