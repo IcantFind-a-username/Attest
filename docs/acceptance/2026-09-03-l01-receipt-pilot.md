@@ -84,9 +84,12 @@ this repository (six in the 2026-09-03c pilot, two here, one stopped). Every
 refusal so far has been either "no eligible candidate", "unfaithful test", or
 "budget".
 
-The recurring finding, now on a second population: **generated tests that pass
-on head.** Three of three executed reproductions here, one of one in the
-2026-09-03c pilot, one on the runner, and one on `pytest-10051` — six
-consecutive reproductions across three populations lost at the same stage. That
-is the concentration to attack next, and it is a measurement question (why does
-generation produce a non-discriminating test?), not a budget one.
+The recurring finding, now on a second population: **no generated reproduction
+has ever been judged faithful on real traffic.** Six of six across four
+populations, by three different reasons — three here (`pytest passed on head in
+3/3 runs`), two elsewhere (`fails on base as well`, on the runner review and on
+`pytest-10051`), one in the 2026-09-03c pilot (`references a symbol absent from
+head`). n = 6 is small and these are not one failure mode; what they share is
+the stage. That is the concentration to attack next, and it is a measurement
+question — why does generation produce a test that does not discriminate the
+two sides? — not a budget one.
