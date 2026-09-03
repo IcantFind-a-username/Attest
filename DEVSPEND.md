@@ -59,8 +59,9 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-03 | E-04 prospective shadow, stratum v1: 2 prospective units (Attest `19920c6`, `5fc03fa`; the other three authorized repositories had no push after the freeze), K=4, $0.25 per unit, local review path; 22 candidates, 0 eligible (10 non-Python anchors, 12 new-code), 0 reproductions, 0 shadow findings | $0.169422 |
 | 2026-09-03 | L-01 private pilot, set 1: the quickstart run verbatim from a fresh clone at `v0.1.0-pilot.1` on the three most recent `main` commits of `us-stock-helper`; 9 candidates, 0 eligible, 0 reproductions, 0 publications, three documented silences | $0.107000 |
 | 2026-09-03 | L-01 private pilot, set 2: the same, on the three most recent non-merge commits by date; 15 candidates, 1 eligible, 1 containerised reproduction (DEFERred as unfaithful), 0 publications, three documented silences | $0.170200 |
+| 2026-09-03 | first GitHub-hosted runner review: PR #8 on this repository, run 33715576314, K=4, budget $0.25, linux-container-v1 on the runner; 1 candidate, 1 eligible, 1 reproduction, 0 certified, 0 published (unfaithful generated test) | $0.030100 |
 
-**Total API spend: $20.210174 of $30.00.** (52 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
+**Total API spend: $20.240274 of $30.00.** (53 entries; every phase-3 acceptance workflow run is auto-logged individually by scripts/acceptance/phase3.py.)
 
 ## Reservations (pre-charged against the cap; settled into the table above on completion)
 
@@ -85,7 +86,7 @@ raised from $10 by the owner on 2026-09-02.
 | 2026-09-03 | L-01 private pilot, second set: the same quickstart run on the three most recent non-merge commits of `us-stock-helper` **by date** (`8687625`, `f57fc39`, `f58bf64`), one of which changes existing Python and can therefore reach the reproduction stage; the first set followed `main`, whose tip predates them and whose newest code commit adds only new files; K=4, $0.25 per review, local only | $0.80 | $0.170200 (row below); $0.629800 released |
 | 2026-09-03 | supplementary rerun of `pytest-dev__pytest-10051`, second attempt (carried from 2026-09-03c): the one case the D-104 false positive DEFERred, defects-only, K=4, product code fixed at the window's post-review tip, results suffixed `.post-69921e0`, reported as a single supplementary row and never merged into the one-time table. The first attempt spent $0.00 (image build timed out); the image for this tree already exists in the local daemon, so this attempt reuses it rather than rebuilding. Window cap $3 | $0.10 | |
 | 2026-09-03 | L-01 receipt-bearing pilot (owner decision 2, 2026-09-03d): three `IcantFind-a-username/us-stock-helper` commits that a later `fix:` commit repaired, reviewed head = the buggy commit, base = its parent, K=4, product default $0.25 per review, containers, local review only — the aim is a real receipt-backed comment end to end, which the six-silence pilot never produced. Cumulative stop at the owner's $0.30 even if that leaves the third review unrun | $0.30 | |
-| 2026-09-03 | first GitHub-hosted runner exercise of the Action (owner decision 3, 2026-09-03d): a `pull_request` workflow on Attest itself, same-repository branches only, one throwaway branch carrying one known regression, one PR, one Action comment; `budget-usd` 0.25, `samples` 4. This is the only approved remote write of the window | $0.30 | |
+| 2026-09-03 | first GitHub-hosted runner exercise of the Action (owner decision 3, 2026-09-03d): a `pull_request` workflow on Attest itself, same-repository branches only, one throwaway branch carrying one known regression, one PR, one Action comment; `budget-usd` 0.25, `samples` 4. This is the only approved remote write of the window | $0.30 | $0.030100 (row below); $0.269900 released |
 
 ## Session-subscription compute (does NOT count against the cap; recorded for transparency)
 
