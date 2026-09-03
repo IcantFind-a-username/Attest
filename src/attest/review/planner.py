@@ -508,16 +508,30 @@ def _bound_context(
     return tuple(kept), tuple(omissions)
 
 
-def _unit_order(path: str) -> tuple[int, str]:
-    """Source files first, then everything else; alphabetical within each rank.
+def _changed_line_count(block: str) -> int:
+    """Added plus removed lines in one file's diff block, headers excluded."""
+    return sum(
+        1
+        for line in block.splitlines()
+        if line[:1] in {"+", "-"} and not line.startswith(("+++", "---"))
+    )
+
+
+def _unit_order(path: str, block: str) -> tuple[int, int, str]:
+    """Source files first, then everything else; largest change first inside
+    each rank, with the path breaking ties.
 
     D-105/E-04: a per-unit budget funds the units it reaches in plan order, so a
     large commit whose paths sort documentation ahead of code used to spend the
     whole budget on anchors that eligibility rejects for not being Python. Only
     a Python file can carry an anchored, reproducible finding, so it is read
-    first. The rank is a property of the path alone, so the plan stays stable.
+    first. D-117: within a rank, alphabetical order carries no information about
+    where a defect might be and left the two files carrying a real regression
+    unread; the size of a change is the one cheap signal the plan has, so the
+    largest is read first. Both keys are properties of the diff alone, so the
+    plan stays stable under reordering.
     """
-    return (0 if path.endswith(".py") else 1, path)
+    return (0 if path.endswith(".py") else 1, -_changed_line_count(block), path)
 
 
 def plan_review(repo: Path, diff: DiffInfo, base_ref: str) -> ReviewPlan:
@@ -525,7 +539,7 @@ def plan_review(repo: Path, diff: DiffInfo, base_ref: str) -> ReviewPlan:
     blocks = split_diff_by_file(diff.text)
     corpus = _Corpus(repo)
     per_file: list[tuple[str, list[ContextSnippet], list[str]]] = []
-    for path in sorted(blocks, key=_unit_order):
+    for path in sorted(blocks, key=lambda name: _unit_order(name, blocks[name])):
         if path not in diff.hunks:
             continue  # no anchorable new-file lines (binary, mode-only)
         snippets, omissions = _file_context(repo, corpus, base_ref, path, blocks[path], diff)

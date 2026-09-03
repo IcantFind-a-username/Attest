@@ -212,3 +212,43 @@ def test_source_units_are_planned_before_documentation_units(tmp_path: Path) -> 
     plan = plan_review(repo, diff, "HEAD")
     ordered = [file for unit in plan.units for file in unit.files]
     assert ordered.index("src/z.py") < ordered.index("docs/a.md")
+
+
+def test_within_a_rank_the_largest_change_is_planned_first(tmp_path: Path) -> None:
+    """D-117: after source-before-prose, plan order is changed lines descending.
+
+    Discovery reads the units it reaches in plan order, and the budget stops it
+    somewhere in that list. On the real-traffic case the two files carrying the
+    regression were the two the review never read: within the source rank the
+    order was alphabetical and they sorted last. Size is the only cheap signal
+    the plan has about where a defect might be, so the largest change is read
+    first; the rank still puts every Python file ahead of every other file.
+    """
+    from attest.review.diffs import parse_diff
+    from attest.review.planner import plan_review
+
+    repo = tmp_path / "repo"
+    (repo / "src").mkdir(parents=True)
+    for name in ("a_small.py", "z_large.py"):
+        (repo / "src" / name).write_text("x = 1\n", encoding="utf-8")
+    (repo / "docs.md").write_text("# d\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    _git(repo, "add", "-A")
+    _git(repo, "-c", "user.email=t@e", "-c", "user.name=t", "commit", "-qm", "base")
+
+    added = "".join(f"+line {n}\n" for n in range(1, 21))
+    prose = "".join(f"+prose {n}\n" for n in range(1, 40))
+    diff = parse_diff(
+        "diff --git a/src/a_small.py b/src/a_small.py\n"
+        "--- a/src/a_small.py\n+++ b/src/a_small.py\n"
+        "@@ -1,1 +1,2 @@\n x = 1\n+y = 2\n"
+        "diff --git a/src/z_large.py b/src/z_large.py\n"
+        "--- a/src/z_large.py\n+++ b/src/z_large.py\n"
+        f"@@ -1,1 +1,21 @@\n x = 1\n{added}"
+        "diff --git a/docs.md b/docs.md\n"
+        "--- a/docs.md\n+++ b/docs.md\n"
+        f"@@ -1,1 +1,40 @@\n # d\n{prose}"
+    )
+    plan = plan_review(repo, diff, "HEAD")
+    ordered = [file for unit in plan.units for file in unit.files]
+    assert ordered == ["src/z_large.py", "src/a_small.py", "docs.md"]
