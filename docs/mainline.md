@@ -56,7 +56,7 @@ pass once at the end, and the roadmap checkbox and a `DECISIONS.md` entry exist.
 | 13 | E-02 held-out | the full protocol on the held-out slice of §3; blind semantic truth, controls, precision, eligible detection | none — numbers | `G-RECALL-002`, `G-MEASURE-004`, `G-CORPUS-001` |
 | 14 | E-01 | natural-null study on the owner's repositories' real recent PRs (no known defect) | none — numbers | `G-NULL-001` |
 | 15 | E-04 | prospective shadow on the owner's live repositories, blind, no publication | none — numbers | `G-SHADOW-001` |
-| 16 | L-01 | stable install ref, quickstart, base-owned policy docs, executor support matrix, privacy/retention, failure-mode copy, kill switch and rollback, private pilot on one outside repository | the quickstart executed verbatim on a fresh clone of an outside repository yields a receipt-backed comment or a documented silence — **the silence branch is met on nine commits; the receipt branch has never been taken** (D-109) | L-01 exit; §5 decision D |
+| 16 | L-01 | stable install ref, quickstart, base-owned policy docs, executor support matrix, privacy/retention, failure-mode copy, kill switch and rollback, private pilot on one outside repository | the quickstart executed verbatim on a fresh clone of an outside repository yields a receipt-backed comment or a documented silence — **the silence branch is met on nine commits; the receipt branch has never been taken** (D-109, whose population was mis-constructed: see §3 and D-116) | L-01 exit; §5 decision D |
 
 R-02 (structured-output recovery) is pulled forward between steps 7 and 8 only if the
 step-7 table shows schema/parse failure as the largest loss between "candidates" and
@@ -70,6 +70,13 @@ All corpora enter as clones under `.attest/corpora/<name>/` at a recorded commit
 - **Owner repositories.** Any repository under the owner's GitHub account may be cloned and
   used as a practice, control, natural-null or shadow population without asking. They are
   never the only defect corpus (RISK-EXTERNAL-01).
+  **Pair construction for a receipt pilot (D-116, correcting D-109):** for a repairing
+  commit `F`, the pair is **head = `F^` (the parent), base = `F`** — never "the commit that
+  last touched the lines `F` removed", which is what `git blame` answers and which selected a
+  pair with no regression in it. A pair enters the population only if `F`'s **own
+  human-written tests discriminate it**: copied onto both sides and run there, at least one
+  test fails on head and passes on base. That check costs nothing and is run before any
+  paid review.
 - **BugsInPy.** Already importable through `attest.benchmark.corpus.import_bugsinpy` from a
   pinned local tree; human-verified real Python defects with the fixing commit. Use it for
   eligible-regression cases.

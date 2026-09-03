@@ -57,6 +57,26 @@ documentation, so the budget reaches code first.
 Nothing else is a finding. `attest stats --drawer` lists what was held back and why;
 `attest feedback <id> --fix|--good|--dismiss` labels it.
 
+### Raising the budget
+
+The factory default is **$0.25 per review** and it is deliberate: it is what a small change
+costs, and every consuming repository pays whatever it is raised to. A larger change can
+exhaust it — the run status says so in as many words (`read N of M units, budget-limited`, or
+a reproduction line reading `budget:`). Two ways to give a review more:
+
+- **one local run**: `--budget 0.60` on the command line above;
+- **every review of a branch**: `budget_usd` in `.attest.toml` **on the base branch**, which
+  is where CI reads it from (the head of a pull request cannot raise its own budget):
+
+```toml
+# .attest.toml on the base branch
+budget_usd = 0.60
+```
+
+Every key and its factory default is in [`base-policy.md`](base-policy.md). Spend is capped
+before each call, never truncated mid-answer, so raising the budget buys more units read and
+more reproductions attempted — never a weaker receipt.
+
 ## 3. Verify a receipt offline
 
 ```bash

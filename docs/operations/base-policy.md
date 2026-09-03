@@ -25,7 +25,8 @@ execution, not a silent fallback.
 | `max_findings` | `3` | hard cap on author-visible findings in one pull request, across inline and summary. |
 | `alpha` | `0.1` | the evidence threshold. **A factory statistical constant: changing it is an owner decision, not a repository setting.** A value that makes the gate unreachable refuses the run instead of relaxing it. |
 | `auto_tighten_alpha` | `true` | tighten, never loosen, the threshold for multiplicity within one pull request. |
-| `model` | the default in the shipped pricing table | the proposal/generation model. A model absent from the pricing table is an error, so spend is always priced. |
+| `model` | `default_model` in the shipped pricing table | the model that proposes candidates. A model absent from the pricing table is an error, so spend is always priced. |
+| `generation_model` | `generation_model` in the shipped pricing table | the model that writes the reproduction. Proposals rank; the reproduction is the evidence, so the two roles are set apart. |
 | `tier0_commands` | `["ruff"]` | cheap pre-checks run before any paid generation. |
 | `context_strategy` | `"r01"` | planner retrieval strategy. |
 
@@ -37,7 +38,9 @@ execution, not a silent fallback.
   not policy keys;
 - it cannot publish an uncertified candidate: `max_findings` and `alpha` can only reduce what
   is published, never add to it;
-- it cannot be set by the pull request being reviewed.
+- it cannot be set by the pull request being reviewed. Both model keys are protected in CI:
+  the Action input or the factory default wins over anything the base file says, because the
+  provider is built before the policy is read.
 
 ## Example
 
