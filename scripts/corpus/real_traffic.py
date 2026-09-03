@@ -263,11 +263,27 @@ def cmd_run(args: argparse.Namespace) -> int:
     repo = repo_path(args.repo)
     env = dict(os.environ)
     env["PYTHONPATH"] = str(Path(args.code) / "src") if args.code else str(ROOT / "src")
+    # Resume: a case whose block already ends in an "[rc …]" line ran to completion
+    # and is not paid for twice; the cumulative figure carries over with it.
+    done: set[str] = set()
     spent = 0.0
-    log = Path(args.log).open("a", encoding="utf-8")  # noqa: SIM115 - appended across the loop
+    log_path = Path(args.log)
+    if log_path.is_file():
+        text = log_path.read_text(encoding="utf-8")
+        for block in re.split(r"^=== rt ", text, flags=re.M)[1:]:
+            head, _, body = block.partition("\n")
+            # a case skipped for the cap has not run and is not "done": raising the
+            # cap and resuming must reach it
+            if "[rc " in body or "[dropped" in head:
+                done.add(head.split()[0])
+        cumulative = re.findall(r"\[cumulative spend \$([0-9.]+)\]", text)
+        spent = float(cumulative[-1]) if cumulative else 0.0
+    log = log_path.open("a", encoding="utf-8")  # noqa: SIM115 - appended across the loop
     order = [case for case in cases if case["repo"] == args.repo]
     order.sort(key=lambda case: (case["population"] != "defect", case["id"]))
     for case in order:
+        if case["id"] in done:
+            continue
         if case["population"] == "defect" and case["id"] not in qualified:
             log.write(f"=== rt {case['id']} {args.repo} {case['head']} [dropped: not qualified]\n")
             continue
@@ -332,15 +348,29 @@ def _ledger_rows(repo: Path) -> list[dict]:
     return rows
 
 
+def _completed_tasks(repo: Path) -> list[str]:
+    """Task ids that finished a review, in ledger order. A review killed before it
+    ended writes no ``review_run`` row and is absent, which is what makes the
+    ordinal alignment in ``cmd_table`` sound."""
+    return [
+        str(row["task_id"])
+        for row in _ledger_rows(repo)
+        if row.get("kind") == "review_run" and row.get("task_id")
+    ]
+
+
 def _case_stats(repo: Path, task_id: str) -> dict:
     rows = [row for row in _ledger_rows(repo) if row.get("task_id") == task_id]
     policy = next((row for row in rows if row.get("kind") == "publication_policy"), {})
     run = next((row for row in rows if row.get("kind") == "review_run"), {})
     certifications = [row for row in rows if row.get("kind") == "certification"]
     accepted = [row for row in certifications if row.get("outcome") == "accepted"]
-    backends = {
-        row.get("executor_profile") for row in certifications if row.get("executor_profile")
-    }
+    # the backend the review actually selected; the per-candidate profile on an
+    # ineligible candidate is the development default and says nothing about it
+    backend_row = next((row for row in rows if row.get("kind") == "executor_backend"), {})
+    backend = str(backend_row.get("profile") or "")
+    if backend and not backend_row.get("available", True):
+        backend += " (unavailable)"
     below = sum(
         1
         for item in policy.get("suppressed", [])
@@ -355,7 +385,7 @@ def _case_stats(repo: Path, task_id: str) -> dict:
         "behavior_change": sum(
             1 for row in accepted if row.get("evidence_class") == "behavior_change"
         ),
-        "backend": "+".join(sorted(backends)) or "—",
+        "backend": backend or "—",
         "spend": run.get("spend_usd", 0.0),
     }
 
@@ -369,6 +399,9 @@ def cmd_table(args: argparse.Namespace) -> int:
     print("|---|---|---|---|---|---|---|---|---|")
     totals = {"m": 0, "certified": 0, "published": 0, "below": 0, "spend": 0.0}
     counted = 0
+    blocks: dict[str, tuple[str, str]] = {}  # case id -> its LAST block: a cap-skipped
+    reviewed: dict[str, list[str]] = {}  # case that was re-run is read once, as run
+    position: dict[str, int] = {}  # execution order, which is what the ledger records
     for log_path in args.log:
         text = Path(log_path).read_text(encoding="utf-8")
         for block in re.split(r"^=== rt ", text, flags=re.M)[1:]:
@@ -376,40 +409,57 @@ def cmd_table(args: argparse.Namespace) -> int:
             parts = head.split()
             if len(parts) < 3 or parts[0] in {"done", "STOP:"}:
                 continue
-            case_id, repo_name, sha = parts[0], parts[1], parts[2]
-            stratum = cases.get(case_id, {}).get("stratum", "defect")
-            if "[dropped" in head or "[skipped" in body:
-                note = "dropped: not qualified" if "[dropped" in head else "skipped: cap"
-                print(
-                    f"| {case_id} ({stratum}) | {repo_name} | `{sha[:10]}` | — | — | — | — "
-                    f"| — | {note} |"
-                )
-                continue
-            task = re.search(r"task[ _]?id[: ]+([0-9a-f-]+)", body) or re.search(
-                r"(\d{8}-\d{6}-[0-9a-f]{8})", body
-            )
-            stats = (
-                _case_stats(repo_path(repo_name), task.group(1))
-                if task
-                else {
-                    "m": "—",
-                    "certified": "—",
-                    "published": "—",
-                    "below": "—",
-                    "backend": "—",
-                    "spend": 0.0,
-                }
-            )
-            counted += 1
-            for key in ("m", "certified", "published", "below", "spend"):
-                if isinstance(stats[key], (int, float)):
-                    totals[key] += stats[key]
+            blocks[parts[0]] = (head, body)
+            position[parts[0]] = len(position) + len(blocks)  # last occurrence wins
+    # The log carries no task id, so each repository's completed reviews are matched
+    # to its finished ledger runs in order, newest N against the N blocks that ended
+    # with a spend line. Anything else in that ledger is older than this corpus.
+    finished = [
+        (key, blocks[key])
+        for key in sorted(blocks, key=lambda name: position[name])
+        if "budget;" in blocks[key][1] and "[dropped" not in blocks[key][0]
+    ]
+    for repo_name in {head.split()[1] for _key, (head, _body) in finished}:
+        ordered = [key for key, (head, _body) in finished if head.split()[1] == repo_name]
+        tasks = _completed_tasks(repo_path(repo_name))
+        reviewed[repo_name] = tasks[-len(ordered) :] if ordered else []
+        for offset, key in enumerate(ordered):
+            head, body = blocks[key]
+            blocks[key] = (f"{head} [task {reviewed[repo_name][offset]}]", body)
+    for head, body in [blocks[key] for key in sorted(blocks)]:
+        parts = head.split()
+        case_id, repo_name, sha = parts[0], parts[1], parts[2]
+        stratum = cases.get(case_id, {}).get("stratum", "defect")
+        if "[dropped" in head or "[skipped" in body:
+            note = "dropped: not qualified" if "[dropped" in head else "skipped: cap"
             print(
-                f"| {case_id} ({stratum}) | {repo_name} | `{sha[:10]}` | {stats['m']} "
-                f"| {stats['certified']} "
-                f"| {stats['published']} | {stats['below']} | {stats['backend']} "
-                f"| ${stats['spend']:.6f} |"
+                f"| {case_id} ({stratum}) | {repo_name} | `{sha[:10]}` | — | — | — | — "
+                f"| — | {note} |"
             )
+            continue
+        task = re.search(r"\[task (\d{8}-\d{6}-[0-9a-f]{8})\]", head)
+        stats = (
+            _case_stats(repo_path(repo_name), task.group(1))
+            if task
+            else {
+                "m": "—",
+                "certified": "—",
+                "published": "—",
+                "below": "—",
+                "backend": "—",
+                "spend": 0.0,
+            }
+        )
+        counted += 1
+        for key in ("m", "certified", "published", "below", "spend"):
+            if isinstance(stats[key], (int, float)):
+                totals[key] += stats[key]
+        print(
+            f"| {case_id} ({stratum}) | {repo_name} | `{sha[:10]}` | {stats['m']} "
+            f"| {stats['certified']} "
+            f"| {stats['published']} | {stats['below']} | {stats['backend']} "
+            f"| ${stats['spend']:.6f} |"
+        )
     print(
         f"\n{counted} reviewed; eligible {totals['m']}; certified {totals['certified']}; "
         f"published {totals['published']}; certified-but-below-threshold {totals['below']}; "
