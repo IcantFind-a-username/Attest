@@ -35,6 +35,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from attest.certification.types import AcceptedReceipt  # noqa: E402
+from attest.execution.backends import select_backend  # noqa: E402
+from attest.execution.container_adapter import CONTAINER_PROFILE  # noqa: E402
+from attest.execution.types import LOCAL_DEVELOPMENT_PROFILE  # noqa: E402
 from attest.github.client import GitHubClient  # noqa: E402
 from attest.github.context import PullRequestContext  # noqa: E402
 from attest.review.ci import run_ci  # noqa: E402
@@ -553,11 +556,85 @@ def drill_github_outage(workspace: Path) -> Drill:
     return drill
 
 
+def drill_executor_unavailable(workspace: Path) -> Drill:
+    """No isolation backend. Production must refuse to run head code at all
+    rather than fall back to the host, and every candidate must be deferred with
+    the reason — never certified, never published."""
+    drill = Drill("executor unavailable")
+
+    repo = workspace / "executor-unavailable"
+    repo.mkdir()
+    base_sha, head_sha = _planted_repo(repo, base_policy=None, head_policy=None)
+    up = _StubGitHub(status=200)
+    # the outage: no container runtime on this host. The seam is the one
+    # function that looks for it, so the rest of the run is the product's own
+    # (emptying PATH would also take git away from the review itself)
+    import attest.execution.backends as backends_module
+
+    found = backends_module.docker_executable
+    backends_module.docker_executable = lambda: None
+    try:
+        production = select_backend(workspace, production=True)
+        drill.check(
+            "production has no backend and does not invent one",
+            production.adapter is None and production.profile == CONTAINER_PROFILE,
+            f"profile={production.profile}; {production.reason}",
+        )
+        local = select_backend(workspace, production=False)
+        drill.check(
+            "a local review says in as many words that there is no OS boundary",
+            local.profile == LOCAL_DEVELOPMENT_PROFILE and "no OS boundary" in local.reason,
+            local.reason,
+        )
+        run = run_ci(
+            repo,
+            _ci_context(base_sha, head_sha),
+            GitHubClient("drill-token", up.url),
+            ReviewConfig(k_samples=2, tier0_commands=[]),
+            ScriptedProvider(),
+            verification_timeout_s=180.0,
+        )
+    finally:
+        backends_module.docker_executable = found
+        up.close()
+
+    ledger = _ledger_text(repo)
+    drill.check("the run does not raise", run.task_id is not None, f"task {run.task_id}")
+    drill.check("nothing is surfaced", run.surfaced_count == 0, f"{run.surfaced_count} surfaced")
+    drill.check("no evidence bundle is written", not _bundles(repo), f"{len(_bundles(repo))}")
+    drill.check(
+        "the deferral names the executor, not the finding",
+        "isolation backend unavailable" in ledger,
+        "isolation backend unavailable: docker not found",
+    )
+
+    # negative control: with a backend the same repository certifies
+    control = workspace / "executor-unavailable-control"
+    control.mkdir()
+    control_base, _ = _planted_repo(control, base_policy=None, head_policy=None)
+    control_run = run_review(
+        control,
+        control_base,
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ScriptedProvider(),
+        verify=True,
+        verification_timeout_s=180.0,
+    )
+    drill.check(
+        "negative control: with an executor the same change certifies",
+        bool(control_run.certified),
+        f"{len(control_run.certified)} certified",
+    )
+    return drill
+
+
+
 DRILLS = {
     "kill-switch": drill_kill_switch,
     "rollback": drill_rollback,
     "revoked-credential": drill_revoked_credential,
     "github-outage": drill_github_outage,
+    "executor-unavailable": drill_executor_unavailable,
 }
 
 
