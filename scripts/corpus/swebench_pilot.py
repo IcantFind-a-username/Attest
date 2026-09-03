@@ -316,6 +316,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         budget_usd=args.budget,
         tier0_commands=[],
         context_strategy=args.context_strategy,
+        model=args.model,
     )
     github = Loopback()
     try:
@@ -340,6 +341,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     summary = {
         "case": case.name,
         "control": args.control,
+        "model": config.model,  # every table names the model (owner, 2026-09-03e)
         "task_id": result.task_id,
         "candidate_count": result.candidate_count,
         "surfaced_count": result.surfaced_count,
@@ -471,6 +473,11 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--k", type=int, default=4)
     r.add_argument("--budget", type=float, default=0.25)
     r.add_argument("--verification-timeout", type=float, default=900.0)
+    r.add_argument(
+        "--model",
+        default="",
+        help="model id from pricing.toml; empty uses its default_model",
+    )
     r.add_argument(
         "--context-strategy",
         choices=["r01", "package-cache"],

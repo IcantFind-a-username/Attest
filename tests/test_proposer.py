@@ -431,3 +431,62 @@ def test_shared_system_block_leads_every_role_request_identically() -> None:
         }
     )
     assert [call["system"][1]["text"] for call in captured] == ["proposer role", "generator role"]
+
+
+def test_the_discovery_share_bounds_breadth_and_never_the_first_unit() -> None:
+    """D-111: what starved verification on `d7be758` was *breadth* -- twelve
+    candidates from four change units. The share therefore bounds every unit
+    after the first, and not the first: at the shipped defaults (K=5, $0.25)
+    five samples reserve $0.16 at the proposal token bound before a single
+    character of diff is priced, so a share applied to the first unit as well
+    would DEFER every review the product ships with, which the release drill
+    caught."""
+    from types import SimpleNamespace
+
+    from attest.review.budget import PROPOSAL_SHARE, Budget
+    from attest.review.config import ReviewConfig
+    from attest.review.diffs import DiffInfo
+    from attest.review.proposer import ProviderResult, propose_plan
+
+    class Abstaining:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def sample(
+            self,
+            system: str,
+            prompt: str,
+            schema: dict[str, object],
+            max_tokens: int,
+            *,
+            timeout_s: float | None = None,
+        ) -> ProviderResult:
+            self.calls += 1
+            return ProviderResult(text='{"findings": []}', input_tokens=10, output_tokens=9)
+
+    def unit(unit_id: str) -> SimpleNamespace:
+        return SimpleNamespace(
+            unit_id=unit_id,
+            files=[f"{unit_id}.py"],
+            diff=lambda: DiffInfo(text="@@ -1 +1 @@\n-a\n+b\n"),
+            prompt_context=lambda: "",
+        )
+
+    config = ReviewConfig(k_samples=5, tier0_commands=[])
+    assert (config.budget_usd, config.k_samples) == (0.25, 5)
+    budget = Budget(limit_usd=config.budget_usd, model=config.model)
+    provider = Abstaining()
+
+    run = propose_plan(
+        SimpleNamespace(units=[unit("first"), unit("second")]),  # type: ignore[arg-type]
+        config,
+        budget,
+        provider,
+    )
+
+    # the first unit was bought whole; the second could not fit the share
+    assert run.units_read == 1
+    assert provider.calls == config.k_samples
+    assert len(run.omitted_units) == 1
+    assert "second" in run.omitted_units[0]
+    assert f"${config.budget_usd * PROPOSAL_SHARE:.4f}" in run.omitted_units[0]

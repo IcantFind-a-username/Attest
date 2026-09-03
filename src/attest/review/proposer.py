@@ -12,12 +12,13 @@ import hashlib
 import json
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Event, Lock
 from typing import Any, Protocol
 
-from attest.review.budget import Budget, BudgetExceeded
+from attest.review.budget import PROPOSAL_SHARE, Budget, BudgetExceeded
 from attest.review.config import ReviewConfig
 from attest.review.dedup import cluster_findings
 from attest.review.diffs import DiffInfo
@@ -364,6 +365,12 @@ def propose_plan(
     cover stops the run and every remaining unit is recorded as omitted, so a
     large change is reviewed partially and *visibly*, never truncated in
     silence. A first unit that does not fit raises BudgetExceeded as before.
+
+    D-111: *breadth* is what starves verification, so every unit after the
+    first is bought inside a PROPOSAL_SHARE cap on the budget. The first unit
+    is bought against the whole budget: a review that cannot afford to read
+    one change unit has nothing to say, and the share must bound discovery,
+    not decide whether the product runs at all.
     """
     per_sample: list[list[Finding]] = []
     rejected: list[str] = []
@@ -374,16 +381,19 @@ def propose_plan(
     units_read = 0
     for index, unit in enumerate(plan.units):
         try:
-            run = propose(
-                unit.diff(),
-                config,
-                budget,
-                provider,
-                context=unit.prompt_context(),
-                sample_offset=index * config.k_samples,
-                cache_root=cache_root,
-                shared_system=shared_system,
-            )
+            with ExitStack() as stack:
+                if index > 0:
+                    stack.enter_context(budget.stage("discovery", PROPOSAL_SHARE))
+                run = propose(
+                    unit.diff(),
+                    config,
+                    budget,
+                    provider,
+                    context=unit.prompt_context(),
+                    sample_offset=index * config.k_samples,
+                    cache_root=cache_root,
+                    shared_system=shared_system,
+                )
         except BudgetExceeded as exc:
             if index == 0:
                 raise
