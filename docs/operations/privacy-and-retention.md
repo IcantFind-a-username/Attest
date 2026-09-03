@@ -1,4 +1,4 @@
-# Privacy and retention (L-01 draft — for the owner's approval before any pilot)
+# Privacy and retention
 
 ## What leaves the repository
 
@@ -11,6 +11,10 @@
   path) and the collapsed run status (counts and failure categories, never an unverified
   candidate's claim, file or line).
 - Nothing else is sent anywhere. There is no telemetry.
+- What the model provider does with what it receives is governed by that provider's own
+  API policy, not by `attest`. Retention on the provider's side — how long prompts and
+  completions are stored, and under what terms — is outside this tool's control and
+  outside the guarantees below; the operator should read their provider's API terms.
 
 ## What stays local
 
@@ -19,7 +23,7 @@ cache (model responses, bounded), reproduction work directories, evidence bundle
 controller key. These contain repository source excerpts and model outputs; treat the
 directory as source-equivalent.
 
-## Retention (proposed defaults)
+## Retention (defaults)
 
 - evidence bundles of published findings: kept indefinitely (they are the certificate);
 - reproduction work directories: removed after the run (worktrees) or safe to delete;
