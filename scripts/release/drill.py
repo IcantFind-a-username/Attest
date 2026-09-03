@@ -782,6 +782,108 @@ def _gate(stored: StoredCandidate) -> GateResult:
     return GateResult(finding=stored.finding, wealth=stored.wealth, purchases=[], decision=None)
 
 
+
+MALICIOUS_MODULE = (
+    "import os\n"
+    "import socket\n"
+    "from pathlib import Path\n\n\n"
+    "def total(items):\n"
+    "    return sum(items)\n\n\n"
+    "def average(items):\n"
+    "    # the same-repository change the drill is about: head code that reads a\n"
+    "    # secret, opens a socket and writes outside its work directory before it\n"
+    "    # answers at all\n"
+    "    os.environ.get('ANTHROPIC_API_KEY', '')\n"
+    "    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:\n"
+    "        s.settimeout(0.2)\n"
+    "        s.connect(('127.0.0.1', 9))\n"
+    "    Path(os.path.expanduser('~/.attest-drill-escape')).write_text('escaped')\n"
+    "    return sum(items) / len(items)\n"
+)
+
+
+def drill_malicious_change(workspace: Path) -> Drill:
+    """A same-repository pull request whose head code reads a secret, opens a
+    socket and writes outside its work directory. The reproduction must be
+    *marked and deferred*, never certified, and the escape must not happen."""
+    drill = Drill("malicious same-repository change")
+
+    repo = workspace / "malicious"
+    repo.mkdir()
+    _git(repo, "init", "-b", "main")
+    _git(repo, "config", "user.email", "drill@example.com")
+    _git(repo, "config", "user.name", "Release drill")
+    (repo / "app.py").write_text(
+        "def total(items):\n"
+        "    return sum(items)\n\n\n"
+        "def average(items):\n"
+        "    if not items:\n"
+        "        return 0\n"
+        "    return sum(items) / len(items)\n",
+        encoding="utf-8",
+    )
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-m", "base")
+    base_sha = _git(repo, "rev-parse", "HEAD")
+    (repo / "app.py").write_text(MALICIOUS_MODULE, encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-m", "head: reach for the secret, the network and the home directory")
+
+    escape = Path(os.path.expanduser("~/.attest-drill-escape"))
+    existed = escape.exists()
+    run = run_review(
+        repo,
+        base_sha,
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ScriptedProvider(),
+        verify=True,
+        verification_timeout_s=180.0,
+    )
+
+    reasons = list(run.verification_reasons.values())
+    drill.check("nothing is certified", not run.certified, f"{len(run.certified)} certified")
+    drill.check("nothing is published", not run.published, f"{len(run.published)} published")
+    drill.check("no evidence bundle is written", not _bundles(repo), f"{len(_bundles(repo))}")
+    drill.check(
+        "the run is marked, and the mark names what head code reached for",
+        bool(reasons)
+        and any(
+            word in reason
+            for reason in reasons
+            for word in ("network", "socket", "wrote", "write", "outside", "attempted")
+        ),
+        "; ".join(reasons) or "(no verification reason recorded)",
+    )
+    drill.check(
+        "head code did not write outside its work directory",
+        escape.exists() == existed,
+        f"{escape} {'pre-existing' if existed else 'absent'}",
+    )
+    if not existed and escape.exists():
+        escape.unlink()
+
+    # negative control: the same shape of change without the escape attempts
+    # must still certify, or "nothing is certified" would pass for the wrong
+    # reason on any planted repository at all
+    control = workspace / "malicious-control"
+    control.mkdir()
+    control_base, _ = _planted_repo(control, base_policy=None, head_policy=None)
+    control_run = run_review(
+        control,
+        control_base,
+        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ScriptedProvider(),
+        verify=True,
+        verification_timeout_s=180.0,
+    )
+    drill.check(
+        "negative control: the benign version of the same change certifies",
+        bool(control_run.certified),
+        f"{len(control_run.certified)} certified",
+    )
+    return drill
+
+
 DRILLS = {
     "kill-switch": drill_kill_switch,
     "rollback": drill_rollback,
@@ -790,6 +892,7 @@ DRILLS = {
     "executor-unavailable": drill_executor_unavailable,
     "budget-exhaustion": drill_budget_exhaustion,
     "superseded-pull-request": drill_superseded_pull_request,
+    "malicious-change": drill_malicious_change,
 }
 
 
