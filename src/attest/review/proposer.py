@@ -144,6 +144,16 @@ def call_provider(
     return provider.sample(folded, prompt, schema, max_tokens, timeout_s=timeout_s)
 
 
+def redacted_error(exc: BaseException) -> str:
+    """A provider error is author-visible: an outage message can echo the
+    credential that was rejected, so it is redacted and bounded before it
+    reaches a note, a DEFER reason or a pull-request comment."""
+    text = str(redact_known_secrets(str(exc)))
+    if len(text) <= MAX_RESPONSE_FRAGMENT_CHARS:
+        return text
+    return text[:MAX_RESPONSE_FRAGMENT_CHARS] + "...[truncated]"
+
+
 def no_text_reason(result: ProviderResult) -> str:
     """The honest failure label for a response without a text block: the stop
     reason and the block types, never a fabricated ``{}``."""
@@ -549,7 +559,7 @@ def propose(
         label = sample_offset + i
         if isinstance(outcome, Exception):
             budget.cancel(reservations[i])
-            errors.append(f"sample {label}: {type(outcome).__name__}: {outcome}")
+            errors.append(f"sample {label}: {type(outcome).__name__}: {redacted_error(outcome)}")
             observations.append(
                 SampleObservation(label, f"error:{type(outcome).__name__}", None, "error")
             )

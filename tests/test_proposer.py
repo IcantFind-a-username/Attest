@@ -490,3 +490,21 @@ def test_the_discovery_share_bounds_breadth_and_never_the_first_unit() -> None:
     assert len(run.omitted_units) == 1
     assert "second" in run.omitted_units[0]
     assert f"${config.budget_usd * PROPOSAL_SHARE:.4f}" in run.omitted_units[0]
+
+
+def test_a_provider_error_never_carries_a_credential_into_author_visible_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A revoked-credential outage echoes the key it rejected. That text becomes
+    a note, a DEFER reason and a pull-request comment, so it is redacted and
+    bounded before it leaves the provider boundary."""
+    from attest.review.proposer import redacted_error
+
+    secret = "sk-ant-test-1111111111111111111111111111"
+    monkeypatch.setenv("ANTHROPIC_API_KEY", secret)
+
+    detail = redacted_error(RuntimeError(f"401 authentication_error: invalid x-api-key {secret}"))
+
+    assert secret not in detail
+    assert "401 authentication_error" in detail
+    assert len(redacted_error(RuntimeError("x" * 5000))) < 600

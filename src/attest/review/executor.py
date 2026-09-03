@@ -36,7 +36,13 @@ from attest.review.gate import GateResult, apply_verification
 from attest.review.intent import RaiseOrigin, observe_intent, parse_raise_record
 from attest.review.ledger import Ledger
 from attest.review.planner import generation_context
-from attest.review.proposer import Provider, call_provider, no_text_reason, response_fragment
+from attest.review.proposer import (
+    Provider,
+    call_provider,
+    no_text_reason,
+    redacted_error,
+    response_fragment,
+)
 
 MAX_CONTEXT_LINES = 200
 REPRO_MAX_OUTPUT_TOKENS = 3_000
@@ -1721,7 +1727,8 @@ def execute_differential(
                     spec = regenerate()  # type: ignore[misc]
                 except Exception as exc:  # noqa: BLE001 - budget/deadline/provider
                     return deferred(
-                        f"{failures[-1]}; regeneration failed: {type(exc).__name__}: {exc}"
+                        f"{failures[-1]}; regeneration failed: "
+                        f"{type(exc).__name__}: {redacted_error(exc)}"
                     )
             collection = run_once("collect", round_index, trees_dir / "head", collect_only=True)
             if collection is None:
@@ -1999,7 +2006,9 @@ def verify_candidate(
         try:
             spec = generate()
         except Exception as exc:  # noqa: BLE001 - generation failures are ternary DEFER
-            execution = deferred_execution(f"generation failed: {type(exc).__name__}: {exc}")
+            execution = deferred_execution(
+                f"generation failed: {type(exc).__name__}: {redacted_error(exc)}"
+            )
         else:
             execution = execute_differential(
                 repo,
