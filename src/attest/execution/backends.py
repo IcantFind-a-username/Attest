@@ -37,13 +37,18 @@ def requested_backend(default: str) -> str:
     return value if value in {"container", "local"} else default
 
 
-def select_backend(tree: Path, *, production: bool) -> BackendSelection:
+def select_backend(
+    tree: Path, *, production: bool, remaining_s: float | None = None
+) -> BackendSelection:
     """The adapter for one task's head tree.
 
     Production (``attest ci``) accepts only the container backend and DEFERs
     without it. A local review defaults to the container when docker is
     present and falls back to the development adapter otherwise, or when
     ``ATTEST_EXECUTOR=local`` asks for it explicitly.
+
+    ``remaining_s`` is the caller's unspent verification budget: an image build
+    may not outlast the deadline the candidates it serves run under.
     """
     wanted = "container" if production else requested_backend("container")
     if wanted == "local":
@@ -67,7 +72,9 @@ def select_backend(tree: Path, *, production: bool) -> BackendSelection:
             "docker not found; development host adapter (no OS boundary)",
         )
     try:
-        image = ensure_image(tree)
+        image = ensure_image(tree, remaining_s=remaining_s)
     except BootstrapFailed as exc:
         return BackendSelection(None, CONTAINER_PROFILE, str(exc))
-    return BackendSelection(ContainerAdapter(image), CONTAINER_PROFILE, f"image {image.reference}")
+    return BackendSelection(
+        ContainerAdapter(image), CONTAINER_PROFILE, f"image {image.tag or image.reference}"
+    )

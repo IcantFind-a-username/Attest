@@ -98,7 +98,9 @@ def run_verification_stage(
     if adapter is None and eligible_candidates:
         # X-02: one backend per task; the image is built from the head tree
         # before any head code runs, and a failed bootstrap is its own reason
-        backend = select_backend(repo, production=production)
+        backend = select_backend(
+            repo, production=production, remaining_s=max(0.0, deadline - clock())
+        )
         adapter = backend.adapter
         backend_reason = backend.reason
         profile = backend.profile

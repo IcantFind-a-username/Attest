@@ -55,8 +55,9 @@ NPROC_LAUNCHER = (
 
 @dataclass(frozen=True)
 class ContainerImage:
-    reference: str  # e.g. attest-repro:<case>-py3.11, or python:3.11-slim
+    reference: str  # what `docker run` is given: an image id, or a name:tag
     digest: str  # the image id/digest docker reports, or "" when unresolved
+    tag: str = ""  # the name:tag the reference was resolved from, for humans
 
 
 class ContainerUnavailable(RuntimeError):
@@ -88,6 +89,33 @@ def image_digest(reference: str, *, docker: str | None = None) -> str:
     if probe.returncode != 0:
         return ""
     return probe.stdout.strip()
+
+
+def image_id(reference: str, *, docker: str | None = None) -> str:
+    """The image id docker's *list* holds for ``reference`` ('' when absent).
+
+    ``docker image inspect <name:tag>`` has been observed answering *No such
+    image* for tags the same daemon lists in ``docker images`` and resolves by
+    id (2026-09-03, several tags, cleared on its own). The list path reads the
+    tag index directly, and the id it returns is what callers then address, so
+    a reuse decision never depends on the resolver that was wrong.
+    """
+    binary = docker or docker_executable()
+    if binary is None:
+        return ""
+    try:
+        probe = subprocess.run(
+            [binary, "images", "--no-trunc", "--quiet", reference],
+            capture_output=True,
+            text=True,
+            timeout=IMAGE_PROBE_TIMEOUT_S,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return ""
+    if probe.returncode != 0:
+        return ""
+    first = probe.stdout.strip().splitlines()
+    return first[0].strip() if first else ""
 
 
 class ContainerAdapter:

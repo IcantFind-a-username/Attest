@@ -187,7 +187,7 @@ def _host_executor_for_tests(request: pytest.FixtureRequest, monkeypatch: pytest
     from attest.execution.types import LOCAL_DEVELOPMENT_PROFILE
     from attest.review import verification
 
-    def host_backend(tree, *, production):  # noqa: ANN001, ANN202
+    def host_backend(tree, *, production, remaining_s=None):  # noqa: ANN001, ANN202
         return backends.BackendSelection(
             LocalDevelopmentAdapter(), LOCAL_DEVELOPMENT_PROFILE, "test host adapter"
         )

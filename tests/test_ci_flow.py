@@ -1580,7 +1580,7 @@ def test_an_unattempted_certification_names_the_profile_that_actually_ran(
     monkeypatch.setattr(
         verification_module,
         "select_backend",
-        lambda tree, *, production: BackendSelection(
+        lambda tree, *, production, remaining_s=None: BackendSelection(
             ContainerProfileAdapter(), CONTAINER_PROFILE, "image attest-repro:testdouble"
         ),
     )

@@ -132,7 +132,7 @@ def test_an_image_build_that_times_out_is_a_bootstrap_failure_not_a_traceback(
 
     monkeypatch.setattr(container_images.subprocess, "run", timing_out)
     monkeypatch.setattr(container_images, "docker_executable", lambda: "/usr/bin/docker")
-    monkeypatch.setattr(container_images, "image_digest", lambda *a, **k: "")
+    monkeypatch.setattr(container_images, "resolve_image", lambda *a, **k: "")
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
 
     with pytest.raises(container_images.BootstrapFailed) as caught:
@@ -152,7 +152,7 @@ def test_a_build_context_that_cannot_be_assembled_is_a_bootstrap_failure_not_a_t
     from attest.execution import container_images
 
     monkeypatch.setattr(container_images, "docker_executable", lambda: "/usr/bin/docker")
-    monkeypatch.setattr(container_images, "image_digest", lambda *a, **k: "")
+    monkeypatch.setattr(container_images, "resolve_image", lambda *a, **k: "")
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
     (tmp_path / "broken-link").symlink_to(tmp_path / "no-such-target")
 
@@ -188,7 +188,7 @@ def test_a_timed_out_build_reports_the_tail_of_its_log(
 
     monkeypatch.setattr(container_images.subprocess, "run", timing_out)
     monkeypatch.setattr(container_images, "docker_executable", lambda: "/usr/bin/docker")
-    monkeypatch.setattr(container_images, "image_digest", lambda *a, **k: "")
+    monkeypatch.setattr(container_images, "resolve_image", lambda *a, **k: "")
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
 
     with pytest.raises(container_images.BootstrapFailed) as caught:
@@ -226,3 +226,82 @@ def test_the_image_probe_is_bounded_and_answers_unknown_when_docker_will_not(
 
     monkeypatch.setattr(container_adapter.subprocess, "run", missing)
     assert container_adapter.image_digest("attest-repro:deadbeef", docker="/usr/bin/docker") == ""
+
+
+def test_an_image_build_cannot_outlast_the_verification_budget_it_runs_under(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`select_backend` runs before the first deadline check, so a build capped
+    at 1800 s under a 600 s shared deadline could "succeed" at 601 s and leave
+    every candidate DEFERring with `shared verification deadline exceeded` --
+    the wrong category, after up to 30 minutes of runner time bought for
+    nothing (owner decision 2 of 2026-09-03d). The cap is now
+    min(1800, remaining), and no budget at all buys no build."""
+    import subprocess
+
+    from attest.execution import container_images
+
+    real_run = subprocess.run
+    seen: list[object] = []
+
+    def recording(args: object, **kwargs: object) -> object:
+        if isinstance(args, list) and args[1:2] == ["build"]:
+            seen.append(kwargs.get("timeout"))
+            raise subprocess.TimeoutExpired(cmd=args, timeout=float(kwargs["timeout"]))  # type: ignore[arg-type]
+        return real_run(args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(container_images.subprocess, "run", recording)
+    monkeypatch.setattr(container_images, "docker_executable", lambda: "/usr/bin/docker")
+    monkeypatch.setattr(container_images, "resolve_image", lambda *a, **k: "")
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
+
+    with pytest.raises(container_images.BootstrapFailed) as short:
+        container_images.ensure_image(tmp_path, remaining_s=420.0)
+    assert seen == [420.0]
+    assert "timed out after 420 s" in str(short.value)
+
+    # the 1800 s ceiling still binds when the budget is larger
+    with pytest.raises(container_images.BootstrapFailed):
+        container_images.ensure_image(tmp_path, remaining_s=9000.0)
+    assert seen[-1] == float(container_images.IMAGE_BUILD_TIMEOUT_S)
+
+    # an exhausted budget never reaches the daemon at all
+    with pytest.raises(container_images.BootstrapFailed) as spent:
+        container_images.ensure_image(tmp_path, remaining_s=0.0)
+    assert len(seen) == 2, "a build was attempted with no budget left"
+    assert "no verification budget remained" in str(spent.value)
+
+
+def test_a_reusable_image_is_found_and_addressed_by_id_not_by_tag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`docker image inspect <name:tag>` answered *No such image* for tags the
+    same daemon listed in `docker images` and resolved by id, so a warm image
+    was rebuilt from scratch. The reuse decision now reads the list path, and
+    what it returns -- the id -- is what the run is addressed by, so neither
+    the lookup nor the run depends on the resolver that was wrong."""
+    import subprocess
+
+    from attest.execution import container_adapter, container_images
+
+    identifier = "sha256:" + "d6" * 32
+    calls: list[list[str]] = []
+
+    def daemon(args: object, **kwargs: object) -> object:
+        assert isinstance(args, list)
+        calls.append(args)
+        if args[1:3] == ["image", "inspect"]:  # the resolver that was wrong
+            return subprocess.CompletedProcess(args, 1, "", "Error: No such image")
+        if args[1:2] == ["images"]:
+            return subprocess.CompletedProcess(args, 0, identifier + "\n", "")
+        raise AssertionError(f"unexpected docker call: {args}")
+
+    monkeypatch.setattr(container_adapter.subprocess, "run", daemon)
+    monkeypatch.setattr(container_images, "docker_executable", lambda: "/usr/bin/docker")
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
+
+    image = container_images.ensure_image(tmp_path)
+    assert image.reference == identifier
+    assert image.digest == identifier
+    assert image.tag.startswith("attest-repro:")
+    assert not any(args[1:2] == ["build"] for args in calls), "a warm image was rebuilt"

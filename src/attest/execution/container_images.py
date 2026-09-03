@@ -21,7 +21,12 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from attest.execution.container_adapter import ContainerImage, docker_executable, image_digest
+from attest.execution.container_adapter import (
+    ContainerImage,
+    docker_executable,
+    image_digest,
+    image_id,
+)
 
 AVAILABLE_PYTHONS = ("3.13", "3.12", "3.11", "3.10", "3.9")
 FALLBACK_PYTHON = "3.9"
@@ -195,7 +200,21 @@ def dockerfile(
     return "\n".join(lines) + "\n"
 
 
-IMAGE_BUILD_TIMEOUT_S = 1800
+IMAGE_BUILD_TIMEOUT_S = 1800  # the ceiling; the caller's remaining budget may be lower
+
+
+def build_timeout(remaining_s: float | None) -> float:
+    """``min(IMAGE_BUILD_TIMEOUT_S, remaining_s)``.
+
+    The build runs *before* the first verification deadline check, so a ceiling
+    three times the 600 s shared deadline let a 601-1800 s build "succeed" and
+    then DEFER every candidate with `shared verification deadline exceeded` --
+    the wrong category, after 10-30 minutes of runner time bought for nothing
+    (owner decision 2 of 2026-09-03d, D-105 review finding 3).
+    """
+    if remaining_s is None:
+        return float(IMAGE_BUILD_TIMEOUT_S)
+    return min(float(IMAGE_BUILD_TIMEOUT_S), float(remaining_s))
 
 
 def _log_tail(raw: str | bytes | None) -> str:
@@ -218,9 +237,24 @@ def _bootstrap_failure(version: str, roots: list[ProjectRoot], detail: str) -> B
     )
 
 
-def ensure_image(tree: Path, *, docker: str | None = None, rebuild: bool = False) -> ContainerImage:
+def resolve_image(tag: str, *, docker: str | None = None) -> str:
+    """The id docker holds for ``tag``, by the list path first ('' if absent)."""
+    return image_id(tag, docker=docker) or image_digest(tag, docker=docker)
+
+
+def ensure_image(
+    tree: Path,
+    *,
+    docker: str | None = None,
+    rebuild: bool = False,
+    remaining_s: float | None = None,
+) -> ContainerImage:
     """Build (or reuse) the image for ``tree``; raise BootstrapFailed with the
-    build log's tail when the environment cannot be constructed."""
+    build log's tail when the environment cannot be constructed.
+
+    ``remaining_s`` is the verification budget still unspent when the backend is
+    selected; the build may not outlast it.
+    """
     binary = docker or docker_executable()
     if binary is None:
         raise BootstrapFailed("docker is not installed on this host")
@@ -234,9 +268,15 @@ def ensure_image(tree: Path, *, docker: str | None = None, rebuild: bool = False
             :16
         ]
     )
-    existing = image_digest(tag, docker=binary)
+    existing = resolve_image(tag, docker=binary)
     if existing and not rebuild:
-        return ContainerImage(tag, existing)
+        # addressed by id from here on: the tag was only ever the cache key
+        return ContainerImage(existing, existing, tag)
+    timeout_s = build_timeout(remaining_s)
+    if timeout_s <= 0:
+        raise _bootstrap_failure(
+            version, roots, "no verification budget remained for an image build"
+        )
     with tempfile.TemporaryDirectory(prefix="attest-image-") as context:
         context_dir = Path(context)
         try:
@@ -270,7 +310,7 @@ def ensure_image(tree: Path, *, docker: str | None = None, rebuild: bool = False
                 ],
                 capture_output=True,
                 text=True,
-                timeout=IMAGE_BUILD_TIMEOUT_S,
+                timeout=timeout_s,
             )
         except subprocess.TimeoutExpired as exc:
             # a build that never returns is a bootstrap failure like any other:
@@ -281,14 +321,14 @@ def ensure_image(tree: Path, *, docker: str | None = None, rebuild: bool = False
             raise _bootstrap_failure(
                 version,
                 roots,
-                f"the image build timed out after {IMAGE_BUILD_TIMEOUT_S} s: "
+                f"the image build timed out after {timeout_s:g} s: "
                 f"{_log_tail(exc.stderr or exc.stdout)}",
             ) from exc
     if build.returncode != 0:
         raise _bootstrap_failure(version, roots, _log_tail(build.stderr or build.stdout))
-    digest = image_digest(tag, docker=binary)
+    digest = resolve_image(tag, docker=binary)
     if not digest:
         raise BootstrapFailed(
             f"environment bootstrap failed: image {tag} has no digest after build"
         )
-    return ContainerImage(tag, digest)
+    return ContainerImage(digest, digest, tag)
