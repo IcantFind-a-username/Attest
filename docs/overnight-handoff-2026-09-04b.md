@@ -1,4 +1,4 @@
-# Handoff — 2026-09-04b (`5ebcf88` → this commit): the bundle was broken, the family was wrong, and a control published
+# Handoff — 2026-09-04b (`5ebcf88` → `c90e537`, plus this line): the bundle was broken, the family was wrong, and a control published
 
 **Window spend $13.187897 of $45; cumulative $47.837626 of the owner's new $90.** Product code
 touched in four places (D-124, D-125, D-126, the silence line); everything else is measurement.
