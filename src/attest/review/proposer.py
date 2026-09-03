@@ -144,6 +144,18 @@ def call_provider(
     return provider.sample(folded, prompt, schema, max_tokens, timeout_s=timeout_s)
 
 
+def effective_model(provider: Provider, model: str) -> str:
+    """The model this provider will actually answer with, or "" for its own.
+
+    A provider that does not understand the override answers on the model it was
+    built with, so the budget must price the call there: a cost the ledger cannot
+    justify is worse than no override at all.
+    """
+    if model and getattr(provider, "supports_model_override", False):
+        return model
+    return ""
+
+
 def redacted_error(exc: BaseException) -> str:
     """A provider error is author-visible: an outage message can echo the
     credential that was rejected, so it is redacted and bounded before it

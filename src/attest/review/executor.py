@@ -39,6 +39,7 @@ from attest.review.planner import generation_context
 from attest.review.proposer import (
     Provider,
     call_provider,
+    effective_model,
     no_text_reason,
     redacted_error,
     response_fragment,
@@ -771,6 +772,9 @@ def generate_repro(
     shared_system: str = "",
     model: str = "",
 ) -> ReproSpec:
+    # only a provider that understands the override answers on another model;
+    # the budget prices the call at whichever model will actually answer it
+    model = effective_model(provider, model)
     prompt = _generation_prompt(repo, candidate, base_ref)
     labels = [
         f"verify-{candidate.finding.finding_id}-attempt-{attempt}"
