@@ -204,10 +204,13 @@ def test_docker_argv_is_the_declared_profile(tmp_path: Path, adapter: ContainerA
     assert "ATTEST_OUTPUTS=/attest/outputs" in argv
 
 
+# numpy is on both sides of the import and inside the assertion, so the OpenBLAS
+# thread question is still asked; the assertion pins the literal the base tree's
+# own test states, so D-127's value rule does not stand in front of this one.
 NUMPY_BODY = (
     "import numpy\nimport mod\n\n"
     "def test_repro():\n"
-    "    assert mod.add(2, 2) == int(numpy.array([4]).sum())\n"
+    "    assert int(numpy.array([mod.add(2, 2)]).sum()) == 4\n"
 )
 
 
