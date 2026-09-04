@@ -39,6 +39,11 @@ match the bug.
   [`overnight-handoff.md`](overnight-handoff.md) (`feature/m01-authoritative-outcomes`). A
   handoff never owns status: roadmap status lives only in [`roadmap.md`](roadmap.md).
 - `examples/` contains current fixtures/templates, not proof that their path is release-ready.
+- `design/` holds **proposals that are not implemented**. A design document owns no contract and
+  no gate; it states a shape, names the normative documents it would have to move, and ends with
+  the RED that would open the work. [`design/gate-level.md`](design/gate-level.md) is the first
+  one: the evidence form for the gate level of `mainline.md` §1.1, unimplemented, and it names
+  the `G-NEWCODE-001` conflict it cannot resolve on its own.
 
 ## Evidence and historical documents
 
