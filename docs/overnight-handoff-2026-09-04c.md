@@ -1,8 +1,11 @@
-# Handoff — 2026-09-04c (`9308e17` → `e2f82a1`): v3 landed, and a control published under it
+# Handoff — 2026-09-04c (`9308e17` → `1e63a70`): v3 landed, and a control published under it
 
 **Window spend $1.074700 of $35; cumulative $48.912326 of $90.** Remote writes: **none**.
-Gates at the tip: `ruff` clean, `mypy` clean over 81 files, `git diff --check` clean, `pytest`
-green over the suite minus the docker-gated isolation module, run exclusively on a clean tree.
+Gates at the tip: `ruff` clean, `mypy` clean over 81 files, `git diff --check` clean, and
+**`pytest` exit 0 with zero failures over the whole suite minus `tests/execution/test_isolation.py`**
+— `tests/benchmark` and the container-backed `tests/execution/test_linux_isolation.py` included —
+run exclusively on a clean tree. The `test_m01_offline_measurement_probe` errors of the last two
+windows do not appear: they are the clean-tree guard, and the tree was clean.
 
 ## 1. `attest.intent.v3` (D-128) — old vs new, on every receipt the corpus holds
 
@@ -19,8 +22,11 @@ specifications standing. Deterministic; no model. [Report](acceptance/2026-09-04
 | publications over 125 reviews | 27 | **14** |
 | **control publications** | 1 | **0** |
 
-Drawer reasons for the 36: 19 unspecified value, 16 pin no value at all, 1 specification the
-change rewrote. **The recall cost is the decision.** The old replay reproduces the ledger on
+Drawer reasons for the 36: 19 unspecified value, **16 pin no value at all**, 1 specification the
+change rewrote. That third of the cost is one shape — an assertion that compares against a name
+or a computed value rather than a literal — and the suite produced two more instances of it on
+the spot (the monorepo helper-import fixture and the numpy container fixture, both recorded in
+the tests rather than worked around). **The recall cost is the decision.** The old replay reproduces the ledger on
 59 of the 59 rows written under D-125's family rule. Four of the ten survivors rest only on
 generic constants (`None`, `0`, `2`, `True`) — stated as v3's weakest point, and §2 is that
 weakness happening.
@@ -102,7 +108,9 @@ workflow file, copyable whole. RED: three tests in `tests/test_action_entrypoint
 1. **Narrow v3, or stop publishing the value class entirely? (D-131)** Two shapes, neither
    touching alpha/LR/K/cap: (a) exclude generic constants (`None`/`True`/`False`/small ints) from
    the pinned set, so a receipt needs at least one distinctive value; (b) pin only the constants
-   of the assertion that actually failed, read from the head runs' JUnit message. **(a)+(b)
+   of the assertion that actually failed, read from the head runs' JUnit message. Neither
+   addresses the third of the recall cost that pins *no* literal at all; that needs a separate
+   answer and is not one of these two. **(a)+(b)
    together is the default recommendation**; both were implementable tonight and neither was
    implemented, because both move what publishes. **Until one lands, `G-NULL-001a` cannot resume
    and condition 4 cannot move.**
