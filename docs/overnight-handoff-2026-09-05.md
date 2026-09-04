@@ -5,7 +5,9 @@ and the one authorized throwaway pull request ([#9](https://github.com/IcantFind
 closed unmerged, branch deleted)** — nothing else. Gates at the tip: `ruff` clean, `mypy` clean
 over 81 files, `git diff --check` clean, **`pytest` exit 0 with zero failures and zero errors**
 over the whole suite minus `tests/execution/test_isolation.py`, run exclusively on a clean tree;
-and the **GitHub-runner `gates` workflow passed on `main`** (run 33913070680, 19m43s).
+and the **GitHub-runner `gates` workflow passed on every pushed commit of this window** — runs
+33913070680, 33918844790 and 33918847885, all `success`, the last of them on the tip this
+handoff names.
 
 ## 1. `attest.intent.v4` (D-132) — v2, v3, v4 in three columns
 
