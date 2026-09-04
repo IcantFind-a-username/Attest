@@ -1,4 +1,4 @@
-# Handoff — 2026-09-04c (`9308e17` → `1e63a70`): v3 landed, and a control published under it
+# Handoff — 2026-09-04c (`9308e17` → `b91d045`, plus this line): v3 landed, and a control published under it
 
 **Window spend $1.074700 of $35; cumulative $48.912326 of $90.** Remote writes: **none**.
 Gates at the tip: `ruff` clean, `mypy` clean over 81 files, `git diff --check` clean, and
