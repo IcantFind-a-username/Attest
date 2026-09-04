@@ -1322,6 +1322,22 @@ def run_ci(
         provider=provider,
         budget=review.budget,
     )
+    # D-130's promise is that a refused sentence is *recorded rather than hidden*.
+    # The comment cannot carry the reason -- it would be a hedge about a hedge --
+    # so the ledger does, one row per note, whether or not advice was published.
+    for note in green[:MAX_STRUCTURAL_COMMENTS]:
+        ledger.append(
+            {
+                "kind": "structural_note",
+                "schema_version": "attest.structural-note.v1",
+                "task_id": task_id,
+                "policy_version": note.finding.policy_version,
+                "note_id": structural_member_id(note),
+                "similarity": note.finding.similarity,
+                "advice_published": bool(note.advice),
+                "refusal": note.refusal,
+            }
+        )
     published_ids = {_candidate_id(finding) for finding in inline_results}
     ledger.record_ci_final(
         task_id=task_id,

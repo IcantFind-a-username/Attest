@@ -551,6 +551,81 @@ def test_a_duplicated_implementation_reaches_the_author_as_a_structural_comment(
     red, heading, green = final.partition(STRUCTURAL_HEADING)
     assert heading and STRUCTURAL_PREFIX in green and STRUCTURAL_PREFIX not in red
 
+    # the ledger records the note and whether the model's sentence survived
+    rows = _ledger_rows(tmp_path)
+    note_row = next(row for row in rows if row["kind"] == "structural_note")
+    assert note_row["advice_published"] is True and note_row["refusal"] is None
+    assert note_row["note_id"] == "invoices.py:1|orders.py:1"
+
+
+def test_a_refused_model_sentence_is_recorded_rather_than_hidden(
+    tmp_path: Path, github_server: RecordingGitHub
+) -> None:
+    """D-130's promise, kept in the review path: the comment carries no hedge and
+    the ledger carries the reason there is no advice. Found by the one real
+    comment of owner instruction 4c, where the model hedged and nothing said so."""
+    from attest.review.ci import run_ci
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(tmp_path), *args], check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    body = (
+        "def summarise_orders(rows, floor):\n"
+        "    total = 0\n"
+        "    seen = set()\n"
+        "    for row in rows:\n"
+        "        if row.amount < floor:\n"
+        "            continue\n"
+        "        seen.add(row.customer_id)\n"
+        "        total += row.amount * row.quantity\n"
+        "    average = total / max(len(seen), 1)\n"
+        '    return {"total": total, "customers": len(seen), "average": average}\n'
+    )
+    copy = body.replace("summarise_orders", "tally_invoices")
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test")
+    (tmp_path / "orders.py").write_text(body, encoding="utf-8")
+    git("add", "orders.py")
+    git("commit", "-m", "base")
+    base_sha = git("rev-parse", "HEAD")
+    (tmp_path / "invoices.py").write_text(copy, encoding="utf-8")
+    git("add", "invoices.py")
+    git("commit", "-m", "copy")
+    head_sha = git("rev-parse", "HEAD")
+
+    provider = RecordingProvider(
+        _payload(),
+        '{"test_body":"assert False"}',
+        json.dumps(
+            {
+                "sentence": "These two functions likely do the same thing.",
+                "fix": "You should probably delete one of them.",
+            }
+        ),
+    )
+
+    run_ci(
+        tmp_path,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(k_samples=1, tier0_commands=[]),
+        provider,
+    )
+
+    comments = [c for body in github_server.review_bodies for c in body["comments"]]
+    structural = [c for c in comments if str(c["body"]).startswith(STRUCTURAL_MARKER_PREFIX)]
+    assert len(structural) == 1
+    assert STRUCTURAL_ADVICE_HEADING not in str(structural[0]["body"])
+    assert "likely" not in str(structural[0]["body"])
+    assert "probably" not in str(structural[0]["body"])
+
+    note_row = next(row for row in _ledger_rows(tmp_path) if row["kind"] == "structural_note")
+    assert note_row["advice_published"] is False
+    assert "hedged" in str(note_row["refusal"]) and "probably" in str(note_row["refusal"])
+
 
 def test_fork_is_skipped_before_provider_or_executor_use(
     planted_repo: tuple[Path, str, str], github_server: RecordingGitHub

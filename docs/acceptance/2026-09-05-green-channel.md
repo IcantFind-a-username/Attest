@@ -70,7 +70,54 @@ then 6) is the model's own variance, not the rule's.
   and `StructuralNote` holds the two in separate fields, so dropping the advice never changes
   what is claimed.
 
-## 4. Limits
+## 4. One real comment, on a real pull request (owner instruction 4c)
+
+[`IcantFind-a-username/Attest#9`](https://github.com/IcantFind-a-username/Attest/pull/9), opened
+as a throwaway, **closed unmerged and its branch deleted** — the comments stay readable on the
+closed pull request, which is the record. One file added, `scripts/corpus/_green_probe.py`,
+whose `ProbeStore.read_all` is `CandidateStore.load` with the names changed. The Action ran on a
+GitHub runner at `budget-usd 0.25`, **spent $0.010345**, and posted exactly what it should:
+
+**The inline comment**, anchored on the changed side at `_green_probe.py:19`:
+
+```
+<!-- attest:structural:scripts/corpus/_green_probe.py:19|src/attest/review/candidates.py:82 -->
+Structural (no defect claimed): scripts/corpus/_green_probe.py:19-31 `read_all` and
+src/attest/review/candidates.py:82-94 `load` normalise to token sequences of 70 and 72 tokens
+whose similarity is 0.944 (threshold 0.92); identifiers and literal values are erased, attribute
+and callee names are not.
+
+Category: structural. This is a measurement over the two coordinates above, not a reproduction:
+no test was generated and no receipt backs it.
+```
+
+**The summary comment**, green partitioned from red:
+
+```
+Review complete.
+No finding was verified by a reproduction; abstained.
+
+Structural observations — measured, not reproduced; no defect is claimed:
+- Structural (no defect claimed): scripts/corpus/_green_probe.py:19-31 `read_all` and …
+Spend $0.0103; 12.0s.
+```
+
+**Everything the instruction asked for held**: one note (the cap is two), marked `structural`,
+in its own section, claim line coordinates and measure only, red untouched.
+
+### And the probe found a defect in the wiring, which is why it was worth running
+
+**There is no "Suggested fix" paragraph, and nothing said why.** The ledger shows it: the review
+spent `$0.007623` and the run finished at `$0.010345`, so the wording call *was* made — and its
+sentence was dropped, silently. D-130's stated property is that a refusal is *recorded rather
+than hidden*; `describe` returns the reason and the review path was throwing it away.
+
+Fixed in the same window: `run_ci` now writes one `structural_note` ledger row per note carrying
+`policy_version`, `note_id`, `similarity`, `advice_published` and `refusal`. The comment still
+carries no hedge — a hedge about a hedge is worse than silence — and the audit chain carries the
+reason. RED: `tests/test_ci_flow.py::test_a_refused_model_sentence_is_recorded_rather_than_hidden`.
+
+## 5. Limits
 
 - **Green is measured, not reproduced, and claims no defect.** Duplication is a property of the
   code, not of the commit; the `G-NULL-001a` nulls speak at 22.4% and that is not an error rate
