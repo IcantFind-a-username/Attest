@@ -116,18 +116,20 @@ _UNIT_CALC = "import os\n\ndef value():\n    return undefined_name()\n"
 #: Fixture bug ruff can flag (F632) that still fails at runtime by returning
 #: the wrong value -- never by NameError, whose head signature the product's
 #: classifier rightly voids as a stale reference.
-_BUGGY_CALC = "def value():\n    return 2 if (1 is 1) else 0\n"
-_FIXED_CALC = "def value():\n    return 1\n"
-_TEST_CALC = "from calc import value\n\ndef test_value():\n    assert value() == 1\n"
+# D-132 (b): the pinned value has to be distinctive, so the fixture states 7
+# rather than 1 -- a generic constant no longer specifies anything.
+_BUGGY_CALC = "def value():\n    return 42 if (1 is 1) else 0\n"
+_FIXED_CALC = "def value():\n    return 7\n"
+_TEST_CALC = "from calc import value\n\ndef test_value():\n    assert value() == 7\n"
 
 _PROPOSAL = json.dumps(
     {
         "findings": [
             {
-                "claim": "value() returns 2 instead of the documented 1.",
+                "claim": "value() returns 42 instead of the documented 7.",
                 "anchor": {"file": "calc.py", "line": 2},
-                "failure_scenario": "value() returns 2 and callers act on it",
-                "falsification_plan": "call value() and require the documented 1",
+                "failure_scenario": "value() returns 42 and callers act on it",
+                "falsification_plan": "call value() and require the documented 7",
             }
         ]
     }
@@ -135,8 +137,8 @@ _PROPOSAL = json.dumps(
 _REPRO = json.dumps(
     {
         "test_body": "import runpy\n\n"
-        "def test_value_is_one():\n"
-        "    assert runpy.run_path('calc.py')['value']() == 1\n"
+        "def test_value_is_seven():\n"
+        "    assert runpy.run_path('calc.py')['value']() == 7\n"
     }
 )
 

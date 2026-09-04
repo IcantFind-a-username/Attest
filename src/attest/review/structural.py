@@ -35,10 +35,27 @@ import os
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 STRUCTURAL_POLICY_VERSION = "attest.structural.duplicate-implementation.v1"
 CATEGORY = "structural"
+
+# D-133: the one prompt the level ever uses, held here so the review path and the
+# offline validation ask the model the same question. It is deliberately silent
+# about the wording rule: the adjudicator's job is to hold against a model that
+# was not told, and a prompt that begs the answer measures nothing.
+WORDING_SYSTEM = (
+    "You are reviewing a colleague's pull request. You will be given one finding "
+    "that a static analysis already established. Write the finding for the author "
+    "in plain language, in at most three sentences, and propose a concrete fix."
+)
+WORDING_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {"sentence": {"type": "string"}, "fix": {"type": "string"}},
+    "required": ["sentence", "fix"],
+    "additionalProperties": False,
+}
+WORDING_MAX_TOKENS = 500
 
 MIN_TOKENS = 40  # a body smaller than this is not worth two coordinates
 MIN_STATEMENTS = 4
@@ -55,6 +72,9 @@ SKIPPED_DIRS = frozenset(
         ".git",
         ".attest",
         ".attest-repro",
+        # an agent scratch directory: it holds stale copies of the repository
+        # itself, and every copy is a "duplicate" of everything in it
+        ".claude",
         "node_modules",
         "__pycache__",
         ".venv",
@@ -339,6 +359,29 @@ def inadmissible_phrase(text: str) -> str | None:
     return None
 
 
+def names_a_coordinate(text: str, finding: DuplicateImplementation) -> bool:
+    """Does this prose name a place the reader can open -- either file, by full
+    path or by base name, or either function?
+
+    D-133: the denylist alone has a blind spot, and a real model walked into it
+    only in the sense that it could have. *"These two functions do exactly the
+    same work, so one of them is dead weight"* carries no banned phrase and no
+    place to look. Green's entire claim is that a reader can go and see it, so
+    prose that names nowhere is refused exactly as a hedge is.
+    """
+    return any(
+        token and token in text
+        for token in (
+            finding.path_a,
+            finding.path_b,
+            PurePosixPath(finding.path_a).name,
+            PurePosixPath(finding.path_b).name,
+            finding.name_a,
+            finding.name_b,
+        )
+    )
+
+
 def describe(
     finding: DuplicateImplementation,
     *,
@@ -349,8 +392,8 @@ def describe(
     The evidence sentence is always the first line and is never generated. A
     model, when one is supplied, is called **once** and only here -- after the
     finding already exists -- to add a readable line and a fix. Its answer is
-    subject to the same wording rule as ours: one hedge and it is dropped, with
-    the reason recorded rather than hidden.
+    subject to the same wording rules as ours: a hedge is dropped, and so is
+    prose that names no coordinate, with the reason recorded rather than hidden.
     """
     evidence = evidence_sentence(finding)
     if say is None:
@@ -364,4 +407,36 @@ def describe(
     banned = inadmissible_phrase(prose)
     if banned is not None:
         return evidence, f"the model's sentence hedged ({banned!r}) instead of naming a place"
+    if not names_a_coordinate(prose, finding):
+        return evidence, "the model's sentence named no coordinate a reader could open"
     return f"{evidence}\n\n{prose}", None
+
+
+@dataclass(frozen=True)
+class StructuralNote:
+    """One green note, with what is *claimed* and what is merely *advised* kept
+    in separate fields (D-133).
+
+    ``evidence`` is deterministic and states only coordinates and the measure;
+    ``advice`` is the model's paragraph and may be empty. Dropping ``advice``
+    never changes what the note claims -- which is the whole reason a model is
+    allowed anywhere near this level.
+    """
+
+    finding: DuplicateImplementation
+    evidence: str
+    advice: str
+    refusal: str | None
+
+
+def structural_note(
+    finding: DuplicateImplementation,
+    *,
+    say: Callable[[str], str] | None = None,
+) -> StructuralNote:
+    """The publishable form of one finding: claim, advice, and why advice is
+    missing when it is."""
+    published, refusal = describe(finding, say=say)
+    evidence = evidence_sentence(finding)
+    advice = published[len(evidence) :].strip() if refusal is None else ""
+    return StructuralNote(finding=finding, evidence=evidence, advice=advice, refusal=refusal)

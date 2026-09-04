@@ -3482,8 +3482,8 @@ def test_real_mixed_publications_remain_scored_when_one_candidate_defers(
     repro = json.dumps(
         {
             "test_body": "import runpy\n\n"
-            "def test_value_is_one():\n"
-            "    assert runpy.run_path('calc.py')['value']() == 1\n"
+            "def test_value_is_seven():\n"
+            "    assert runpy.run_path('calc.py')['value']() == 7\n"
         }
     )
 

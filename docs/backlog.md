@@ -50,3 +50,23 @@ reproduction turns one into a real defect.
 - 2026-09-02 (E-02 pilot): pytest's own repository is runner-is-subject — the reviewed pytest becomes the test runner from the tree, so the interpreter must satisfy the *reviewed* pytest (no `imp` on 3.12) and generated files (`_pytest/_version.py`) must be committed; an executor profile that pins the runner separately (X-01/X-02) would remove this coupling.
 - 2026-09-02 (E-02 pilot): on CPython 3.8 `platform.system()` shells out to `uname -p` and trips the process guard at collection for any project that reads `platform` at import (requests, pylint); 3.9+ computes it lazily. Same root as D-057; the controlled-subprocess profile (X-03) is the owner-gated fix, the pilot pins 3.9+ meanwhile.
 - 2026-09-02 (E-02 pilot): with planner context 10/32 proposal samples stopped at 2,400 output tokens, two cases losing all four samples; the generator returned `{}` twice on two cases. Both are precommitted-recovery (R-02) shapes; measure them on the dev-slice re-run before touching D-051/D-056 bounds.
+
+## 2026-09-05 (D-132/D-133 window)
+
+- **`attest.intent.v4` clause (c) matches a symbol name as a word.** Common names —
+  `readings`, `decision`, `snapshot`, `_reason`, `main` — match prose about something else, so
+  an unknown fraction of the 42 intent-evidence hits in the corpus replay is false. Candidate
+  narrowings: a minimum distinctiveness test on the symbol (as clause (b) applies to values), a
+  dictionary-word exclusion, or requiring the mention to be in code-formatting/backticks. Moves
+  what publishes, so it is the owner's.
+- **Clause (b) is dead weight on the current corpus.** Once (a) restricts the pinned set to the
+  failing assertion, the set is empty long before genericity is asked; (b) fires on 2 of 48
+  receipts and on 0 of the ones v3 certified. Keep it (it is cheap and it is the rule that would
+  have stopped `urllib3` under v3's set), but do not describe it as load-bearing.
+- **The value class certifies 0 on the whole corpus under v4.** Nothing here says which of the
+  12 v3 survivors were real defects. A recall study — adjudicating the 48 by hand — is the
+  measurement that would tell whether v4 is right or merely silent.
+- **`describe`'s coordinate rule has never fired.** 20 model calls, 0 refusals for it. It is a
+  guard, not a measured fix, and should be re-measured on a different model or a harder prompt.
+- **The wording adjudicator's denylist is a denylist**, English and Chinese. A hedge phrased
+  outside the list passes.

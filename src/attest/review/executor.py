@@ -344,6 +344,7 @@ class ExecutionResult:
     raise_origins: tuple[RaiseOrigin, ...] = ()
     raise_origins_truncated: bool = False
     failure_message: str = ""  # the JUnit failure message ("Type: text"), failed runs only
+    failure_detail: str = ""  # D-132: the JUnit failure body (pytest's longrepr)
 
 
 @dataclass(frozen=True)
@@ -887,6 +888,9 @@ class _JUnitSummary:
     xfailed: int
     test_node: str
     failure_message: str = ""  # first <failure>/<error> message attribute, entity-decoded
+    # D-132: the same node's body -- pytest's longrepr, whose innermost frame
+    # names the line of the reproduction the failure was actually raised from
+    failure_detail: str = ""
 
 
 def _junit_summary(data: bytes) -> _JUnitSummary:
@@ -916,14 +920,16 @@ def _junit_summary(data: bytes) -> _JUnitSummary:
             module_index = len(parts) - 1 - parts[::-1].index("test_repro")
             test_node = "::".join(["test_repro.py", *parts[module_index + 1 :], name])
     failure_message = ""
+    failure_detail = ""
     for case in cases:
         for tag in ("failure", "error"):
             for node in case.iter(tag):
                 failure_message = " ".join(str(node.attrib.get("message", "")).split())[:2000]
+                failure_detail = (node.text or "")[-8000:]
                 break
-            if failure_message:
+            if failure_message or failure_detail:
                 break
-        if failure_message:
+        if failure_message or failure_detail:
             break
     return _JUnitSummary(
         failures=failures,
@@ -933,6 +939,7 @@ def _junit_summary(data: bytes) -> _JUnitSummary:
         xfailed=xfailed,
         test_node=test_node,
         failure_message=failure_message,
+        failure_detail=failure_detail,
     )
 
 
@@ -956,6 +963,20 @@ def _changed_lines(repo: Path, base_sha: str, head_sha: str, path: str) -> tuple
         return ()
     ranges = parse_diff(proc.stdout).hunks.get(path, [])
     return tuple(sorted({line for start, end in ranges for line in range(start, end + 1)}))
+
+
+def _changed_files(repo: Path, base_sha: str, head_sha: str) -> tuple[str, ...]:
+    """D-132: every path the reviewed change touches, for the intent-evidence walk."""
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "diff", "--no-color", "--name-only", base_sha, head_sha],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if proc.returncode != 0:
+        return ()
+    return tuple(sorted({line.strip() for line in proc.stdout.splitlines() if line.strip()}))
 
 
 def _junit_counts(data: bytes) -> tuple[int, int]:
@@ -1561,6 +1582,7 @@ def execute_repro(
             test_node=junit.test_node,
             junit_xml=junit_text,
             failure_message=junit.failure_message,
+            failure_detail=junit.failure_detail,
             **identity,
         )
     return _deferred(
@@ -1890,6 +1912,8 @@ def execute_differential(
             test_source=spec.test_body,
             head_origins=[run.raise_origins for run in head_runs],
             head_failures=[run.failure_message for run in head_runs],
+            head_failure_details=[run.failure_detail for run in head_runs],
+            changed_files=_changed_files(repo_root, base_sha, head_sha),
             truncated=any(run.raise_origins_truncated for run in head_runs),
             base_tree=trees_dir / "base",
             head_tree=trees_dir / "head",

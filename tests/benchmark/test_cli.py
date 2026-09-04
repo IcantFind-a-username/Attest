@@ -494,8 +494,8 @@ def _replay_fixture(tmp_path: Path, *, control_proposal: str | None = None) -> t
         json.dumps(
             {
                 "test_body": "import runpy\n\n"
-                "def test_value_is_one():\n"
-                "    assert runpy.run_path('calc.py')['value']() == 1\n"
+                "def test_value_is_seven():\n"
+                "    assert runpy.run_path('calc.py')['value']() == 7\n"
             }
         ),
     )

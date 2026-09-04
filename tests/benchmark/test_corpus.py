@@ -648,7 +648,10 @@ def _oracle_fixture(
     _git(upstream, "init", "-q")
     _git(upstream, "config", "user.email", "fixture@example.invalid")
     _git(upstream, "config", "user.name", "Fixture")
-    (upstream / "calc.py").write_text("def value():\n    return 0\n")
+    # D-132 (b): the pinned value has to be distinctive -- a reproduction that
+    # states `0` or `1` no longer certifies, because a generic constant specifies
+    # nothing. The fixture states 7; the rule was not touched.
+    (upstream / "calc.py").write_text("def value():\n    return 3\n")
     failure_message = (
         f", {'x' * failure_message_size!r}" if failure_message_size else ""
     )
@@ -657,14 +660,14 @@ def _oracle_fixture(
         if missing_dependency
         else (
             "from calc import value\n\ndef test_value():\n"
-            f"    assert value() == 1{failure_message}\n"
+            f"    assert value() == 7{failure_message}\n"
         )
     )
     (upstream / "test_calc.py").write_text(test_source)
     _git(upstream, "add", ".")
     _git(upstream, "commit", "-qm", "buggy")
     buggy_commit = _git(upstream, "rev-parse", "HEAD")
-    (upstream / "calc.py").write_text("def value():\n    return 1\n")
+    (upstream / "calc.py").write_text("def value():\n    return 7\n")
     _git(upstream, "add", ".")
     _git(upstream, "commit", "-qm", "fixed")
     fixed_commit = _git(upstream, "rev-parse", "HEAD")

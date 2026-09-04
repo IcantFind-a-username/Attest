@@ -15,6 +15,12 @@ import pytest
 
 from attest.github.client import STATUS_MARKER, GitHubClient
 from attest.github.context import PullRequestContext
+from attest.github.presentation import (
+    STRUCTURAL_ADVICE_HEADING,
+    STRUCTURAL_HEADING,
+    STRUCTURAL_MARKER_PREFIX,
+    STRUCTURAL_PREFIX,
+)
 from attest.review.acceptance import (
     BUG_COMMENT_PHASES,
     classify_comments,
@@ -27,9 +33,11 @@ from attest.review.proposer import ProviderResult
 
 
 class RecordingProvider:
-    def __init__(self, proposal: str, repro: str) -> None:
+    def __init__(self, proposal: str, repro: str, wording: str = "") -> None:
         self.proposal = proposal
         self.repro = repro
+        # D-133: the green level's single call, made after the evidence holds
+        self.wording = wording
         self.calls: list[dict[str, object]] = []
         self._lock = Lock()
 
@@ -44,7 +52,12 @@ class RecordingProvider:
     ) -> ProviderResult:
         with self._lock:
             self.calls.append({"at": time.monotonic(), "system": system, "prompt": prompt})
-        payload = self.repro if "focused pytest reproduction" in system else self.proposal
+        if "static analysis already established" in system:
+            payload = self.wording
+        elif "focused pytest reproduction" in system:
+            payload = self.repro
+        else:
+            payload = self.proposal
         return ProviderResult(text=payload, input_tokens=10, output_tokens=10)
 
 
@@ -444,6 +457,99 @@ def test_clean_negative_control_posts_no_inline_review(
     assert github_server.review_bodies == []
     final_body = github_server.status_bodies[-1]
     assert "No finding was verified by a reproduction; abstained." in final_body
+
+
+def test_a_duplicated_implementation_reaches_the_author_as_a_structural_comment(
+    tmp_path: Path, github_server: RecordingGitHub
+) -> None:
+    """D-133 (owner instruction 4c): the green channel reaches a real comment.
+
+    A change that copies an implementation and breaks nothing publishes no
+    finding, and still says something: one comment marked `structural`, whose
+    claim line is coordinates and a measure, in its own section of the summary,
+    with the red section still saying it verified nothing.
+    """
+    from attest.review.ci import run_ci
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(tmp_path), *args], check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    body = (
+        "def summarise_orders(rows, floor):\n"
+        "    total = 0\n"
+        "    seen = set()\n"
+        "    for row in rows:\n"
+        "        if row.amount < floor:\n"
+        "            continue\n"
+        "        seen.add(row.customer_id)\n"
+        "        total += row.amount * row.quantity\n"
+        "    average = total / max(len(seen), 1)\n"
+        '    return {"total": total, "customers": len(seen), "average": average}\n'
+    )
+    copy = (
+        "def tally_invoices(records, minimum):\n"
+        "    running = 0\n"
+        "    people = set()\n"
+        "    for record in records:\n"
+        "        if record.amount < minimum:\n"
+        "            continue\n"
+        "        people.add(record.customer_id)\n"
+        "        running += record.amount * record.quantity\n"
+        "    mean = running / max(len(people), 1)\n"
+        '    return {"total": running, "customers": len(people), "average": mean}\n'
+    )
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test")
+    (tmp_path / "orders.py").write_text(body, encoding="utf-8")
+    git("add", "orders.py")
+    git("commit", "-m", "base")
+    base_sha = git("rev-parse", "HEAD")
+    (tmp_path / "invoices.py").write_text(copy, encoding="utf-8")
+    git("add", "invoices.py")
+    git("commit", "-m", "copy the summariser into invoices")
+    head_sha = git("rev-parse", "HEAD")
+
+    provider = RecordingProvider(
+        _payload(),
+        '{"test_body":"assert False"}',
+        # the one wording call the green level makes, after the evidence holds
+        json.dumps(
+            {
+                "sentence": "`tally_invoices` in invoices.py is `summarise_orders` renamed.",
+                "fix": "Delete it and import `summarise_orders` from orders.py.",
+            }
+        ),
+    )
+
+    result = run_ci(
+        tmp_path,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(k_samples=1, tier0_commands=[]),
+        provider,
+    )
+
+    assert result.surfaced_count == 0  # nothing was reproduced, and nothing claims to be
+    comments = [c for body in github_server.review_bodies for c in body["comments"]]
+    structural = [c for c in comments if str(c["body"]).startswith(STRUCTURAL_MARKER_PREFIX)]
+    assert len(structural) == 1
+    comment = str(structural[0]["body"])
+    assert comment.count(STRUCTURAL_PREFIX) == 1
+    assert "Category: structural" in comment and "no receipt backs it" in comment
+    assert "orders.py:1-10" in comment and "invoices.py:1-10" in comment
+    assert STRUCTURAL_ADVICE_HEADING in comment
+    assert "Delete it and import `summarise_orders`" in comment
+    # the claim line is coordinates and a measure; the model's words are below it
+    claim = comment.split("\n")[1]
+    assert claim.startswith(STRUCTURAL_PREFIX) and "Delete" not in claim
+
+    final = github_server.status_bodies[-1]
+    assert "No finding was verified by a reproduction; abstained." in final
+    red, heading, green = final.partition(STRUCTURAL_HEADING)
+    assert heading and STRUCTURAL_PREFIX in green and STRUCTURAL_PREFIX not in red
 
 
 def test_fork_is_skipped_before_provider_or_executor_use(
@@ -1550,7 +1656,7 @@ def test_a_new_rejection_the_base_tests_attest_publishes_as_a_behavior_change(
     assert intent["witnesses"] == [["the buyback plan raises the floor", "tests/test_app.py"]]
     receipt = json.loads((bundle / "receipt.json").read_text(encoding="utf-8"))
     assert receipt["evidence_class"] == "behavior_change"
-    assert receipt["intent_policy_version"] == "attest.intent.v3"
+    assert receipt["intent_policy_version"] == "attest.intent.v4"
     assert isinstance(verify_bundle(bundle), AcceptedReceipt)
 
     # the verifier re-judges the observation: a bundle whose every digest is

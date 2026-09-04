@@ -39,6 +39,28 @@ reproduction that invents its own expected value -- which most generated
 reproductions do -- can no longer certify a value regression. D-102 paid the
 same price on the rejection class.
 
+``attest.intent.v4`` (D-132) narrows that rule in three places, after
+`G-NULL-001a` published a second wrong claim under v3. (a) The pinned set is the
+assertion that **failed** -- located from the head runs' JUnit longrepr -- and
+not every ``assert`` in the generated test; a failure raised from anywhere but an
+``assert`` statement pins nothing. (b) A **generic constant** (``None``,
+``True``, ``False``, ``0``, ``1``, ``-1``, ``""``, ``b""``, ``0.0``, ``1.0``) is
+not a specification: it is asserted somewhere in almost any tree, so a receipt
+needs at least one *distinctive* value. (c) A diff that also changes a test, a
+docstring, a documentation or changelog line, or an inline comment **touching the
+anchored symbol** has said what it meant; that is **intent evidence**, and it
+drawers the receipt whatever the base tree specifies.
+
+So the composite rule for a value mismatch: **the base tree specifies every
+distinctive value the failing assertion pins, this change leaves every one of
+those specifications standing, and the diff carries no intent evidence** --
+publish; anything else, the drawer. Deterministic end to end: file reads and an
+AST walk, no model anywhere. (c) is this version's answer to the *third* of the
+recall cost that pins no literal at all -- it does not recover those receipts,
+but it is the reason the remaining ones can be trusted without one: what the
+pinned literal cannot say about the author's intent, the author's own prose in
+the same diff does.
+
 A receipt is judged under the policy version **it records**, not under the one
 in force today (D-121). Bumping the version is a promise to future readers of
 the audit chain, not a way to void every receipt already issued: an observation
@@ -54,9 +76,10 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
-INTENT_POLICY_VERSION = "attest.intent.v3"  # D-127
+INTENT_POLICY_VERSION = "attest.intent.v4"  # D-132
 INTENT_POLICY_V1 = "attest.intent.new-rejection.v1"  # D-102, before D-120
 INTENT_POLICY_V2 = "attest.intent.v2"  # D-120, before D-127
+INTENT_POLICY_V3 = "attest.intent.v3"  # D-127, before D-132
 EVIDENCE_CLASS_REGRESSION = "regression_reproduced"
 EVIDENCE_CLASS_BEHAVIOR_CHANGE = "behavior_change"
 INTENT_UNKNOWN_LABEL = "behavior change confirmed, intent unknown"
@@ -65,7 +88,31 @@ CONSTANT_CHANGE_LABEL = "constant change confirmed, intent unknown"
 CONSTANT_CHANGE_LABEL_ZH = "常量改动已证实，意图未知"
 VALUE_CHANGE_LABEL = "value change confirmed, intent unknown"
 VALUE_CHANGE_LABEL_ZH = "返回值变化已证实，意图未知"
+INTENT_STATED_LABEL = "intent stated in the change itself"
+INTENT_STATED_LABEL_ZH = "改动自身已陈述意图"
 REJECTING_STATEMENTS = ("raise", "assert")
+# D-132 (b): values a tree asserts by the hundred, so that finding one is a
+# coincidence of vocabulary rather than a statement about the function under
+# test. Held as ``repr`` strings, which is how an observation records a pinned
+# value; ``0``/``1``/``-1`` cover their float spellings by value, not by text.
+GENERIC_VALUE_REPRS = frozenset(
+    {
+        "None",
+        "True",
+        "False",
+        "0",
+        "1",
+        "-1",
+        "0.0",
+        "1.0",
+        "-1.0",
+        "''",
+        'b\'\'',
+        "()",
+        "[]",
+        "{}",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -96,6 +143,18 @@ class IntentObservation:
     value_specified: tuple[tuple[str, str], ...] = ()
     # the specifying sites this change no longer specifies at head
     value_respecified: tuple[tuple[str, str], ...] = ()
+    # D-132 (a): the line of the generated test the head runs failed on, agreed
+    # across every run; 0 when it could not be read or the runs disagreed. Under
+    # v4 ``pinned_values`` is that assertion's, and empty when this is not one.
+    failing_assertion_line: int = 0
+    # D-132 (c): the def/class names of the anchored file this change touched --
+    # those whose head body intersects a changed line, plus those the change
+    # removed outright
+    anchored_symbols: tuple[str, ...] = ()
+    # (symbol, changed file whose prose or test body touches it): a test, a
+    # docstring, a documentation or changelog line, or an inline comment the same
+    # diff moved. First site per file, so the record stays bounded.
+    intent_evidence: tuple[tuple[str, str], ...] = ()
 
     def digest(self) -> str:
         """Over exactly the fields the recorded policy version defines, so that a
@@ -125,21 +184,31 @@ _V1_FIELDS = (
     "head_runs_observed",
 )
 _V2_FIELDS = (*_V1_FIELDS, "constant_substitution", "asserted_constants")
+_V3_FIELDS = (
+    *_V2_FIELDS,
+    "value_mismatch",
+    "pinned_values",
+    "value_specified",
+    "value_respecified",
+)
 # The observation each policy version records. v2 adds D-120's two constant
-# fields, v3 adds D-127's four value fields; a version absent from this table is
-# unknown and never publishes.
+# fields, v3 adds D-127's four value fields, v4 adds D-132's three; a version
+# absent from this table is unknown and never publishes.
 POLICY_FIELDS: dict[str, tuple[str, ...]] = {
     INTENT_POLICY_V1: _V1_FIELDS,
     INTENT_POLICY_V2: _V2_FIELDS,
+    INTENT_POLICY_V3: _V3_FIELDS,
     INTENT_POLICY_VERSION: (
-        *_V2_FIELDS,
-        "value_mismatch",
-        "pinned_values",
-        "value_specified",
-        "value_respecified",
+        *_V3_FIELDS,
+        "failing_assertion_line",
+        "anchored_symbols",
+        "intent_evidence",
     ),
 }
-_CONSTANT_RULE_VERSIONS = frozenset({INTENT_POLICY_V2, INTENT_POLICY_VERSION})
+_CONSTANT_RULE_VERSIONS = frozenset(
+    {INTENT_POLICY_V2, INTENT_POLICY_V3, INTENT_POLICY_VERSION}
+)
+_VALUE_RULE_VERSIONS = frozenset({INTENT_POLICY_V3, INTENT_POLICY_VERSION})
 
 
 def constant_change(observation: IntentObservation) -> bool:
@@ -153,7 +222,21 @@ def constant_change(observation: IntentObservation) -> bool:
 def value_change(observation: IntentObservation) -> bool:
     """D-127: the head failure is a value mismatch, so the value rule applies.
     The rule arrived with v3; a v1 or v2 receipt was never judged by it."""
-    return observation.policy_version == INTENT_POLICY_VERSION and observation.value_mismatch
+    return observation.policy_version in _VALUE_RULE_VERSIONS and observation.value_mismatch
+
+
+def distinctive_pinned_values(observation: IntentObservation) -> tuple[str, ...]:
+    """D-132 (b): the pinned values a base tree can meaningfully specify.
+
+    Under v4 that is the pinned set minus :data:`GENERIC_VALUE_REPRS`; under
+    every earlier version it is the pinned set itself, because the rule did not
+    exist when those receipts were written.
+    """
+    if observation.policy_version != INTENT_POLICY_VERSION:
+        return observation.pinned_values
+    return tuple(
+        value for value in observation.pinned_values if value not in GENERIC_VALUE_REPRS
+    )
 
 
 def value_change_reason(observation: IntentObservation) -> str | None:
@@ -167,22 +250,38 @@ def value_change_reason(observation: IntentObservation) -> str | None:
     """
     if not value_change(observation):
         return None
+    distinctive = distinctive_pinned_values(observation)
+    # Most specific first: the change rewrote the very sentence the receipt would
+    # have contradicted. Then D-132 (c): the change said what it meant somewhere
+    # else in the same diff. Then what the pinned set itself cannot support.
+    if any(value in set(distinctive) for value, _site in observation.value_respecified):
+        return (
+            f"{VALUE_CHANGE_LABEL}: this change also rewrites the base tree's own "
+            f"specification of that value ({VALUE_CHANGE_LABEL_ZH})"
+        )
+    if observation.policy_version == INTENT_POLICY_VERSION and observation.intent_evidence:
+        return (
+            f"{INTENT_STATED_LABEL}: the same change also updates a test, a docstring, "
+            f"documentation, a changelog entry or an inline comment about the symbol "
+            f"under test ({INTENT_STATED_LABEL_ZH})"
+        )
     if not observation.pinned_values:
         return (
             f"{VALUE_CHANGE_LABEL}: the failing assertion pins no value the base tree "
             f"could have specified ({VALUE_CHANGE_LABEL_ZH})"
         )
+    if not distinctive:
+        return (
+            f"{VALUE_CHANGE_LABEL}: the failing assertion pins only a generic constant, "
+            f"which almost any tree asserts somewhere and which therefore specifies "
+            f"nothing about the code under test ({VALUE_CHANGE_LABEL_ZH})"
+        )
     specified = {value for value, _path in observation.value_specified}
-    if any(value not in specified for value in observation.pinned_values):
+    if any(value not in specified for value in distinctive):
         return (
             f"{VALUE_CHANGE_LABEL}: the base tree does not specify the value this "
             f"assertion pins -- no base test asserts it and no docstring or "
             f"documentation writes it down ({VALUE_CHANGE_LABEL_ZH})"
-        )
-    if observation.value_respecified:
-        return (
-            f"{VALUE_CHANGE_LABEL}: this change also rewrites the base tree's own "
-            f"specification of that value ({VALUE_CHANGE_LABEL_ZH})"
         )
     return None
 

@@ -280,7 +280,7 @@ product = outside Python repo installs from a stable ref and gets PR comments, e
 
 THE RULE: the LLM thinks; an algorithm decides whether it may speak. Four levels, each
 with an adjudicator that calls no model (mainline §1.1):
-  red    broke what worked      -> differential receipt (kernel + binding + intent v3)
+  red    broke what worked      -> differential receipt (kernel + binding + intent v4)
   gate   new code fails         -> executable failure on a witnessed reachable input (N-01)
   yellow looks wrong, checked   -> model states premises, a checker verifies each; only
                                    verified premises are said, confidence is their function
@@ -288,8 +288,8 @@ with an adjudicator that calls no model (mainline §1.1):
                                    model is called after the evidence holds, to translate
 INTEGRATION: GitHub Action + repository Secret, and nothing else. The product never
   touches, stores, transmits or logs a key. `attest init` is optional and ordered last.
-LEVEL ORDER: v3 (done) -> green -> gate -> yellow. Green first: zero execution cost, so
-  it is the cheapest test of the architecture itself.
+LEVEL ORDER: v4 (done) -> green (author-visible, D-133) -> gate -> yellow. Green first:
+  zero execution cost, so it is the cheapest test of the architecture itself.
 
 C-02 -> C-03 -> C-04 -> R-03 -> R-01 -> V-01 -> E-02 pilot (fork on numbers, §4)
      -> C-05 -> V-02 -> X-01 -> X-02 -> V-03 -> E-02 held-out -> E-01 -> E-04 -> L-01

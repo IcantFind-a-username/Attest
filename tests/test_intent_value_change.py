@@ -17,8 +17,8 @@ from pathlib import Path
 from attest.certification.intent import (
     EVIDENCE_CLASS_BEHAVIOR_CHANGE,
     EVIDENCE_CLASS_REGRESSION,
-    VALUE_CHANGE_LABEL,
-    VALUE_CHANGE_LABEL_ZH,
+    INTENT_STATED_LABEL,
+    INTENT_STATED_LABEL_ZH,
     IntentObservation,
     evidence_class_for,
     intent_verdict,
@@ -29,6 +29,10 @@ ASSERTION = (
     "AssertionError: expected wrapper name to come from the sync function, got "
     "'async_func' assert 'async_func' == 'normal_func'"
 )
+# D-132 (a) reads the failing assertion's line out of pytest's longrepr; these
+# tests state it explicitly rather than re-deriving it from the body.
+def _longrepr(line: int) -> str:
+    return f"E       {ASSERTION}\n\n.attest-repro/test_repro.py:{line}: AssertionError"
 
 # --- the jinja control, verbatim where it matters -----------------------------
 
@@ -123,7 +127,8 @@ def _tree(root: Path, files: dict[str, str]) -> Path:
 
 
 def _observe(tmp_path: Path, *, base: dict[str, str], head: dict[str, str], test: str,
-             path: str, changed: tuple[int, ...]) -> IntentObservation:
+             path: str, changed: tuple[int, ...], failing_line: int,
+             changed_files: tuple[str, ...] = ()) -> IntentObservation:
     base_tree = _tree(tmp_path / "base", base)
     head_tree = _tree(tmp_path / "head", head)
     observed = observe_intent(
@@ -134,6 +139,8 @@ def _observe(tmp_path: Path, *, base: dict[str, str], head: dict[str, str], test
         test_source=test,
         head_origins=[(), (), ()],
         head_failures=[ASSERTION] * 3,
+        head_failure_details=[_longrepr(failing_line)] * 3,
+        changed_files=changed_files or (path,),
         base_tree=base_tree,
         head_tree=head_tree,
     )
@@ -152,18 +159,23 @@ def test_the_jinja_control_goes_to_the_drawer(tmp_path: Path) -> None:
         test=JINJA_TEST,
         path=anchored,
         changed=tuple(range(1, 21)),
+        failing_line=15,
     )
 
     assert observed.value_mismatch
-    # `getattr(w, "__wrapped__", None)` pins nothing -- the string addresses an
-    # attribute and `None` is its default; what the assertions state is the name,
-    # the marker and the flag
-    assert observed.pinned_values == ("True", "'from_normal'", "'normal_func'")
-    # the flag is asserted by jinja's own tests; the two names are stated nowhere
-    assert {value for value, _site in observed.value_specified} == {"True"}
+    # D-132 (a): only the assertion that failed. `wrapper.__name__ == "normal_func"`
+    # is the one the head runs raised on; the marker and flag assertions below it
+    # never ran and state nothing about this differential.
+    assert observed.pinned_values == ("'normal_func'",)
+    # the name is stated nowhere in jinja's own tests
+    assert observed.value_specified == ()
+    # D-132 (c), on its own: the commit adds an inline comment inside the very
+    # function it changes, saying which name it now takes and why
+    assert observed.anchored_symbols == ("async_variant", "decorator", "wrapper")
+    assert observed.intent_evidence == (("decorator", anchored),)
     verdict = intent_verdict(observed)
-    assert verdict is not None and verdict.startswith(VALUE_CHANGE_LABEL)
-    assert VALUE_CHANGE_LABEL_ZH in verdict
+    assert verdict is not None and verdict.startswith(INTENT_STATED_LABEL)
+    assert INTENT_STATED_LABEL_ZH in verdict
     assert evidence_class_for(observed) == EVIDENCE_CLASS_BEHAVIOR_CHANGE
     # author-visible: the verdict names neither the file nor the value (D-091)
     assert anchored not in verdict and "normal_func" not in verdict
@@ -214,6 +226,7 @@ def test_a_value_the_base_specifies_and_the_change_leaves_alone_publishes(
         test=SPEC_TEST,
         path="mod.py",
         changed=(3,),
+        failing_line=5,
     )
 
     assert observed.value_mismatch
@@ -236,6 +249,7 @@ def test_a_value_nothing_in_the_base_specifies_goes_to_the_drawer(tmp_path: Path
         test=SPEC_TEST,
         path="mod.py",
         changed=(2,),
+        failing_line=5,
     )
 
     assert observed.value_specified == ()
@@ -254,6 +268,7 @@ def test_a_specification_the_same_change_rewrites_goes_to_the_drawer(tmp_path: P
         test=SPEC_TEST,
         path="mod.py",
         changed=(2, 3),
+        failing_line=5,
     )
 
     assert {value for value, _site in observed.value_specified} == {"'hello-world'"}
@@ -277,6 +292,8 @@ def test_a_crash_is_not_a_value_mismatch_and_still_publishes(tmp_path: Path) -> 
         test_source=SPEC_TEST,
         head_origins=[(), (), ()],
         head_failures=["AttributeError: 'NoneType' object has no attribute 'lower'"] * 3,
+        head_failure_details=["src/mod.py:3: AttributeError"] * 3,
+        changed_files=("mod.py",),
         base_tree=base_tree,
         head_tree=head_tree,
     )
@@ -300,6 +317,8 @@ def test_without_a_head_tree_nothing_can_be_shown_to_stand(tmp_path: Path) -> No
         test_source=SPEC_TEST,
         head_origins=[(), (), ()],
         head_failures=[ASSERTION] * 3,
+        head_failure_details=[_longrepr(5)] * 3,
+        changed_files=("mod.py",),
         base_tree=base_tree,
         head_tree=None,
     )

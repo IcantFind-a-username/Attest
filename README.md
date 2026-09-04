@@ -108,6 +108,13 @@ Important limits:
   *behavior change*, not a regression, and publishes only when the rejected input occurs in
   the base tree's own tests, fixtures or documentation; otherwise it stays in the drawer as
   "behavior change confirmed, intent unknown" (D-102, 2026-09-03);
+- **a changed return value publishes only against a base specification the change left
+  standing, and only when the diff says nothing about the symbol under test** — the failing
+  assertion must pin a distinctive value (not `None`/`True`/`0`/`""`), the base tree must
+  state it, head must still state it, and no test, docstring, doc, changelog line or inline
+  comment in the same diff may touch the anchored symbol (`attest.intent.v4`, D-132,
+  2026-09-05). On the whole corpus replay this class certifies **0 of 48** receipts: the
+  recall cost is the decision, and it is large;
 - **measured so far.** Every row names the per-review budget and the models it ran under,
   because both move every number in it. `S` is the proposal model, `G` the reproduction
   generator. The shipped default budget is **$1.00** as of 2026-09-04 (D-126); it was $0.25
@@ -125,6 +132,7 @@ Important limits:
   | **`G-NULL-001a`** | 15 of 58 preregistered qualified null commits, 5 public repositories ([report](docs/acceptance/2026-09-04-g-null-001a.md)) | **1 wrong publication** — the gate **does not pass**, the run stopped under `RISK-CERT-01` on the fifteenth control, and the cause is structural (D-127) | **$1.00** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-04 |
   | **shadow (E-04 v1)** | 2 prospective units | 22 candidates, 0 eligible, **0 shadow findings** ([report](docs/acceptance/2026-09-03-e04-prospective-v1.md)) | $0.25 | S `claude-sonnet-5` | 2026-09-03 |
   | **shadow (E-04 v2)** | **100 units** of the owner's most recent traffic, 4 repositories ([report](docs/acceptance/2026-09-04-e04-stratum-v2.md)) | 495 candidates, 129 eligible, **21 receipts, 7 shadow findings, 0 published**; all 7 **unadjudicated** | **$1.00** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-04 |
+  | **shadow findings adjudicated** | the **2** E-04 shadow findings that survived the v3 re-judging, checked by exhaustive static search at the reviewed head ([report](docs/acceptance/2026-09-05-shadow-adjudication.md)) | **both false**: the change deletes `institutional_flow_reading` and the `FactorSnapshot.institutional_flow` field and **every reference to either, in the same diff** — 0 dangling references found | — | — (no model) | 2026-09-05 |
   | **outside repository, in production** | **1** pull-request comment on a repository this project does not develop in ([report](docs/acceptance/2026-09-04-us-stock-helper-action-comment.md)) | the Action installed at `@v0.1.0-pilot.1`, built the container on a GitHub runner, ran a reproduction and **posted one comment — a `DEFER`** | **$0.60** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-04 |
 
   Read every row with its limits. A silence is an abstention, never a true negative; a
@@ -251,7 +259,13 @@ Coding agents start with [AGENTS.md](AGENTS.md). The complete documentation map 
 - `docs/acceptance/2026-09-04-e04-stratum-v2.md` — 100 shadow units, 7 findings, none shown to
   anyone and none adjudicated;
 - `docs/acceptance/2026-09-04-mainline-six-conditions.md` — the release conditions read one by
-  one, and why no `v0.1.0-pilot.2` was cut.
+  one, and why no `v0.1.0-pilot.2` was cut;
+- `docs/acceptance/2026-09-05-intent-v4-replay.md` — v2, v3 and v4 side by side on 57 receipts:
+  control publications 2 → 1 → 0, and the value class 48 → 12 → 0;
+- `docs/acceptance/2026-09-05-shadow-adjudication.md` — the two surviving shadow findings
+  adjudicated by exhaustive static search, both false;
+- `docs/acceptance/2026-09-05-green-channel.md` — the wording adjudicator against the real
+  default model, twenty calls, and the author-visible green channel it gates.
 
 Read each with its stated limitations. In particular, hash consistency is not execution
 authenticity, a reverse-fix corpus is not natural PR traffic, and an all-abstain result does

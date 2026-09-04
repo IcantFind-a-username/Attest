@@ -84,12 +84,18 @@ it. The quickstart's first screen is the workflow file itself, copyable whole.
 
 **v3 → green → gate → yellow.** *Owner decision, 2026-09-04c.*
 
-1. **v3** (`attest.intent.v3`, D-128) — done; red stops publishing intended value changes.
+1. **v3, then v4** (`attest.intent.v4`, D-132; v3 was D-128) — done. Red stops publishing
+   intended value changes, and after `urllib3 c7b9adcb` published under v3 it also stops when
+   the failing assertion is not an assertion, when the value it pins is generic, and when the
+   diff states its own intent. On the corpus replay the value class certifies **0 of 48**: the
+   recall cost is the decision.
 2. **green** — first, because it costs **zero execution and near-zero API**: the measure is
    computed deterministically and the model is called once, after the evidence already holds. It
    is therefore the cheapest possible test of the whole architecture — *does "the LLM thinks, the
    algorithm decides" actually hold up when a real level ships on it?* — and if the answer is no,
    it is discovered for the price of a lint pass rather than the price of a corpus.
+   **Author-visible since D-133** (2026-09-05): at most two notes per pull request, marked
+   `structural`, in their own section, wording adjudicated against the real model first.
 3. **gate** — second, because it needs execution and isolation, which already exist, but a
    reachability witness, which does not.
 4. **yellow** — last, because a premise checker is the largest new deterministic surface of the

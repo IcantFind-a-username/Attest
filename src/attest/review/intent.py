@@ -5,23 +5,33 @@ tree. D-120 adds one more file read: the base revision of the anchored file, so 
 assertion resting only on constants the change substituted can be recognised as such.
 D-127 adds a second walk -- of the base tree for the *specifications* of the values the
 failing assertion pins, and of the head tree for whether this change left them standing.
-File reads only: no execution, no model, no repository command.
+D-132 adds three more reads and no more power: the head runs' JUnit longrepr, to locate the
+assertion that actually failed; the anchored file's own def/class ranges, to name the symbols
+this change touched; and both revisions of every file the diff touched, to see whether the
+author also moved a test, a docstring, a documentation or changelog line, or an inline
+comment about one of those symbols. File reads only: no execution, no model, no repository
+command.
 
 Fail closed at every step: an unreadable or unparsable anchored file, a truncated
 origin record, or head runs that disagree all DEFER instead of classifying; an
 unreadable base or head tree yields no specification, which sends a value mismatch to
-the drawer rather than publishing it.
+the drawer rather than publishing it. A longrepr that names no line of the generated test,
+or head runs that name different lines, locates no failing assertion and so pins nothing.
 """
 
 from __future__ import annotations
 
 import ast
+import io
 import json
 import os
+import re
+import tokenize
 from dataclasses import dataclass
 from pathlib import Path
 
 from attest.certification.intent import (
+    GENERIC_VALUE_REPRS,
     INTENT_POLICY_VERSION,
     REJECTING_STATEMENTS,
     IntentObservation,
@@ -54,6 +64,17 @@ WITNESS_DIRS = frozenset(
     }
 )
 DOC_SUFFIXES = (".md", ".rst")  # documentation anywhere in the tree
+MAX_INTENT_FILES = 500  # changed files read for D-132's intent evidence
+MAX_INTENT_EVIDENCE = 16  # sites recorded; the rule needs one
+MAX_SYMBOLS = 200
+MIN_SYMBOL_CHARS = 3  # a name shorter than this matches prose by accident
+# D-132 (c): where a project announces a deliberate change in prose
+PROSE_SUFFIXES = (*DOC_SUFFIXES, ".txt")
+PROSE_DIRS = frozenset({"changelog", "changes", "news", "docs", "doc"})
+PROSE_NAMES = ("CHANGES", "CHANGELOG", "NEWS", "HISTORY", "RELEASE", "README")
+# the innermost frame pytest's longrepr attributes the failure to, when it is a
+# line of the generated reproduction: "<path>test_repro.py:<line>: <Type>"
+_LONGREPR_FRAME = re.compile(r"^(?P<path>\S*test_repro\.py):(?P<line>\d+):", re.MULTILINE)
 SPEC_DIRS = frozenset({"tests", "test", "testing"})  # a .py here asserts, wherever named
 DATA_SUFFIXES = (".txt", ".json", ".yaml", ".yml", ".toml", ".csv")  # only inside witness dirs
 SKIPPED_DIRS = frozenset(
@@ -524,6 +545,293 @@ def find_specifications(
     return specified, tuple(respecified)
 
 
+def failing_assertion_line(detail: str) -> int:
+    """D-132 (a): the line of the generated reproduction the head run failed on.
+
+    ``detail`` is pytest's longrepr as the JUnit ``<failure>`` body carries it.
+    Its frames are printed outermost first, so the **last** frame naming
+    ``test_repro.py`` is where the exception was actually raised -- the assertion
+    in the simple case, and the stub's own ``raise`` when the test defines one.
+    0 when no frame of the reproduction is named, which is a crash inside the
+    code under test and not a value mismatch anyway.
+    """
+    if not detail:
+        return 0
+    matches = _LONGREPR_FRAME.findall(detail)
+    if not matches:
+        return 0
+    try:
+        return int(matches[-1][1])
+    except ValueError:  # pragma: no cover - the pattern only matches digits
+        return 0
+
+
+def assertion_pinned_values_at(
+    source: str, line: int
+) -> tuple[tuple[str, object], ...] | None:
+    """D-132 (a): :func:`assertion_pinned_values`, restricted to the ``assert``
+    statement that spans ``line``.
+
+    ``None`` when the source cannot be parsed; ``()`` when ``line`` is not inside
+    an ``assert`` at all -- a bare ``raise`` in a stub the test defines, a call
+    inside ``pytest.raises``, a fixture. That is the fail-closed case and it is
+    the common one: what did not fail on an assertion states no old value.
+    """
+    if line < 1:
+        return ()
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return None
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assert):
+            continue
+        end = node.end_lineno or node.lineno
+        if node.lineno <= line <= end:
+            return assertion_pinned_values(ast.unparse(node))
+    return ()
+
+
+def symbol_ranges(source: str) -> tuple[tuple[str, int, int], ...] | None:
+    """Every def/class of ``source`` as (name, first line, last line); ``None``
+    when it cannot be parsed. Plain names, not qualified ones: a changelog entry
+    or a docstring names a function the way a reader does."""
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return None
+    found: list[tuple[str, int, int]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            found.append((node.name, node.lineno, node.end_lineno or node.lineno))
+            if len(found) > MAX_SYMBOLS:
+                return None
+    return tuple(sorted(found))
+
+
+def anchored_symbols(
+    *, base_source: str, head_source: str, changed_lines: tuple[int, ...]
+) -> tuple[str, ...]:
+    """D-132 (c): the def/class names this change touched in the anchored file --
+    those whose head body spans a changed line, plus those the change removed
+    from the file outright. A deletion has no head node to intersect, and a
+    deleted symbol is exactly what the shadow findings are about."""
+    head = symbol_ranges(head_source)
+    base = symbol_ranges(base_source)
+    changed = frozenset(changed_lines)
+    names: set[str] = set()
+    if head is not None:
+        head_names = {name for name, _start, _end in head}
+        names |= {
+            name
+            for name, start, end in head
+            if any(start <= line <= end for line in changed)
+        }
+        if base is not None:
+            names |= {name for name, _start, _end in base if name not in head_names}
+    return tuple(sorted(names))
+
+
+def prose_lines(source: str) -> frozenset[str]:
+    """Every comment and docstring line of a Python source, whitespace-collapsed.
+    This is what a Python file says *about* its code rather than as code."""
+    found: set[str] = set()
+    try:
+        for token in tokenize.generate_tokens(io.StringIO(source).readline):
+            if token.type == tokenize.COMMENT:
+                text = " ".join(token.string.lstrip("#").split())
+                if text:
+                    found.add(text)
+    except (tokenize.TokenError, IndentationError, SyntaxError, ValueError):
+        pass
+    for doc in docstring_texts(source):
+        found |= {" ".join(line.split()) for line in doc.splitlines() if line.strip()}
+    return frozenset(found)
+
+
+def located_prose_lines(source: str) -> tuple[tuple[int, str], ...]:
+    """The same prose, with the line each piece starts on -- so that a comment
+    can be placed inside the body of the symbol under test."""
+    found: set[tuple[int, str]] = set()
+    try:
+        for token in tokenize.generate_tokens(io.StringIO(source).readline):
+            if token.type == tokenize.COMMENT:
+                text = " ".join(token.string.lstrip("#").split())
+                if text:
+                    found.add((token.start[0], text))
+    except (tokenize.TokenError, IndentationError, SyntaxError, ValueError):
+        pass
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return tuple(sorted(found))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            continue
+        body = getattr(node, "body", None)
+        if not body or not isinstance(body[0], ast.Expr):
+            continue
+        literal = body[0].value
+        if not (isinstance(literal, ast.Constant) and isinstance(literal.value, str)):
+            continue
+        for offset, line in enumerate(literal.value.splitlines()):
+            if line.strip():
+                found.add((body[0].lineno + offset, " ".join(line.split())))
+    return tuple(sorted(found))
+
+
+def is_prose_file(relative: Path) -> bool:
+    """A file whose *whole text* is prose: documentation, a changelog, a release
+    note. Where a project announces on purpose what it changed."""
+    name = relative.name
+    if name.endswith(PROSE_SUFFIXES):
+        return True
+    if any(part.lower() in PROSE_DIRS for part in relative.parts[:-1]):
+        return True
+    return name.upper().startswith(PROSE_NAMES)
+
+
+def _mentions(text: str, symbols: tuple[str, ...]) -> str | None:
+    """The first of ``symbols`` this text names as a word, or ``None``. A name
+    shorter than :data:`MIN_SYMBOL_CHARS` is not matched: it collides with
+    English."""
+    for symbol in symbols:
+        if len(symbol) < MIN_SYMBOL_CHARS:
+            continue
+        if re.search(rf"(?<![A-Za-z0-9_]){re.escape(symbol)}(?![A-Za-z0-9_])", text):
+            return symbol
+    return None
+
+
+def _read(tree: Path | None, relative: str) -> str | None:
+    if tree is None:
+        return None
+    path = tree / relative
+    try:
+        if path.is_symlink() or not path.is_file():
+            return None
+        if path.stat().st_size > MAX_WITNESS_FILE_BYTES:
+            return None
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+
+def _moved_lines(base: str | None, head: str | None) -> frozenset[str]:
+    """The whitespace-collapsed lines this change added or removed."""
+    def lines(text: str | None) -> frozenset[str]:
+        if text is None:
+            return frozenset()
+        return frozenset(
+            collapsed for raw in text.splitlines() if (collapsed := " ".join(raw.split()))
+        )
+
+    before, after = lines(base), lines(head)
+    return (before - after) | (after - before)
+
+
+def find_intent_evidence(
+    *,
+    base_tree: Path,
+    head_tree: Path | None,
+    changed_files: tuple[str, ...],
+    anchored: str,
+    base_source: str,
+    head_source: str,
+    changed_lines: tuple[int, ...],
+    symbols: tuple[str, ...],
+) -> tuple[tuple[str, str], ...]:
+    """D-132 (c): the places this diff states what it meant, as (symbol, file).
+
+    Two shapes, because "touching the symbol" means two different things:
+
+    * **in the anchored file**, a comment or docstring line the change added or
+      removed *inside the body of a touched symbol* -- position is the link, and
+      the urllib3 control is exactly this: three lines widening a tolerated-errno
+      set with the comment above them rewritten in the same hunk;
+    * **in every other changed file**, an added or removed line that **names** a
+      touched symbol -- a test the author moved, a changelog entry, a docs
+      sentence, a comment. For a Python file that is not a test only its prose is
+      compared, so that a refactor of unrelated code is not read as intent.
+
+    At most one site per file, so an enormous diff cannot flood the record.
+    """
+    if not symbols:
+        return ()
+    found: dict[str, str] = {}
+    head_ranges = symbol_ranges(head_source) or ()
+    base_ranges = symbol_ranges(base_source) or ()
+    touched = set(symbols)
+    head_spans = [(s, e) for name, s, e in head_ranges if name in touched]
+    base_spans = [(s, e) for name, s, e in base_ranges if name in touched]
+    for relative in sorted(set(changed_files))[:MAX_INTENT_FILES]:
+        path = Path(relative)
+        if path.is_absolute() or ".." in path.parts:
+            continue
+        base_text = _read(base_tree, relative)
+        head_text = _read(head_tree, relative)
+        if relative == anchored:
+            # position, not vocabulary: prose the change moved inside a touched body
+            before = prose_lines(base_source)
+            after = prose_lines(head_source)
+            added = [
+                (line, text)
+                for line, text in located_prose_lines(head_source)
+                if text not in before
+                and any(start <= line <= end for start, end in head_spans)
+            ]
+            removed = [
+                (line, text)
+                for line, text in located_prose_lines(base_source)
+                if text not in after
+                and any(start <= line <= end for start, end in base_spans)
+            ]
+            # ...and prose anywhere in the file that *names* one: a module
+            # docstring rewritten to explain a function it no longer has sits
+            # inside no symbol's body, and is the plainest statement of intent
+            # the file can carry.
+            if not added and not removed:
+                for text in sorted((after - before) | (before - after)):
+                    named_here = _mentions(text, symbols)
+                    if named_here is not None:
+                        found[relative] = named_here
+                        break
+                continue
+            if added or removed:
+                line = (added or removed)[0][0]
+                # the innermost touched symbol containing it: a comment inside a
+                # method is about the method, not about its class
+                enclosing = sorted(
+                    (
+                        (end - start, name)
+                        for name, start, end in (head_ranges if added else base_ranges)
+                        if name in touched and start <= line <= end
+                    )
+                )
+                found[relative] = enclosing[0][1] if enclosing else symbols[0]
+            continue
+        if base_text is None and head_text is None:
+            continue
+        if is_prose_file(path) or is_spec_file(path):
+            moved = _moved_lines(base_text, head_text)
+        elif path.suffix == ".py":
+            base_prose = prose_lines(base_text) if base_text is not None else frozenset()
+            head_prose = prose_lines(head_text) if head_text is not None else frozenset()
+            moved = (base_prose - head_prose) | (head_prose - base_prose)
+        else:
+            continue
+        for text in sorted(moved):
+            named = _mentions(text, symbols)
+            if named is not None:
+                found[relative] = named
+                break
+        if len(found) >= MAX_INTENT_EVIDENCE:
+            break
+    return tuple(sorted((symbol, site) for site, symbol in found.items()))[
+        :MAX_INTENT_EVIDENCE
+    ]
+
+
 def observe_constant_substitution(
     *, base_source: str, head_source: str, test_source: str
 ) -> tuple[bool, tuple[str, ...]]:
@@ -590,6 +898,8 @@ def observe_intent(
     base_tree: Path,
     head_tree: Path | None = None,
     head_failures: list[str] | None = None,
+    head_failure_details: list[str] | None = None,
+    changed_files: tuple[str, ...] = (),
     truncated: bool = False,
 ) -> IntentObservation | str:
     """The intent observation for one differential, or the reason it cannot be
@@ -613,7 +923,26 @@ def observe_intent(
         if test_level
         else (False, ())
     )
-    pinned = assertion_pinned_values(test_source) if test_level else None
+    # D-132 (a): the pinned set is the assertion the head runs actually failed
+    # on. Every run must name the same line of the reproduction; runs that
+    # disagree, or a longrepr that names none, locate nothing and pin nothing.
+    details = list(head_failure_details or [])
+    if len(details) < len(head_origins):
+        details += [""] * (len(head_origins) - len(details))
+    located = {failing_assertion_line(detail) for detail in details[: len(head_origins)]}
+    failing_line = located.pop() if len(located) == 1 else 0
+    pinned = (
+        assertion_pinned_values_at(test_source, failing_line)
+        if test_level and failing_line
+        else None
+    )
+    symbols = (
+        anchored_symbols(
+            base_source=base_source, head_source=head_source, changed_lines=changed_lines
+        )
+        if test_level
+        else ()
+    )
     kinds = statement_kinds(head_source)
     any_on_changed = any(
         origin.line in changed for origins in head_origins for origin in origins
@@ -635,12 +964,34 @@ def observe_intent(
         # D-127: no rejecting origin and every head run failed on the test's own
         # assertion -- the differential shows a changed *value*, and it publishes
         # only against a base specification this change left standing.
+        # D-132 (b): a generic constant is not something a base tree can specify,
+        # so it is not searched for and not required.
+        distinctive = tuple(
+            (kind, value)
+            for kind, value in (pinned or ())
+            if repr(value)[:MAX_VALUE_CHARS] not in GENERIC_VALUE_REPRS
+        )
         specified, respecified = (
             find_specifications(
-                base_tree=base_tree, head_tree=head_tree, pinned=pinned, anchored=path
+                base_tree=base_tree, head_tree=head_tree, pinned=distinctive, anchored=path
             )
-            if pinned
+            if distinctive
             else ((), ())
+        )
+        # D-132 (c): what the same diff says about the symbols it touched
+        evidence = (
+            find_intent_evidence(
+                base_tree=base_tree,
+                head_tree=head_tree,
+                changed_files=changed_files or (path,),
+                anchored=path,
+                base_source=base_source,
+                head_source=head_source,
+                changed_lines=tuple(changed_lines),
+                symbols=symbols,
+            )
+            if test_level
+            else ()
         )
         first = head_origins[0][0] if head_origins and head_origins[0] else None
         return IntentObservation(
@@ -662,6 +1013,9 @@ def observe_intent(
             ),
             value_specified=specified,
             value_respecified=respecified,
+            failing_assertion_line=failing_line,
+            anchored_symbols=symbols,
+            intent_evidence=evidence,
         )
     signatures = {(origin.line, origin.exception_type) for origin in present}
     if len(signatures) != 1:

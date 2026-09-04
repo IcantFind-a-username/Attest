@@ -11,7 +11,7 @@ import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from attest.certification.types import CertifiedFinding
 from attest.github.client import (
@@ -22,11 +22,15 @@ from attest.github.client import (
 )
 from attest.github.context import PullRequestContext
 from attest.github.presentation import (
+    MAX_STRUCTURAL_COMMENTS,
     inline_comments,
     render_complete,
     render_deferred,
     render_running,
+    structural_comments,
+    structural_member_id,
 )
+from attest.review.budget import Budget
 from attest.review.config import DISABLED_REASON, ReviewConfig, resolve_review_policy
 from attest.review.diffs import resolve_merge_base
 from attest.review.executor import ExecutorLimits
@@ -34,6 +38,15 @@ from attest.review.ledger import Ledger
 from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
 from attest.review.status import status_from_rows
+from attest.review.structural import (
+    WORDING_MAX_TOKENS,
+    WORDING_SCHEMA,
+    WORDING_SYSTEM,
+    StructuralNote,
+    collect,
+    find_duplicate_implementations,
+    structural_note,
+)
 from attest.review.verification import CERTIFICATION_REPEATS, run_verification_stage
 
 DELIVERY_TRANSCRIPT_SCHEMA_VERSION = 1
@@ -205,6 +218,9 @@ def _canonical_sha256(value: object) -> str:
 
 
 _INLINE_FINDING_MARKER_RE = re.compile(r"<!-- attest:finding-id:([0-9a-f]{10}) -->")
+# D-133: a green comment carries no receipt and no candidate, so the journal
+# identifies it by the pair of coordinates it is about
+_INLINE_STRUCTURAL_MARKER_RE = re.compile(r"<!-- attest:structural:([^\s>]+) -->")
 _SUMMARY_FINDING_MARKER_RE = re.compile(
     r"- <!-- attest:finding-id:([0-9a-f]{10}) --> Finding ID: \1; .+"
 )
@@ -808,7 +824,10 @@ def _body_finding_ids(value: object, channel: str) -> tuple[str, ...]:
             if type(comment) is not dict or type(comment.get("body")) is not str:
                 raise ValueError("inline review comment has no exact body")
             lines = comment["body"].splitlines()
-            match = _INLINE_FINDING_MARKER_RE.fullmatch(lines[0]) if lines else None
+            first = lines[0] if lines else ""
+            match = _INLINE_FINDING_MARKER_RE.fullmatch(first) or (
+                _INLINE_STRUCTURAL_MARKER_RE.fullmatch(first)
+            )
             if match is None:
                 raise ValueError("inline review comment has no finding marker")
             finding_ids.append(match.group(1))
@@ -953,6 +972,74 @@ def _workspace_head(repo: Path) -> str | None:
 
 HEAD_DRIFT_REASON = "workspace HEAD drifted from the reviewed head before publication"
 MERGE_BASE_REASON = "merge-base unavailable: fetch the base branch history (fetch-depth 0)"
+
+
+def _changed_python_files(repo: Path, base_sha: str, head_sha: str) -> set[str]:
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "diff", "--no-color", "--name-only", base_sha, head_sha],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if proc.returncode != 0:
+        return set()
+    return {
+        line.strip()
+        for line in proc.stdout.splitlines()
+        if line.strip().endswith(".py")
+    }
+
+
+def structural_notes(
+    *,
+    repo: Path,
+    base_sha: str,
+    head_sha: str,
+    provider: Provider,
+    budget: Budget,
+    limit: int = MAX_STRUCTURAL_COMMENTS,
+) -> list[StructuralNote]:
+    """D-133: the green channel's notes for one pull request, at most ``limit``.
+
+    Detection is deterministic and cannot reach a model -- ``collect`` and
+    ``find_duplicate_implementations`` take no provider. A model is called once
+    per surviving finding, strictly afterwards, only to add the advice paragraph;
+    a call that fails, hedges, or names no coordinate leaves the note with its
+    deterministic sentence and no advice. **Any failure anywhere here is silence:
+    green never affects the red path and never delays a receipt.**
+    """
+    try:
+        changed = _changed_python_files(repo, base_sha, head_sha)
+        if not changed:
+            return []
+        findings = find_duplicate_implementations(collect(repo), changed_files=changed)[:limit]
+    except Exception:  # noqa: BLE001 - green is a courtesy; it never breaks a review
+        return []
+
+    def say(evidence: str) -> str:
+        reserved = budget.reserve(
+            "structural-wording", len(WORDING_SYSTEM) + len(evidence), WORDING_MAX_TOKENS
+        )
+        result = provider.sample(
+            system=WORDING_SYSTEM,
+            prompt=f"The finding, as the analysis states it:\n\n{evidence}",
+            schema=cast(dict[str, Any], WORDING_SCHEMA),
+            max_tokens=WORDING_MAX_TOKENS,
+        )
+        budget.settle(
+            "structural-wording", reserved, result.input_tokens, result.output_tokens
+        )
+        payload = json.loads(result.text or "{}")
+        return f"{payload.get('sentence', '')}\n\n{payload.get('fix', '')}".strip()
+
+    notes: list[StructuralNote] = []
+    for finding in findings:
+        try:
+            notes.append(structural_note(finding, say=say))
+        except Exception:  # noqa: BLE001 - a budget or provider failure is silence
+            notes.append(structural_note(finding))
+    return notes
 
 
 def run_ci(
@@ -1226,6 +1313,15 @@ def run_ci(
     inline_results = list(selection_published)
     overflow_results: list[CertifiedFinding] = []  # the cap is author-visible, not layout
     surfaced = [*inline_results, *overflow_results]
+    # D-133: the green channel, computed after every receipt decision is made and
+    # kept entirely apart from them. Failure here is silence.
+    green = structural_notes(
+        repo=repo,
+        base_sha=merge_base,
+        head_sha=context.head_sha,
+        provider=provider,
+        budget=review.budget,
+    )
     published_ids = {_candidate_id(finding) for finding in inline_results}
     ledger.record_ci_final(
         task_id=task_id,
@@ -1255,8 +1351,10 @@ def run_ci(
         spend_usd=review.budget.spent_usd,
         elapsed_s=clock() - started,
     )
-    if surfaced and _workspace_head(repo) != context.head_sha:
-        # revalidate the task immediately before the first author-visible write
+    if (surfaced or green) and _workspace_head(repo) != context.head_sha:
+        # revalidate the task immediately before the first author-visible write --
+        # a green note is coordinates, and coordinates against a drifted head are
+        # wrong in exactly the way this guard exists to prevent
         ledger.append({"kind": "defer", "task_id": task_id, "reason": HEAD_DRIFT_REASON})
         reason = _post_deferred(
             context=context,
@@ -1276,11 +1374,19 @@ def run_ci(
             started=started,
             clock=clock,
         )
-    if surfaced:
-        review_comments = inline_comments(inline_results, finding_evidence)
+    if surfaced or green:
+        review_comments = [
+            *inline_comments(inline_results, finding_evidence),
+            *structural_comments(green),
+        ]
         review_error = journal.attempt(
             channel="inline_review",
-            members=tuple((_candidate_id(finding), "inline") for finding in inline_results),
+            members=(
+                *((_candidate_id(finding), "inline") for finding in inline_results),
+                # green members carry their coordinate, not a candidate id: they
+                # have no receipt and no candidate to be identified by
+                *((structural_member_id(note), "structural") for note in green),
+            ),
             body={
                 "commit_id": context.head_sha,
                 "body": "Attest review.",
@@ -1357,7 +1463,9 @@ def run_ci(
     complete_body = _with_run_status(
         ledger,
         task_id,
-        render_complete(surfaced, review.budget.spent_usd, elapsed_s, finding_evidence),
+        render_complete(
+            surfaced, review.budget.spent_usd, elapsed_s, finding_evidence, structural=green
+        ),
     )
     try:
         prepared = _prepare_status_delivery(client, context, complete_body)
