@@ -112,7 +112,13 @@ base tree's `test_calc.py` states it.
 
 **And the same fixture is where v4's cost first showed up.** It pinned `1` before this window,
 which clause (b) makes generic; the arm stopped certifying and the fixture — not the rule — was
-changed to state `7`.
+changed to state `7`. Two more followed: `tests/benchmark/test_corpus.py`'s oracle fixture, and
+the **M-01 offline measurement probe**, whose frozen cassette pins `1`. That one needed a new
+frozen artifact rather than an edit: `benchmarks/attest-v2/cassettes-m01-v2/m01-mixed-5-v2.json`,
+the same cassette with `3 → 7`, restores the probe's measurement exactly (`published_count == 1`,
+baseline `(5, 4, 1)`), and `m01-mixed-5-v1.json` is kept unmodified beside it. **Three fixtures
+in this repository stopped certifying the moment (b) landed. That is the clearest available
+statement of how much of the value class rested on `0` and `1`.**
 
 ## 7. Limits — read every one of them
 

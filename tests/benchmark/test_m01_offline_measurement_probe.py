@@ -19,7 +19,11 @@ ROOT = Path(__file__).parents[2]
 # is a host assumption (AGENTS.md §13) and does not exist on a CI runner
 PYTHON = Path(sys.executable)
 PROBE = ROOT / "scripts" / "acceptance" / "m01_offline_measurement_probe.py"
-CASSETTE = ROOT / "benchmarks" / "attest-v2" / "cassettes" / "m01-mixed-5-v1.json"
+# D-132 (b): the v1 cassette's reproduction pins `1`, a generic constant, which
+# `attest.intent.v4` no longer accepts as a specification -- the product publishes
+# nothing on it and the probe measures nothing. v2 is the same cassette with a
+# distinctive value (3 -> 7). v1 is kept, frozen, beside it.
+CASSETTE = ROOT / "benchmarks" / "attest-v2" / "cassettes-m01-v2" / "m01-mixed-5-v2.json"
 BASELINE = "0e58cd61a1a63c51a329d5c1a5509181be32adfa"
 MARKER = "legacy_mixed_outcome_denominator"
 
