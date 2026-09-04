@@ -1,4 +1,4 @@
-# Handoff — 2026-09-05 (`3e6ae31` → `PENDING_END_SHA`): v4 lands, and the value class goes quiet
+# Handoff — 2026-09-05 (`3e6ae31` → `3ae715f, plus this line`): v4 lands, and the value class goes quiet
 
 **Window spend $0.577415 of $5; cumulative $49.489741 of $90.** Remote writes: **push to `main`,
 and the one authorized throwaway pull request ([#9](https://github.com/IcantFind-a-username/Attest/pull/9),
