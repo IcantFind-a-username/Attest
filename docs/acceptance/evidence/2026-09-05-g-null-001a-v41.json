@@ -1,0 +1,841 @@
+{
+ "candidates_total": 31,
+ "certified_total": 0,
+ "decision": "D-134",
+ "drawered_by_the_discriminator": [
+  {
+   "base_runs": [
+    "not_reproduced",
+    "not_reproduced",
+    "not_reproduced"
+   ],
+   "candidate_id": "98db6c4b0f",
+   "clone": "jinja",
+   "head_runs": [
+    "reproduced",
+    "reproduced",
+    "reproduced"
+   ],
+   "intent_evidence": [
+    [
+     "async_variant",
+     "CHANGES.rst"
+    ],
+    [
+     "decorator",
+     "src/jinja2/async_utils.py"
+    ]
+   ],
+   "path": "src/jinja2/async_utils.py",
+   "policy_version": "attest.intent.v4.1",
+   "task_id": "20260905-071649-e2a48c5d",
+   "verdict": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (改动自身已陈述意图)"
+  },
+  {
+   "base_runs": [
+    "not_reproduced",
+    "not_reproduced",
+    "not_reproduced"
+   ],
+   "candidate_id": "5d27c0905c",
+   "clone": "jinja",
+   "head_runs": [
+    "reproduced",
+    "reproduced",
+    "reproduced"
+   ],
+   "intent_evidence": [
+    [
+     "async_variant",
+     "CHANGES.rst"
+    ],
+    [
+     "decorator",
+     "src/jinja2/async_utils.py"
+    ]
+   ],
+   "path": "src/jinja2/async_utils.py",
+   "policy_version": "attest.intent.v4.1",
+   "task_id": "20260905-071649-e2a48c5d",
+   "verdict": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (改动自身已陈述意图)"
+  },
+  {
+   "base_runs": [
+    "not_reproduced",
+    "not_reproduced",
+    "not_reproduced"
+   ],
+   "candidate_id": "786c6d849f",
+   "clone": "urllib3",
+   "head_runs": [
+    "reproduced",
+    "reproduced",
+    "reproduced"
+   ],
+   "intent_evidence": [
+    [
+     "_make_request",
+     "src/urllib3/connectionpool.py"
+    ]
+   ],
+   "path": "src/urllib3/connectionpool.py",
+   "policy_version": "attest.intent.v4.1",
+   "task_id": "20260905-072033-3ecbab86",
+   "verdict": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (改动自身已陈述意图)"
+  },
+  {
+   "base_runs": [
+    "not_reproduced",
+    "not_reproduced",
+    "not_reproduced"
+   ],
+   "candidate_id": "a464068415",
+   "clone": "urllib3",
+   "head_runs": [
+    "reproduced",
+    "reproduced",
+    "reproduced"
+   ],
+   "intent_evidence": [
+    [
+     "_make_request",
+     "src/urllib3/connectionpool.py"
+    ]
+   ],
+   "path": "src/urllib3/connectionpool.py",
+   "policy_version": "attest.intent.v4.1",
+   "task_id": "20260905-072033-3ecbab86",
+   "verdict": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (改动自身已陈述意图)"
+  }
+ ],
+ "eligible_total": 24,
+ "gate": "G-NULL-001a",
+ "log": ".attest/real-traffic/gnull-run-v41.log",
+ "max_unit_spend_usd": 0.3896,
+ "mean_unit_spend_usd": 0.018509,
+ "policy_version": "attest.intent.v4.1",
+ "population_manifest": "benchmarks/attest-v2/runs/2026-09-04-g-null-001a-population.json",
+ "publications": 0,
+ "repositories": 8,
+ "reviews": 58,
+ "rows": [
+  {
+   "age_days": 2480.2,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "attrs",
+   "sha": "311816bb80504f4eb2dd3e753fae818058192e9a",
+   "spend_usd": 0.0,
+   "subject": "Fix simple typo: passses -> passes (#601)"
+  },
+  {
+   "age_days": 1473.5,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "attrs",
+   "sha": "649b273c823927650f01150462f7e2c55fe2d13f",
+   "spend_usd": 0.0,
+   "subject": "Make tests for simple-class actually run"
+  },
+  {
+   "age_days": 1352.5,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "attrs",
+   "sha": "566248a2d8a95d3740045ea314eb3232d52944da",
+   "spend_usd": 0.0,
+   "subject": "Don't linkcheck tree links"
+  },
+  {
+   "age_days": 3644.5,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "attrs",
+   "sha": "91da85935bfbb0599083fe2553243444e1fa8cee",
+   "spend_usd": 0.0,
+   "subject": "Oops"
+  },
+  {
+   "age_days": 384.5,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "attrs",
+   "sha": "19175d91df292e9d0722ecb6575043f1d124a123",
+   "spend_usd": 0.0,
+   "subject": "Use sys._clear_type_descriptors() on 3.14 to break slot reference cycle (#1459)"
+  },
+  {
+   "age_days": 1212.7,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "click",
+   "sha": "25dfd27c302e212afb436efab2f9b52099f97683",
+   "spend_usd": 0.0,
+   "subject": "affect vs effect, simple mistake (#2298)"
+  },
+  {
+   "age_days": 308.9,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "click",
+   "sha": "bd131e1ab63da2281d6dd9b8205ad2eb5a085468",
+   "spend_usd": 0.0,
+   "subject": "Fix test_edit to work with BSD sed"
+  },
+  {
+   "age_days": 369.4,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "click",
+   "sha": "d36de6fc67882f23d7a7d61cd4c0e25e0f88b0ac",
+   "spend_usd": 0.0,
+   "subject": "Add more tests on Enum rendering their item's names and not values"
+  },
+  {
+   "age_days": 463.0,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "itsdangerous",
+   "sha": "c294b2fb47447d83be02470525c9c6292ce5fd74",
+   "spend_usd": 0.0,
+   "subject": "fix pyright findings"
+  },
+  {
+   "age_days": 463.0,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "itsdangerous",
+   "sha": "7edfa12ed562c5d5e9d6faa06812e42f02efb0e0",
+   "spend_usd": 0.0,
+   "subject": "drop end of life python versions"
+  },
+  {
+   "age_days": 1762.9,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "itsdangerous",
+   "sha": "506ca21d8cc1d16313270c37b6990c9e7762f68e",
+   "spend_usd": 0.0,
+   "subject": "remove deprecated code"
+  },
+  {
+   "age_days": 463.0,
+   "attempted": 1,
+   "candidates": 1,
+   "certified": 0,
+   "eligible": 1,
+   "published": 0,
+   "repo": "itsdangerous",
+   "sha": "4bb03cd6819228f30079885297299fe568a62863",
+   "spend_usd": 0.0213,
+   "subject": "remove previously deprecated code"
+  },
+  {
+   "age_days": 448.0,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "itsdangerous",
+   "sha": "f593a0584f2efe929200a20fd1f78f2c3e1dcb04",
+   "spend_usd": 0.0,
+   "subject": "svg logo"
+  },
+  {
+   "age_days": 623.2,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "jinja",
+   "sha": "d3a0b1a4abac05a071f542aa83edea4551c88fa3",
+   "spend_usd": 0.0,
+   "subject": "use env.concat when calling block reference"
+  },
+  {
+   "age_days": 1641.2,
+   "attempted": 3,
+   "candidates": 3,
+   "certified": 0,
+   "eligible": 3,
+   "published": 0,
+   "repo": "jinja",
+   "sha": "ac3ac6c965462935f2d1c041ed9e28c1926bdfcc",
+   "spend_usd": 0.0854,
+   "subject": "async_variant filters are pickleable"
+  },
+  {
+   "age_days": 1640.2,
+   "attempted": 1,
+   "candidates": 1,
+   "certified": 0,
+   "eligible": 1,
+   "published": 0,
+   "repo": "jinja",
+   "sha": "5182b64d1c0f56725c1e7739e748dd3d46ffdba9",
+   "spend_usd": 0.0423,
+   "subject": "Re-use existing regex for whitespace detection"
+  },
+  {
+   "age_days": 2408.1,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "jinja",
+   "sha": "05dee9b87023930f8131cbc0815b56a23e973c3d",
+   "spend_usd": 0.0,
+   "subject": "Fix attribute access in async code. Fixes #1141"
+  },
+  {
+   "age_days": 463.1,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "jinja",
+   "sha": "9c11dd65ff93e141560f0e1c7a7c590eef4ee1cc",
+   "spend_usd": 0.0,
+   "subject": "fix typo"
+  },
+  {
+   "age_days": 1759.1,
+   "attempted": 2,
+   "candidates": 3,
+   "certified": 0,
+   "eligible": 2,
+   "published": 0,
+   "repo": "jinja",
+   "sha": "bb0db82b91e2842e900fd731acb9de7fab1d72ce",
+   "spend_usd": 0.0611,
+   "subject": "native: keep same behavior on Python 3.10"
+  },
+  {
+   "age_days": 1976.9,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "jinja",
+   "sha": "da48bb0d2024aa1d673adb3c60dab2819c578691",
+   "spend_usd": 0.0,
+   "subject": "Fix map documentation"
+  },
+  {
+   "age_days": 515.2,
+   "attempted": 1,
+   "candidates": 1,
+   "certified": 0,
+   "eligible": 1,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "e8a7f5a1ab9d9c5d12fef13ac272d5b06cfdbad3",
+   "spend_usd": 0.0637,
+   "subject": "Mention takewhile_inclusive()"
+  },
+  {
+   "age_days": 972.2,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "f83ff2823e18ecb44bcbed1b92896bed247ee568",
+   "spend_usd": 0.0,
+   "subject": "Attempt to fix RTD theme, round 2"
+  },
+  {
+   "age_days": 605.9,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "f253d2ae42d983883675665ac7ddafb98714a9a2",
+   "spend_usd": 0.0,
+   "subject": "Remove unnecessary variable"
+  },
+  {
+   "age_days": 759.7,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "1d35f28ce254b24d746d7f8ab0de7c014940c0cb",
+   "spend_usd": 0.0,
+   "subject": "fix linting"
+  },
+  {
+   "age_days": 3531.7,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "8cfe011a7311f26ff0c3c2522d5534fd730430c2",
+   "spend_usd": 0.0,
+   "subject": "Fix up docstring some more"
+  },
+  {
+   "age_days": 273.0,
+   "attempted": 1,
+   "candidates": 1,
+   "certified": 0,
+   "eligible": 1,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "d6e0d18c81c77548dc4849c450401d2ebcbf0e18",
+   "spend_usd": 0.0566,
+   "subject": "Fix code equivalent to show the tuple conversion"
+  },
+  {
+   "age_days": 236.1,
+   "attempted": 1,
+   "candidates": 1,
+   "certified": 0,
+   "eligible": 1,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "7c10fbd5cb4bf7bd241b286a33beb3d900a155c9",
+   "spend_usd": 0.0511,
+   "subject": "Fast path when *initial* is specified"
+  },
+  {
+   "age_days": 1599.2,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "74bc8781d6879b7a203503d27710eb8ffec47866",
+   "spend_usd": 0.0,
+   "subject": "Fix docstring length"
+  },
+  {
+   "age_days": 637.0,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "6197c8d5c95f8e1f2936fe1c753d18a881ecca6c",
+   "spend_usd": 0.0,
+   "subject": "Fix the bad mistakes"
+  },
+  {
+   "age_days": 811.2,
+   "attempted": 1,
+   "candidates": 1,
+   "certified": 0,
+   "eligible": 1,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "cbb051842cc2165e87e267d38f6c61a8a13415da",
+   "spend_usd": 0.0451,
+   "subject": "Drop unused import"
+  },
+  {
+   "age_days": 306.9,
+   "attempted": 2,
+   "candidates": 2,
+   "certified": 0,
+   "eligible": 2,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "70885b5a9c76bfd420afe1a9f354725f59741a1a",
+   "spend_usd": 0.0977,
+   "subject": "Fast path for count_cycle() bounded case."
+  },
+  {
+   "age_days": 1742.9,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "fbc3d8b1d6a8355440b88a4dd48f591864cbe786",
+   "spend_usd": 0.0,
+   "subject": "Fix typo in zip_broadcast() docstring"
+  },
+  {
+   "age_days": 2039.5,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "more-itertools",
+   "sha": "13bf54eb0332142ef2d4602e4fa0794ff6ff97cb",
+   "spend_usd": 0.0,
+   "subject": "Fix \"then then\" typos in docstrings."
+  },
+  {
+   "age_days": 1359.4,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "packaging",
+   "sha": "ddf54e1c7eed60406de14615556650633e84799c",
+   "spend_usd": 0.0,
+   "subject": "Correctly handle trailing whitespace on URL requirements"
+  },
+  {
+   "age_days": 317.9,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "packaging",
+   "sha": "791ccff815fb363a46db662cb7198957a2e764cb",
+   "spend_usd": 0.0,
+   "subject": "tests: Fix incorrectly implicitly concatenated string in specifiers test (#946)"
+  },
+  {
+   "age_days": 238.8,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "packaging",
+   "sha": "eb5f4926931bdb4ad7a912bd004fc5a15303fd6b",
+   "spend_usd": 0.0,
+   "subject": "Use relative import in packaging.licenses (#1039)"
+  },
+  {
+   "age_days": 317.0,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "packaging",
+   "sha": "1b92c9c34a80267bf7bb20477b3e1564a1dc80fe",
+   "spend_usd": 0.0,
+   "subject": "Simplify conditional (#949)"
+  },
+  {
+   "age_days": 268.0,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "packaging",
+   "sha": "a2ec3626ee39a86f249db85c406212079af36ecf",
+   "spend_usd": 0.0,
+   "subject": "chore: use partition in _parse_project_urls (#1013)"
+  },
+  {
+   "age_days": 1239.7,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "packaging",
+   "sha": "55584fb5ca327ba38b74ca5c668125caaebd9a5d",
+   "spend_usd": 0.0,
+   "subject": "Ensure that the entire string is consumed with `parse_marker` (#687)"
+  },
+  {
+   "age_days": 1888.3,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "packaging",
+   "sha": "093e24f29bc6ce0bd3448d63615b68d584a0cd6b",
+   "spend_usd": 0.0,
+   "subject": "Expect a Python 3-only wheel"
+  },
+  {
+   "age_days": 665.9,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "packaging",
+   "sha": "9c66f5c844bf3262f560c1521a0e6837079b16ff",
+   "spend_usd": 0.0,
+   "subject": "Remove extraneous quotes in f-strings by using `!r` (#848)"
+  },
+  {
+   "age_days": 1962.9,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "packaging",
+   "sha": "64f82b53576497102de6b53bdeb79fc1c66c280a",
+   "spend_usd": 0.0,
+   "subject": "Add tests for wheel filename normalization (#422)"
+  },
+  {
+   "age_days": 268.0,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "packaging",
+   "sha": "a7a1d1c9e5147c1234e7a09504f56df3d923c0fe",
+   "spend_usd": 0.0,
+   "subject": "chore: pull set construction out of function (#1012)"
+  },
+  {
+   "age_days": 771.1,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "packaging",
+   "sha": "bb61b7bcbc429b49e6659a8b6c2966b6ebd046b6",
+   "spend_usd": 0.0,
+   "subject": "Fix typo in Version `__str__` (#817)"
+  },
+  {
+   "age_days": 1115.0,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "packaging",
+   "sha": "33cc1f75a0b91113ca1feb0751416ec4a165e3f4",
+   "spend_usd": 0.0,
+   "subject": "Fix typos found by codespell (#706)"
+  },
+  {
+   "age_days": 1391.3,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "python-dotenv",
+   "sha": "c22bc509218c981b098df0e028b0a53fbbbb193b",
+   "spend_usd": 0.0,
+   "subject": "Fix IPython test warning about deprecated `magic`"
+  },
+  {
+   "age_days": 1600.4,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "python-dotenv",
+   "sha": "8080d1d999ea38fad101e04a7a78714981029e2c",
+   "spend_usd": 0.0,
+   "subject": "Use built-in unittest.mock instead of third-party mock"
+  },
+  {
+   "age_days": 527.5,
+   "attempted": 0,
+   "candidates": 1,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "python-dotenv",
+   "sha": "8dd413e84b1fb1b3368c02106aab07a533fae015",
+   "spend_usd": 0.0,
+   "subject": "Add _is_debugger so load_dotenv will work in pdb (#553)"
+  },
+  {
+   "age_days": 1895.5,
+   "attempted": 2,
+   "candidates": 2,
+   "certified": 0,
+   "eligible": 2,
+   "published": 0,
+   "repo": "python-dotenv",
+   "sha": "5c7f43f7dc6d351ea7e311b525f979bb24a054b4",
+   "spend_usd": 0.0286,
+   "subject": "Avoid leaving any file after running tests"
+  },
+  {
+   "age_days": 436.5,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "python-dotenv",
+   "sha": "666984de9a730a54438362b1adedd09bb1e9f5c7",
+   "spend_usd": 0.0,
+   "subject": "Use sys.exit() instead of exit() (#568)"
+  },
+  {
+   "age_days": 980.2,
+   "attempted": 2,
+   "candidates": 2,
+   "certified": 0,
+   "eligible": 2,
+   "published": 0,
+   "repo": "urllib3",
+   "sha": "c7b9adcbbe911bec9249cb78111fa2561238dd70",
+   "spend_usd": 0.131,
+   "subject": "Fix TestBrokenPipe on macOS"
+  },
+  {
+   "age_days": 371.4,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "urllib3",
+   "sha": "b9a636fcb3a8fef91a0f876dbb3a468bead9dcf9",
+   "spend_usd": 0.0,
+   "subject": "Stop loading streaming worker code unnecessarily (#3663)"
+  },
+  {
+   "age_days": 749.1,
+   "attempted": 1,
+   "candidates": 6,
+   "certified": 0,
+   "eligible": 1,
+   "published": 0,
+   "repo": "urllib3",
+   "sha": "9b1d26966444a7994d22183b2c88d0ab8a335f90",
+   "spend_usd": 0.0,
+   "subject": "Disable tunnel for http2 requests (#3321)"
+  },
+  {
+   "age_days": 3056.8,
+   "attempted": 1,
+   "candidates": 1,
+   "certified": 0,
+   "eligible": 1,
+   "published": 0,
+   "repo": "urllib3",
+   "sha": "b5073f2c462aae0ab40dc2b7ffb9b83ac30b70eb",
+   "spend_usd": 0.0,
+   "subject": "Just verify that waiting on an invalid socket raises *some* error"
+  },
+  {
+   "age_days": 1934.3,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "urllib3",
+   "sha": "ca0b7e2ad8a093815074d8db02deb7a7f16cb63e",
+   "spend_usd": 0.0,
+   "subject": "Changed :ret: RST directive to :returns:"
+  },
+  {
+   "age_days": 3368.4,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "urllib3",
+   "sha": "5cbcca09a241b2dbf7b5fb1bd1709c72cb8c6989",
+   "spend_usd": 0.0,
+   "subject": "HTTPResponse is only a context manager in Python 3"
+  },
+  {
+   "age_days": 1012.0,
+   "attempted": 5,
+   "candidates": 5,
+   "certified": 0,
+   "eligible": 5,
+   "published": 0,
+   "repo": "urllib3",
+   "sha": "2b8d9a819f2f100348ed8d06079f9988b3ddf954",
+   "spend_usd": 0.3896,
+   "subject": "Migrate final connection pool tests to Hypercorn"
+  },
+  {
+   "age_days": 2501.3,
+   "attempted": 0,
+   "candidates": 0,
+   "certified": 0,
+   "eligible": 0,
+   "published": 0,
+   "repo": "urllib3",
+   "sha": "1733719676ea30f62dae29ab837c29b548108926",
+   "spend_usd": 0.0,
+   "subject": "Speed up queue test by using timeout=0 (#1711)"
+  }
+ ],
+ "rule_of_three_95_upper_bound": 0.051724,
+ "schema_version": "attest.g-null-001a-result.v2",
+ "spend_usd": 1.0735,
+ "verification_classes": {
+  "behavior_change": 4,
+  "deferred": 2,
+  "indeterminate": 5,
+  "not_reproduced": 6,
+  "unbound": 1,
+  "unfaithful": 6
+ },
+ "verification_reasons": {
+  "binding: the reproduction exercises none of the changed lines of more_itertools/more.py": 1,
+  "collection deferred: pytest collection/import/syntax or infrastructure failure during collection (exit code 2)": 5,
+  "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a": 4,
+  "isolation backend unavailable: environment bootstrap failed (python 3.12, roots ['.', 'docs']): Dockerfile:5\n-": 1,
+  "isolation backend unavailable: environment bootstrap failed (python 3.9, roots ['.', 'docs']): Dockerfile:5\n--": 1,
+  "pytest passed on head in 3/3 runs; base not executed": 6,
+  "unfaithful generated test: fails on base as well": 5,
+  "unfaithful generated test: it references a symbol absent from head, so its head failure is a stale reference r": 1
+ },
+ "verifications_attempted": 24
+}
