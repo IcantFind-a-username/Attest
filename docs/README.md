@@ -33,11 +33,13 @@ match the bug.
   and its current safety limitations. It is non-normative: target architecture and release
   gates override its implementation-era usage instructions.
 - the dated handoffs are SHA-bound records of one window each; the newest is
-  [`overnight-handoff-2026-09-03f.md`](overnight-handoff-2026-09-03f.md) (the self-containment
-  gate, three certified receipts, the nine release drills, and the six-condition reading of
-  mainline §1), preceded by `overnight-handoff-2026-09-03{,b,c,d,e}.md` and the older
-  [`overnight-handoff.md`](overnight-handoff.md) (`feature/m01-authoritative-outcomes`). A
-  handoff never owns status: roadmap status lives only in [`roadmap.md`](roadmap.md).
+  [`overnight-handoff-2026-09-05b.md`](overnight-handoff-2026-09-05b.md) (`attest.intent.v4.1`,
+  `G-NULL-001a` at n = 58 with 0 wrong publications, the hand adjudication of the drawered value
+  class, and the gate-level design), preceded by `overnight-handoff-2026-09-05.md`,
+  `overnight-handoff-2026-09-04{,b,c}.md`, `overnight-handoff-2026-09-03{,b,c,d,e,f,g}.md` and the
+  older [`overnight-handoff.md`](overnight-handoff.md)
+  (`feature/m01-authoritative-outcomes`). A handoff never owns status: roadmap status lives only
+  in [`roadmap.md`](roadmap.md).
 - `examples/` contains current fixtures/templates, not proof that their path is release-ready.
 - `design/` holds **proposals that are not implemented**. A design document owns no contract and
   no gate; it states a shape, names the normative documents it would have to move, and ends with

@@ -493,6 +493,15 @@ replayable evidence on the current code.
   whether the change is bound to the diff, and only D-102's new-rejection rule asks whether the
   author meant it. **E-01 and E-04 cannot produce a null or safety claim until an owner decision
   lands on that discriminator.**
+- **UNBLOCKED PENDING AN OWNER LABEL, 2026-09-05 (D-132, D-134).** The discriminator decisions
+  landed and the whole preregistered population was re-run under one policy version:
+  **58 of 58 controls under `attest.intent.v4.1`, 0 wrong publications, 95% upper bound 5.2%**
+  ([report](acceptance/2026-09-05-g-null-001a-v41.md)). The two commits that published under v2
+  and v3 reproduced their receipts and were **both drawered live**. The gate's arithmetic pass
+  condition is met; **whether it passes is not settled here**, because the population now contains
+  the two commits the last two rule revisions were written against. A disjoint, seed-shifted
+  sample from the same eight repositories under the same cutoff costs ~$1.10 and is the owner
+  item that would settle it.
 - [ ] **E-04 — prospective natural-PR shadow.** Execute the authorized traffic, blind
   adjudication, silent sampling, safety, utility, cost, and latency design in
   `G-SHADOW-001`.
