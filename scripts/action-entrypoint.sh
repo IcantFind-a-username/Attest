@@ -54,8 +54,43 @@ github_token=${INPUT_GITHUB_TOKEN:-}
 model_api_key=${INPUT_MODEL_API_KEY:-}
 unset INPUT_GITHUB_TOKEN INPUT_MODEL_API_KEY
 
-if [ -z "$github_token" ] || [ -z "$model_api_key" ]; then
-    echo "error: trusted pull requests require both action credentials" >&2
+# A missing credential is the most common first-run failure and the operator can
+# fix it in under a minute -- if the message says where, what the name has to be,
+# and that nothing has happened yet. It names no value, only names.
+secrets_url="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-OWNER/REPO}/settings/secrets/actions/new"
+if [ -z "$model_api_key" ]; then
+    cat >&2 <<EOF
+error: attest did not run -- the model API key secret is empty or missing.
+
+  Nothing was sent anywhere. No model was called, no code left this runner, and
+  no key was read, stored or logged.
+
+  Fix it once, in this repository:
+    1. open $secrets_url
+    2. Name:   ANTHROPIC_API_KEY      <- exactly this, case-sensitive
+       Secret: your Anthropic API key
+    3. re-run this job
+
+  Your workflow passes it through as:
+        model-api-key: \${{ secrets.ANTHROPIC_API_KEY }}
+  so the secret's Name and the name inside secrets.* must be the same word. A
+  secret also arrives empty when the pull request comes from a fork -- forks
+  never receive secrets, and attest skips them before this point.
+EOF
+    exit 2
+fi
+if [ -z "$github_token" ]; then
+    cat >&2 <<EOF
+error: attest did not run -- the GitHub token input is empty or missing.
+
+  Nothing was sent anywhere and no model was called.
+
+  Your workflow must pass the token GitHub already gives the job:
+        github-token: \${{ secrets.GITHUB_TOKEN }}
+  and the job needs "permissions: pull-requests: write" to leave a comment.
+  There is nothing to create in $secrets_url for this one -- GITHUB_TOKEN is
+  provided by Actions itself.
+EOF
     exit 2
 fi
 if [ -z "${ATTEST_VENV:-}" ]; then

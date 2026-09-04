@@ -336,3 +336,76 @@ def test_this_repository_workflow_runs_only_for_same_repository_branches() -> No
     assert "pull_request_target" not in workflow
     assert "ref: ${{ github.event.pull_request.head.sha }}" in workflow
     assert "pull-requests: write" in workflow
+
+
+def test_a_missing_model_key_says_where_to_put_it_and_that_nothing_was_sent(
+    tmp_path: Path,
+) -> None:
+    """Owner instruction 5 of 2026-09-04c: the most common first-run failure must
+    be fixable from the message alone -- a link to this repository's own secrets
+    page, the exact Name, and the fact that nothing has happened yet."""
+    event_path = tmp_path / "trusted-event.json"
+    _event(event_path)
+    venv, args_path = _fake_attest(tmp_path)
+
+    result = _run_entrypoint(
+        tmp_path,
+        event_path,
+        venv,
+        args_path,
+        INPUT_MODEL_API_KEY="",
+        GITHUB_SERVER_URL="https://github.com",
+        GITHUB_REPOSITORY="maintainer/project",
+    )
+
+    assert result.returncode == 2
+    assert not args_path.exists()  # attest never ran
+    assert (
+        "https://github.com/maintainer/project/settings/secrets/actions/new" in result.stderr
+    )
+    assert "ANTHROPIC_API_KEY" in result.stderr
+    assert "Nothing was sent anywhere" in result.stderr
+    assert "no key was read, stored or logged" in result.stderr
+    assert "github-secret-value" not in result.stderr
+
+
+def test_a_missing_github_token_names_the_input_and_the_permission(tmp_path: Path) -> None:
+    event_path = tmp_path / "trusted-event.json"
+    _event(event_path)
+    venv, args_path = _fake_attest(tmp_path)
+
+    result = _run_entrypoint(
+        tmp_path,
+        event_path,
+        venv,
+        args_path,
+        INPUT_GITHUB_TOKEN="",
+        GITHUB_REPOSITORY="maintainer/project",
+    )
+
+    assert result.returncode == 2
+    assert not args_path.exists()
+    assert "secrets.GITHUB_TOKEN" in result.stderr
+    assert "pull-requests: write" in result.stderr
+    assert "model-secret-value" not in result.stderr
+
+
+def test_the_readme_first_screen_is_a_workflow_a_reader_can_paste_whole() -> None:
+    """The first fenced block of the README is the complete workflow file, with the
+    pinned ref, both inputs and the permission the comment needs."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    blocks = re.findall(r"```yaml\n(.*?)```", readme, flags=re.S)
+    assert blocks, "the README has no YAML block"
+    workflow = blocks[0]
+    for required in (
+        "on:",
+        "pull_request",
+        "permissions:",
+        "pull-requests: write",
+        "actions/checkout@",
+        "IcantFind-a-username/Attest@",
+        "github-token: ${{ secrets.GITHUB_TOKEN }}",
+        "model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}",
+    ):
+        assert required in workflow, required
+    assert "ref: ${{ github.event.pull_request.head.sha }}" in workflow

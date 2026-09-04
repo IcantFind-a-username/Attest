@@ -302,13 +302,22 @@ def run_git(repo: Path, *args: str) -> str:
     return completed.stdout.strip()
 
 
+# D-127: the base tree states what the module returns, as every maintained
+# repository does. Without such a statement a value regression cannot be told
+# from a deliberate change of the value, and these fixtures exercise the
+# executor rather than that rule.
+SPEC_TEST = "import mod\n\n\ndef test_add():\n    assert mod.add(2, 2) == 4\n"
+
+
 def differential_repo(tmp_path: Path) -> tuple[Path, str, str]:
     """Real repo: base commit with a working module, head commit with the bug."""
     repo = tmp_path / "repo"
     repo.mkdir()
     run_git(repo, "init", "--initial-branch=main")
     (repo / "mod.py").write_text(GOOD_MODULE, encoding="utf-8")
-    run_git(repo, "add", "mod.py")
+    (repo / "tests").mkdir()
+    (repo / "tests" / "test_mod.py").write_text(SPEC_TEST, encoding="utf-8")
+    run_git(repo, "add", "mod.py", "tests/test_mod.py")
     run_git(repo, "commit", "-m", "base: working module")
     base_sha = run_git(repo, "rev-parse", "HEAD")
     (repo / "mod.py").write_text(BUGGY_MODULE, encoding="utf-8")
@@ -2364,8 +2373,10 @@ def test_execute_differential_flaky_head_is_indeterminate(tmp_path: Path) -> Non
             id="head_symbol_absent__base_pass__unfaithful",
         ),
         pytest.param(
-            {"mod.py": GOOD_MODULE},
-            {"mod.py": BUGGY_MODULE},
+            # D-127: the base tree states what add() returns, so the value
+            # regression this row certifies contradicts a standing specification
+            {"mod.py": GOOD_MODULE, "tests/test_mod.py": SPEC_TEST},
+            {"mod.py": BUGGY_MODULE, "tests/test_mod.py": SPEC_TEST},
             DIFFERENTIAL_BODY,
             DifferentialExpectation(
                 head_outcomes=("reproduced",) * 3,
@@ -2380,6 +2391,30 @@ def test_execute_differential_flaky_head_is_indeterminate(tmp_path: Path) -> Non
                 purchase_detail="reproduced",
             ),
             id="head_assertion__base_pass__certifies",
+        ),
+        pytest.param(
+            # ... and the same defect with nothing stating the old value goes to
+            # the drawer instead: that is D-127's recall cost, in one row.
+            {"mod.py": GOOD_MODULE},
+            {"mod.py": BUGGY_MODULE},
+            DIFFERENTIAL_BODY,
+            DifferentialExpectation(
+                head_outcomes=("reproduced",) * 3,
+                head_signature="assertion",
+                base_outcomes=("not_reproduced",) * 3,
+                base_signature=None,
+                evidence_class="behavior_change",
+                outcome="deferred",
+                reason=(
+                    "intent: value change confirmed, intent unknown: the base tree does "
+                    "not specify the value this assertion pins -- no base test asserts "
+                    "it and no docstring or documentation writes it down "
+                    "(返回值变化已证实，意图未知)"
+                ),
+                wealth=8.0,
+                channels=("S",),
+            ),
+            id="head_assertion__base_pass__unspecified_value__drawer",
         ),
         pytest.param(
             {"mod.py": GUARDED_MEAN_MODULE},
@@ -2802,6 +2837,11 @@ def monorepo_repo(tmp_path: Path) -> tuple[Path, str, str, Path]:
     (repo / "services" / "svc" / "src" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
     module = repo / MONOREPO_MODULE
     module.write_text(MONOREPO_GOOD, encoding="utf-8")
+    (repo / "services" / "svc" / "tests").mkdir(parents=True)
+    (repo / "services" / "svc" / "tests" / "test_mod.py").write_text(
+        "from pkg import mod\n\n\ndef test_add():\n    assert mod.add(2, 2) == 4\n",
+        encoding="utf-8",
+    )  # D-127: the base tree states the value
     run_git(repo, "init", "--initial-branch=main")
     run_git(repo, "add", "-A")
     run_git(repo, "commit", "-m", "base: working module")
@@ -2856,7 +2896,16 @@ def test_reproduction_can_import_the_nearest_test_module_helpers_by_name(tmp_pat
         head_sha=head_sha,
     )
 
-    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+    # The import is what this test is about, and it worked: every head run failed
+    # on the assertion and every base run passed. The receipt does not publish,
+    # for a reason that has nothing to do with importing -- the assertion compares
+    # against a name, so it pins no value the base tree could have specified, and
+    # D-127 sends it to the drawer. That is the rule's recall cost, in one test.
+    assert [run.outcome.value for run in result.head_runs] == ["reproduced"] * 3
+    assert [run.outcome.value for run in result.base_runs] == ["not_reproduced"] * 3
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.intent is not None and result.intent.pinned_values == ()
+    assert "pins no value" in result.reason
 
 
 @pytest.mark.skipif(os.name != "posix", reason="shell wrapper interpreter")
@@ -3039,6 +3088,8 @@ TOTAL_BODY = (
     "def test_repro():\n"
     "    assert mod.total([1, 2]) == 3\n"
 )
+# D-127: what the base tree says total() returns
+TOTAL_SPEC = "import mod\n\n\ndef test_total():\n    assert mod.total([1, 2]) == 3\n"
 
 
 def test_an_assertion_on_a_substituted_constant_goes_to_the_drawer(tmp_path: Path) -> None:
@@ -3083,7 +3134,9 @@ def test_an_assertion_on_a_computed_value_still_certifies(tmp_path: Path) -> Non
     change replaced, so the drawer rule does not fire and the regression certifies
     exactly as it did before."""
     repo, base_sha, head_sha = two_commit_repo(
-        tmp_path, {"mod.py": VERSION_BASE_MODULE}, {"mod.py": VERSION_HEAD_MODULE}
+        tmp_path,
+        {"mod.py": VERSION_BASE_MODULE, "tests/test_total.py": TOTAL_SPEC},
+        {"mod.py": VERSION_HEAD_MODULE, "tests/test_total.py": TOTAL_SPEC},
     )
     stored = candidate(file="mod.py", line=6)
 
@@ -3205,7 +3258,9 @@ def test_a_raise_the_changed_code_handles_itself_does_not_hide_a_regression(
     line and separately regresses add(); the test fails on the assertion. The
     handled raise is not the rejection, so the regression certifies."""
     repo, base_sha, head_sha = two_commit_repo(
-        tmp_path, {"mod.py": GOOD_MODULE}, {"mod.py": CAUGHT_HEAD_MODULE}
+        tmp_path,
+        {"mod.py": GOOD_MODULE, "tests/test_mod.py": SPEC_TEST},
+        {"mod.py": CAUGHT_HEAD_MODULE, "tests/test_mod.py": SPEC_TEST},
     )
     stored = candidate(file="mod.py", line=6)
 
@@ -3303,10 +3358,11 @@ def test_a_stdlib_module_sharing_the_anchored_basename_is_not_a_shadow(tmp_path:
     name the anchored file answers to from the tree's import roots."""
     good = "import logging\n\n\ndef add(a, b):\n    logging.getLogger(__name__)\n    return a + b\n"
     bad = "import logging\n\n\ndef add(a, b):\n    logging.getLogger(__name__)\n    return a - b\n"
+    spec = "import pkg.logging as mod\n\n\ndef test_add():\n    assert mod.add(2, 2) == 4\n"
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path,
-        {"pkg/__init__.py": "", "pkg/logging.py": good},
-        {"pkg/__init__.py": "", "pkg/logging.py": bad},
+        {"pkg/__init__.py": "", "pkg/logging.py": good, "tests/test_mod.py": spec},
+        {"pkg/__init__.py": "", "pkg/logging.py": bad, "tests/test_mod.py": spec},
     )
     stored = candidate(file="pkg/logging.py", line=6)
     body = (

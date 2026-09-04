@@ -1,0 +1,141 @@
+{
+ "eligible_total": 17,
+ "gate": "G-NULL-001a",
+ "publications": 2,
+ "reviews": 12,
+ "rows": [
+  {
+   "age_days": null,
+   "eligible": 1,
+   "head": "",
+   "published": 0,
+   "repo": "itsdangerous",
+   "spend": 0.03914,
+   "suppressed": 0,
+   "task_id": "20260904-054711-7314ea44",
+   "units": 1
+  },
+  {
+   "age_days": null,
+   "eligible": 3,
+   "head": "",
+   "published": 1,
+   "repo": "jinja",
+   "spend": 0.117429,
+   "suppressed": 1,
+   "task_id": "20260904-054801-e2a48c5d",
+   "units": 1
+  },
+  {
+   "age_days": null,
+   "eligible": 1,
+   "head": "",
+   "published": 0,
+   "repo": "jinja",
+   "spend": 0.104065,
+   "suppressed": 0,
+   "task_id": "20260904-202603-31802535",
+   "units": 1
+  },
+  {
+   "age_days": null,
+   "eligible": 2,
+   "head": "",
+   "published": 0,
+   "repo": "jinja",
+   "spend": 0.108738,
+   "suppressed": 0,
+   "task_id": "20260904-202647-801bfe5a",
+   "units": 1
+  },
+  {
+   "age_days": null,
+   "eligible": 1,
+   "head": "",
+   "published": 0,
+   "repo": "more-itertools",
+   "spend": 0.080268,
+   "suppressed": 0,
+   "task_id": "20260904-202745-9d9cf448",
+   "units": 1
+  },
+  {
+   "age_days": null,
+   "eligible": 1,
+   "head": "",
+   "published": 0,
+   "repo": "more-itertools",
+   "spend": 0.067518,
+   "suppressed": 0,
+   "task_id": "20260904-202849-4e2f4049",
+   "units": 1
+  },
+  {
+   "age_days": null,
+   "eligible": 1,
+   "head": "",
+   "published": 0,
+   "repo": "more-itertools",
+   "spend": 0.075338,
+   "suppressed": 0,
+   "task_id": "20260904-202923-de54dbab",
+   "units": 1
+  },
+  {
+   "age_days": null,
+   "eligible": 1,
+   "head": "",
+   "published": 0,
+   "repo": "more-itertools",
+   "spend": 0.059825,
+   "suppressed": 0,
+   "task_id": "20260904-202959-3e713f39",
+   "units": 1
+  },
+  {
+   "age_days": null,
+   "eligible": 2,
+   "head": "",
+   "published": 0,
+   "repo": "more-itertools",
+   "spend": 0.135667,
+   "suppressed": 0,
+   "task_id": "20260904-203027-f1ba5d98",
+   "units": 1
+  },
+  {
+   "age_days": null,
+   "eligible": 0,
+   "head": "",
+   "published": 0,
+   "repo": "python-dotenv",
+   "spend": 0.017913,
+   "suppressed": 0,
+   "task_id": "20260904-203246-ec017efa",
+   "units": 0
+  },
+  {
+   "age_days": null,
+   "eligible": 2,
+   "head": "",
+   "published": 0,
+   "repo": "python-dotenv",
+   "spend": 0.043352,
+   "suppressed": 0,
+   "task_id": "20260904-203255-f5af6483",
+   "units": 1
+  },
+  {
+   "age_days": null,
+   "eligible": 2,
+   "head": "",
+   "published": 1,
+   "repo": "urllib3",
+   "spend": 0.163936,
+   "suppressed": 1,
+   "task_id": "20260904-203454-3ecbab86",
+   "units": 1
+  }
+ ],
+ "schema_version": "attest.g-null-001a-result.v1"
+}

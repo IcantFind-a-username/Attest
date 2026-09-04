@@ -7,6 +7,59 @@ to state and deliberately hard to satisfy:
 > claim-bound execution certificate; spend model and test budget where it is most likely to
 > produce such a certificate; otherwise abstain explicitly.
 
+## Install it in one file
+
+There is exactly one supported way in: **a GitHub Action and a repository Secret.** attest
+never touches, stores, transmits or logs your API key — it is read from your own runner's
+environment and goes nowhere else. Save this as `.github/workflows/attest.yml`:
+
+```yaml
+name: attest pull request review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: attest-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Review pull request
+        uses: IcantFind-a-username/Attest@v0.1.0-pilot.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Upload attest ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: attest-ledger-pr-${{ github.event.pull_request.number }}-run-${{ github.run_id }}
+          path: .attest/ledger.jsonl
+          if-no-files-found: warn
+```
+
+Then add one secret, in **Settings → Secrets and variables → Actions → New repository
+secret**, with the Name exactly `ANTHROPIC_API_KEY` and your Anthropic API key as the value.
+`GITHUB_TOKEN` needs nothing — Actions supplies it. That is the whole installation; if the
+secret is missing the run stops before any model call and the error says where to put it.
+
+Fork pull requests are skipped before credentials or head code are touched, by design.
+A review costs about **$0.22** on average and is hard-capped by `budget-usd` (default
+$1.00) — see [`docs/github-action.md`](docs/github-action.md).
+
 The target architecture separates search from judgment:
 
 ```text

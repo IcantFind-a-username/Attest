@@ -274,13 +274,28 @@ The mainline, so that every agent carries the same picture without opening the f
 
 ```text
 product = outside Python repo installs from a stable ref and gets PR comments, every
-          comment receipt-backed and offline-verifiable, head code secretless, silent on
-          all controls of a human-labelled corpus, one clean shadow run, L-01 exit list.
+          comment carrying its level's evidence and admitted by that level's non-model
+          adjudicator, head code secretless, silent on all controls of a human-labelled
+          corpus, one clean shadow run, L-01 exit list.
+
+THE RULE: the LLM thinks; an algorithm decides whether it may speak. Four levels, each
+with an adjudicator that calls no model (mainline §1.1):
+  red    broke what worked      -> differential receipt (kernel + binding + intent v3)
+  gate   new code fails         -> executable failure on a witnessed reachable input (N-01)
+  yellow looks wrong, checked   -> model states premises, a checker verifies each; only
+                                   verified premises are said, confidence is their function
+  green  structurally so        -> computable measure with >=2 concrete coordinates; the
+                                   model is called after the evidence holds, to translate
+INTEGRATION: GitHub Action + repository Secret, and nothing else. The product never
+  touches, stores, transmits or logs a key. `attest init` is optional and ordered last.
+LEVEL ORDER: v3 (done) -> green -> gate -> yellow. Green first: zero execution cost, so
+  it is the cheapest test of the architecture itself.
 
 C-02 -> C-03 -> C-04 -> R-03 -> R-01 -> V-01 -> E-02 pilot (fork on numbers, §4)
      -> C-05 -> V-02 -> X-01 -> X-02 -> V-03 -> E-02 held-out -> E-01 -> E-04 -> L-01
 
-off the mainline until after L-01: S-*, N-01, X-03, R-04, pricing/F research, any scan.
+off the mainline until after L-01: S-*, X-03, R-04, pricing/F research, any scan.
+  N-01 is ON the mainline as the gate level.
 corpora: owner's GitHub repos (clone, no asking), BugsInPy, SWE-bench Verified;
          committed dev/held-out split before the first run.
 owner decides only: A multiplicity method, B isolation backend, C paid spend, D release.

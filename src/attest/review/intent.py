@@ -3,10 +3,14 @@ the raise origins the tracer recorded, the statement kind from the head source, 
 rejected inputs from the generated test's literals, and their witnesses in the base
 tree. D-120 adds one more file read: the base revision of the anchored file, so that an
 assertion resting only on constants the change substituted can be recognised as such.
+D-127 adds a second walk -- of the base tree for the *specifications* of the values the
+failing assertion pins, and of the head tree for whether this change left them standing.
 File reads only: no execution, no model, no repository command.
 
 Fail closed at every step: an unreadable or unparsable anchored file, a truncated
-origin record, or head runs that disagree all DEFER instead of classifying.
+origin record, or head runs that disagree all DEFER instead of classifying; an
+unreadable base or head tree yields no specification, which sends a value mismatch to
+the drawer rather than publishing it.
 """
 
 from __future__ import annotations
@@ -50,6 +54,7 @@ WITNESS_DIRS = frozenset(
     }
 )
 DOC_SUFFIXES = (".md", ".rst")  # documentation anywhere in the tree
+SPEC_DIRS = frozenset({"tests", "test", "testing"})  # a .py here asserts, wherever named
 DATA_SUFFIXES = (".txt", ".json", ".yaml", ".yml", ".toml", ".csv")  # only inside witness dirs
 SKIPPED_DIRS = frozenset(
     {
@@ -276,13 +281,13 @@ def constant_values(source: str) -> tuple[tuple[str, str], ...] | None:
     return tuple(sorted(found))
 
 
-def assertion_constants(test_source: str) -> tuple[tuple[str, str], ...] | None:
-    """The literal constants the generated test's ``assert`` statements rest on:
-    every constant of an ``assert``'s *condition*, minus the ones that only
-    *address* a value -- dictionary keys and subscripts -- which name a field
-    rather than pin its content. An assertion's message is prose the generator
-    wrote about the failure, not part of what the assertion proves, so it is not
-    read. ``None`` when the test cannot be parsed."""
+def assertion_constant_values(test_source: str) -> tuple[tuple[str, object], ...] | None:
+    """The literal constants the ``assert`` statements of ``test_source`` rest on,
+    as (type name, value): every constant of an ``assert``'s *condition*, minus the
+    ones that only *address* a value -- dictionary keys and subscripts -- which name
+    a field rather than pin its content. An assertion's message is prose the
+    generator wrote about the failure, not part of what the assertion proves, so it
+    is not read. ``None`` when the source cannot be parsed."""
     try:
         tree = ast.parse(test_source)
     except (SyntaxError, ValueError):
@@ -293,7 +298,7 @@ def assertion_constants(test_source: str) -> tuple[tuple[str, str], ...] | None:
             addressing.update(id(key) for key in node.keys if key is not None)
         elif isinstance(node, ast.Subscript):
             addressing.add(id(node.slice))
-    found: set[tuple[str, str]] = set()
+    found: dict[tuple[str, str], object] = {}
     for node in ast.walk(tree):
         if not isinstance(node, ast.Assert):
             continue
@@ -304,10 +309,219 @@ def assertion_constants(test_source: str) -> tuple[tuple[str, str], ...] | None:
                 and id(inner) not in addressing
                 and not (isinstance(inner.value, str) and len(inner.value.strip()) == 0)
             ):
-                found.add((type(inner.value).__name__, repr(inner.value)[:MAX_VALUE_CHARS]))
+                found[(type(inner.value).__name__, repr(inner.value)[:MAX_VALUE_CHARS])] = (
+                    inner.value
+                )
                 if len(found) > MAX_CONSTANTS:
                     return None
-    return tuple(sorted(found))
+    return tuple((kind, found[(kind, text)]) for kind, text in sorted(found))
+
+
+def assertion_constants(test_source: str) -> tuple[tuple[str, str], ...] | None:
+    """The same constants as (type name, ``repr``); ``None`` when unparsable."""
+    values = assertion_constant_values(test_source)
+    if values is None:
+        return None
+    return tuple((kind, repr(value)[:MAX_VALUE_CHARS]) for kind, value in values)
+
+
+def _operand_constants(node: ast.AST) -> list[object]:
+    """The constants of one comparison operand: what the assertion pins.
+
+    A call's arguments are not descended into -- they are the inputs the
+    assertion feeds, and only the call's *result* is compared -- nor is a
+    subscript's slice or a dictionary's keys, which address a value rather than
+    state it. So in ``getattr(w, "__wrapped__") is f`` the operand pins nothing,
+    and in ``run_path("calc.py")["value"]() == 1`` it pins ``1``.
+    """
+    found: list[object] = []
+    stack: list[ast.AST] = [node]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, ast.Constant):
+            found.append(current.value)
+        elif isinstance(current, ast.Call):
+            continue
+        elif isinstance(current, ast.Subscript):
+            stack.append(current.value)
+        elif isinstance(current, ast.Dict):
+            stack.extend(value for value in current.values if value is not None)
+        else:
+            stack.extend(ast.iter_child_nodes(current))
+    return found
+
+
+def assertion_pinned_values(source: str) -> tuple[tuple[str, object], ...] | None:
+    """D-127: the values the ``assert`` statements of ``source`` **pin**, as
+    (type name, value) -- the constant operands of their comparisons.
+
+    Narrower than D-120's :func:`assertion_constants`, and for a different
+    question. D-120 asks whether the assertion rests *only* on constants the
+    change substituted, so every literal in the condition counts, inputs
+    included. D-127 asks what old value the assertion states, and an assertion
+    states the side it compares against: the inputs it passes and the names it
+    looks up are how it reaches the value, not the value. ``None`` when the
+    source cannot be parsed.
+    """
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return None
+    found: dict[tuple[str, str], object] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assert):
+            continue
+        for inner in ast.walk(node.test):
+            if not isinstance(inner, ast.Compare):
+                continue
+            for operand in (inner.left, *inner.comparators):
+                for value in _operand_constants(operand):
+                    if value is Ellipsis:
+                        continue
+                    if isinstance(value, str) and len(value.strip()) == 0:
+                        continue
+                    found[(type(value).__name__, repr(value)[:MAX_VALUE_CHARS])] = value
+                    if len(found) > MAX_CONSTANTS:
+                        return None
+    return tuple((kind, found[(kind, text)]) for kind, text in sorted(found))
+
+
+def docstring_texts(source: str) -> tuple[str, ...]:
+    """Every module, class and function docstring of ``source``; () when unparsable.
+    A docstring is where a Python file *writes down* what it returns."""
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return ()
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            doc = ast.get_docstring(node, clean=False)
+            if doc:
+                found.append(doc)
+    return tuple(found)
+
+
+def is_spec_file(relative: Path) -> bool:
+    """A base-tree file that can *specify* a value: a test module, which asserts
+    it, or documentation, which writes it down. Narrower than a witness file --
+    a fixture holds inputs, not statements about results."""
+    name = relative.name
+    if name.endswith(DOC_SUFFIXES) or name.upper().startswith("README"):
+        return True
+    if not name.endswith(".py"):
+        return False
+    return (
+        name == "conftest.py"
+        or name.startswith("test_")
+        or name.endswith("_test.py")
+        or any(part in SPEC_DIRS for part in relative.parts[:-1])
+    )
+
+
+def specified_by(relative: Path, text: str, pinned: tuple[tuple[str, object], ...]) -> set[str]:
+    """The ``repr`` of every pinned value this file specifies.
+
+    A Python file specifies a value by asserting it, or by quoting it in a
+    docstring; a documentation file, by quoting it in its prose. Only string
+    values can be quoted: a bare number in prose names nothing in particular.
+    """
+    found: set[str] = set()
+    if relative.suffix == ".py":
+        asserted = assertion_pinned_values(text)
+        if asserted:
+            keys = {(kind, repr(value)[:MAX_VALUE_CHARS]) for kind, value in asserted}
+            found |= {
+                repr(value)[:MAX_VALUE_CHARS]
+                for kind, value in pinned
+                if (kind, repr(value)[:MAX_VALUE_CHARS]) in keys
+            }
+        prose: tuple[str, ...] = docstring_texts(text)
+    else:
+        prose = (text,)
+    for _kind, value in pinned:
+        if not isinstance(value, str) or len(value.strip()) < MIN_LITERAL_CHARS:
+            continue
+        if any(form in body for body in prose for form in _quoted_forms(value)):
+            found.add(repr(value)[:MAX_VALUE_CHARS])
+    return found
+
+
+def find_specifications(
+    *,
+    base_tree: Path,
+    head_tree: Path | None,
+    pinned: tuple[tuple[str, object], ...],
+    anchored: str,
+) -> tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]:
+    """D-127: (the base tree's specification of each pinned value, the sites this
+    change no longer specifies at head).
+
+    The base walk is bounded exactly as the witness walk is, takes the first site
+    per value in a deterministic order, and reads the anchored file itself as well
+    -- its docstrings are where a function states what it returns. Without a head
+    tree nothing can be shown to stand, so every site found is reported as
+    rewritten and the receipt goes to the drawer.
+    """
+    if not pinned:
+        return (), ()
+    pending = {repr(value)[:MAX_VALUE_CHARS] for _kind, value in pinned}
+    found: dict[str, str] = {}
+    files_seen = 0
+    bytes_seen = 0
+    root = base_tree.resolve()
+    for current, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(name for name in dirnames if name not in SKIPPED_DIRS)
+        for filename in sorted(filenames):
+            if not pending:
+                break
+            path = Path(current) / filename
+            try:
+                relative = path.relative_to(root)
+            except ValueError:
+                continue
+            if not is_spec_file(relative) and relative.as_posix() != anchored:
+                continue
+            files_seen += 1
+            if files_seen > MAX_WITNESS_FILES:
+                pending.clear()
+                break
+            try:
+                if path.is_symlink():
+                    continue
+                size = path.stat().st_size
+                if size > MAX_WITNESS_FILE_BYTES:
+                    continue
+                bytes_seen += size
+                if bytes_seen > MAX_WITNESS_TOTAL_BYTES:
+                    pending.clear()
+                    break
+                body = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            for value in specified_by(relative, body, pinned) & pending:
+                found[value] = relative.as_posix()
+                pending.discard(value)
+        if not pending:
+            break
+    specified = tuple(sorted(found.items()))
+    respecified: list[tuple[str, str]] = []
+    for value, site in specified:
+        still: set[str] = set()
+        if head_tree is not None:
+            head_path = head_tree / site
+            try:
+                if not head_path.is_symlink() and head_path.is_file():
+                    still = specified_by(
+                        Path(site),
+                        head_path.read_text(encoding="utf-8", errors="replace"),
+                        pinned,
+                    )
+            except OSError:
+                still = set()
+        if value not in still:
+            respecified.append((value, site))
+    return specified, tuple(respecified)
 
 
 def observe_constant_substitution(
@@ -374,6 +588,7 @@ def observe_intent(
     test_source: str,
     head_origins: list[tuple[RaiseOrigin, ...]],
     base_tree: Path,
+    head_tree: Path | None = None,
     head_failures: list[str] | None = None,
     truncated: bool = False,
 ) -> IntentObservation | str:
@@ -398,6 +613,7 @@ def observe_intent(
         if test_level
         else (False, ())
     )
+    pinned = assertion_pinned_values(test_source) if test_level else None
     kinds = statement_kinds(head_source)
     any_on_changed = any(
         origin.line in changed for origins in head_origins for origin in origins
@@ -416,6 +632,16 @@ def observe_intent(
     if present and len(present) != len(rejecting):
         return "head runs disagree on whether the failure was raised from a changed line"
     if not present:
+        # D-127: no rejecting origin and every head run failed on the test's own
+        # assertion -- the differential shows a changed *value*, and it publishes
+        # only against a base specification this change left standing.
+        specified, respecified = (
+            find_specifications(
+                base_tree=base_tree, head_tree=head_tree, pinned=pinned, anchored=path
+            )
+            if pinned
+            else ((), ())
+        )
         first = head_origins[0][0] if head_origins and head_origins[0] else None
         return IntentObservation(
             policy_version=INTENT_POLICY_VERSION,
@@ -430,6 +656,12 @@ def observe_intent(
             head_runs_observed=len(head_origins),
             constant_substitution=substitution,
             asserted_constants=asserted,
+            value_mismatch=test_level,
+            pinned_values=tuple(
+                repr(value)[:MAX_VALUE_CHARS] for _kind, value in (pinned or ())
+            ),
+            value_specified=specified,
+            value_respecified=respecified,
         )
     signatures = {(origin.line, origin.exception_type) for origin in present}
     if len(signatures) != 1:

@@ -25,7 +25,11 @@ from attest.certification.binding import (
     BindingObservation,
     binding_verdict,
 )
-from attest.certification.intent import IntentObservation, constant_change, intent_verdict
+from attest.certification.intent import (
+    IntentObservation,
+    evidence_class_for,
+    intent_verdict,
+)
 from attest.execution.controller import Controller, ExecutorAdapter
 from attest.execution.local_adapter import LocalDevelopmentAdapter
 from attest.execution.types import ResourceLimits
@@ -1888,15 +1892,20 @@ def execute_differential(
             head_failures=[run.failure_message for run in head_runs],
             truncated=any(run.raise_origins_truncated for run in head_runs),
             base_tree=trees_dir / "base",
+            head_tree=trees_dir / "head",
         )
         if isinstance(observed, str):
             return deferred(f"intent: {observed}")
         intents.append(observed)
         differential = f"head FAIL {repeats}/{repeats}, base PASS {repeats}/{repeats}"
-        if observed.new_rejection or constant_change(observed):
-            intent_reason = intent_verdict(observed)
-            if intent_reason is not None:
-                return deferred(f"intent: {intent_reason}", EvidenceClass.BEHAVIOR_CHANGE)
+        # Every receipt is judged, not only the rejection shapes: D-127's value
+        # rule reaches receipts that carry no rejection at all.
+        intent_reason = intent_verdict(observed)
+        if intent_reason is not None:
+            return deferred(
+                f"intent: {intent_reason}", EvidenceClass(evidence_class_for(observed))
+            )
+        if observed.new_rejection:
             literal, witness = observed.witnesses[0]
             return finish(
                 ExecutionOutcome.REPRODUCED,
@@ -1905,6 +1914,9 @@ def execute_differential(
                 f"{literal!r}, an input present in the base tree at {witness}",
                 EvidenceClass.BEHAVIOR_CHANGE,
             )
+        # A value regression publishes as the regression it is; the specification
+        # it contradicts is recorded in the intent observation, which the bundle
+        # and the ledger carry, rather than restated in the differential's reason.
         return finish(
             ExecutionOutcome.REPRODUCED, differential, EvidenceClass.REGRESSION_REPRODUCED
         )

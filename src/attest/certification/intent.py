@@ -21,13 +21,31 @@ replaced by another of the same type -- the differential proves that the author
 edited a literal and that the test restates the old one. That is a behaviour
 change by construction, not a regression, and no witness publishes it.
 
+A third shape reaches the drawer under ``attest.intent.v3`` (D-127). D-102 asks
+whether the author meant a new *rejection*; nothing asked whether the author
+meant a new *returned value*, and on `G-NULL-001a` control ``jinja ac3ac6c9``
+the product published a defect claim about a deliberate, commented, four-year-old
+change of a function's ``__name__``. So the mirror of D-102: when every head run
+failed on an assertion of the generated test rather than on a crash or a
+rejection -- a **value mismatch** -- the receipt publishes only when the base
+tree **specifies** each value that assertion pins (a base test asserts it, or a
+docstring or documentation file writes it down) **and this change leaves every
+one of those specifications standing**. A value nothing specified, or a
+specification the same diff rewrote, is a behaviour change: the author moved the
+value and the generated test restates the old one.
+
+The recall cost is deliberate and is the decision, not a side effect: a
+reproduction that invents its own expected value -- which most generated
+reproductions do -- can no longer certify a value regression. D-102 paid the
+same price on the rejection class.
+
 A receipt is judged under the policy version **it records**, not under the one
 in force today (D-121). Bumping the version is a promise to future readers of
 the audit chain, not a way to void every receipt already issued: an observation
 written under ``attest.intent.new-rejection.v1`` still names its own fields, its
 own digest and its own rules here, and D-120's constant rule -- which did not
-exist then -- is not applied to it. A version this module does not know still
-fails closed.
+exist then -- is not applied to it, nor is D-127's value rule applied to either.
+A version this module does not know still fails closed.
 """
 
 from __future__ import annotations
@@ -36,14 +54,17 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
-INTENT_POLICY_VERSION = "attest.intent.v2"
+INTENT_POLICY_VERSION = "attest.intent.v3"  # D-127
 INTENT_POLICY_V1 = "attest.intent.new-rejection.v1"  # D-102, before D-120
+INTENT_POLICY_V2 = "attest.intent.v2"  # D-120, before D-127
 EVIDENCE_CLASS_REGRESSION = "regression_reproduced"
 EVIDENCE_CLASS_BEHAVIOR_CHANGE = "behavior_change"
 INTENT_UNKNOWN_LABEL = "behavior change confirmed, intent unknown"
 INTENT_UNKNOWN_LABEL_ZH = "行为变化已证实，意图未知"
 CONSTANT_CHANGE_LABEL = "constant change confirmed, intent unknown"
 CONSTANT_CHANGE_LABEL_ZH = "常量改动已证实，意图未知"
+VALUE_CHANGE_LABEL = "value change confirmed, intent unknown"
+VALUE_CHANGE_LABEL_ZH = "返回值变化已证实，意图未知"
 REJECTING_STATEMENTS = ("raise", "assert")
 
 
@@ -66,6 +87,15 @@ class IntentObservation:
     # added in its place)
     constant_substitution: bool = False
     asserted_constants: tuple[str, ...] = ()  # repr() of those constants
+    # D-127: every head run failed on an assertion of the generated test -- not a
+    # crash, not a rejection -- so what the differential shows is a changed value
+    value_mismatch: bool = False
+    pinned_values: tuple[str, ...] = ()  # repr() of the constants those assertions pin
+    # (pinned value, base-tree path that specifies it): a base test asserts it, or
+    # a docstring or documentation file writes it down. First site per value.
+    value_specified: tuple[tuple[str, str], ...] = ()
+    # the specifying sites this change no longer specifies at head
+    value_respecified: tuple[tuple[str, str], ...] = ()
 
     def digest(self) -> str:
         """Over exactly the fields the recorded policy version defines, so that a
@@ -94,27 +124,76 @@ _V1_FIELDS = (
     "witnesses",
     "head_runs_observed",
 )
+_V2_FIELDS = (*_V1_FIELDS, "constant_substitution", "asserted_constants")
 # The observation each policy version records. v2 adds D-120's two constant
-# fields; a version absent from this table is unknown and never publishes.
+# fields, v3 adds D-127's four value fields; a version absent from this table is
+# unknown and never publishes.
 POLICY_FIELDS: dict[str, tuple[str, ...]] = {
     INTENT_POLICY_V1: _V1_FIELDS,
-    INTENT_POLICY_VERSION: (*_V1_FIELDS, "constant_substitution", "asserted_constants"),
+    INTENT_POLICY_V2: _V2_FIELDS,
+    INTENT_POLICY_VERSION: (
+        *_V2_FIELDS,
+        "value_mismatch",
+        "pinned_values",
+        "value_specified",
+        "value_respecified",
+    ),
 }
+_CONSTANT_RULE_VERSIONS = frozenset({INTENT_POLICY_V2, INTENT_POLICY_VERSION})
 
 
 def constant_change(observation: IntentObservation) -> bool:
     """D-120: the failing assertion rests only on constants the change
-    substituted. The rule is v2's; a v1 receipt was never judged by it."""
-    if observation.policy_version != INTENT_POLICY_VERSION:
+    substituted. The rule arrived with v2; a v1 receipt was never judged by it."""
+    if observation.policy_version not in _CONSTANT_RULE_VERSIONS:
         return False
     return observation.constant_substitution and bool(observation.asserted_constants)
+
+
+def value_change(observation: IntentObservation) -> bool:
+    """D-127: the head failure is a value mismatch, so the value rule applies.
+    The rule arrived with v3; a v1 or v2 receipt was never judged by it."""
+    return observation.policy_version == INTENT_POLICY_VERSION and observation.value_mismatch
+
+
+def value_change_reason(observation: IntentObservation) -> str | None:
+    """D-127: why a value mismatch may not publish, or ``None`` when it may.
+
+    It may when the base tree specified every value the failing assertion pins
+    -- a base test asserted it, or a docstring or documentation file wrote it
+    down -- and this change left every one of those specifications standing.
+    Everything else, an unpinned assertion included, is a behaviour change whose
+    intent this product cannot read.
+    """
+    if not value_change(observation):
+        return None
+    if not observation.pinned_values:
+        return (
+            f"{VALUE_CHANGE_LABEL}: the failing assertion pins no value the base tree "
+            f"could have specified ({VALUE_CHANGE_LABEL_ZH})"
+        )
+    specified = {value for value, _path in observation.value_specified}
+    if any(value not in specified for value in observation.pinned_values):
+        return (
+            f"{VALUE_CHANGE_LABEL}: the base tree does not specify the value this "
+            f"assertion pins -- no base test asserts it and no docstring or "
+            f"documentation writes it down ({VALUE_CHANGE_LABEL_ZH})"
+        )
+    if observation.value_respecified:
+        return (
+            f"{VALUE_CHANGE_LABEL}: this change also rewrites the base tree's own "
+            f"specification of that value ({VALUE_CHANGE_LABEL_ZH})"
+        )
+    return None
 
 
 def evidence_class_for(observation: IntentObservation) -> str:
     """The evidence class the observation supports."""
     return (
         EVIDENCE_CLASS_BEHAVIOR_CHANGE
-        if observation.new_rejection or constant_change(observation)
+        if observation.new_rejection
+        or constant_change(observation)
+        or value_change_reason(observation) is not None
         else EVIDENCE_CLASS_REGRESSION
     )
 
@@ -139,6 +218,11 @@ def intent_verdict(observation: IntentObservation) -> str | None:
             f"{CONSTANT_CHANGE_LABEL}: every literal the failing assertion rests on is "
             f"a constant this change replaced ({CONSTANT_CHANGE_LABEL_ZH})"
         )
+    # D-127: a value mismatch is not a new rejection, so it is judged here and
+    # the rejection rules below never see it.
+    value_reason = value_change_reason(observation)
+    if value_reason is not None:
+        return value_reason
     if not observation.new_rejection:
         return None
     # The verdict is what an author reads in the run status and the drawer, so

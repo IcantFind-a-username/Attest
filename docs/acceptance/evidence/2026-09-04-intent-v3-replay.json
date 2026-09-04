@@ -1,0 +1,2612 @@
+{
+  "by_shape": {
+    "constant": 0,
+    "crash": 7,
+    "rejection": 2,
+    "value": 46
+  },
+  "clones": [
+    "attest",
+    "corum",
+    "us-stock-helper",
+    "icantfind-a-username",
+    "gnull/attrs",
+    "gnull/click",
+    "gnull/itsdangerous",
+    "gnull/jinja"
+  ],
+  "comparable": 55,
+  "control_publications_after": 0,
+  "control_publications_before": 2,
+  "drawered_by_v3": [
+    {
+      "candidate": "db100c9818",
+      "clone": "attest",
+      "path": "src/attest/execution/container_adapter.py",
+      "task": "20260903-193709-f014bd70"
+    },
+    {
+      "candidate": "1073218238",
+      "clone": "attest",
+      "path": "src/attest/benchmark/matcher.py",
+      "task": "20260903-194151-26405375"
+    },
+    {
+      "candidate": "dad85d4e84",
+      "clone": "attest",
+      "path": "src/attest/execution/container_images.py",
+      "task": "20260904-004449-4e7f19c6"
+    },
+    {
+      "candidate": "d2c15a3f07",
+      "clone": "attest",
+      "path": "src/attest/execution/container_images.py",
+      "task": "20260904-004449-4e7f19c6"
+    },
+    {
+      "candidate": "8193742fef",
+      "clone": "attest",
+      "path": "src/attest/execution/container_adapter.py",
+      "task": "20260904-040004-18b67397"
+    },
+    {
+      "candidate": "1cf3efe423",
+      "clone": "attest",
+      "path": "src/attest/execution/container_images.py",
+      "task": "20260904-040004-18b67397"
+    },
+    {
+      "candidate": "683c292257",
+      "clone": "attest",
+      "path": "src/attest/execution/container_images.py",
+      "task": "20260904-040004-18b67397"
+    },
+    {
+      "candidate": "0ab1e8313a",
+      "clone": "attest",
+      "path": "src/attest/execution/container_images.py",
+      "task": "20260904-040545-c9785a66"
+    },
+    {
+      "candidate": "0e910940fa",
+      "clone": "attest",
+      "path": "src/attest/execution/container_images.py",
+      "task": "20260904-040545-c9785a66"
+    },
+    {
+      "candidate": "99e457d77f",
+      "clone": "attest",
+      "path": "src/attest/execution/container_images.py",
+      "task": "20260904-040545-c9785a66"
+    },
+    {
+      "candidate": "425cafff10",
+      "clone": "corum",
+      "path": "src/corum/dependence.py",
+      "task": "20260904-004807-5e155507"
+    },
+    {
+      "candidate": "a8a27ddfd7",
+      "clone": "corum",
+      "path": "src/corum/models.py",
+      "task": "20260904-004851-b6f6dffd"
+    },
+    {
+      "candidate": "d7c64badcc",
+      "clone": "us-stock-helper",
+      "path": "services/market_gateway/src/us_stock_helper_market_gateway/opend_adapter.py",
+      "task": "20260903-192803-d0a28a7a"
+    },
+    {
+      "candidate": "fa403b50ca",
+      "clone": "us-stock-helper",
+      "path": "services/market_gateway/src/us_stock_helper_market_gateway/opend_adapter.py",
+      "task": "20260903-192803-d0a28a7a"
+    },
+    {
+      "candidate": "63dcec91ff",
+      "clone": "us-stock-helper",
+      "path": "services/market_gateway/src/us_stock_helper_market_gateway/opend_adapter.py",
+      "task": "20260903-192916-eb65bec0"
+    },
+    {
+      "candidate": "75ce7a3425",
+      "clone": "us-stock-helper",
+      "path": "services/information_layer/information_layer/feeds/nasdaq.py",
+      "task": "20260903-193007-1e72431e"
+    },
+    {
+      "candidate": "f365104ad4",
+      "clone": "us-stock-helper",
+      "path": "services/information_layer/information_layer/feeds/nasdaq.py",
+      "task": "20260903-193007-1e72431e"
+    },
+    {
+      "candidate": "38c316089d",
+      "clone": "us-stock-helper",
+      "path": "services/information_layer/information_layer/feeds/nasdaq.py",
+      "task": "20260903-193007-1e72431e"
+    },
+    {
+      "candidate": "dc4b42ff36",
+      "clone": "us-stock-helper",
+      "path": "services/information_layer/information_layer/feeds/nasdaq.py",
+      "task": "20260903-193007-1e72431e"
+    },
+    {
+      "candidate": "c5b90ad887",
+      "clone": "us-stock-helper",
+      "path": "scripts/local_runtime_support.py",
+      "task": "20260903-193354-4c8189d3"
+    },
+    {
+      "candidate": "1d0af73c3e",
+      "clone": "us-stock-helper",
+      "path": "scripts/smoke_live.py",
+      "task": "20260903-193901-ee27b253"
+    },
+    {
+      "candidate": "33aa333ec0",
+      "clone": "us-stock-helper",
+      "path": "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py",
+      "task": "20260903-194031-f10f0463"
+    },
+    {
+      "candidate": "3bba2f62e6",
+      "clone": "us-stock-helper",
+      "path": "services/analysis_core/us_stock_helper_core/scoring.py",
+      "task": "20260904-005029-9b14404e"
+    },
+    {
+      "candidate": "240836f2e0",
+      "clone": "us-stock-helper",
+      "path": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+      "task": "20260904-032523-0a07b6d6"
+    },
+    {
+      "candidate": "240836f2e0",
+      "clone": "us-stock-helper",
+      "path": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+      "task": "20260904-033730-0a07b6d6"
+    },
+    {
+      "candidate": "2c982b3cf3",
+      "clone": "us-stock-helper",
+      "path": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+      "task": "20260904-033730-0a07b6d6"
+    },
+    {
+      "candidate": "3a3b414a24",
+      "clone": "us-stock-helper",
+      "path": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+      "task": "20260904-033730-0a07b6d6"
+    },
+    {
+      "candidate": "67dae52f8e",
+      "clone": "us-stock-helper",
+      "path": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+      "task": "20260904-033730-0a07b6d6"
+    },
+    {
+      "candidate": "33243bfa2e",
+      "clone": "us-stock-helper",
+      "path": "services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py",
+      "task": "20260904-034615-e10d6055"
+    },
+    {
+      "candidate": "e5d9505259",
+      "clone": "us-stock-helper",
+      "path": "services/information_layer/information_layer/factors/provider.py",
+      "task": "20260904-041419-54f57b04"
+    },
+    {
+      "candidate": "16cab71ac4",
+      "clone": "us-stock-helper",
+      "path": "services/analysis_api/src/us_stock_helper_analysis_api/service.py",
+      "task": "20260904-042040-03bda516"
+    },
+    {
+      "candidate": "3cd7bdd217",
+      "clone": "us-stock-helper",
+      "path": "services/analysis_api/src/us_stock_helper_analysis_api/service.py",
+      "task": "20260904-042040-03bda516"
+    },
+    {
+      "candidate": "22effa10fe",
+      "clone": "us-stock-helper",
+      "path": "services/information_layer/information_layer/feeds/collector.py",
+      "task": "20260904-042040-03bda516"
+    },
+    {
+      "candidate": "2a2e79e265",
+      "clone": "us-stock-helper",
+      "path": "services/analysis_api/src/us_stock_helper_analysis_api/adviser_provider.py",
+      "task": "20260904-042040-03bda516"
+    },
+    {
+      "candidate": "98db6c4b0f",
+      "clone": "jinja",
+      "path": "src/jinja2/async_utils.py",
+      "task": "20260904-054801-e2a48c5d"
+    },
+    {
+      "candidate": "5d27c0905c",
+      "clone": "jinja",
+      "path": "src/jinja2/async_utils.py",
+      "task": "20260904-054801-e2a48c5d"
+    }
+  ],
+  "published_after": 19,
+  "published_before": 55,
+  "receipt_rows": [
+    {
+      "candidate_id": "a47e7a8fa9",
+      "clone": "attest",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "crash",
+      "task_id": "20260903-193709-f014bd70",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "db100c9818",
+      "clone": "attest",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_adapter.py",
+      "pinned_values": [
+        "0",
+        "'--format'",
+        "'/usr/bin/docker'",
+        "'image'",
+        "'inspect'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-193709-f014bd70",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'image'",
+          "src/attest/execution/container_adapter.py"
+        ],
+        [
+          "0",
+          "tests/test_action_entrypoint.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "103aa42a3c",
+      "clone": "attest",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "",
+      "old_class": "behavior_change",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "recorded_class": "behavior_change",
+      "replayable": true,
+      "shape": "rejection",
+      "task_id": "20260903-193709-f014bd70",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "6cce86432e",
+      "clone": "attest",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [
+        "'timed out'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-193709-f014bd70",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'timed out'",
+          "tests/test_ci_flow.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "058f573208",
+      "clone": "attest",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "crash",
+      "task_id": "20260903-193709-f014bd70",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "fbe81da1ec",
+      "clone": "attest",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "crash",
+      "task_id": "20260903-193859-d3035038",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "1073218238",
+      "clone": "attest",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/benchmark/matcher.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-194151-26405375",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "2878d4012e",
+      "clone": "attest",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "scripts/corpus/heldout_run.py",
+      "pinned_values": [
+        "None",
+        "0"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-194734-7af85e43",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "0",
+          "tests/test_action_entrypoint.py"
+        ],
+        [
+          "None",
+          "tests/test_action_entrypoint.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "8f3851fe4b",
+      "clone": "attest",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "scripts/corpus/swebench_pilot.py",
+      "pinned_values": [
+        "None",
+        "True",
+        "0",
+        "'claude-opus-5'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-004116-2cadd8db",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'claude-opus-5'",
+          "DEVSPEND.md"
+        ],
+        [
+          "0",
+          "tests/test_action_entrypoint.py"
+        ],
+        [
+          "None",
+          "tests/test_action_entrypoint.py"
+        ],
+        [
+          "True",
+          "tests/test_channels.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "b89a422892",
+      "clone": "attest",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "",
+      "old_class": "behavior_change",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "recorded_class": "behavior_change",
+      "replayable": true,
+      "shape": "rejection",
+      "task_id": "20260904-004449-4e7f19c6",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "dad85d4e84",
+      "clone": "attest",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-004449-4e7f19c6",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "d2c15a3f07",
+      "clone": "attest",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-004449-4e7f19c6",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "8193742fef",
+      "clone": "attest",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_adapter.py",
+      "pinned_values": [
+        "13",
+        "'/usr/bin/docker'",
+        "'image'",
+        "'inspect'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-040004-18b67397",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'image'",
+          "src/attest/execution/container_adapter.py"
+        ],
+        [
+          "13",
+          "tests/test_diffs.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "1cf3efe423",
+      "clone": "attest",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [
+        "' s'",
+        "': \\n'",
+        "'environment bootstrap failed'",
+        "'timed out after '"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-040004-18b67397",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'environment bootstrap failed'",
+          "DECISIONS.md"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "683c292257",
+      "clone": "attest",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [
+        "' s'",
+        "'environment bootstrap failed'",
+        "'the image build timed out after '"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-040004-18b67397",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'environment bootstrap failed'",
+          "DECISIONS.md"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "bb40cb1629",
+      "clone": "attest",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "crash",
+      "task_id": "20260904-040004-18b67397",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "0ab1e8313a",
+      "clone": "attest",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-040545-c9785a66",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "0e910940fa",
+      "clone": "attest",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-040545-c9785a66",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "5576277bdb",
+      "clone": "attest",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "crash",
+      "task_id": "20260904-040545-c9785a66",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "99e457d77f",
+      "clone": "attest",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-040545-c9785a66",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "425cafff10",
+      "clone": "corum",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/corum/dependence.py",
+      "pinned_values": [
+        "0.9"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-004807-5e155507",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "c25c7fbb4c",
+      "clone": "corum",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/corum/models.py",
+      "pinned_values": [
+        "'Reviewer.cost'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-004851-b6f6dffd",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'Reviewer.cost'",
+          "AGENTS.md"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "38e5da0a9f",
+      "clone": "corum",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/corum/models.py",
+      "pinned_values": [
+        "'Reviewer.cost'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-004851-b6f6dffd",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'Reviewer.cost'",
+          "AGENTS.md"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "7c88ff3d94",
+      "clone": "corum",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/corum/models.py",
+      "pinned_values": [
+        "'Reviewer.cost'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-004851-b6f6dffd",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'Reviewer.cost'",
+          "AGENTS.md"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "a8a27ddfd7",
+      "clone": "corum",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/corum/models.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-004851-b6f6dffd",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "88bf14caf7",
+      "clone": "corum",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/corum/models.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "crash",
+      "task_id": "20260904-004932-4f8a57e5",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "1f9925f1c2",
+      "clone": "corum",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/corum/models.py",
+      "pinned_values": [
+        "2"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-004943-aa27db03",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "2",
+          "tests/test_calibration.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "d7c64badcc",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/market_gateway/src/us_stock_helper_market_gateway/opend_adapter.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-192803-d0a28a7a",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "e1bd193a8f",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/market_gateway/src/us_stock_helper_market_gateway/opend_adapter.py",
+      "pinned_values": [
+        "'US.NVDA'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-192803-d0a28a7a",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'US.NVDA'",
+          "services/market_gateway/README.md"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "fa403b50ca",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/market_gateway/src/us_stock_helper_market_gateway/opend_adapter.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-192803-d0a28a7a",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "63dcec91ff",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/market_gateway/src/us_stock_helper_market_gateway/opend_adapter.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-192916-eb65bec0",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "75ce7a3425",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/information_layer/information_layer/feeds/nasdaq.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-193007-1e72431e",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "f365104ad4",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/information_layer/information_layer/feeds/nasdaq.py",
+      "pinned_values": [
+        "None",
+        "1",
+        "'10:25:00'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-193007-1e72431e",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "None",
+          "deploy/tests/test_deployment_configuration.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "38c316089d",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/information_layer/information_layer/feeds/nasdaq.py",
+      "pinned_values": [
+        "2"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-193007-1e72431e",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "dc4b42ff36",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/information_layer/information_layer/feeds/nasdaq.py",
+      "pinned_values": [
+        "None",
+        "1",
+        "'ABCD'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-193007-1e72431e",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "None",
+          "deploy/tests/test_deployment_configuration.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "c5b90ad887",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: this change also rewrites the base tree's own specification of that value (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "scripts/local_runtime_support.py",
+      "pinned_values": [
+        "None",
+        "'ANALYSIS_API_COORDINATOR_STATE'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-193354-4c8189d3",
+      "value_respecified": [
+        [
+          "'ANALYSIS_API_COORDINATOR_STATE'",
+          ".superpowers/sdd/2026-08-17-authoritative-source-adapters/progress.md"
+        ]
+      ],
+      "value_specified": [
+        [
+          "'ANALYSIS_API_COORDINATOR_STATE'",
+          ".superpowers/sdd/2026-08-17-authoritative-source-adapters/progress.md"
+        ],
+        [
+          "None",
+          "deploy/tests/test_deployment_configuration.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "1d0af73c3e",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "scripts/smoke_live.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-193901-ee27b253",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "33aa333ec0",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py",
+      "pinned_values": [
+        "None",
+        "'ma5'",
+        "'macd'",
+        "'magicNine'",
+        "'rsi'",
+        "'sma-5-v1'",
+        "'unavailable'",
+        "'volatility'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260903-194031-f10f0463",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'ma5'",
+          "docs/superpowers/plans/2026-07-25-real-market-mobile-vertical-slice.md"
+        ],
+        [
+          "'macd'",
+          "docs/superpowers/plans/2026-07-24-iphone-product-demo.md"
+        ],
+        [
+          "'magicNine'",
+          "docs/superpowers/plans/2026-07-24-iphone-product-demo.md"
+        ],
+        [
+          "'rsi'",
+          "docs/superpowers/plans/2026-07-24-iphone-product-demo.md"
+        ],
+        [
+          "'unavailable'",
+          ".superpowers/sdd/2026-07-25-real-market-mobile-vertical-slice/task-4-report.md"
+        ],
+        [
+          "None",
+          "deploy/tests/test_deployment_configuration.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "3bba2f62e6",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/analysis_core/us_stock_helper_core/scoring.py",
+      "pinned_values": [
+        "None",
+        "0.0"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-005029-9b14404e",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "None",
+          "deploy/tests/test_deployment_configuration.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "240836f2e0",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-032523-0a07b6d6",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "240836f2e0",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-033730-0a07b6d6",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "2c982b3cf3",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-033730-0a07b6d6",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "3a3b414a24",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+      "pinned_values": [
+        "1",
+        "2",
+        "'live'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-033730-0a07b6d6",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'live'",
+          ".superpowers/sdd/2026-07-25-real-market-mobile-vertical-slice/task-4-report.md"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "67dae52f8e",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-033730-0a07b6d6",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "27dd3692d7",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/analysis_api/src/us_stock_helper_analysis_api/market_universe_cache.py",
+      "pinned_values": [],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "crash",
+      "task_id": "20260904-034615-e10d6055",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "33243bfa2e",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py",
+      "pinned_values": [
+        "None",
+        "False",
+        "'breadth'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-034615-e10d6055",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'breadth'",
+          ".superpowers/sdd/2026-08-15-stage5-objective-review/market-brief-contract.md"
+        ],
+        [
+          "None",
+          "deploy/tests/test_deployment_configuration.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "5d5466df7e",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/information_layer/information_layer/factors/unsupported.py",
+      "pinned_values": [
+        "None"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-041419-54f57b04",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "None",
+          "deploy/tests/test_deployment_configuration.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "e5d9505259",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/information_layer/information_layer/factors/provider.py",
+      "pinned_values": [
+        "4",
+        "'institutional'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-041419-54f57b04",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "0169e1e515",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "regression_reproduced",
+      "new_verdict": "",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/information_layer/information_layer/factors/unsupported.py",
+      "pinned_values": [
+        "None"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-041419-54f57b04",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "None",
+          "deploy/tests/test_deployment_configuration.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "16cab71ac4",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/analysis_api/src/us_stock_helper_analysis_api/service.py",
+      "pinned_values": [
+        "None",
+        "'Public factor sources could not be read for this decision.'",
+        "'Public factor sources returned an unsupported snapshot.'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-042040-03bda516",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "None",
+          "deploy/tests/test_deployment_configuration.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "3cd7bdd217",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/analysis_api/src/us_stock_helper_analysis_api/service.py",
+      "pinned_values": [
+        "None",
+        "'Public factor sources could not be read for this decision.'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-042040-03bda516",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "None",
+          "deploy/tests/test_deployment_configuration.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "22effa10fe",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/information_layer/information_layer/feeds/collector.py",
+      "pinned_values": [
+        "'access refused'",
+        "'feed error'",
+        "'oversized response'",
+        "'unparsable feed'",
+        "'unreachable'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-042040-03bda516",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'unreachable'",
+          ".agents/skills/test-driven-development/SKILL.md"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "2a2e79e265",
+      "clone": "us-stock-helper",
+      "control": false,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "services/analysis_api/src/us_stock_helper_analysis_api/adviser_provider.py",
+      "pinned_values": [
+        "'adviser'",
+        "'council'",
+        "'sk-ant'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-042040-03bda516",
+      "value_respecified": [],
+      "value_specified": [
+        [
+          "'adviser'",
+          "docs/superpowers/plans/2026-08-14-overnight-app-completion.md"
+        ],
+        [
+          "'council'",
+          "services/analysis_api/src/us_stock_helper_analysis_api/adviser_provider.py"
+        ]
+      ]
+    },
+    {
+      "candidate_id": "98db6c4b0f",
+      "clone": "jinja",
+      "control": true,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/jinja2/async_utils.py",
+      "pinned_values": [
+        "True",
+        "'do_thing'",
+        "'sync'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-054801-e2a48c5d",
+      "value_respecified": [],
+      "value_specified": []
+    },
+    {
+      "candidate_id": "5d27c0905c",
+      "clone": "jinja",
+      "control": true,
+      "new_class": "behavior_change",
+      "new_verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+      "old_class": "regression_reproduced",
+      "old_verdict": "",
+      "path": "src/jinja2/async_utils.py",
+      "pinned_values": [
+        "True",
+        "'from_normal'",
+        "'normal_func'"
+      ],
+      "recorded_class": "regression_reproduced",
+      "replayable": true,
+      "shape": "value",
+      "task_id": "20260904-054801-e2a48c5d",
+      "value_respecified": [],
+      "value_specified": []
+    }
+  ],
+  "receipts": 55,
+  "review_published_after": 14,
+  "review_published_before": 27,
+  "review_rows": [
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-055602-6447df41",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-055628-a440ec83",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-192807-7376633c",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193003-2cadd8db",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193215-4e7f19c6",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193429-fde75fa9",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [
+        "103aa42a3c",
+        "6cce86432e",
+        "a47e7a8fa9"
+      ],
+      "old_published": [
+        "103aa42a3c",
+        "a47e7a8fa9",
+        "db100c9818"
+      ],
+      "recorded_published": [],
+      "task_id": "20260903-193709-f014bd70",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [
+        "fbe81da1ec"
+      ],
+      "old_published": [
+        "fbe81da1ec"
+      ],
+      "recorded_published": [
+        "fbe81da1ec"
+      ],
+      "task_id": "20260903-193859-d3035038",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193923-6f6d09ee",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193946-25ba40a6",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [
+        "1073218238"
+      ],
+      "recorded_published": [
+        "1073218238"
+      ],
+      "task_id": "20260903-194151-26405375",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [
+        "2878d4012e"
+      ],
+      "old_published": [
+        "2878d4012e"
+      ],
+      "recorded_published": [
+        "2878d4012e"
+      ],
+      "task_id": "20260903-194734-7af85e43",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [
+        "8f3851fe4b"
+      ],
+      "old_published": [
+        "8f3851fe4b"
+      ],
+      "recorded_published": [],
+      "task_id": "20260904-004116-2cadd8db",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-004449-4e7f19c6",
+      "under_current_rule": false
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-032408-192b4c2a",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-033729-192b4c2a",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035108-f4b22ca3",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035342-3c3ce8ce",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035458-b8fbe6d9",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035532-ede464a1",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035624-a9f02678",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035809-0c3c8d62",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [
+        "8193742fef"
+      ],
+      "recorded_published": [
+        "8193742fef"
+      ],
+      "task_id": "20260904-040004-18b67397",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-040230-2abc1608",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-040436-1c6f3095",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-040545-c9785a66",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-041356-2295c6e0",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-041957-df792c92",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-042616-80b27017",
+      "under_current_rule": true
+    },
+    {
+      "clone": "attest",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-043035-b7d411b3",
+      "under_current_rule": true
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-192501-5e155507",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-192801-b6f6dffd",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-192904-4f8a57e5",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-192933-aa27db03",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193003-db6525b0",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193029-d412db4f",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193107-17e6d918",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193130-ed9ba5e2",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193149-210604c2",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193236-e78d0248",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193257-d61cc9e0",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [
+        "425cafff10"
+      ],
+      "recorded_published": [
+        "425cafff10"
+      ],
+      "task_id": "20260904-004807-5e155507",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [
+        "c25c7fbb4c"
+      ],
+      "old_published": [
+        "c25c7fbb4c"
+      ],
+      "recorded_published": [
+        "c25c7fbb4c"
+      ],
+      "task_id": "20260904-004851-b6f6dffd",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [
+        "88bf14caf7"
+      ],
+      "old_published": [
+        "88bf14caf7"
+      ],
+      "recorded_published": [
+        "88bf14caf7"
+      ],
+      "task_id": "20260904-004932-4f8a57e5",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [
+        "1f9925f1c2"
+      ],
+      "old_published": [
+        "1f9925f1c2"
+      ],
+      "recorded_published": [
+        "1f9925f1c2"
+      ],
+      "task_id": "20260904-004943-aa27db03",
+      "under_current_rule": false
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-032840-25f99c02",
+      "under_current_rule": true
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-033028-2f81fe23",
+      "under_current_rule": true
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-034100-25f99c02",
+      "under_current_rule": true
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-034223-2f81fe23",
+      "under_current_rule": true
+    },
+    {
+      "clone": "corum",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-034546-bf6ace28",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-010906-b302e7c2",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-011402-b302e7c2",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-011531-b302e7c2",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [
+        "9ed6a71d7b"
+      ],
+      "old_published": [
+        "9ed6a71d7b"
+      ],
+      "recorded_published": [
+        "9ed6a71d7b"
+      ],
+      "task_id": "20260903-011606-ab8fcc37",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-011833-b302e7c2",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-012034-b302e7c2",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-020556-a940f91c",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-020624-9fd82254",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-020647-147101b1",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-020657-8bb9bb7e",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-020746-684eba8a",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-020810-312a919d",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-020835-05e17cd3",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-020859-af3b3ea7",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-020921-5725bfd4",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-021326-8bb9bb7e",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-021441-684eba8a",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-021558-312a919d",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-021632-05e17cd3",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [
+        "7ecf2fb275"
+      ],
+      "old_published": [
+        "7ecf2fb275"
+      ],
+      "recorded_published": [
+        "7ecf2fb275"
+      ],
+      "task_id": "20260903-021750-af3b3ea7",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-072654-563a2ce0",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [
+        "e1bd193a8f"
+      ],
+      "old_published": [
+        "d7c64badcc",
+        "e1bd193a8f"
+      ],
+      "recorded_published": [
+        "d7c64badcc",
+        "e1bd193a8f"
+      ],
+      "task_id": "20260903-192803-d0a28a7a",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [
+        "63dcec91ff"
+      ],
+      "recorded_published": [
+        "63dcec91ff"
+      ],
+      "task_id": "20260903-192916-eb65bec0",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [
+        "75ce7a3425",
+        "f365104ad4"
+      ],
+      "recorded_published": [
+        "75ce7a3425",
+        "f365104ad4"
+      ],
+      "task_id": "20260903-193007-1e72431e",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193156-f5ef3738",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [
+        "c5b90ad887"
+      ],
+      "recorded_published": [],
+      "task_id": "20260903-193354-4c8189d3",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193547-8c96c142",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193710-9b14404e",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-193901-ee27b253",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-194031-f10f0463",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-194203-68081bd0",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-194354-67341294",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-194416-9fd82254",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-194418-147101b1",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-194419-8bb9bb7e",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260903-194732-8bb9bb7e",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-005029-9b14404e",
+      "under_current_rule": false
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-032523-0a07b6d6",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-032912-0879a3ea",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-033730-0a07b6d6",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-034101-0879a3ea",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-034224-ba4a9d68",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-034615-e10d6055",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035027-67341294",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035037-97d4a6a4",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035123-2e3ace08",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035400-b621e83d",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035445-fb727f92",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035517-11c0c8fb",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035545-cea9718d",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035608-d0297b0a",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035723-d83e993f",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035749-5725bfd4",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035826-41516c50",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-040221-ce5596b9",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-040307-35fbfbb5",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-040335-fd32f685",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-040357-061c44b5",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-040820-fef92478",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-041150-70adc9e1",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-041225-8de8eece",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-041313-06be8123",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [
+        "0169e1e515",
+        "5d5466df7e"
+      ],
+      "old_published": [
+        "0169e1e515",
+        "5d5466df7e",
+        "e5d9505259"
+      ],
+      "recorded_published": [
+        "0169e1e515",
+        "5d5466df7e",
+        "e5d9505259"
+      ],
+      "task_id": "20260904-041419-54f57b04",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-041827-ec82aa64",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-041923-0b0d3274",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-041955-9fd82254",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-042018-34486420",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [
+        "16cab71ac4",
+        "22effa10fe",
+        "2a2e79e265"
+      ],
+      "recorded_published": [
+        "16cab71ac4",
+        "22effa10fe",
+        "2a2e79e265"
+      ],
+      "task_id": "20260904-042040-03bda516",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-042543-7811ffa5",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-042606-edc7d785",
+      "under_current_rule": true
+    },
+    {
+      "clone": "us-stock-helper",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-043025-545c33fe",
+      "under_current_rule": true
+    },
+    {
+      "clone": "icantfind-a-username",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-034603-28d012a5",
+      "under_current_rule": true
+    },
+    {
+      "clone": "icantfind-a-username",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-035422-e155eee3",
+      "under_current_rule": true
+    },
+    {
+      "clone": "itsdangerous",
+      "new_published": [],
+      "old_published": [],
+      "recorded_published": [],
+      "task_id": "20260904-054711-7314ea44",
+      "under_current_rule": true
+    },
+    {
+      "clone": "jinja",
+      "new_published": [],
+      "old_published": [
+        "98db6c4b0f"
+      ],
+      "recorded_published": [
+        "98db6c4b0f"
+      ],
+      "task_id": "20260904-054801-e2a48c5d",
+      "under_current_rule": true
+    }
+  ],
+  "reviews": 125,
+  "reviews_reproducing_their_ledger": 59,
+  "reviews_under_current_rule": 59,
+  "schema_version": "attest.intent-v3-replay.v1",
+  "skipped": [
+    {
+      "candidate": "9ed6a71d7b",
+      "task": "20260903-011606-ab8fcc37",
+      "why": "inputs the observer needs are not on this host"
+    },
+    {
+      "candidate": "52403c1e42",
+      "task": "20260903-011606-ab8fcc37",
+      "why": "inputs the observer needs are not on this host"
+    },
+    {
+      "candidate": "f118070241",
+      "task": "20260903-011606-ab8fcc37",
+      "why": "inputs the observer needs are not on this host"
+    },
+    {
+      "candidate": "7ecf2fb275",
+      "task": "20260903-021750-af3b3ea7",
+      "why": "inputs the observer needs are not on this host"
+    }
+  ],
+  "unreplayable": []
+}

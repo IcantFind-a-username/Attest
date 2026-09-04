@@ -228,6 +228,11 @@ def intent_reasons(
         record["witnesses"] = tuple(
             (str(literal), str(path)) for literal, path in record["witnesses"]
         )
+        for pairs in ("value_specified", "value_respecified"):
+            if pairs in record:
+                record[pairs] = tuple(
+                    (str(value), str(path)) for value, path in record[pairs]
+                )
         intent = IntentObservation(**record)
     except (TypeError, ValueError, KeyError):
         return ("intent observation malformed",)

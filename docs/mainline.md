@@ -16,9 +16,12 @@ The product is complete when all of the following hold, and not before:
 
 1. an outside Python repository can install attest from a stable ref, add the Action, and
    receive PR comments — nothing else is a deliverable of this mainline;
-2. every author-visible finding carries a differential receipt (test fails on head, passes
-   on base, in isolation, repeated) that an offline verifier accepts (`G-CERT-001`,
-   `G-SEM-001`);
+2. every author-visible finding carries **the evidence form of its speech level (§1.1) and was
+   admitted by that level's non-model adjudicator**, and where that form is a differential
+   receipt (test fails on head, passes on base, in isolation, repeated) an offline verifier
+   accepts it (`G-CERT-001`, `G-SEM-001`) — *amended 2026-09-04c: until then this condition
+   named the receipt as the only admissible form, which made three of the four levels
+   unshippable by definition*;
 3. head code cannot read secrets, reach the network, or forge a result (`G-SEC-001`..`003`);
 4. on a held-out human-labelled defect corpus the product is silent on every control and
    certifies a stated, non-trivial share of eligible defects (`G-RECALL-002`,
@@ -29,9 +32,69 @@ The product is complete when all of the following hold, and not before:
    matrix, privacy/retention, failure copy, kill switch, rollback) is done.
 
 Anything not needed for those six is not on the mainline. Explicitly off it until after
-L-01: the learned scheduler (S-*), new-code pricing (N-01), the pricing-layer and F-facet
-research, controlled subprocess allowlists (X-03), feasibility priority (R-04), and any
-whole-repository scan surface.
+L-01: the learned scheduler (S-*), the pricing-layer and F-facet research, controlled
+subprocess allowlists (X-03), feasibility priority (R-04), and any whole-repository scan
+surface. **N-01 is no longer off the mainline** — it is the gate level of §1.1.
+
+### 1.1 The four levels of speech, and the evidence each one owes
+
+*Owner decision, 2026-09-04c.* One rule runs through all four:
+
+> **The LLM thinks; an algorithm decides whether it may speak.**
+
+Every level has an adjudicator that **does not call a model**. A model may propose, phrase and
+suggest; it may never be the thing that decides a finding is publishable. A level with no
+working adjudicator ships nothing, however good its proposals look.
+
+| level | what it claims | the evidence form it owes | its adjudicator (no model) |
+|---|---|---|---|
+| **red** | this change broke something that worked | a **differential receipt**: the generated test fails on head, passes on base, in isolation, repeated, changed lines executed, bundle verifies offline | the certification kernel, the binding policy, and the intent discriminator (D-102, D-120, D-128) |
+| **gate** | this new code fails on an input the change makes reachable | an **executable failure of new code** on a witnessed reachable input — there is no base revision to compare against, so the failure itself is the evidence | reachability of the input plus the same execution, isolation and repetition the receipt demands (N-01) |
+| **yellow** | this looks wrong, and here is exactly what I checked | the model states a hypothesis as **premises**; a deterministic checker verifies each premise separately; the finding states **only the premises that were verified** and its confidence is a function of which ones were | the premise checker: an unverified premise is deleted from the text, not softened |
+| **green** | this is structurally so, here and here | a **computable structural measure** with **at least two concrete coordinates** (file and line, both ends) | the measure itself; the model is called only after the measure holds, and only to translate it and propose a fix |
+
+Three consequences the levels are chosen for:
+
+- **A level is defined by who decides, not by how sure the model sounds.** "Probably", "may",
+  "consider refactoring" are not a level; they are the absence of one. Green in particular must
+  never speak without coordinates.
+- **Confidence is derived, never asserted.** At yellow the confidence is a stated function of
+  the verified premises. A model-supplied confidence number is not evidence and is not shown.
+- **Silence stays free.** Every level keeps the existing rule: no admissible evidence, no
+  publication, and the drawer records why.
+
+### 1.2 How a repository gets it: one way, and no keys
+
+*Owner decision, 2026-09-04c.* **The only supported integration is a GitHub Action plus a
+repository Secret.** The consuming repository stores its own `ANTHROPIC_API_KEY` as a
+repository (or organization) Secret; the Action passes it to the review process as an
+environment variable inside the repository's own runner.
+
+**The product does not touch, store, transmit or log any key.** No hosted service, no proxy, no
+key upload, no "connect your account" flow, no key written to disk or to a ledger, and no key
+value in any log line, receipt, bundle or error message — a missing key is reported by name
+only (§ the failure copy in `docs/github-action.md`). Anything that would require the product to
+hold a customer key is out of scope for this mainline, whatever it would enable.
+
+`attest init` is **demoted to an optional convenience** that writes a workflow file the operator
+could have copied by hand. It is ordered last, after every level ships, and no step depends on
+it. The quickstart's first screen is the workflow file itself, copyable whole.
+
+### 1.3 The order the levels are built in, and why
+
+**v3 → green → gate → yellow.** *Owner decision, 2026-09-04c.*
+
+1. **v3** (`attest.intent.v3`, D-128) — done; red stops publishing intended value changes.
+2. **green** — first, because it costs **zero execution and near-zero API**: the measure is
+   computed deterministically and the model is called once, after the evidence already holds. It
+   is therefore the cheapest possible test of the whole architecture — *does "the LLM thinks, the
+   algorithm decides" actually hold up when a real level ships on it?* — and if the answer is no,
+   it is discovered for the price of a lint pass rather than the price of a corpus.
+3. **gate** — second, because it needs execution and isolation, which already exist, but a
+   reachability witness, which does not.
+4. **yellow** — last, because a premise checker is the largest new deterministic surface of the
+   four and the easiest to fake; it should be built when the pattern it follows has already been
+   demonstrated twice.
 
 ## 2. Steps, in order
 
