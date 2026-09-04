@@ -84,11 +84,12 @@ it. The quickstart's first screen is the workflow file itself, copyable whole.
 
 **v3 → green → gate → yellow.** *Owner decision, 2026-09-04c.*
 
-1. **v3, then v4** (`attest.intent.v4`, D-132; v3 was D-128) — done. Red stops publishing
-   intended value changes, and after `urllib3 c7b9adcb` published under v3 it also stops when
-   the failing assertion is not an assertion, when the value it pins is generic, and when the
-   diff states its own intent. On the corpus replay the value class certifies **0 of 48**: the
-   recall cost is the decision.
+1. **v3, then v4, then v4.1** (`attest.intent.v4.1`, D-134; v4 was D-132, v3 D-128) — done.
+   Red stops publishing intended value changes, and after `urllib3 c7b9adcb` published under v3
+   it also stops when the failing assertion is not an assertion, when the value it pins is
+   generic, and when the diff states its own intent — which it does only where the diff names
+   the symbol in a form a reader takes for code (D-134). On the corpus replay the value class
+   certifies **0 of 48** under v4 and under v4.1: the recall cost is the decision.
 2. **green** — first, because it costs **zero execution and near-zero API**: the measure is
    computed deterministically and the model is called once, after the evidence already holds. It
    is therefore the cheapest possible test of the whole architecture — *does "the LLM thinks, the

@@ -61,6 +61,17 @@ but it is the reason the remaining ones can be trusted without one: what the
 pinned literal cannot say about the author's intent, the author's own prose in
 the same diff does.
 
+``attest.intent.v4.1`` (D-134) narrows clause (c) and nothing else. v4 read a
+symbol name as intent wherever it appeared as a word, so a comment saying "back
+to main" or "the snapshot is taken lazily" was a statement about a function named
+``main`` or ``snapshot``. Under v4.1 a name is a mention only in a **recognisable
+form**: inside backticks, dot-qualified, or a bare name of at least eight
+characters that is not ordinary English
+(:mod:`attest.review.vocabulary`). Position is untouched -- prose the change moved
+*inside the body of a touched symbol* is still intent, because there the link is
+where the line sits and not what it is called, and that is the clause that stops
+``urllib3 c7b9adcb``.
+
 A receipt is judged under the policy version **it records**, not under the one
 in force today (D-121). Bumping the version is a promise to future readers of
 the audit chain, not a way to void every receipt already issued: an observation
@@ -76,10 +87,11 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
-INTENT_POLICY_VERSION = "attest.intent.v4"  # D-132
+INTENT_POLICY_VERSION = "attest.intent.v4.1"  # D-134
 INTENT_POLICY_V1 = "attest.intent.new-rejection.v1"  # D-102, before D-120
 INTENT_POLICY_V2 = "attest.intent.v2"  # D-120, before D-127
 INTENT_POLICY_V3 = "attest.intent.v3"  # D-127, before D-132
+INTENT_POLICY_V4 = "attest.intent.v4"  # D-132, before D-134
 EVIDENCE_CLASS_REGRESSION = "regression_reproduced"
 EVIDENCE_CLASS_BEHAVIOR_CHANGE = "behavior_change"
 INTENT_UNKNOWN_LABEL = "behavior change confirmed, intent unknown"
@@ -194,21 +206,30 @@ _V3_FIELDS = (
 # The observation each policy version records. v2 adds D-120's two constant
 # fields, v3 adds D-127's four value fields, v4 adds D-132's three; a version
 # absent from this table is unknown and never publishes.
+_V4_FIELDS = (
+    *_V3_FIELDS,
+    "failing_assertion_line",
+    "anchored_symbols",
+    "intent_evidence",
+)
 POLICY_FIELDS: dict[str, tuple[str, ...]] = {
     INTENT_POLICY_V1: _V1_FIELDS,
     INTENT_POLICY_V2: _V2_FIELDS,
     INTENT_POLICY_V3: _V3_FIELDS,
-    INTENT_POLICY_VERSION: (
-        *_V3_FIELDS,
-        "failing_assertion_line",
-        "anchored_symbols",
-        "intent_evidence",
-    ),
+    INTENT_POLICY_V4: _V4_FIELDS,
+    # v4.1 records exactly v4's fields: D-134 changes what counts as a mention,
+    # not what an observation is made of. A v4 receipt therefore keeps its own
+    # digest and its own answer, and this version is a promise about the rule.
+    INTENT_POLICY_VERSION: _V4_FIELDS,
 }
 _CONSTANT_RULE_VERSIONS = frozenset(
-    {INTENT_POLICY_V2, INTENT_POLICY_V3, INTENT_POLICY_VERSION}
+    {INTENT_POLICY_V2, INTENT_POLICY_V3, INTENT_POLICY_V4, INTENT_POLICY_VERSION}
 )
-_VALUE_RULE_VERSIONS = frozenset({INTENT_POLICY_V3, INTENT_POLICY_VERSION})
+_VALUE_RULE_VERSIONS = frozenset(
+    {INTENT_POLICY_V3, INTENT_POLICY_V4, INTENT_POLICY_VERSION}
+)
+# D-132 (b) and (c) arrived together and neither reaches a v1, v2 or v3 receipt.
+_V4_RULE_VERSIONS = frozenset({INTENT_POLICY_V4, INTENT_POLICY_VERSION})
 
 
 def constant_change(observation: IntentObservation) -> bool:
@@ -228,11 +249,11 @@ def value_change(observation: IntentObservation) -> bool:
 def distinctive_pinned_values(observation: IntentObservation) -> tuple[str, ...]:
     """D-132 (b): the pinned values a base tree can meaningfully specify.
 
-    Under v4 that is the pinned set minus :data:`GENERIC_VALUE_REPRS`; under
-    every earlier version it is the pinned set itself, because the rule did not
-    exist when those receipts were written.
+    Under v4 and v4.1 that is the pinned set minus :data:`GENERIC_VALUE_REPRS`;
+    under every earlier version it is the pinned set itself, because the rule did
+    not exist when those receipts were written.
     """
-    if observation.policy_version != INTENT_POLICY_VERSION:
+    if observation.policy_version not in _V4_RULE_VERSIONS:
         return observation.pinned_values
     return tuple(
         value for value in observation.pinned_values if value not in GENERIC_VALUE_REPRS
@@ -259,7 +280,7 @@ def value_change_reason(observation: IntentObservation) -> str | None:
             f"{VALUE_CHANGE_LABEL}: this change also rewrites the base tree's own "
             f"specification of that value ({VALUE_CHANGE_LABEL_ZH})"
         )
-    if observation.policy_version == INTENT_POLICY_VERSION and observation.intent_evidence:
+    if observation.policy_version in _V4_RULE_VERSIONS and observation.intent_evidence:
         return (
             f"{INTENT_STATED_LABEL}: the same change also updates a test, a docstring, "
             f"documentation, a changelog entry or an inline comment about the symbol "

@@ -113,8 +113,10 @@ Important limits:
   assertion must pin a distinctive value (not `None`/`True`/`0`/`""`), the base tree must
   state it, head must still state it, and no test, docstring, doc, changelog line or inline
   comment in the same diff may touch the anchored symbol (`attest.intent.v4`, D-132,
-  2026-09-05). On the whole corpus replay this class certifies **0 of 48** receipts: the
-  recall cost is the decision, and it is large;
+  2026-09-05) **in a recognisable form** — backticked, dot-qualified, or a long bare name
+  English does not supply (`attest.intent.v4.1`, D-134, 2026-09-05). On the whole corpus
+  replay this class certifies **0 of 48** receipts under both: the recall cost is the
+  decision, and it is large;
 - **measured so far.** Every row names the per-review budget and the models it ran under,
   because both move every number in it. `S` is the proposal model, `G` the reproduction
   generator. The shipped default budget is **$1.00** as of 2026-09-04 (D-126); it was $0.25

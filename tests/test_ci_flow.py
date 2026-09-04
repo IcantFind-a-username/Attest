@@ -1731,7 +1731,7 @@ def test_a_new_rejection_the_base_tests_attest_publishes_as_a_behavior_change(
     assert intent["witnesses"] == [["the buyback plan raises the floor", "tests/test_app.py"]]
     receipt = json.loads((bundle / "receipt.json").read_text(encoding="utf-8"))
     assert receipt["evidence_class"] == "behavior_change"
-    assert receipt["intent_policy_version"] == "attest.intent.v4"
+    assert receipt["intent_policy_version"] == "attest.intent.v4.1"
     assert isinstance(verify_bundle(bundle), AcceptedReceipt)
 
     # the verifier re-judges the observation: a bundle whose every digest is

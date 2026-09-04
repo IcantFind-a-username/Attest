@@ -24,6 +24,7 @@ from attest.certification.intent import (
     EVIDENCE_CLASS_BEHAVIOR_CHANGE,
     EVIDENCE_CLASS_REGRESSION,
     INTENT_POLICY_V3,
+    INTENT_POLICY_V4,
     INTENT_POLICY_VERSION,
     INTENT_STATED_LABEL,
     IntentObservation,
@@ -31,7 +32,11 @@ from attest.certification.intent import (
     evidence_class_for,
     intent_verdict,
 )
-from attest.review.intent import failing_assertion_line, observe_intent
+from attest.review.intent import (
+    failing_assertion_line,
+    find_intent_evidence,
+    observe_intent,
+)
 
 # --- a defect with a specified value and a diff that says nothing about it ----
 
@@ -632,3 +637,213 @@ def test_a_v3_receipt_is_still_judged_by_v3(tmp_path: Path) -> None:
     # and the two digests are over different field sets, so neither moved
     assert under_v3.digest() != under_v4.digest()
 
+
+
+# --- D-134: `attest.intent.v4.1` narrows (c) to a recognisable mention ---------
+
+# The anchored file whose two touched symbols are named like English: a synthetic
+# diff whose only prose about them is a comment saying "main" and "snapshot".
+VOCAB_BASE = (
+    "def snapshot(rows):\n"
+    '    """Return the URL slug: ``snapshot("Hello World")`` is ``"hello-world"``."""\n'
+    '    return rows.lower().replace(" ", "-")\n'
+    "\n"
+    "\n"
+    "def main():\n"
+    '    return snapshot("Hello World")\n'
+)
+VOCAB_HEAD = VOCAB_BASE.replace("rows.lower().replace", "rows.replace").replace(
+    '    return snapshot("Hello World")\n', '    return snapshot("Hello  World")\n'
+)
+VOCAB_TESTS = (
+    "import mod\n"
+    "\n"
+    "\n"
+    "def test_snapshot():\n"
+    '    assert mod.snapshot("Hello World") == "hello-world"\n'
+)
+VOCAB_REPRO = (
+    "import mod\n"
+    "\n"
+    "\n"
+    "def test_repro():\n"
+    "    assert mod.snapshot is not None\n"
+    '    assert mod.snapshot("Hello World") == "hello-world"\n'
+)
+
+
+def test_a_comment_that_only_says_main_or_snapshot_is_not_intent(tmp_path: Path) -> None:
+    """D-134's RED. Under v4 this diff stated its intent: `other.py`'s comment
+    changed and it contains the words `main` and `snapshot`, both of them names
+    of symbols the diff touched. It is a comment about branches and about
+    photographs, and v4.1 does not read it as a statement about code."""
+    other_base = "# taken from main\ndef helper():\n    return 1\n"
+    other_head = "# taken from main once the snapshot is ready\ndef helper():\n    return 1\n"
+
+    observed = _observe(
+        tmp_path,
+        base={"mod.py": VOCAB_BASE, "tests/test_mod.py": VOCAB_TESTS, "other.py": other_base},
+        head={"mod.py": VOCAB_HEAD, "tests/test_mod.py": VOCAB_TESTS, "other.py": other_head},
+        test=VOCAB_REPRO,
+        path="mod.py",
+        changed=(3, 7),
+        changed_files=("mod.py", "other.py"),
+    )
+
+    assert set(observed.anchored_symbols) == {"main", "snapshot"}
+    assert observed.pinned_values == ("'hello-world'",)
+    # v4 read the word; v4.1 reads the form
+    assert find_intent_evidence(
+        base_tree=tmp_path / "base",
+        head_tree=tmp_path / "head",
+        changed_files=("mod.py", "other.py"),
+        anchored="mod.py",
+        base_source=VOCAB_BASE,
+        head_source=VOCAB_HEAD,
+        changed_lines=(3, 7),
+        symbols=observed.anchored_symbols,
+        distinctive=False,
+    ) == (("main", "other.py"),)
+    assert observed.intent_evidence == ()
+    assert intent_verdict(observed) is None
+    assert evidence_class_for(observed) == EVIDENCE_CLASS_REGRESSION
+
+
+def test_the_same_comment_in_a_recognisable_form_is_still_intent(tmp_path: Path) -> None:
+    """The false-negative control for D-134: the escape hatch is the form, not
+    the vocabulary. The identical sentence with the name marked up as code is
+    intent again, and a common word is never excluded when the author points at
+    it."""
+    other_base = "# taken from main\ndef helper():\n    return 1\n"
+    other_head = "# taken from main once `snapshot` is ready\ndef helper():\n    return 1\n"
+
+    observed = _observe(
+        tmp_path,
+        base={"mod.py": VOCAB_BASE, "tests/test_mod.py": VOCAB_TESTS, "other.py": other_base},
+        head={"mod.py": VOCAB_HEAD, "tests/test_mod.py": VOCAB_TESTS, "other.py": other_head},
+        test=VOCAB_REPRO,
+        path="mod.py",
+        changed=(3,),
+        changed_files=("mod.py", "other.py"),
+    )
+
+    assert observed.intent_evidence == (("snapshot", "other.py"),)
+    verdict = intent_verdict(observed)
+    assert verdict is not None and verdict.startswith(INTENT_STATED_LABEL)
+
+
+def test_a_long_unusual_bare_name_is_still_intent(tmp_path: Path) -> None:
+    """The other half of the control: a bare name English does not supply needs
+    no markup. `jinja ac3ac6c9`'s changelog names `async_variant` and nothing
+    else, and that is the shape of the first wrong publication."""
+    base = "def async_variant(fn):\n    return fn\n"
+    head = "def async_variant(fn):\n    return fn.wrapped\n"
+    news_base = "Version 3.1.0\n-------------\n\n-   Nothing yet.\n"
+    news_head = (
+        "Version 3.1.0\n"
+        "-------------\n"
+        "\n"
+        "-   The name of the wrapper produced by async_variant now follows the wrapped\n"
+        "    function.\n"
+    )
+
+    observed = _observe(
+        tmp_path,
+        base={"mod.py": base, "CHANGES.rst": news_base},
+        head={"mod.py": head, "CHANGES.rst": news_head},
+        test=MOD_REPRO,
+        path="mod.py",
+        changed=(2,),
+        changed_files=("mod.py", "CHANGES.rst"),
+    )
+
+    assert observed.intent_evidence == (("async_variant", "CHANGES.rst"),)
+    assert intent_verdict(observed) is not None
+
+
+def test_the_urllib3_control_is_positional_and_survives_the_narrowing(
+    tmp_path: Path,
+) -> None:
+    """D-134 must not reopen either live wrong publication. `urllib3 c7b9adcb`
+    is drawered by *position* -- a comment the diff rewrote inside the body of
+    `_make_request` -- and the vocabulary rule never reaches it."""
+    anchored = "src/urllib3/connectionpool.py"
+    tests = "def test_pool():\n    assert pool.closed is False\n"
+
+    observed = _observe(
+        tmp_path,
+        base={anchored: URLLIB3_BASE, "test/test_pool.py": tests},
+        head={anchored: URLLIB3_HEAD, "test/test_pool.py": tests},
+        test=URLLIB3_REPRO,
+        path=anchored,
+        changed=(9, 11, 12),
+        longrepr=URLLIB3_LONGREPR,
+        message="AssertionError: getresponse() must not be reached",
+    )
+
+    assert observed.intent_evidence == (("_make_request", anchored),)
+    verdict = intent_verdict(observed)
+    assert verdict is not None and verdict.startswith(INTENT_STATED_LABEL)
+
+
+def test_a_dotted_reference_is_recognisable_at_any_length(tmp_path: Path) -> None:
+    """A test the same diff moved names the symbol through its module, which is
+    how a test names anything. Length and vocabulary never enter."""
+    moved = (
+        "import mod\n"
+        "\n"
+        "\n"
+        "def test_snapshot():\n"
+        '    assert mod.snapshot("Hello World") == "Hello-World"\n'
+    )
+
+    observed = _observe(
+        tmp_path,
+        base={"mod.py": VOCAB_BASE, "tests/test_mod.py": VOCAB_TESTS},
+        head={"mod.py": VOCAB_HEAD, "tests/test_mod.py": moved},
+        test=VOCAB_REPRO,
+        path="mod.py",
+        changed=(3,),
+        changed_files=("mod.py", "tests/test_mod.py"),
+    )
+
+    assert observed.intent_evidence == (("snapshot", "tests/test_mod.py"),)
+    assert intent_verdict(observed) is not None
+
+
+def test_a_v4_receipt_is_still_judged_by_v4(tmp_path: Path) -> None:
+    """D-121 again, one version later: a receipt stamped `attest.intent.v4` keeps
+    v4's field set, v4's digest and v4's answer. v4.1 is a narrower rule for what
+    is *observed*, and it never re-judges an observation already written."""
+    stated = IntentObservation(
+        policy_version=INTENT_POLICY_V4,
+        path="mod.py",
+        changed_lines=(3,),
+        origin_line=0,
+        origin_statement="",
+        exception_type="",
+        new_rejection=False,
+        rejected_inputs=(),
+        witnesses=(),
+        head_runs_observed=3,
+        value_mismatch=True,
+        pinned_values=("'hello-world'",),
+        value_specified=(("'hello-world'", "tests/test_mod.py"),),
+        failing_assertion_line=6,
+        anchored_symbols=("snapshot",),
+        intent_evidence=(("snapshot", "other.py"),),
+    )
+
+    # v4 drawers it, and so does v4.1 -- the observation is what differs, not the
+    # judgment of one already made
+    for version in (INTENT_POLICY_V4, INTENT_POLICY_VERSION):
+        verdict = intent_verdict(replace(stated, policy_version=version))
+        assert verdict is not None and verdict.startswith(INTENT_STATED_LABEL)
+    # both versions apply (b), and neither applies it to v3
+    assert distinctive_pinned_values(replace(stated, pinned_values=("False",))) == ()
+    assert distinctive_pinned_values(
+        replace(stated, policy_version=INTENT_POLICY_V3, pinned_values=("False",))
+    ) == ("False",)
+    # the two field sets are identical, so a v4 and a v4.1 observation of the
+    # same bytes differ only by the version string they name
+    assert stated.digest() != replace(stated, policy_version=INTENT_POLICY_VERSION).digest()

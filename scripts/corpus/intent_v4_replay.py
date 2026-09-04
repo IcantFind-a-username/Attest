@@ -1,4 +1,5 @@
-"""D-132 replay: v2, v3 and v4 side by side over every receipt the corpus recorded.
+"""D-132/D-134 replay: v2, v3, v4 and v4.1 side by side over every receipt the
+corpus recorded.
 
 Offline and free -- no model call, no execution, no paid anything. For every
 `verification` row that reproduced, this rebuilds the inputs the intent observer
@@ -11,9 +12,17 @@ observation:
   v3   `attest.intent.v3` -- D-127's value rule, which published `urllib3 c7b9adcb`
   v4   `attest.intent.v4` -- D-132: the failing assertion only, no generic
        constant, and no diff that states its own intent
+  v4.1 `attest.intent.v4.1` -- D-134: clause (c) narrowed, so a symbol name is
+       intent only where it appears in a recognisable form (backticked,
+       dot-qualified, or a long bare name English does not supply)
 
 and then, on the receipts that survive each, asks `select_for_publication` under
 the family policy in force (D-125) what would have been published.
+
+The v4 column's intent evidence is recomputed with the *pre*-D-134 mention rule
+(`find_intent_evidence(distinctive=False)`), because `observe_intent` now applies
+the narrowed one; every other field of the two columns is shared, so v4 and v4.1
+differ by the mention rule and by nothing else.
 
     .venv/bin/python scripts/corpus/intent_v4_replay.py --json report.json
 
@@ -46,6 +55,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from attest.certification.intent import (  # noqa: E402
     INTENT_POLICY_V2,
     INTENT_POLICY_V3,
+    INTENT_POLICY_V4,
     IntentObservation,
     distinctive_pinned_values,
     evidence_class_for,
@@ -69,6 +79,7 @@ from attest.review.channels import V_CAP  # noqa: E402
 from attest.review.intent import (  # noqa: E402
     MAX_VALUE_CHARS,
     assertion_pinned_values,
+    find_intent_evidence,
     find_specifications,
     observe_intent,
 )
@@ -103,19 +114,23 @@ class ReceiptReplay:
     v3_verdict: str
     v4_class: str
     v4_verdict: str
+    v4_1_class: str
+    v4_1_verdict: str
     shape: str  # rejection | constant | value | crash
     v3_pinned_values: list[str]
     pinned_values: list[str]  # v4: the failing assertion's
     failing_assertion_line: int
     anchored_symbols: list[str]
-    intent_evidence: list[list[str]]
+    intent_evidence: list[list[str]]  # v4.1: recognisable mentions only
+    intent_evidence_v4: list[list[str]]  # v4: any word-boundary mention
     value_specified: list[list[str]]
     value_respecified: list[list[str]]
     # which of D-132's clauses would drawer this receipt on its own, given the
     # other two are satisfied
     clause_a: bool  # the failing assertion pins less than every assertion did
     clause_b: bool  # what it pins is generic only
-    clause_c: bool  # the diff states its own intent
+    clause_c: bool  # the diff states its own intent, under v4's mention rule
+    clause_c_v4_1: bool  # ... and under v4.1's
     replayable: bool
 
 
@@ -252,6 +267,27 @@ def replay_receipt(
     )
     if isinstance(observed, str):
         return None
+    # D-134: `observe_intent` now records only *recognisable* mentions, so the v4
+    # column recomputes clause (c)'s evidence under the rule v4 actually applied
+    # -- any word-boundary match -- from the same bytes.
+    wide_evidence = (
+        find_intent_evidence(
+            base_tree=base_tree,
+            head_tree=head_tree,
+            changed_files=_changed_files(clone, base_sha, head_sha),
+            anchored=intent_path,
+            base_source=base_source,
+            head_source=head_source,
+            changed_lines=changed,
+            symbols=observed.anchored_symbols,
+            distinctive=False,
+        )
+        if observed.anchored_symbols
+        else ()
+    )
+    under_v4 = replace(
+        observed, policy_version=INTENT_POLICY_V4, intent_evidence=wide_evidence
+    )
     # v3's pinned set was every assertion of the generated test, so the v3 column
     # recomputes it (and its specifications) rather than inheriting v4's narrower
     # one; every other field is shared, and the three columns then differ only by
@@ -300,6 +336,7 @@ def replay_receipt(
         v2 = replace(v2, **carried)
         v3 = replace(v3, **carried, **cleared)
         observed = replace(observed, **carried, **cleared)
+        under_v4 = replace(under_v4, **carried, **cleared)
     # D-132's three clauses, each asked on its own: would it drawer a receipt the
     # other two let through?
     v3_reprs = set(v3.pinned_values)
@@ -308,7 +345,8 @@ def replay_receipt(
     clause_b = observed.value_mismatch and bool(v4_reprs) and not distinctive_pinned_values(
         observed
     )
-    clause_c = observed.value_mismatch and bool(observed.intent_evidence)
+    clause_c = under_v4.value_mismatch and bool(under_v4.intent_evidence)
+    clause_c_v4_1 = observed.value_mismatch and bool(observed.intent_evidence)
     return ReceiptReplay(
         clone=clone.name,
         task_id=str(row["task_id"]),
@@ -320,19 +358,23 @@ def replay_receipt(
         v2_verdict=intent_verdict(v2) or "",
         v3_class=evidence_class_for(v3),
         v3_verdict=intent_verdict(v3) or "",
-        v4_class=evidence_class_for(observed),
-        v4_verdict=intent_verdict(observed) or "",
+        v4_class=evidence_class_for(under_v4),
+        v4_verdict=intent_verdict(under_v4) or "",
+        v4_1_class=evidence_class_for(observed),
+        v4_1_verdict=intent_verdict(observed) or "",
         shape=_shape(observed),
         v3_pinned_values=list(v3.pinned_values),
         pinned_values=list(observed.pinned_values),
         failing_assertion_line=observed.failing_assertion_line,
         anchored_symbols=list(observed.anchored_symbols),
         intent_evidence=[list(pair) for pair in observed.intent_evidence],
+        intent_evidence_v4=[list(pair) for pair in under_v4.intent_evidence],
         value_specified=[list(pair) for pair in observed.value_specified],
         value_respecified=[list(pair) for pair in observed.value_respecified],
         clause_a=clause_a,
         clause_b=clause_b,
         clause_c=clause_c,
+        clause_c_v4_1=clause_c_v4_1,
         replayable=evidence_class_for(v2) == str(row.get("evidence_class") or ""),
     )
 
@@ -372,7 +414,12 @@ def publications(
             for c in stored.values()
             if c.get("eligibility") == "regression" and c.get("action") != "discard"
         ]
-        columns: dict[str, list[ScoredFinding]] = {"v2": [], "v3": [], "v4": []}
+        columns: dict[str, list[ScoredFinding]] = {
+            "v2": [],
+            "v3": [],
+            "v4": [],
+            "v4_1": [],
+        }
         for cert in certifications.get(task_id, []):
             if cert.get("outcome") != "accepted" or "bundle_path" not in cert:
                 continue
@@ -474,7 +521,7 @@ def main(argv: list[str] | None = None) -> int:
             for r in comparable
             if getattr(r, f"{version}_verdict")
         }
-        for version in ("v2", "v3", "v4")
+        for version in ("v2", "v3", "v4", "v4_1")
     }
     review_rows: list[dict] = []
     for name, control in clones:
@@ -487,7 +534,7 @@ def main(argv: list[str] | None = None) -> int:
 
     controls = [r for r in comparable if r.control]
     payload = {
-        "schema_version": "attest.intent-v4-replay.v1",
+        "schema_version": "attest.intent-v4-replay.v2",
         "clones": [name for name, _ in clones],
         "receipts": len(replays),
         "skipped": skipped,
@@ -500,15 +547,17 @@ def main(argv: list[str] | None = None) -> int:
             for shape in ("rejection", "constant", "value", "crash")
         },
         "certifying": {
-            version: certifying(version, comparable) for version in ("v2", "v3", "v4")
+            version: certifying(version, comparable)
+            for version in ("v2", "v3", "v4", "v4_1")
         },
         "certifying_value_class": {
             version: certifying(version, [r for r in comparable if r.shape == "value"])
-            for version in ("v2", "v3", "v4")
+            for version in ("v2", "v3", "v4", "v4_1")
         },
         "control_receipts": len(controls),
         "control_certifying": {
-            version: certifying(version, controls) for version in ("v2", "v3", "v4")
+            version: certifying(version, controls)
+            for version in ("v2", "v3", "v4", "v4_1")
         },
         "drawered_by_v4_not_v3": [
             {"task": r.task_id, "candidate": r.candidate_id, "clone": r.clone, "path": r.path,
@@ -524,15 +573,32 @@ def main(argv: list[str] | None = None) -> int:
         ],
         "clause_incidence_over_value_receipts": {
             clause: sum(1 for r in comparable if getattr(r, f"clause_{clause}"))
-            for clause in ("a", "b", "c")
+            for clause in ("a", "b", "c", "c_v4_1")
         },
+        # D-134: the receipts v4 drawered on a mention v4.1 does not recognise,
+        # and (the direction that must stay empty) any v4.1 drawers and v4 did not
+        "certifying_under_v4_1_not_v4": [
+            {"task": r.task_id, "candidate": r.candidate_id, "clone": r.clone,
+             "path": r.path, "control": r.control,
+             "dropped_evidence": r.intent_evidence_v4,
+             "pinned_values": r.pinned_values,
+             "clause_a": r.clause_a, "clause_b": r.clause_b}
+            for r in comparable
+            if r.v4_verdict and not r.v4_1_verdict
+        ],
+        "drawered_by_v4_1_not_v4": [
+            {"task": r.task_id, "candidate": r.candidate_id, "clone": r.clone,
+             "path": r.path, "control": r.control}
+            for r in comparable
+            if not r.v4_verdict and r.v4_1_verdict
+        ],
         "clause_incidence_over_v3_publishers": {
             clause: sum(
                 1
                 for r in comparable
                 if not r.v3_verdict and getattr(r, f"clause_{clause}")
             )
-            for clause in ("a", "b", "c")
+            for clause in ("a", "b", "c", "c_v4_1")
         },
         "reviews": len(review_rows),
         "reviews_under_current_rule": sum(1 for r in review_rows if r["under_current_rule"]),
@@ -543,13 +609,13 @@ def main(argv: list[str] | None = None) -> int:
         ),
         "review_published": {
             version: sum(len(r[f"{version}_published"]) for r in review_rows)
-            for version in ("v2", "v3", "v4")
+            for version in ("v2", "v3", "v4", "v4_1")
         },
         "control_review_published": {
             version: sum(
                 len(r[f"{version}_published"]) for r in review_rows if r["control"]
             )
-            for version in ("v2", "v3", "v4")
+            for version in ("v2", "v3", "v4", "v4_1")
         },
         "receipt_rows": [asdict(r) for r in replays],
         "review_rows": review_rows,
@@ -562,13 +628,15 @@ def main(argv: list[str] | None = None) -> int:
         f"receipts {payload['receipts']} comparable {payload['comparable']} "
         f"shapes {payload['by_shape']}\n"
         f"certifying   v2 {payload['certifying']['v2']}  v3 {payload['certifying']['v3']}  "
-        f"v4 {payload['certifying']['v4']}\n"
+        f"v4 {payload['certifying']['v4']}  v4.1 {payload['certifying']['v4_1']}\n"
         f"  value class v2 {payload['certifying_value_class']['v2']}  "
         f"v3 {payload['certifying_value_class']['v3']}  "
-        f"v4 {payload['certifying_value_class']['v4']}\n"
+        f"v4 {payload['certifying_value_class']['v4']}  "
+        f"v4.1 {payload['certifying_value_class']['v4_1']}\n"
         f"controls ({payload['control_receipts']}) certifying   "
         f"v2 {payload['control_certifying']['v2']}  v3 {payload['control_certifying']['v3']}  "
-        f"v4 {payload['control_certifying']['v4']}\n"
+        f"v4 {payload['control_certifying']['v4']}  "
+        f"v4.1 {payload['control_certifying']['v4_1']}\n"
         f"clauses drawering a v3 publisher: "
         f"{payload['clause_incidence_over_v3_publishers']}\n"
         f"reviews {payload['reviews']} ({payload['reviews_reproducing_their_ledger']} of "

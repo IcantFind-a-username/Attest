@@ -36,6 +36,7 @@ from attest.certification.intent import (
     REJECTING_STATEMENTS,
     IntentObservation,
 )
+from attest.review.vocabulary import is_common_english
 
 MAX_ORIGIN_RECORDS = 256
 MAX_MESSAGE_CHARS = 2_000
@@ -68,6 +69,7 @@ MAX_INTENT_FILES = 500  # changed files read for D-132's intent evidence
 MAX_INTENT_EVIDENCE = 16  # sites recorded; the rule needs one
 MAX_SYMBOLS = 200
 MIN_SYMBOL_CHARS = 3  # a name shorter than this matches prose by accident
+MIN_BARE_SYMBOL_CHARS = 8  # D-134: a bare name shorter than this is vocabulary
 # D-132 (c): where a project announces a deliberate change in prose
 PROSE_SUFFIXES = (*DOC_SUFFIXES, ".txt")
 PROSE_DIRS = frozenset({"changelog", "changes", "news", "docs", "doc"})
@@ -691,12 +693,67 @@ def is_prose_file(relative: Path) -> bool:
     return name.upper().startswith(PROSE_NAMES)
 
 
-def _mentions(text: str, symbols: tuple[str, ...]) -> str | None:
-    """The first of ``symbols`` this text names as a word, or ``None``. A name
-    shorter than :data:`MIN_SYMBOL_CHARS` is not matched: it collides with
-    English."""
+def _qualified_run(text: str, start: int, end: int) -> tuple[int, int]:
+    """The maximal run of ``[A-Za-z0-9_.]`` containing ``text[start:end]`` -- the
+    dotted path a reference sits in, so that ``slug`` inside ``mod.slug`` is read
+    as the reference it is."""
+    while start > 0 and (text[start - 1].isalnum() or text[start - 1] in "_."):
+        start -= 1
+    while end < len(text) and (text[end].isalnum() or text[end] in "_."):
+        end += 1
+    return start, end
+
+
+def _is_recognisable(text: str, symbol: str) -> bool:
+    """D-134: whether ``text`` names ``symbol`` in a form a reader would take for
+    a reference to code rather than for English.
+
+    Three forms, and only these:
+
+    * **backticked** -- ``` `slug` ```, ``` ``slug`` ```, ``:meth:`Pool._make` ```:
+      the writer marked it up as code;
+    * **dot-qualified** -- ``mod.slug``, ``slug.upper``: a name with a namespace
+      around it is not a sentence;
+    * **a bare name that English does not supply** -- at least
+      :data:`MIN_BARE_SYMBOL_CHARS` characters and not in
+      :data:`~attest.review.vocabulary.COMMON_ENGLISH_WORDS`.
+
+    A comment saying "back to main" or "the snapshot is taken lazily" is prose
+    about words, and D-132's word-boundary match read it as intent.
+    """
+    bare_is_enough = len(symbol) >= MIN_BARE_SYMBOL_CHARS and not is_common_english(symbol)
+    for match in re.finditer(
+        rf"(?<![A-Za-z0-9_]){re.escape(symbol)}(?![A-Za-z0-9_])", text
+    ):
+        if bare_is_enough:
+            return True
+        start, end = _qualified_run(text, *match.span())
+        run = text[start:end]
+        before = text[start - 1] if start > 0 else ""
+        after = text[end] if end < len(text) else ""
+        if before == "`" or after == "`":
+            return True
+        if re.search(r"[A-Za-z0-9_]\.[A-Za-z0-9_]", run):
+            return True
+    return False
+
+
+def _mentions(
+    text: str, symbols: tuple[str, ...], *, distinctive: bool = True
+) -> str | None:
+    """The first of ``symbols`` this text names, or ``None``. A name shorter than
+    :data:`MIN_SYMBOL_CHARS` is never matched: it collides with English.
+
+    Under ``attest.intent.v4`` any word-boundary match counted (``distinctive``
+    false). Under ``attest.intent.v4.1`` (D-134) the mention must also be
+    *recognisable* as a reference to code -- see :func:`_is_recognisable`.
+    """
     for symbol in symbols:
         if len(symbol) < MIN_SYMBOL_CHARS:
+            continue
+        if distinctive:
+            if _is_recognisable(text, symbol):
+                return symbol
             continue
         if re.search(rf"(?<![A-Za-z0-9_]){re.escape(symbol)}(?![A-Za-z0-9_])", text):
             return symbol
@@ -740,6 +797,7 @@ def find_intent_evidence(
     head_source: str,
     changed_lines: tuple[int, ...],
     symbols: tuple[str, ...],
+    distinctive: bool = True,
 ) -> tuple[tuple[str, str], ...]:
     """D-132 (c): the places this diff states what it meant, as (symbol, file).
 
@@ -755,6 +813,11 @@ def find_intent_evidence(
       compared, so that a refactor of unrelated code is not read as intent.
 
     At most one site per file, so an enormous diff cannot flood the record.
+
+    ``distinctive`` is D-134: under ``attest.intent.v4.1`` a name is only read as
+    a mention where it appears in a recognisable form. Position -- prose the
+    change moved inside a touched body -- is untouched by it, because there the
+    link is where the line sits and not what it is called.
     """
     if not symbols:
         return ()
@@ -792,7 +855,7 @@ def find_intent_evidence(
             # the file can carry.
             if not added and not removed:
                 for text in sorted((after - before) | (before - after)):
-                    named_here = _mentions(text, symbols)
+                    named_here = _mentions(text, symbols, distinctive=distinctive)
                     if named_here is not None:
                         found[relative] = named_here
                         break
@@ -821,7 +884,7 @@ def find_intent_evidence(
         else:
             continue
         for text in sorted(moved):
-            named = _mentions(text, symbols)
+            named = _mentions(text, symbols, distinctive=distinctive)
             if named is not None:
                 found[relative] = named
                 break
