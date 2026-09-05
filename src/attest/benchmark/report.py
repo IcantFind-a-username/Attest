@@ -1273,12 +1273,15 @@ def render_comparison_markdown(report: ComparisonRunReport) -> str:
 
 
 def write_comparison_report(
-    report: ComparisonRunReport, output_dir: Path
+    report: ComparisonRunReport, output_dir: Path, *, basename: str = ""
 ) -> tuple[Path, Path]:
-    """Write deterministic comparison JSON and Markdown via atomic replace."""
+    """Write deterministic comparison JSON and Markdown via atomic replace.
+
+    ``basename`` names the pair of files when a caller writes more than one
+    comparison into the same directory; empty keeps the fixed names."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    json_path = output_dir / COMPARISON_JSON_NAME
-    markdown_path = output_dir / COMPARISON_MARKDOWN_NAME
+    json_path = output_dir / (f"{basename}.json" if basename else COMPARISON_JSON_NAME)
+    markdown_path = output_dir / (f"{basename}.md" if basename else COMPARISON_MARKDOWN_NAME)
     _atomic_write(
         json_path,
         (
