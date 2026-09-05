@@ -38,7 +38,18 @@ still owes exactly one, and it names how many change units the silence covers �
 and 20 of `us-stock-helper`, reviewed in shadow
 ([table](docs/acceptance/2026-09-06c-four-levels.md)):
 
-<!-- four-level-speech-rates -->
+| level | spoke on | what the rate is not |
+|---|---|---|
+| **red** | **0 of 40** | not a precision number: no commit in the 40 is known to contain a defect |
+| **yellow (a)** | **0 of 40** (1 of 10 more on a third repository, true and not actionable) | — |
+| **yellow (b)** | **0 of 40**, and 13 of 13 hypotheses void on a separate 79-unit scan | — |
+| **green** | **8 of 40** (20%), three of them the same duplicated `git` helper | — |
+| **every level silent** | **32 of 40** (80%) | a silence is an abstention, never a true negative |
+
+`$2.03` for 40 reviews — **$0.051 a commit** — at the `budget-usd 0.25` this repository's own
+Action uses. The binding constraint on this traffic is that budget: of 141 candidates, 40 died
+with it exhausted and 87 were never ranked high enough for a reproduction to be bought, so only
+**11 reached a verdict any adjudicator is responsible for**.
 
 ## Install it in one file
 

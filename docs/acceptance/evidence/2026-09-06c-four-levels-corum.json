@@ -1,0 +1,240 @@
+{
+ "schema_version": "attest.four-levels.v1",
+ "generated": "2026-09-05T19:02:26.614926+00:00",
+ "summary": {
+  "units": 10,
+  "ran": 10,
+  "red_spoke": 0,
+  "yellow_a_spoke": 1,
+  "yellow_b_spoke": 0,
+  "green_spoke": 1,
+  "gate_candidates": 4,
+  "gate_admissible": 3,
+  "gate_through_caller": 3,
+  "gate_direct": 0,
+  "all_silent": 9,
+  "speech_rate": {
+   "red": 0.0,
+   "yellow_a": 0.1,
+   "yellow_b": 0.0,
+   "green": 0.1
+  }
+ },
+ "rows": [
+  {
+   "repo": "corum",
+   "head": "666ceafb21f689ec40858899e29f8ac78b95e3e8",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 4 units; nothing met an adjudicator's bar; $0.0000, 0.3s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 4,
+   "candidates": 4,
+   "drawer": 4,
+   "accounting": "read 1/4 units, candidates 4, drawer 4",
+   "ran": true
+  },
+  {
+   "repo": "corum",
+   "head": "80ee1b3957bc6bfb92a85c868ee2cd59d2bb85ea",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [],
+   "gate": [],
+   "units_read": 2,
+   "units_planned": 2,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 2/2 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "corum",
+   "head": "044edd5c29fe81d4d0cefe45a45e445273bf4738",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [],
+   "gate": [],
+   "units_read": 2,
+   "units_planned": 2,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 2/2 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "corum",
+   "head": "b34e0896c3cb80c325288d7057247f8b25fa72ab",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0000, 0.1s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "corum",
+   "head": "c85a8200f74db73f948c08d688b6a3b58c12003e",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 2 units; nothing met an adjudicator's bar; $0.0000, 0.2s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 2,
+   "candidates": 3,
+   "drawer": 3,
+   "accounting": "read 1/2 units, candidates 3, drawer 3",
+   "ran": true
+  },
+  {
+   "repo": "corum",
+   "head": "29dbc129d13f307ac0633510feefb1e0c2b6684b",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 4 units; nothing met an adjudicator's bar; $0.0000, 0.2s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 4,
+   "candidates": 3,
+   "drawer": 3,
+   "accounting": "read 1/4 units, candidates 3, drawer 3",
+   "ran": true
+  },
+  {
+   "repo": "corum",
+   "head": "6d03f4cf18c43decff3ae1bffde277279ff25d31",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [],
+   "gate": [],
+   "units_read": 2,
+   "units_planned": 2,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 2/2 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "corum",
+   "head": "0e4dcc34b621657b4ecb668143c0018bf6be4fa3",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 2 units; nothing met an adjudicator's bar; $0.0846, 32.3s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 2,
+   "candidates": 10,
+   "drawer": 10,
+   "accounting": "read 1/2 units, candidates 10, drawer 10",
+   "ran": true
+  },
+  {
+   "repo": "corum",
+   "head": "079ccfc770ed71e398660b31a9179c01c9ee42ce",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 3 units; nothing met an adjudicator's bar; $0.0306, 4.5s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 3,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/3 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "corum",
+   "head": "14c363ddf1b0977d691aceb9d9a8ebf7110eda29",
+   "red": [],
+   "yellow_a": [
+    "[yellow] scripts/benchmark_fusion.py:64 \u2014 `_build_context` changed signature; 1 call site(s) name it, 1 of them named by no test \u2014 scripts/benchmark_fusion.py:194",
+    "[yellow] scripts/benchmark_fusion.py:128 \u2014 `_working_array_accounting` changed signature; 1 call site(s) name it, 1 of them named by no test \u2014 scripts/benchmark_fusion.py:229"
+   ],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): src/corum/calibration.py:44-56 `_validate_pair_key` and src/corum/fusion.py:53-65 `_validated_pair_key` normalise to token sequences of 84 and 84 tokens whose similarity is 1.000 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not.",
+    "[green] Structural (no defect claimed): src/corum/baselines.py:30-39 `_open_probability` and src/corum/fusion.py:23-34 `_validate_open_probability` normalise to token sequences of 61 and 61 tokens whose similarity is 1.000 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [
+    {
+     "finding_id": "11039e82d8",
+     "at": "src/corum/fusion.py:106",
+     "symbol": "_validated_joint_likelihood",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_validated_joint_likelihood` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "04e44d6450",
+     "at": "src/corum/fusion.py:494",
+     "symbol": "fuse_known_pair_likelihoods",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "tests/test_fusion.py:859",
+     "reason": "the reproduction enters at tests/test_fusion.py:859 and `fuse_known_pair_likelihoods` runs underneath"
+    },
+    {
+     "finding_id": "84184ec4e6",
+     "at": "src/corum/fusion.py:505",
+     "symbol": "fuse_known_pair_likelihoods",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "tests/test_fusion.py:859",
+     "reason": "the reproduction enters at tests/test_fusion.py:859 and `fuse_known_pair_likelihoods` runs underneath"
+    },
+    {
+     "finding_id": "bc47d4ca76",
+     "at": "src/corum/fusion.py:511",
+     "symbol": "fuse_known_pair_likelihoods",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "tests/test_fusion.py:859",
+     "reason": "the reproduction enters at tests/test_fusion.py:859 and `fuse_known_pair_likelihoods` runs underneath"
+    }
+   ],
+   "units_read": 1,
+   "units_planned": 3,
+   "candidates": 9,
+   "drawer": 9,
+   "accounting": "read 1/3 units, candidates 9, drawer 9",
+   "ran": true
+  }
+ ]
+}

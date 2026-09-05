@@ -1,0 +1,570 @@
+{
+ "schema_version": "attest.four-levels.v1",
+ "generated": "2026-09-05T19:02:26.505511+00:00",
+ "summary": {
+  "units": 20,
+  "ran": 20,
+  "red_spoke": 0,
+  "yellow_a_spoke": 0,
+  "yellow_b_spoke": 0,
+  "green_spoke": 1,
+  "gate_candidates": 20,
+  "gate_admissible": 0,
+  "gate_through_caller": 0,
+  "gate_direct": 0,
+  "all_silent": 19,
+  "speech_rate": {
+   "red": 0.0,
+   "yellow_a": 0.0,
+   "yellow_b": 0.0,
+   "green": 0.05
+  }
+ },
+ "rows": [
+  {
+   "repo": "us-stock-helper",
+   "head": "b2fb91af28c07688a5ed1e49e5ccd2cd66473a6d",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0272, 11.9s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 5,
+   "drawer": 5,
+   "accounting": "read 1/1 units, candidates 5, drawer 5",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "9a68477722be7bf5f4c99d822b218ec3ed360386",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0000, 0.2s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "aa2a4cff8cdd4796df032af76730aad5053a2835",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0000, 0.2s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "3f6b67b0b6dcbb9660890552edb0f1c6939b9ee5",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.1400, 54.5s."
+   ],
+   "gate": [
+    {
+     "finding_id": "a8fa4bb685",
+     "at": "services/information_layer/information_layer/feeds/nasdaq.py:79",
+     "symbol": "_parse_eastern_stamp",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_parse_eastern_stamp` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "6e6a10b86d",
+     "at": "services/information_layer/information_layer/feeds/nasdaq.py:80",
+     "symbol": "_parse_eastern_stamp",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_parse_eastern_stamp` outside the added lines and no documented domain"
+    }
+   ],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 10,
+   "drawer": 10,
+   "accounting": "read 1/1 units, candidates 10, drawer 10",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "fa85b217782ba469c30a4edfe4636e8b80441db8",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0000, 0.2s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "44d396cabf9a12993a6354d8e8a09d30faa4e044",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0000, 0.2s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "ead0bd75d42e1bf8a12d53a8d5847cd8095e5e4f",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 3 units; nothing met an adjudicator's bar; $0.0271, 5.4s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 3,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/3 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "4b1ad18ab913f886f836f0d400580a625704383c",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0261, 5.6s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "381c0a051c4fd0855d7c1226895efd94166689e7",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0091, 4.2s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "07a6946b7f84f89b27409326cfcfba44b66a5d67",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0000, 0.2s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "540b0a81540698381bffe8e8d23441b78604d492",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0000, 1.8s."
+   ],
+   "gate": [
+    {
+     "finding_id": "abe972beaf",
+     "at": ".superpowers/sdd/2026-08-17-authoritative-source-adapters/measure_evidence_gate.py:134",
+     "symbol": "_load_runtime_environment",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "`_load_runtime_environment` takes no parameter: there is no domain to be inside"
+    },
+    {
+     "finding_id": "576895efea",
+     "at": ".superpowers/sdd/2026-08-17-authoritative-source-adapters/measure_evidence_gate.py:138",
+     "symbol": "_load_runtime_environment",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "`_load_runtime_environment` takes no parameter: there is no domain to be inside"
+    },
+    {
+     "finding_id": "b6ecd53fae",
+     "at": ".superpowers/sdd/2026-08-17-authoritative-source-adapters/measure_evidence_gate.py:142",
+     "symbol": "_warn_if_outside_market_hours",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_warn_if_outside_market_hours` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "ede4e664b9",
+     "at": ".superpowers/sdd/2026-08-17-authoritative-source-adapters/measure_evidence_gate.py:155",
+     "symbol": "_measure",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_measure` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "c8e9aedc92",
+     "at": ".superpowers/sdd/2026-08-17-authoritative-source-adapters/measure_evidence_gate.py:180",
+     "symbol": "recording_extract",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "unannotated parameter(s) args, kwargs of `recording_extract`: an input outside a declared domain is the caller's error, not the code's"
+    },
+    {
+     "finding_id": "85b66db82e",
+     "at": ".superpowers/sdd/2026-08-17-authoritative-source-adapters/measure_evidence_gate.py:199",
+     "symbol": "_measure",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_measure` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "0784c10281",
+     "at": ".superpowers/sdd/2026-08-17-authoritative-source-adapters/measure_evidence_gate.py:205",
+     "symbol": "_measure",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_measure` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "c7f3daebc7",
+     "at": ".superpowers/sdd/2026-08-17-authoritative-source-adapters/measure_evidence_gate.py:216",
+     "symbol": "_measure",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_measure` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "28a43f8f17",
+     "at": ".superpowers/sdd/2026-08-17-authoritative-source-adapters/measure_evidence_gate.py:217",
+     "symbol": "_measure",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_measure` outside the added lines and no documented domain"
+    }
+   ],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 9,
+   "drawer": 9,
+   "accounting": "read 1/1 units, candidates 9, drawer 9",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "58bf76382b559b0b728c4dfd28f1fc6442e17598",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0000, 1.5s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "9c023e6b163f2a5f70f2777e6d1666297b995e15",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0000, 0.2s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "bdeaf675a8763a166dffcd57148f352285a9fc35",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0414, 12.2s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 4,
+   "drawer": 4,
+   "accounting": "read 1/1 units, candidates 4, drawer 4",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "4ef2226bcf2405129a38ad81e65130a3d3c989eb",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): scripts/local_runtime_support.py:1150-1168 `_require_private_directory` and scripts/local_runtime_support.py:1171-1192 `_prepare_private_parent` normalise to token sequences of 42 and 44 tokens whose similarity is 0.977 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not.",
+    "[green] Structural (no defect claimed): services/analysis_api/src/us_stock_helper_analysis_api/evidence_provider.py:229-239 `_seconds` and services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py:170-180 `_env_fetch_deadline_seconds` normalise to token sequences of 43 and 47 tokens whose similarity is 0.933 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [
+    {
+     "finding_id": "05d87ab4e8",
+     "at": "services/analysis_api/src/us_stock_helper_analysis_api/coordinator_state.py:50",
+     "symbol": "load_coordinator",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "`load_coordinator` takes no parameter: there is no domain to be inside"
+    },
+    {
+     "finding_id": "dc7d83310b",
+     "at": "services/analysis_api/src/us_stock_helper_analysis_api/coordinator_state.py:60",
+     "symbol": "save",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `save` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "bd84d2d2cb",
+     "at": "services/analysis_api/src/us_stock_helper_analysis_api/coordinator_state.py:70",
+     "symbol": "save",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `save` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "a2870d371a",
+     "at": "services/analysis_api/src/us_stock_helper_analysis_api/coordinator_state.py:76",
+     "symbol": "save",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `save` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "dc527bbbb9",
+     "at": "services/analysis_api/src/us_stock_helper_analysis_api/coordinator_state.py:78",
+     "symbol": "save",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `save` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "d7c13e7463",
+     "at": "services/analysis_api/src/us_stock_helper_analysis_api/coordinator_state.py:80",
+     "symbol": "save",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `save` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "78595903ea",
+     "at": "services/analysis_api/src/us_stock_helper_analysis_api/coordinator_state.py:80",
+     "symbol": "save",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `save` outside the added lines and no documented domain"
+    }
+   ],
+   "units_read": 1,
+   "units_planned": 3,
+   "candidates": 7,
+   "drawer": 7,
+   "accounting": "read 1/3 units, candidates 7, drawer 7",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 8 units; nothing met an adjudicator's bar; $0.0241, 5.7s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 8,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/8 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "abefa25f7d77174759aa698ecdedffed5dcd5886",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 6 units; nothing met an adjudicator's bar; $0.0255, 5.6s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 6,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/6 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "8cfab6c5a737bde7c78f2e423d38ac9183378c1d",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 7 units; nothing met an adjudicator's bar; $0.1321, 33.3s."
+   ],
+   "gate": [
+    {
+     "finding_id": "357d78d1e9",
+     "at": "services/information_layer/tests/test_adapters.py:747",
+     "symbol": "fixture_bytes",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `fixture_bytes` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "4a7558726d",
+     "at": "services/information_layer/tests/test_adapters.py:847",
+     "symbol": "test_a_filed_by_entry_claims_no_symbol_even_when_the_holder_is_listed",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "`test_a_filed_by_entry_claims_no_symbol_even_when_the_holder_is_listed` takes no parameter: there is no domain to be inside"
+    }
+   ],
+   "units_read": 1,
+   "units_planned": 7,
+   "candidates": 7,
+   "drawer": 7,
+   "accounting": "read 1/7 units, candidates 7, drawer 7",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "e820bd182da94c6ba3614e18e57f7786dcb4d3c8",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0129, 4.3s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "ran": true
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "0f11a61479f3eba7074ffdee68ba385d72d5c1a4",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0343, 3.8s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "ran": true
+  }
+ ]
+}

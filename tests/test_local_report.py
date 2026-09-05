@@ -107,7 +107,7 @@ def test_every_drawer_reason_the_corpus_has_produced_has_a_class() -> None:
         "unfaithful generated test: fails on base as well": "unfaithful-reproduction",
         "isolation backend unavailable: bootstrap failed": "host-blocked",
         "pytest passed on head in 3/3 runs; base not executed": "not-reproduced-on-head",
-        "": "unrecorded",
+        "": "no-reproduction-bought",
     }
     assert {reason: drawer_reason_class(reason) for reason in corpus} == corpus
 

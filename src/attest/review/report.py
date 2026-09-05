@@ -90,12 +90,18 @@ DRAWER_REASON_PREFIXES = (
 
 
 def drawer_reason_class(reason: str) -> str:
-    """The class a drawer reason belongs to, for the accounting line's histogram."""
+    """The class a drawer reason belongs to, for the accounting line's histogram.
+
+    `no-reproduction-bought` is the honest name for the empty string, and it is
+    the largest class on ordinary traffic: a candidate that never reached
+    verification has no verification reason to record, because the ranking never
+    put it in a position for a reproduction to be bought. Calling that
+    "unrecorded" reads like a bookkeeping failure; it is a decision."""
     text = (reason or "").strip()
     for prefix, name in DRAWER_REASON_PREFIXES:
         if text.startswith(prefix):
             return name
-    return "other" if text else "unrecorded"
+    return "other" if text else "no-reproduction-bought"
 
 
 def render(

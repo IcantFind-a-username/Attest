@@ -1,31 +1,56 @@
 {
  "schema_version": "attest.four-levels-plan.v1",
- "rule": "the most recent 10 non-merge commits of corum at origin/main, each paired with its single parent \u2014 the third owner repository, for the gate level's shadow accumulation",
+ "rule": "the most recent 10 non-merge commits of corum at origin/repair/task-1-numeric-validation, which is where that repository's work actually lands -- its origin/main holds six commits -- each paired with its single parent; the third owner repository, for the gate level's shadow accumulation",
  "units": [
   {
    "repo": "corum",
-   "head": "5be583d6143f1a59011aed718316bf6114850244",
-   "base": "04df399cdeffbd6286fd76a296e0e0d1fcfd8b1a"
+   "head": "666ceafb21f689ec40858899e29f8ac78b95e3e8",
+   "base": "80ee1b3957bc6bfb92a85c868ee2cd59d2bb85ea"
   },
   {
    "repo": "corum",
-   "head": "04df399cdeffbd6286fd76a296e0e0d1fcfd8b1a",
-   "base": "a13fe8c22f5563bcf559d9c4bc14408236899a2c"
+   "head": "80ee1b3957bc6bfb92a85c868ee2cd59d2bb85ea",
+   "base": "044edd5c29fe81d4d0cefe45a45e445273bf4738"
   },
   {
    "repo": "corum",
-   "head": "a13fe8c22f5563bcf559d9c4bc14408236899a2c",
-   "base": "baf94775f4e1941ae4cf23f995ae4ff8ac1033c7"
+   "head": "044edd5c29fe81d4d0cefe45a45e445273bf4738",
+   "base": "b34e0896c3cb80c325288d7057247f8b25fa72ab"
   },
   {
    "repo": "corum",
-   "head": "baf94775f4e1941ae4cf23f995ae4ff8ac1033c7",
-   "base": "f751aa2ef43c956cb5457079046fafa88e83bc38"
+   "head": "b34e0896c3cb80c325288d7057247f8b25fa72ab",
+   "base": "c85a8200f74db73f948c08d688b6a3b58c12003e"
   },
   {
    "repo": "corum",
-   "head": "f751aa2ef43c956cb5457079046fafa88e83bc38",
-   "base": "22b373e98e0334511dcf6db962189b6bce24896a"
+   "head": "c85a8200f74db73f948c08d688b6a3b58c12003e",
+   "base": "29dbc129d13f307ac0633510feefb1e0c2b6684b"
+  },
+  {
+   "repo": "corum",
+   "head": "29dbc129d13f307ac0633510feefb1e0c2b6684b",
+   "base": "6d03f4cf18c43decff3ae1bffde277279ff25d31"
+  },
+  {
+   "repo": "corum",
+   "head": "6d03f4cf18c43decff3ae1bffde277279ff25d31",
+   "base": "0e4dcc34b621657b4ecb668143c0018bf6be4fa3"
+  },
+  {
+   "repo": "corum",
+   "head": "0e4dcc34b621657b4ecb668143c0018bf6be4fa3",
+   "base": "079ccfc770ed71e398660b31a9179c01c9ee42ce"
+  },
+  {
+   "repo": "corum",
+   "head": "079ccfc770ed71e398660b31a9179c01c9ee42ce",
+   "base": "14c363ddf1b0977d691aceb9d9a8ebf7110eda29"
+  },
+  {
+   "repo": "corum",
+   "head": "14c363ddf1b0977d691aceb9d9a8ebf7110eda29",
+   "base": "bcbf287ccebaa9572c0cc22f25143aaa064ef4cc"
   }
  ]
 }
