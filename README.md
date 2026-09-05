@@ -7,6 +7,39 @@ to state and deliberately hard to satisfy:
 > claim-bound execution certificate; spend model and test budget where it is most likely to
 > produce such a certificate; otherwise abstain explicitly.
 
+## What it says, in four levels
+
+Every author-visible line is **one line** carrying a level marker, a coordinate, one sentence of
+fact and its evidence (D-142). There are four levels and they never merge, never borrow each
+other's words, and never speak for each other:
+
+| | says | costs a model call? | status |
+|---|---|---|---|
+| **red** | a defect, backed by a reproduction that fails on head and passes on the merge base, three runs each way | yes | **live** |
+| **gate** | a defect in *new* code, admitted only through a caller outside the added lines | yes | **shadow** — nothing on this path is author-visible |
+| **yellow** | a hypothesis whose premises were each verified by a deterministic checker: (a) the change's impact scope, (b) a null/Optional dereference | (a) no · (b) one | **live**, ≤ 2 per pull request, shared between (a) and (b) |
+| **green** | something structurally so, computed with no model at all — today, the same implementation in two places | only to word it | **live** |
+
+```text
+[red]    requests/models.py:389 — the generated test fails on head in 3/3 runs and passes on the
+         merge base in 3/3 — receipt 3253ada5eff4
+[yellow] src/click/parser.py:78 — `_unpack_args` changed signature; 3 call site(s) name it, 1 of
+         them named by no test — scripts/cli.py:120
+[green]  Structural (no defect claimed): a.py:10-40 and b.py:88-118 normalise to token sequences
+         whose similarity is 0.98 (threshold 0.92)
+[silent] read 13 of 13 units; nothing met an adjudicator's bar; $0.03, 41.2s.
+```
+
+**A level that has nothing to say contributes no line.** When every level is silent the product
+still owes exactly one, and it names how many change units the silence covers — a silence over
+1 of 13 units and a silence over 13 of 13 are different claims.
+
+**What each level has actually said, on 40 real commits** — the most recent 20 of this repository
+and 20 of `us-stock-helper`, reviewed in shadow
+([table](docs/acceptance/2026-09-06c-four-levels.md)):
+
+<!-- four-level-speech-rates -->
+
 ## Install it in one file
 
 There is exactly one supported way in: **a GitHub Action and a repository Secret.** attest

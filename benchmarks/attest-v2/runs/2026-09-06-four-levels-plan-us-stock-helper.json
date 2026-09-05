@@ -1,0 +1,106 @@
+{
+ "schema_version": "attest.four-levels-plan.v1",
+ "rule": "the most recent 20 non-merge commits of each repository at its own default branch (attest: origin/main; us-stock-helper: origin/HEAD = feature/iphone-demo, which is where that repository's work actually lands -- its origin/main holds six commits), newest first, each paired with its single parent",
+ "units": [
+  {
+   "repo": "us-stock-helper",
+   "head": "b2fb91af28c07688a5ed1e49e5ccd2cd66473a6d",
+   "base": "9fc9408fb42b4a4625fcb4dbaa764e0f99c604cc"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "9a68477722be7bf5f4c99d822b218ec3ed360386",
+   "base": "aa2a4cff8cdd4796df032af76730aad5053a2835"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "aa2a4cff8cdd4796df032af76730aad5053a2835",
+   "base": "3f6b67b0b6dcbb9660890552edb0f1c6939b9ee5"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "3f6b67b0b6dcbb9660890552edb0f1c6939b9ee5",
+   "base": "fa85b217782ba469c30a4edfe4636e8b80441db8"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "fa85b217782ba469c30a4edfe4636e8b80441db8",
+   "base": "44d396cabf9a12993a6354d8e8a09d30faa4e044"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "44d396cabf9a12993a6354d8e8a09d30faa4e044",
+   "base": "ead0bd75d42e1bf8a12d53a8d5847cd8095e5e4f"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "ead0bd75d42e1bf8a12d53a8d5847cd8095e5e4f",
+   "base": "07a6946b7f84f89b27409326cfcfba44b66a5d67"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "4b1ad18ab913f886f836f0d400580a625704383c",
+   "base": "381c0a051c4fd0855d7c1226895efd94166689e7"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "381c0a051c4fd0855d7c1226895efd94166689e7",
+   "base": "cfecc058c42870b2002113d4986a6a5d6748443c"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "07a6946b7f84f89b27409326cfcfba44b66a5d67",
+   "base": "540b0a81540698381bffe8e8d23441b78604d492"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "540b0a81540698381bffe8e8d23441b78604d492",
+   "base": "58bf76382b559b0b728c4dfd28f1fc6442e17598"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "58bf76382b559b0b728c4dfd28f1fc6442e17598",
+   "base": "9c023e6b163f2a5f70f2777e6d1666297b995e15"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "9c023e6b163f2a5f70f2777e6d1666297b995e15",
+   "base": "bdeaf675a8763a166dffcd57148f352285a9fc35"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "bdeaf675a8763a166dffcd57148f352285a9fc35",
+   "base": "4ef2226bcf2405129a38ad81e65130a3d3c989eb"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "4ef2226bcf2405129a38ad81e65130a3d3c989eb",
+   "base": "801fb292ce77b6c2768e731859637de50b6f0ae3"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+   "base": "abefa25f7d77174759aa698ecdedffed5dcd5886"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "abefa25f7d77174759aa698ecdedffed5dcd5886",
+   "base": "8cfab6c5a737bde7c78f2e423d38ac9183378c1d"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "8cfab6c5a737bde7c78f2e423d38ac9183378c1d",
+   "base": "e820bd182da94c6ba3614e18e57f7786dcb4d3c8"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "e820bd182da94c6ba3614e18e57f7786dcb4d3c8",
+   "base": "0f11a61479f3eba7074ffdee68ba385d72d5c1a4"
+  },
+  {
+   "repo": "us-stock-helper",
+   "head": "0f11a61479f3eba7074ffdee68ba385d72d5c1a4",
+   "base": "cc34784dcb629d350817a9ab3d79c723ab6bc302"
+  }
+ ]
+}

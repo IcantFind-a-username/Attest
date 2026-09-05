@@ -41,7 +41,7 @@ from attest.review.gate_level import added_lines, show, witness  # noqa: E402
 
 CORPORA = ROOT / ".attest" / "corpora"
 LEVELS = ("red", "gate", "yellow", "green", "silent")
-LINE = re.compile(r"^\[(red|gate|yellow|green|silent)\] (.*)$")
+LINE = re.compile(r"^-?\s*\[(red|gate|yellow|green|silent)\] (.*)$")
 ACCOUNTING = re.compile(r"^read (\d+)/(\d+) units, candidates (\d+), drawer (\d+)")
 TASK = re.compile(r"^\[task (\S+)\]$")
 

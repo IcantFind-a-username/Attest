@@ -1,0 +1,31 @@
+{
+ "schema_version": "attest.four-levels-plan.v1",
+ "rule": "the most recent 10 non-merge commits of corum at origin/main, each paired with its single parent \u2014 the third owner repository, for the gate level's shadow accumulation",
+ "units": [
+  {
+   "repo": "corum",
+   "head": "5be583d6143f1a59011aed718316bf6114850244",
+   "base": "04df399cdeffbd6286fd76a296e0e0d1fcfd8b1a"
+  },
+  {
+   "repo": "corum",
+   "head": "04df399cdeffbd6286fd76a296e0e0d1fcfd8b1a",
+   "base": "a13fe8c22f5563bcf559d9c4bc14408236899a2c"
+  },
+  {
+   "repo": "corum",
+   "head": "a13fe8c22f5563bcf559d9c4bc14408236899a2c",
+   "base": "baf94775f4e1941ae4cf23f995ae4ff8ac1033c7"
+  },
+  {
+   "repo": "corum",
+   "head": "baf94775f4e1941ae4cf23f995ae4ff8ac1033c7",
+   "base": "f751aa2ef43c956cb5457079046fafa88e83bc38"
+  },
+  {
+   "repo": "corum",
+   "head": "f751aa2ef43c956cb5457079046fafa88e83bc38",
+   "base": "22b373e98e0334511dcf6db962189b6bce24896a"
+  }
+ ]
+}

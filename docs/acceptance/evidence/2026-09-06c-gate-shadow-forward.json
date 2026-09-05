@@ -1,0 +1,327 @@
+{
+ "schema_version": "attest.gate-shadow-forward.v1",
+ "rows": [
+  {
+   "population": "forward",
+   "repo": "attrs",
+   "head": "e048efcb395443608d184a149c0adbca166cb833",
+   "base": "75723b7720952ac0a4c7d3e277b6714ba55ded18",
+   "task_id": "",
+   "gate": []
+  },
+  {
+   "population": "forward",
+   "repo": "attrs",
+   "head": "7c85d68de2d126658786fce2fd26a867378abc46",
+   "base": "564fade9257c809d822a6ffe222f20d9b9ec0675",
+   "task_id": "20260906-011434-91295ab0",
+   "gate": []
+  },
+  {
+   "population": "forward",
+   "repo": "click",
+   "head": "0585f456baa6eeb2edbaab7c85fa796a004aef86",
+   "base": "cfa01eeb7894a408af70b29d28c0b24f8680f9fb",
+   "task_id": "20260906-011444-3b19d6bc",
+   "gate": [
+    {
+     "finding_id": "81d63b2cdd",
+     "at": "src/click/termui.py:145",
+     "symbol": "_is_expected_type",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_is_expected_type` outside the added lines and no documented domain"
+    }
+   ]
+  },
+  {
+   "population": "forward",
+   "repo": "click",
+   "head": "cd4674a6de725e1d7cac7ea7b6cd27ea68b4094c",
+   "base": "d5fbd32842da361cc9be8658d94a64e9cc417fb5",
+   "task_id": "20260906-011648-0c37806d",
+   "gate": [
+    {
+     "finding_id": "5e2c9fa64f",
+     "at": "src/click/_termui_impl.py:391",
+     "symbol": "__init__",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "src/click/_compat.py:69",
+     "reason": "the reproduction enters at src/click/_compat.py:69 and `__init__` runs underneath"
+    },
+    {
+     "finding_id": "cf5a3aa76b",
+     "at": "src/click/_termui_impl.py:424",
+     "symbol": "_pager_contextmanager",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_pager_contextmanager` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "b33cf7488c",
+     "at": "src/click/_termui_impl.py:439",
+     "symbol": "get_pager_file",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `get_pager_file` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "0df0fe18ae",
+     "at": "src/click/_textwrap.py:108",
+     "symbol": "_wrap_chunks",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_wrap_chunks` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "20d8093972",
+     "at": "src/click/_textwrap.py:118",
+     "symbol": "_wrap_chunks",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_wrap_chunks` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "b01b383cb0",
+     "at": "src/click/exceptions.py:26",
+     "symbol": "_format_possibilities",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_format_possibilities` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "ed2c11d6c5",
+     "at": "src/click/exceptions.py:258",
+     "symbol": "__init__",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "src/click/_compat.py:69",
+     "reason": "the reproduction enters at src/click/_compat.py:69 and `__init__` runs underneath"
+    },
+    {
+     "finding_id": "c6f3196d00",
+     "at": "src/click/exceptions.py:264",
+     "symbol": "__init__",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "src/click/_compat.py:69",
+     "reason": "the reproduction enters at src/click/_compat.py:69 and `__init__` runs underneath"
+    },
+    {
+     "finding_id": "6a30d59197",
+     "at": "src/click/termui.py:63",
+     "symbol": "_mask_hidden_input",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_mask_hidden_input` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "48336ed9b9",
+     "at": "src/click/termui.py:68",
+     "symbol": "_mask_hidden_input",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_mask_hidden_input` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "5559e05369",
+     "at": "src/click/termui.py:69",
+     "symbol": "_mask_hidden_input",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_mask_hidden_input` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "d4b15b64da",
+     "at": "src/click/termui.py:73",
+     "symbol": "_mask_hidden_input",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_mask_hidden_input` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "00dc6875aa",
+     "at": "src/click/termui.py:91",
+     "symbol": "_readline_prompt",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_readline_prompt` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "bb3056cdee",
+     "at": "src/click/termui.py:301",
+     "symbol": "get_pager_file",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `get_pager_file` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "2b86ad11b4",
+     "at": "src/click/types.py:516",
+     "symbol": "",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "the failing line is not inside a definition, or the head source does not parse; nothing declares a domain"
+    },
+    {
+     "finding_id": "f708ab8a97",
+     "at": "tests/test_commands.py:591",
+     "symbol": "test_suggest_possible_commands",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "unannotated parameter(s) runner, value, expect of `test_suggest_possible_commands`: an input outside a declared domain is the caller's error, not the code's"
+    },
+    {
+     "finding_id": "896a910655",
+     "at": "tests/test_options.py:3211",
+     "symbol": "test_flag_group_unset_vs_none_vs_explicit",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "unannotated parameter(s) runner, default_a, default_b, args, expected of `test_flag_group_unset_vs_none_vs_explicit`: an input outside a declared domain is the caller's error, not the code's"
+    },
+    {
+     "finding_id": "0d54c15707",
+     "at": "tests/test_options.py:3238",
+     "symbol": "test_flag_group_competition_duplicate_option_name",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "unannotated parameter(s) runner of `test_flag_group_competition_duplicate_option_name`: an input outside a declared domain is the caller's error, not the code's"
+    },
+    {
+     "finding_id": "20217646d9",
+     "at": "tests/test_options.py:3247",
+     "symbol": "test_flag_group_competition_duplicate_option_name",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "unannotated parameter(s) runner of `test_flag_group_competition_duplicate_option_name`: an input outside a declared domain is the caller's error, not the code's"
+    },
+    {
+     "finding_id": "16569296d5",
+     "at": "tests/test_testing.py:574",
+     "symbol": "test_capture_fd_stale_reference",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "`test_capture_fd_stale_reference` takes no parameter: there is no domain to be inside"
+    },
+    {
+     "finding_id": "3480dd9fd0",
+     "at": "tests/test_testing.py:576",
+     "symbol": "test_capture_fd_stale_reference",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "`test_capture_fd_stale_reference` takes no parameter: there is no domain to be inside"
+    },
+    {
+     "finding_id": "f34992638d",
+     "at": "tests/test_testing.py:602",
+     "symbol": "test_capture_fd_logging_handler",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "unannotated parameter(s) tmp_path of `test_capture_fd_logging_handler`: an input outside a declared domain is the caller's error, not the code's"
+    },
+    {
+     "finding_id": "25f3274641",
+     "at": "tests/test_testing.py:631",
+     "symbol": "test_capture_fd_logging_handler",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "unannotated parameter(s) tmp_path of `test_capture_fd_logging_handler`: an input outside a declared domain is the caller's error, not the code's"
+    },
+    {
+     "finding_id": "7121411b27",
+     "at": "tests/test_testing.py:707",
+     "symbol": "outer_cli",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "`outer_cli` takes no parameter: there is no domain to be inside"
+    }
+   ]
+  },
+  {
+   "population": "forward",
+   "repo": "click",
+   "head": "19fd4d6e18bc9fce451f92f422696b11169faa57",
+   "base": "c69643b60cf971cd5d8e5d3902632807ceab9b8f",
+   "task_id": "20260906-012044-31918bcc",
+   "gate": []
+  },
+  {
+   "population": "forward",
+   "repo": "itsdangerous",
+   "head": "3703fbdedd13b2630dd9be75a3638408c193765d",
+   "base": "64048c1106eb4e0ed70e64d16e230553a464087b",
+   "task_id": "20260906-012212-ef9d97e7",
+   "gate": []
+  },
+  {
+   "population": "forward",
+   "repo": "more-itertools",
+   "head": "d63a26e56eac21ef874d243d2230123464539ed5",
+   "base": "d0c20f594667738b714a1f7786da82e0de70fbf5",
+   "task_id": "20260906-012302-cdccf6bf",
+   "gate": []
+  },
+  {
+   "population": "forward",
+   "repo": "more-itertools",
+   "head": "2deea20eadd94f3655fe3340a654c950da9959c6",
+   "base": "6235e945d9c3db774e16f77c69a8623d1c1d67c4",
+   "task_id": "20260906-012316-fa015ad8",
+   "gate": []
+  },
+  {
+   "population": "forward",
+   "repo": "more-itertools",
+   "head": "71b76842d32c0b25cfc992fad21f83a606606667",
+   "base": "3331507287761a35d7aa8d583f76d022dd9da958",
+   "task_id": "20260906-012333-17d8eecf",
+   "gate": []
+  },
+  {
+   "population": "forward",
+   "repo": "more-itertools",
+   "head": "390a3db74c62c206fdb2edcf49373fea25d50adc",
+   "base": "935db916c76a66ba1190d1cf20d5ade341f62d14",
+   "task_id": "20260906-012349-228115d7",
+   "gate": []
+  },
+  {
+   "population": "forward",
+   "repo": "packaging",
+   "head": "527be818629b8a4c8c4c5cb995961754d52ff0ce",
+   "base": "e934f4896e53000e3bf9a56eabbf254c59ddba9f",
+   "task_id": "",
+   "gate": []
+  }
+ ],
+ "summary": {
+  "units": 11,
+  "candidates": 25,
+  "admissible": 12,
+  "through_caller": 3,
+  "direct": 0
+ }
+}

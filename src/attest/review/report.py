@@ -154,7 +154,10 @@ def render(
         out.append(nullability_line(note))  # type: ignore[arg-type]
         spoke = True
     for note in structural:
-        out.append(structural_line(note))  # type: ignore[arg-type]
+        # no bullet: the terminal is a list of lines, not a markdown list, and a
+        # leading "- " puts a character before the level marker that the contract
+        # says begins the line
+        out.append(structural_line(note, bullet=""))  # type: ignore[arg-type]
         spoke = True
     if not spoke and not deferred_reason and status is not None:
         out.append(
