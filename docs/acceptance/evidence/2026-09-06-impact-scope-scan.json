@@ -1,6 +1,7 @@
 {
- "generated": "2026-09-05T13:52:55.619681+00:00",
+ "generated": "2026-09-05T14:01:42.400975+00:00",
  "policy_version": "attest.impact.caller-scope.v0",
+ "population": "both",
  "rows": [
   {
    "base": "75723b7720952ac0a4c7d3e277b6714ba55ded18",

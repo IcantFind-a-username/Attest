@@ -285,7 +285,18 @@ Coding agents start with [AGENTS.md](AGENTS.md). The complete documentation map 
   reproduction that fails on base as well;
 - `docs/acceptance/2026-09-05-g-null-001a-independent.md` — the independent null population run
   to a stop on control 54, and the adjudication that its one publication is a **true positive**
-  on a live `more-itertools` defect rather than a false one.
+  on a live `more-itertools` defect rather than a false one;
+- `docs/acceptance/2026-09-06-g-null-001a-final.md` — the same population finished under the
+  probe-adjudicated stop rule: **68 of 68 controls, 0 wrong publications, 7 policy-answered**,
+  and a rule-of-three bound of 42.9% that the report itself calls useless;
+- `docs/acceptance/2026-09-06-forward-pair-generation-failures.md` — all 20 unfaithful
+  reproductions opened and classified: **0 environment failures**, 18 asserting a behaviour the
+  base revision does not have either;
+- `docs/acceptance/2026-09-06-impact-scope-scan.md` — yellow (a), the impact scope, measured
+  offline on 79 units before it is ever author-visible: it speaks on 5 of 11 defect-introducing
+  commits and 3 of 68 ordinary ones, at $0.00;
+- `docs/acceptance/2026-09-06-v01-tag-readiness.md` — the seven product conditions re-checked
+  and the eight things a `v0.1` tag still needs, listed and not started.
 
 Read each with its stated limitations. In particular, hash consistency is not execution
 authenticity, a reverse-fix corpus is not natural PR traffic, and an all-abstain result does

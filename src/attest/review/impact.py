@@ -43,7 +43,6 @@ CATEGORY = "impact"
 
 MAX_FILES = 5_000
 MAX_FILE_BYTES = 1_000_000
-MAX_CALLERS_REPORTED = 8  # per changed function, in the evidence; the line names one
 MAX_DEPTH = 4  # hops from a caller back to a test before "no test names it"
 MAX_NOTES = 2  # author-visible notes per pull request (the same cap green has)
 
@@ -143,9 +142,6 @@ class CallGraph:
     # every mention of a name -- calls, attribute reads, bare references. Used
     # only to answer "does a test name this?", never to claim a call.
     mentions: dict[str, list[CallSite]] = field(default_factory=dict)
-    by_qualname: dict[str, FunctionDef] = field(default_factory=dict)
-    # qualname -> the bare names it calls
-    calls_from: dict[str, set[str]] = field(default_factory=dict)
 
     def unique(self, name: str) -> FunctionDef | None:
         """The one definition of this name, or None when the name is ambiguous.
@@ -277,12 +273,8 @@ def build_call_graph(sources: Mapping[str, str]) -> CallGraph:
         visitor.visit(tree)
         for definition in visitor.definitions:
             definitions[definition.name].append(definition)
-            graph.by_qualname[f"{definition.path}::{definition.qualname}"] = definition
         for site in visitor.sites:
             sites[site.callee].append(site)
-            if site.inside is not None:
-                key = f"{site.path}::{site.inside}"
-                graph.calls_from.setdefault(key, set()).add(site.callee)
         for mention in visitor.mentions:
             mentions[mention.callee].append(mention)
     graph.definitions = dict(definitions)
