@@ -10,11 +10,53 @@ live under [`docs/acceptance/`](docs/acceptance/). This file is the index, not t
 Versions follow [semantic versioning](https://semver.org/) once `v0.1.0` exists. Until then the
 only published ref is a pilot tag, and the sections below say plainly which is which.
 
+## v0.1.0-rc.1 — 2026-09-07 · **internal trial, not a public release**
+
+Tagged so a colleague can install the exact bytes a ref names. **Not published to PyPI**, and
+not `v0.1.0`: that still needs three product conditions that do not hold
+([readiness](docs/acceptance/2026-09-06b-v01-tag-readiness.md)). The release workflow builds a
+wheel and an sdist on the tag, refuses a tag whose version disagrees with the wheel it produced,
+and attaches both to the GitHub Release.
+
+### What a reader deciding whether to point a repository at this ref should know
+
+- **Four times the budget buys nothing measurable.** The 17 commits whose candidates died with
+  the budget gone were re-reviewed at `--budget 1.00` against `0.25`: spend `$1.64 → $10.32`,
+  candidates `105 → 331`, **and not one verdict moved**. Candidates refused *for budget* went
+  **up**, 40 → 44 — raising the budget raises discovery, and discovery re-starves the budget
+  (D-166, [report](docs/acceptance/2026-09-07-budget-rerun.md)). The `$1.00` default stands as a
+  ceiling for large changes, not as a recommendation.
+- **A repository that cannot be reviewed is told so in one line, and exits 0** — no Python
+  source, an unparsable lock file, no docker, or an image that cannot provide pytest (D-159).
+  A repository with **no test suite is supported**: attest installs pytest and writes the test.
+- **Interpreters are 3.10–3.13**, primary 3.12, chosen from `requires-python`, classifiers **or
+  a lock file**. 3.9 is no longer offered, so a project that only installs on 3.9 now fails to
+  bootstrap — a real reduction in what the held-out corpus can measure, and the price of a
+  declared range (D-162).
+- **A killed review no longer makes a repository unreviewable.** A journal torn between its last
+  settlement and its finalization is sealed by a signed abort record, with every binding the
+  finalization had; nothing already written is edited (D-155, closing D-154).
+- **Yellow (b) has a second class and still says nothing.** Exception propagation — a new call
+  that raises, and no caller that handles it — is free, deterministic, and 0 of 79 (D-164). The
+  null/Optional class was re-measured with annotation-independent premises and is **still 0 of
+  79** under two rule versions; it is written into the README's limitations and shelved (D-165).
+- **Green tells the same duplicated pair once**, not on every pull request that touches either
+  file, while both spans are unchanged (D-160).
+- **New knobs:** `daily_budget_usd` (per repository, rolling 24 h, default off) and
+  `repro_concurrency` (default 2; the journal's byte order is unchanged either way). A silence
+  bought out by a ceiling now says how many candidates it stopped (D-161, D-157).
+- **New surfaces:** `attest review --json`, `attest stats --json`, and a cost column in
+  `--explain` (D-163). `docs/faq.md` explains every drawer reason; `docs/examples/` carries one
+  real red, yellow and green comment verbatim.
+- **The red-team matrix covers nine attack classes** (D-166 window): the four already dispatched
+  plus the controller's key file, a symlink escape, DNS egress, a tampered sealed bundle and
+  bounded process exhaustion. **The external-observer item stays INSUFFICIENT** and the recorded
+  matrix says so: every row is observed from inside the product, which is evidence the boundary
+  held for this attempt and not evidence the kernel denied it.
+
 ## Unreleased
 
-The work since `v0.1.0-pilot.1`. It is on `main` and it is **not tagged**: a `v0.1.0` needs
-three product conditions that do not hold yet
-([readiness](docs/acceptance/2026-09-06b-v01-tag-readiness.md)).
+The work since `v0.1.0-pilot.1` that predates the tag above.
 
 ### Author-visible surface
 
