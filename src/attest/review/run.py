@@ -108,6 +108,9 @@ def resolve_full_sha(repo: Path, ref: str) -> str | None:
     return value if resolved.returncode == 0 and len(value) == 40 else None
 
 
+ABORT_SEAL_REASON = "an earlier review ended before it finalized this journal"
+
+
 class ReviewSetupError(RuntimeError):
     """Review input could not be prepared before any provider work."""
 
@@ -266,11 +269,26 @@ def run_review(
 
     try:
         ledger = Ledger(repo)
+        # D-154: a review killed between its last settlement and its journal
+        # finalization leaves a torn journal, and the alpha projection below
+        # reconciles the journal before a candidate is read -- so without this
+        # the repository is unreviewable for good. Sealing appends one signed
+        # abort record per torn task; it rewrites nothing.
+        # local: attest.review.ci imports this module, so the edge is one-way
+        from attest.review.ci import seal_unterminated_delivery_journals
+
+        sealed = seal_unterminated_delivery_journals(ledger, reason=ABORT_SEAL_REASON)
         alpha = ledger.current_alpha(config.alpha) if config.auto_tighten_alpha else config.alpha
         alpha, tighten_note = ledger.maybe_tighten_alpha(alpha, config.auto_tighten_alpha)
     except (OSError, RuntimeError) as exc:
         raise ReviewSetupError("review setup failed") from exc
     notes = [tighten_note] if tighten_note else []
+    if sealed:
+        notes.insert(
+            0,
+            f"sealed {len(sealed)} unfinished delivery journal(s) from an earlier "
+            f"review: {', '.join(abort.task_id for abort in sealed)}.",
+        )
     task_id = task_id or make_task_id(diff.text)
 
     feasibility = gate_feasibility(alpha)

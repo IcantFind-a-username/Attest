@@ -15,7 +15,7 @@ import os
 import stat
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
@@ -41,6 +41,11 @@ _DELIVERY_KINDS = {
     "delivery_attempt_intent",
     "delivery_attempt_settlement",
     "delivery_journal_finalization",
+    # D-154: the seal a later review writes over a journal no run will
+    # finalize. It reconciles exactly like a finalization and is projected the
+    # same way -- what actually settled stays a publication, what never did
+    # stays ambiguous.
+    "delivery_journal_abort",
 }
 # review rows written since C-04 carry the authority of their action: S/T/V
 # wealth ranks candidates and never speaks. Rows without the field predate the
@@ -73,9 +78,9 @@ def _require_row_fields(
     allowed = required | (set() if optional is None else optional)
     if not required <= set(entry) <= allowed:
         raise ValueError(f"{entry.get('kind', 'ledger')} row has an invalid field set")
-    for field in ("ts", "kind"):
-        if field in required and (type(entry[field]) is not str or not entry[field]):
-            raise ValueError(f"ledger {field} must be a non-empty exact string")
+    for name in ("ts", "kind"):
+        if name in required and (type(entry[name]) is not str or not entry[name]):
+            raise ValueError(f"ledger {name} must be a non-empty exact string")
 
 
 def _required_string(entry: dict[str, Any], field: str) -> str:

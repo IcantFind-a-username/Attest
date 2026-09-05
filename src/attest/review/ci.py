@@ -80,6 +80,17 @@ from attest.review.verification import CERTIFICATION_REPEATS, run_verification_s
 
 DELIVERY_TRANSCRIPT_SCHEMA_VERSION = 1
 DELIVERY_TRANSCRIPT_PROTOCOL = "attest.delivery-transcript.v1"
+# D-154: a review killed between its last settlement and its finalization
+# leaves a journal no finalization will ever close. The repair is a second
+# terminator with the same binding -- never an edit to a row already written.
+DELIVERY_ABORT_KIND = "delivery_journal_abort"
+DELIVERY_FINALIZATION_KIND = "delivery_journal_finalization"
+DELIVERY_TERMINATOR_KINDS = frozenset({DELIVERY_ABORT_KIND, DELIVERY_FINALIZATION_KIND})
+_DELIVERY_ATTEMPT_KINDS = frozenset(
+    {"delivery_attempt_intent", "delivery_attempt_settlement"}
+)
+_DELIVERY_ROW_KINDS = _DELIVERY_ATTEMPT_KINDS | DELIVERY_TERMINATOR_KINDS
+DELIVERY_ABORT_REASON_MAX = 200
 __all__ = ["CERTIFICATION_REPEATS", "run_ci"]
 
 
@@ -175,6 +186,110 @@ class CiDeliveryTranscript:
         }
 
 
+@dataclass(frozen=True)
+class CiDeliveryAbort:
+    """The seal a later review writes over a journal no run will finalize.
+
+    It carries exactly the binding a finalization carries -- the digest of the
+    ordered attempts as they stand -- plus the reason it exists. Sealing edits
+    nothing: the torn rows keep the shape they were written with, and any later
+    change to them, or to this record, breaks the digest.
+    """
+
+    schema_version: int
+    protocol: str
+    task_id: str
+    expected_attempt_count: int
+    last_attempt_ordinal: int | None
+    transcript_sha256: str
+    reason: str
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.schema_version) is not int
+            or self.schema_version != DELIVERY_TRANSCRIPT_SCHEMA_VERSION
+        ):
+            raise ValueError("unsupported delivery abort schema_version")
+        if type(self.protocol) is not str or self.protocol != DELIVERY_TRANSCRIPT_PROTOCOL:
+            raise ValueError("unsupported delivery abort protocol")
+        _delivery_string(self.task_id, "task_id")
+        _delivery_nonnegative_int(self.expected_attempt_count, "expected_attempt_count")
+        expected_last = self.expected_attempt_count - 1 if self.expected_attempt_count else None
+        if self.last_attempt_ordinal != expected_last:
+            raise ValueError("delivery abort last ordinal mismatch")
+        _delivery_sha(self.transcript_sha256, "transcript_sha256")
+        if (
+            type(self.reason) is not str
+            or not self.reason
+            or len(self.reason) > DELIVERY_ABORT_REASON_MAX
+            or self.reason.strip() != self.reason
+        ):
+            raise ValueError("delivery abort requires an exact bounded reason")
+
+    def to_abort_dict(self) -> dict[str, object]:
+        return {
+            "kind": DELIVERY_ABORT_KIND,
+            "task_id": self.task_id,
+            "schema_version": self.schema_version,
+            "protocol": self.protocol,
+            "expected_attempt_count": self.expected_attempt_count,
+            "last_attempt_ordinal": self.last_attempt_ordinal,
+            "transcript_sha256": self.transcript_sha256,
+            "reason": self.reason,
+        }
+
+
+def unterminated_delivery_task_ids(rows: list[dict[str, object]]) -> tuple[str, ...]:
+    """Task ids whose journal holds attempts and no terminator, in first order."""
+
+    seen: list[str] = []
+    open_tasks: set[str] = set()
+    for row in rows:
+        kind = row.get("kind")
+        if kind not in _DELIVERY_ROW_KINDS:
+            continue
+        task_id = row.get("task_id")
+        if type(task_id) is not str or not task_id:
+            continue
+        if kind in DELIVERY_TERMINATOR_KINDS:
+            open_tasks.discard(task_id)
+            continue
+        if task_id not in seen:
+            seen.append(task_id)
+        open_tasks.add(task_id)
+    return tuple(task_id for task_id in seen if task_id in open_tasks)
+
+
+def seal_unterminated_delivery_journals(
+    ledger: Ledger, *, reason: str
+) -> tuple[CiDeliveryAbort, ...]:
+    """Seal every torn journal found, so a new review can be started (D-154).
+
+    A review killed between its last settlement and its finalization leaves a
+    journal that every later reconciliation refuses -- and the refusal aborts
+    ``attest review`` at startup, before a candidate is read. Sealing appends
+    one signed abort record per torn task and touches no existing row.
+    """
+
+    rows = ledger.entries()
+    sealed: list[CiDeliveryAbort] = []
+    for task_id in unterminated_delivery_task_ids(rows):
+        transcript = build_delivery_transcript(rows, task_id)
+        abort = CiDeliveryAbort(
+            schema_version=transcript.schema_version,
+            protocol=transcript.protocol,
+            task_id=transcript.task_id,
+            expected_attempt_count=transcript.expected_attempt_count,
+            last_attempt_ordinal=transcript.last_attempt_ordinal,
+            transcript_sha256=transcript.transcript_sha256,
+            reason=reason,
+        )
+        ledger.append_durable(abort.to_abort_dict())
+        sealed.append(abort)
+        rows = ledger.entries()
+    return tuple(sealed)
+
+
 def _record_comment(
     ledger: Ledger,
     task_id: str | None,
@@ -214,7 +329,7 @@ def _ci_run(
     delivery_transcript: CiDeliveryTranscript | None = None
     if task_id is not None:
         if any(
-            row.get("kind") == "delivery_journal_finalization" and row.get("task_id") == task_id
+            row.get("kind") in DELIVERY_TERMINATOR_KINDS and row.get("task_id") == task_id
             for row in rows
         ):
             raise ValueError("duplicate delivery journal finalization")
@@ -437,9 +552,9 @@ def build_delivery_transcript(rows: list[dict[str, object]], task_id: str) -> Ci
         if row.get("task_id") != task_id:
             continue
         kind = row.get("kind")
-        if kind == "delivery_journal_finalization":
+        if kind in DELIVERY_TERMINATOR_KINDS:
             raise ValueError("cannot build a transcript after finalization")
-        if kind not in {"delivery_attempt_intent", "delivery_attempt_settlement"}:
+        if kind not in _DELIVERY_ATTEMPT_KINDS:
             continue
         attempt_id = _delivery_string(row.get("attempt_id"), "attempt_id")
         if kind == "delivery_attempt_intent":
@@ -549,15 +664,11 @@ def reconcile_delivery_rows(
         if row.get("task_id") != task_id:
             continue
         kind = row.get("kind")
-        if kind not in {
-            "delivery_attempt_intent",
-            "delivery_attempt_settlement",
-            "delivery_journal_finalization",
-        }:
+        if kind not in _DELIVERY_ROW_KINDS:
             continue
         if physically_finalized:
             raise ValueError("delivery row appears after its physical finalization")
-        if kind == "delivery_journal_finalization":
+        if kind in DELIVERY_TERMINATOR_KINDS:
             physically_finalized = True
             finalizations.append(row)
             continue
@@ -583,7 +694,8 @@ def reconcile_delivery_rows(
     if len(finalizations) != 1:
         raise ValueError("delivery journal requires one exact finalization")
     finalization = finalizations[0]
-    if set(finalization) != {
+    aborted = finalization["kind"] == DELIVERY_ABORT_KIND
+    terminator_fields = {
         "ts",
         "kind",
         "task_id",
@@ -592,14 +704,17 @@ def reconcile_delivery_rows(
         "expected_attempt_count",
         "last_attempt_ordinal",
         "transcript_sha256",
-    }:
+    }
+    if aborted:
+        terminator_fields = terminator_fields | {"reason"}
+    if set(finalization) != terminator_fields:
         raise ValueError("delivery journal finalization has an invalid field set")
     rebuilt_transcript = build_delivery_transcript(
         [
             row
             for row in rows
             if not (
-                row.get("task_id") == task_id and row.get("kind") == "delivery_journal_finalization"
+                row.get("task_id") == task_id and row.get("kind") in DELIVERY_TERMINATOR_KINDS
             )
         ],
         task_id,
@@ -620,6 +735,18 @@ def reconcile_delivery_rows(
         ),
         transcript_sha256=_delivery_sha(finalization["transcript_sha256"], "transcript_sha256"),
     )
+    if aborted:
+        # constructing it is the validation: an abort whose reason, ordinals or
+        # digest are not exact is refused here, not read as evidence.
+        CiDeliveryAbort(
+            schema_version=finalization_transcript.schema_version,
+            protocol=finalization_transcript.protocol,
+            task_id=finalization_transcript.task_id,
+            expected_attempt_count=finalization_transcript.expected_attempt_count,
+            last_attempt_ordinal=finalization_transcript.last_attempt_ordinal,
+            transcript_sha256=finalization_transcript.transcript_sha256,
+            reason=cast(str, finalization["reason"]),
+        )
     if finalization_transcript != rebuilt_transcript:
         raise ValueError("delivery finalization transcript mismatch")
     if expected_transcript_sha256 is not None:
