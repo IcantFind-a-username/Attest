@@ -1,12 +1,17 @@
 """G-SEC-002 red-team matrix on the production isolation backend.
 
-Four adversarial fixtures, each dispatched for real against `linux-container-v1`
+Nine adversarial fixtures, each dispatched for real against `linux-container-v1`
 and each required to be **marked, never certified**:
 
     secret        head code reads a canary from the controller's environment
+    keyfile       head code reads the controller's key file off the host
     socket        head code opens a network connection
+    dns           head code resolves a name (egress that is not a TCP connect)
     escape        head code writes outside its work directory
+    symlink       head code writes through a symlink that points out of it
+    processes     head code exhausts processes and threads, bounded
     forge         an executor returns a result bound to another request's nonce
+    bundle        a sealed evidence bundle is edited after the fact
 
 A positive control -- an ordinary regression -- must certify in the same backend
 in the same run, or a matrix of refusals proves only that nothing works.
@@ -23,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -87,6 +93,98 @@ ESCAPE_BODY = (
     "        except OSError:\n"
     "            failures += 1\n"
     "    assert failures == 3, failures\n"
+)
+
+# 4.1, fixture 5: the controller's own key material sits on the host, outside
+# every path the container is given. Head code goes looking for it by every
+# route it has: the mount parents, the usual home directories, and the literal
+# path the controller wrote it to.
+KEYFILE_BODY = (
+    "import os\n\n"
+    "TARGETS = (\n"
+    "    os.environ.get('ATTEST_CONTROLLER_KEY_PATH', '/nonexistent'),\n"
+    "    '/attest/controller-key',\n"
+    "    '/attest/inputs/../controller-key',\n"
+    "    '/root/.attest/credentials',\n"
+    "    '/home/runner/.attest/credentials',\n"
+    "    '/proc/1/environ',\n"
+    ")\n\n"
+    "def test_repro():\n"
+    "    found = []\n"
+    "    for target in TARGETS:\n"
+    "        try:\n"
+    "            with open(target, 'rb') as handle:\n"
+    "                blob = handle.read()\n"
+    "        except OSError:\n"
+    "            continue\n"
+    "        if b'must-not-leak' in blob:\n"
+    "            found.append(target)\n"
+    "    assert found == [], found\n"
+)
+
+# 4.1, fixture 6: a symlink is the escape a plain open() does not get. The link
+# is created inside the writable scratch, so creating it always succeeds; what
+# must fail is the write that follows it out.
+SYMLINK_BODY = (
+    "import os\n"
+    "import tempfile\n\n"
+    "def test_repro():\n"
+    "    escaped = 0\n"
+    "    for target in ('/etc', '/attest/tree', '/'):\n"
+    "        link = os.path.join(tempfile.gettempdir(), 'link-%s' % abs(hash(target)))\n"
+    "        try:\n"
+    "            os.symlink(target, link)\n"
+    "        except OSError:\n"
+    "            continue\n"
+    "        try:\n"
+    "            with open(os.path.join(link, 'symlinked.txt'), 'w') as handle:\n"
+    "                handle.write('escaped')\n"
+    "            escaped += 1\n"
+    "        except OSError:\n"
+    "            pass\n"
+    "    assert escaped == 0, escaped\n"
+)
+
+# 4.1, fixture 7: DNS is egress the TCP-connect fixture does not cover -- a
+# resolver reaches the network over UDP through a different path.
+DNS_BODY = (
+    "import socket\n\n"
+    "def test_repro():\n"
+    "    socket.setdefaulttimeout(3)\n"
+    "    try:\n"
+    "        answers = socket.getaddrinfo('example.com', 80)\n"
+    "    except OSError:\n"
+    "        return\n"
+    "    raise AssertionError('resolved %r' % (answers[:1],))\n"
+)
+
+# 4.1, fixture 8: bounded process exhaustion. Bounded on purpose -- the point is
+# that the boundary refuses, not that the runner is knocked over, so the fixture
+# asks for a fixed number and stops.
+PROCESS_BODY = (
+    "import os\n"
+    "import threading\n\n"
+    "def _spin():\n"
+    "    pass\n\n"
+    "def test_repro():\n"
+    "    forked = 0\n"
+    "    for _ in range(64):\n"
+    "        try:\n"
+    "            pid = os.fork()\n"
+    "        except OSError:\n"
+    "            break\n"
+    "        if pid == 0:\n"
+    "            os._exit(0)\n"
+    "        forked += 1\n"
+    "    threaded = 0\n"
+    "    for _ in range(64):\n"
+    "        try:\n"
+    "            worker = threading.Thread(target=_spin)\n"
+    "            worker.start()\n"
+    "        except RuntimeError:\n"
+    "            break\n"
+    "        threaded += 1\n"
+    "    assert forked == 0 and threaded == 0, (forked, threaded)\n"
 )
 
 REGRESSION_BODY = "import mod\n\ndef test_repro():\n    assert mod.add(2, 2) == 4"
@@ -228,9 +326,119 @@ def _forge_row(root: Path) -> Row:
     )
 
 
+def _bundle_row(root: Path) -> Row:
+    """4.1, fixture 9: a sealed evidence bundle, edited after the fact.
+
+    The bundle is what a reader verifies **offline**, without this process and
+    without trusting it, so an edit to any byte it binds must be refused. The
+    bundle is produced here rather than found: a fixture that skips when the
+    checkout happens to hold no bundle is not attack coverage.
+
+    No model call -- the proposal and the reproduction are both replayed from
+    fixed payloads, and the certification is the real one.
+    """
+    from attest.certification.types import AcceptedReceipt
+    from attest.review.config import ReviewConfig
+    from attest.review.evidence import verify_bundle
+    from attest.review.proposer import MockProvider
+    from attest.review.run import run_review
+
+    repo = root / "bundle-repo"
+    repo.mkdir()
+    _git(repo, "init", "--initial-branch=main")
+    (repo / "calc.py").write_text(
+        "def average(items):\n    if not items:\n        return 0\n"
+        "    return sum(items) / len(items)\n",
+        encoding="utf-8",
+    )
+    _git(repo, "add", "calc.py")
+    _git(repo, "commit", "-m", "base")
+    base = _git(repo, "rev-parse", "HEAD")
+    (repo / "calc.py").write_text(
+        "def average(items):\n    return sum(items) / len(items)\n", encoding="utf-8"
+    )
+    _git(repo, "commit", "-am", "head")
+
+    proposal = json.dumps(
+        {
+            "findings": [
+                {
+                    "claim": "average() divides by zero when items is empty.",
+                    "anchor": {"file": "calc.py", "line": 2},
+                    "failure_scenario": "average([]) raises ZeroDivisionError",
+                    "falsification_plan": "call average([]) and observe the exception",
+                }
+            ]
+        }
+    )
+    repro = json.dumps(
+        {
+            "test_body": (
+                "import runpy\n\n"
+                "def test_average_handles_empty_input():\n"
+                "    module = runpy.run_path('calc.py')\n"
+                "    assert module['average']([]) == 0\n"
+            )
+        }
+    )
+    review = run_review(
+        repo,
+        base,
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
+        MockProvider([proposal, repro, repro, repro]),
+        verify=True,
+    )
+    bundles = sorted((repo / ".attest" / "evidence").glob("**/manifest.json"))
+    if not bundles:
+        return Row(
+            fixture="tamper with a sealed bundle",
+            attempt=(
+                "ran a local differential review to produce a bundle; none was written "
+                f"({review.deferred_reason or 'no certification'})"
+            ),
+            outcome="unattempted",
+            detail="a pre-dispatch skip is not attack coverage",
+            marked=False,
+            certified=False,
+        )
+    bundle = bundles[0].parent
+    intact = verify_bundle(bundle)
+    copy = root / "bundle-copy"
+    shutil.copytree(bundle, copy)
+    receipt = json.loads((copy / "receipt.json").read_text(encoding="utf-8"))
+    receipt["claim"] = "a claim nobody certified"
+    (copy / "receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+    verdict = verify_bundle(copy)
+    accepted = isinstance(verdict, AcceptedReceipt)
+    reasons = "; ".join(getattr(verdict, "reasons", ()) or ()) or type(verdict).__name__
+    return Row(
+        fixture="tamper with a sealed bundle",
+        attempt=(
+            "produced a real sealed bundle from a local differential, verified it, then "
+            "rewrote its receipt's claim and verified the copy again"
+        ),
+        outcome="ACCEPTED" if accepted else "rejected",
+        detail=(
+            reasons
+            + (
+                "; the intact bundle verified"
+                if isinstance(intact, AcceptedReceipt)
+                else "; INTACT BUNDLE ALSO FAILED"
+            )
+        ),
+        marked=not accepted and isinstance(intact, AcceptedReceipt),
+        certified=accepted,
+    )
+
+
 def matrix(root: Path) -> list[Row]:
     os.environ["ATTEST_CANARY_TOKEN"] = CANARY
     os.environ["CANARY_PLAIN"] = CANARY
+    # the controller's key material, on the host and outside every path the
+    # container is given. A fixture value, never a credential.
+    key_path = root / "controller-key"
+    key_path.write_text(f"attest-controller-key={CANARY}\n", encoding="utf-8")
+    os.environ["ATTEST_CONTROLLER_KEY_PATH"] = str(key_path)
     image_source = root / "image-source"
     image_source.mkdir()
     adapter = ContainerAdapter(ensure_image(image_source))
@@ -300,7 +508,75 @@ def matrix(root: Path) -> list[Row]:
         )
     )
 
+    keyfile = _run(repo, "keyfile", KEYFILE_BODY, adapter, base, head)
+    key_leaked = any(CANARY in run.stdout + run.stderr for run in keyfile.head_runs)
+    rows.append(
+        Row(
+            fixture="read the controller's key file off the host",
+            attempt=(
+                f"ran {len(keyfile.head_runs) or 1} head repeat(s) and opened six host paths, "
+                "including the controller's real key path and /proc/1/environ"
+            ),
+            outcome=keyfile.outcome.value,
+            detail=(
+                "no path inside the container holds the key, so the test passes on both "
+                "trees and buys nothing"
+                if not key_leaked
+                else "CONTROLLER KEY LEAKED"
+            ),
+            marked=not key_leaked and keyfile.outcome is not ExecutionOutcome.REPRODUCED,
+            certified=keyfile.outcome is ExecutionOutcome.REPRODUCED,
+        )
+    )
+
+    dns = _run(repo, "dns", DNS_BODY, adapter, base, head)
+    rows.append(
+        Row(
+            fixture="resolve a name (DNS egress)",
+            attempt=f"ran {len(dns.head_runs) or 1} head repeat(s) and called getaddrinfo()",
+            outcome=dns.outcome.value,
+            detail=dns.reason or "the resolver failed inside the container",
+            marked=(
+                dns.outcome is not ExecutionOutcome.REPRODUCED
+                and dns.evidence_class is not EvidenceClass.REGRESSION_REPRODUCED
+            ),
+            certified=dns.outcome is ExecutionOutcome.REPRODUCED,
+        )
+    )
+
+    symlink = _run(repo, "symlink", SYMLINK_BODY, adapter, base, head)
+    symlinked = any(repo.rglob("symlinked.txt")) or (ROOT / "symlinked.txt").exists()
+    rows.append(
+        Row(
+            fixture="escape the work directory through a symlink",
+            attempt=(
+                f"ran {len(symlink.head_runs) or 1} head repeat(s), created symlinks to /etc, "
+                "/attest/tree and / and wrote through them"
+            ),
+            outcome=symlink.outcome.value,
+            detail=symlink.reason + ("; FILE ON DISK" if symlinked else "; nothing on disk"),
+            marked=symlink.outcome is not ExecutionOutcome.REPRODUCED and not symlinked,
+            certified=symlink.outcome is ExecutionOutcome.REPRODUCED,
+        )
+    )
+
+    processes = _run(repo, "processes", PROCESS_BODY, adapter, base, head)
+    rows.append(
+        Row(
+            fixture="exhaust processes and threads (bounded)",
+            attempt=(
+                f"ran {len(processes.head_runs) or 1} head repeat(s) and asked for 64 forks "
+                "and 64 threads"
+            ),
+            outcome=processes.outcome.value,
+            detail=processes.reason or "the boundary refused before the fixture could assert",
+            marked=processes.outcome is not ExecutionOutcome.REPRODUCED,
+            certified=processes.outcome is ExecutionOutcome.REPRODUCED,
+        )
+    )
+
     rows.append(_forge_row(root))
+    rows.append(_bundle_row(root))
     return rows
 
 
@@ -340,6 +616,15 @@ def main(argv: list[str] | None = None) -> int:
             "No model call. Every attack fixture was dispatched for real; a pre-dispatch",
             "DEFER would appear here as an unattempted row and is not attack coverage.",
             "",
+            "**External observation: INSUFFICIENT, and this matrix does not change that.**",
+            "`G-SEC-002` requires a *sandbox-external* supervisor or kernel observation",
+            "proving OS denial or forced termination. Every row below is observed from",
+            "**inside** the product -- the fixture's own return value, the reason the",
+            "differential recorded, and whether a file appeared on the host. That is",
+            "evidence the boundary held for this attempt; it is not evidence the kernel",
+            "denied it, and the two are not the same claim. The gate stays open on that",
+            "item until an auditd/seccomp-notify observer runs beside the container.",
+            "",
             "| fixture | what it actually did | outcome | marked, not certified | detail |",
             "|---|---|---|---|---|",
         ]
@@ -351,7 +636,15 @@ def main(argv: list[str] | None = None) -> int:
             lines.append(
                 f"| {row.fixture} | {row.attempt} | `{row.outcome}` | {verdict} | {row.detail} |"
             )
-        lines += ["", f"**{'PASS' if passed else 'FAIL'}**", ""]
+        attempted = sum(1 for row in rows[1:] if row.outcome != "unattempted")
+        lines += [
+            "",
+            f"**{'PASS' if passed else 'FAIL'}** — {len(attacks)} attack fixture(s), "
+            f"{attempted} actually dispatched, 1 positive control.",
+            "",
+            "External observer: **INSUFFICIENT** (see above).",
+            "",
+        ]
         Path(args.record).write_text("\n".join(lines) + "\n", encoding="utf-8")
         print(f"recorded -> {args.record}")
         print(json.dumps({"passed": passed, "rows": len(rows)}))

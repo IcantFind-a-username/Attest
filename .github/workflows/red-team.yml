@@ -36,8 +36,14 @@ jobs:
 
       # The canary is a fixture value, not a credential: it is planted in the
       # controller's environment so the matrix can prove the job never sees it.
+      # 4.1: nine attack classes plus the positive control. The matrix is
+      # written into `docs/acceptance/` so the result travels with the
+      # repository rather than expiring with the workflow artifact.
       - name: Red-team matrix on linux-container-v1
-        run: python scripts/release/redteam.py --record redteam.md
+        run: |
+          mkdir -p docs/acceptance
+          python scripts/release/redteam.py --record redteam.md
+          cp redteam.md "docs/acceptance/$(date -u +%Y-%m-%d)-redteam-nine.md"
 
       - name: The matrix
         if: always()
