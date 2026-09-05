@@ -37,25 +37,32 @@ ANTHROPIC_API_KEY=... /path/to/Attest/.venv/bin/attest review --base main --k 4 
 
 `attest review` proposes candidates, runs the differential reproduction stage (the generated
 test must fail on your head three times and pass on the merge-base three times, inside a
-container), and prints one of:
+container), and prints **one line per claim** (D-142) followed by **one accounting line that is
+always present**:
 
-- `verified findings (each backed by one accepted receipt):` followed by the test, the
-  command to run it yourself, the run summaries, the bundle path and the offline
-  verification command; or
-- `checked N candidate(s); none was verified by a reproduction (a test that fails on head
-  and passes on base) — abstained.` followed by `run status:` with the change units read,
-  candidates, eligible, reproductions attempted and one line per reproduction failure with
-  its category.
+```text
+[red] calc.py:2 — average() divides by zero on an empty list … (receipt 3253ada5eff4)
+read 1/1 units, candidates 1, drawer 0; verified 1, discarded 0; spend $0.31 of $1.00; 41.2s.
+```
 
-Locally — and only locally — the abstention is followed by `unverified candidates (N; ranked
-by internal score, not evidence)`, one drawer line each. They are not findings and carry no
-receipt; the Action never shows them. If the run status says
-`read N of M units, budget-limited`, the per-review budget stopped before the remaining
-change units were read: raise `--budget` and run again. Source files are read before
-documentation, so the budget reaches code first.
+When nothing met a bar, the levels are replaced by exactly one line that names how many change
+units the silence covers — and, when the budget is what stopped it, how many candidates went
+unverified:
 
-Nothing else is a finding. `attest stats --drawer` lists what was held back and why;
-`attest feedback <id> --fix|--good|--dismiss` labels it.
+```text
+[silent] read 1 of 13 units; nothing met an adjudicator's bar; $0.0156, 4.4s.
+[silent] read 3 of 13 units; the budget ceiling was reached; 8 candidate(s) were not
+         verified; $1.0000, 194.3s.
+```
+
+Add **`--explain`** for one line per silent candidate — its coordinate, the class of reason the
+drawer holds it for, and what it cost — and **`--json`** for the same run as one machine-readable
+object. Neither is on by default: a drawer reason is not a claim about the code.
+
+The accounting line's drawer histogram is the thing to read first; every class in it is
+explained in [the FAQ](../faq.md). Nothing except a `[red]` line is a finding.
+`attest stats --drawer` lists what was held back and why, `attest stats --json` summarises a
+repository, and `attest feedback <id> --fix|--good|--dismiss` labels a finding.
 
 ### What a review typically costs
 
@@ -72,7 +79,10 @@ the budget named; a review never spends more than its budget, and most spend far
 | the three largest changes measured, unconstrained | $1.20 | 3 | **$0.91** (max $1.03) | [budget wall](../acceptance/2026-09-04-budget-wall.md) |
 
 **So: a typical review costs about $0.20–$0.35, and the $1.00 default is the ceiling for the
-few large changes that need it, not the price of an ordinary one.** A documentation-only pull
+few large changes that need it, not the price of an ordinary one.** And raising it past that
+default is measured to buy nothing: the 17 commits whose candidates died with the budget gone
+were re-reviewed at four times the budget and **not one verdict moved**
+([report](../acceptance/2026-09-07-budget-rerun.md)). A documentation-only pull
 request costs a few cents. You are billed by your model provider for what is actually spent;
 attest never spends past the cap and says so explicitly when it stops.
 
