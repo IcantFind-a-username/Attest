@@ -85,6 +85,12 @@ three product conditions that do not hold yet
   3 certified and 3 published, value class 0 of 1.
 - **A live defect in `more-itertools` was found as a null control** and adjudicated by an
   independent probe on four interpreters.
+- **The held-out slice, re-run under the probe generator** (2026-09-06c): **certified 4 of 28,
+  0 false publications on 40 controls, and 28 of 28 environments built** against 10 of 29 before.
+  The environment stopped being the wall and `attest.intent.v4.1` became it: **all four cases the
+  old generator published and this one does not were lost to the value-class clause**, which is
+  the largest number this project has on that clause's recall cost
+  ([report](docs/acceptance/2026-09-06c-heldout-probe.md)).
 - **The 15 value-class drawers the probe generator produced, adjudicated by hand** (2026-09-06c):
   **0 real defects, 15 intended changes, 0 undecidable**, all fifteen on two `click` commits and
   every one of them documented in that commit's own changelog. `attest.intent.v4.1` is left

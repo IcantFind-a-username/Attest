@@ -9,7 +9,7 @@ This is the number `v0.1` condition 4 and `G-RECALL-002` have been waiting for: 
 held-out figure taken under the current policy.** The 5-of-29 the README carried predates intent
 v3, v4 and v4.1, D-124's bundle integrity, D-138's working directory and D-146's generator.
 
-**Spend `$2.5399` of a `$15.00` reservation**, plus **`$1.4490` abandoned over two false starts**
+**Spend `$3.0058` of a `$15.00` reservation**, plus **`$1.4490` abandoned over two false starts**
 (§5). Population, cutoff and quota are the ones committed on 2026-09-03 and are **not**
 re-sampled; results went to a fresh `.probe` suffix so the `.heldout` column survives untouched.
 Local review only — no GitHub client is constructed, so no publication surface exists.
@@ -19,15 +19,15 @@ Local review only — no GitHub client is constructed, so no publication surface
 
 | | old (2026-09-03, legacy generator, `--budget 0.25`) | **new (probe + record/replay, `--budget 1.00`)** |
 |---|---|---|
-| defect cases run | 29 | **27 of 29** (§5) |
-| — **built** (the environment ran a reproduction) | 10 | **27** |
+| defect cases run | 29 | **28 of 29** (§5) |
+| — **built** (the environment ran a reproduction) | 10 | **28** |
 | — **certified** (cases) | 5 | **4** |
 | — **published** (findings) | 7 | **4** |
 | control cases run | 39 | **40** |
 | — **false publications** | **0** | **0** |
-| **drawer** (verification verdicts that are not a receipt) | 61 | **54** |
-| — **unrecordable** (the probe refused the recording) | — | **7** |
-| spend | $1.7899 | **$2.5399** |
+| **drawer** (verification verdicts that are not a receipt) | 61 | **62** |
+| — **unrecordable** (the probe refused the recording) | — | **10** |
+| spend | $1.7899 | **$3.0058** |
 
 Drawer reasons, side by side:
 
@@ -35,9 +35,9 @@ Drawer reasons, side by side:
 |---|---|---|
 | the environment did not build | **49** | **0** |
 | **`attest.intent.v4.1` refused the intent** | **0** | **24** |
-| the test passed on head (no differential) | 1 | **14** |
-| **unrecordable** — the probe refused the recording | — | **7** |
-| host or collection deferred | 1 | 6 |
+| the test passed on head (no differential) | 1 | **17** |
+| **unrecordable** — the probe refused the recording | — | **10** |
+| host or collection deferred | 1 | 8 |
 | unfaithful reproduction | **9** | **3** |
 | other | 1 | 0 |
 
@@ -48,7 +48,7 @@ column's 61 drawer verdicts were `environment bootstrap failed`; the new column 
 That is the 2026-09-03 bootstrap fix, not this window's work, and it means **the old column's
 "5 of 29" was really "5 of the 10 whose environment built"** — the README always said so and the
 comparison has to keep saying it. On a like-for-like basis the old column certified **5 of 10
-built** and the new one **4 of 27 built**.
+built** and the new one **4 of 28 built**.
 
 **2. `attest.intent.v4.1` is now the wall, and it costs four real defects.** 24 of 54 drawer
 verdicts are intent refusals, and **all four cases the old column published and the new one does
@@ -76,9 +76,9 @@ have*. The three that remain are a different failure the same word covers: *"it 
 symbol absent from head, so its head failure is a stale reference rather than a defect"*, which
 the probe path can still produce because the model still chooses **what to call**.
 
-**5. `probe refused` is a real and quantified recall cost: 7 of 54.** Four are the recording
-refusing a value it could not reproduce three times; two are *"the probe observation is not
-stable on base"*; one is *"the probe did not execute `pylint/constants.py` on base"*. Every one
+**5. `probe refused` is a real and quantified recall cost: 10 of 62.** Some are the recording
+refusing a value it could not reproduce three times; others are *"the probe observation is not
+stable on base"* or *"the probe did not execute `pylint/constants.py` on base"*. Every one
 of them is a candidate the old generator would have written a test for, and each is a case where
 recording says *I cannot* rather than guessing.
 
@@ -89,7 +89,8 @@ to hold on this population; the recall side does not have a stated target to be 
 
 Condition 4 asks for **silent on every control** *and* **a stated non-trivial share of eligible
 defects certified**. The first half holds: 0 of 40. The second half **has a number for the first
-time under the current policy — 4 of 27 (15%), or 4 of 27 built — and no stated target**, so it
+time under the current policy — 4 of 28 (14%), and every one of the 28 built — and no stated
+target**, so it
 cannot be scored. Naming the share is an owner decision, not a measurement.
 
 ## 4. The README's numbers
@@ -99,10 +100,22 @@ The measured table now carries the new column and keeps the old one on one line 
 
 ## 5. What was not run, and the two false starts, both on the record
 
-**27 of 29 defects.** `pytest-dev__pytest-5840` and `pytest-dev__pytest-8399` were killed by the
-operator's stall watchdog after exceeding ten minutes on one case; both are `pytest` cases whose
-image build dominates. They were re-queued and the report states the achieved n rather than
-assuming the full one.
+**28 of 29 defects, and the missing one found a third defect.** `pytest-5840` and `pytest-8399`
+were killed by the operator's stall watchdog after ten minutes; `pytest-5840` was re-queued and
+ran. **`pytest-8399` cannot be re-run at all**, and the reason is worth more than the case:
+
+```
+ValueError: delivery journal requires one exact finalization
+```
+
+The kill landed **between that review's last delivery settlement and its journal finalization**,
+so the ledger holds two intents, two settlements and no finalization — and every subsequent
+`attest review` of that repository now **aborts at startup** reconciling it. The strictness is
+correct: a torn journal *is* evidence that a run was interrupted. The response is not. It is the
+same shape as **D-149** — a journal problem taking the whole review down instead of degrading the
+one thing that depends on it — and it is recorded as **D-154** rather than fixed, because a
+torn-journal recovery path touches the tamper-evidence design and inventing one at the end of a
+window is how a rule ends up with a clause nobody measured.
 
 **Two earlier passes were abandoned and their `$1.4490` is spent:**
 

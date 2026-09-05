@@ -1576,3 +1576,13 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** one call to `contract_collapsed`.
 - **RED:** covered by the existing `tests/test_github_presentation.py` layout tests plus the live pull request in the report; the collapsed block's content is unchanged and its tests are unchanged.
 - **Trace:** D-142, D-133, D-145.
+
+### D-154 — A review killed between its last settlement and its finalization leaves the repository unreviewable
+
+- **Date/status/scope:** 2026-09-06 · **open, recorded and deliberately not fixed** · `src/attest/review/ci.py` (`reconcile_delivery_rows`), `src/attest/review/ledger.py` (`_surfaced_projection`); found on `pytest-dev__pytest-8399` during the held-out re-run ([report](docs/acceptance/2026-09-06c-heldout-probe.md) §5).
+- **What happens.** A stall watchdog killed one review after it had written two `delivery_attempt_intent` rows and two `delivery_attempt_settlement` rows and before it wrote `delivery_journal_finalization`. Every subsequent `attest review` of that repository now raises `ValueError: delivery journal requires one exact finalization` **at startup**, because `maybe_tighten_alpha` reconciles the journal before a candidate is read. The case cannot be re-run without ledger surgery.
+- **The strictness is right and the response is wrong.** A journal with settlements and no finalization *is* evidence that a run was interrupted, and the reconciler should say so. What it should not do is take the next review down with it: the torn task's publications cannot enter the precision denominator, and that is the whole of what depends on them. This is the same shape as D-149 — a journal problem aborting a review instead of degrading the one projection that reads it.
+- **Why it is not fixed here.** The narrow fix is to exclude a torn task from `_surfaced_projection` and record the exclusion, which is about thirty lines and a test. It also weakens a tamper-evidence property, and choosing *which* torn journals are excusable is a design decision, not a bug fix. Inventing it at the end of a window is how a rule acquires a clause nobody measured.
+- **Cost:** one held-out defect case, so the reported n is 28 of 29 rather than 29.
+- **RED:** none yet; the reproduction is a `SIGTERM` between two ledger appends, and the fixture is the ledger of `.attest/corpora/swebench/cases/pytest-dev__pytest-8399`, which is kept.
+- **Trace:** D-149; `RISK-CERT-01` untouched — nothing here changes what may be published.
