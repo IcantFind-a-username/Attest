@@ -103,7 +103,7 @@ Three levels in one comment, each anchored on a line the diff changed. **A scree
 be captured** — the browser pane rendered the page blank below the fold — so the comment is
 recorded verbatim instead, which is durable where a screenshot is not.
 
-## 7. Three defects found, two fixed
+## 7. Four defects found, three fixed
 
 - **D-149.** D-142's level marker had been made mandatory in the **delivery journal's** integrity
   check, retroactively invalidating every pre-D-142 row — and the failure was `attest review`
@@ -116,13 +116,19 @@ recorded verbatim instead, which is durable where a screenshot is not.
   invariant. Replay now answers the nullability question with the empty hypothesis list — the
   level is silent, which is what it is on any failure — rather than raising, which the checkpoint
   machinery would read as an ambiguous cost.
+- **The M-01 offline measurement probe had the same bug** and all three of its cases errored: it
+  answered the nullability question with the recorded *proposal* text and counted the call as a
+  proposal, breaking the `product.proposals == 2` guard it exists to hold fixed. Same fix; the
+  cassette is unchanged and only the probe's own digest moves.
 
 ## 8. Gates
 
-`ruff` clean; `mypy` clean over 88 source files. The `gates` workflow **failed on a runner at
-`61835fa`** — five report tests carried D-152's replaced prose, and the local suite had been
-killed before reaching them; fixed at `5595477`, whose runner result is the one to read. Coverage
-was 93.12% against the 90% floor in that same failing run, so the floor is not at risk. New
+`ruff` clean; `mypy` clean over 88 source files. **The `gates` workflow failed on a runner at
+`61835fa`, and reading that failure is how the last two defects were found**: five report tests
+carried D-152's replaced prose, and the three M-01 cases errored. Both are fixed; the local suite
+at `bcc56c1` is green apart from those three, which pass on their own. Coverage was **93.12%**
+against the 90% floor in that same failing run, so the floor is not at risk. The runner result to
+read is the one on `bcc56c1`. New
 tests: `test_nullability.py` (6), `test_local_report.py` (4), `test_delivery_journal_history.py`
 (3), 5 in `test_impact_scope.py`. All fail on the previous implementations.
 
