@@ -35,6 +35,7 @@ from attest.review.config import DISABLED_REASON, ReviewConfig, resolve_review_p
 from attest.review.diffs import resolve_merge_base
 from attest.review.executor import ExecutorLimits
 from attest.review.ledger import Ledger
+from attest.review.output_contract import LEVEL_MARKERS
 from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
 from attest.review.status import status_from_rows
@@ -222,7 +223,11 @@ _INLINE_FINDING_MARKER_RE = re.compile(r"<!-- attest:finding-id:([0-9a-f]{10}) -
 # identifies it by the pair of coordinates it is about
 _INLINE_STRUCTURAL_MARKER_RE = re.compile(r"<!-- attest:structural:([^\s>]+) -->")
 _SUMMARY_FINDING_MARKER_RE = re.compile(
-    r"- <!-- attest:finding-id:([0-9a-f]{10}) --> Finding ID: \1; .+"
+    # D-142: the level marker is part of the shape the journal checks, so a
+    # summary line that lost it cannot be delivered as a finding.
+    r"- <!-- attest:finding-id:([0-9a-f]{10}) --> "
+    + re.escape(LEVEL_MARKERS["red"])
+    + r" Finding ID: \1; .+"
 )
 
 
@@ -950,6 +955,19 @@ def _candidate_id(finding: CertifiedFinding) -> str:
     return finding.accepted_receipt.receipt.candidate_id
 
 
+def _units_read(ledger: Ledger, task_id: str | None) -> tuple[int, int] | None:
+    """(units read, units planned) for the silence line (D-142). The same rows
+    the collapsed run status reads; a ledger this cannot read means no counts,
+    never a wrong count."""
+    if task_id is None:
+        return None
+    try:
+        status = status_from_rows(ledger.entries(), task_id)
+    except (OSError, RuntimeError, ValueError):
+        return None
+    return status.units_read, status.units_planned or status.units_read
+
+
 def _with_run_status(ledger: Ledger, task_id: str | None, body: str) -> str:
     """Owner item 6: every final status comment, silent or not, carries a
     collapsed run-status section (counts and reproduction failure categories,
@@ -1480,7 +1498,12 @@ def run_ci(
         ledger,
         task_id,
         render_complete(
-            surfaced, review.budget.spent_usd, elapsed_s, finding_evidence, structural=green
+            surfaced,
+            review.budget.spent_usd,
+            elapsed_s,
+            finding_evidence,
+            structural=green,
+            units=_units_read(ledger, task_id),
         ),
     )
     try:

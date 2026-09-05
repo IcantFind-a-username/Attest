@@ -37,6 +37,8 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path, PurePosixPath
 
+from attest.review.output_contract import banned_phrase
+
 STRUCTURAL_POLICY_VERSION = "attest.structural.duplicate-implementation.v1"
 CATEGORY = "structural"
 
@@ -93,7 +95,10 @@ TEST_DIRS = frozenset({"tests", "test", "testing"})
 
 # Coordinate-free hedging. A green finding either names where and how much, or it
 # is not said. These are refused wherever they appear in the published sentence.
-BANNED_PHRASES = (
+# D-133's original list, kept as the record of what green refused before the
+# contract existed. `inadmissible_phrase` reads the contract's list (D-142); this
+# one is a superset check in the tests, never a second policy.
+LEGACY_BANNED_PHRASES = (
     "may ",
     "might ",
     "possibly",
@@ -351,12 +356,14 @@ def evidence_sentence(finding: DuplicateImplementation) -> str:
 
 def inadmissible_phrase(text: str) -> str | None:
     """The first banned phrase in ``text``, or None. This is the wording
-    adjudicator: it runs on the model's sentence exactly as it runs on ours."""
-    lowered = text.lower()
-    for phrase in BANNED_PHRASES:
-        if phrase in lowered:
-            return phrase.strip()
-    return None
+    adjudicator: it runs on the model's sentence exactly as it runs on ours.
+
+    D-142: the list it reads is now the **output contract's**, not this module's.
+    Green's wording rule was the first instance of a rule every level owes, so it
+    was generalised rather than duplicated, and this function stays as the name
+    the green path already calls."""
+    found = banned_phrase(text)
+    return None if found is None else found[1]
 
 
 def names_a_coordinate(text: str, finding: DuplicateImplementation) -> bool:

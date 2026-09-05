@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,8 @@ from attest.review.acceptance import (
 from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits
 from attest.review.ledger import Ledger
+from attest.review.output_contract import LEVEL_MARKERS
+from attest.review.output_contract import check as contract_check
 from attest.review.proposer import ProviderResult
 from attest.review.workdir import work_root
 
@@ -457,7 +460,13 @@ def test_clean_negative_control_posts_no_inline_review(
     assert len(provider.calls) == 1
     assert github_server.review_bodies == []
     final_body = github_server.status_bodies[-1]
-    assert "No finding was verified by a reproduction; abstained." in final_body
+    # D-142: a wholly silent review says one line, and it names the units read
+    assert re.search(
+        r"\[silent\] read \d+ of \d+ units; nothing met an adjudicator's bar; "
+        r"\$\d+\.\d{4}, \d+\.\d+s\.",
+        final_body,
+    )
+    assert "No finding was verified" not in final_body
 
 
 def test_a_duplicated_implementation_reaches_the_author_as_a_structural_comment(
@@ -541,11 +550,14 @@ def test_a_duplicated_implementation_reaches_the_author_as_a_structural_comment(
     assert comment.count(STRUCTURAL_PREFIX) == 1
     assert "Category: structural" in comment and "no receipt backs it" in comment
     assert "orders.py:1-10" in comment and "invoices.py:1-10" in comment
-    assert STRUCTURAL_ADVICE_HEADING in comment
+    # D-142: the model's paragraph lives in a block that renders collapsed
+    assert "<details>" in comment and "not part of the claim" in comment
     assert "Delete it and import `summarise_orders`" in comment
-    # the claim line is coordinates and a measure; the model's words are below it
+    # the claim line is one contract line: marker, coordinates and a measure
     claim = comment.split("\n")[1]
-    assert claim.startswith(STRUCTURAL_PREFIX) and "Delete" not in claim
+    assert claim.startswith(f"{LEVEL_MARKERS['green']} {STRUCTURAL_PREFIX}")
+    assert "Delete" not in claim
+    assert contract_check(claim).admitted is True
 
     final = github_server.status_bodies[-1]
     assert "No finding was verified by a reproduction; abstained." in final

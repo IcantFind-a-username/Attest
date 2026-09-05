@@ -113,7 +113,12 @@ def test_complete_status_names_only_certified_findings(certified_factory) -> Non
     assert f"Finding ID: {overflow_id}" in complete
     assert "$0.0125" in complete
     assert "3.2s" in complete
-    assert "No finding was verified by a reproduction; abstained." in render_complete([], 0.0, 1.0)
+    # D-142: a wholly silent review is exactly the contract's silence line
+    from attest.review.output_contract import silence_line
+
+    assert render_complete([], 0.0, 1.0, units=(4, 9)) == silence_line(
+        units_read=4, units_planned=9, spend_usd=0.0, elapsed_s=1.0
+    )
 
     # anything that is not a validator-built CertifiedFinding is refused,
     # including the legacy wealth-gated result type

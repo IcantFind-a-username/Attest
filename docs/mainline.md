@@ -29,9 +29,19 @@ The product is complete when all of the following hold, and not before:
 5. one prospective shadow run on the owner's live repositories has produced no false
    publication (`G-SHADOW-001`);
 6. the roadmap's L-01 exit list (install ref, quickstart, base-owned policy docs, support
-   matrix, privacy/retention, failure copy, kill switch, rollback) is done.
+   matrix, privacy/retention, failure copy, kill switch, rollback) is done;
+7. **every author-visible line obeys the output contract** (*owner decision, 2026-09-06,
+   D-142*): one line per finding, carrying a level marker, a `file:line` coordinate, one
+   sentence of fact, and an evidence link or a second coordinate — and nothing else. No
+   preamble, no restatement of the pull request, no unlocated "may/might/consider", no
+   evaluation of the author, no disclaimer. A model's fix suggestion lives in a block that
+   renders collapsed and carries no part of the claim. **A wholly silent review says exactly
+   one line, and that line names how many change units it read.** The adjudicator is
+   `review.output_contract`, it calls no model, and **a line that does not conform is not
+   published** — for a certified finding the receipt's own sentence is published in its
+   place, so wording never suppresses evidence.
 
-Anything not needed for those six is not on the mainline. Explicitly off it until after
+Anything not needed for those seven is not on the mainline. Explicitly off it until after
 L-01: the learned scheduler (S-*), the pricing-layer and F-facet research, controlled
 subprocess allowlists (X-03), feasibility priority (R-04), and any whole-repository scan
 surface. **N-01 is no longer off the mainline** — it is the gate level of §1.1.
@@ -51,6 +61,7 @@ working adjudicator ships nothing, however good its proposals look.
 | **red** | this change broke something that worked | a **differential receipt**: the generated test fails on head, passes on base, in isolation, repeated, changed lines executed, bundle verifies offline | the certification kernel, the binding policy, and the intent discriminator (D-102, D-120, D-128) |
 | **gate** | this new code fails on an input the change makes reachable | an **executable failure of new code** on a witnessed reachable input — there is no base revision to compare against, so the failure itself is the evidence | reachability of the input plus the same execution, isolation and repetition the receipt demands (N-01) |
 | **yellow** | this looks wrong, and here is exactly what I checked | the model states a hypothesis as **premises**; a deterministic checker verifies each premise separately; the finding states **only the premises that were verified** and its confidence is a function of which ones were | the premise checker: an unverified premise is deleted from the text, not softened |
+| **yellow (a)** — *the impact scope, D-143* | this change reaches a caller no test names, or its signature moved | **counts over an abstract syntax tree**: the call sites of each changed function, whether a test names each caller, and whether the signature or return annotation moved against the base | the counts themselves; no model is called at all, and an ambiguous name, an uncalled function or new code is an abstention |
 | **green** | this is structurally so, here and here | a **computable structural measure** with **at least two concrete coordinates** (file and line, both ends) | the measure itself; the model is called only after the measure holds, and only to translate it and propose a fix |
 
 Three consequences the levels are chosen for:
