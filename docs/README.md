@@ -33,9 +33,9 @@ match the bug.
   and its current safety limitations. It is non-normative: target architecture and release
   gates override its implementation-era usage instructions.
 - the dated handoffs are SHA-bound records of one window each; the newest is
-  [`overnight-handoff-2026-09-05b.md`](overnight-handoff-2026-09-05b.md) (`attest.intent.v4.1`,
-  `G-NULL-001a` at n = 58 with 0 wrong publications, the hand adjudication of the drawered value
-  class, and the gate-level design), preceded by `overnight-handoff-2026-09-05.md`,
+  [`overnight-handoff-2026-09-05c.md`](overnight-handoff-2026-09-05c.md) (the independent null
+  population, the gate level in shadow, and the forward-pair corpus), preceded by
+  `overnight-handoff-2026-09-05b.md`, `overnight-handoff-2026-09-05.md`,
   `overnight-handoff-2026-09-04{,b,c}.md`, `overnight-handoff-2026-09-03{,b,c,d,e,f,g}.md` and the
   older [`overnight-handoff.md`](overnight-handoff.md)
   (`feature/m01-authoritative-outcomes`). A handoff never owns status: roadmap status lives only
@@ -43,9 +43,12 @@ match the bug.
 - `examples/` contains current fixtures/templates, not proof that their path is release-ready.
 - `design/` holds **proposals that are not implemented**. A design document owns no contract and
   no gate; it states a shape, names the normative documents it would have to move, and ends with
-  the RED that would open the work. [`design/gate-level.md`](design/gate-level.md) is the first
-  one: the evidence form for the gate level of `mainline.md` §1.1, unimplemented, and it names
-  the `G-NEWCODE-001` conflict it cannot resolve on its own.
+  the RED that would open the work. [`design/gate-level.md`](design/gate-level.md) was the first
+  one and is **no longer only a design**: D-137 implements it **in shadow**
+  (`ReviewConfig.gate_shadow`, off in the product), and the `G-NEWCODE-001` conflict it named is
+  resolved in that gate's own text — the pilot precondition governs speech, not observation. The
+  document still describes the shape; [the report](acceptance/2026-09-05-gate-shadow.md) says
+  what shipped and what is still unmeasured.
 
 ## Evidence and historical documents
 

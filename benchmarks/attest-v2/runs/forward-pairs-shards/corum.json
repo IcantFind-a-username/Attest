@@ -1,0 +1,8 @@
+{
+ "examined": 0,
+ "max_back": 200,
+ "pairs": [],
+ "policy": "D-135: value-class recall is measured on forward pairs only",
+ "resolved": 0,
+ "schema_version": "attest.forward-pairs.v1"
+}

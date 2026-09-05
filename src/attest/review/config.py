@@ -49,6 +49,12 @@ class ReviewConfig:
     # requests into it before any model call or head-code execution; the head
     # of a pull request cannot flip it because CI reads the base's policy
     enabled: bool = True
+    # D-137, the gate level: **off**, and off is the product's setting. On, the
+    # review additionally asks the gate question of its new-code candidates and
+    # writes the answer to the ledger and to `.attest/shadow/gate/`. It reaches
+    # no author-visible surface either way; what it costs when it is on is one
+    # reproduction and three head runs per attempt, which is why it is opt-in.
+    gate_shadow: bool = False
 
     def __post_init__(self) -> None:
         validate_review_config(self)

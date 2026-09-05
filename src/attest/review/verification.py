@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -100,8 +101,13 @@ def run_verification_stage(
     # already uses for publication: score first, candidate id to break ties.
     candidates.sort(key=lambda item: (-item.wealth, item.finding.finding_id))
     eligible_candidates = [c for c in candidates if c.eligibility == "regression"]
+    # D-137: the gate level executes head-only, and it needs the same isolation
+    # red does, so a review with only new-code candidates still selects one
+    gate_candidates = (
+        [c for c in candidates if c.eligibility == "new_code"] if config.gate_shadow else []
+    )
     backend_reason = "caller-supplied adapter"
-    if adapter is None and eligible_candidates:
+    if adapter is None and (eligible_candidates or gate_candidates):
         # X-02: one backend per task; the image is built from the head tree
         # before any head code runs, and a failed bootstrap is its own reason
         backend = select_backend(
@@ -234,6 +240,32 @@ def run_verification_stage(
                 block = evidence_from_bundle(attempt.bundle.path, repo=repo)
                 if block is not None:
                     evidence[candidate.finding.finding_id] = block
+
+    # D-137, the gate level, in shadow and off by default. It runs **after**
+    # every certification decision has been taken and touches none of them: its
+    # candidates are the `new_code` ones, which the loop above skipped without
+    # buying anything, and its output goes to the ledger and to
+    # `.attest/shadow/gate/` and nowhere else. Any exception anywhere in it
+    # leaves the review exactly as it was.
+    if config.gate_shadow:
+        from attest.review.gate_level import run_gate_shadow_stage
+
+        with suppress(Exception):
+            run_gate_shadow_stage(
+                repo,
+                task_id=task_id,
+                base_sha=base_sha,
+                head_sha=head_sha,
+                candidates=candidates,
+                provider=provider,
+                budget=review.budget,
+                limits=default_limits,
+                adapter=adapter,
+                deadline=deadline,
+                clock=clock,
+                generation_model=config.generation_model,
+                ledger=ledger,
+            )
 
     # C-05 (INV-FAMILY-001): same-defect certified findings count once, a
     # finding publishes only at e-value >= m/alpha for the m eligible candidates

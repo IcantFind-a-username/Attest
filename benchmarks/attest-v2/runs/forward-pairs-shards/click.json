@@ -1,0 +1,4007 @@
+{
+ "examined": 83,
+ "max_back": 200,
+ "pairs": [
+  {
+   "base": "",
+   "distance": null,
+   "fix": "bec59289d8cf9b9b4010642b2fee483e5f8eeefc",
+   "fix_subject": "Fix `package_name` resolution when top-level module differs from distribution name",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_basic.py: F^ \u2014 1 error in 0.27s",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_basic.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "762c97eef7c1b3779678992f26a553a2a8c80793",
+   "fix_subject": "Fix double-bracketing of choices in synopsis",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_basic.py: F^ \u2014 1 error in 0.24s",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_basic.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7eb57cff7cd292fbd526eaf861c8f945ddeb07a3",
+   "fix_subject": "Fix pager test race by raising before yield",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "tests/test_utils.py: F^ \u2014 nothing fails",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_stream_lifecycle.py",
+    "tests/test_utils.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "82f377c547e1867d073f02bb8f476214d07e245b",
+   "fix_subject": "Fix deprecated label formatting",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_deprecated_empty_help_no_leading_space[-True]",
+    "test_deprecated_empty_help_no_leading_space[-USE",
+    "test_deprecated_empty_help_no_leading_space[None-True]",
+    "test_deprecated_empty_help_no_leading_space[None-USE"
+   ],
+   "probes": 3,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_commands.py>]))",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_commands.py",
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_commands.py>])",
+     "sha": "648d7c4038",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "d5fbd32842da361cc9be8658d94a64e9cc417fb5",
+   "distance": 20,
+   "fix": "b7e5fd4cc7de70280eccd39f2bb956df617e5519",
+   "fix_subject": "Fix broken fish completion and multiline help string",
+   "head": "cd4674a6de725e1d7cac7ea7b6cd27ea68b4094c",
+   "head_subject": "Merge Main into Stable (#3442)",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_full_complete[fish-env4-plain,a\\nplain,b\\tbee\\n]",
+    "test_full_complete[fish-env5-plain,b\\tbee\\n]",
+    "test_full_complete[fish-env6-plain,b\\tbee\\n]"
+   ],
+   "probes": 13,
+   "reason": "3 oracle node(s) of tests/test_shell_completion.py fail from cd4674a6de onward and pass at its parent d5fbd32842",
+   "repo": "click",
+   "resolved": true,
+   "test_files": [
+    "tests/test_shell_completion.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "5b1aba8274",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "aa5a8dab43",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "a42300ab9e",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "67921d5b71",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "d42f15b717",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "18879025d6",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "3 passed",
+     "sha": "32010b9e9a",
+     "verdict": "pass"
+    },
+    {
+     "index": 24,
+     "note": "3 passed",
+     "sha": "f1f191ecd2",
+     "verdict": "pass"
+    },
+    {
+     "index": 20,
+     "note": "3 of 3 failed",
+     "sha": "cd4674a6de",
+     "verdict": "fail"
+    },
+    {
+     "index": 22,
+     "note": "3 passed",
+     "sha": "8bd8b4a074",
+     "verdict": "pass"
+    },
+    {
+     "index": 21,
+     "note": "3 passed",
+     "sha": "d5fbd32842",
+     "verdict": "pass"
+    }
+   ]
+  },
+  {
+   "base": "c69643b60cf971cd5d8e5d3902632807ceab9b8f",
+   "distance": 22,
+   "fix": "c3535905c77a29afc84861b29d3ad366ce5451bd",
+   "fix_subject": "Fix broken fish completion and multiline help string",
+   "head": "19fd4d6e18bc9fce451f92f422696b11169faa57",
+   "head_subject": "Fix: Ensure fish completion handles multiline help strings correctly (#3126)",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_full_complete[fish-env4-plain,a\\nplain,b\\tbee\\n]",
+    "test_full_complete[fish-env5-plain,b\\tbee\\n]",
+    "test_full_complete[fish-env6-plain,b\\tbee\\n]"
+   ],
+   "probes": 13,
+   "reason": "3 oracle node(s) of tests/test_shell_completion.py fail from 19fd4d6e18 onward and pass at its parent c69643b60c",
+   "repo": "click",
+   "resolved": true,
+   "test_files": [
+    "tests/test_shell_completion.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "bc36cd1a2b",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "dbf4d14c71",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "4e869f3a17",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "c9e94136b3",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "63274a79d0",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "c943271a26",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "3 passed",
+     "sha": "c8da1fcc2c",
+     "verdict": "pass"
+    },
+    {
+     "index": 24,
+     "note": "3 passed",
+     "sha": "c5cced7b30",
+     "verdict": "pass"
+    },
+    {
+     "index": 20,
+     "note": "3 of 3 failed",
+     "sha": "fed9049f7a",
+     "verdict": "fail"
+    },
+    {
+     "index": 22,
+     "note": "3 of 3 failed",
+     "sha": "19fd4d6e18",
+     "verdict": "fail"
+    },
+    {
+     "index": 23,
+     "note": "3 passed",
+     "sha": "c69643b60c",
+     "verdict": "pass"
+    }
+   ]
+  },
+  {
+   "base": "d5fbd32842da361cc9be8658d94a64e9cc417fb5",
+   "distance": 11,
+   "fix": "7d05a59b9d46a415d85937630d1d812cf477f60a",
+   "fix_subject": "Fix get_parameter_source() during type conversion and eager callbacks",
+   "head": "cd4674a6de725e1d7cac7ea7b6cd27ea68b4094c",
+   "head_subject": "Merge Main into Stable (#3442)",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_flask_debug_env_not_stomped_by_default_flag",
+    "test_parameter_source_during_eager_callback",
+    "test_parameter_source_during_paramtype_convert"
+   ],
+   "probes": 11,
+   "reason": "3 oracle node(s) of tests/test_defaults.py fail from cd4674a6de onward and pass at its parent d5fbd32842",
+   "repo": "click",
+   "resolved": true,
+   "test_files": [
+    "tests/test_defaults.py",
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "4b24a6c8f6",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "9b327da827",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "3c12ce7050",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "e0d1678ebc",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "f49391b9c8",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 passed",
+     "sha": "4a352253c9",
+     "verdict": "pass"
+    },
+    {
+     "index": 12,
+     "note": "3 passed",
+     "sha": "d5fbd32842",
+     "verdict": "pass"
+    },
+    {
+     "index": 10,
+     "note": "3 of 3 failed",
+     "sha": "e364f8b362",
+     "verdict": "fail"
+    },
+    {
+     "index": 11,
+     "note": "3 of 3 failed",
+     "sha": "cd4674a6de",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d15f3c23a177e80c324e1ee9681c9449c31ac965",
+   "fix_subject": "fix: Skip flaky pager test on macOS with free-threaded Python 3.14t",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_utils.py: F^ \u2014 1 error in 0.25s",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0551bf53588ae87f462d336f24f853a156fefe3a",
+   "fix_subject": "Fix `HelpFormatter.write_usage` producing spurious characters",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_command_write_usage_no_args[empty-options-metavar-no-params]",
+    "test_command_write_usage_no_args[none-options-metavar-no-params]",
+    "test_help_formatter_write_usage[empty-args-custom-prefix]",
+    "test_help_formatter_write_usage[empty-args-default-prefix]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_formatting.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "7c99ebe23b",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "d959898db2",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "ba745ac640",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "3619563d9b",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "fc6c7c47ed",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "2468b70997",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0f71fe771ceefd5715b3b375c9b2e3a701c0648e",
+   "fix_subject": "Fix dual-option arbitration to respect explicit defaults",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_bool_flag_group_competition[3403-reproducer-no-args]",
+    "test_bool_flag_group_competition[both-explicit-defaults-last-wins-swapped]",
+    "test_bool_flag_group_competition[both-explicit-defaults-last-wins]",
+    "test_bool_flag_group_competition[explicit-default-none-three-state]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "c943271a26",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "fc6c7c47ed",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "5b9630f50f",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "fed9049f7a",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "c5cced7b30",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "c8da1fcc2c",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a09c1c655eef3d43181eb46036b66cf058d72df4",
+   "fix_subject": "fix: show custom error message in prompt with hide_input=True",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_hide_input_error_message[builtin-int-masks-repr-value]",
+    "test_hide_input_error_message[custom-no-value-shows-message]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_termui.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "fc6c7c47ed",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "5b9630f50f",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "73e1550065",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "831c8f0948",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "2468b70997",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "8a2b48901a",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "19fd4d6e18bc9fce451f92f422696b11169faa57",
+   "fix_subject": "Fix: Ensure fish completion handles multiline help strings correctly (#3126)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_fish_multiline_help_complete",
+    "test_full_complete[fish-env4-plain\\na\\n_\\nplain\\nb\\nbee\\n]",
+    "test_full_complete[fish-env5-plain\\nb\\nbee\\n]",
+    "test_full_complete[fish-env6-plain\\nb\\nbee\\n]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_shell_completion.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "c69643b60c",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "c5cced7b30",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "2468b70997",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "d2e4a42ff4",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "b03f211e60",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "c7e1ba8448",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "2468b70997a6ec27ced4b4867954c90da3f92075",
+   "fix_subject": "Fix readline backspace/line-wrapping on linux (#2969)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_echo_writing_to_standard_error",
+    "test_full_prompt_passed_to_readline[confirm]",
+    "test_full_prompt_passed_to_readline[prompt-custom-suffix]",
+    "test_full_prompt_passed_to_readline[prompt-hidden]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "ddede2147c",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "d2e4a42ff4",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "25edc1e313",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "8d3449517a",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "30a7f7c8e6",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "60cad4ad65",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d340b0c1202284a1b9d0ca892549208527d586ce",
+   "fix_subject": "Fix speculative speculative empty string check",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_show_default_with_empty_string[non-string-comparable-object]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "04ef3a6f47",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "feffea5ca2",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "a9e62f548a",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "a0a37e4118",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "bb7be1f6a9",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "a67f0f19b7",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "546f2851f414b07413777ebcae89b2c21a685252",
+   "fix_subject": "Fix callable ``flag_value`` being instantiated when used as a default",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_default_map_with_callable_flag_value[None-args0-_Marker]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_defaults.py",
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "ae46cfd6bc",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "b6afbf05ea",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "fa7f035ab5",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "1f0e6a2ecd",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "31184ff9e2",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "ea70da487b",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "91de59c6c8abc8251e7af551cd4546cc964288af",
+   "fix_subject": "Fix #3084: Correct flag optional value behavior and add comprehensive tests",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_flag_value_optional_behavior",
+    "test_flag_value_with_type_conversion"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "7f7bbe4569",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "934cba0427",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "f67abc6fe7",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "03f3889f50",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "a92c573f31",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "868b61157e",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1c20dc6e724cd5625faaa17b715ba928d44c08bf",
+   "fix_subject": "Fix default handling to defer UNSET normalization",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_shared_param_prefers_first_default"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_defaults.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "6a1c0d0773",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "7d71836041",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "35e6a78646",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "29a68cac7f",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "81a482fbfd",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "1c68e531ef",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "701b313160be12752e49b3f7cea32402c0969a69",
+   "fix_subject": "Fix completions for quoted/escaped parameters in Fish (#3013)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_full_complete[fish-env6-plain,b\\tbee\\n]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_shell_completion.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "3be1f33c8e",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "1f40020964",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "4f936ac198",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "ee054e94f3",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "c88f333de4",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "c1a8939757",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "812b8000f79c1fbb747a2de5114fc74515558857",
+   "fix_subject": "Fix rendering when `prompt_suffix` is empty",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_echo_writing_to_standard_error"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "a8b41c077b",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "8bc9127107",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "1f8a4435f6",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "91ac02718a",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "b63239d657",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "9ce34f20d2",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a1235aacb1be55dc66ddcfefbf64dec44b6ab54d",
+   "fix_subject": "Fix Zsh completions with colons (#2846)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_zsh_full_complete_with_colons[env0-plain\\na\\n_\\nplain\\nb\\nbee\\nplain\\nc\\\\:d\\ncee:dee\\nplain\\nc:e\\n_\\n]",
+    "test_zsh_full_complete_with_colons[env1-plain\\nc\\\\:d\\ncee:dee\\nplain\\nc:e\\n_\\n]",
+    "test_zsh_full_complete_with_colons[env2-plain\\nc\\\\:d\\ncee:dee\\nplain\\nc:e\\n_\\n]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_shell_completion.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "565f36d5bc",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "5c1239b011",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "c1a8939757",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "d548479059",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "d2e0fb5cde",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "3a917b93aa",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9caedb9206103dfb5465e1916bc2f13b9c10c0e4",
+   "fix_subject": "Fix reconciliation of envvar with default, flag_value and type parameters for flag options",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "tests/test_imports.py: F^ \u2014 nothing fails",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_arguments.py",
+    "tests/test_basic.py",
+    "tests/test_imports.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ac6a2acfdb4550c35ce69ce54db502ba96c96324",
+   "fix_subject": "Fix shell completion for nested groups",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_nested_group"
+   ],
+   "probes": 3,
+   "reason": "F^ does not carry the defect under the oracle: pass (1 passed)",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_shell_completion.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 passed",
+     "sha": "884af5c20f",
+     "verdict": "pass"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4fd2fea0db423d242aedcae0a5f664efe0a93484",
+   "fix_subject": "Fix condition for setting flag value when type is provided",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_flag_value_is_correctly_set[opts1-True-True]",
+    "test_flag_value_is_correctly_set[opts3-True-False]",
+    "test_flag_value_is_correctly_set[opts5-True-True]",
+    "test_flag_value_is_correctly_set[opts7-True-False]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "9ce34f20d2",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "2aecb2d710",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "937c68dd15",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "17251573cd",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "e3abce688d",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "f84395c517",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "70c673d37eb91ba42a129be9037caf3ebed62f3e",
+   "fix_subject": "Fix eagerness of help option generated by `help_option_names` (#2811)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_help_param_priority"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_commands.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "273fb90106",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "26aa7bf318",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "9aeb586cbc",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "1a696c019e",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "53f14d3ac4",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "16b8672b58",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "c326df95e9e3da0425360e030413f6a3ee25fdee",
+   "fix_subject": "Fix closing of callbacks on CLI exit (#2680)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_multiple_eager_callbacks[eagerness_precedence]",
+    "test_multiple_eager_callbacks[natural_order]",
+    "test_no_state_leaks"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_context.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "a8c0542760",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "1b524bb30d",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "0e0c00324a",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "a6e0d29368",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "d73083e396",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "14f735cf59",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1a4d8c1bb1e8f8e214ede7223bd2c05dc2ce006a",
+   "fix_subject": "Fix metavar for Choice options when show_choices=False (#2365)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_usage_show_choices[bool",
+    "test_usage_show_choices[float",
+    "test_usage_show_choices[int",
+    "test_usage_show_choices[text"
+   ],
+   "probes": 3,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_options.py>]))",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_options.py>])",
+     "sha": "02046e7a19",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "afc86c748c214939e2293ec00879d85293bcd9fa",
+   "fix_subject": "Fix colored output on Windows (#2607)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_utils.py: F^ \u2014 nothing fails",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "61f8101f4e0d02cb902ef17853fa35ad88185265",
+   "fix_subject": "Fix printing of default option value to handle empty strings",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_show_default_with_empty_string"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "c021f05c83",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "e88c112399",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "74ab60ac62",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "aa52d17a97",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "6e1f6d3052",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "aca9f753af",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "e002dbc40ceb6a7e78dbe5e5868744690ba3120f",
+   "fix_subject": "Fix return value and type signature of `shell_completion.add_completion_class` function (#2421)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_add_completion_class",
+    "test_add_completion_class_decorator",
+    "test_add_completion_class_with_name"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_shell_completion.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "eb1d760fb4",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "d19d0def9a",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "6e05e1fa1c",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "13627be199",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "c0092d2242",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "73d7de5f74",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "e0033315510510acdba14e880a361ccca091fb4b",
+   "fix_subject": "fix ParamType.to_info_dict() with no name",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_paramtype_no_name"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_info_dict.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "19be092b6d",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "bf9da48389",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "5ba2320454",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "55b27155db",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "c01e2b8ed1",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "a1e5ff6d8d",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "05b795c917f4146edfe83b2d08c189886b301785",
+   "fix_subject": "Fix copy-paste errors in `click.style()`",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_styling[styles21-\\x1b[53mx",
+    "test_styling[styles22-\\x1b[3mx"
+   ],
+   "probes": 3,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_utils.py>]))",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_utils.py>])",
+     "sha": "01e4dac0b1",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ee56925bc4f5451a125317e183f498e8bd1aecb3",
+   "fix_subject": "Fix is_bool_flag being set to True even if is_flag is False",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_is_bool_flag_is_correctly_set[bool"
+   ],
+   "probes": 3,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_options.py>]))",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_options.py>])",
+     "sha": "da2b658e61",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d48b59be391f9f9bfb41dd62db07e46519d08bfe",
+   "fix_subject": "fix make_default_short_help max_length, refactor",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_make_default_short_help[-empty]",
+    "test_make_default_short_help[-length",
+    "test_make_default_short_help[no-wrap"
+   ],
+   "probes": 3,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_utils.py>]))",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_utils.py>])",
+     "sha": "30e7f76a38",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0d01686fe6be5c335f50098a06b7e847a2753452",
+   "fix_subject": "fix output when using echo_stdin",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "tests/test_testing.py: no node discriminates (F^ 1F, F 1F/22P)",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_testing.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4aff02676c0d9628e095731c124b647ed256ee5a",
+   "fix_subject": "fix backspace in prompt with readline enabled",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_echo_writing_to_standard_error",
+    "test_prompts_abort"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "b625b9f390",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "9907a265a5",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "c4542263a9",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "d334d8220a",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "c78265ad51",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "3018f577cc",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "42ee8a1f6011e0f4a8a19c34a545f3eb7ae978fa",
+   "fix_subject": "fix formatting with empty options_metavar",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_formatting_with_options_metavar_empty"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_formatting.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "8efb348e2b",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "7332f00ed4",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "c067af761a",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "25ee3666c9",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "bc3dd4796f",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "5e6d00d2fb",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "11c286a37d55357b82c7e5db7237544cd79fe25a",
+   "fix_subject": "fix edit() require_save check for fast editors",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_termui.py: F^ \u2014 nothing fails",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_termui.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "e4bb120808d6effa31d7291da5c72f09511de564",
+   "fix_subject": "fix newline wrapping in option help",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_option_help_preserve_paragraphs"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "70c449386b",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "98a55ab1de",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "93d947c2e3",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "0f1261562b",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "0b8d835851",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "cc294de245",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "99ef35e3b4919b5dc33d1ee4b1e04b437b6307a5",
+   "fix_subject": "Fix for string cast of MissingParameter",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_missing_argument_string_cast"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_arguments.py",
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "14fa50aefb",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "61133806a5",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "0b8d835851",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "cd49063bef",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "79338495ef",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "bc6eb98a48",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "b61ec644fad6ed03b3e73f77c7c1242ebf0a3933",
+   "fix_subject": "Fix bash completion when defaults are present and the way subcommands are handled. This makes the completion logic behav",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_chaining",
+    "test_variadic_argument_choice",
+    "test_variadic_argument_complete"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_bashcomplete.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "cd90e83377",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "537cd3c4af",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "becfca5f66",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "da0ebcb543",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "c914686244",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "ea213fc505",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "82f9c626ffedb284eafe67235b5592be6919106d",
+   "fix_subject": "Fix test for delayed progress bar display",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_empty_nargs",
+    "test_missing_arg",
+    "test_path_args"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_arguments.py",
+    "tests/test_bashcomplete.py",
+    "tests/test_basic.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "61266619cb",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "0a7e6ef50a",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "5aeff2d599",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "8ed257306f",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "607f015ad5",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "5f98f570c0",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "2bc3b2c12c6deb68164313386a036dc7543461fa",
+   "fix_subject": "Fix #616: allow setting prog_name in CliRunner.invoke",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_setting_prog_name_in_extra"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_testing.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "961a441af0",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "3bf974cc52",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "789ba880b1",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "b1b4449cda",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "1ea6a75059",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "9db53b9891",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a17b544788256d59baae0352a90bdb9af2b8ed34",
+   "fix_subject": "Fix issue #926 - copy option attrs so that custom classes can be re-used.",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_option_custom_class_reusable"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "9c456ec267",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "df1a8f57c3",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "3f664988e6",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "4cc1b9e938",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "18b0945b89",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "c67daae57d",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "535559adbd7d5549d1d123e8c7f9a9e602f0cc3f",
+   "fix_subject": "Fix variable precedence",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_variable_precendence_00[command1-environment1-environment\\n]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_commands.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "df1a8f57c3",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "3f664988e6",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "ba465d9513",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "288a00a5b1",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "ef93b49174",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "570db30db8",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "65da5cc5c4b2e75037811c76d73f742e7ef033c5",
+   "fix_subject": "fix overzealous completion when required options are present",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_chaining"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_bashcomplete.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "e634d7f78b",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "945b4d38a3",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "6f4eb1e4e2",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "1867ede173",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "c3da86160f",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "67f39e4ff9",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "92c8053bb9e7221efc87355c364fee256e1efc76",
+   "fix_subject": "Fix bashautocompletion of arguments on chained commands",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_chaining"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_bashcomplete.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "5f2ff4faf6",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "430c50a3b6",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "c3da86160f",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "bbcac04992",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "a50befdc3a",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "7a48f3ecea",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "598c6d76fbc036fb3219d9f09948a682cda66601",
+   "fix_subject": "Fix test runner not saving caller env correctly",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_env"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_testing.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "891a22324a",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "8af7ec14f3",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "7e8324fcfd",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "42905cca45",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "fab5356b61",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "239e44a386",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8af7ec14f3d936e02c2e4ee62d3573593868e07e",
+   "fix_subject": "Fix #630: Bash completion for nested commands broken",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_long_chain"
+   ],
+   "probes": 5,
+   "reason": "F^ does not carry the defect under the oracle: pass (1 passed)",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_bashcomplete.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 passed",
+     "sha": "7e8324fcfd",
+     "verdict": "pass"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "fab5356b61c4f5d91e5f75b972c2d6cd9c4ecc69",
+   "fix_subject": "Fix UnboundLocalError in click.Path",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_path_args"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_arguments.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "159d0e577c",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "412e34dfa3",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "90f77a8d03",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "84e1572839",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "05566262ea",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "3978d0e3d9",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "c2933658a64464bbb518eb723c239c1ab6196aa2",
+   "fix_subject": "Fix bug which happens while using @click.pass_obj",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_pass_obj"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_context.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "d549018970",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "7e8da55933",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "c0b3542492",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "1ddbed44ec",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "5eca206e71",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "fe2f525e72",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0f20511f41e8d99acd074b063cadaa0b9f8aecf0",
+   "fix_subject": "Fix bug with multiple args after star arg",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_nargs_specified_plus_star_ordering",
+    "test_nargs_star_ordering"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_arguments.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "3ddc556a9f",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "42c8146ca5",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "1de2e21788",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "be2c42b570",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "7ec17e4f82",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "e948c6946e",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3ddc556a9f20267b2c46b5c9ceda6c3d8f26e79b",
+   "fix_subject": "Fix type inference for multiple options",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_multiple_default_type"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "42c8146ca5",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "1de2e21788",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "4592098a58",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "60e4ea3a29",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "4e519da58a",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "f7c124ed82",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4592098a58de5425ce75f2a8768b79945c32d8bb",
+   "fix_subject": "Fix crash when writing to unicode files",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_utils.py: F^ \u2014 nothing fails",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4e519da58ac79fbd97eb86eb7717603d77eec379",
+   "fix_subject": "Fix formatting issue when last line of docstring is blank",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_formatting_empty_help_lines"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_formatting.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "61cf523ec8",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "ce3ddd22ac",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "537e7b386a",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "cca55b7ee5",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "dd0635c33c",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "9da1791476",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "e2c3b9bc6122562c015bb98d3890a6d6512fba24",
+   "fix_subject": "Fix corner-case where subsequent wrapped lines are one character longer than max width",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_wrapping_long_options_strings"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_formatting.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "ebd751cab2",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "4336a5d3ea",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "308cc08a71",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "65ca572d7c",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "da0132f900",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "b3f0a13d26",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "fd401cd761a2cf15fbb9a54404860b636a5b558d",
+   "fix_subject": "Fix indentation of option help",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_multiline_help"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "7d776de4eb",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "6e98e9bfc3",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "8da75f9f05",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "59b5a5ecf0",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "e4dca8aaa8",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "6eeead5bcf",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a1d87858abd77fa8e3ffc204670ccd75b96c4781",
+   "fix_subject": "Add support of `pathlib.Path` to `edit`",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_edit_pathlib[single]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_termui.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "2103e15768",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "61b69e967e",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "f36d58bbd7",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "fc5c7f45da",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "00e592cea7",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "b551fe8571",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a6256bfb5971d5e58585fe7b6c656134e1ade5a4",
+   "fix_subject": "Forwards all user's parameters set in `PAGER`",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_pipepager_less_detection_case_insensitive_on_windows",
+    "test_pipepager_less_detection_matches_stem[less.exe]",
+    "test_pipepager_less_raw_mode_detection[filename",
+    "test_pipepager_less_raw_mode_detection[long"
+   ],
+   "probes": 3,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_termui.py>]))",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_termui.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_termui.py>])",
+     "sha": "61b69e967e",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "bc32a92cd2ae77afb2352f79ebdf00997f35d333",
+   "fix_subject": "Refactor pager stream handling; drop text/binary branching",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_get_pager_file_close_does_not_close_borrowed_stream",
+    "test_get_pager_file_flushes_stream_on_exception",
+    "test_get_pager_file_nullpager_keeps_stringio_stream"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_termui.py",
+    "tests/test_utils/test_echo_via_pager.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "cbd7a4109d",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "fc5c7f45da",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "150d1071d6",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "9c4dfdaebe",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "398f915431",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "8a4ce84256",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1f9cd54f686eb343cec714230ad825ce972739ab",
+   "fix_subject": "Close the pager temp file before unlinking it",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_tempfile_pager_closes_file_before_unlink"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_termui.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "150d1071d6",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "8b44edfff7",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "9c4dfdaebe",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "5aa8ac4352",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "cfa01eeb78",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "7925a3410d",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "f316d5cb3aa89b57c14aee54da6ac9062ac5bec4",
+   "fix_subject": "Land the progress bar on its final position",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_progressbar_lands_on_final_position[iterate-25]",
+    "test_progressbar_lands_on_final_position[iterate-3]",
+    "test_progressbar_lands_on_final_position[iterate-7]",
+    "test_progressbar_lands_on_final_position[update-25]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_termui.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "8b44edfff7",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "9c4dfdaebe",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "00e592cea7",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "42235de05e",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "333c28d79c",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "a44e9f05ed",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a2ac5839f29f61cf7f3f229c67b97d07988e479b",
+   "fix_subject": "Open the pager temp file in text mode",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_hide_input_error_message[multi-occurrence-raw-mask-all]",
+    "test_prompt_required_with_required[False-True-args3-prompt]",
+    "test_tempfile_pager_accepts_text[echo_via_pager]",
+    "test_tempfile_pager_accepts_text[get_pager_file]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_termui.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 4 failed",
+     "sha": "9c4dfdaebe",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 4 failed",
+     "sha": "00e592cea7",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 4 failed",
+     "sha": "5aa8ac4352",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 4 failed",
+     "sha": "398f915431",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 4 failed",
+     "sha": "7df2f82305",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 4 failed",
+     "sha": "94c191ca6c",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "047adef258fc25566163ffc3efd14effc0ef7352",
+   "fix_subject": "Preserve declaration order of help option names",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_get_help_option_names[order-long-short]",
+    "test_get_help_option_names[order-three-shuffled]",
+    "test_get_help_option_names[order-three]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_commands.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 3 failed",
+     "sha": "00e592cea7",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "5aa8ac4352",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "42235de05e",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 3 failed",
+     "sha": "5e906a8afb",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 3 failed",
+     "sha": "b551fe8571",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 3 failed",
+     "sha": "16fc00e2f4",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "cfa01eeb7894a408af70b29d28c0b24f8680f9fb",
+   "distance": 0,
+   "fix": "3b16957cba718a6d77ef680114de8e0830c436ba",
+   "fix_subject": "Make `prompt`/`ParamType` typing work without runtime `typing_extensions`",
+   "head": "0585f456baa6eeb2edbaab7c85fa796a004aef86",
+   "head_subject": "`click.prompt` typing clarifications / improvements",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_light_imports"
+   ],
+   "probes": 4,
+   "reason": "1 oracle node(s) of tests/test_imports.py fail from 0585f456ba onward and pass at its parent cfa01eeb78",
+   "repo": "click",
+   "resolved": true,
+   "test_files": [
+    "tests/test_imports.py",
+    "tests/test_types.py",
+    "tests/test_utils/test_prompt.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "0585f456ba",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 passed",
+     "sha": "cfa01eeb78",
+     "verdict": "pass"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0585f456baa6eeb2edbaab7c85fa796a004aef86",
+   "fix_subject": "`click.prompt` typing clarifications / improvements",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_imports.py: F^ \u2014 nothing fails",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_imports.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "c2ed41490baa08002714ab79afa4a41f2d67c02c",
+   "fix_subject": "Deprecate `isolated_filesystem` and document its limits",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_isolated_filesystem_deprecated"
+   ],
+   "probes": 12,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_arguments.py",
+    "tests/test_basic.py",
+    "tests/test_deprecations.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "333c28d79c",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "7df2f82305",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "b551fe8571",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "8c1a0a7abb",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "a44e9f05ed",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "4fc0e90e1c",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "051725fa7e0c69effc9107066d8791c5b99242c3",
+   "fix_subject": "Add tests to deprecations. Better deprecate streams.",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_stream_helper_deprecated[get_binary_stream-click.utils]",
+    "test_stream_helper_deprecated[get_text_stream-click.utils]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_deprecations.py",
+    "tests/test_testing.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "7a0a3447f6",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "b551fe8571",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "b67832c216",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "8a4ce84256",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "94c191ca6c",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "c48021040a",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7a0a3447f6ddd2c15438c5d098e289323f9f9556",
+   "fix_subject": "Mark clearly functions private status. Deprecated Python 2 utilities.",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_iter_keepopenfile"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_testing.py",
+    "tests/test_utils/test_KeepOpenFile.py",
+    "tests/test_utils/test_LazyFile.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "b551fe8571",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "b67832c216",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "8c1a0a7abb",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "8dd4d60eb5",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "16fc00e2f4",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "1a994adbb1",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "71f2bafa541e7f798834e74076786ff4281ac83e",
+   "fix_subject": "Strip all ANSI sequences",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_ansi_re_matches_whole_sequence[\\x1b[0",
+    "test_ansi_re_matches_whole_sequence[\\x1b[1;38:2::255:0:0m]",
+    "test_ansi_re_matches_whole_sequence[\\x1b[2",
+    "test_ansi_re_matches_whole_sequence[\\x1b[200~]"
+   ],
+   "probes": 3,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_compat.py>]))",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_compat.py",
+    "tests/test_formatting.py",
+    "tests/test_utils/test_style.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_compat.py>])",
+     "sha": "8a4ce84256",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3495fba163dd61dea837cd557095df6c21515ac8",
+   "fix_subject": "Warn when an argument name collide with other parameters",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_param_named_help[argument]",
+    "test_param_named_help[custom-flags]",
+    "test_param_named_help[no-collision]",
+    "test_param_named_help[option]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_basic.py",
+    "tests/test_info_dict.py",
+    "tests/test_options.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "8a4ce84256",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "8dd4d60eb5",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "7925a3410d",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "94c191ca6c",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "240603f240",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "c3535905c7",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "07c909f23f0f83b5ca137c167b9a134d66201f67",
+   "fix_subject": "Validate style() color arguments, fix explicit black color argument",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_styling[styles44-\\x1b[38;5;0mx",
+    "test_styling[styles45-\\x1b[48;5;0mx",
+    "test_styling_invalid_color[-1-bg]",
+    "test_styling_invalid_color[-1-fg]"
+   ],
+   "probes": 3,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_style.py>]))",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils/test_style.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_style.py>])",
+     "sha": "7925a3410d",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a391797d00d2ef32ebc4fb0034462a2ec5e6d3d4",
+   "fix_subject": "Make test echo file.",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 8,
+   "reason": "tests/test_utils_2/test_echo_via_pager.py: no node discriminates (F^ 1041F, F 1041F/0P)",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils.py",
+    "tests/test_utils_2/test_echo.py",
+    "tests/test_utils_2/test_echo_via_pager.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9f9b149ea30287b4977b800a024ee68144b8c869",
+   "fix_subject": "Add `@custom_version_option`, freeze `@version_option`",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_custom_version_option[args0]",
+    "test_custom_version_option[args1]",
+    "test_custom_version_option_receives_context"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_basic.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "16fc00e2f4",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "fe3ad76e58",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "6ec99f8926",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "679a7a0ecc",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "1a994adbb1",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "c9e94136b3",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "93ba0075f4881b858b61f89a753c7c10e330027e",
+   "fix_subject": "Strip ANSI from `confirm()` and `prompt()` when the stream don't support them",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_prompt_and_confirm_ansi_respects_color[confirm-no-color]",
+    "test_prompt_and_confirm_ansi_respects_color[prompt-no-color]"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_termui.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "240603f240",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "679a7a0ecc",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "8a1b1a33d7",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "c48021040a",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "c3535905c7",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "3bb230dcd5",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "6f85d26dcd50c1745e81040ed4f2b61f8bf293cf",
+   "fix_subject": "Do not trigger a `BytesWarning` under `python -bb`",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_path_dash_no_byteswarning"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_types.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "df2e5ed8c4",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "7a16b20e8a",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "916883afad",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "d9ff13369a",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "cd9bdd96a9",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "97210f24eb",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "27b3ee2633f80aeb04d6e15c2fb3c91542efa32b",
+   "fix_subject": "Add built-in PowerShell shell completion support",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_shell_completion.py: F^ \u2014 1 error in 0.19s",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_shell_completion.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "051bb0f30b545cf7426deef819811815297c2798",
+   "fix_subject": "Do not let the GC close a borrowed `stdout`",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_echo_via_pager_tty_pager_missing",
+    "test_get_pager_file_missing_pager_keeps_borrowed_stream_open"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_termui.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "cd9bdd96a9",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "65feb6127e",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "e34e526e4e",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "e02a981c98",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "97210f24eb",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "648d7c4038",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "399919f740bfd26cb30d544877fafd03cfcd9091",
+   "fix_subject": "Support incremental output in the pager",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_echo_via_pager_streams_each_write"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_termui.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "ffcc7494c9",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "567d7e9220",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "97210f24eb",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "1050d955ea",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "18c2451fd1",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "6cb34774f2",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "684b3f5b5150761ec1c930bef300eb6169f483d8",
+   "fix_subject": "Add help parameter to arguments",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_argument_help",
+    "test_argument_help_optional_metavar",
+    "test_deprecated_empty_help_no_leading_space[-True-(DEPRECATED)]",
+    "test_deprecated_empty_help_no_leading_space[-USE"
+   ],
+   "probes": 3,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_arguments.py>]))",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_arguments.py",
+    "tests/test_info_dict.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_arguments.py>])",
+     "sha": "1a994adbb1",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "665736bc85a19a7a2357c071394b4a545617faa3",
+   "fix_subject": "Mark commands as optional in the synopsis",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_subcommand_metavar_marks_optional[False-True-[COMMAND]",
+    "test_subcommand_metavar_marks_optional[True-True-[COMMAND1]"
+   ],
+   "probes": 5,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_commands.py>]))",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_arguments.py",
+    "tests/test_commands.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_commands.py>])",
+     "sha": "8240d25bdb",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "745464765a3fc9ddd5f9e445e5a2ca37efd63237",
+   "fix_subject": "remove colorama",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_utils.py: F^ \u2014 nothing fails",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ddf20d0673788ebe8ec28b6031a24a36cba92115",
+   "fix_subject": "Add changelog entry, fix admonition and add test",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_shell_completion.py: F^ \u2014 nothing fails",
+   "repo": "click",
+   "resolved": false,
+   "test_files": [
+    "tests/test_shell_completion.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "d5fbd32842da361cc9be8658d94a64e9cc417fb5",
+   "distance": 13,
+   "fix": "becbde5cf416441627f779e8dd34e57738ee1c1f",
+   "fix_subject": "pager doesn't close std streams",
+   "head": "cd4674a6de725e1d7cac7ea7b6cd27ea68b4094c",
+   "head_subject": "Merge Main into Stable (#3442)",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_with_echo_via_pager"
+   ],
+   "probes": 13,
+   "reason": "1 oracle node(s) of tests/test_testing.py fail from cd4674a6de onward and pass at its parent d5fbd32842",
+   "repo": "click",
+   "resolved": true,
+   "test_files": [
+    "tests/test_termui.py",
+    "tests/test_testing.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "a5f5aa6d40",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "d42f15b717",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "4b24a6c8f6",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "3c12ce7050",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "1bd3a87909",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 passed",
+     "sha": "d777956105",
+     "verdict": "pass"
+    },
+    {
+     "index": 12,
+     "note": "1 of 1 failed",
+     "sha": "e364f8b362",
+     "verdict": "fail"
+    },
+    {
+     "index": 14,
+     "note": "1 passed",
+     "sha": "d5fbd32842",
+     "verdict": "pass"
+    },
+    {
+     "index": 13,
+     "note": "1 of 1 failed",
+     "sha": "cd4674a6de",
+     "verdict": "fail"
+    }
+   ]
+  }
+ ],
+ "policy": "D-135: value-class recall is measured on forward pairs only",
+ "resolved": 5,
+ "schema_version": "attest.forward-pairs.v1"
+}

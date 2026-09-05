@@ -1,7 +1,12 @@
 # The gate level: the evidence form for new code
 
-**Design only. Nothing here is implemented, and this document authorises no implementation.**
-It answers the five questions mainline §1.1's gate row leaves open — what "reachable" means, how
+**Implemented in shadow since D-137 (2026-09-05c); this document remains the shape, not the
+status.** `src/attest/review/gate_level.py` implements what is below behind
+`ReviewConfig.gate_shadow`, which is **off** in the product; on, it writes ledger rows and
+`.attest/shadow/gate/` records and reaches no author-visible surface. What shipped, what it
+measured and what is still unmeasured are in
+[the report](../acceptance/2026-09-05-gate-shadow.md). This document
+answers the five questions mainline §1.1's gate row leaves open — what "reachable" means, how
 it executes, how it verifies offline, how it is displayed apart from red, and how much of it may
 be said — and ends with the one RED that would open the work.
 
@@ -9,7 +14,16 @@ Mainline §1.1: *gate claims "this new code fails on an input the change makes r
 owes an executable failure of new code on a witnessed reachable input; there is no base revision
 to compare against, so the failure itself is the evidence.*
 
-## 0. The blocking question, before any of the rest
+## 0. The blocking question, and how it was answered
+
+**Answered 2026-09-05c (D-137): Read A with the carve-out.** `G-NEWCODE-001` now says in its own
+text that its pilot precondition **governs author-visible speech, not observation**, and that
+shadow records count toward its 120 adjudicated cases; mainline §1.3 says the same. This design
+is therefore N-01's first contract alternative, it ships early only in shadow, and the pilot's
+defects are collected by the thing itself. The original statement of the conflict follows,
+unchanged, because the reasoning is what the answer rests on.
+
+## 0.1 The blocking question, as it stood
 
 `G-NEWCODE-001` governs "N-01 and **any proposal to create a certifiable new-code evidence
 class**", and it demands a hidden, product-blind pilot of ≥ 60 adjudicated new-code defects and

@@ -1,0 +1,4962 @@
+{
+ "examined": 101,
+ "max_back": 200,
+ "pairs": [
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3f6b67b0b6dcbb9660890552edb0f1c6939b9ee5",
+   "fix_subject": "fix: stamp nasdaq halts at the halt time, not midnight",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "NasdaqHaltsAdapterTests::test_same_day_halts_survive_the_production_lookback",
+    "NasdaqHaltsAdapterTests::test_the_event_timestamp_is_the_halt_time_not_midnight"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_adapters.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "fa85b21778",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "44d396cabf",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "ead0bd75d4",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "540b0a8154",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "4ef2226bcf",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "3a32c923a9",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "2 of 2 failed",
+     "sha": "faae1b44d6",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "2 of 2 failed",
+     "sha": "601b131be6",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ead0bd75d42e1bf8a12d53a8d5847cd8095e5e4f",
+   "fix_subject": "fix: stop republishing multi-party filings as fake revisions",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "DualEntryClusteringTests::test_the_symbol_attributed_party_fronts_its_cluster",
+    "DualEntryRepublicationTests::test_an_old_format_snapshot_causes_one_bounded_reannouncement",
+    "DualEntryRepublicationTests::test_an_unchanged_feed_publishes_nothing_on_the_second_poll",
+    "DualEntryRepublicationTests::test_an_unchanged_filing_keeps_its_available_at_and_goes_stale"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_adapters.py",
+    "services/information_layer/tests/test_semantic_clustering.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "07a6946b7f",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "540b0a8154",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "58bf76382b",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "bdeaf675a8",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "8cfab6c5a7",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "d7be758c2f",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "4 of 4 failed",
+     "sha": "8d2257a0e2",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "4 of 4 failed",
+     "sha": "453576bf80",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4b1ad18ab913f886f836f0d400580a625704383c",
+   "fix_subject": "fix(analysis_core): use fsum in moving_average_series to kill sum() order noise",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_core/tests/test_indicator_series.py: F^ \u2014 nothing fails",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_indicator_series.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4ef2226bcf2405129a38ad81e65130a3d3c989eb",
+   "fix_subject": "fix: remember what each feed already published across restarts",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "RuntimeEnvironmentTestCase::test_component_environments_are_fixed_minimal_and_secret_isolated"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "scripts/tests/test_local_runtime_environment.py",
+    "services/analysis_api/tests/test_evidence_provider.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "801fb292ce",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "abefa25f7d",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "8cfab6c5a7",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "0f11a61479",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "2d4a0d8ab0",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "6e9be0e2c2",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "07d3baefed",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "cf3c66e589",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "2d4a0d8ab042b4dc0ac5e5157fe2d7786939b9bf",
+   "fix_subject": "fix: serve the ma5 break rule, not a stale touch-bar number",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "Ma5PullbackTests::test_forming_invalidation_copy_describes_the_daily_rule"
+   ],
+   "probes": 18,
+   "reason": "no passing ancestor within 128 first-parent commits (16 probed, 0 pass, 10 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_patterns_shapes.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "8ed78113d1",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "d7be758c2f",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "375ab52d69",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "d9210586d9",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "32188a06a8",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "e17c6862ff",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "d1fd50f8b9",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ded4db5a6e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a782f21513",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7ddc5a4e19",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5b70151f61",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3623efd743",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "eb64f232bd",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c29fbd75d4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1728910ae9",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1906530e02",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8ed78113d1d2195fca42c3aef48d55cb58f4c01d",
+   "fix_subject": "fix: only in-force confirmed patterns vote in the score",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "PatternFactorInForceTests::test_a_confirmed_ma5_pullback_stops_voting_below_the_average",
+    "PatternFactorInForceTests::test_a_confirmed_pattern_stops_voting_once_its_neckline_is_lost",
+    "PatternFactorInForceTests::test_equal_magnitude_votes_prefer_the_latest_signal",
+    "PatternFactorInForceTests::test_the_in_force_semantics_are_versioned_and_disclosed"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_scoring.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "d7be758c2f",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "375ab52d69",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "c7121f86da",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "facf699a45",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "69f683cc2d",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 4 failed",
+     "sha": "8d2257a0e2",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 4 failed",
+     "sha": "a782f21513",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 4 failed",
+     "sha": "c29fbd75d4",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d7be758c2f1fa63df3910945b7af49738ed6bd8b",
+   "fix_subject": "fix: keep resolved pattern episodes immutable under replay",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "DoubleExtremeReplayTests::test_a_confirmed_w_bottom_survives_the_full_history_recompute",
+    "HeadAndShouldersReplayTests::test_a_confirmed_top_survives_the_full_history_recompute",
+    "Ma5PullbackReplayTests::test_a_confirmed_episode_survives_a_later_qualifying_touch",
+    "ReplayInvariantPropertyTests::test_double_extremes_hold_the_invariant_on_the_probe_series"
+   ],
+   "probes": 21,
+   "reason": "no passing ancestor within 128 first-parent commits (19 probed, 0 pass, 13 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_patterns_shapes.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "375ab52d69",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "c7121f86da",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "d9210586d9",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "835cd1d858",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "283fb25ec4",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "0a1e05ab73",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8d2257a0e2",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "844031e8af",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "4 of 4 failed",
+     "sha": "e17c6862ff",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5b70151f61",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a782f21513",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cdf221f783",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "d1fd50f8b9",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "2c54997e0f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1906530e02",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c29fbd75d4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4551e90e73",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3623efd743",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "02f0dff16b",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "375ab52d69b69768fc317329df0c508e01f45117",
+   "fix_subject": "fix: breadth conclusion states its actual sample, not the configured count",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_api/tests/test_market_brief.py: F^ \u2014 1 error in 0.25s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_market_brief.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "c7121f86da88fb6806de69b728f49cb35a1db36b",
+   "fix_subject": "fix: single-flight market-brief universe compute without holding the lock",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/analysis_api/tests/test_market_universe_cache.py: F^ \u2014 1 error in 0.20s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_market_brief.py",
+    "services/analysis_api/tests/test_market_universe_cache.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d9210586d96740046bfc6aa259e4008afba392f1",
+   "fix_subject": "fix: retry market-brief universe failures instead of freezing them all day",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/analysis_api/tests/test_market_universe_cache.py: F^ \u2014 1 error in 0.18s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_market_brief.py",
+    "services/analysis_api/tests/test_market_universe_cache.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "6e9be0e2c28d46b63ddef1e7125cdd7711d21605",
+   "fix_subject": "fix: distinguish a failed institutional-flow section from a quiet one",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/analysis_api/tests/test_institutional_flow_provider.py: F^ \u2014 1 error in 0.18s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_gateway_provider.py",
+    "services/analysis_api/tests/test_institutional_flow_provider.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "cdf221f783ef832195bbabe2eb349b40067af572",
+   "fix_subject": "fix: serve factor and adviser prose in chinese",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "UnavailableFactorTests::test_an_unavailable_factor_contributes_no_points"
+   ],
+   "probes": 18,
+   "reason": "no passing ancestor within 128 first-parent commits (12 probed, 0 pass, 5 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_adviser_briefing.py",
+    "services/analysis_api/tests/test_analysis_service.py",
+    "services/analysis_core/tests/test_scoring.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "2c54997e0f",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "e953086c14",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "4570e500d7",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "e1925bb555",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "1d2d92411b",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "473ea6c627",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "02f0dff16b",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8fe050a401",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "034b650a1c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ab02a62ac1",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "db1aa2713b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "874f3274ff",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "c1a59f5405eca7f9ac3821904345c8047c82fe7b",
+   "fix_subject": "fix: brief discloses point-in-time excluded events like /decision does",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_api/tests/test_market_brief.py: F^ \u2014 1 error in 0.19s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_market_brief.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "601b131be6d99ef182b05a17e3497d47b67e98b2",
+   "fix_subject": "fix: news-sentiment driver entry stops presenting unmeasured as measured",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_api/tests/test_market_brief.py: F^ \u2014 1 error in 0.20s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_market_brief.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0e0ac89e41d25790c2eccf7d636243238d1d8975",
+   "fix_subject": "fix: take the coordinator lock for persistence snapshots",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "SnapshotConsistencyTests::test_snapshot_survives_a_concurrent_first_poll"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_coordinator_state.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "1728910ae9",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "eb64f232bd",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "3623efd743",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "1906530e02",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "f6946ef25e",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "2e35e929e2",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "d7b133bcca",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "d075b94c9f",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1728910ae9afd207d0bb65b27224202e2dea1684",
+   "fix_subject": "fix: serve the no-council-ran note in Chinese",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_api/tests/test_adviser_briefing.py: F^ \u2014 1 error in 0.19s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_adviser_briefing.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1906530e028527b84a51d8a78af6798a29cf22b7",
+   "fix_subject": "fix: give the weekly bar its own freshness budget",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "ExplainableScoreTests::test_a_holiday_extended_week_is_still_not_stale",
+    "ExplainableScoreTests::test_the_weekly_budget_is_its_own_bound_not_the_daily_one"
+   ],
+   "probes": 22,
+   "reason": "no passing ancestor within 128 first-parent commits (20 probed, 0 pass, 15 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_scoring.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "4551e90e73",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "02f0dff16b",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "8b5ebe26da",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "0495488f40",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "29e1fbe353",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "d7787b16a1",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "d2ebda0696",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b51c5ac298",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cb4325bd86",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "258f37bd56",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "034b650a1c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "db1aa2713b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8fe050a401",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "30db0adc67",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ab02a62ac1",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8c50da73ec",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a04c6d7b28",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f17e15e41b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1e2b897631",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8430b260b3",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "02f0dff16bb19fd7411ffeb389e3ebdfd712df2b",
+   "fix_subject": "fix: mark a zero-cluster sentiment window unmeasured, not neutral",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "BlindPacketTests::test_a_window_with_zero_clusters_still_says_unmeasured"
+   ],
+   "probes": 12,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_analysis_service.py",
+    "services/information_layer/tests/test_semantic_clustering.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "8b5ebe26da",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "f6946ef25e",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "0495488f40",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "8bff27351b",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "3f32af715f",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "258f37bd56",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "ab02a62ac1",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "8430b260b3",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8b5ebe26da377636b395c905fa983300b7593383",
+   "fix_subject": "fix: lock the evidence store and poll throttle against concurrent requests",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "ConcurrentPollTests::test_two_concurrent_first_polls_do_not_both_reach_the_network"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_coordinator_state.py",
+    "services/information_layer/tests/test_evidence_collector.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "f6946ef25e",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "0495488f40",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "b05de28f8e",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "7f091d7284",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "2e35e929e2",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "afef2e3139",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "874f3274ff",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "1b8cc4aab1",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "b05de28f8e5107bf59b254432c9a3d6e3b12facc",
+   "fix_subject": "fix: adviserAdjustment is null when no council ran, not a fake 0.0",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_api/tests/test_adviser_briefing.py: F^ \u2014 1 error in 0.19s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_adviser_briefing.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7f091d72843385dd75b9ee247c3b52619fb5ec47",
+   "fix_subject": "fix: make fundamentals staleness filing-calendar-aware, normalize YoY spans",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "RealFilerShapeTests::test_a_filer_the_per_concept_endpoint_answers_empty_is_still_scored",
+    "StaleWindowBoundaryTests::test_two_quarters_and_the_45_day_10q_deadline_is_still_current",
+    "UnequalQuarterLengthComparabilityTests::test_earnings_growth_is_also_normalized_to_a_daily_rate",
+    "UnequalQuarterLengthComparabilityTests::test_revenue_growth_is_normalized_to_a_daily_rate_not_ratioed_raw"
+   ],
+   "probes": 14,
+   "reason": "no passing ancestor within 128 first-parent commits (12 probed, 0 pass, 5 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_factor_fundamentals.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "29e1fbe353",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "20c7260de1",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "3f32af715f",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "e4ad724500",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "d7787b16a1",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "3d9af00103",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "4 of 4 failed",
+     "sha": "a744ef9540",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a721433a61",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5c3fe9af0c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "84c8bc51a8",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "edfa738fed",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "721cadf6ac",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "29e1fbe3530adb0c33453e1283d00adceddaae9d",
+   "fix_subject": "fix: wire the CIK registry into production evidence adapters, and require it",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "AdapterBuildTests::test_sec_sources_refuse_to_build_without_a_cik_registry"
+   ],
+   "probes": 12,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_evidence_provider.py",
+    "services/information_layer/tests/test_source_registry.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "20c7260de1",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "3f32af715f",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "2e35e929e2",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "ea91278dc7",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "b51c5ac298",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "7374c94aa7",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "21d2e6620e",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "84c8bc51a8",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "20c7260de1ffd9100e72866fbcdbcc6413981f96",
+   "fix_subject": "fix: budget SHORT-horizon freshness against the bar interval, not the horizon",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "ExplainableScoreTests::test_a_daily_bar_many_days_old_is_still_stale",
+    "ExplainableScoreTests::test_an_intraday_bar_keeps_a_tight_freshness_budget"
+   ],
+   "probes": 14,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_adviser_briefing.py",
+    "services/analysis_api/tests/test_analysis_service.py",
+    "services/analysis_core/tests/test_scoring.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "3f32af715f",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "2e35e929e2",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "e4ad724500",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "cb4325bd86",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "258f37bd56",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "cf006035a1",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "2 of 2 failed",
+     "sha": "2b1dc6833a",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "2 of 2 failed",
+     "sha": "721cadf6ac",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "e4ad7245003553a25a961e7ed1abfa4c8e66ffee",
+   "fix_subject": "fix: return evidence gaps with the read instead of parking them on the provider",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_api/tests/test_evidence_provider.py: F^ \u2014 1 error in 0.18s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_evidence_provider.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ea91278dc7d80c4eab56dd396d2a2f88dae2d76d",
+   "fix_subject": "fix: stop scoring an unread market as neutral",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "UncomputableFactorTests::test_a_blind_live_snapshot_reaches_the_no_usable_factor_rule",
+    "UncomputableFactorTests::test_a_window_no_pattern_detector_could_read_is_unavailable_not_zero"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_scoring.py",
+    "services/decision_engine/tests/test_engine.py",
+    "services/information_layer/tests/test_information_layer.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "cb4325bd86",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "d2ebda0696",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "d7787b16a1",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "258f37bd56",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "8693bb36e2",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "30db0adc67",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d7787b16a1022688edd28f90261f1e507b599187",
+   "fix_subject": "fix: check the phone-gateway leg on every run, and never let a report-write failure bury a real stage failure",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "BatchLifecycleAndReportTests::test_a_report_write_failure_does_not_bury_a_real_stage_failure",
+    "PhoneGatewayTests::test_all_watchlist_with_an_explicit_phone_gateway_still_checks_it",
+    "PhoneGatewayTests::test_all_watchlist_without_a_phone_gateway_still_says_not_checked"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "scripts/tests/test_smoke_live.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "b51c5ac298",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "258f37bd56",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "afef2e3139",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "8390099234",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "7374c94aa7",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "8fe050a401",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "258f37bd56bf42c0dc38e779cc73deae2d21d025",
+   "fix_subject": "fix: take the cutoff after the evidence is in hand, and disclose exclusions",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_api/tests/test_analysis_service.py: F^ \u2014 1 error in 0.25s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_analysis_service.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8390099234f3b99ac8efec6004db4a9d57d458cd",
+   "fix_subject": "fix: ground every served adviser free-text field, not just statements",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/adviser_llm/tests/test_smoke_real_adviser.py: F^ \u2014 1 error in 0.24s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/adviser_llm/tests/test_grounding.py",
+    "services/adviser_llm/tests/test_smoke_real_adviser.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8693bb36e24c75588c6c9c51d37afef70bf981ad",
+   "fix_subject": "fix: source adviser_layer's cap defaults from ADVISER_SCORE_CAP",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/adviser_layer/tests/test_council.py: F \u2014 1 error in 0.23s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/adviser_layer/tests/test_council.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "b0829fddeaf3d3aa65939c6b67e0364cfd3e2600",
+   "fix_subject": "fix: keep live pairing codes reachable past dead rows",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "RedeemingPairingCodeTests::test_a_live_code_survives_a_flood_of_newer_dead_rows"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/device_auth/tests/test_pairing.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "3d9af00103",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "7374c94aa7",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "cf006035a1",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "db0e242227",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "034b650a1c",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "a744ef9540",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "cf006035a1029af79dc1c769d09bfd6f8d41e1ca",
+   "fix_subject": "fix: harden runtime trust boundaries",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "RuntimeEnvironmentTestCase::test_directory_acl_policy_accepts_only_the_macos_protective_entry",
+    "RuntimeEnvironmentTestCase::test_directory_acl_policy_frees_qualifier_and_acl_exactly_once"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "scripts/tests/test_local_runtime_environment.py",
+    "scripts/tests/test_local_runtime_plists.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "d7b133bcca",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "db0e242227",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "9114a99699",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "db1aa2713b",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "874f3274ff",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "f8f2da2f1c",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "db0e242227f7979659f0266995a8d840f66deed6",
+   "fix_subject": "fix: fail closed across runtime platforms",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "RuntimeEnvironmentTestCase::test_atomic_write_clears_inherited_acl_before_secret_bytes",
+    "RuntimeEnvironmentTestCase::test_private_file_does_not_clear_acl_when_restrictive_chmod_fails",
+    "RuntimeEnvironmentTestCase::test_private_file_restricts_mode_before_clearing_acl"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "scripts/tests/test_local_runtime_environment.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "9114a99699",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "30db0adc67",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "db1aa2713b",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "8fe050a401",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "dbff7f3a3d",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "310e581aca",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9114a996994a40adad11f3c53c873c0bc18617fb",
+   "fix_subject": "fix: reject inherited runtime ACL access",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "RuntimeEnvironmentTestCase::test_atomic_write_clears_inherited_acl_before_secret_bytes",
+    "RuntimeEnvironmentTestCase::test_parser_refuses_extended_acl_on_parent_or_environment_file",
+    "RuntimeEnvironmentTestCase::test_private_path_helpers_clear_extended_acl"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "scripts/tests/test_local_runtime_environment.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "30db0adc67",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "db1aa2713b",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "034b650a1c",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "ab02a62ac1",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "e673e80a75",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "5520c8aacb",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8fe050a4013cf0037756cb15275e675a2509c210",
+   "fix_subject": "fix: align live smoke with mobile snapshot contract",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/market_gateway/tests/test_smoke_real_snapshot.py: F^ \u2014 nothing fails",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "scripts/tests/test_smoke_live.py",
+    "services/market_gateway/tests/test_smoke_real_snapshot.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a744ef95400c8d35bd1a7548d8392c8b5200cf9b",
+   "fix_subject": "fix: enforce snapshot v3 source boundaries",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/market_gateway/tests/test_service.py: F^ \u2014 1 error in 0.32s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_service.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "2b1dc6833a72727c546084b8e85d3de5bd592888",
+   "fix_subject": "fix: harden snapshot v3 contract validation",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/market_gateway/tests/test_snapshot_v3.py: F^ \u2014 1 error in 0.24s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_snapshot_v3.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "43173e113665c1df100ea7d7a6544f9417db7e6c",
+   "fix_subject": "fix: decouple analysis candles from stock snapshots",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "services/analysis_api/tests/test_http_app.py: F^ \u2014 1 error in 0.25s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_analysis_service.py",
+    "services/analysis_api/tests/test_gateway_provider.py",
+    "services/analysis_api/tests/test_http_app.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "af9a3768e09c6171f5ebaeb620ca06e003613f13",
+   "fix_subject": "fix: stop a blocked conclusion from looking like a clean one",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "ContextAvailabilityTests::test_a_score_from_a_partial_context_reports_its_coverage",
+    "UncomputableFactorTests::test_an_uncomputable_factor_lowers_the_reported_coverage",
+    "UncomputableFactorTests::test_fundamentals_defaults_to_unavailable_not_neutral",
+    "UncomputableFactorTests::test_too_few_bars_leaves_the_technical_factors_unmeasured"
+   ],
+   "probes": 12,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_analysis_service.py",
+    "services/analysis_api/tests/test_http_app.py",
+    "services/analysis_core/tests/test_scoring.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "ec423f8153",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "75e376dc4e",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "620ab76203",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "1cadc7e8a8",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "0961e0571f",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "87a1e05bed",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d13f67ba0d8cac384ef37a442896fedfdceb8a5c",
+   "fix_subject": "fix: read the role EDGAR already tells us",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "FormTypePrefixTests::test_a_prefix_match_is_not_labelled_as_the_requested_form",
+    "InsiderFilingAttributionTests::test_a_reporting_entry_claims_no_symbol_of_its_own",
+    "ReportingPersonAttributionTests::test_a_listed_insider_is_not_the_subject_of_its_own_form_4"
+   ],
+   "probes": 11,
+   "reason": "no passing ancestor within 32 first-parent commits (9 probed, 0 pass, 3 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_adapters.py",
+    "services/information_layer/tests/test_cik_registry.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "bc98238d13",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "3f2c296288",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "0961e0571f",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "f82000263b",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "3cb05938b1",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "29133f01c6",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a6ab3e4034",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5b6c42bc7c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "3 of 3 failed",
+     "sha": "270bbbfd75",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "bc98238d135200545d95e21922eb975322e16ed4",
+   "fix_subject": "fix: a rejection is not an approval, and a company name is not news",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "FilingMetadataSentimentTests::test_a_filing_title_is_metadata_and_carries_no_sentiment"
+   ],
+   "probes": 12,
+   "reason": "no passing ancestor within 32 first-parent commits (10 probed, 0 pass, 5 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_adapters.py",
+    "services/information_layer/tests/test_event_sentiment.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "3f2c296288",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "0961e0571f",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "54399418fd",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "c06f6f6e9d",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "f5daa0cbbf",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5b6c42bc7c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "29133f01c6",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b92dd78410",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a6ab3e4034",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7f880a17c0",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1370d6a45b6a7d5115deffb737c7b361c2344587",
+   "fix_subject": "fix: repair what the stage-6 review found in the sentiment layer",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "SecKeywordFallbackTests::test_configured_symbol_keywords_still_apply_without_a_registry"
+   ],
+   "probes": 13,
+   "reason": "no passing ancestor within 32 first-parent commits (11 probed, 0 pass, 6 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_adapters.py",
+    "services/information_layer/tests/test_cik_registry.py",
+    "services/information_layer/tests/test_event_sentiment.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "f46d5d42f6",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "3cb05938b1",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "f5daa0cbbf",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "14a75e06de",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a6ab3e4034",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "1 of 1 failed",
+     "sha": "270bbbfd75",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "026e0a7a6c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8ab902e86e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "71bfd8f811",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4d1daaca87",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b3c71bd402",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3cb05938b13d6918bd4d294be4a994f2a9ff03bf",
+   "fix_subject": "fix: count one syndicated wire story as one source",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "ClusterCorroborationTests::test_a_lightly_edited_republication_is_still_one_report",
+    "ClusterCorroborationTests::test_one_wire_story_republished_is_not_five_independent_sources"
+   ],
+   "probes": 20,
+   "reason": "no passing ancestor within 32 first-parent commits (16 probed, 0 pass, 15 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_information_layer.py",
+    "services/information_layer/tests/test_semantic_clustering.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "f5daa0cbbf",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "87a1e05bed",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 2,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "14a75e06de",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 3,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f1f69a91d3",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 4,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9284f2df00",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 5,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "270bbbfd75",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a6ab3e4034",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5b6c42bc7c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "29133f01c6",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b92dd78410",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7f880a17c0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b3c71bd402",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "71bfd8f811",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "beb5faa45d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "026e0a7a6c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f64b055a23",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "87a1e05bed99a9053c6ef010e726ab5a067e6e7d",
+   "fix_subject": "fix: carry the unmeasured state past the information layer",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "FeatureExtractionTests::test_evidence_for_another_symbol_cannot_change_features",
+    "FeatureExtractionTests::test_same_cutoff_is_reproducible_despite_input_order",
+    "FeatureExtractionTests::test_three_horizons_use_distinct_lookbacks_and_keep_context_explainable",
+    "UnmeasuredEvidenceTests::test_a_record_cannot_claim_a_reading_it_never_took"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_scoring.py",
+    "services/decision_engine/tests/test_engine.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "14a75e06de",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "f1f69a91d3",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "9284f2df00",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "a6ab3e4034",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "7f880a17c0",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "f64b055a23",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "f1f69a91d35c931752f736af953dbed62ea737b0",
+   "fix_subject": "fix: stop the lexicon misreading ordinary headlines",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "EventSentimentTests::test_a_headline_about_the_shares_falling_is_not_bullish",
+    "EventSentimentTests::test_a_matched_phrase_consumes_its_own_words",
+    "EventSentimentTests::test_a_strong_term_is_not_diluted_by_weak_company",
+    "EventSentimentTests::test_cutting_costs_is_not_the_same_as_cutting_guidance"
+   ],
+   "probes": 18,
+   "reason": "no passing ancestor within 32 first-parent commits (16 probed, 0 pass, 13 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_event_sentiment.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "9284f2df00",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "270bbbfd75",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "a6ab3e4034",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5b6c42bc7c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 3,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "29133f01c6",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 5,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b92dd78410",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7f880a17c0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4d1daaca87",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cc3a7a79ed",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8ab902e86e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "026e0a7a6c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9483151774",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6943a23d9c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "908512b135",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f64b055a23",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "2c5ba62644",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9284f2df00f56a6f1314661e559815df635d8b53",
+   "fix_subject": "fix: send insider filings to the issuer, not the insider",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "InsiderFilingAttributionTests::test_a_form_4_reaches_the_issuer_not_the_reporting_person"
+   ],
+   "probes": 18,
+   "reason": "no passing ancestor within 32 first-parent commits (16 probed, 0 pass, 15 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_adapters.py",
+    "services/information_layer/tests/test_cik_registry.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "270bbbfd75",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a6ab3e4034",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 2,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "29133f01c6",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 3,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5b6c42bc7c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 4,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b92dd78410",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 5,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7f880a17c0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cc3a7a79ed",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8ab902e86e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4d1daaca87",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "026e0a7a6c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "71bfd8f811",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "908512b135",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9483151774",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "2c5ba62644",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6943a23d9c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8a61cc957b",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "5b6c42bc7c357f6ef4f91b74b68eb1cbef765968",
+   "fix_subject": "fix: pin the rules two mutations walked straight through",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/market_gateway/tests/test_snapshot.py: F^ \u2014 1 error in 0.22s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_trend_system.py",
+    "services/market_gateway/tests/test_snapshot.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "b92dd78410d7baf7c427af505f6033b7c6496585",
+   "fix_subject": "fix: three more defects from the verified review",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "DragonTrendTests::test_relative_volume_compares_against_prior_bars_only",
+    "MethodologyDocumentationTests::test_the_published_volume_baseline_matches_the_code"
+   ],
+   "probes": 12,
+   "reason": "no passing ancestor within 32 first-parent commits (10 probed, 0 pass, 5 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_trend_system.py",
+    "services/market_gateway/tests/test_snapshot.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "7f880a17c0",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "cc3a7a79ed",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "4d1daaca87",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "026e0a7a6c",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "f64b055a23",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "45674d5636",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "151a679ab9",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "04d1d31037",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1e7c4f0a8c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6615d605c2",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4d1daaca874080739699e8774e12a412d7387a87",
+   "fix_subject": "fix: stop inventing the fields that make validation meaningful",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/market_gateway/tests/test_snapshot.py: F^ \u2014 1 error in 0.20s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_service.py",
+    "services/market_gateway/tests/test_snapshot.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8ab902e86e5d994ce0e5264d5c4864dc74dbb128",
+   "fix_subject": "fix: repair five defects the review found in my own work",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "DragonTrendTests::test_dragon_trend_reports_a_bullish_regime_after_warm_up",
+    "DragonTrendTests::test_the_first_measurable_bar_is_not_reported_as_a_transition",
+    "TdSetupTests::test_magic_nine_does_not_contradict_td_setup_on_perfection",
+    "TdSetupTests::test_td_setup_reports_perfection_only_where_it_checked"
+   ],
+   "probes": 13,
+   "reason": "no passing ancestor within 32 first-parent commits (11 probed, 0 pass, 6 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_trend_system.py",
+    "services/market_gateway/tests/test_http_gateway.py",
+    "services/market_gateway/tests/test_snapshot.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "026e0a7a6c",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "71bfd8f811",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "b3c71bd402",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "f64b055a23",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "2c5ba62644",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "4 of 4 failed",
+     "sha": "908512b135",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "23a1663bcc",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "d94cec1c46",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ae9fe18314",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6615d605c2",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9c9c56d43d",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "71bfd8f81106e8c1bf68989bc2e046ee7e2aa72c",
+   "fix_subject": "fix: give the adviser cap one authority",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "AdviserCapContractTests::test_no_adviser_factor_can_move_the_score_beyond_the_cap",
+    "AdviserCapContractTests::test_the_adviser_cap_is_a_single_published_constant"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_scoring.py",
+    "services/decision_engine/tests/test_engine.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "b3c71bd402",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "beb5faa45d",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "f64b055a23",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "9483151774",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "1e7c4f0a8c",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "9c9c56d43d",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "beb5faa45d51bc26b78ddb8bf9b299b5fda9a066",
+   "fix_subject": "fix: make the cutoff guard a precondition, not a string match",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/market_gateway/tests/test_snapshot.py: F^ \u2014 1 error in 0.27s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_snapshot.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9483151774b7c2a098b9e52e9336298b912d8a58",
+   "fix_subject": "fix: separate temporal violations from missing data",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "services/market_gateway/tests/test_snapshot.py: F^ \u2014 1 error in 0.28s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_opend_adapter.py",
+    "services/market_gateway/tests/test_smoke_real_snapshot.py",
+    "services/market_gateway/tests/test_snapshot.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "2c5ba626446f605ddfa2d4074fbaf4e0380a6c67",
+   "fix_subject": "fix: enforce exact participation and typed offline contracts",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "CapitalFlowValidationTests::test_participation_bar_requires_exact_complete_activity_semantics",
+    "CapitalFlowValidationTests::test_unavailable_participation_rejects_zero_activity_repair"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_participation.py",
+    "services/market_gateway/tests/test_http_gateway.py",
+    "services/market_gateway/tests/test_opend_adapter.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "8a61cc957b",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "1e7c4f0a8c",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "151a679ab9",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "04d1d31037",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "ae9fe18314",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "3a602741fd",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8a61cc957be2985275f0b4ff1915480856fb7c01",
+   "fix_subject": "fix: reject overflowing participation activity",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "SmokeRealSnapshotTests::test_rejects_live_participation_with_overflowing_activity_denominator"
+   ],
+   "probes": 18,
+   "reason": "no passing ancestor within 32 first-parent commits (16 probed, 0 pass, 13 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_smoke_real_snapshot.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "1e7c4f0a8c",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "151a679ab9",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "45674d5636",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6615d605c2",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 3,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "04d1d31037",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 5,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "d94cec1c46",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "23a1663bcc",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9c9c56d43d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ae9fe18314",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1510b93210",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f4a8a98de0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6458b9f77b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3a602741fd",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "44b1d8064f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "113376d3c8",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cdca127e76",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1e7c4f0a8c32cc993101547a55418b17ae0f4ac5",
+   "fix_subject": "fix: harden real snapshot smoke validation",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "SmokeRealSnapshotTests::test_does_not_treat_an_unknown_object_as_required_snapshot_metadata",
+    "SmokeRealSnapshotTests::test_rejects_live_participation_without_positive_activity",
+    "SmokeRealSnapshotTests::test_rejects_live_participation_without_positive_coverage",
+    "SmokeRealSnapshotTests::test_rejects_live_shares_not_derived_from_activity"
+   ],
+   "probes": 18,
+   "reason": "no passing ancestor within 32 first-parent commits (16 probed, 0 pass, 14 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_smoke_real_snapshot.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "151a679ab9",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "45674d5636",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "04d1d31037",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 3,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6615d605c2",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 4,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "d94cec1c46",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 5,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "23a1663bcc",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ae9fe18314",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1510b93210",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9c9c56d43d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f4a8a98de0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "abb792b8d4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "44b1d8064f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6458b9f77b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cdca127e76",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3a602741fd",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "697004b4cd",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3a602741fdb1cdd38186c71ba0e2c3c54f68c852",
+   "fix_subject": "fix: use operation cutoff for market snapshots",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/market_gateway/tests/test_snapshot.py: F^ \u2014 1 error in 0.26s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_service.py",
+    "services/market_gateway/tests/test_snapshot.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1313b5cf79b07df844de853bec78bb95c88f5d97",
+   "fix_subject": "fix: harden localized moomoo market data",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "MoomooOpenDProviderTests::test_capital_apis_are_explicit_non_identity_proxies",
+    "MoomooOpenDProviderTests::test_capital_flow_uses_receipt_time_not_provider_valid_until",
+    "MoomooOpenDProviderTests::test_watchlist_discovers_the_localized_all_group"
+   ],
+   "probes": 18,
+   "reason": "no passing ancestor within 32 first-parent commits (16 probed, 0 pass, 15 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_opend_adapter.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "4e332729a8",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5f89042d01",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 2,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3a00c4b134",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 3,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "afb24a83ec",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 4,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "97d18cc5f4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 5,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4ac837179c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "32aec9708a",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a2fd00a462",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "57ae8907e4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "93bb74260d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cb1f56a63c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "edf8e37d6b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "e2ec1341a9",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b6245143ca",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9c2bb4d1d5",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "e40a1091dc",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+   "fix_subject": "feat: add verified regulatory and agency sources",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "AgencyFeedFixtureTests::test_a_future_dated_doj_item_is_rejected_loudly",
+    "AgencyFeedFixtureTests::test_fda_releases_parse_verified_and_scored",
+    "AgencyFeedFixtureTests::test_ftc_releases_parse",
+    "FeedParsingTests::test_a_plain_http_entry_link_is_upgraded_not_dropped"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_adapters.py",
+    "services/information_layer/tests/test_source_registry.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "abefa25f7d",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "8cfab6c5a7",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "e820bd182d",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "cc34784dcb",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "8ed78113d1",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "32188a06a8",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "abefa25f7d77174759aa698ecdedffed5dcd5886",
+   "fix_subject": "feat: register verified company ir feeds",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "CompanyIrFeedFixtureTests::test_a_boeing_release_naming_the_company_is_attributed",
+    "CompanyIrFeedFixtureTests::test_a_release_that_never_names_the_company_claims_no_symbol"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_adapters.py",
+    "services/information_layer/tests/test_source_registry.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "8cfab6c5a7",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "e820bd182d",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "0f11a61479",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "ff70a6df76",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "d7be758c2f",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "69f683cc2d",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8cfab6c5a737bde7c78f2e423d38ac9183378c1d",
+   "fix_subject": "feat: widen sec current-filings coverage to 10-Q, 10-K and schedule 13D/13G",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "BeneficialOwnershipFormCodeTests::test_a_13g_subject_entry_is_attributed_to_the_issuer",
+    "BeneficialOwnershipFormCodeTests::test_a_filed_by_entry_claims_no_symbol_even_when_the_holder_is_listed",
+    "BeneficialOwnershipFormCodeTests::test_a_multiword_form_builds_a_hyphenated_adapter_id",
+    "BeneficialOwnershipFormCodeTests::test_a_subject_entry_is_attributed_to_the_issuer"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_adapters.py",
+    "services/information_layer/tests/test_source_registry.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "e820bd182d",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "0f11a61479",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "cc34784dcb",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "3a32c923a9",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "375ab52d69",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "283fb25ec4",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "897b101692b14e5deca5795ecb4fc493c1da23f2",
+   "fix_subject": "market_gateway: available_at tracks receive clock, not theoretical bar close",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/market_gateway/tests/test_opend_adapter.py: F^ \u2014 1 error in 0.24s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_opend_adapter.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3a32c923a992796ee379ec135deb3b98fc47fdcc",
+   "fix_subject": "feat: guard pattern signal text against action verbs at construction",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "SignalBannedVerbGuardTests::test_the_guard_names_the_field_and_the_verb"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_patterns_shapes.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "2d4a0d8ab0",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "8ed78113d1",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "d7be758c2f",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "c7121f86da",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "6e9be0e2c2",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "d6ceb7006b",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d6ceb7006bc6f7a659d9e8cb63be4c9b5cf910e9",
+   "fix_subject": "feat(market_gateway): serve patternShapes in snapshot indicators",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/market_gateway/tests/test_snapshot_pattern_shapes.py: F^ \u2014 1 error in 0.28s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_snapshot_pattern_shapes.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "e17c6862ff72662fe8180c4365798d4bad263963",
+   "fix_subject": "feat(analysis_core): add patterns-shapes-v1 detection engine",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_core/tests/test_patterns_shapes.py: F^ \u2014 1 error in 0.24s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_patterns_shapes.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "b57092c92c1e02b797b9721ade0d7c61ca9b79f0",
+   "fix_subject": "feat: add plain-language vocabulary for rvol, volatility, breadth, sector RS, and magic nine",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_core/tests/test_plain_language.py: F^ \u2014 1 error in 0.25s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_plain_language.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4afe9ee5d1324e274eb493bc0fd23565a662baf3",
+   "fix_subject": "feat: wire breadth and sector-RS into market-brief drivers",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_api/tests/test_market_brief.py: F^ \u2014 1 error in 0.30s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_market_brief.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1d779519ba592f228327acfa0f2ddaf93be569da",
+   "fix_subject": "feat: read the market gateway's watchlist from analysis_api",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/analysis_api/tests/test_gateway_provider.py: F^ \u2014 1 error in 0.23s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_evidence_provider.py",
+    "services/analysis_api/tests/test_gateway_provider.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0566440f402dae7812824f0c6aeb46bcdec13d1e",
+   "fix_subject": "feat: add Parkinson and Garman-Klass range volatility estimators",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_core/tests/test_volatility.py: F^ \u2014 1 error in 0.27s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_volatility.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ef834f94dfecdae65ac35ecdf91818a2165d91a8",
+   "fix_subject": "feat: add time-of-day relative volume estimator",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_core/tests/test_rvol.py: F^ \u2014 1 error in 0.25s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_rvol.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7245680bf4932f2b3a324d03f23e421e1060fff1",
+   "fix_subject": "feat: wire institutional-capital factor from gateway participation and holdings data",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "services/analysis_api/tests/test_gateway_provider.py: F^ \u2014 1 error in 0.21s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_analysis_service.py",
+    "services/analysis_api/tests/test_evidence_provider.py",
+    "services/analysis_api/tests/test_gateway_provider.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7ddc5a4e19863a94d4db774aef292b3a271ca476",
+   "fix_subject": "feat: add sector relative strength and correlation regime",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_core/tests/test_relative_strength.py: F^ \u2014 1 error in 0.24s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_relative_strength.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ded4db5a6edc4e852a5687d043b233db8c11323d",
+   "fix_subject": "feat: add breadth engine (advance/decline, %-above-MA, new-high/low)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_core/tests/test_breadth.py: F^ \u2014 1 error in 0.20s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_breadth.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "799d6c4af34845eaa0dd5cb4fc26dd0847a9f631",
+   "fix_subject": "feat: serve an honest market brief over the read-only boundary",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/analysis_api/tests/test_market_brief.py: F^ \u2014 1 error in 0.28s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "deploy/tests/test_deployment_configuration.py",
+    "services/analysis_api/tests/test_market_brief.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3d9af00103e9d7792a979e61c67a20be4cf4facc",
+   "fix_subject": "docs: operate the local stack through launchd",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "MetroDeepLinkTestCase::test_cli_failure_is_fixed_and_does_not_render_the_response",
+    "MetroDeepLinkTestCase::test_extracts_only_the_url_from_the_actual_expo_8088_response",
+    "MetroDeepLinkTestCase::test_fetch_rechecks_the_shared_deadline_for_slow_drip_headers",
+    "MetroDeepLinkTestCase::test_fetch_shares_one_deadline_across_connect_headers_and_body"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "scripts/tests/test_local_runtime_cli.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "7374c94aa7",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "cf006035a1",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "d7b133bcca",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "9114a99699",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "8fe050a401",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "21d2e6620e",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7374c94aa7ae5261681cba5598254e98e670d01d",
+   "fix_subject": "feat: manage the durable local runtime",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "RuntimeCliTestCase::test_all_targets_and_staged_plists_validate_before_first_bootstrap",
+    "RuntimeCliTestCase::test_direct_script_invalid_arguments_do_not_emit_raw_input",
+    "RuntimeCliTestCase::test_exact_manifest_owned_inactive_service_can_be_reinstalled",
+    "RuntimeCliTestCase::test_exact_manifest_owned_inactive_service_can_be_uninstalled"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "scripts/tests/test_local_runtime_cli.py",
+    "scripts/tests/test_local_runtime_ownership.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "cf006035a1",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "d7b133bcca",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "db0e242227",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "30db0adc67",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "ab02a62ac1",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "2b1dc6833a",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d7b133bcca5ff1c54ec69009492f81d1ea496ac3",
+   "fix_subject": "feat: define isolated macOS launch agents",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "scripts/tests/test_local_runtime_plists.py: no node discriminates (F^ 12F, F 12F/0P)",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "scripts/tests/test_local_runtime_plists.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "30db0adc677c4faf7806015a1f8d2917bd976c58",
+   "fix_subject": "feat: isolate local runtime environments",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "RuntimeEnvironmentTestCase::test_component_builder_rejects_unknown_component_and_relative_paths",
+    "RuntimeEnvironmentTestCase::test_component_builder_reports_missing_required_key_without_other_values",
+    "RuntimeEnvironmentTestCase::test_component_environments_are_fixed_minimal_and_secret_isolated",
+    "RuntimeEnvironmentTestCase::test_parser_accepts_blank_lines_comments_and_exact_current_key_set"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "scripts/tests/test_local_runtime_environment.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "db1aa2713b",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "034b650a1c",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "8fe050a401",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "874f3274ff",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "b76689dd7a",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "259e574b4f",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ab02a62ac152733fc6d916eff0609515107f8191",
+   "fix_subject": "test: verify sectioned snapshots across live watchlist",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "BatchLifecycleAndReportTests::test_46_sources_issue_and_redeem_once_then_run_46_pairs",
+    "BatchLifecycleAndReportTests::test_anomalous_holdings_and_stale_optional_flow_do_not_block_price",
+    "BatchLifecycleAndReportTests::test_decision_interval_mismatch_fails_and_revokes",
+    "BatchLifecycleAndReportTests::test_help_output_never_names_environment_keys"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "scripts/tests/test_smoke_live.py",
+    "services/analysis_api/tests/test_gateway_provider.py",
+    "services/market_gateway/tests/test_smoke_real_snapshot.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "874f3274ff",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "c3fc4a0e8d",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "dbff7f3a3d",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "b76689dd7a",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "f8f2da2f1c",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "69d899b2d6",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "21d2e6620ef7c2f3991189bcdc45cd4f2f5ea7cd",
+   "fix_subject": "feat: serve independently collected snapshot v3 sections",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "services/market_gateway/tests/test_service.py: F^ \u2014 1 error in 0.39s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_documentation.py",
+    "services/market_gateway/tests/test_http_gateway.py",
+    "services/market_gateway/tests/test_service.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "f8f2da2f1c2f25284453e2c4732d5efb1746aa73",
+   "fix_subject": "feat: add sectioned stock snapshot v3 contract",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/market_gateway/tests/test_snapshot_v3.py: F^ \u2014 1 error in 0.32s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_snapshot_v3.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "30bb5671529c9dae89bfff0007e8fa4728c9d76e",
+   "fix_subject": "feat: complete daily analysis and on-demand insights",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "services/analysis_api/tests/test_adviser_briefing.py: F^ \u2014 1 error in 0.27s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "scripts/tests/test_smoke_live.py",
+    "services/adviser_llm/tests/test_grounding.py",
+    "services/analysis_api/tests/test_adviser_briefing.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "092be7a6489ac5051d52d77548cb0f8cc9808764",
+   "fix_subject": "feat: measure what a briefing costs instead of estimating it",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/adviser_llm/tests/test_usage.py: F^ \u2014 1 error in 0.23s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/adviser_llm/tests/test_usage.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1b8cc4aab1c97f831e344889064ce4791a7c653b",
+   "fix_subject": "test: assert the copy the product actually ships",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/market_gateway/tests/test_snapshot_indicator_series.py: F^ \u2014 1 error in 0.21s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_indicator_series.py",
+    "services/market_gateway/tests/test_snapshot_indicator_series.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "5c3fe9af0c69c760a32ae90fa3200028ec582efe",
+   "fix_subject": "feat: pair devices over HTTP, with revocation that actually revokes",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "IssuePairingCodeTests::test_a_missing_environment_file_is_refused",
+    "IssuePairingCodeTests::test_a_run_without_a_label_explains_itself_and_stops",
+    "IssuePairingCodeTests::test_a_run_without_a_terminal_fails",
+    "IssuePairingCodeTests::test_a_run_without_a_terminal_never_emits_a_code"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "deploy/tests/test_deployment_configuration.py",
+    "deploy/tests/test_issue_pairing_code.py",
+    "deploy/tests/test_preflight.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "a721433a61",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "84c8bc51a8",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "721cadf6ac",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "0fda13198d",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "75e376dc4e",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "54399418fd",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "721cadf6acdcca6d294e80f374c1f4c25b7bbfc1",
+   "fix_subject": "feat: connect real evidence sources and the adviser layer",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "ExposureTests::test_only_ssh_and_https_are_opened",
+    "FinishReachesTheEndTests::test_both_caddyfile_placeholders_are_replaced",
+    "FinishReachesTheEndTests::test_the_acme_contact_is_required_rather_than_suggested",
+    "FinishReachesTheEndTests::test_the_firewall_is_never_reset_blindly"
+   ],
+   "probes": 18,
+   "reason": "no passing ancestor within 32 first-parent commits (16 probed, 0 pass, 14 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "deploy/tests/test_bootstrap.py",
+    "deploy/tests/test_deployment_configuration.py",
+    "deploy/tests/test_preflight.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "8200ea2556",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "0fda13198d",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9b35b001e4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 3,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "af9a3768e0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 4,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ec423f8153",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 5,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "75e376dc4e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "620ab76203",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1cadc7e8a8",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "0c002ce142",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "d13f67ba0d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "bc98238d13",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1370d6a45b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c06f6f6e9d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f46d5d42f6",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f82000263b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3cb05938b1",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9b35b001e4fc9cf6a3b07f36029a35106d7035a7",
+   "fix_subject": "feat: pair one device and run the whole stack on a server",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "IssueDeviceTokenTests::test_a_missing_environment_file_is_refused",
+    "IssueDeviceTokenTests::test_a_run_without_a_terminal_fails",
+    "IssueDeviceTokenTests::test_a_run_without_a_terminal_leaves_the_environment_file_untouched",
+    "IssueDeviceTokenTests::test_a_run_without_a_terminal_never_emits_the_token"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "deploy/tests/test_deployment_configuration.py",
+    "deploy/tests/test_issue_device_token.py",
+    "deploy/tests/test_preflight.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "af9a3768e0",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "ec423f8153",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "75e376dc4e",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "0c002ce142",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "3f2c296288",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "f5daa0cbbf",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ec423f8153cd3f91849b291001fe81f9aa749619",
+   "fix_subject": "feat: run the analysis service and reach it from the phone",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/analysis_api/tests/test_http_app.py: F^ \u2014 1 error in 0.24s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_gateway_provider.py",
+    "services/analysis_api/tests/test_http_app.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0c002ce142a3c66c363b2e2b23f972b12c325790",
+   "fix_subject": "feat: serve the composed decision over a read-only HTTP boundary",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/analysis_api/tests/test_http_app.py: F^ \u2014 1 error in 0.21s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_api/tests/test_analysis_service.py",
+    "services/analysis_api/tests/test_http_app.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0961e0571f1b56d76b84c55844134c55a2085da2",
+   "fix_subject": "feat: let the decision engine run on the inputs a live caller has",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/decision_engine/tests/test_engine.py: F^ \u2014 1 error in 0.21s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/decision_engine/tests/test_engine.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "54399418fd2da2431b048823af730d0759baccde",
+   "fix_subject": "feat: let a score say which factors it could not see",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "ContextAvailabilityTests::test_a_context_may_declare_a_factor_it_has_no_source_for",
+    "ContextAvailabilityTests::test_a_score_from_a_partial_context_reports_its_coverage",
+    "UnavailableFactorTests::test_a_missing_factor_is_not_scored_as_neutral",
+    "UnavailableFactorTests::test_a_score_with_no_usable_factor_is_not_actionable"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_scoring.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "f82000263b",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "c06f6f6e9d",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "1370d6a45b",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "3cb05938b1",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "f1f69a91d3",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "cc3a7a79ed",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "c06f6f6e9dcf9d73207273a49822e55ab6caf9a3",
+   "fix_subject": "feat: remember what each feed already published, and how recently it was asked",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "SecAndCoordinatorTests::test_changed_entry_is_published_as_revision_once",
+    "SecAndCoordinatorTests::test_coordinator_uses_validators_and_does_not_republish_unchanged_content"
+   ],
+   "probes": 12,
+   "reason": "no passing ancestor within 32 first-parent commits (10 probed, 0 pass, 5 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_adapters.py",
+    "services/information_layer/tests/test_coordinator_state.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "1370d6a45b",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "f46d5d42f6",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "3cb05938b1",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "87a1e05bed",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "270bbbfd75",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8ab902e86e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4d1daaca87",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "026e0a7a6c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cc3a7a79ed",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "71bfd8f811",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "f5daa0cbbfbe3936b064f11e68e108b6468b205c",
+   "fix_subject": "feat: recognize one event reported by two outlets",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/information_layer/tests/test_semantic_clustering.py: F^ \u2014 1 error in 0.23s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_semantic_clustering.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "270bbbfd7589e212a8c51a1578cac94ac7b6163a",
+   "fix_subject": "feat: attribute SEC filings by filer identity, not by prose",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "services/information_layer/tests/test_cik_registry.py: F^ \u2014 1 error in 0.18s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_adapters.py",
+    "services/information_layer/tests/test_cik_registry.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a6ab3e40342c457cfd2a902db205140b9dcd4fb2",
+   "fix_subject": "feat: read the news instead of scoring every headline zero",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "FeedSentimentTests::test_a_feed_event_carries_a_real_reading_not_a_hardcoded_zero",
+    "FeedSentimentTests::test_generic_adapter_no_longer_hardcodes_neutral"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/information_layer/tests/test_adapters.py",
+    "services/information_layer/tests/test_event_sentiment.py",
+    "services/information_layer/tests/test_information_layer.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "29133f01c6",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "5b6c42bc7c",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "b92dd78410",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "cc3a7a79ed",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "71bfd8f811",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "8a61cc957b",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "6943a23d9c251bbdd452aaf37b2f7afc602eb69e",
+   "fix_subject": "feat: measure realized volatility instead of assuming one",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "services/market_gateway/tests/test_snapshot.py: F^ \u2014 1 error in 0.25s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_volatility.py",
+    "services/market_gateway/tests/test_smoke_real_snapshot.py",
+    "services/market_gateway/tests/test_snapshot.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "908512b13513a2b7e6ee99da742553cf6217082e",
+   "fix_subject": "feat: converge the indicator engines on analysis_core",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "PatternTests::test_magic_nine_is_an_original_close_versus_four_bars_sequence"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_indicators_patterns.py",
+    "services/analysis_core/tests/test_trend_system.py",
+    "services/market_gateway/tests/test_smoke_real_snapshot.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "2c5ba62644",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "8a61cc957b",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "1e7c4f0a8c",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "45674d5636",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "23a1663bcc",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "113376d3c8",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "45674d563670ab27a6439cdec233e9b98c528268",
+   "fix_subject": "test: prove the real market mobile slice",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "CapitalFlowValidationTests::test_participation_bar_rejects_even_a_tiny_invalid_share_sum",
+    "ParticipationAggregationTests::test_serialized_live_activity_shares_sum_to_exactly_one"
+   ],
+   "probes": 11,
+   "reason": "no passing ancestor within 32 first-parent commits (9 probed, 0 pass, 3 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_participation.py",
+    "services/market_gateway/tests/test_smoke_real_snapshot.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "04d1d31037",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "6615d605c2",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "d94cec1c46",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "ae9fe18314",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "abb792b8d4",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "697004b4cd",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cdca127e76",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1313b5cf79",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "2 of 2 failed",
+     "sha": "44b1d8064f",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "6458b9f77bccdfaf3d0bdde903641c13feaf648d",
+   "fix_subject": "feat: expose unified real market snapshot",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 8,
+   "reason": "services/market_gateway/tests/test_snapshot.py: F \u2014 1 error in 0.24s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_http_gateway.py",
+    "services/market_gateway/tests/test_snapshot.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "44b1d8064fc1747ed8e03a99d84240b02f100fbb",
+   "fix_subject": "feat: compute point-in-time capital participation",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "services/analysis_core/tests/test_participation.py: F^ \u2014 1 error in 0.25s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/analysis_core/tests/test_participation.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4e332729a899314dd7a063cf325d04a8a77e2fab",
+   "fix_subject": "feat: add read-only moomoo market gateway",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "services/market_gateway/tests/test_service.py: F^ \u2014 1 error in 0.26s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/market_gateway/tests/test_http_gateway.py",
+    "services/market_gateway/tests/test_opend_adapter.py",
+    "services/market_gateway/tests/test_service.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "5f89042d017568e107d3475bdbc09c268181a9db",
+   "fix_subject": "feat: add point-in-time decision core",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "services/analysis_core/tests/test_outputs.py: F^ \u2014 1 error in 0.28s",
+   "repo": "us-stock-helper",
+   "resolved": false,
+   "test_files": [
+    "services/adviser_layer/tests/test_council.py",
+    "services/analysis_core/tests/test_indicators_patterns.py",
+    "services/analysis_core/tests/test_outputs.py"
+   ],
+   "trace": []
+  }
+ ],
+ "policy": "D-135: value-class recall is measured on forward pairs only",
+ "resolved": 0,
+ "schema_version": "attest.forward-pairs.v1"
+}

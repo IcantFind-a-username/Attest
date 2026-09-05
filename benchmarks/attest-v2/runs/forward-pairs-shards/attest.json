@@ -1,0 +1,2976 @@
+{
+ "examined": 36,
+ "max_back": 200,
+ "pairs": [
+  {
+   "base": "",
+   "distance": null,
+   "fix": "c8a55ad899622484b82acc9ca63721e2b87780a5",
+   "fix_subject": "fix(certify): the bundle carries the test that ran, and verifies itself",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_a_bundle_that_does_not_verify_publishes_nothing",
+    "test_a_regenerated_reproduction_puts_its_own_bytes_in_the_bundle"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_bundle_integrity.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "5ebcf8846f",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "52e9d3bf16",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "448b6d43c2",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "e4915effff",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "8a8d31afad",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "d3ec1b8fb4",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "2 of 2 failed",
+     "sha": "b764cfb926",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "2 of 2 failed",
+     "sha": "34affaf7a6",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1440dbec23f3ea91f1c91b43027ed68f2563becd",
+   "fix_subject": "fix(executor): a native BLAS is told to want one thread",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_a_project_that_imports_numpy_runs_inside_the_container"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/execution/test_linux_isolation.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "e4915effff",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "f1a5701027",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "d5bbe501b7",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "8a8d31afad",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "aa9d6ea20d",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "34a3262b63",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "69f347bc48",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "8fadb676fc",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "cf2ceae37080d6cc3f48465ceb997422b0c658a5",
+   "fix_subject": "fix(verify): a receipt is judged under the policy version it records",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/certification/test_intent.py: F^ \u2014 E   ModuleNotFoundError: No module named 'numpy'",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/certification/test_intent.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "97fc9078bf35b7902e8de47ceabdbb619fe1db76",
+   "fix_subject": "fix(intent): the constant rule reads the assertion, not the whole file",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_an_assertion_on_a_computed_value_still_certifies",
+    "test_an_assertion_on_a_substituted_constant_goes_to_the_drawer"
+   ],
+   "probes": 18,
+   "reason": "no passing ancestor within 128 first-parent commits (16 probed, 0 pass, 10 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_executor.py",
+    "tests/test_intent_observer.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "d3ec1b8fb4",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "835b9969c6",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "5acdd65658",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "34a3262b63",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "5c024e52df",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "b764cfb926",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ad4c5fe1e3",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "61d9695453",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "e60e6ed65e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "dc8ae56a1e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "626ffa5634",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6ab0552b37",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "185fc48786",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3ace7e52d0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "df410414c6",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "17d5c770c7",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "b764cfb926c701c0d576276eecf2ba5d57b0b51e",
+   "fix_subject": "fix(review): a provider error never carries a credential into visible text",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_a_provider_error_never_carries_a_credential_into_author_visible_text"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_proposer.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "04a86b25a4",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "4c8947e837",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "2bba19a553",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "a1a1a5486c",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "10036f7c98",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "e60e6ed65e",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "e002bd6679",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "e505291ebf",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "241bb6fa679b281d4cf06869588797277fb5d1aa",
+   "fix_subject": "fix(review): the discovery share bounds breadth, not the first unit",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_the_discovery_share_bounds_breadth_and_never_the_first_unit"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_proposer.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "9b610f6a5a",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "dc8ae56a1e",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "61d9695453",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "e60e6ed65e",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "b2538766b4",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "d62bcd6327",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "55d9ff0b21",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "2931753f3b",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "61d9695453d3e5e5d3b260f1aa740d79711352ab",
+   "fix_subject": "fix(execution): cap an image build at the verification budget, reuse by image id",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_a_build_context_that_cannot_be_assembled_is_a_bootstrap_failure_not_a_traceback",
+    "test_a_reusable_image_is_found_and_addressed_by_id_not_by_tag",
+    "test_a_timed_out_build_reports_the_tail_of_its_log",
+    "test_an_image_build_cannot_outlast_the_verification_budget_it_runs_under"
+   ],
+   "probes": 14,
+   "reason": "no passing ancestor within 128 first-parent commits (12 probed, 0 pass, 5 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/execution/test_backends.py",
+    "tests/test_ci_flow.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "ad4c5fe1e3",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "e60e6ed65e",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "626ffa5634",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "faa8265d3c",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "6dfcf4b2a3",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "34affaf7a6",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "4 of 4 failed",
+     "sha": "6ab0552b37",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c4bd53df8e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1724edb7e2",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "075387446b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c17c46ef5b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c72bec546f",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d62bcd6327a5953c23ba4c46c8cfae822e23f624",
+   "fix_subject": "fix: an unattempted certification names the profile the runs actually used",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_an_unattempted_certification_names_the_profile_that_actually_ran"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_ci_flow.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "e0867eb188",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "67703a6d6c",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "34affaf7a6",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "b58ffb7db4",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "3d5cba6ed9",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "df410414c6",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "5fc03fa594",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "4788d1dabc",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "34affaf7a69d98c94ea6470cd8b7fe244ea62157",
+   "fix_subject": "fix: every way the environment bootstrap fails is typed, and the image probe is bounded",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_a_build_context_that_cannot_be_assembled_is_a_bootstrap_failure_not_a_traceback",
+    "test_a_timed_out_build_reports_the_tail_of_its_log",
+    "test_the_image_probe_is_bounded_and_answers_unknown_when_docker_will_not"
+   ],
+   "probes": 14,
+   "reason": "no passing ancestor within 128 first-parent commits (12 probed, 0 pass, 5 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/execution/test_backends.py",
+    "tests/test_status.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "3 of 3 failed",
+     "sha": "e002bd6679",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "3 of 3 failed",
+     "sha": "b58ffb7db4",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "3 of 3 failed",
+     "sha": "6364010421",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "3 of 3 failed",
+     "sha": "a02e174ecb",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "3 of 3 failed",
+     "sha": "d80e0a43d3",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "3 of 3 failed",
+     "sha": "3ace7e52d0",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "3 of 3 failed",
+     "sha": "e505291ebf",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "316a84fc40",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cca77d47f2",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "dd99320602",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8c3513eb9d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "946b4901a0",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9df938f8aa96c3f5b5d872497fb3501741a2f6b8",
+   "fix_subject": "fix: an image build that times out is a typed bootstrap failure, not a traceback",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_an_image_build_that_times_out_is_a_bootstrap_failure_not_a_traceback"
+   ],
+   "probes": 14,
+   "reason": "no passing ancestor within 121 first-parent commits (12 probed, 0 pass, 5 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/execution/test_backends.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "260e8d9c51",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "d80e0a43d3",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "bd99b1b4db",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "a664672fa9",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "6ab0552b37",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "68408add6f",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "fdff273ce4",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "859c3b4534",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3cbe421854",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6b3b1d217a",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "47229a86cd",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "2fc523b5a4",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3ace7e52d0f04d646c5dabc8cd1fada35dea61a6",
+   "fix_subject": "fix: the CLI help must point an operator at the offline bundle verifier",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_top_level_help_says_verify_checks_a_bundle_offline"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 111 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli_e2e.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "17d5c770c7",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "eedb656ccd",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "57c4dfeb82",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "046422d637",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "7c8de5c624",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "874e270cad",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "c72bec546f",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "07e48fdd43",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0fee3a95e5641d88b96052a4ba743268639fa975",
+   "fix_subject": "fix: E-04 preflight \u2014 selection must precede its own outcome, not every outcome",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_preflight_refuses_a_sample_recorded_after_an_outcome_or_before_the_freeze"
+   ],
+   "probes": 26,
+   "reason": "no passing ancestor within 103 first-parent commits (24 probed, 0 pass, 20 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/benchmark/test_prospective.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "7c8de5c624",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "506aae1a13",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "69921e0a3c",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "5fc03fa594",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "874e270cad",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "e505291ebf",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "39e7a12c9c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "104ed35b12",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8b93b75eff",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c638714198",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a1624d2813",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6a89d83884",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "fdff273ce4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6ba59ab917",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4cebf25058",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "505023b25a",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "db6d66f4ef",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "d03687c1ba",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "e59aab89ec",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9320cd579d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "0e4ab3b314",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4561686d17",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1a4d96553f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "860f7de41f",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7c8de5c6245be2c0438fc51c14357a2b3f49756f",
+   "fix_subject": "fix: close the review pass's fail-open paths in the intent discriminator (D-102 amendment)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_preflight_refuses_a_sample_recorded_after_an_outcome_or_before_the_freeze"
+   ],
+   "probes": 27,
+   "reason": "no passing ancestor within 102 first-parent commits (25 probed, 0 pass, 21 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/benchmark/test_prospective.py",
+    "tests/test_ci_flow.py",
+    "tests/test_executor.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "506aae1a13",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "69921e0a3c",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "50c21d2ab6",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "19920c6ee4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 3,
+     "note": "1 of 1 failed",
+     "sha": "5fc03fa594",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "39e7a12c9c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "874e270cad",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8b93b75eff",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "e505291ebf",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7838294beb",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6a89d83884",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c638714198",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6ba59ab917",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a1624d2813",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "2931753f3b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "db6d66f4ef",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4cebf25058",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "e59aab89ec",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "505023b25a",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cf1d60dd7d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4561686d17",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9320cd579d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "860f7de41f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "0e4ab3b314",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8288c312c8",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "69921e0a3c520b80a82dc7ffb60b6065181fe3bf",
+   "fix_subject": "fix: a shadow is a module of a dotted name the anchored file answers to, not a basename match (D-104)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_a_stdlib_module_sharing_the_anchored_basename_is_not_a_shadow"
+   ],
+   "probes": 14,
+   "reason": "no passing ancestor within 100 first-parent commits (12 probed, 0 pass, 5 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_executor.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "50c21d2ab6",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "5fc03fa594",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "19920c6ee4",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "e505291ebf",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "7838294beb",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "2931753f3b",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "cf1d60dd7d",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8288c312c8",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "860f7de41f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5a5ee56bc0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4561686d17",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "2a94a94126",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "874e270cad013956d06d3eb52d6d9c76c33ab35f",
+   "fix_subject": "fix: build container images for scm-versioned and multi-root trees",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_dockerfile_pretends_the_scm_version_and_keeps_nested_projects_best_effort"
+   ],
+   "probes": 22,
+   "reason": "no passing ancestor within 94 first-parent commits (20 probed, 0 pass, 15 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/execution/test_backends.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "39e7a12c9c",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "8b93b75eff",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "7838294beb",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "c991e1da3a",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "6a89d83884",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c2814b89f8",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c72bec546f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ac3343c026",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "075387446b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "0c6d012819",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "946b4901a0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "dd99320602",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "26ace37433",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "316a84fc40",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "495966ecd3",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "35b8c97537",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8d9394c7bf",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ae0c22aab1",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "21801474e7",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3fe6c1be65",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8b93b75eff908b94587b877ef8eb8101ab204be4",
+   "fix_subject": "fix: choose the image interpreter from requires-python as well as classifiers",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_project_python_honours_requires_python_and_classifiers"
+   ],
+   "probes": 25,
+   "reason": "no passing ancestor within 92 first-parent commits (23 probed, 0 pass, 18 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/execution/test_backends.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "7838294beb",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "ddfce64f39",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "c991e1da3a",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "a1624d2813",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "2931753f3b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6ba59ab917",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c17c46ef5b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "1 of 1 failed",
+     "sha": "6a89d83884",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "0c6d012819",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ac3343c026",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8e94b42a3c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c2814b89f8",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "95e2e7eb85",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "495966ecd3",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "26ace37433",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "47229a86cd",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "946b4901a0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3cbe421854",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3fe6c1be65",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ae0c22aab1",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "35e3761b98",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "35b8c97537",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "447adc0a04",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8e94b42a3c3af1e87ff06d7f7f419203742e1def",
+   "fix_subject": "fix: expose each project's tests directory to reproductions",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_reproduction_can_import_the_nearest_test_module_helpers_by_name"
+   ],
+   "probes": 23,
+   "reason": "no passing ancestor within 74 first-parent commits (21 probed, 0 pass, 16 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_executor.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "95e2e7eb85",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "d03687c1ba",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "505023b25a",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "db6d66f4ef",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8c3513eb9d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "1 of 1 failed",
+     "sha": "4788d1dabc",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3cbe421854",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "47229a86cd",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "859c3b4534",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "495966ecd3",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6b3b1d217a",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "71f1b03845",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3f1aaa2e3d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1a4d96553f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ee9a0fb3bf",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "0e4ab3b314",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a71fbb7547",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c94578803b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "63b043d0d8",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6293aab0c1",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "39082d574f",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d03687c1baf6f899cf7be17907f2d61e761d5391",
+   "fix_subject": "fix: bind cached proposal attempts to the model and its call parameters",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_attempt_identity_binds_the_model_and_its_call_parameters"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 72 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_recovery.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "505023b25a",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "4cebf25058",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "db6d66f4ef",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "cf1d60dd7d",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "316a84fc40",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "6b3b1d217a",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "0e4ab3b314",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "39082d574f",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "e59aab89ec10e108be65b80d34ebcaba787a2536",
+   "fix_subject": "fix: import the reviewed tree's packages first and name a shadowed anchor",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_pre_imported_copy_is_recorded_as_shadowed_not_as_silence",
+    "test_reviewed_tree_wins_over_a_same_name_installed_copy"
+   ],
+   "probes": 28,
+   "reason": "no passing ancestor within 68 first-parent commits (26 probed, 0 pass, 24 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_executor.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "cf1d60dd7d",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "4788d1dabc",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8c3513eb9d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 3,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cca77d47f2",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 4,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "316a84fc40",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 5,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "dd99320602",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "946b4901a0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "495966ecd3",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "26ace37433",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "47229a86cd",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3cbe421854",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "2b3d4c98e8",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "927becef46",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7aa3f536a4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "e23e333692",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "65d8c40ca1",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8288c312c8",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "860f7de41f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5a5ee56bc0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4561686d17",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "2a94a94126",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b2341c97c4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7fd99d697b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9d06af601e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "71db3f449b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1dd1053e57",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "cf1d60dd7dd3e525eb862d2f408e16e68d52b55e",
+   "fix_subject": "fix: disable thinking for structured generation and report no-text responses honestly",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_thinking_only_generator_response_is_recorded_as_generation_no_text"
+   ],
+   "probes": 29,
+   "reason": "the boundary is between index 0 and 66 and no tree strictly between them can run the oracle",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_executor.py",
+    "tests/test_proposer.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "4788d1dabc",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8c3513eb9d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 2,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cca77d47f2",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 3,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "316a84fc40",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 4,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "dd99320602",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 5,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "946b4901a0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "26ace37433",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "47229a86cd",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "495966ecd3",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3cbe421854",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "859c3b4534",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7aa3f536a4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "2b3d4c98e8",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "65d8c40ca1",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "927becef46",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "87f232d2da",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5a5ee56bc0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8288c312c8",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "2a94a94126",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "860f7de41f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cf5c3560a0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9d06af601e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b2341c97c4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1dd1053e57",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7fd99d697b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "1 passed",
+     "sha": "41a1cb106a",
+     "verdict": "pass"
+    },
+    {
+     "index": 35,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "21801474e7",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4561686d179035574c30d793dc153971c0bc9818",
+   "fix_subject": "fix: bound a certification claim as prose, not as an identifier",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_two_sentence_claim_longer_than_an_identifier_still_certifies"
+   ],
+   "probes": 13,
+   "reason": "no passing ancestor within 37 first-parent commits (11 probed, 0 pass, 5 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/certification/test_validate.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "860f7de41f",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "8288c312c8",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "5a5ee56bc0",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "cf5c3560a0",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "ae0c22aab1",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "247b4b4c76",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7fd99d697b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "71db3f449b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b2341c97c4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7350d5ac9b",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9d06af601e",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3ab116ae9c25c1e23dff7ba2d6cbaf5649cacd65",
+   "fix_subject": "fix: give reproduction generation independent headroom",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_generate_preflights_both_attempts_before_dispatch",
+    "test_generate_reserves_budget_before_provider_and_settles_afterward"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 103 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_executor.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "5a684fbee7",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "3ff4c7c331",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "017a036217",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "ffd0dd2a5e",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "44801f9b9d",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "e25091c50f",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "2 of 2 failed",
+     "sha": "e2f499350a",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "2 of 2 failed",
+     "sha": "b9ff22733d",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "5a684fbee761a14f3b69bb942efeada2e9ffaf8d",
+   "fix_subject": "fix: retain process guard diagnostics",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_execute_defers_subprocess_attempt_without_starting_child"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 102 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_executor.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "3ff4c7c331",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "017a036217",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "2ae5fcf90a",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "e955f298cd",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "89ed4eaf7b",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "50055e2fdc",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "024674eb6e",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "9422b98dfd",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3ff4c7c3312df85743998990941a1a6ad722b437",
+   "fix_subject": "fix: persist per-candidate verification evidence",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_multi_candidate_case_artifact_preserves_each_verification"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/benchmark/test_api.py",
+    "tests/test_executor.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "017a036217",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "2ae5fcf90a",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "ffd0dd2a5e",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "b89ce99812",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "ff258cddd7",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "2e4a90ad1b",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "53811a2ba137d5c8de24ea77fd1aa2a2a6581ae0",
+   "fix_subject": "feat(config): the shipped per-review budget default is $1.00",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_factory_defaults"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_config_report.py",
+    "tests/test_proposer.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "a0a54b1463",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "c8a55ad899",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "5ebcf8846f",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "448b6d43c2",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "d5bbe501b7",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "b914dc2ac4",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a0a54b14634dec78bae6d6993c26ecffc46e73c1",
+   "fix_subject": "feat(certification): the publication family is the change unit",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_pr_family_policy_caps_publication_and_counts_a_defect_once"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/certification/test_change_unit_family.py",
+    "tests/test_ci_flow.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "c8a55ad899",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "5ebcf8846f",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "52e9d3bf16",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "1440dbec23",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "cf2ceae370",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "97fc9078bf",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d3ec1b8fb485bf3edb2445ddaf58bdd6f0afb07d",
+   "fix_subject": "docs: the window-end gates are green on the runner, tip included",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_a_new_rejection_the_base_tests_attest_publishes_as_a_behavior_change"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_ci_flow.py",
+    "tests/test_executor.py",
+    "tests/test_intent_observer.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "835b9969c6",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "5acdd65658",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "bf1f679e8b",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "1c051d9176",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "3fcd2326e5",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "04a86b25a4",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "5c024e52dfcddd51193dbcd214b9664962c54433",
+   "fix_subject": "test(release): the nine drills run as a gate, and the recorded table",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/release/test_drill.py: F^ \u2014 E   ModuleNotFoundError: No module named 'numpy'",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/release/test_drill.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "69f347bc487b3040c552b337234459d53cce7eeb",
+   "fix_subject": "feat(review): the reproduction generator has its own model",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_factory_defaults"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_config_report.py",
+    "tests/test_executor.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "a1a1a5486c",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "7244ad759c",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "ff242aefd0",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "10036f7c98",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "9b610f6a5a",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "b2538766b4",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a1a1a5486ca3709303f493fe396f594ea2ac94ea",
+   "fix_subject": "feat(review): within a rank, discovery reads the largest change first",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_within_a_rank_the_largest_change_is_planned_first"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_planner.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "7244ad759c",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "ff242aefd0",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "730ca9212d",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "594462110e",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "dc8ae56a1e",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "101d008899",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7244ad759cf5e414d8678d398f7cdce906156c7b",
+   "fix_subject": "feat(review): the generated reproduction must stand on its own",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_verify_candidate_regenerates_a_reproduction_that_does_not_stand_alone"
+   ],
+   "probes": 10,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_ci_flow.py",
+    "tests/test_executor.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "ff242aefd0",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "730ca9212d",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "10036f7c98",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "0d0e098b46",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "61d9695453",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "6e48f82c01",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0d0e098b46bfa8ef1e355cf88c5e0144ec03ac02",
+   "fix_subject": "test: the M-01 probe follows TMPDIR instead of a macOS path",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/benchmark/test_m01_offline_measurement_probe.py: F^ \u2014 E   ModuleNotFoundError: No module named 'numpy'",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/benchmark/test_m01_offline_measurement_probe.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "dc8ae56a1e439b3ceaa513d099dba1bd2bcc8b21",
+   "fix_subject": "feat(review): cap discovery at 60% of the budget and buy reproductions best-first",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_discovery_cannot_spend_more_than_its_share_of_the_review_budget"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_budget_ledger.py",
+    "tests/test_ci_flow.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "61d9695453",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "ad4c5fe1e3",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "e60e6ed65e",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "f4e201b76b",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "6e48f82c01",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "67703a6d6c",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "e002bd66799bf3aa5825f4f1f0d76dd652f8cf30",
+   "fix_subject": "feat: the kill-switch and rollback release drills, with their negative controls",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/release/test_drill.py: F^ \u2014 E   ModuleNotFoundError: No module named 'numpy'",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/release/test_drill.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "046422d637c47c8e66d179ce8d719b47b37b08ee",
+   "fix_subject": "feat: read source units before documentation units and say when a silence is budget-bound",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "test_source_units_are_planned_before_documentation_units"
+   ],
+   "probes": 8,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/test_planner.py",
+    "tests/test_status.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "45d0e94024",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "68408add6f",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "0fee3a95e5",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "506aae1a13",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "19920c6ee4",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "c991e1da3a",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "5fc03fa594eda32aca2ff6af05ee1be11e2ec20e",
+   "fix_subject": "feat: E-04 prospective shadow collector, preflight and the frozen protocol v1",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/benchmark/test_prospective.py: F^ \u2014 E   ModuleNotFoundError: No module named 'numpy'",
+   "repo": "attest",
+   "resolved": false,
+   "test_files": [
+    "tests/benchmark/test_prospective.py"
+   ],
+   "trace": []
+  }
+ ],
+ "policy": "D-135: value-class recall is measured on forward pairs only",
+ "resolved": 0,
+ "schema_version": "attest.forward-pairs.v1"
+}

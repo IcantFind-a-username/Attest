@@ -1,0 +1,702 @@
+{
+ "examined": 20,
+ "max_back": 200,
+ "pairs": [
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7edfa12ed562c5d5e9d6faa06812e42f02efb0e0",
+   "fix_subject": "drop end of life python versions",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_itsdangerous/test_serializer.py: F^ \u2014 nothing fails",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_serializer.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7f4dcf83a07bb3d53f4e0e65ef1b43327b4cca90",
+   "fix_subject": "access sha1 lazily",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_itsdangerous/test_serializer.py: F^ \u2014 1 error in 0.25s",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_serializer.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9a25d989cd65c4991c2c8ac46ef55e0e8dfe49ab",
+   "fix_subject": "update project files",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_itsdangerous/test_serializer.py: F^ \u2014 nothing fails",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_serializer.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "11e882bb4a74d571bed0e3f6b4e004eeb2daa970",
+   "fix_subject": "update dev dependencies",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_itsdangerous/test_serializer.py: F^ \u2014 nothing fails",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_serializer.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "177196d3a5c7ad37b8ccbd0f88445aced07f1ca0",
+   "fix_subject": "catch OSError on Windows",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_itsdangerous/test_timed.py: F^ \u2014 nothing fails",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_timed.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "aed5b260111c19e91af839c2c64d771c794250a0",
+   "fix_subject": "add typing with mypy",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "tests/test_itsdangerous/test_signer.py: F^ \u2014 nothing fails",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_jws.py",
+    "tests/test_itsdangerous/test_serializer.py",
+    "tests/test_itsdangerous/test_signer.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "526b1ea02934f529606dcbf3c3340ab429dcde04",
+   "fix_subject": "date_signed is datetime not int",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "TestTimestampSigner::test_sig_error_date_signed"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_timed.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "b11475aa0e",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "981ade6e73",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "542fad1e96",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "3703fbdedd",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "c880f85ccd",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "920993c48a",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "53f34c9a8fed28aa0f58502001ed2d75d23d3104",
+   "fix_subject": "deprecate jws",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "TestJWSSerializer::test_algorithm[HS256]",
+    "TestJWSSerializer::test_algorithm[HS384]",
+    "TestJWSSerializer::test_algorithm[HS512]",
+    "TestJWSSerializer::test_algorithm[none]"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_jws.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "981ade6e73",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "542fad1e96",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "1a9b8d1f99",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "64048c1106",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "c96e82d42e",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "ef8fd9894e",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "c30678d19e37011890e2374cca04f7789e101793",
+   "fix_subject": "don't allow timestamps from the future",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "TestTimestampSigner::test_future_age"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_timed.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "1a9b8d1f99",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "3703fbdedd",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "64048c1106",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "5a455d5f2e",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "5c0ce92125",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "2ef8fe08c1",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "64048c1106eb4e0ed70e64d16e230553a464087b",
+   "distance": 0,
+   "fix": "910a7a94ee88b15d0677f65ed87d7ccbbd998048",
+   "fix_subject": "datetimes are timezone-aware utc",
+   "head": "3703fbdedd13b2630dd9be75a3638408c193765d",
+   "head_subject": "Merge pull request #149 from pallets/drop-python2",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "TestTimedSerializer::test_alt_salt",
+    "TestTimedSerializer::test_bad_payload_exception",
+    "TestTimedSerializer::test_changed_value[<lambda>0]",
+    "TestTimedSerializer::test_changed_value[<lambda>1]"
+   ],
+   "probes": 5,
+   "reason": "4 oracle node(s) of tests/test_itsdangerous/test_timed.py fail from 3703fbdedd onward and pass at its parent 64048c1106",
+   "repo": "itsdangerous",
+   "resolved": true,
+   "test_files": [
+    "tests/test_itsdangerous/test_timed.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "3703fbdedd",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 passed",
+     "sha": "64048c1106",
+     "verdict": "pass"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7104e55812bb4a75ccbe5efcf55ad2dc692a849f",
+   "fix_subject": "apply pyupgrade",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "tests/test_itsdangerous/test_signer.py: F^ \u2014 nothing fails",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_encoding.py",
+    "tests/test_itsdangerous/test_serializer.py",
+    "tests/test_itsdangerous/test_signer.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "228b7b1b2f26e98b82ae43aee1576cf5aa1322ea",
+   "fix_subject": "remove _compat module",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_itsdangerous/test_serializer.py: F^ \u2014 nothing fails",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_serializer.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d79c74ac6b56e7802f3e3ead948cd3454f55ab95",
+   "fix_subject": "Added SHA-512 fallback by default",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_itsdangerous/test_serializer.py: F^ \u2014 nothing fails",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_serializer.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ef8fd9894efab262761d2dcf24671592a8fc8bbf",
+   "fix_subject": "more name cleanup, parametrize fallback test",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "tests/test_itsdangerous/test_timed.py: F^ \u2014 nothing fails",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_jws.py",
+    "tests/test_itsdangerous/test_serializer.py",
+    "tests/test_itsdangerous/test_timed.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "e569397e31892d7ddadfaa16997b732cddb79e2b",
+   "fix_subject": "Stylecheck",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "tests/test_itsdangerous/test_timed.py: F^ \u2014 nothing fails",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_serializer.py",
+    "tests/test_itsdangerous/test_timed.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "6c58e969a513646c8e37260417929770a4ab1b67",
+   "fix_subject": "Added fallback signer support to timed serializer",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "TestTimedSerializer::test_fallback_signers"
+   ],
+   "probes": 19,
+   "reason": "no passing ancestor within 32 first-parent commits (16 probed, 0 pass, 13 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_timed.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "f966a62e4c",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "2ef8fe08c1",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "c493cd846e",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5b25e9ee4e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 3,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f685200bda",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 5,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1e7ec63a84",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8e611d7373",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9a1937a45a",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7bd9f35e6e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a04a4bc3ab",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "75bbbda0c7",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "220c38ee0e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f5124e7d32",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4b8a13bac9",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8b1550601f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b00d8fd9dc",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "f966a62e4c0031b885566b529cc33fe9f6ae9f18",
+   "fix_subject": "Added fallback signers and switch back to sha1",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".venv/bin/python",
+   "nodes": [
+    "TestSerializer::test_fallback_signers"
+   ],
+   "probes": 16,
+   "reason": "no passing ancestor within 32 first-parent commits (14 probed, 0 pass, 10 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous/test_serializer.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "2ef8fe08c1",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "c493cd846e",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "f685200bda",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "1e7ec63a84",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a04a4bc3ab",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9a1937a45a",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "75bbbda0c7",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7bd9f35e6e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "66121f4865",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4b8a13bac9",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "220c38ee0e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b00d8fd9dc",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f5124e7d32",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f1480f375d",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a8c7d1b9737fda3b3092d5950a021398f06955b5",
+   "fix_subject": "split tests into modules, use pytest, 100% coverage",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "tests/test_jws.py: F^ \u2014 1 error in 0.24s",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_compat.py",
+    "tests/test_encoding.py",
+    "tests/test_jws.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0635526a8291da42aa0055a8207d7afe85154830",
+   "fix_subject": "split into modules",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_itsdangerous.py: F^ \u2014 1 error in 0.27s",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "93124678292c819f0a07fa40fe4b1e0a75f7bcf4",
+   "fix_subject": "add style checks",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_itsdangerous.py: F^ \u2014 nothing fails",
+   "repo": "itsdangerous",
+   "resolved": false,
+   "test_files": [
+    "tests/test_itsdangerous.py"
+   ],
+   "trace": []
+  }
+ ],
+ "policy": "D-135: value-class recall is measured on forward pairs only",
+ "resolved": 1,
+ "schema_version": "attest.forward-pairs.v1"
+}

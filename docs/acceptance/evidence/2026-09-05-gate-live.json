@@ -1,0 +1,135 @@
+{
+ "attempts": 13,
+ "executed_observations": 0,
+ "rows": [
+  {
+   "admissible": 1,
+   "attempted": 1,
+   "attempts": [
+    "2e5fec0442 through_caller collection produced 0 node(s): reproduction timed out after 60s"
+   ],
+   "considered": 15,
+   "log": "gate-run-attempt1.log",
+   "spend": 0.029316,
+   "unit": "IcantFind-a-username/Corum@04df399",
+   "would_publish": 0
+  },
+  {
+   "admissible": 9,
+   "attempted": 2,
+   "attempts": [
+    "0348776a63 through_caller collection produced 0 node(s): reproduction timed out after 60s",
+    "057d17e8b5 through_caller collection produced 0 node(s): reproduction timed out after 60s"
+   ],
+   "considered": 17,
+   "log": "gate-run-attempt1.log",
+   "spend": 0.096811,
+   "unit": "IcantFind-a-username/Attest@e002bd6",
+   "would_publish": 0
+  },
+  {
+   "admissible": 1,
+   "attempted": 1,
+   "attempts": [
+    "22c312b946 through_caller collection produced 0 node(s): reproduction timed out after 60s"
+   ],
+   "considered": 26,
+   "log": "gate-run-attempt1.log",
+   "spend": 0.087934,
+   "unit": "IcantFind-a-username/us-stock-helper@4afe9ee",
+   "would_publish": 0
+  },
+  {
+   "admissible": 1,
+   "attempted": 1,
+   "attempts": [
+    "10aa7365fe through_caller collection produced 0 node(s): reproduction timed out after 60s"
+   ],
+   "considered": 14,
+   "log": "gate-run-attempt1.log",
+   "spend": 0.045953,
+   "unit": "IcantFind-a-username/us-stock-helper@ef834f9",
+   "would_publish": 0
+  },
+  {
+   "admissible": 8,
+   "attempted": 2,
+   "attempts": [
+    "1bcf82e353 through_caller collection produced 0 node(s): reproduction timed out after 60s",
+    "335d7a972e through_caller collection produced 0 node(s): reproduction timed out after 60s"
+   ],
+   "considered": 23,
+   "log": "gate-run-attempt1.log",
+   "spend": 0.083992,
+   "unit": "IcantFind-a-username/us-stock-helper@7245680",
+   "would_publish": 0
+  },
+  {
+   "admissible": 1,
+   "attempted": 1,
+   "attempts": [
+    "1d3f8884aa through_caller collection produced 0 node(s): reproduction timed out after 60s"
+   ],
+   "considered": 14,
+   "log": "gate-run-attempt1.log",
+   "spend": 0.042565,
+   "unit": "IcantFind-a-username/us-stock-helper@cdf221f",
+   "would_publish": 0
+  },
+  {
+   "admissible": 1,
+   "attempted": 1,
+   "attempts": [
+    "2e5fec0442 through_caller collection produced 0 node(s): reproduction timed out after 300s"
+   ],
+   "considered": 15,
+   "log": "gate-run.log",
+   "spend": 0.025603,
+   "unit": "IcantFind-a-username/Corum@04df399",
+   "would_publish": 0
+  },
+  {
+   "admissible": 9,
+   "attempted": 2,
+   "attempts": [
+    "0348776a63 through_caller collection produced 0 node(s): reproduction timed out after 300s",
+    "057d17e8b5 through_caller collection produced 0 node(s): reproduction timed out after 300s"
+   ],
+   "considered": 17,
+   "log": "gate-run.log",
+   "spend": 0.091636,
+   "unit": "IcantFind-a-username/Attest@e002bd6",
+   "would_publish": 0
+  },
+  {
+   "admissible": 1,
+   "attempted": 1,
+   "attempts": [
+    "22c312b946 through_caller collection produced 0 node(s): reproduction timed out after 300s"
+   ],
+   "considered": 26,
+   "log": "gate-run.log",
+   "spend": 0.034709,
+   "unit": "IcantFind-a-username/us-stock-helper@4afe9ee",
+   "would_publish": 0
+  },
+  {
+   "admissible": 1,
+   "attempted": 1,
+   "attempts": [
+    "10aa7365fe through_caller collection produced 0 node(s): reproduction timed out after 300s"
+   ],
+   "considered": 14,
+   "log": "gate-run.log",
+   "spend": 0.049677,
+   "unit": "IcantFind-a-username/us-stock-helper@ef834f9",
+   "would_publish": 0
+  }
+ ],
+ "schema_version": "attest.gate-live.v1",
+ "spend_usd": 0.588196,
+ "supplementary_units": 1,
+ "units_attempted": 10,
+ "units_visited": 100,
+ "would_publish": 0
+}

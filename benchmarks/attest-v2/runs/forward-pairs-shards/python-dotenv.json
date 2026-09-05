@@ -1,0 +1,2936 @@
+{
+ "examined": 85,
+ "max_back": 200,
+ "pairs": [
+  {
+   "base": "",
+   "distance": null,
+   "fix": "f5485a61eefa5e686d6d5bdc7aa9ad6b104b1e92",
+   "fix_subject": "fix: parse empty unquoted value with inline comment as empty string",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_dotenv_values_empty_value_with_inline_comment[KEY=",
+    "test_dotenv_values_empty_value_with_inline_comment[KEY=\\t#"
+   ],
+   "probes": 4,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_main.py>]))",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py",
+    "tests/test_parser.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_main.py>])",
+     "sha": "49515afee2",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "f7b18d9c72d1abcc2ad4023424b84f5bee30d266",
+   "fix_subject": "fix: round-trip backslashes through set_key (#680)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_set_key[-a-b\\\\'c-expected15-a='b\\\\\\\\\\\\'c'\\n]",
+    "test_set_key[-a-b\\\\-expected14-a='b\\\\\\\\'\\n]",
+    "test_set_key[-a-b\\\\c-expected13-a='b\\\\\\\\c'\\n]",
+    "test_set_key_round_trips[C:\\\\Users\\\\]"
+   ],
+   "probes": 11,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py",
+    "tests/test_parser.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "751f8c1482",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "f1937b68f3",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "45b93720dd",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "72754a16a4",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "68ea2d10dd",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "43340da220",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "4 of 4 failed",
+     "sha": "8716196891",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "4 of 4 failed",
+     "sha": "533f8ac83c",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "bca6644d9aedbe287b792b756b3ae3d650cd0d3a",
+   "fix_subject": "fix: strip UTF-8 BOM from .env files (#640)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_parse_stream[\\ufeffa=b-expected43]",
+    "test_parse_stream[\\ufeffa=b\\nc=d-expected44]"
+   ],
+   "probes": 11,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_parser.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "68ea2d10dd",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "fa4e6a90b4",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "da0c82054f",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "dbc3882c72",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "43340da220",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "6d28eee2b3",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "2 of 2 failed",
+     "sha": "1fe11cc737",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "2 of 2 failed",
+     "sha": "42dc08664b",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "da0c82054f1ec1e03d57356d49b0b9ad09eb4209",
+   "fix_subject": "fix: print friendly error for missing command in `dotenv run`  (#606)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_run_with_invalid_cmd"
+   ],
+   "probes": 27,
+   "reason": "no passing ancestor within 128 first-parent commits (24 probed, 0 pass, 20 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "dc71adbd81",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "dbc3882c72",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "36004e0e34",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "790c5c0299",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7bd9e3dbfe",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c8de2887c0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1baaf04f33",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "09d7cee324",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "4a22cf8993",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "cd48b58b2c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f54d29f3af",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "0525fc94d7",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9f3b8b50e4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "d10ea618b4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 32,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "f288da176f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8b4e13d0ca",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9f722ce65c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "80cfe9f47d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a2bc2b3d30",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "0b94ac0822",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "6ff1391475",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3ffcef60d1",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b1eebbaaab",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "be96be259c",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8411987b9301f716245074872afa30646e9b9eb7",
+   "fix_subject": "fix: ensure find_dotenv work reliably on python 3.13 (#563)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "TestIsInteractive::test_is_interactive_precedence_ps1_over_main",
+    "TestIsInteractive::test_is_interactive_ps1_and_ps2_both_exist",
+    "TestIsInteractive::test_is_interactive_with_ps1",
+    "TestIsInteractive::test_is_interactive_with_ps2"
+   ],
+   "probes": 11,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_is_interactive.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "01f899733d",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "6a02ef5a10",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "36c6270db4",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "c89fb6d41c",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "41593889b6",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "6d6070cc43",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "4 of 4 failed",
+     "sha": "291fa66980",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "4 of 4 failed",
+     "sha": "8080d1d999",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1ecb57dd7dd516d3ecedf7e58ba84520281fbd00",
+   "fix_subject": "Fix out of scope error when \"dest\" variable is undefined",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_main.py: F^ \u2014 nothing fails",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a53d652f0618c27a0fd62c4a7946e609919179f3",
+   "fix_subject": "fix: out of scope error when \"dest\" variable is undefined #413",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_set_key_invalid_file"
+   ],
+   "probes": 11,
+   "reason": "no passing ancestor within 128 first-parent commits (8 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "a7c811dd92",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "914c68ef0e",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "2f36c082c2",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "6b1e68bb8a",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "cb53e1e530",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "38320117ca",
+     "verdict": "fail"
+    },
+    {
+     "index": 32,
+     "note": "1 of 1 failed",
+     "sha": "1914bac52a",
+     "verdict": "fail"
+    },
+    {
+     "index": 64,
+     "note": "1 of 1 failed",
+     "sha": "7b172fe248",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "26ff5b74c676dbed391eb535ad2a591ecf98d3c6",
+   "fix_subject": "Fix variable expansion order without override",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_main.py: F^ \u2014 1 error in 0.19s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7b172fe24830bb8fd8cd943b73570e8cd6515ba1",
+   "fix_subject": "Fix parsing of unquoted values with two spaces",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_parse_stream[a=b",
+    "test_parse_stream[a=b\\t#c-expected10]"
+   ],
+   "probes": 4,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_parser.py>]))",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_parser.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_parser.py>])",
+     "sha": "6ca2e2ab39",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4b434362e1832771fd08c14b8af67a8fd562b854",
+   "fix_subject": "Fix empty expanded value for duplicate key",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_main.py: F^ \u2014 1 error in 0.22s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "6712bc8a12db1e8d3f09b7bf7d3c25338992e422",
+   "fix_subject": "fix interpolation order",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_main.py: F^ \u2014 1 error in 0.19s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "e92ab1f18087c2ca058203f36535c43a0f824d8a",
+   "fix_subject": "Fix file not found message to have some context (#245)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_main.py: F^ \u2014 1 error in 0.19s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "bc439674fe718bcff3039e3239602de3c23e42e4",
+   "fix_subject": "Fix dotenv run crashes on variable without values",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 3,
+   "reason": "tests/test_cli.py: no node discriminates (F^ 9F, F 9F/12P)",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "b5b8ae20d0bc0852b22e428d138ce7346c7a11bc",
+   "fix_subject": "Fix escaping of quoted values written by `set_key` (#236)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_main.py: F^ \u2014 1 error in 0.21s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "70d0c19cfae688dc333f753f880a8062b43b9333",
+   "fix_subject": "Fix handling of lines with just a comment",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_parser.py: F^ \u2014 1 error in 0.19s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_parser.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "c68e78fe8dddbe7453f5e14251097f7d0be3beee",
+   "fix_subject": "Fix handling of malformed lines",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_parse_stream[a:"
+   ],
+   "probes": 4,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_parser.py>]))",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_parser.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_parser.py>])",
+     "sha": "ae1f1a906f",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "62df65a63e5d683d0d9dd6305bd75a977f407633",
+   "fix_subject": "Fix unicode/str inconsistency in Python 2 (#177)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 1 error in 0.19s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "569e131f383c381385738d678e6aa5b790dd1122",
+   "fix_subject": "Fix ResourceWarning: unclosed file in setup.py and test_cli.py",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 3,
+   "reason": "tests/test_cli.py: no node discriminates (F^ 8F, F 8F/24P)",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1f973777ddf50006c3a028fd3aa02f39215ba562",
+   "fix_subject": "Fix parsing of variable without a value (#158)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 1 warning, 1 error in 0.19s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "40ed1b1bd09321286062ba20ae38535a224167ee",
+   "fix_subject": "Fix empty self-referential variable issue (#135)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 2 warnings, 1 error in 0.20s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4b1686fcef0f54b424a68e9386f3f5377b1df796",
+   "fix_subject": "Bugfix: parse_line incorrectly strips \"export \" prefix (#125)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 2 warnings, 1 error in 0.20s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "5238808e215b3cbd227c228e0f7df74a3203515c",
+   "fix_subject": "Fix: enable loading from current directory (#109)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 2 warnings, 1 error in 0.18s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "5b0188fad5208f0bb2a09b51e3fbd0a266f573e1",
+   "fix_subject": "Fix issue with naive single quotes (#52)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_value_with_quotes"
+   ],
+   "probes": 23,
+   "reason": "no passing ancestor within 108 first-parent commits (20 probed, 0 pass, 15 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "9552db8d8c",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "4c1960b665",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "4805fc8548",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "37917f46aa",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "8e6df7b1a8",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "84bd1a6c68",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "315ede9779",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "c593a97c1e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "251284bc52",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "2d3599eea7",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 32,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "31e1137a28",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 31,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "fbcbe89a15",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 33,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "d69bf35542",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 30,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "d3929c6832",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 34,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "55ec2c2df4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 64,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "3d0359bc5f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 63,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "93a2cc680a",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 65,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "c22475bae6",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 62,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "fc349a2d1d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 66,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "3fb3f2caef",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "8e6df7b1a889da7840efded9e34bd6c118cc3bf3",
+   "fix_subject": "Fix `dotenv list` command",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 3,
+   "reason": "tests/test_cli.py: no node discriminates (F^ 3F, F 3F/6P)",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d3929c68324252d7e0fa67e4f853275779848bb7",
+   "fix_subject": "fix(find_dotenv): it should walk up the directory from where it's called from",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 Failed: [pytest] section in setup.cfg files is no longer supported, change to [tool:pytest] instead.",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "cc91bf24606190c1d1a2db651770eda526cc7a30",
+   "fix_subject": "Fix fab command usages along with get_cli_string helper",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_utils.py: F^ \u2014 Failed: [pytest] section in setup.cfg files is no longer supported, change to [tool:pytest] instead.",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "bc567e63cd4646ee281b503f6491e6bdeed2e061",
+   "fix_subject": "fix: make the return value of set_key and unset_key consistent",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_get_key",
+    "test_unset"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "bdff4ca5f7",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "0b9d4a2496",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "d940a4513c",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "4e341010bd",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "041f73a7c8",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "579aeb4e83",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3f0e3e0b461cf7127e2753efbdf896bdff31db2e",
+   "fix_subject": "Cache empty dotenv dicts (#638)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_empty_dotenv_dict_is_cached"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "bca6644d9a",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "68ea2d10dd",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "fa4e6a90b4",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "dc71adbd81",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "790c5c0299",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "25b04ae38f",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "790c5c02991100aa1bf41ee5330aca75edc51311",
+   "fix_subject": "Merge commit from fork",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_set_key_follow_symlinks",
+    "test_set_key_preserves_file_mode",
+    "test_set_key_symlink_to_missing_file",
+    "test_unset_key_follow_symlinks"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "43340da220",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "09d7cee324",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "c8de2887c0",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "1baaf04f33",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "6d28eee2b3",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "8716196891",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9f3b8b50e4850d84d102640883560769dcb5553e",
+   "fix_subject": "Make `dotenv run` forward flags to given command (#607)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 3,
+   "reason": "tests/test_cli.py: no node discriminates (F^ 1F, F 1F/38P)",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3af77d3029eb717aeec0a3c25f751b6a614a6d3c",
+   "fix_subject": "Support reading .env from FIFOs (Unix) (#586)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_fifo_dotenv.py: F^ \u2014 pytest exceeded 300s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_fifo_dotenv.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "c715d19fb88e81f04cf3506a3c2c2812621d1b46",
+   "fix_subject": "feat:  add `PYTHON_DOTENV_DISABLED` flag to disable load_dotenv (fixes #510) (#569)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_load_dotenv_disabled[1]",
+    "test_load_dotenv_disabled[TRUE]",
+    "test_load_dotenv_disabled[T]",
+    "test_load_dotenv_disabled[True]"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "666984de9a",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "02b68577f3",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "16e660d384",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "9d85edb3b8",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "36c6270db4",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "533f8ac83c",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "02b68577f37da2c4f4b9377d7a0ca2b58fdacf20",
+   "fix_subject": "style: upgrade to use ruff (#567)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_list_no_file",
+    "test_set_non_existent_file"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py",
+    "tests/test_ipython.py",
+    "tests/test_is_interactive.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "16e660d384",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "667e82f18d",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "9d85edb3b8",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "01f899733d",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "c89fb6d41c",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "4543837fc6",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9acba4af31757e99e2d6e6700de621ee8f9b98ae",
+   "fix_subject": "Some more s/Python-dotenv/python-dotenv/ (#552)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_get_key_no_file",
+    "test_load_dotenv_no_file_verbose"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "3c19c03dd4",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "41593889b6",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "2b8635b79f",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "4d505f2c9b",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "bf20c80988",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "be96be259c",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "be96be259c7eaf687360367de53e5e099aea48df",
+   "fix_subject": "Use pathlib.Path in tests (#466)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 6,
+   "reason": "tests/test_main.py: F^ \u2014 nothing fails",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py",
+    "tests/test_ipython.py",
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "137bc3dc0b8cf3d417a1e800c4065c526e3fb96a",
+   "fix_subject": "Gracefully handle code which has been imported from a zipfile (#456)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_load_dotenv_gracefully_handles_zip_imports_when_no_env_file",
+    "test_load_dotenv_outside_zip_file_when_called_in_zipfile"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_zip_imports.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "dd1af684f2",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "d0684d1c09",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "6c8ddd2375",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "87e5527fcf",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "5317a560e0",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "2 of 2 failed",
+     "sha": "c22bc50921",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "06116434822a4d7dd5c4213ff0a54dc6e41a9be6",
+   "fix_subject": "Drop support for python 3.7, add python 3.12-dev (#449)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_cli.py: F^ \u2014 nothing fails",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7dc2492805f6bfc314b4ba4380d5ee5ad499b6c1",
+   "fix_subject": "Improve error message for `get` and `list` commands",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_get_non_existent_file",
+    "test_get_not_a_file",
+    "test_list_non_existent_file",
+    "test_list_not_a_file"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "4 of 4 failed",
+     "sha": "025f762241",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "4 of 4 failed",
+     "sha": "ceca48c844",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "4 of 4 failed",
+     "sha": "c22bc50921",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "4 of 4 failed",
+     "sha": "00cc7ae200",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "4 of 4 failed",
+     "sha": "cedd36d395",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "4 of 4 failed",
+     "sha": "914c68ef0e",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "490b116e6548e8d1bbc8184e36768f6ae73c06b2",
+   "fix_subject": "Revert \"fix: out of scope error when \"dest\" variable is undefined #413\"",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_main.py: F^ \u2014 nothing fails",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "914c68ef0e4c2c085d2753f5cbbf304852f37850",
+   "fix_subject": "feat(cli) add --format= option to list command (#407)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_list[export-x='a",
+    "test_list[json-x='a",
+    "test_list[shell-x=\"'a",
+    "test_list[shell-x='\"a"
+   ],
+   "probes": 4,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_cli.py>]))",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_cli.py>])",
+     "sha": "2f36c082c2",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ee15221e7c58fa7129214135553c2b39540e8856",
+   "fix_subject": "feat: return False when we do not discover any environment variables (#388)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_load_dotenv_no_file_verbose"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "29bceb8369",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "cb53e1e530",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "769a040af6",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "7d9cd4b509",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "53cee8c7fb",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "9b1ab5d333",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "157282ce24d4124e934fd543eeb83fe5a65a4234",
+   "fix_subject": "Add encoding parameter to {get,set,unset}_key",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_main.py: F^ \u2014 1 error in 0.19s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "45848bb780c26ef0adf7898656f7d3d3f4e2d8ae",
+   "fix_subject": "Add missing trailing newline when adding new value",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_main.py: F^ \u2014 1 error in 0.18s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "134ed435c9a0d2a8eebc9e72e1157b3c6f022e33",
+   "fix_subject": "Allow any text stream (`IO[str]`) as `stream`",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_main.py: F^ \u2014 1 error in 0.28s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "4617e39663bbe600ec54a806d380d7a4ec31d98f",
+   "fix_subject": "Remove unnecessary future imports",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "tests/test_main.py: F^ \u2014 1 error in 0.22s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_ipython.py",
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9292074d13fb1e84887e9b908e014948b21bfa46",
+   "fix_subject": "Remove \"coding: utf-8\" source declarations",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 7,
+   "reason": "tests/test_parser.py: F^ \u2014 nothing fails",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py",
+    "tests/test_main.py",
+    "tests/test_parser.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9e522b1221471d9b4bbdba6b0759edfd6a16d941",
+   "fix_subject": "Remove some code specific to Python 2",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "tests/test_parser.py: F^ \u2014 nothing fails",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py",
+    "tests/test_parser.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "b3c31954c2cb907935f77cde653783d4e5a05ec0",
+   "fix_subject": "Improve quoting of values in `set_key`",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_set_export[.nx_file-false-a-x-a='x'\\n]",
+    "test_set_export[.nx_file-true-a-x-export",
+    "test_set_quote_options[always-a-x-a='x'\\n]",
+    "test_set_quote_options[auto-a-$-a='$'\\n]"
+   ],
+   "probes": 4,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_cli.py>]))",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py",
+    "tests/test_main.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_cli.py>])",
+     "sha": "303423864a",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "48c5c8e16c1dcb2188984f2245559cee37fe9db4",
+   "fix_subject": "Only display value with `dotenv get`",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_get_existing_value"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "f2eba2c129",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "6242550a53",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "efc51829f8",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "b158aa721c",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "2e0ea4873b",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "6ca2e2ab39",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "efc51829f8e7693dbf4b7655169a9f852e9943d2",
+   "fix_subject": "Add --override/--no-override flag to \"dotenv run\"",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 3,
+   "reason": "tests/test_cli.py: no node discriminates (F^ 6F, F 6F/19P)",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "17dba65244c1d4d10f591fe37c924bd2c6fd1cfc",
+   "fix_subject": "Decouple variable parsing and expansion",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_variables.py: F^ \u2014 1 error in 0.21s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_variables.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "6ca2e2ab399c7e41be276bc830f21af3092f5d28",
+   "fix_subject": "Add --export to `set` and make it create env file",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_set_export[.nx_file-false-HELLO-WORLD-HELLO=\"WORLD\"\\n]",
+    "test_set_export[.nx_file-true-HELLO-WORLD-export",
+    "test_set_no_file",
+    "test_set_quote_options[always-HELLO-WORLD-HELLO=\"WORLD\"\\n]"
+   ],
+   "probes": 4,
+   "reason": "F^ does not carry the defect under the oracle: indeterminate ((no match in any of [<Module test_cli.py>]))",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py",
+    "tests/test_main.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "(no match in any of [<Module test_cli.py>])",
+     "sha": "92ec3b280d",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "c389b4537392c36fc666b989383c2c1636d136cb",
+   "fix_subject": "Add support for Bash-like default values",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_main.py: F^ \u2014 1 error in 0.20s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "bd9f2c055ab5e572d09cc57099a86257dc07dd73",
+   "fix_subject": "Remove warning when last line is empty",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_parse_stream[\\n\\n-expected30]",
+    "test_parse_stream[a=b\\n\\n-expected31]"
+   ],
+   "probes": 12,
+   "reason": "no passing ancestor within 32 first-parent commits (7 probed, 0 pass, 1 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_main.py",
+    "tests/test_parser.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "2f58bccad2",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "bc439674fe",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "b5b8ae20d0",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "6b7c37ee1d",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "a8daa7c526",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "c68e78fe8d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "2 of 2 failed",
+     "sha": "70d0c19cfa",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a02bfac154e8a296f87372a0959f674aa622ebac",
+   "fix_subject": "Add control over interpolation",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 1 error in 0.19s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a8daa7c526631d8aab864f862775002191b5ab18",
+   "fix_subject": "Use logging instead of warnings",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 1 error in 0.19s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "23509f2f8856305f18c3e6dd28c42623ba320ae1",
+   "fix_subject": "Support no value keys",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_parse_stream[no_value_var-expected24]"
+   ],
+   "probes": 19,
+   "reason": "no passing ancestor within 32 first-parent commits (16 probed, 0 pass, 15 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_parser.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "723809fd9e",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b1e83cafa8",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 2,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "af192b7956",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 3,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "3576225aa7",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 4,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "d93324ae9e",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 5,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b7759b7b62",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "e0f68c2651",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "a7205a4faf",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5fd9680cf7",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "d0a219d180",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ed3570dade",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "57f9639d02",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "0681a878a2",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "73124de45f",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "8e37a5f0e4",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "915f7940e3",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "723809fd9e5b6bb5c016c48bc42246f369e8485b",
+   "fix_subject": "Print a warning on malformed line",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_parser.py: F^ \u2014 1 error in 0.18s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_parser.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3576225aa796daec434e60c27851642f3c07ff0e",
+   "fix_subject": "Test without typing",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 3,
+   "reason": "tests/test_core.py: no node discriminates (F^ 2F, F 2F/10P)",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "57f9639d025efbf108f6e1ef3394d0b157230f52",
+   "fix_subject": "Refactor parser to fix inconsistencies (#180)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "tests/test_parser.py: F^ \u2014 1 error in 0.20s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py",
+    "tests/test_parser.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "a409657c841338ac8b9bb5d59a1ac6c1af1a3726",
+   "fix_subject": "Added special case for `__file__` in Python 2.  Fixes #130 Updated tests to show that this works.",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 1 error in 0.19s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "254d5bf0da4bee9d9d9607ca4082d8c779fedf89",
+   "fix_subject": "Isolate test files (#160)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 5,
+   "reason": "tests/test_core.py: F^ \u2014 1 warning, 1 error in 0.24s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py",
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "d33366cf3405fd8ce18bea96b2cea5062174496c",
+   "fix_subject": "Add support for newlines, backslashes, trailing comments and unquoted UTF-8 (#148)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_set_key_permission_error",
+    "test_value_with_new_lines"
+   ],
+   "probes": 13,
+   "reason": "no passing ancestor within 32 first-parent commits (10 probed, 0 pass, 5 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py",
+    "tests/test_core.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "2 of 2 failed",
+     "sha": "3b7e60e6cb",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "2 of 2 failed",
+     "sha": "43af2c57a3",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "2 of 2 failed",
+     "sha": "27afc40a7d",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "2 of 2 failed",
+     "sha": "40ed1b1bd0",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "2 of 2 failed",
+     "sha": "ea0604d609",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b20d818c92",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5238808e21",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "fe35be1941",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "9b3c645c66",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "bf15cc1ac9",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3b7e60e6cbdef596701c1921257ea9e48076eec3",
+   "fix_subject": "Fixed stderr/-out/-in redirection. (#145)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 3,
+   "reason": "tests/test_cli.py: no node discriminates (F^ 5F, F 5F/14P)",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ea0604d60917e15febbd92f259001e6d9012e38b",
+   "fix_subject": "Add new line when updating key with \"set_key\" (Alternative to PR#103) (#123)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_set_key"
+   ],
+   "probes": 17,
+   "reason": "no passing ancestor within 32 first-parent commits (14 probed, 0 pass, 10 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "7e73a8912f",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "4e76e82e53",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "4b1686fcef",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "69735cf037",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "fe35be1941",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 7,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "b20d818c92",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 9,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "bf15cc1ac9",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 6,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "5238808e21",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 10,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "88598ff5a6",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 16,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "7c076a3c1d",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ab4e1a0d37",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "10036d0408",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "1a124ef8ef",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 18,
+     "note": "ERROR: found no collectors for /private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80",
+     "sha": "ef800f85d0",
+     "verdict": "indeterminate"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "69735cf037eb4575314b562874abe5913a389b13",
+   "fix_subject": "feat: add --version parameter to cli (#114)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_cli.py: F^ \u2014 2 warnings, 1 error in 0.30s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "b20d818c9296817352f5d0d7cb7b8acd90a2548d",
+   "fix_subject": "Add 'dotenv run' command  for calling arbitrary shell script with .env (#105)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_run_with_other_env"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "fe35be1941",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "bf15cc1ac9",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "88598ff5a6",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "4b8c7231f7",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "7c076a3c1d",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "41ec9caaef",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "b8fa11110314d5dfe9963155e88289fe649016a0",
+   "fix_subject": "Optional cli (#99)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 3,
+   "reason": "tests/test_cli.py: no node discriminates (F^ 3F, F 3F/8P)",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9f1ffc3df184938c13ac884db537402f32093e38",
+   "fix_subject": "Allow `load_dotenv` and `dotenv_values` to work with StringIO objects (#98)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 2 warnings, 1 error in 0.19s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "84d16c4edbf36e22fd678f995e367b0f2fc81bb3",
+   "fix_subject": "Allows `parse_dotenv(stream=StringIO())` (#78)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 2 warnings, 1 error in 0.21s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3d84003b251cb98fd63cc920028996bf5b905a55",
+   "fix_subject": "Support override variables (#63)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 2 warnings, 1 error in 0.18s",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "7ab249bc8c8af45b078ff375cfd0f6b9f49d9024",
+   "fix_subject": "Disable \".env not found\" warning by default (#57)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_warns_if_file_does_not_exist"
+   ],
+   "probes": 9,
+   "reason": "no passing ancestor within 32 first-parent commits (6 probed, 0 pass, 0 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "5e839d4f54",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "2998990a69",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "b7c6d1b9bf",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "77dc37d0c1",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "9552db8d8c",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "1 of 1 failed",
+     "sha": "8e6df7b1a8",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "b7c6d1b9bf2cec2a626b089899820f846e39dc54",
+   "fix_subject": "Added support for special characters (#60)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": ".attest/corpora/.venv-corpus/bin/python",
+   "nodes": [
+    "test_value_with_special_characters"
+   ],
+   "probes": 12,
+   "reason": "no passing ancestor within 32 first-parent commits (9 probed, 0 pass, 3 indeterminate): the defect is older than the window, or it was born with the code that carries it and has no boundary",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": [
+    {
+     "index": 0,
+     "note": "1 of 1 failed",
+     "sha": "285cf93f15",
+     "verdict": "fail"
+    },
+    {
+     "index": 1,
+     "note": "1 of 1 failed",
+     "sha": "77dc37d0c1",
+     "verdict": "fail"
+    },
+    {
+     "index": 2,
+     "note": "1 of 1 failed",
+     "sha": "e5d68ff94f",
+     "verdict": "fail"
+    },
+    {
+     "index": 4,
+     "note": "1 of 1 failed",
+     "sha": "5b0188fad5",
+     "verdict": "fail"
+    },
+    {
+     "index": 8,
+     "note": "1 of 1 failed",
+     "sha": "cf9d4f020d",
+     "verdict": "fail"
+    },
+    {
+     "index": 16,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "af5dc52d57",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 15,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "22cefa311c",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 17,
+     "note": "Failed: [pytest] section in setup.cfg files is no longer supported, change to [t",
+     "sha": "c8c29e44e0",
+     "verdict": "indeterminate"
+    },
+    {
+     "index": 14,
+     "note": "1 of 1 failed",
+     "sha": "2f82454e45",
+     "verdict": "fail"
+    }
+   ]
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "802496bc898c315fce8a2a5b46aa47d4edc964aa",
+   "fix_subject": "Support POSIX parameter expansion (#30)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 4,
+   "reason": "tests/test_core.py: F^ \u2014 Failed: [pytest] section in setup.cfg files is no longer supported, change to [tool:pytest] instead.",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py",
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "ab268f09fae8ac78c0012576d60fb5730823b789",
+   "fix_subject": "Add test for key/value stripping",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_cli.py: F^ \u2014 Failed: [pytest] section in setup.cfg files is no longer supported, change to [tool:pytest] instead.",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "1fd40c5bcedc4f3f341061dd1dab075e659a669f",
+   "fix_subject": "Add method to walk up directories looking for .env (#23)",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 Failed: [pytest] section in setup.cfg files is no longer supported, change to [tool:pytest] instead.",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "e88ce39e4fdbc7e6765749e0df8a8275e174abe4",
+   "fix_subject": "Support for configurable quoting mode, references #15",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_cli.py: F^ \u2014 Failed: [pytest] section in setup.cfg files is no longer supported, change to [tool:pytest] instead.",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "5094182838914ed8891650b36b768ed89c978cfa",
+   "fix_subject": "Refactor to convert dotenv as a package instead of pymodule",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_cli.py: F^ \u2014 Failed: [pytest] section in setup.cfg files is no longer supported, change to [tool:pytest] instead.",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "f8bd0c6c839074f5a0af876a91ea4fbeccf17899",
+   "fix_subject": "Improve test coverage",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_core.py: F^ \u2014 Failed: [pytest] section in setup.cfg files is no longer supported, change to [tool:pytest] instead.",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_core.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "9a52e3d4be4ef0ca267c9713e2654134250577ad",
+   "fix_subject": "feat(get_cli_string): Abstact our cli string creation logic",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_utils.py: F^ \u2014 Failed: [pytest] section in setup.cfg files is no longer supported, change to [tool:pytest] instead.",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_utils.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "3fb3f2caefed400db916758ac52e48ab947f8c8a",
+   "fix_subject": "improve test coverage",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_cli.py: F^ \u2014 Failed: [pytest] section in setup.cfg files is no longer supported, change to [tool:pytest] instead.",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "0b9d4a2496841f9923c392845604bbab23d5f060",
+   "fix_subject": "chore(): add coverage support",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 3,
+   "reason": "tests/test_cli.py: no node discriminates (F^ 2F, F 2F/1P)",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "579aeb4e8304015c91a0998683a09b9046008474",
+   "fix_subject": "freeze the cli interface",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 3,
+   "reason": "tests/test_cli.py: no node discriminates (F^ 2F, F 2F/1P)",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_cli.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "5f181b43b566eae47eca36b32e243f9b5e8fd42f",
+   "fix_subject": "add script test",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 3,
+   "reason": "tests/test_basic.py: no node discriminates (F^ 1F, F 1F/1P)",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_basic.py"
+   ],
+   "trace": []
+  },
+  {
+   "base": "",
+   "distance": null,
+   "fix": "f7747fa1f0b11672af4462bc702026b978e24182",
+   "fix_subject": "add tests",
+   "head": "",
+   "head_subject": "",
+   "interpreter": "",
+   "nodes": [],
+   "probes": 2,
+   "reason": "tests/test_basic.py: F^ \u2014 nothing fails",
+   "repo": "python-dotenv",
+   "resolved": false,
+   "test_files": [
+    "tests/test_basic.py"
+   ],
+   "trace": []
+  }
+ ],
+ "policy": "D-135: value-class recall is measured on forward pairs only",
+ "resolved": 0,
+ "schema_version": "attest.forward-pairs.v1"
+}

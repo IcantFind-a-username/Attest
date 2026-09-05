@@ -502,6 +502,14 @@ replayable evidence on the current code.
   the two commits the last two rule revisions were written against. A disjoint, seed-shifted
   sample from the same eight repositories under the same cutoff costs ~$1.10 and is the owner
   item that would settle it.
+- **THE INDEPENDENT SAMPLE EXISTS AND HAS NOT YET BEEN MEASURED, 2026-09-05c (D-136).** The
+  disjoint population is built and committed: same eight clones, same cutoff, shifted seed,
+  every commit of the first draw removed from the pool, **n = 68, overlap 0**
+  ([report](acceptance/2026-09-05-g-null-001a-independent.md)). The paid run reviewed 45 of the
+  68 and produced **0 informative controls** — the host's container backend stopped working
+  mid-window and all 13 reproduction attempts DEFERred, so no control could publish and no bound
+  follows. **The bound is owed, not refuted**; resuming costs about $0.60 on a host whose Docker
+  bind mounts work.
 - [ ] **E-04 — prospective natural-PR shadow.** Execute the authorized traffic, blind
   adjudication, silent sampling, safety, utility, cost, and latency design in
   `G-SHADOW-001`.
@@ -512,6 +520,15 @@ replayable evidence on the current code.
   preserve the always-abstain baseline, and produce only `reject`, `collect_more`, or
   `recommend_contract` under `G-NEWCODE-001`. This work order cannot choose an LR or enable
   publication.
+  - **IN SHADOW SINCE 2026-09-05c (D-137).** `docs/design/gate-level.md` is implemented behind
+    `ReviewConfig.gate_shadow`, **off** in the product; on, it writes `gate_shadow` ledger rows
+    and `.attest/shadow/gate/` records and reaches no author-visible surface.
+    `G-NEWCODE-001` now states that its pilot precondition governs speech rather than
+    observation and that shadow records count toward its 120 cases, so this design is N-01's
+    first contract alternative and the pilot's defects are collected by the thing itself
+    ([report](acceptance/2026-09-05-gate-shadow.md)). Free measurement: **10.7% of 224 new-code
+    candidates carry a call site outside the added lines**, which is the ceiling on what the
+    level can ever publish. Executed observations so far: **0** (the same host fault).
 
 ### Entry
 

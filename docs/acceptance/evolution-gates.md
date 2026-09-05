@@ -667,10 +667,22 @@ with independent semantic adjudication.
 - the packet names one of `reject`, `collect_more`, or `recommend_contract`; it cannot name
   or tune an LR.
 
+**Shadow mode is not subject to the pilot precondition, and shadow records count toward the
+pilot's defect collection** (owner decision 2 of 2026-09-05c, D-137). A new-code evidence class
+may be implemented and run **in shadow** -- ledger rows and shadow records only, no
+author-visible output of any kind, no `CertifiedFinding`, no family selection, no calibration
+denominator -- before this gate passes, and the outcomes it records are admissible as the
+pilot's adjudicated new-code defects. The precondition governs **speech**, not observation: the
+120 adjudicated cases exist to decide whether a contract may be *published under*, and a level
+that publishes nothing cannot pre-empt that decision. What shadow mode does not do is shorten
+the pilot: a shadow record enters the collection only when it is adjudicated under
+`G-MEASURE-004` like any other, wrong, DEFER and no-finding outcomes included.
+
 **After owner selection:** create a separate implementation/calibration work order whose
 N-series ID is assigned only then, and require that class to pass its own `G-CERT-*`,
 `G-SEM-*`, `G-NULL-001`, `G-CORPUS-001`, and `G-SHADOW-001` applicability before public
-use. Until then, `new_code_candidate` remains a typed abstention.
+use. Until then, `new_code_candidate` remains a typed abstention **on every author-visible
+path**.
 
 ## 12. Scheduler gates
 

@@ -1004,6 +1004,15 @@ def _deferred(
     )
 
 
+def _safe_relative_target(value: str) -> bool:
+    """A tree-relative path with no escape and no absolute root. Used only by the
+    gate level's environment control, which names a path in the head tree."""
+    if not value or value.startswith(("/", "\\")) or ":" in value:
+        return False
+    parts = value.replace("\\", "/").split("/")
+    return all(part not in {"", ".", ".."} for part in parts)
+
+
 def _safe_path_component(value: str) -> bool:
     return bool(value) and value not in {".", ".."} and "/" not in value and "\\" not in value
 
@@ -1277,12 +1286,19 @@ def execute_repro(
     revision_sha: str = "",
     controller: Controller | None = None,
     adapter: ExecutorAdapter | None = None,
+    tree_target: str | None = None,
 ) -> ExecutionResult:
     """One guarded pytest run through the controller/executor protocol (X-01).
     ``node`` selects the exact test function; with ``collect_only`` the run only
     collects and reports the node ids it found. The controller issues a nonced,
     content-addressed request, the adapter runs it, and everything below is
-    read from artifacts the controller verified against that request."""
+    read from artifacts the controller verified against that request.
+
+    ``tree_target`` runs a path that is already **in** the tree instead of the
+    generated file -- the gate level's environment control (D-137), which has to
+    show that a *pre-existing* test passes in the same image. It is only
+    honoured inside a tree, and it changes nothing else: the same guards, the
+    same controller, the same artifacts."""
     started = time.monotonic()
     repo_root = repo.resolve()
     suffix = Path(candidate.finding.file).suffix.lower()
@@ -1330,6 +1346,10 @@ def execute_repro(
         if traced:
             inputs[f"{LINES_PLUGIN_NAME}.py"] = _LINES_PLUGIN.encode("utf-8")
         selector = str(generated_path) if tree is None else f"{{tree}}/{RUN_DIR_NAME}/test_repro.py"
+        if tree is not None and tree_target is not None:
+            if not _safe_relative_target(tree_target):
+                return _deferred(f"unsafe in-tree target: {tree_target!r}", started)
+            selector = "{tree}/" + tree_target
         if node is not None:
             selector = f"{selector}::{node}"
         argv = [interpreter, "-m", "pytest", "-q", selector]
@@ -1885,6 +1905,7 @@ def execute_differential(
         verdict = binding_verdict(binding)
         if verdict is not None:
             return deferred(f"binding: {verdict}", EvidenceClass.UNBOUND)
+
         # D-102: a failure raised by a raise/assert on a changed line of the
         # anchored file is a new rejection, not a regression. It publishes as a
         # behavior change only when the rejected input -- a literal of the
@@ -1926,9 +1947,7 @@ def execute_differential(
         # rule reaches receipts that carry no rejection at all.
         intent_reason = intent_verdict(observed)
         if intent_reason is not None:
-            return deferred(
-                f"intent: {intent_reason}", EvidenceClass(evidence_class_for(observed))
-            )
+            return deferred(f"intent: {intent_reason}", EvidenceClass(evidence_class_for(observed)))
         if observed.new_rejection:
             literal, witness = observed.witnesses[0]
             return finish(
@@ -2054,6 +2073,7 @@ def verify_candidate(
     if violation is not None:
         execution = deferred_execution(violation)
     else:
+
         def generate() -> ReproSpec:
             remaining = None if deadline is None else max(0.0, deadline - clock())
             if remaining is not None and remaining <= 0:

@@ -98,7 +98,15 @@ it. The quickstart's first screen is the workflow file itself, copyable whole.
    **Author-visible since D-133** (2026-09-05): at most two notes per pull request, marked
    `structural`, in their own section, wording adjudicated against the real model first.
 3. **gate** — second, because it needs execution and isolation, which already exist, but a
-   reachability witness, which does not.
+   reachability witness, which does not. **In shadow since D-137** (owner decision 2 of
+   2026-09-05c): `docs/design/gate-level.md` is implemented and runs behind
+   `ReviewConfig.gate_shadow`, which is **off** in the product; on, a review additionally asks
+   the gate question of its new-code candidates and writes the answer to the ledger and to
+   `.attest/shadow/gate/` and to nothing else. `G-NEWCODE-001` now says in its own text that
+   the pilot precondition governs speech rather than observation and that shadow records count
+   toward its 120 cases, so the two documents agree and the reading is **A with the carve-out**:
+   the design is N-01's first contract alternative, it ships early only in shadow, and the
+   pilot's defects are collected by the thing itself.
 4. **yellow** — last, because a premise checker is the largest new deterministic surface of the
    four and the easiest to fake; it should be built when the pattern it follows has already been
    demonstrated twice.
