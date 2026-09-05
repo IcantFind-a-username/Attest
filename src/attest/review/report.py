@@ -122,6 +122,7 @@ def render(
     gate: Sequence[str] = (),
     explain: bool = False,
     reasons: Mapping[str, str] | None = None,
+    spend: Mapping[str, float] | None = None,
 ) -> str:
     from attest.github.presentation import (
         impact_line,
@@ -182,8 +183,13 @@ def render(
         for result in sorted(drawer, key=lambda r: r.wealth, reverse=True):
             silent = result.finding
             reason = (reasons or {}).get(silent.finding_id, "")
+            # D-163: coordinate, reason class, and what the candidate cost. A
+            # drawer of fifteen that cost $0.00 and one that cost $0.90 are
+            # different facts about where a review's money went.
+            cost = (spend or {}).get(silent.finding_id)
+            money = f" (${cost:.4f})" if cost is not None else ""
             out.append(
-                f"  [{silent.finding_id}] {silent.file}:{silent.line} — "
+                f"  [{silent.finding_id}] {silent.file}:{silent.line}{money} — "
                 f"{drawer_reason_class(reason)}" + (f": {reason}" if reason else "")
             )
 

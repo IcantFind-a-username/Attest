@@ -19,8 +19,9 @@ from attest.review.ci import impact_notes, nullability_notes, run_ci, structural
 from attest.review.config import ReviewConfig, load_config
 from attest.review.diffs import resolve_merge_base
 from attest.review.ledger import Ledger
+from attest.review.machine import _spend_by_finding, dumps, review_json, stats_json
 from attest.review.proposer import ApiProvider, MockProvider, Provider
-from attest.review.report import render
+from attest.review.report import _certified_line, render
 from attest.review.run import run_review
 from attest.review.status import categorise_failure
 from attest.review.support import from_reason, preflight
@@ -122,6 +123,43 @@ def cmd_review(args: argparse.Namespace) -> int:
                 budget=review.budget,
             )
         )
+    if getattr(args, "json", False):
+        # D-163: the same run, projected for a machine. Nothing here is computed
+        # that the text report does not already show.
+        from attest.github.presentation import (
+            impact_line,
+            nullability_line,
+            structural_line,
+        )
+
+        print(
+            dumps(
+                review_json(
+                    repo=repo,
+                    task_id=review.task_id,
+                    alpha=review.alpha,
+                    outcome=review.outcome,
+                    certified=review.published,
+                    spend_usd=review.budget.spent_usd,
+                    budget_usd=config.budget_usd,
+                    elapsed_s=review.elapsed_s,
+                    deferred_reason=review.deferred_reason,
+                    status=review.status,
+                    reasons=review.verification_reasons,
+                    notes=review.notes,
+                    lines={
+                        "red": [_certified_line(finding) for finding in review.published],
+                        "yellow": [impact_line(note) for note in impact]  # type: ignore[arg-type]
+                        + [nullability_line(note) for note in nullability],  # type: ignore[arg-type]
+                        "green": [
+                            structural_line(note, bullet="")  # type: ignore[arg-type]
+                            for note in structural
+                        ],
+                    },
+                )
+            )
+        )
+        return 0
     print(
         render(
             review.outcome,
@@ -139,6 +177,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             structural=structural,
             explain=bool(getattr(args, "explain", False)),
             reasons=review.verification_reasons,
+            spend=_spend_by_finding(Ledger(repo).entries(), review.task_id),
         )
     )
     return 0
@@ -357,6 +396,11 @@ def cmd_stats(args: argparse.Namespace) -> int:
     if getattr(args, "drawer", False):
         print(render_drawer(entries, CandidateStore(repo), args.limit))
         return 0
+    if getattr(args, "json", False):
+        # D-163: the same summary as numbers -- speech rate per level, spend,
+        # the drawer's reason distribution, and how often the image was reused.
+        print(dumps(stats_json(repo, entries=entries)))
+        return 0
     final_runs = [e for e in entries if e.get("kind") == "ci_final"]
     final_tasks = {str(e.get("task_id", "")) for e in final_runs}
     runs = [
@@ -452,6 +496,15 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="offline mode: JSON payload files replayed instead of model calls "
         "(at least one file — never silently falls through to real API calls)",
+    )
+    p_review.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "print the run as one JSON object instead of the report: the four levels' "
+            "lines, the silence reason distribution, the spend and the elapsed time. "
+            "A projection of what the report says, never a second report"
+        ),
     )
     p_review.set_defaults(func=cmd_review)
 
@@ -552,6 +605,12 @@ def main(argv: list[str] | None = None) -> int:
         help="list uncertified drawer candidates with votes and reproduction failure reasons",
     )
     p_stats.add_argument("--limit", type=int, default=20, help="drawer rows to show")
+    p_stats.add_argument(
+        "--json",
+        action="store_true",
+        help="print the summary as one JSON object: speech rate per level, spend, "
+        "drawer reason distribution and image cache hit rate",
+    )
     p_stats.set_defaults(func=cmd_stats)
 
     args = parser.parse_args(argv)

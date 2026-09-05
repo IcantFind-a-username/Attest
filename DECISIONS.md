@@ -1676,3 +1676,14 @@ is active only when the owning architecture/acceptance document changes with it.
 - **RED:** `tests/execution/test_python_matrix.py` — twelve, including the owner's three: three synthetic trees with three different declarations select three different interpreters, and the three lock-file forms each state the floor alone.
 - **Trace:** X-02 item 8; owner item 3 of 2026-09-02 (the classifier rule this replaces).
 
+### D-163 — The same review, said to a machine
+
+- **Date/status/scope:** 2026-09-07 · active, owner-directed (phase 6) · `src/attest/review/machine.py` (new), `src/attest/cli/main.py` (`review --json`, `stats --json`), `src/attest/review/report.py` (`--explain` cost column), `tests/test_machine_output.py`.
+- **What changed.** `attest review --json` prints one object: the four levels' lines, the units read, the candidate counts, **the drawer's reason distribution**, the number of candidates the budget ceiling stopped, the spend, the elapsed time, and one row per silent candidate with its coordinate, reason class and cost. `attest stats --json` prints the per-repository summary as numbers: speech rate per level, spend and spend per review, drawer reason distribution, image cache hit rate, p50 latency. `--explain` gained the **cost** column — a drawer of fifteen that cost $0.00 and one that cost $0.90 are different facts about where a review's money went.
+- **A projection, never a second report.** Every number in the object is one the terminal already prints; the level lines are the same rendered contract lines. A test pins that: the accounting line's `candidates N, drawer M` and the object's counts must agree on the same run. If the two could disagree there would be two products.
+- **Speech rate is per review, not per finding.** The question is "how often does this thing say anything", and two notes in one pull request is one occasion of speech.
+- **Cost:** $0.00.
+- **Reversal:** the flags default off and the module has no other caller.
+- **RED:** `tests/test_machine_output.py` — six, including the projection-agreement test and the empty repository that returns `null` rather than dividing by zero.
+- **Trace:** D-142, D-152, D-156, D-161.
+
