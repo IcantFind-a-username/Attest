@@ -99,3 +99,28 @@ def test_the_external_observer_item_stays_insufficient(redteam: dict) -> None:
     assert "External observation: INSUFFICIENT" in source
     assert "sandbox-external" in source
     assert "auditd/seccomp-notify" in source
+
+
+def test_the_positive_control_is_a_crash_not_a_changed_value(redteam: dict) -> None:
+    """On 2026-09-07 the matrix reported FAIL, and the failing row was the
+    *control*: `a + b` becoming `a - b` is a value change, and
+    `attest.intent.v4.1` refuses a value change whose intended value the base
+    tree does not state. Nothing about the isolation boundary had moved.
+
+    A control that can fail for a reason unrelated to the boundary makes the
+    whole matrix report FAIL about the wrong thing, so the control is a crash
+    -- the class this product certifies."""
+    import inspect
+
+    source = inspect.getsource(redteam["_repo"])
+    head = source.split('base = _git(repo, "rev-parse", "HEAD")')[1]
+
+    assert "a - b" not in head, "the control is a value change again"
+    assert "parts[1]" in head
+    # the head really does raise where the base does not
+    def head_add(a: int, b: int) -> int:
+        parts = [a]
+        return parts[1] + b
+
+    with pytest.raises(IndexError):
+        head_add(2, 2)

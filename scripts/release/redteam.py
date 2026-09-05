@@ -221,7 +221,16 @@ def _git(repo: Path, *args: str) -> str:
 
 
 def _repo(root: Path) -> tuple[Path, str, str]:
-    """base: `add` is correct. head: `add` subtracts. A real regression."""
+    """base: `add` is correct. head: `add` raises. A real regression.
+
+    **The control must be a crash, not a changed value.** On 2026-09-07 the
+    control was `a + b` becoming `a - b`, and it stopped certifying — not
+    because anything about the isolation boundary had moved, but because
+    `attest.intent.v4.1` refuses a *value* change whose intended value the base
+    tree does not state. A matrix whose control fails for a reason unrelated to
+    the boundary reports FAIL about the wrong thing. The crash class is the
+    class this product certifies, so the control is one.
+    """
     repo = root / "repo"
     repo.mkdir()
     _git(repo, "init", "--initial-branch=main")
@@ -229,7 +238,9 @@ def _repo(root: Path) -> tuple[Path, str, str]:
     _git(repo, "add", "mod.py")
     _git(repo, "commit", "-m", "base")
     base = _git(repo, "rev-parse", "HEAD")
-    (repo / "mod.py").write_text("def add(a, b):\n    return a - b\n", encoding="utf-8")
+    (repo / "mod.py").write_text(
+        "def add(a, b):\n    parts = [a]\n    return parts[1] + b\n", encoding="utf-8"
+    )
     _git(repo, "commit", "-am", "head")
     return repo, base, _git(repo, "rev-parse", "HEAD")
 

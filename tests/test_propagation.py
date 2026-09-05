@@ -129,7 +129,9 @@ def test_only_a_test_caller_is_not_a_caller_this_level_speaks_about() -> None:
     """The claim is that *production* code is now exposed. A test that calls it
     is not exposure, it is coverage."""
     head = HEAD.replace('def caller():\n    return load("x")', "")
-    graph = build_call_graph({"app.py": head, "tests/test_app.py": 'def test_load():\n    load("x")\n'})
+    graph = build_call_graph(
+        {"app.py": head, "tests/test_app.py": 'def test_load():\n    load("x")\n'}
+    )
     changed = changed_functions(
         path="app.py", head_source=head, base_source=BASE, changed_lines=(3,)
     )

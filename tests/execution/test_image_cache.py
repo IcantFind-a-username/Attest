@@ -61,8 +61,9 @@ def _tree(path: Path, *, lock: str, source: str) -> Path:
 def test_the_same_lock_file_is_not_rebuilt_on_the_next_commit(
     tmp_path: Path, daemon: list[str]
 ) -> None:
-    first = _tree(tmp_path / "c1", lock='name = "requests"\nversion = "2.31.0"\n', source="a = 1\n")
-    second = _tree(tmp_path / "c2", lock='name = "requests"\nversion = "2.31.0"\n', source="a = 2\n")
+    lock = 'name = "requests"\nversion = "2.31.0"\n'
+    first = _tree(tmp_path / "c1", lock=lock, source="a = 1\n")
+    second = _tree(tmp_path / "c2", lock=lock, source="a = 2\n")
 
     built = container_images.ensure_image(first)
     reused = container_images.ensure_image(second)
@@ -74,8 +75,12 @@ def test_the_same_lock_file_is_not_rebuilt_on_the_next_commit(
 
 
 def test_a_moved_pin_is_a_different_image(tmp_path: Path, daemon: list[str]) -> None:
-    first = _tree(tmp_path / "c1", lock='name = "requests"\nversion = "2.31.0"\n', source="a = 1\n")
-    second = _tree(tmp_path / "c2", lock='name = "requests"\nversion = "2.32.0"\n', source="a = 1\n")
+    first = _tree(
+        tmp_path / "c1", lock='name = "requests"\nversion = "2.31.0"\n', source="a = 1\n"
+    )
+    second = _tree(
+        tmp_path / "c2", lock='name = "requests"\nversion = "2.32.0"\n', source="a = 1\n"
+    )
 
     one = container_images.ensure_image(first)
     two = container_images.ensure_image(second)

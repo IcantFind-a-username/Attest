@@ -128,7 +128,9 @@ def test_under_the_daily_ceiling_the_review_runs(tmp_path: Path) -> None:
 
 
 def test_the_silence_line_says_how_many_the_ceiling_stopped() -> None:
-    stopped = silence_line(units_read=1, units_planned=1, spend_usd=0.25, elapsed_s=9.0, unverified=7)
+    stopped = silence_line(
+        units_read=1, units_planned=1, spend_usd=0.25, elapsed_s=9.0, unverified=7
+    )
     judged = silence_line(units_read=1, units_planned=1, spend_usd=0.25, elapsed_s=9.0)
 
     assert "the budget ceiling was reached; 7 candidate(s) were not verified" in stopped
