@@ -41,6 +41,7 @@ from attest.review.nullability import NullabilityNote
 from attest.review.output_contract import LEVEL_MARKERS, claim_line, silence_line
 from attest.review.output_contract import check as contract_check
 from attest.review.output_contract import collapsed as contract_collapsed
+from attest.review.propagation import PropagationNote
 from attest.review.structural import CATEGORY as STRUCTURAL_CATEGORY
 from attest.review.structural import StructuralNote
 
@@ -66,6 +67,8 @@ EVIDENCE_HEADING = "Reproduce it yourself — command, test and the six runs"
 # yellow's cap with (a): the author reads one yellow section, not two, and two
 # notes is the whole of it however many levels produced them.
 NULLABILITY_MARKER_PREFIX = "<!-- attest:nullability:"
+# D-164: yellow (b)'s second class carries no receipt either
+PROPAGATION_MARKER_PREFIX = "<!-- attest:propagation:"
 YELLOW_MAX_COMMENTS = 2
 IMPACT_MAX_CALLERS_LISTED = 8
 
@@ -91,6 +94,7 @@ def render_complete(
     units: tuple[int, int] | None = None,
     impact: Sequence[ImpactNote] = (),
     nullability: Sequence[NullabilityNote] = (),
+    propagation: Sequence[PropagationNote] = (),
     unverified: int = 0,
 ) -> str:
     """Render only receipt-backed findings, in the caller's order; with
@@ -109,8 +113,15 @@ def render_complete(
     nulls = [
         note for note in _nullability_only(nullability) if contract_check(nullability_line(note))
     ]
-    # The two yellow classes share one cap and one section, (a) first.
-    yellow: list[ImpactNote | NullabilityNote] = [*scope, *nulls]
+    propagations = [
+        note for note in _propagation_only(propagation) if contract_check(propagation_line(note))
+    ]
+    # Every yellow class shares one cap and one section, (a) first.
+    yellow: list[ImpactNote | NullabilityNote | PropagationNote] = [
+        *scope,
+        *nulls,
+        *propagations,
+    ]
     yellow = yellow[:YELLOW_MAX_COMMENTS]
     if not certified and not notes and not yellow:
         # D-142: a wholly silent review owes exactly one line, and it says over
@@ -158,6 +169,8 @@ def render_complete(
             + (
                 impact_line(scoped)
                 if isinstance(scoped, ImpactNote)
+                else propagation_line(scoped)
+                if isinstance(scoped, PropagationNote)
                 else nullability_line(scoped)
             )
         )
@@ -332,6 +345,35 @@ def nullability_line(note: NullabilityNote) -> str:
     )
 
 
+def propagation_line(note: PropagationNote) -> str:
+    """One yellow (b) exception-propagation note as one contract line (D-164).
+
+    Every clause is one of the three verified premises, in the order the checker
+    decided them: the call the change added, the exception the callee names, and
+    the caller that does not handle it. The evidence coordinate is the
+    **caller**, because that is the half an author cannot see from the changed
+    function alone.
+    """
+    source = "raises" if note.evidence == "raise" else "documents that it raises"
+    fact = (
+        f"the call to `{note.callee}` added here can raise `{note.exception}` "
+        f"(`{note.callee}` {source} it), and `{note.caller_qualname}` does not handle it"
+    )
+    return claim_line(
+        "yellow",
+        path=note.path,
+        line=note.line,
+        fact=fact,
+        evidence=f"{note.caller_path}:{note.caller_line}",
+    )
+
+
+def propagation_member_id(note: PropagationNote) -> str:
+    """A propagation note carries no receipt either; the journal identifies it
+    by the coordinate of the call and the type it names."""
+    return note.note_id
+
+
 def nullability_member_id(note: NullabilityNote) -> str:
     """A yellow (b) note carries no receipt; the journal identifies it by the
     coordinate of the dereference it is about, which is unique per note."""
@@ -431,6 +473,67 @@ def nullability_comments(
         if _anchored(comment, changed_lines):
             out.append(comment)
     return out
+
+
+def propagation_comments(
+    notes: Sequence[PropagationNote],
+    changed_lines: Mapping[str, Collection[int]] | None = None,
+) -> list[dict[str, object]]:
+    """The yellow (b) propagation notes one pull request may show (D-164).
+
+    Anchored on the line of the **new call**, because that is the line the
+    change added and the one an author can act on. The collapsed block names
+    the three premises and where each was read, for the same reason the
+    null/Optional class does: the whole claim of this level is that they were
+    checked, so a reader who disagrees can point at the reading."""
+    out: list[dict[str, object]] = []
+    for note in _propagation_only(notes)[:YELLOW_MAX_COMMENTS]:
+        line = propagation_line(note)
+        if not contract_check(line):
+            continue
+        source = (
+            f"its body contains `raise {note.exception}`"
+            if note.evidence == "raise"
+            else f"its docstring declares that it raises `{note.exception}`"
+        )
+        premises = "\n".join(
+            (
+                f"- **the call is new** — `{note.changed_qualname}` calls `{note.callee}` at "
+                f"{note.path}:{note.line}, and the base revision of the same function did not",
+                f"- **the callee raises** — {source}",
+                f"- **nobody catches it** — neither `{note.changed_qualname}` nor "
+                f"`{note.caller_qualname}` ({note.caller_path}:{note.caller_line}) has a "
+                f"handler for `{note.exception}` or for `Exception`",
+            )
+        )
+        comment = {
+            "path": note.path,
+            "line": note.line,
+            "side": "RIGHT",
+            "body": "\n".join(
+                [
+                    f"{PROPAGATION_MARKER_PREFIX}{propagation_member_id(note)} -->",
+                    line,
+                    "",
+                    contract_collapsed(
+                        premises + "\n\nEvery premise above was read out of the two trees by "
+                        "`ast`; no model decided any of them. A handler this checker does not "
+                        "recognise voids the note, so this says *has no handler for it*, never "
+                        "*cannot be handled*.",
+                        summary="The three premises, as checked",
+                    ),
+                ]
+            ),
+        }
+        if _anchored(comment, changed_lines):
+            out.append(comment)
+    return out
+
+
+def _propagation_only(notes: Sequence[PropagationNote]) -> list[PropagationNote]:
+    if any(type(note) is not PropagationNote for note in notes):
+        raise TypeError("the propagation channel accepts only PropagationNote values")
+    return list(notes)
 
 
 def _nullability_only(notes: Sequence[NullabilityNote]) -> list[NullabilityNote]:

@@ -15,7 +15,13 @@ from typing import Any
 from attest.github.client import GitHubClient
 from attest.github.context import load_pull_request_context
 from attest.review.candidates import CandidateStore
-from attest.review.ci import impact_notes, nullability_notes, run_ci, structural_notes
+from attest.review.ci import (
+    impact_notes,
+    nullability_notes,
+    propagation_notes,
+    run_ci,
+    structural_notes,
+)
 from attest.review.config import ReviewConfig, load_config
 from attest.review.diffs import resolve_merge_base
 from attest.review.ledger import Ledger
@@ -102,6 +108,7 @@ def cmd_review(args: argparse.Namespace) -> int:
     merge_base = resolve_merge_base(repo, args.base, head_sha) if head_sha and args.base else None
     impact: list[object] = []
     nullability: list[object] = []
+    propagation: list[object] = []
     structural: list[object] = []
     if head_sha and merge_base:
         impact = list(impact_notes(repo=repo, base_sha=merge_base, head_sha=head_sha))
@@ -113,6 +120,9 @@ def cmd_review(args: argparse.Namespace) -> int:
                 provider=provider,
                 budget=review.budget,
             )
+        )
+        propagation = list(
+            propagation_notes(repo=repo, base_sha=merge_base, head_sha=head_sha)
         )
         structural = list(
             structural_notes(
@@ -129,6 +139,7 @@ def cmd_review(args: argparse.Namespace) -> int:
         from attest.github.presentation import (
             impact_line,
             nullability_line,
+            propagation_line,
             structural_line,
         )
 
@@ -150,7 +161,8 @@ def cmd_review(args: argparse.Namespace) -> int:
                     lines={
                         "red": [_certified_line(finding) for finding in review.published],
                         "yellow": [impact_line(note) for note in impact]  # type: ignore[arg-type]
-                        + [nullability_line(note) for note in nullability],  # type: ignore[arg-type]
+                        + [nullability_line(note) for note in nullability]  # type: ignore[arg-type]
+                        + [propagation_line(note) for note in propagation],  # type: ignore[arg-type]
                         "green": [
                             structural_line(note, bullet="")  # type: ignore[arg-type]
                             for note in structural
@@ -173,7 +185,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             status=review.status,
             evidence=review.evidence,
             impact=impact,
-            nullability=nullability,
+            nullability=[*nullability, *propagation],
             structural=structural,
             explain=bool(getattr(args, "explain", False)),
             reasons=review.verification_reasons,

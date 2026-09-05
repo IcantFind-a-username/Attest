@@ -31,6 +31,8 @@ from attest.github.presentation import (
     inline_comments,
     nullability_comments,
     nullability_member_id,
+    propagation_comments,
+    propagation_member_id,
     render_complete,
     render_deferred,
     render_running,
@@ -64,6 +66,8 @@ from attest.review.nullability import (
 )
 from attest.review.nullability import notes_for_change as nullability_notes_for_change
 from attest.review.output_contract import LEVEL_MARKERS, budget_unverified
+from attest.review.propagation import PropagationNote
+from attest.review.propagation import notes_for_change as propagation_for_change
 from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
 from attest.review.status import status_from_rows
@@ -1303,6 +1307,70 @@ def impact_notes(
         return []
 
 
+def _blob(repo: Path, sha: str, path: str) -> str | None:
+    """One file at one revision, or None when git cannot answer."""
+    done = subprocess.run(
+        ["git", "-C", str(repo), "show", f"{sha}:{path}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return done.stdout if done.returncode == 0 else None
+
+
+def propagation_notes(
+    *,
+    repo: Path,
+    base_sha: str,
+    head_sha: str,
+    limit: int = YELLOW_MAX_COMMENTS,
+) -> list[PropagationNote]:
+    """D-164: yellow (b)'s second class, the exception a caller never handled.
+
+    **Free and deterministic.** No provider and no budget are passed, because
+    none can be spent: all three premises are decided by `ast` over the two
+    trees, and the published sentence is built from the premises that held. Like
+    every level below red, any failure here is silence.
+    """
+    try:
+        touched = _changed_line_numbers(repo, base_sha, head_sha)
+        if not touched:
+            return []
+        head_sources = read_tree(repo)
+        base_sources: dict[str, str] = {}
+        changed: list[ChangedFunction] = []
+        for path, lines in sorted(touched.items()):
+            head_source = head_sources.get(path)
+            if head_source is None:
+                continue
+            base_source = _blob(repo, base_sha, path)
+            if base_source is None:
+                continue
+            base_sources[path] = base_source
+            changed.extend(
+                changed_functions(
+                    path=path,
+                    head_source=head_source,
+                    base_source=base_source,
+                    changed_lines=lines,
+                )
+            )
+        if not changed:
+            return []
+        graph = build_call_graph(head_sources)
+        return list(
+            propagation_for_change(
+                graph,
+                changed,
+                head_sources=head_sources,
+                base_sources=base_sources,
+                limit=limit,
+            )
+        )
+    except Exception:  # noqa: BLE001 - a courtesy level never breaks a review
+        return []
+
+
 def nullability_notes(
     *,
     repo: Path,
@@ -1789,6 +1857,23 @@ def run_ci(
                 "untested_callers": len(scoped.untested),
             }
         )
+    # D-164: yellow (b)'s second class, the exception a caller never handled.
+    # Free and deterministic: no provider, no budget, and any failure is silence.
+    propagation = propagation_notes(repo=repo, base_sha=merge_base, head_sha=context.head_sha)
+    for escaping in propagation[:YELLOW_MAX_COMMENTS]:
+        ledger.append(
+            {
+                "kind": "propagation_note",
+                "schema_version": "attest.propagation-note.v1",
+                "task_id": task_id,
+                "policy_version": escaping.policy_version,
+                "note_id": propagation_member_id(escaping),
+                "callee": escaping.callee,
+                "exception": escaping.exception,
+                "evidence": escaping.evidence,
+                "caller": f"{escaping.caller_path}:{escaping.caller_line}",
+            }
+        )
     # D-151: yellow (b), the null/Optional class. One model call, and the checker
     # decides; the void rate goes to the ledger whether or not anything is said.
     nullability = nullability_notes(
@@ -1865,7 +1950,7 @@ def run_ci(
             started=started,
             clock=clock,
         )
-    if surfaced or green or yellow or nullability:
+    if surfaced or green or yellow or nullability or propagation:
         # D-147: GitHub refuses a review comment on a line the diff does not
         # carry, and it refuses the whole review with it. Both unanchored
         # channels are handed the diff so an unanchorable note is dropped from
@@ -1878,11 +1963,15 @@ def run_ci(
         null_comments = nullability_comments(nullability, changed_lines)[
             : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments))
         ]
+        propagation_inline = propagation_comments(propagation, changed_lines)[
+            : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments) - len(null_comments))
+        ]
         review_comments = [
             *inline_comments(inline_results, finding_evidence),
             *green_comments,
             *yellow_comments,
             *null_comments,
+            *propagation_inline,
         ]
         review_error = journal.attempt(
             channel="inline_review",
@@ -1984,6 +2073,7 @@ def run_ci(
             units=_units_read(ledger, task_id),
             impact=yellow,
             nullability=nullability,
+            propagation=propagation,
             # D-161: a silence bought out by the ceiling says how many
             # candidates it stopped
             unverified=budget_unverified(review.verification_reasons),
