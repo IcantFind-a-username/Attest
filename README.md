@@ -143,6 +143,7 @@ Important limits:
   | **shadow findings adjudicated** | the **2** E-04 shadow findings that survived the v3 re-judging, checked by exhaustive static search at the reviewed head ([report](docs/acceptance/2026-09-05-shadow-adjudication.md)) | **both false**: the change deletes `institutional_flow_reading` and the `FactorSnapshot.institutional_flow` field and **every reference to either, in the same diff** — 0 dangling references found | — | — (no model) | 2026-09-05 |
   | **`G-NULL-001a` finished** | the **7** preregistered qualified null controls never reached, under `attest.intent.v4` ([report](docs/acceptance/2026-09-05-g-null-001a-final.md)) | **0 wrong publications** — but n = 7, so the 95% upper bound is ~43% and says nothing; **58 of 58 controls have now run**, under three discriminator versions, with **2 wrong publications** across that history, so **the gate does not pass** | **$1.00** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-05 |
   | **`G-NULL-001a` re-run under one version** | all **58** preregistered qualified null controls, `attest.intent.v4.1`, 8 public repositories ([report](docs/acceptance/2026-09-05-g-null-001a-v41.md)) | **0 wrong publications at n = 58**, 95% upper bound **5.2%**; the two commits that once published reproduced their receipts and were **both drawered live**. The population is no longer independent of the rule, so this is a regression test as much as a null study | **$1.00** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-05 |
+  | **`G-NULL-001a`, the independent population — closed** | **68** preregistered qualified null controls drawn on a shifted seed, disjoint from the 58 the intent rule was revised against, 8 public repositories ([report](docs/acceptance/2026-09-06-g-null-001a-final.md)) | **answered n = 7, 0 wrong publications, 1 true positive on a control** (`more-itertools f4f2cfec9d`, probe-adjudicated on four interpreters, D-141). The rule-of-three bound is 42.9% and is **not quoted as a bound**: **57 of the 68 controls produced no candidate at all**, so this population measures discovery's silence, not the rule's restraint. **The population is closed** — no further control is added to it: at **7 answered per 68 reviewed** and $0.0184 a control, `G-NULL-001`'s n ≥ 300 *answered* would need about 2,900 more controls and ~$53, more than the whole remaining cap (D-144). D-134's 5.2% at n = 58 remains the only bound this gate has | **$1.00** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-06 |
   | **the green channel, in production** | **1** pull-request comment on this repository, a throwaway since closed ([report](docs/acceptance/2026-09-05-green-channel.md#4-one-real-comment-on-a-real-pull-request-owner-instruction-4c)) | one `structural` comment, coordinates and a measure, partitioned from red, **no defect claimed**; the model's sentence was dropped for a hedge and the run exposed that no one recorded why | **$0.25** | S `claude-sonnet-5` | 2026-09-05 |
   | **forward pairs — time runs forwards** | **11** distinct defect-introducing commits and their parents, 5 public repositories ([report](docs/acceptance/2026-09-05-forward-pair-reviews.md)) | 75 candidates, **31 answered about the code**, **3 certified and 3 published** — two of them the exact defect the later repairing commit fixed, the third a different real regression in the same commit. **Value class: 0 certified of 1 candidate**, so no value-class recall rate exists at n = 11. 20 of the 31 answers were unfaithful generated tests, [classified here](docs/acceptance/2026-09-06-forward-pair-generation-failures.md): 18 of them assert a behaviour the base revision does not have either, and **none** is an environment failure | **$1.00** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-05 |
   | **a live defect in a third-party library**, found as a *control* | `more-itertools f4f2cfec9d` (2019), drawn as a null control of `G-NULL-001a` ([adjudication](docs/acceptance/2026-09-06-g-null-001a-final.md), [draft report](docs/acceptance/2026-09-06-more-itertools-issue.md)) | **real and still live**: `divide()` raises `KeyError` on a plain `dict` from **Python 3.12** — where `slice` became hashable — and on any `__getitem__` raising a non-`TypeError` on every version; present since **8.1.0** and at the clone's default-branch tip (`d92f081a08`, fetched 2026-09-05). Adjudicated by a probe with **no product code** on four interpreters; the receipt's bundle verifies offline with its seal. **Upstream: draft prepared 2026-09-06, not yet filed — issue number pending** | **$1.00** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-05 |
@@ -162,6 +163,16 @@ Important limits:
   intended change of a returned value is invisible to every discriminator the product owns. The
   earlier "0 false publications" rows above are counts on their own populations, not a rate, and
   they do not survive this as a general claim.
+- **a reproduction's expectation is recorded on the merge base, not written by a model**
+  (`attest.probe.record-replay.v1`, D-146, 2026-09-06). The model chooses one call — imports,
+  setup, one expression, no assertion; the kernel executes that probe on the base revision
+  **twice**, records what it did (a `repr`, or an exception's type name), refuses the recording
+  unless the probe reached the anchored file and both recordings agree, and writes the assertion
+  from the recording. `unfaithful generated test: fails on base as well` — **20 of 31 answered
+  candidates on forward pairs** before this (D-140) — is structurally impossible on that path,
+  and the branch that would report it says so in its own words. The legacy generator, where the
+  model writes the assertion from the diff alone, remains as `probe_generation = false` and is
+  the reversal;
 - **the evidence bundles are not all verifiable.** 86 bundles on this host were re-verified on
   2026-09-04: **44 accept, 42 do not** ([report](docs/acceptance/2026-09-04-bundle-reverification.md)).
   Four carried a `test_repro.py` that was not the test the runs executed — one of them
@@ -287,8 +298,9 @@ Coding agents start with [AGENTS.md](AGENTS.md). The complete documentation map 
   to a stop on control 54, and the adjudication that its one publication is a **true positive**
   on a live `more-itertools` defect rather than a false one;
 - `docs/acceptance/2026-09-06-g-null-001a-final.md` — the same population finished under the
-  probe-adjudicated stop rule: **68 of 68 controls, 0 wrong publications, 7 policy-answered**,
-  and a rule-of-three bound of 42.9% that the report itself calls useless;
+  probe-adjudicated stop rule and then **closed** (D-144): **answered n = 7, 0 wrong
+  publications, 1 true positive on a control**, 68 of 68 reviewed, and a rule-of-three bound of
+  42.9% the report states only to refuse — 57 of the 68 controls produced no candidate at all;
 - `docs/acceptance/2026-09-06-forward-pair-generation-failures.md` — all 20 unfaithful
   reproductions opened and classified: **0 environment failures**, 18 asserting a behaviour the
   base revision does not have either;
@@ -296,7 +308,15 @@ Coding agents start with [AGENTS.md](AGENTS.md). The complete documentation map 
   offline on 79 units before it is ever author-visible: it speaks on 4 of 11 defect-introducing
   commits and 1 of 68 ordinary ones, at $0.00;
 - `docs/acceptance/2026-09-06-v01-tag-readiness.md` — the seven product conditions re-checked
-  and the eight things a `v0.1` tag still needs, listed and not started.
+  and the eight things a `v0.1` tag still needs, listed and not started;
+- `docs/acceptance/2026-09-06b-yellow-published.md` — yellow (a) wired into the publication
+  path under the owner's conjunction, and the cost of that rule: **0 of 79 units**, where the
+  disjunction spoke on 5;
+- `docs/acceptance/2026-09-06b-forward-pairs-probe.md` — the same 11 forward pairs under the
+  probe generator, old column beside new;
+- `docs/acceptance/2026-09-06b-v01-tag-readiness.md` — the gap list re-read, its documentation
+  items done and its code items listed;
+- [`CHANGELOG.md`](CHANGELOG.md) — what changed since the pilot tag and what each change cost.
 
 Read each with its stated limitations. In particular, hash consistency is not execution
 authenticity, a reverse-fix corpus is not natural PR traffic, and an all-abstain result does

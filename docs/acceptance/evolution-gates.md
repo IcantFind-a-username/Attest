@@ -558,6 +558,14 @@ all, so the population measures discovery's silence more than the rule's restrai
 **5.2%** on the first 58-control population remains the only bound this gate has.
 [Report](2026-09-06-g-null-001a-final.md).
 
+**The independent population is closed, 2026-09-06 (D-144).** No further control is added to
+it. At **7 answered per 68 reviewed** ($0.0184 a control) an answered `n ≥ 300` would need about
+2,900 more controls and ~$53, beyond the remaining cap; and buying them would not fix the
+binding constraint, which is that **57 of 68 qualified null commits produce no candidate**. A
+population selected for producing candidates is no longer a null population, because the
+selection is made by the thing under test. The number this population reports is
+**answered n = 7, 0 wrong, 1 true positive on a control**, with no bound.
+
 **Permitted claim:** “On n preregistered qualified null commits across k repositories, zero
 wrong publications were observed; the 95% upper bound on the per-review wrong-publication rate
 is B%.” It is **not** a release-grade null result, it does not transfer to all pull requests,
