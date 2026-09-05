@@ -8,9 +8,9 @@ produced a receipt.
 
 | | |
 |---|---|
-| ref | `v0.1.0-pilot.1` |
+| ref | `v0.1.0-rc.1` (internal trial) · `v0.1.0-pilot.1` (previous, never moved) |
 | kind | annotated tag; immutable |
-| commit | resolve with `git rev-parse v0.1.0-pilot.1^{commit}`; the tag is annotated and never moved |
+| commit | resolve with `git rev-parse v0.1.0-rc.1^{commit}`; both tags are annotated and neither is ever moved |
 | package version | `attest 0.0.1` |
 | interpreter | CPython 3.11 minimum, 3.12 primary (the Action pins 3.12.8) |
 | isolation backend | `linux-container-v1` (Docker/OCI); production never falls back to the host |
@@ -21,13 +21,13 @@ Install it exactly as [`quickstart.md`](quickstart.md) §1 does:
 ```bash
 git clone https://github.com/IcantFind-a-username/Attest.git
 cd Attest
-git checkout v0.1.0-pilot.1
+git checkout v0.1.0-rc.1
 ```
 
 and pin the workflow the same way:
 
 ```yaml
-- uses: IcantFind-a-username/Attest@v0.1.0-pilot.1
+- uses: IcantFind-a-username/Attest@v0.1.0-rc.1
 ```
 
 ## What this ref is and is not
@@ -41,6 +41,8 @@ and pin the workflow the same way:
   [`support-matrix.md`](support-matrix.md).
 
 ## Rollback targets
+
+`v0.1.0-rc.1` is an **internal trial ref, not a public release**: it is tagged so a colleague can install the exact bytes a name points at, nothing is published to PyPI, and three of the seven `v0.1` conditions still fail ([read](../acceptance/2026-09-07-v01-tag-readiness.md)).
 
 The oldest ref a production pilot may roll back to is `v0.1.0-pilot.1`: earlier commits
 predate one or more of the container backend, the controller seal and the offline verifier,
