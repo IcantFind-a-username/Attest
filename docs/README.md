@@ -17,6 +17,8 @@ Authority is by domain:
 | [`mainline.md`](mainline.md) | working sequence to the product, definition of product, corpus policy, owner-reserved decisions |
 | [`implementation/agent-work-orders.md`](implementation/agent-work-orders.md) | implementation method, file seams, RED/GREEN steps, handoff format |
 | [`../DECISIONS.md`](../DECISIONS.md) | narrow accepted trade-offs, evidence, consequences, reversal conditions |
+| [`faq.md`](faq.md) | **what a user reads when the answer was silence** — every drawer reason class, how to read a receipt, how to verify a bundle offline |
+| [`examples/`](examples/) | one real `[red]`, `[yellow]` and `[green]` comment, verbatim, with what stands behind each |
 
 The current owner/user instruction outranks repository documents for the task it actually
 authorizes. A decision does not silently override an architecture invariant or acceptance
