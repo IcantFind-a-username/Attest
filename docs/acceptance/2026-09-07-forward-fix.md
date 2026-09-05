@@ -47,3 +47,10 @@ to grade. Its 5.8% cumulative ceiling is not lifted by looking at repairs.
 the two numbers say the same thing from both sides — **the image is built once per repository
 per dependency change and reused by every commit in between** — and this is the run that
 contains the cold builds.
+
+**And the cold builds are timed.** Over all three paid runs of this window: **22 lookups, 18
+reused, 4 built**, and the four builds took **16.0 s, 16.7 s, 18.1 s and 18.6 s** — mean
+**17.3 s**. At that mean the cache saved **≈ 312 s of wall clock across 18 reuses**, against
+2,683 s of total review time: about **10%**, on a corpus of small projects. The saving scales
+with the project, not with the number of commits — a tree whose install takes minutes rather
+than seconds pays that once instead of once a commit.
