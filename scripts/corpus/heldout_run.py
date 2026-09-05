@@ -117,6 +117,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             "900",
             "--results-suffix",
             args.results_suffix,
+            "--budget",
+            f"{args.budget:.2f}",
         ]
         if control:
             argv += ["--control", control]
@@ -291,6 +293,12 @@ def main(argv: list[str] | None = None) -> int:
         type=float,
         default=None,
         help="stop before the next case once the cumulative recorded spend reaches this many USD",
+    )
+    run.add_argument(
+        "--budget",
+        type=float,
+        default=0.25,
+        help="per-review budget ceiling in USD, passed to the pilot",
     )
     run.add_argument(
         "--results-suffix",

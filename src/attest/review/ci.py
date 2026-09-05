@@ -238,11 +238,24 @@ _INLINE_STRUCTURAL_MARKER_RE = re.compile(r"<!-- attest:structural:([^\s>]+) -->
 # coordinate of the changed function it is about
 _INLINE_IMPACT_MARKER_RE = re.compile(r"<!-- attest:impact:([^\s>]+) -->")
 _SUMMARY_FINDING_MARKER_RE = re.compile(
-    # D-142: the level marker is part of the shape the journal checks, so a
-    # summary line that lost it cannot be delivered as a finding.
+    # What this regex is for is **journal integrity**: does the body publish
+    # exactly the findings the intent declared? That is a question about
+    # identifiers, and the identifier is the marker and the `Finding ID:` field.
+    #
+    # D-142 added the level marker to the line and made it mandatory here too.
+    # That was wrong, and D-149 records why: a journal row is a record of what
+    # was published *at the time it was written*, and this validator runs over
+    # rows written under every past shape. Making a presentation token mandatory
+    # in a historical check retroactively invalidated every pre-D-142 row, and
+    # the failure mode was not a refusal to publish -- it was `attest review`
+    # aborting at startup on any repository whose ledger held one.
+    #
+    # So the marker is **optional here and mandatory in the writer**:
+    # `_summary_line` always emits it and `contract_check` always requires it,
+    # which is where a format rule belongs. This check keeps the binding it owns.
     r"- <!-- attest:finding-id:([0-9a-f]{10}) --> "
-    + re.escape(LEVEL_MARKERS["red"])
-    + r" Finding ID: \1; .+"
+    + r"(?:" + re.escape(LEVEL_MARKERS["red"]) + r" )?"
+    + r"Finding ID: \1; .+"
 )
 
 
