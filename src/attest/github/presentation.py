@@ -37,6 +37,7 @@ from typing import cast
 from attest.certification.types import CertifiedFinding
 from attest.review.finding_evidence import FindingEvidence, render_markdown
 from attest.review.impact import CONDITION_ARITY, ImpactNote
+from attest.review.nullability import NullabilityNote
 from attest.review.output_contract import LEVEL_MARKERS, claim_line, silence_line
 from attest.review.output_contract import check as contract_check
 from attest.review.output_contract import collapsed as contract_collapsed
@@ -56,10 +57,16 @@ MAX_STRUCTURAL_COMMENTS = 2
 # D-143: yellow (a), the impact scope. Same cap as green, its own marker.
 IMPACT_MARKER_PREFIX = "<!-- attest:impact:"
 IMPACT_HEADING = (
-    "Impact scope — counted over the call graph; no defect is claimed and no coverage "
-    "was measured:"
+    "Impact scope — counted over the call graph; no defect is claimed and no coverage was measured:"
 )
 IMPACT_MAX_COMMENTS = 2
+# D-153: what a reader runs, one click below the line that claims it.
+EVIDENCE_HEADING = "Reproduce it yourself — command, test and the six runs"
+# D-151: yellow (b), the null/Optional class. Its own marker, and it **shares**
+# yellow's cap with (a): the author reads one yellow section, not two, and two
+# notes is the whole of it however many levels produced them.
+NULLABILITY_MARKER_PREFIX = "<!-- attest:nullability:"
+YELLOW_MAX_COMMENTS = 2
 IMPACT_MAX_CALLERS_LISTED = 8
 
 
@@ -83,6 +90,7 @@ def render_complete(
     structural: Sequence[StructuralNote] = (),
     units: tuple[int, int] | None = None,
     impact: Sequence[ImpactNote] = (),
+    nullability: Sequence[NullabilityNote] = (),
 ) -> str:
     """Render only receipt-backed findings, in the caller's order; with
     ``evidence`` each finding is followed by its runnable test (item 7).
@@ -97,7 +105,13 @@ def render_complete(
     certified = _certified_only(findings)
     notes = [note for note in _structural_only(structural) if _admits_note(note)]
     scope = [note for note in _impact_only(impact) if contract_check(impact_line(note))]
-    if not certified and not notes and not scope:
+    nulls = [
+        note for note in _nullability_only(nullability) if contract_check(nullability_line(note))
+    ]
+    # The two yellow classes share one cap and one section, (a) first.
+    yellow: list[ImpactNote | NullabilityNote] = [*scope, *nulls]
+    yellow = yellow[:YELLOW_MAX_COMMENTS]
+    if not certified and not notes and not yellow:
         # D-142: a wholly silent review owes exactly one line, and it says over
         # how many change units the silence holds.
         read, planned = units if units is not None else (0, 0)
@@ -114,8 +128,13 @@ def render_complete(
             lines.append(_summary_line(finding))
             block = (evidence or {}).get(finding.accepted_receipt.receipt.candidate_id)
             if block is not None:
+                # D-153: the claim is one line; everything a reader *runs* -- the
+                # command, the generated test, the six run outcomes and the logs
+                # -- lives one click below it. A summary whose first screen is
+                # three pytest transcripts is a summary nobody reads to the end,
+                # and the receipt line above is what the finding actually says.
                 lines.append("")
-                lines.append(render_markdown(block))
+                lines.append(contract_collapsed(render_markdown(block), summary=EVIDENCE_HEADING))
                 lines.append("")
     else:
         lines.append("No finding was verified by a reproduction; abstained.")
@@ -127,12 +146,19 @@ def render_complete(
         if note.advice:
             lines.append("")
             lines.append(contract_collapsed(note.advice, summary=STRUCTURAL_ADVICE_HEADING))
-    for index, scoped in enumerate(scope[:IMPACT_MAX_COMMENTS]):
+    for index, scoped in enumerate(yellow):
         if lines[-1] != "":
             lines.append("")
         if index == 0:
             lines.append(IMPACT_HEADING)
-        lines.append(f"- {impact_line(scoped)}")
+        lines.append(
+            "- "
+            + (
+                impact_line(scoped)
+                if isinstance(scoped, ImpactNote)
+                else nullability_line(scoped)
+            )
+        )
     lines.append(f"Spend ${spend_usd:.4f}; {elapsed_s:.1f}s.")
     return "\n".join(lines)
 
@@ -280,6 +306,36 @@ def impact_line(note: ImpactNote) -> str:
     )
 
 
+def nullability_line(note: NullabilityNote) -> str:
+    """One yellow (b) note as one contract line (D-151).
+
+    Every clause is one of the three verified premises, in the order the checker
+    decided them: what the parameter admits, where it is dereferenced without a
+    guard, and which function's return value reaches it. The evidence coordinate
+    is the **caller**, because that is the half an author cannot see from the
+    changed function alone.
+    """
+    hypothesis = note.hypothesis
+    fact = (
+        f"`{hypothesis.qualname}` takes the {note.access_kind} of `{hypothesis.parameter}` "
+        f"({note.annotation}) at line {hypothesis.access_line} with no None guard above it; "
+        f"`{hypothesis.argument_source}` returns `{note.source_returns}` and is passed here"
+    )
+    return claim_line(
+        "yellow",
+        path=hypothesis.path,
+        line=hypothesis.access_line,
+        fact=fact,
+        evidence=f"{hypothesis.caller_path}:{hypothesis.caller_line}",
+    )
+
+
+def nullability_member_id(note: NullabilityNote) -> str:
+    """A yellow (b) note carries no receipt; the journal identifies it by the
+    coordinate of the dereference it is about, which is unique per note."""
+    return f"{note.hypothesis.path}:{note.hypothesis.access_line}"
+
+
 def impact_member_id(note: ImpactNote) -> str:
     """The delivery journal identifies every author-visible comment. A yellow (a)
     note has no receipt and no candidate, so it is identified by the coordinate
@@ -315,22 +371,70 @@ def impact_comments(
             "line": note.changed.anchor_line or definition.line,
             "side": "RIGHT",
             "body": "\n".join(
-                    [
-                        f"{IMPACT_MARKER_PREFIX}{impact_member_id(note)} -->",
-                        line,
-                        "",
-                        "Call sites, by name, in this repository:",
-                        callers,
-                        "",
-                        "Static reachability over names: a caller reached only through a "
-                        "registry or `getattr` is invisible here, so this says *named by no "
-                        "test*, never *not covered*.",
-                    ]
+                [
+                    f"{IMPACT_MARKER_PREFIX}{impact_member_id(note)} -->",
+                    line,
+                    "",
+                    "Call sites, by name, in this repository:",
+                    callers,
+                    "",
+                    "Static reachability over names: a caller reached only through a "
+                    "registry or `getattr` is invisible here, so this says *named by no "
+                    "test*, never *not covered*.",
+                ]
             ),
         }
         if _anchored(comment, changed_lines):
             out.append(comment)
     return out
+
+
+def nullability_comments(
+    notes: Sequence[NullabilityNote],
+    changed_lines: Mapping[str, Collection[int]] | None = None,
+) -> list[dict[str, object]]:
+    """The yellow (b) notes one pull request may show, each anchored on the line
+    of the dereference and each admitted by the format adjudicator (D-142).
+
+    The collapsed block lists **the three premises and what the checker read**,
+    because the whole claim of this level is that they were checked -- an author
+    who disagrees should be able to see which reading is wrong, by coordinate."""
+    out: list[dict[str, object]] = []
+    for note in _nullability_only(notes)[:YELLOW_MAX_COMMENTS]:
+        line = nullability_line(note)
+        if not contract_check(line):
+            continue
+        premises = "\n".join(
+            f"- **{verdict.premise}** — {verdict.detail}" for verdict in note.verdicts
+        )
+        comment = {
+            "path": note.hypothesis.path,
+            "line": note.hypothesis.access_line,
+            "side": "RIGHT",
+            "body": "\n".join(
+                [
+                    f"{NULLABILITY_MARKER_PREFIX}{nullability_member_id(note)} -->",
+                    line,
+                    "",
+                    contract_collapsed(
+                        premises + "\n\nA model proposed the parameter, the line and the caller; "
+                        "each premise above was then read out of the tree. A guard this "
+                        "checker does not recognise voids the hypothesis, so this says "
+                        "*no None guard above it*, never *cannot be None*.",
+                        summary="The three premises, as checked",
+                    ),
+                ]
+            ),
+        }
+        if _anchored(comment, changed_lines):
+            out.append(comment)
+    return out
+
+
+def _nullability_only(notes: Sequence[NullabilityNote]) -> list[NullabilityNote]:
+    if any(type(note) is not NullabilityNote for note in notes):
+        raise TypeError("the nullability channel accepts only NullabilityNote values")
+    return list(notes)
 
 
 def _impact_only(notes: Sequence[ImpactNote]) -> list[ImpactNote]:

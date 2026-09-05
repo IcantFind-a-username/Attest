@@ -457,7 +457,10 @@ def test_a2_a_new_exception_type_with_an_untested_caller_speaks() -> None:
 def test_a2_is_silent_when_the_raise_was_already_there() -> None:
     """A raise the base already had is not a new obligation for any caller."""
     head = "def widget(a):\n    raise KeyError(a)\n\n\ndef caller():\n    return widget(1)\n"
-    base = "def widget(a):\n    raise KeyError(a)  # unchanged\n\n\ndef caller():\n    return widget(1)\n"
+    base = (
+        "def widget(a):\n    raise KeyError(a)  # unchanged\n\n\n"
+        "def caller():\n    return widget(1)\n"
+    )
 
     assert _one_note(head, base) == ()
 

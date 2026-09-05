@@ -134,9 +134,7 @@ def units(population: str) -> list[dict[str, str]]:
             if key in seen:
                 continue
             seen.add(key)
-            out.append(
-                {"population": "forward", "repo": key[0], "head": key[1], "base": key[2]}
-            )
+            out.append({"population": "forward", "repo": key[0], "head": key[1], "base": key[2]})
     if population in {"controls", "both"}:
         document = json.loads(CONTROLS.read_text(encoding="utf-8"))
         for control in document["controls"]:
@@ -232,9 +230,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
             reasons.update(list(row["reasons"]))  # type: ignore[arg-type]
         summary[name] = {
             "units_scanned": len(scanned),
-            "units_failed": sum(
-                1 for r in rows if r["population"] == name and not r["ok"]
-            ),
+            "units_failed": sum(1 for r in rows if r["population"] == name and not r["ok"]),
             "units_triggering": len(triggered),
             "trigger_rate": round(len(triggered) / len(scanned), 4),
             "notes_total": sum(int(r["notes"] or 0) for r in scanned),
@@ -250,9 +246,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
                         / len(scanned),
                         4,
                     ),
-                    "notes_total": sum(
-                        int(r["conditions"][condition]["notes"]) for r in scanned
-                    ),
+                    "notes_total": sum(int(r["conditions"][condition]["notes"]) for r in scanned),
                     "enabled": condition in ENABLED_CONDITIONS,
                 }
                 for condition in CONDITIONS

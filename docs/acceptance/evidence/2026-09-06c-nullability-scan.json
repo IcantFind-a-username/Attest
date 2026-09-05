@@ -1,0 +1,1209 @@
+{
+ "generated": "2026-09-05T18:27:54.447142+00:00",
+ "model": "claude-sonnet-5",
+ "policy_version": "attest.nullability.premised-hypothesis.v1",
+ "population": "both",
+ "rows": [
+  {
+   "base": "75723b7720952ac0a4c7d3e277b6714ba55ded18",
+   "functions_shown": 5,
+   "head": "e048efcb395443608d184a149c0adbca166cb833",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "forward",
+   "repo": "attrs",
+   "spend_usd": 0.001641,
+   "voided": [
+    {
+     "at": "src/attr/_make.py:392",
+     "detail": "the annotation does not admit None and the default is not None",
+     "failed": [
+      "i_parameter_admits_none",
+      "ii_unguarded_dereference",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "these"
+    }
+   ]
+  },
+  {
+   "base": "564fade9257c809d822a6ffe222f20d9b9ec0675",
+   "functions_shown": 2,
+   "head": "7c85d68de2d126658786fce2fd26a867378abc46",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "forward",
+   "repo": "attrs",
+   "spend_usd": 0.002829,
+   "voided": []
+  },
+  {
+   "base": "cfa01eeb7894a408af70b29d28c0b24f8680f9fb",
+   "functions_shown": 5,
+   "head": "0585f456baa6eeb2edbaab7c85fa796a004aef86",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "forward",
+   "repo": "click",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "d5fbd32842da361cc9be8658d94a64e9cc417fb5",
+   "functions_shown": 5,
+   "head": "cd4674a6de725e1d7cac7ea7b6cd27ea68b4094c",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "forward",
+   "repo": "click",
+   "spend_usd": 0.001611,
+   "voided": [
+    {
+     "at": "examples/validation/validation.py:16",
+     "detail": "the annotation does not admit None and the default is not None",
+     "failed": [
+      "i_parameter_admits_none",
+      "ii_unguarded_dereference",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "value"
+    }
+   ]
+  },
+  {
+   "base": "c69643b60cf971cd5d8e5d3902632807ceab9b8f",
+   "functions_shown": 1,
+   "head": "19fd4d6e18bc9fce451f92f422696b11169faa57",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "forward",
+   "repo": "click",
+   "spend_usd": 0.002691,
+   "voided": []
+  },
+  {
+   "base": "64048c1106eb4e0ed70e64d16e230553a464087b",
+   "functions_shown": 5,
+   "head": "3703fbdedd13b2630dd9be75a3638408c193765d",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "forward",
+   "repo": "itsdangerous",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "d0c20f594667738b714a1f7786da82e0de70fbf5",
+   "functions_shown": 3,
+   "head": "d63a26e56eac21ef874d243d2230123464539ed5",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "forward",
+   "repo": "more-itertools",
+   "spend_usd": 0.002241,
+   "voided": [
+    {
+     "at": "more_itertools/more.py:5223",
+     "detail": "the annotation does not admit None and the default is not None",
+     "failed": [
+      "i_parameter_admits_none",
+      "ii_unguarded_dereference",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "n"
+    }
+   ]
+  },
+  {
+   "base": "6235e945d9c3db774e16f77c69a8623d1c1d67c4",
+   "functions_shown": 1,
+   "head": "2deea20eadd94f3655fe3340a654c950da9959c6",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "forward",
+   "repo": "more-itertools",
+   "spend_usd": 0.002856,
+   "voided": []
+  },
+  {
+   "base": "3331507287761a35d7aa8d583f76d022dd9da958",
+   "functions_shown": 1,
+   "head": "71b76842d32c0b25cfc992fad21f83a606606667",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "forward",
+   "repo": "more-itertools",
+   "spend_usd": 0.004557,
+   "voided": [
+    {
+     "at": "more_itertools/more.py:4329",
+     "detail": "the annotation does not admit None and the default is not None",
+     "failed": [
+      "i_parameter_admits_none",
+      "ii_unguarded_dereference",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "element"
+    }
+   ]
+  },
+  {
+   "base": "935db916c76a66ba1190d1cf20d5ade341f62d14",
+   "functions_shown": 1,
+   "head": "390a3db74c62c206fdb2edcf49373fea25d50adc",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "forward",
+   "repo": "more-itertools",
+   "spend_usd": 0.002781,
+   "voided": []
+  },
+  {
+   "base": "e934f4896e53000e3bf9a56eabbf254c59ddba9f",
+   "functions_shown": 2,
+   "head": "527be818629b8a4c8c4c5cb995961754d52ff0ce",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "forward",
+   "repo": "packaging",
+   "spend_usd": 0.004524,
+   "voided": [
+    {
+     "at": "packaging/specifiers.py:184",
+     "detail": "the annotation does not admit None and the default is not None",
+     "failed": [
+      "i_parameter_admits_none",
+      "ii_unguarded_dereference",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "item"
+    }
+   ]
+  },
+  {
+   "base": "53d9d0735730a7328eb027e5ed04a385a022f061",
+   "functions_shown": 0,
+   "head": "bf357d6e67818f00f5f2e5744a966350e8f937d9",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "55c688a5f8bc5c5f3a7cfc0af2d0ef7b2d439f26",
+   "functions_shown": 1,
+   "head": "3d42a6978ac60b487135db39218cfb742b100899",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.00246,
+   "voided": []
+  },
+  {
+   "base": "0d1be891df91a30ce912227c261000cff47d24a2",
+   "functions_shown": 1,
+   "head": "01413df3db8e64437547f7fa6439a646fa116a98",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.003981,
+   "voided": [
+    {
+     "at": "src/attr/validators.py:552",
+     "detail": "the annotation does not admit None and the default is not None",
+     "failed": [
+      "i_parameter_admits_none",
+      "ii_unguarded_dereference",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "value"
+    }
+   ]
+  },
+  {
+   "base": "5596c4f11d7b8758feda3513177a28fe7d725de9",
+   "functions_shown": 5,
+   "head": "22ae8473fb88d6e585b05c709e81e1a46398a649",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.001956,
+   "voided": [
+    {
+     "at": "src/attr/_funcs.py:342",
+     "detail": "the annotation does not admit None and the default is not None",
+     "failed": [
+      "i_parameter_admits_none",
+      "ii_unguarded_dereference",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "inst"
+    }
+   ]
+  },
+  {
+   "base": "4ce3778fbef049065f91ea01f2602a969b1c0be0",
+   "functions_shown": 0,
+   "head": "345fb0bcac11ca2a5523e6ec07168e956eb34766",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "c9d0b1522da83305dcfdfc82c28f2032162c0998",
+   "functions_shown": 1,
+   "head": "22970bdeca474022efbd7c51368d4009f67e555d",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.003087,
+   "voided": []
+  },
+  {
+   "base": "42c954869d2b5ac526d25ba3d57412ce1f81f92f",
+   "functions_shown": 1,
+   "head": "f7e4e910737e864627ddae4a7b10d8e507dd21f6",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.002889,
+   "voided": []
+  },
+  {
+   "base": "4461e2ce479551eb45fae88e325a0f8480eea28b",
+   "functions_shown": 0,
+   "head": "261d26ed4536b8a6593f82aa6a2c3a1d7c9664d4",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "82783230e922b739e46187ecf719790fe009db17",
+   "functions_shown": 1,
+   "head": "8dbd2dbc04d5885ec8bd4e8ab56fc5fdab2c70e5",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "9f2a7857dc7b096a0f7beba4710ca5a4db23cf7b",
+   "functions_shown": 1,
+   "head": "83fef48b2d540303479be6fa2f01f9fb0e47c06f",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.002607,
+   "voided": []
+  },
+  {
+   "base": "9f222f905827d72bcbf83d2ac512d410af59caf3",
+   "functions_shown": 0,
+   "head": "269b9f5c6c6ccfd05e360d07d0d3b45e07bb6521",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "e906fd01d5873e3d35eb9bfeb2b61c6e45b22eae",
+   "functions_shown": 0,
+   "head": "55c688a5f8bc5c5f3a7cfc0af2d0ef7b2d439f26",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "a18b3957d55c669de56799a9a72ea31febe93ce4",
+   "functions_shown": 1,
+   "head": "e3f231090ab36355f9d28c5d2c98fe62efe1f35b",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.002421,
+   "voided": []
+  },
+  {
+   "base": "a7e1a56da63fb6e846c4b6ec6cde02b94fa0cbe0",
+   "functions_shown": 1,
+   "head": "3786d5ab745ee3cf84374b17194e2c89ae36a16e",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "c2824ac30f315bfbc7398960c6831d68ecc9edb4",
+   "functions_shown": 5,
+   "head": "1046c75480bea76551ed7f976acfebc90c9c0b4e",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "ebe158cf8a302840e2d2275cef473b1f246e62dd",
+   "functions_shown": 0,
+   "head": "38b299d4a4fcf6f7c7c9f8ccc18b18bdee3ec9f1",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "attrs",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "4f936ac1981645488f396953bc59e50445de00b6",
+   "functions_shown": 1,
+   "head": "a352c6e416a734dd7891aa71f6c206b7d42b6baa",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.002685,
+   "voided": []
+  },
+  {
+   "base": "ac6a2acfdb4550c35ce69ce54db502ba96c96324",
+   "functions_shown": 1,
+   "head": "7c575d6b466a1e594d5d6df8f0a1c11d7359a821",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.002571,
+   "voided": []
+  },
+  {
+   "base": "1991d4ccef98312b78cd327340437b518bd5a0ee",
+   "functions_shown": 0,
+   "head": "38c0579d72e42997d78df76abab7d4642ea5239f",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "09ba1e935c6d930bf948aef9efd931d8056e5f06",
+   "functions_shown": 0,
+   "head": "657cdd9f07f0a0954da22120334a1a6b92a3c1bd",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "9be1039f9c6ee98e3333746173f23dc949afe761",
+   "functions_shown": 0,
+   "head": "40fb3751ec6075538df7242524e3ff8efe366d1f",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "2fbc8b1ea993c4d5549bcebe94a437d7a6a56b6f",
+   "functions_shown": 1,
+   "head": "8386598a77d5aa05c5239e8525b7b34eb75b4d57",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.001506,
+   "voided": [
+    {
+     "at": "src/click/core.py:2309",
+     "detail": "the annotation does not admit None and the default is not None",
+     "failed": [
+      "i_parameter_admits_none",
+      "ii_unguarded_dereference",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "ctx"
+    }
+   ]
+  },
+  {
+   "base": "e9e50023f87474939d99596a90b9c8d4335c03c5",
+   "functions_shown": 1,
+   "head": "9f7d99100aa8b1b81d8f011de679557e19e0c3d7",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.000171,
+   "voided": []
+  },
+  {
+   "base": "9f7d99100aa8b1b81d8f011de679557e19e0c3d7",
+   "functions_shown": 5,
+   "head": "0acca45214a66eefe50716ecb0bcfcefa8fcc6eb",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "dfae0a101190258677261f534249f6d6c862894a",
+   "functions_shown": 2,
+   "head": "570582b7a301336079334179d0b1d873e5e2af76",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "9072f1809e559898814d58da77b9b9d5a73233fb",
+   "functions_shown": 5,
+   "head": "ad422c44a09d27c404f90f229def874c7ab0dd5b",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "1c42559832d31e9411766673f472c0893eacf9ba",
+   "functions_shown": 2,
+   "head": "5bc59bdc5ea2a2b9aa5a56c5af8a2abbc2a91453",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.002691,
+   "voided": []
+  },
+  {
+   "base": "52072a9dc8388cb4176da92a13b4f4d475df0763",
+   "functions_shown": 0,
+   "head": "a2ce3947e1b6fa7ff1dce796b9be466f54116f35",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "098f61468096609337b1670bb9ba82a032eff48c",
+   "functions_shown": 0,
+   "head": "3c64403946a9471130d85a912a7324ec7cb40dfa",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "e24db5732f304278e37a3d39d3546429b69f545e",
+   "functions_shown": 1,
+   "head": "5ea0257962e748833d99d30e9092771c92529c2f",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "3b06e0b75aaa68533c7fbd4f89053309f2e4ed8a",
+   "functions_shown": 2,
+   "head": "fde47b4b4f978f179b9dff34583cb2b99021f482",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "6386d1379c272f1d2b71d9e2a89721aa9572440d",
+   "functions_shown": 1,
+   "head": "7b8486606f99367e3ff64a43e0e1a228edb74318",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "click",
+   "spend_usd": 0.00204,
+   "voided": []
+  },
+  {
+   "base": "93ae366874bbd4f69d90495c45b2cd336387496c",
+   "functions_shown": 1,
+   "head": "7f4dcf83a07bb3d53f4e0e65ef1b43327b4cca90",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "itsdangerous",
+   "spend_usd": 0.002889,
+   "voided": []
+  },
+  {
+   "base": "94ccd028ef1f3cd9eaec862d6a1d646d02a242bc",
+   "functions_shown": 0,
+   "head": "fed1b24d5fda4547725c31df3493a6dfdb170884",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "jinja",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "ab9cd8c66426c753df7ea3a952ffa6f8f8619b2e",
+   "functions_shown": 3,
+   "head": "73a94e00d4376da11966fd6add5bdd469b59b0da",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "jinja",
+   "spend_usd": 0.001866,
+   "voided": [
+    {
+     "at": "src/jinja2/filters.py:64",
+     "detail": "the annotation does not admit None and the default is not None",
+     "failed": [
+      "i_parameter_admits_none",
+      "ii_unguarded_dereference",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "attribute"
+    }
+   ]
+  },
+  {
+   "base": "984997913cc2eb1a00e1b8787c3d3ada5dd359c7",
+   "functions_shown": 1,
+   "head": "d312609ccd561498d2963d47f0330715e8f24982",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "jinja",
+   "spend_usd": 0.002241,
+   "voided": []
+  },
+  {
+   "base": "59de6fbde98de6719758b773a77f0559756756b5",
+   "functions_shown": 0,
+   "head": "9dae67bcc8dbc389e0ceef12f1fa04352ef75b8e",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "jinja",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "9ec465baefe32e305bd4e61da49e6c39360c194e",
+   "functions_shown": 1,
+   "head": "48929401db7228db04dfd8e88115dd5c30dc2d86",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "jinja",
+   "spend_usd": 0.001701,
+   "voided": [
+    {
+     "at": "src/jinja2/filters.py:298",
+     "detail": "the annotation does not admit None and the default is not None",
+     "failed": [
+      "i_parameter_admits_none",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "value"
+    }
+   ]
+  },
+  {
+   "base": "89d6a8e2e5b92ae0787c3254cec5f324da3362c8",
+   "functions_shown": 2,
+   "head": "0155306b05b7af79ec4313950068dd806b295e94",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.002487,
+   "voided": []
+  },
+  {
+   "base": "03da8f1a0dc37c7325162f74b763c34cde882237",
+   "functions_shown": 1,
+   "head": "5ace912b3cda7c04f8d749b31518f777e423a5fc",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.002397,
+   "voided": []
+  },
+  {
+   "base": "c3c706d4d7c12127d27f184871f0d53f24a8571f",
+   "functions_shown": 1,
+   "head": "e3a7fbcdeb44e4d390e9bcc72139db50fad282e6",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "a4964f1a9543c4818cf6252e0618e923b8612310",
+   "functions_shown": 1,
+   "head": "f0b7b0d4b7151d59c66eb6fa992211efa0102501",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.003075,
+   "voided": []
+  },
+  {
+   "base": "9e5a00450793b81fbbabcf1070cf6b3597d6b7c5",
+   "functions_shown": 1,
+   "head": "8e359f451651120c51144731ce166e649698b63c",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.002448,
+   "voided": []
+  },
+  {
+   "base": "254133ff846af44c99150b645bd73e4999bd06a3",
+   "functions_shown": 1,
+   "head": "89d795a9bbb0718838579b229a7bef570db30753",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.002274,
+   "voided": []
+  },
+  {
+   "base": "586134536709ea02bc33dda99614f74be50ec704",
+   "functions_shown": 1,
+   "head": "9ed9245b6f7bed8b814bf99305f79f0d5e1575d1",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.001671,
+   "voided": [
+    {
+     "at": "more_itertools/more.py:881",
+     "detail": "line 881 does not dereference `fillvalue`",
+     "failed": [
+      "ii_unguarded_dereference",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "fillvalue"
+    }
+   ]
+  },
+  {
+   "base": "edfb4704efe9bdb2dc6022fb4b665c62a1525a2c",
+   "functions_shown": 0,
+   "head": "7e6f6045ca6c636f4021191175a5f79a70e7393b",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "b303015057021c753b9abe3687b5f5cd19a437e1",
+   "functions_shown": 0,
+   "head": "59eaf927bd6d4b349103dfdff741006b8fe5371b",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "893ea9996c72f9010ab04670962c3cc0c205ba01",
+   "functions_shown": 1,
+   "head": "fc929be9e1e58e4c2acbee0a17b85b41a8ac8f0a",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.000171,
+   "voided": []
+  },
+  {
+   "base": "9fc800a37af532b5fb7101252b23e7d977855d53",
+   "functions_shown": 2,
+   "head": "821450b4d31979ae1f3bd88992e9401154260185",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "21016ca20d514e912999b8e2f9bf17fcbbab972f",
+   "functions_shown": 1,
+   "head": "f5b155c39f33c5879c86a1512e8ce91cf016d95f",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.000171,
+   "voided": []
+  },
+  {
+   "base": "fe253fabac9327c8baed04c5eb175ff1578c90fd",
+   "functions_shown": 1,
+   "head": "8a23d62f63cb17df01059b243e5c3ab4344a6a28",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.002196,
+   "voided": [
+    {
+     "at": "more_itertools/more.py:1809",
+     "detail": "line 1809 does not dereference `keyfunc`",
+     "failed": [
+      "ii_unguarded_dereference",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "keyfunc"
+    }
+   ]
+  },
+  {
+   "base": "29288c851dfc90c3e773e3607ccc39abbc43a19d",
+   "functions_shown": 1,
+   "head": "4539a1109b2eb04035af565782013f1ce60298bc",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "aec2102b98a19b4359c8243ab0f83aa284edd781",
+   "functions_shown": 1,
+   "head": "0115b12ecffe9299377946d062b6741756cc3ab8",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "07c377c718826b28dfab31f5e8b267af0201d20f",
+   "functions_shown": 1,
+   "head": "f4f2cfec9d1af6780012a5021e46c191d14148e0",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "more-itertools",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "a571df8e1322cf105f913c1420a7a99e5af076de",
+   "functions_shown": 0,
+   "head": "c20074d749a8aff6454e2d644ecce5017d73a66b",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "packaging",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "e5a7893a99d64acb18ca8eec8848daa026c1c4de",
+   "functions_shown": 0,
+   "head": "e120b49667e1c769ff60a4181cb1897c78f4f386",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "packaging",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "ddf54e1c7eed60406de14615556650633e84799c",
+   "functions_shown": 1,
+   "head": "97db7175675a618b78838ccdf4b78108d3eca6f3",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "packaging",
+   "spend_usd": 0.002721,
+   "voided": []
+  },
+  {
+   "base": "08d8af08fdf9bac223d3af22a1ace16356e3f643",
+   "functions_shown": 0,
+   "head": "a571df8e1322cf105f913c1420a7a99e5af076de",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "packaging",
+   "spend_usd": 0.0,
+   "voided": []
+  },
+  {
+   "base": "192722508a62fc4e25293a9e6061744773a3fdf7",
+   "functions_shown": 1,
+   "head": "ac670cf993fd622bfc0a5ea961681341b291779e",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "python-dotenv",
+   "spend_usd": 0.002445,
+   "voided": []
+  },
+  {
+   "base": "7e199c32db62eeb03a9e5e807f34f730e90216d3",
+   "functions_shown": 4,
+   "head": "00cc7ae200aa2228167c689bbe8b1d3c5c7a4751",
+   "hypotheses": 1,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "python-dotenv",
+   "spend_usd": 0.00474,
+   "voided": [
+    {
+     "at": "src/dotenv/variables.py:47",
+     "detail": "no parameter named `self.default`",
+     "failed": [
+      "i_parameter_admits_none",
+      "ii_unguarded_dereference",
+      "iii_caller_supplies_none"
+     ],
+     "parameter": "self.default"
+    }
+   ]
+  },
+  {
+   "base": "ceca48c8441f381b1edf4772288326b4be6f435c",
+   "functions_shown": 1,
+   "head": "025f762241c9a2435cc33cd534d5d998b9d4c64c",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "python-dotenv",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "dc0c88628ee40baf639ddeae20794498dc30cf80",
+   "functions_shown": 3,
+   "head": "a313952f8a401b0c243f76366514c0bf3a0866d2",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "urllib3",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "9f7c3de476f81cb0c877e4cbbb0365fb662718b2",
+   "functions_shown": 1,
+   "head": "ce305de20777f961c6377aa861fc9c1a7bbed0db",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "urllib3",
+   "spend_usd": 0.002187,
+   "voided": []
+  },
+  {
+   "base": "2e2ad4bd757f8b2d90e2ee72234d81dfc6857b7e",
+   "functions_shown": 1,
+   "head": "21671d8158966f1d1e194bd9cd1802cfe80ce16e",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "urllib3",
+   "spend_usd": 0.002643,
+   "voided": []
+  },
+  {
+   "base": "8d0519d68e95f85affbd74107525590f27a36fc3",
+   "functions_shown": 2,
+   "head": "7c4ff53cbddf03b54de2452fc77e0db6f4729ae6",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "urllib3",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "22e0a7ec23b2c7d469a45adffd0e13e971ea11aa",
+   "functions_shown": 2,
+   "head": "9b4670c861a2a78ae7feb5bd6a1794ab63857069",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "urllib3",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "5b047b645f5f93900d5e2fc31230848c25eb1f5f",
+   "functions_shown": 2,
+   "head": "deb21bc858bb45a7052b2ebb0be16aab704b6291",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "urllib3",
+   "spend_usd": 0.000186,
+   "voided": []
+  },
+  {
+   "base": "6ca5cae3359604ad070db8b5765fab6880c7c084",
+   "functions_shown": 1,
+   "head": "7d5206f2d9df64ad6910cdcf084bc7c0d8b4fe44",
+   "hypotheses": 0,
+   "lines": [],
+   "notes": 0,
+   "ok": true,
+   "population": "controls",
+   "repo": "urllib3",
+   "spend_usd": 0.002556,
+   "voided": []
+  }
+ ],
+ "schema_version": "attest.nullability-scan.v1",
+ "spend_usd": 0.103395,
+ "summary": {
+  "controls": {
+   "first_failing_premise": {
+    "i_parameter_admits_none": 6,
+    "ii_unguarded_dereference": 7,
+    "iii_caller_supplies_none": 8
+   },
+   "hypotheses_total": 8,
+   "notes_total": 0,
+   "premise_pass_rate": 0.0,
+   "spend_usd": 0.077292,
+   "trigger_rate": 0.0,
+   "units_failed": 0,
+   "units_scanned": 68,
+   "units_triggering": 0
+  },
+  "forward": {
+   "first_failing_premise": {
+    "i_parameter_admits_none": 5,
+    "ii_unguarded_dereference": 5,
+    "iii_caller_supplies_none": 5
+   },
+   "hypotheses_total": 5,
+   "notes_total": 0,
+   "premise_pass_rate": 0.0,
+   "spend_usd": 0.026103,
+   "trigger_rate": 0.0,
+   "units_failed": 0,
+   "units_scanned": 11,
+   "units_triggering": 0
+  }
+ }
+}

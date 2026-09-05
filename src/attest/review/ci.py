@@ -9,6 +9,7 @@ import re
 import subprocess
 import time
 from collections.abc import Callable, Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -24,9 +25,12 @@ from attest.github.context import PullRequestContext
 from attest.github.presentation import (
     IMPACT_MAX_COMMENTS,
     MAX_STRUCTURAL_COMMENTS,
+    YELLOW_MAX_COMMENTS,
     impact_comments,
     impact_member_id,
     inline_comments,
+    nullability_comments,
+    nullability_member_id,
     render_complete,
     render_deferred,
     render_running,
@@ -47,6 +51,18 @@ from attest.review.impact import (
     read_tree,
 )
 from attest.review.ledger import Ledger
+from attest.review.nullability import (
+    HYPOTHESIS_MAX_TOKENS,
+    HYPOTHESIS_SCHEMA,
+    HYPOTHESIS_SYSTEM,
+    NULLABILITY_MAX_FUNCTION_LINES,
+    NULLABILITY_MAX_UNITS_PER_CALL,
+    NULLABILITY_POLICY_VERSION,
+    NullabilityNote,
+    hypotheses_from,
+    prompt_for,
+)
+from attest.review.nullability import notes_for_change as nullability_notes_for_change
 from attest.review.output_contract import LEVEL_MARKERS
 from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
@@ -237,6 +253,9 @@ _INLINE_STRUCTURAL_MARKER_RE = re.compile(r"<!-- attest:structural:([^\s>]+) -->
 # D-145: and neither does a yellow (a) comment, so it is identified by the
 # coordinate of the changed function it is about
 _INLINE_IMPACT_MARKER_RE = re.compile(r"<!-- attest:impact:([^\s>]+) -->")
+# D-151: yellow (b) carries no receipt either, so the journal identifies it by
+# the coordinate of the dereference the note is about.
+_INLINE_NULLABILITY_MARKER_RE = re.compile(r"<!-- attest:nullability:([^\s>]+) -->")
 _SUMMARY_FINDING_MARKER_RE = re.compile(
     # What this regex is for is **journal integrity**: does the body publish
     # exactly the findings the intent declared? That is a question about
@@ -254,7 +273,9 @@ _SUMMARY_FINDING_MARKER_RE = re.compile(
     # `_summary_line` always emits it and `contract_check` always requires it,
     # which is where a format rule belongs. This check keeps the binding it owns.
     r"- <!-- attest:finding-id:([0-9a-f]{10}) --> "
-    + r"(?:" + re.escape(LEVEL_MARKERS["red"]) + r" )?"
+    + r"(?:"
+    + re.escape(LEVEL_MARKERS["red"])
+    + r" )?"
     + r"Finding ID: \1; .+"
 )
 
@@ -848,8 +869,10 @@ def _delivery_members(value: object, *, allow_empty: bool = False) -> tuple[tupl
 def _marker_id(comment: Mapping[str, object]) -> str:
     """The identity a rendered inline comment carries in its own first line."""
     first = str(comment["body"]).splitlines()[0]
-    match = _INLINE_STRUCTURAL_MARKER_RE.fullmatch(first) or _INLINE_IMPACT_MARKER_RE.fullmatch(
-        first
+    match = (
+        _INLINE_STRUCTURAL_MARKER_RE.fullmatch(first)
+        or _INLINE_IMPACT_MARKER_RE.fullmatch(first)
+        or _INLINE_NULLABILITY_MARKER_RE.fullmatch(first)
     )
     if match is None:  # pragma: no cover - the renderers always write a marker
         raise ValueError("rendered comment carries no marker")
@@ -873,6 +896,7 @@ def _body_finding_ids(value: object, channel: str) -> tuple[str, ...]:
                 _INLINE_FINDING_MARKER_RE.fullmatch(first)
                 or _INLINE_STRUCTURAL_MARKER_RE.fullmatch(first)
                 or _INLINE_IMPACT_MARKER_RE.fullmatch(first)
+                or _INLINE_NULLABILITY_MARKER_RE.fullmatch(first)
             )
             if match is None:
                 raise ValueError("inline review comment has no finding marker")
@@ -1043,11 +1067,7 @@ def _changed_python_files(repo: Path, base_sha: str, head_sha: str) -> set[str]:
     )
     if proc.returncode != 0:
         return set()
-    return {
-        line.strip()
-        for line in proc.stdout.splitlines()
-        if line.strip().endswith(".py")
-    }
+    return {line.strip() for line in proc.stdout.splitlines() if line.strip().endswith(".py")}
 
 
 _DIFF_HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
@@ -1152,6 +1172,91 @@ def impact_notes(
         return []
 
 
+def nullability_notes(
+    *,
+    repo: Path,
+    base_sha: str,
+    head_sha: str,
+    provider: Provider,
+    budget: Budget,
+    ledger: Ledger | None = None,
+    task_id: str | None = None,
+    limit: int = YELLOW_MAX_COMMENTS,
+) -> list[NullabilityNote]:
+    """D-151: yellow (b)'s notes for one pull request, at most ``limit``.
+
+    **One model call, and it decides nothing.** The model is shown the changed
+    functions and asked which parameter, which line and which caller; every
+    hypothesis it returns is then decided by `ast` and `git` over the head tree,
+    and a hypothesis missing any of the three premises is void. The void is
+    written to the ledger with the premise that failed, because a level whose
+    refusals are invisible cannot be measured.
+
+    Like green and yellow (a): any failure anywhere here is silence. It never
+    affects the red path and never delays a receipt.
+    """
+    try:
+        touched = _changed_line_numbers(repo, base_sha, head_sha)
+        if not touched:
+            return []
+        sources = read_tree(repo)
+        shown: list[tuple[str, str, int, str]] = []
+        for path, lines in sorted(touched.items()):
+            head_source = sources.get(path)
+            if head_source is None:
+                continue
+            for changed in changed_functions(
+                path=path,
+                head_source=head_source,
+                base_source=_base_source(repo, base_sha, path),
+                changed_lines=lines,
+            ):
+                definition = changed.definition
+                if definition.end_line - definition.line + 1 > NULLABILITY_MAX_FUNCTION_LINES:
+                    continue
+                body = "\n".join(
+                    head_source.splitlines()[definition.line - 1 : definition.end_line]
+                )
+                shown.append((path, definition.qualname, definition.line, body))
+        if not shown:
+            return []
+        shown.sort(key=lambda unit: (unit[0], unit[2]))
+        shown = shown[:NULLABILITY_MAX_UNITS_PER_CALL]
+        prompt = prompt_for(shown)
+        reserved = budget.reserve(
+            "nullability-hypotheses",
+            len(HYPOTHESIS_SYSTEM) + len(prompt),
+            HYPOTHESIS_MAX_TOKENS,
+        )
+        result = provider.sample(
+            system=HYPOTHESIS_SYSTEM,
+            prompt=prompt,
+            schema=HYPOTHESIS_SCHEMA,
+            max_tokens=HYPOTHESIS_MAX_TOKENS,
+        )
+        budget.settle("nullability-hypotheses", reserved, result.input_tokens, result.output_tokens)
+        hypotheses = hypotheses_from(json.loads(result.text or "{}"))
+        notes, voided = nullability_notes_for_change(sources, hypotheses, limit=limit)
+    except Exception:  # noqa: BLE001 - yellow is a courtesy; it never breaks a review
+        return []
+    if ledger is not None and task_id is not None:
+        for hypothesis, verdicts in voided:
+            with suppress(Exception):
+                ledger.append(
+                    {
+                        "kind": "nullability_void",
+                        "schema_version": "attest.nullability-void.v1",
+                        "task_id": task_id,
+                        "policy_version": NULLABILITY_POLICY_VERSION,
+                        "at": f"{hypothesis.path}:{hypothesis.access_line}",
+                        "parameter": hypothesis.parameter,
+                        "failed": [v.premise for v in verdicts if not v.holds],
+                        "detail": next((v.detail for v in verdicts if not v.holds), ""),
+                    }
+                )
+    return list(notes)
+
+
 def structural_notes(
     *,
     repo: Path,
@@ -1188,9 +1293,7 @@ def structural_notes(
             schema=cast(dict[str, Any], WORDING_SCHEMA),
             max_tokens=WORDING_MAX_TOKENS,
         )
-        budget.settle(
-            "structural-wording", reserved, result.input_tokens, result.output_tokens
-        )
+        budget.settle("structural-wording", reserved, result.input_tokens, result.output_tokens)
         payload = json.loads(result.text or "{}")
         return f"{payload.get('sentence', '')}\n\n{payload.get('fix', '')}".strip()
 
@@ -1516,6 +1619,30 @@ def run_ci(
                 "untested_callers": len(scoped.untested),
             }
         )
+    # D-151: yellow (b), the null/Optional class. One model call, and the checker
+    # decides; the void rate goes to the ledger whether or not anything is said.
+    nullability = nullability_notes(
+        repo=repo,
+        base_sha=merge_base,
+        head_sha=context.head_sha,
+        provider=provider,
+        budget=review.budget,
+        ledger=ledger,
+        task_id=task_id,
+    )
+    for null_note in nullability[:YELLOW_MAX_COMMENTS]:
+        ledger.append(
+            {
+                "kind": "nullability_note",
+                "schema_version": "attest.nullability-note.v1",
+                "task_id": task_id,
+                "policy_version": NULLABILITY_POLICY_VERSION,
+                "note_id": nullability_member_id(null_note),
+                "parameter": null_note.hypothesis.parameter,
+                "access_kind": null_note.access_kind,
+                "source_returns": null_note.source_returns,
+            }
+        )
     published_ids = {_candidate_id(finding) for finding in inline_results}
     ledger.record_ci_final(
         task_id=task_id,
@@ -1568,18 +1695,24 @@ def run_ci(
             started=started,
             clock=clock,
         )
-    if surfaced or green or yellow:
+    if surfaced or green or yellow or nullability:
         # D-147: GitHub refuses a review comment on a line the diff does not
         # carry, and it refuses the whole review with it. Both unanchored
         # channels are handed the diff so an unanchorable note is dropped from
         # the inline review instead of taking every other comment down.
         changed_lines = _changed_line_numbers(repo, merge_base, context.head_sha)
         green_comments = structural_comments(green, changed_lines)
+        # The two yellow classes share one cap, (a) first, so a pull request
+        # never shows more than two yellow comments however many levels spoke.
         yellow_comments = impact_comments(yellow, changed_lines)
+        null_comments = nullability_comments(nullability, changed_lines)[
+            : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments))
+        ]
         review_comments = [
             *inline_comments(inline_results, finding_evidence),
             *green_comments,
             *yellow_comments,
+            *null_comments,
         ]
         review_error = journal.attempt(
             channel="inline_review",
@@ -1594,6 +1727,7 @@ def run_ci(
                 # yellow members carry the coordinate of the function they are
                 # about, for the same reason: no receipt, no candidate
                 *((_marker_id(comment), "impact") for comment in yellow_comments),
+                *((_marker_id(comment), "nullability") for comment in null_comments),
             ),
             body={
                 "commit_id": context.head_sha,
@@ -1679,6 +1813,7 @@ def run_ci(
             structural=green,
             units=_units_read(ledger, task_id),
             impact=yellow,
+            nullability=nullability,
         ),
     )
     try:

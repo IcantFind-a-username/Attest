@@ -1518,3 +1518,61 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** `PROBE_RECORDINGS = 2`; the case above reproduces one time in four.
 - **RED:** `tests/test_probe_generation.py::test_the_recorder_demands_three_agreeing_observations` and `::test_a_recording_that_disagrees_with_itself_is_refused`. The branch that reports a base failure on the probe path is exercised by the recorded run of 2026-09-06b and **not** by a unit test: forcing a value that agrees three times and then differs needs nondeterminism a test cannot pin, and a flaky test would be worse than the honest gap.
 - **Trace:** `G-RECALL-002`; D-140, D-146.
+
+### D-149 — A delivery journal row is read under the shape it was written
+
+- **Date/status/scope:** 2026-09-06 · active, found by the E-02 held-out re-run · `src/attest/review/ci.py` (`_SUMMARY_FINDING_MARKER_RE`), `tests/test_delivery_journal_history.py`.
+- **What happened.** D-142 added the `[red]` level marker to the summary finding line and made it mandatory in the **delivery journal's** integrity check as well. Every journal row written before D-142 lacks it, so `_body_finding_ids` returned nothing, the declared members did not match, and `_validate_delivery_intent` raised. The failure mode was not a refused publication: `maybe_tighten_alpha` reconciles the journal **before a candidate is read**, so `attest review` aborted at startup on any repository holding one such row. **14 of the first 19 held-out cases crashed on their own 2026-09-03 ledgers.**
+- **The decision.** The marker is **optional in the journal check and mandatory in the writer**. Two properties were conflated and are now separated: *does the body publish exactly the declared findings* is journal integrity and is about identifiers; *is the line contract-conformant* is the output contract's business, enforced at write time by `_summary_line` (which always emits the marker) and `contract_check` (which always requires it).
+- **Why not a schema version instead.** The intent row's field set is validated exactly, so adding a `contract_version` field would itself invalidate every existing row. There is no migration that does not have this same shape.
+- **Cost:** $0.6058 — the abandoned first pass of the held-out re-run, whose 45 completed cases were discarded so the reported column runs under one implementation.
+- **Reversal:** restore the mandatory marker; the first held-out case with a 2026-09-03 ledger reproduces it.
+- **RED:** `tests/test_delivery_journal_history.py::test_a_summary_row_reconciles_whatever_line_shape_it_was_written_under[pre-d142]` fails on the previous implementation; `::test_the_binding_the_journal_owns_still_refuses_a_body_that_is_not_its_members` fixes the half that must not move.
+- **Trace:** D-142; `RISK-CERT-01` is untouched — nothing here changes what may be published.
+
+### D-150 — Yellow (a) gets three conditions, each measured before it may speak
+
+- **Date/status/scope:** 2026-09-06 · active · `src/attest/review/impact.py`, `src/attest/github/presentation.py`, `scripts/corpus/impact_scan.py`, `tests/test_impact_scope.py`; [report](docs/acceptance/2026-09-06c-yellow-conditions.md).
+- **The three conditions.** **a1** the signature moved **and** some caller is named by no test (D-145, retained verbatim). **a2** the function raises an exception type the base did not, **or** its return annotation moved, **and** some caller is named by no test. **a3** a required parameter was added **and** some call site statically passes fewer positional arguments than the function now takes.
+- **a3 carries no coverage half, and that is deliberate.** Arity is decidable from the two trees, so the claim stands whether or not a test names the caller; it therefore outranks a1 and a2, and a tested caller does not silence it. Every uncertainty still abstains: `*args`, `**kwargs` or any keyword argument may supply the parameter, so those call sites are dropped, and an attribute call on a method discounts the implicit `self`.
+- **The measurement, and it is a ceiling and not a result.** On the same 79 units (11 forward pairs, 68 null controls) **every one of the three conditions is silent on every unit**: 0 of 11 forward, 0 of 68 controls, for each condition separately. Each therefore clears the owner's 3% control ceiling with the widest possible margin, and **none of them has any evidence of value.**
+- **The 2026-09-06 disjunction's five firings, adjudicated one by one, are why there is no fourth condition.** Six forward notes on four units, plus one control note. All six forward notes named a function whose **every** caller a test already names — `_format_default`, `prompt`, `_pipepager`, `_tempfilepager`, `first_true`, `random_product` — so the actionable half was absent in 6 of 6. The one control note (`jinja make_attrgetter`, 9 callers, 9 untested) had the coverage half and no interface change. **0 of 7 notes carried both halves**, which is the empirical content of D-145's conjunction and the reason a "precision was good enough" third condition could not be written from them. a3 is derived from the *shape* of that failure — the missing ingredient is a checkable consequence, not a better proxy — rather than from any of the seven.
+- **What it changed.** One D-145 fixture is re-ranked: `quote` gained a required parameter and both call sites still pass one, so the decidable claim is now made instead of the coverage-proxy one. The test says so in its own docstring.
+- **Cost:** $0.00. `ast` and `git` over trees already on disk; the scan makes no API call.
+- **Reversal:** `ENABLED_CONDITIONS = (CONDITION_SIGNATURE,)` restores D-145 exactly.
+- **RED:** `tests/test_impact_scope.py::test_a1_...`, `::test_a2_a_new_exception_type_with_an_untested_caller_speaks`, `::test_a2_is_silent_when_the_raise_was_already_there`, `::test_a3_an_added_parameter_that_breaks_a_call_speaks_even_when_a_test_names_it`, `::test_a3_abstains_when_the_call_could_be_supplying_the_parameter`.
+- **Trace:** D-143, D-145; mainline §1.1.
+
+### D-151 — Yellow (b): a model proposes premises, a checker decides them, and 13 of 13 were void
+
+- **Date/status/scope:** 2026-09-06 · active · `src/attest/review/nullability.py`, `src/attest/review/ci.py`, `src/attest/github/presentation.py`, `scripts/corpus/nullability_scan.py`, `tests/test_nullability.py`; [report](docs/acceptance/2026-09-06c-yellow-b-nullability.md).
+- **The division of labour.** The model chooses *which parameter, which line, which caller*; a deterministic checker decides whether three premises hold; the kernel writes the sentence from the premises that were verified. Nothing the model writes reaches an author. **All three premises or nothing** — a hypothesis with two of three is a guess, and it is voided rather than hedged.
+- **The three premises, each decidable from the head tree.** (i) the parameter's annotation admits None, or its default is `None`; (ii) the named line takes an attribute, subscript or call of it, and no recognised guard stands between the function's entry and that line; (iii) the argument some caller passes for it comes from a function whose own return annotation admits None. (i) alone is a type annotation, (ii) alone an ordinary dereference, (iii) alone a nullable nobody misuses.
+- **Every direction of doubt costs recall and none costs precision.** An unrecognised guard voids the hypothesis; an unannotated source function voids it; an argument that cannot be traced voids it; a name defined twice voids it. Seven guard forms are recognised (`is not None`, truthiness, `isinstance`/`hasattr`/`getattr`, `assert`, early return on `is None`, rebinding, a catching `try`, and an inline ternary) and an eighth would only make the level quieter.
+- **The measurement: 13 hypotheses over 79 units, 0 survived.** Forward 5, controls 8; **0 of 11 forward units and 0 of 68 control units trigger**, so the control rate is 0% against the owner's 3% ceiling. **Eleven of the thirteen died on premise (i)**, and the reason is structural rather than a model failure: the corpus is old open-source Python that carries no type annotations at all, so "the parameter admits None" is unverifiable however true it may be. Two died on (ii) — the named line does not dereference the named parameter. One named `self.default` as a parameter.
+- **What that means for the level.** Its binding constraint is **annotation coverage in the code it reads**, not the model's judgement, and no prompt change addresses that. It is published because it costs $0.005 a review, cannot speak without three verified readings, and its refusals are recorded; it is **not** claimed to work.
+- **Cost:** $0.1034 for the 79-unit scan; one `claude-sonnet-5` call per review on the product path — a *detection* call, so unlike green's wording call it is paid whether or not anything is found.
+- **Reversal:** delete the `nullability_notes` call in `run_ci` and `cmd_review`; the level has no other entry point.
+- **RED:** `tests/test_nullability.py` — six, including the owner's three: all premises true produces one note; a guard makes (ii) false; a source whose return annotation excludes None makes (iii) false.
+- **Trace:** mainline §1.1; D-143, D-145, D-150. Yellow's ≤ 2 notes per pull request are **shared** between (a) and (b).
+
+### D-152 — The terminal report is the same four sentences the comment carries, plus an accounting line
+
+- **Date/status/scope:** 2026-09-06 · active · `src/attest/review/report.py`, `src/attest/cli/main.py`, `tests/test_local_report.py`.
+- **What changed.** `attest review` printed prose — *"verified findings (each backed by one accepted receipt):"*, *"unverified candidates (3; ranked by internal score…)"* — and no level markers. It now prints the D-142 contract: one line per claim, marked `[red]`, `[gate]`, `[yellow]`, `[green]`, in that order, and `[silent]` when nothing spoke. Green and both yellows are computed in the CLI, wrapped so a failure is silence.
+- **The accounting line is always last and always present**: `read N/M units, candidates x, drawer y (reason distribution); verified a, discarded b; spend $…`. The distribution is the point — a drawer of 15 is a different object depending on whether it is 15 budget exhaustions or 15 intent refusals, and the reader could not tell before.
+- **`--explain`** prints one line per silent candidate: coordinate and drawer reason class. Off by default, because a drawer reason is not a claim about the code; available, because "nothing found" with no reason is not a report.
+- **Cost:** $0.00 for the format; the CLI now makes yellow (b)'s one call, as the CI path does.
+- **Reversal:** the previous `render` is one function.
+- **RED:** `tests/test_local_report.py` — four, including the silence line and the accounting line's histogram, and `--explain`'s per-candidate lines.
+- **Trace:** D-142; mainline §1 condition 7.
+
+### D-153 — What a reader runs lives one click below the line that claims it
+
+- **Date/status/scope:** 2026-09-06 · active · `src/attest/github/presentation.py`; [pull request](https://github.com/IcantFind-a-username/Attest/pull/11).
+- **What changed.** A verified finding's evidence block — the `pytest` command, the generated test, the six run outcomes and the full logs — was rendered inline under the summary line, so a two-finding comment opened with several screens of transcript. It is now inside a `<details>` block titled *"Reproduce it yourself — command, test and the six runs"*. The claim is still one line, in the open.
+- **Why.** The summary's job is that a reader can see, in one screen, what each of four levels said. Green's advice was already collapsed and yellow's caller list is collapsed; red's evidence was the one thing that was not, and it is the longest.
+- **Cost:** $0.00.
+- **Reversal:** one call to `contract_collapsed`.
+- **RED:** covered by the existing `tests/test_github_presentation.py` layout tests plus the live pull request in the report; the collapsed block's content is unchanged and its tests are unchanged.
+- **Trace:** D-142, D-133, D-145.

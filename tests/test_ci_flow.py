@@ -290,7 +290,8 @@ def test_st_cap_without_accepted_receipt_never_reaches_the_author(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(probe_generation=False,
+        ReviewConfig(
+            probe_generation=False,
             alpha=alpha,
             k_samples=2,
             tier0_commands=["ruff"],
@@ -466,7 +467,11 @@ def test_clean_negative_control_posts_no_inline_review(
     assert result.candidate_count == 0
     assert result.surfaced_count == 0
     assert result.deferred_reason is None
-    assert len(provider.calls) == 1
+    # Two calls, not one: the red proposal, plus yellow (b)'s single hypothesis
+    # call (D-151). Unlike green's wording call -- paid only when a finding
+    # already exists -- yellow (b)'s is a *detection* call, paid on every
+    # review that has a changed function short enough to show.
+    assert len(provider.calls) == 2
     assert github_server.review_bodies == []
     final_body = github_server.status_bodies[-1]
     # D-142: a wholly silent review says one line, and it names the units read
@@ -647,7 +652,10 @@ def test_a_changed_signature_with_an_untested_caller_reaches_the_author_as_yello
     claim = lines[1]
     assert claim.startswith(LEVEL_MARKERS["yellow"])
     assert contract_check(claim).admitted is True
-    assert "changed signature" in claim and "1 of them named by no test" in claim
+    # D-150 re-ranked this fixture: `quote` gained a required parameter and both
+    # call sites still pass one, so the decidable claim (a3) is made instead of
+    # the coverage-proxy one (a1). The level still speaks, on the same function.
+    assert "gained a required parameter" in claim and "pass fewer than" in claim
     assert "reporting.py:5 — named by no test" in str(yellow[0]["body"])
     assert "never *not covered*" in str(yellow[0]["body"])
 
@@ -909,7 +917,11 @@ def test_expired_shared_deadline_defers_every_unprocessed_candidate_without_v(
     assert result.candidate_count == 2
     assert result.deferred_reason is not None
     assert "deadline" in result.deferred_reason
-    assert len(provider.calls) == 1
+    # Two calls, not one: the red proposal, plus yellow (b)'s single hypothesis
+    # call (D-151). Unlike green's wording call -- paid only when a finding
+    # already exists -- yellow (b)'s is a *detection* call, paid on every
+    # review that has a changed function short enough to show.
+    assert len(provider.calls) == 2
     verification_rows = [row for row in _ledger_rows(repo) if row["kind"] == "verification"]
     assert len(verification_rows) == 2
     assert {row["outcome"] for row in verification_rows} == {"deferred"}
@@ -965,7 +977,11 @@ def test_generation_latency_exhausts_deadline_before_executor_starts(
         clock=clock,
     )
 
-    assert provider.calls == 2
+    # Two calls, not one: the red proposal, plus yellow (b)'s single hypothesis
+    # call (D-151). Unlike green's wording call -- paid only when a finding
+    # already exists -- yellow (b)'s is a *detection* call, paid on every
+    # review that has a changed function short enough to show.
+    assert provider.calls == 3
     assert result.deferred_reason is not None
     assert "deadline" in result.deferred_reason
     assert result.surfaced_count == 0

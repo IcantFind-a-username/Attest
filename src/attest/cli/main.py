@@ -7,6 +7,7 @@ import dataclasses
 import json
 import math
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -14,8 +15,9 @@ from typing import Any
 from attest.github.client import GitHubClient
 from attest.github.context import load_pull_request_context
 from attest.review.candidates import CandidateStore
-from attest.review.ci import run_ci
+from attest.review.ci import impact_notes, nullability_notes, run_ci, structural_notes
 from attest.review.config import ReviewConfig, load_config
+from attest.review.diffs import resolve_merge_base
 from attest.review.ledger import Ledger
 from attest.review.proposer import ApiProvider, MockProvider, Provider
 from attest.review.report import render
@@ -69,6 +71,35 @@ def cmd_review(args: argparse.Namespace) -> int:
     if review.deferred_reason == "unreachable gate":
         print(f"error: {review.notes[0]}", file=sys.stderr)
         return 2
+    # D-152: the local report carries the same four levels the pull-request
+    # comment does. Green and both yellows are computed here rather than inside
+    # `run_review`, because they are courtesies: every one of them is wrapped so
+    # that a failure is silence and the red path is untouched.
+    head_sha = _head_sha(repo)
+    merge_base = resolve_merge_base(repo, args.base, head_sha) if head_sha and args.base else None
+    impact: list[object] = []
+    nullability: list[object] = []
+    structural: list[object] = []
+    if head_sha and merge_base:
+        impact = list(impact_notes(repo=repo, base_sha=merge_base, head_sha=head_sha))
+        nullability = list(
+            nullability_notes(
+                repo=repo,
+                base_sha=merge_base,
+                head_sha=head_sha,
+                provider=provider,
+                budget=review.budget,
+            )
+        )
+        structural = list(
+            structural_notes(
+                repo=repo,
+                base_sha=merge_base,
+                head_sha=head_sha,
+                provider=provider,
+                budget=review.budget,
+            )
+        )
     print(
         render(
             review.outcome,
@@ -81,9 +112,25 @@ def cmd_review(args: argparse.Namespace) -> int:
             certified=review.published,
             status=review.status,
             evidence=review.evidence,
+            impact=impact,
+            nullability=nullability,
+            structural=structural,
+            explain=bool(getattr(args, "explain", False)),
+            reasons=review.verification_reasons,
         )
     )
     return 0
+
+
+def _head_sha(repo: Path) -> str:
+    """The commit `attest review` is reviewing, or "" when git cannot say."""
+    done = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return done.stdout.strip() if done.returncode == 0 else ""
 
 
 def cmd_ci(args: argparse.Namespace) -> int:
@@ -361,6 +408,16 @@ def main(argv: list[str] | None = None) -> int:
     p_review.add_argument("--budget", type=float, default=None, help="USD cap for this review")
     p_review.add_argument("--model", default=None)
     p_review.add_argument("--k", type=int, default=None, help="proposer samples")
+    p_review.add_argument(
+        "--explain",
+        action="store_true",
+        help=(
+            "print one line per silent candidate: its coordinate and the reason the "
+            "drawer holds it. Off by default -- a drawer reason is not a claim about "
+            "the code -- and available because 'nothing found' without a reason is "
+            "not a report"
+        ),
+    )
     p_review.add_argument(
         "--verification-timeout",
         type=float,

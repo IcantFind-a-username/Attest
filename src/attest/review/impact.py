@@ -309,10 +309,7 @@ class _Visitor(ast.NodeVisitor):
         if callee is not None:
             site = self._here(node.lineno, callee)
             positional = sum(1 for a in node.args if not isinstance(a, ast.Starred))
-            unknown = (
-                any(isinstance(a, ast.Starred) for a in node.args)
-                or bool(node.keywords)
-            )
+            unknown = any(isinstance(a, ast.Starred) for a in node.args) or bool(node.keywords)
             self.sites.append(
                 CallSite(
                     path=site.path,
@@ -510,9 +507,7 @@ def callers_of(graph: CallGraph, changed: ChangedFunction) -> tuple[Caller, ...]
     return tuple(out)
 
 
-def arity_breaks_of(
-    changed: ChangedFunction, callers: Sequence[Caller]
-) -> tuple[CallSite, ...]:
+def arity_breaks_of(changed: ChangedFunction, callers: Sequence[Caller]) -> tuple[CallSite, ...]:
     """Call sites that now pass fewer positional arguments than the function takes.
 
     This is the only claim yellow makes that does **not** rest on a coverage
@@ -594,8 +589,14 @@ def note_for(
             reason="the signature changed and a caller is named by no test",
             condition=CONDITION_SIGNATURE,
         )
-    if CONDITION_RAISE_OR_RETURNS in conditions and (changed.added_raise or changed.returns_changed):
-        what = "a new exception type is raised" if changed.added_raise else "the return annotation changed"
+    if CONDITION_RAISE_OR_RETURNS in conditions and (
+        changed.added_raise or changed.returns_changed
+    ):
+        what = (
+            "a new exception type is raised"
+            if changed.added_raise
+            else "the return annotation changed"
+        )
         return ImpactNote(
             changed=changed,
             callers=callers,
