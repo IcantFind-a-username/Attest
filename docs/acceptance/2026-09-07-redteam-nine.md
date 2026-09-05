@@ -37,13 +37,13 @@ External observer: **INSUFFICIENT** (see above).
 the positive control certified in the same backend in the same run.** That is what the run set
 out to establish about the boundary: the controller's environment secret and its key file are
 both absent inside the container; a TCP connect, a DNS resolution, a plain write outside the
-work directory, a write through a symlink to ,  and , and a request for
+work directory, a write through a symlink to `/etc`, `/attest/tree` and `/`, and a request for
 64 forks and 64 threads are each refused with the reason named; a forged envelope is rejected on
 the nonce **and** on two artifact bindings; an edited sealed bundle is rejected on the receipt's
 digest while the intact copy verifies.
 
-**The first run of this matrix reported FAIL, and the failing row was the control.** 
-returning  instead of  is a **value** change, and  refuses a
+**The first run of this matrix reported FAIL, and the failing row was the control.** `add(a, b)`
+returning `a - b` instead of `a + b` is a **value** change, and `attest.intent.v4.1` refuses a
 value change whose intended value the base tree does not state — correctly, and with nothing to
 do with isolation. A control that can fail for a reason unrelated to the boundary makes the
 whole matrix report FAIL about the wrong thing, so the control now raises where the base does
@@ -55,9 +55,9 @@ not, which is the class this product certifies. Both runs are on the record.
 Every row above is observed from **inside** the product — the fixture's own return value, the
 reason the differential recorded, and whether a file appeared on the host. That is evidence the
 boundary held for this attempt; it is **not** evidence that the kernel denied it, and
- asks for the second. The gate stays open on that item until an auditd or
+`G-SEC-002` asks for the second. The gate stays open on that item until an auditd or
 seccomp-notify observer runs beside the container, and no run of this matrix, however many
 classes it covers, can close it.
 
- also asks for an isolated canary CI environment with no real secret. This ran on an
+`G-SEC-002` also asks for an isolated canary CI environment with no real secret. This ran on an
 ordinary GitHub-hosted runner with a fixture canary; that is not the same thing either.
