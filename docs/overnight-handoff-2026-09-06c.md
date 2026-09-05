@@ -132,9 +132,10 @@ cases errored. Both are fixed. What is verified at the tip, exactly: a full loca
 M-01 file was then run on its own at the fixed tip and passed **8 of 8**. Coverage was **93.12%**
 against the 90% floor in the failing runner run, so the floor is not at risk.
 
-**The runner result at the final tip was still queued when this window ended** — every push
-cancels the previous run under the workflow's concurrency group, and the last push is `bfc1bff`.
-That is the run to read, and it is the one honest gap in this section.
+**The runner is green at the final tip.** On a GitHub runner at `ccd9865`: `ruff` and `mypy`
+pass, **1,933 passed, 10 skipped, coverage 93.12%** against the 90% floor. The 10 skips are the
+container-backed cases the runner cannot execute. (Earlier tips read `cancelled` because every
+push cancels the previous run under the workflow's concurrency group.)
 
 New tests: `test_nullability.py` (6), `test_local_report.py` (4),
 `test_delivery_journal_history.py` (3), 5 in `test_impact_scope.py`. All fail on the previous
