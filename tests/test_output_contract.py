@@ -240,3 +240,13 @@ def test_collapsed_advice_renders_closed_and_drops_cleanly() -> None:
     assert block.startswith("<details>")
     assert "<summary>" in block and "not part of the claim" in block
     assert "Delete one of them." in block
+
+
+def test_a_chinese_hedge_is_refused_inside_a_sentence_with_no_spaces() -> None:
+    """`建议重构` is what green refused before this list existed; a word-boundary
+    assertion would make it unmatchable, because every CJK character is a word
+    character."""
+
+    assert banned_phrase("建议重构这段代码") == ("hedge", "建议")
+    assert banned_phrase("这里可能有问题") == ("hedge", "可能")
+    assert check("[green] src/a.py:1 — 这里可能有问题 — src/b.py:2").category == "hedge"

@@ -136,13 +136,21 @@ BANNED_PHRASES: tuple[tuple[str, str], ...] = (
     ("disclaimer", "仅供参考"),
 )
 
+def _pattern(phrase: str) -> re.Pattern[str]:
+    """Word boundaries for a language that has words.
+
+    `may` must not fire inside `dismay`, so an alphabetic phrase is matched
+    between non-word characters. CJK is written without spaces and every
+    character is a word character to `re`, so the same assertion would make
+    `建议` unmatchable inside `建议重构` -- exactly the phrase green refused
+    before this list existed. Those match as plain substrings."""
+    if any(character.isascii() and character.isalpha() for character in phrase):
+        return re.compile(rf"(?<!\w){re.escape(phrase)}(?!\w)", re.IGNORECASE)
+    return re.compile(re.escape(phrase))
+
+
 _COMPILED: tuple[tuple[str, str, re.Pattern[str]], ...] = tuple(
-    (
-        category,
-        phrase,
-        re.compile(rf"(?<!\w){re.escape(phrase)}(?!\w)", re.IGNORECASE),
-    )
-    for category, phrase in BANNED_PHRASES
+    (category, phrase, _pattern(phrase)) for category, phrase in BANNED_PHRASES
 )
 
 
