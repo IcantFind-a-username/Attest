@@ -77,7 +77,11 @@ A true regression, of low severity, and **not** the timezone defect whose test l
 boundary. Finding a different real regression than the oracle's is a **true positive**, not a
 miss — but a recall number computed against the oracle would score it as neither.
 
-## 4. Where the other 72 candidates went
+## 4. What the 59 reproduction attempts produced
+
+**75 candidates, 59 reproduction attempts.** The 16 that were never attempted are candidates the
+eligibility filter did not select — the ordinary ranking, not a failure. Of the 59 attempts, 3
+certified (§3) and 56 wrote a verification line:
 
 | what the verification said | n | what it is |
 |---|---|---|
@@ -88,6 +92,7 @@ miss — but a recall number computed against the oracle would score it as neith
 | new-code candidate | 2 | the symbol is absent from base — D-063, not certifiable |
 | binding: the reproduction exercises none of the changed lines | 1 | V-02 |
 | intent (clause c) | 1 | §2 |
+| | **56** | plus the 3 certified = 59 |
 
 **The wall on forward pairs is generation, and it is a different wall from the one the reversed
 corpus shows.** Twenty of the thirty-one answered candidates failed because the generated

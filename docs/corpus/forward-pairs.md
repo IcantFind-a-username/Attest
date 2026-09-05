@@ -105,5 +105,8 @@ repository tree entirely (D-138). Driver:
 `run` buys the reviews under a hard cumulative cap, `table` reads the value-class table back out
 of the driver's own log, and **every row it prints carries `fwd`**, because a value-class row
 from a reversed pair may not be quoted (§1) and a table that does not say which it is invites
-exactly that. The result is in
-[the report](../acceptance/2026-09-05-forward-pair-reviews.md).
+exactly that. **The result: 11 of 11 reviewed, 75 candidates, 31 answered about the code,
+3 certified and published — two of them the very defect the later repairing commit fixed — and
+the value class 0 certified of 1 candidate** ([the report](../acceptance/2026-09-05-forward-pair-reviews.md),
+D-140). The wall on forward pairs is generation: 20 of the 31 answers are
+`unfaithful generated test: fails on base as well`, which is §5 of this document measured.
