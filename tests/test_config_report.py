@@ -100,12 +100,16 @@ def test_render_certified_findings_and_drawer(certified_factory) -> None:
         for r in ranked[:2]
     ]
     text = render(outcome, 0.1, 0.12, 0.25, 42.0, notes=["hello"], certified=certified)
-    assert "verified findings (each backed by one accepted receipt):" in text
-    assert text.count("receipt:") == 2
-    assert "unverified candidates (3; ranked by internal score, not evidence" in text
+    # D-152: the prose heading is gone. Each certified finding is one `[red]`
+    # contract line naming its receipt, and the drawer is not printed at all
+    # without `--explain` -- only counted, with the reason distribution.
+    assert text.count("[red] a.py:5") == 2
+    assert text.count("receipt ") == 2
+    assert "unverified candidates" not in text
     assert "note: hello" in text
     assert "spend $0.1200 of $0.25" in text
-    assert "5 candidate(s): 2 verified, 3 unverified, 0 discarded" in text
+    assert "candidates 5, drawer 3" in text
+    assert "verified 2, discarded 0" in text
     assert "certified-false" not in text
     assert "surfaced" not in text
 
@@ -123,10 +127,11 @@ def test_render_silence_reports_candidate_count_without_surfacing() -> None:
     drawer_only = [_result(1, "Weak hunch about a possible leak.", False)]
     outcome = apply_gate(drawer_only, max_findings=3)
     text = render(outcome, 0.1, 0.0, 0.25, 3.0)
-    assert "checked 1 candidate(s)" in text
-    assert "none was verified by a reproduction" in text
+    # D-152: the silence line carries the units and the accounting line carries
+    # the counts; neither restates the other in prose.
+    assert "candidates 1, drawer 1" in text
+    assert "verified 0, discarded 0" in text
     assert "certified-false" not in text
-    assert "1 candidate(s): 0 verified, 1 unverified, 0 discarded" in text
 
 
 def test_render_silence_zero_candidates_is_distinct() -> None:
@@ -134,6 +139,8 @@ def test_render_silence_zero_candidates_is_distinct() -> None:
     # but none surfaced" -- the reader shouldn't have to guess which happened.
     outcome = apply_gate([], max_findings=3)
     text = render(outcome, 0.1, 0.0, 0.25, 0.5)
-    assert "no candidates proposed — saying nothing." in text
+    # D-152: zero candidates and one drawered candidate are still different
+    # facts, and the accounting line is where the difference is stated.
+    assert "candidates 0, drawer 0" in text
     assert "checked" not in text
-    assert "0 candidate(s): 0 verified, 0 unverified, 0 discarded" in text
+    assert "verified 0, discarded 0" in text

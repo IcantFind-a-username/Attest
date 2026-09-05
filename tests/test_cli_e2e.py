@@ -98,13 +98,17 @@ def test_review_verify_feedback_stats(repo: Path, mocks: list[str], capsys) -> N
     rc = main(["--repo", str(repo), "review", "--k", "3", "--mock", *mocks])
     out = capsys.readouterr().out
     assert rc == 0
-    assert "none was verified by a reproduction" in out
-    assert "unverified candidates (1;" in out
+    # D-152: the silence line, not the prose sentence it replaced
+    assert "[silent] read 1 of 1 units" in out
+    assert "candidates 1, drawer 1" in out
     # the local differential stage runs after ranking; on a working-tree diff
     # (no committed head) it says so instead of pointing at 'attest verify'
     assert "verification skipped" in out
     assert "attest verify" not in out
-    assert "divides by zero" in out or "Division by zero" in out
+    # D-152: an uncertified candidate's claim is no longer printed by default --
+    # a drawer reason is not a claim about the code. `--explain` prints its
+    # coordinate and the reason class, which is what a reader can act on.
+    assert "divides by zero" not in out and "Division by zero" not in out
 
     ledger_path = repo / ".attest" / "ledger.jsonl"
     assert ledger_path.is_file()

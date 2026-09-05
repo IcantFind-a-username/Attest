@@ -294,6 +294,10 @@ def test_local_review_runs_the_differential_stage_and_publishes_a_receipt(
         notes=review.notes,
         certified=review.published,
     )
-    assert "verified findings" in text
-    assert "failed on head 3/3 times and passed on base 3/3 times" in text
+    # D-152: one `[red]` contract line naming its receipt, not a prose heading.
+    # The six-run evidence lives in the evidence block, which `render` appends
+    # only when it is given one.
+    assert "[red] app.py:" in text
+    assert "receipt " in text
+    assert "verified 1, discarded 0" in text
 
