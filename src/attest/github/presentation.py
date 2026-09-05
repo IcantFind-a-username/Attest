@@ -36,7 +36,7 @@ from typing import cast
 
 from attest.certification.types import CertifiedFinding
 from attest.review.finding_evidence import FindingEvidence, render_markdown
-from attest.review.impact import ImpactNote
+from attest.review.impact import CONDITION_ARITY, ImpactNote
 from attest.review.output_contract import LEVEL_MARKERS, claim_line, silence_line
 from attest.review.output_contract import check as contract_check
 from attest.review.output_contract import collapsed as contract_collapsed
@@ -232,21 +232,40 @@ def structural_line(note: StructuralNote, *, bullet: str = "- ") -> str:
 
 
 def impact_line(note: ImpactNote) -> str:
-    """One yellow (a) note as one contract line (D-143, narrowed by D-145).
+    """One yellow (a) note as one contract line (D-143, D-145, widened by D-150).
 
-    Every clause is a count this level computed: how the interface moved, how
-    many call sites name the function, and how many of those are named by no
-    test. Both halves are always present -- the level does not speak otherwise --
-    and the evidence coordinate is the first untested caller, which is the place
-    the author would look first.
+    Every clause is a count this level computed, and which counts appear depends
+    on the condition that fired:
+
+    - **a1/a2** how the interface moved, how many call sites name the function,
+      and how many of those are named by no test. The evidence coordinate is the
+      first untested caller -- where the author would look first.
+    - **a3** how many call sites pass fewer positional arguments than the
+      function now takes. This one names no coverage at all, because the claim
+      does not rest on any: the evidence coordinate is the first broken call.
     """
     changed = note.changed
     definition = changed.definition
-    moved = (
-        f"`{definition.qualname}` changed signature"
-        if changed.signature_changed
-        else f"`{definition.qualname}` changed its return annotation"
-    )
+    if note.condition == CONDITION_ARITY:
+        witness = note.arity_breaks[0]
+        fact = (
+            f"`{definition.qualname}` gained a required parameter; "
+            f"{len(note.arity_breaks)} call site(s) pass fewer than "
+            f"{definition.required} positional argument(s)"
+        )
+        return claim_line(
+            "yellow",
+            path=definition.path,
+            line=definition.line,
+            fact=fact,
+            evidence=f"{witness.path}:{witness.line}",
+        )
+    if changed.signature_changed:
+        moved = f"`{definition.qualname}` changed signature"
+    elif changed.added_raise:
+        moved = f"`{definition.qualname}` raises an exception type the base did not"
+    else:
+        moved = f"`{definition.qualname}` changed its return annotation"
     fact = (
         f"{moved}; {len(note.callers)} call site(s) name it, "
         f"{len(note.untested)} of them named by no test"

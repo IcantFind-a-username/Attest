@@ -21,6 +21,10 @@ from attest.github.presentation import (
     render_complete,
 )
 from attest.review.impact import (
+    CONDITION_ARITY,
+    CONDITION_RAISE_OR_RETURNS,
+    CONDITION_SIGNATURE,
+    ENABLED_CONDITIONS,
     MAX_NOTES,
     build_call_graph,
     changed_functions,
@@ -88,7 +92,13 @@ def _tree(head_pricing: str, *, with_untested_caller: bool = True) -> dict[str, 
     return sources
 
 
-def _notes(head_pricing: str, changed_lines: set[int], **kwargs: bool):
+def _notes(
+    head_pricing: str,
+    changed_lines: set[int],
+    *,
+    conditions: tuple[str, ...] = ENABLED_CONDITIONS,
+    **kwargs: bool,
+):
     sources = _tree(head_pricing, **kwargs)
     graph = build_call_graph(sources)
     changed = changed_functions(
@@ -97,28 +107,32 @@ def _notes(head_pricing: str, changed_lines: set[int], **kwargs: bool):
         base_source=BASE_PRICING,
         changed_lines=changed_lines,
     )
-    return notes_for_change(graph, changed), graph
+    return notes_for_change(graph, changed, conditions=conditions), graph
 
 
 # --- the two the level is defined by ----------------------------------------
 
 
 def test_a_changed_signature_with_an_untested_caller_produces_one_note() -> None:
+    """D-150 re-ranked this fixture and the re-ranking is the point: `quote`
+    gained a required parameter and **both** call sites still pass one, so the
+    decidable claim (a3) outranks the coverage-proxy claim (a1) it used to
+    make. The a1 half is still true and still asserted here."""
     notes, _ = _notes(HEAD_PRICING_SIGNATURE, {2})
 
     assert len(notes) == 1
     note = notes[0]
+    assert note.condition == CONDITION_ARITY
     assert note.changed.signature_changed is True
     assert note.changed.added_required_parameter is True
-    assert note.reason == "the signature changed and a caller is named by no test"
     assert {caller.site.path for caller in note.callers} == {"checkout.py", "reporting.py"}
     assert [caller.site.path for caller in note.untested] == ["reporting.py"]
 
     line = impact_line(note)
     assert contract_check(line).admitted is True
     assert line.startswith(LEVEL_MARKERS["yellow"])
-    assert "pricing.py:2" in line and "reporting.py:6" in line
-    assert "changed signature" in line and "1 of them named by no test" in line
+    assert "pricing.py:2" in line
+    assert "gained a required parameter" in line
 
 
 def test_a_body_change_whose_callers_are_all_tested_is_silent() -> None:
@@ -140,10 +154,20 @@ def test_an_untested_caller_without_an_interface_change_is_silent() -> None:
 
 
 def test_an_interface_change_whose_callers_are_all_tested_is_silent() -> None:
-    """D-145's second half. Under D-143 a changed signature spoke on its own;
-    a suite that names every caller will report the breakage itself."""
+    """D-145's second half, still true of a1 and a2. Under D-143 a changed
+    signature spoke on its own; a suite that names every caller will report the
+    breakage itself.
 
-    notes, _ = _notes(HEAD_PRICING_SIGNATURE, {2}, with_untested_caller=False)
+    a3 is excluded here on purpose: it does not rest on coverage at all, so a
+    tested caller does not silence it, and this fixture's call really is broken.
+    That is `test_a3_...` below."""
+
+    notes, _ = _notes(
+        HEAD_PRICING_SIGNATURE,
+        {2},
+        with_untested_caller=False,
+        conditions=(CONDITION_SIGNATURE, CONDITION_RAISE_OR_RETURNS),
+    )
 
     assert notes == ()
 
@@ -298,7 +322,11 @@ def test_a_silent_impact_level_produces_no_yellow_line() -> None:
     """The owner's second RED: when the level says nothing, nothing about it
     reaches the author -- not a heading, not an empty section, not a marker."""
 
-    silent, _ = _notes(HEAD_PRICING_SIGNATURE, {2}, with_untested_caller=False)
+    # A body change whose every caller a test names: silent under all three
+    # conditions, which is what a silence test needs. (The signature fixture is
+    # no longer silent -- D-150's a3 sees that its callers pass too few
+    # arguments -- and a silence test must not depend on which condition is on.)
+    silent, _ = _notes(HEAD_PRICING_BODY, {4, 5, 6}, with_untested_caller=False)
     assert silent == ()
     assert impact_comments(list(silent)) == []
 
@@ -371,3 +399,91 @@ def test_a_comment_whose_anchor_the_diff_does_not_carry_is_not_posted() -> None:
     # no diff supplied: nothing is filtered, because a filter with no data is a
     # silent drop
     assert impact_comments(list(notes), None) != []
+
+
+# --- D-150: the three conditions, one test each -----------------------------
+#
+# Every one of these fails on the D-145 implementation, which had a single
+# condition (`signature or return annotation` and an untested caller) and no
+# notion of a raise or of call arity.
+
+
+def _one_note(head: str, base: str, *, path: str = "pkg/mod.py", extra: dict | None = None):
+    """The single note a two-file tree produces for every changed line of `path`."""
+    sources = {path: head, **(extra or {})}
+    graph = build_call_graph(sources)
+    changed = changed_functions(
+        path=path,
+        head_source=head,
+        base_source=base,
+        changed_lines=range(1, head.count("\n") + 2),
+    )
+    notes = notes_for_change(graph, changed, limit=10)
+    return notes
+
+
+def test_a1_a_moved_signature_with_an_untested_caller_still_speaks() -> None:
+    """D-145's condition, retained verbatim: it is the one with a measured
+    history and the widening may not disturb it."""
+    head = "def widget(a, b):\n    return a\n\n\ndef caller():\n    return widget(1, 2)\n"
+    base = "def widget(a):\n    return a\n\n\ndef caller():\n    return widget(1)\n"
+
+    notes = _one_note(head, base)
+
+    assert [n.condition for n in notes] == [CONDITION_SIGNATURE]
+    assert "changed signature" in impact_line(notes[0])
+
+
+def test_a2_a_new_exception_type_with_an_untested_caller_speaks() -> None:
+    """The signature is byte-identical and the return annotation never moves;
+    only the raised type is new. D-145 was silent here."""
+    head = (
+        "def widget(a):\n"
+        "    if a:\n"
+        "        raise KeyError(a)\n"
+        "    return a\n"
+        "\n\n"
+        "def caller():\n"
+        "    return widget(1)\n"
+    )
+    base = "def widget(a):\n    return a\n\n\ndef caller():\n    return widget(1)\n"
+
+    notes = _one_note(head, base)
+
+    assert [n.condition for n in notes] == [CONDITION_RAISE_OR_RETURNS]
+    assert "raises an exception type the base did not" in impact_line(notes[0])
+
+
+def test_a2_is_silent_when_the_raise_was_already_there() -> None:
+    """A raise the base already had is not a new obligation for any caller."""
+    head = "def widget(a):\n    raise KeyError(a)\n\n\ndef caller():\n    return widget(1)\n"
+    base = "def widget(a):\n    raise KeyError(a)  # unchanged\n\n\ndef caller():\n    return widget(1)\n"
+
+    assert _one_note(head, base) == ()
+
+
+def test_a3_an_added_parameter_that_breaks_a_call_speaks_even_when_a_test_names_it() -> None:
+    """a3 rests on no coverage proxy: the call is wrong whether or not a test
+    names the caller, so a caller a test names is still reported."""
+    head = "def widget(a, b):\n    return a + b\n"
+    base = "def widget(a):\n    return a\n"
+    caller = "from pkg.mod import widget\n\n\ndef test_widget():\n    assert widget(1)\n"
+
+    notes = _one_note(head, base, extra={"tests/test_mod.py": caller})
+
+    assert [n.condition for n in notes] == [CONDITION_ARITY]
+    line = impact_line(notes[0])
+    assert "gained a required parameter" in line
+    assert "tests/test_mod.py:5" in line
+
+
+def test_a3_abstains_when_the_call_could_be_supplying_the_parameter() -> None:
+    """`*args`, `**kwargs` and any keyword argument can carry the new parameter,
+    so the arity check cannot decide and says nothing."""
+    head = "def widget(a, b):\n    return a\n"
+    base = "def widget(a):\n    return a\n"
+    caller = "from pkg.mod import widget\n\n\ndef test_widget(args):\n    assert widget(*args)\n"
+
+    notes = _one_note(head, base, extra={"tests/test_mod.py": caller})
+
+    assert [n.condition for n in notes] == []

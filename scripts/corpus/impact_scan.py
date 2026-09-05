@@ -33,11 +33,17 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from attest.github.presentation import impact_line  # noqa: E402
 from attest.review.impact import (  # noqa: E402
+    CONDITIONS,
+    ENABLED_CONDITIONS,
     IMPACT_POLICY_VERSION,
     build_call_graph,
     changed_functions,
     notes_for_change,
 )
+
+# A trigger rate asks "would this condition speak on this unit", so the cap that
+# limits what one pull request *shows* must not truncate what is *counted*.
+UNCAPPED = 1_000
 
 CORPORA = ROOT / ".attest" / "corpora"
 RUNS = ROOT / "benchmarks" / "attest-v2" / "runs"
@@ -178,9 +184,20 @@ def scan_unit(unit: dict[str, str]) -> dict[str, object]:
             )
         )
     notes = notes_for_change(graph, changed)
+    # D-150: every condition is measured on its own, on the same units, so a
+    # condition can be adopted or refused on its own number rather than on the
+    # level's aggregate.
+    per_condition: dict[str, object] = {}
+    for condition in CONDITIONS:
+        fired = notes_for_change(graph, changed, limit=UNCAPPED, conditions=(condition,))
+        per_condition[condition] = {
+            "notes": len(fired),
+            "lines": [impact_line(note) for note in fired],
+        }
     row.update(
         {
             "ok": True,
+            "conditions": per_condition,
             "files_changed": len(touched),
             "tree_files": len(sources),
             "changed_functions": len(changed),
@@ -223,6 +240,23 @@ def cmd_scan(args: argparse.Namespace) -> int:
             "notes_total": sum(int(r["notes"] or 0) for r in scanned),
             "changed_functions_total": sum(int(r["changed_functions"] or 0) for r in scanned),
             "reasons": dict(reasons),
+            "conditions": {
+                condition: {
+                    "units_triggering": sum(
+                        1 for r in scanned if r["conditions"][condition]["notes"] > 0
+                    ),
+                    "trigger_rate": round(
+                        sum(1 for r in scanned if r["conditions"][condition]["notes"] > 0)
+                        / len(scanned),
+                        4,
+                    ),
+                    "notes_total": sum(
+                        int(r["conditions"][condition]["notes"]) for r in scanned
+                    ),
+                    "enabled": condition in ENABLED_CONDITIONS,
+                }
+                for condition in CONDITIONS
+            },
         }
     payload["summary"] = summary
     if args.json:
@@ -234,6 +268,12 @@ def cmd_scan(args: argparse.Namespace) -> int:
             f"({value['trigger_rate']:.1%}), {value['notes_total']} notes, "
             f"{value['units_failed']} unscannable; reasons {value['reasons']}"
         )
+        for condition, stats in value["conditions"].items():  # type: ignore[index]
+            print(
+                f"  {condition}: {stats['units_triggering']}/{value['units_scanned']} "
+                f"({stats['trigger_rate']:.1%}), {stats['notes_total']} notes, "
+                f"{'enabled' if stats['enabled'] else 'measured only'}"
+            )
     return 0
 
 

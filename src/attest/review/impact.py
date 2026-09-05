@@ -56,6 +56,21 @@ MAX_DEPTH = 4  # hops from a caller back to a test before "no test names it"
 # leaves the caller reported as unnamed. Raising it can only quieten the level.
 MAX_NOTES = 2  # author-visible notes per pull request (the same cap green has)
 
+# D-150: the three conditions, measured and switched on one at a time. Every one
+# of them is a conjunction whose second half is a *checkable consequence*, never
+# a bare interface fact -- D-145 established that an interface change on its own
+# says nothing an author can act on, and the 2026-09-06 scan's six disjunctive
+# notes are why (all six named functions whose every caller a test already
+# names).
+CONDITION_SIGNATURE = "a1_signature_untested_caller"
+CONDITION_RAISE_OR_RETURNS = "a2_raise_or_returns_untested_caller"
+CONDITION_ARITY = "a3_added_parameter_arity_break"
+CONDITIONS = (CONDITION_SIGNATURE, CONDITION_RAISE_OR_RETURNS, CONDITION_ARITY)
+# The conditions this level is allowed to publish. A condition whose measured
+# trigger rate on the null controls exceeds the owner's 3% ceiling stays out of
+# this tuple and is measured without ever being author-visible.
+ENABLED_CONDITIONS: tuple[str, ...] = CONDITIONS
+
 SKIPPED_DIRS = frozenset(
     {
         ".git",
@@ -90,6 +105,9 @@ class FunctionDef:
     parameters: tuple[str, ...]
     required: int  # positional-or-keyword parameters with no default
     returns: str | None  # the return annotation, unparsed to text
+    # the exception type names this function raises directly, as written. A
+    # bare `raise` re-raises and names nothing, so it is recorded as `""`.
+    raises: frozenset[str] = frozenset()
 
     @property
     def is_test(self) -> bool:
@@ -104,6 +122,13 @@ class CallSite:
     line: int
     callee: str
     inside: str | None  # qualname of the enclosing function, None at module level
+    # What the call passes, for the one question a static arity check may ask.
+    # `unknown_arity` is set by `*args`, `**kwargs` or any keyword argument:
+    # each of them can supply a parameter this level cannot see, so the check
+    # abstains rather than guessing.
+    positional: int = 0
+    unknown_arity: bool = True
+    attribute_call: bool = False  # written as `x.f(...)`, so `self` is implicit
 
     @property
     def is_test(self) -> bool:
@@ -118,6 +143,9 @@ class ChangedFunction:
     signature_changed: bool
     returns_changed: bool
     added_required_parameter: bool
+    # D-150 condition (a2): the head function raises an exception type the base
+    # function did not. A caller that never had to handle it now does.
+    added_raise: bool = False
     # the first line *inside* this function that the diff actually changed. The
     # `def` line is the function's identity and is what the published sentence
     # names; this is where an inline comment may be placed, because GitHub
@@ -146,6 +174,13 @@ class ImpactNote:
     callers: tuple[Caller, ...]
     untested: tuple[Caller, ...]
     reason: str  # why this note speaks; "" when it does not
+    # D-150: which of the three conditions fired. The line an author reads is
+    # built from this, and the ledger records it, so a level whose conditions
+    # are measured separately can be switched off separately.
+    condition: str = CONDITION_SIGNATURE
+    # a3 only: the call sites that pass fewer positional arguments than the
+    # function now requires. Empty for every other condition.
+    arity_breaks: tuple[CallSite, ...] = ()
 
 
 @dataclass
@@ -177,6 +212,35 @@ def is_test_path(relative: str) -> bool:
         or name == "conftest.py"
         or any(part in {"tests", "test", "testing"} for part in parts)
     )
+
+
+def _raised_types(node: ast.FunctionDef | ast.AsyncFunctionDef) -> frozenset[str]:
+    """The exception type names this function raises **in its own body**.
+
+    A nested `def` is its own function and its raises belong to it, so the walk
+    stops at one. A bare `raise` re-raises whatever is being handled and names
+    no new type, so it contributes `""` -- which compares equal across
+    revisions and therefore never counts as a raise the base did not have."""
+    found: set[str] = set()
+    stack: list[ast.AST] = list(ast.iter_child_nodes(node))
+    while stack:
+        current = stack.pop()
+        if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            continue
+        if isinstance(current, ast.Raise):
+            found.add(_raised_name(current))
+        stack.extend(ast.iter_child_nodes(current))
+    return frozenset(found)
+
+
+def _raised_name(node: ast.Raise) -> str:
+    exception = node.exc
+    if exception is None:
+        return ""
+    if isinstance(exception, ast.Call):
+        exception = exception.func
+    name = _callee_name(exception) if isinstance(exception, ast.Attribute | ast.Name) else None
+    return name or ""
 
 
 def _signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[tuple[str, ...], int]:
@@ -211,6 +275,7 @@ class _Visitor(ast.NodeVisitor):
         self.stack.append(node.name)
         qualname = ".".join(self.stack)
         names, required = _signature(node)
+        raises = _raised_types(node)
         self.definitions.append(
             FunctionDef(
                 path=self.path,
@@ -221,6 +286,7 @@ class _Visitor(ast.NodeVisitor):
                 parameters=names,
                 required=required,
                 returns=ast.unparse(node.returns) if node.returns is not None else None,
+                raises=raises,
             )
         )
         self.generic_visit(node)
@@ -241,7 +307,23 @@ class _Visitor(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call) -> None:  # noqa: N802 - ast API
         callee = _callee_name(node.func)
         if callee is not None:
-            self.sites.append(self._here(node.lineno, callee))
+            site = self._here(node.lineno, callee)
+            positional = sum(1 for a in node.args if not isinstance(a, ast.Starred))
+            unknown = (
+                any(isinstance(a, ast.Starred) for a in node.args)
+                or bool(node.keywords)
+            )
+            self.sites.append(
+                CallSite(
+                    path=site.path,
+                    line=site.line,
+                    callee=site.callee,
+                    inside=site.inside,
+                    positional=positional,
+                    unknown_arity=unknown,
+                    attribute_call=isinstance(node.func, ast.Attribute),
+                )
+            )
         self.generic_visit(node)
 
     # -- mentions
@@ -362,6 +444,7 @@ def changed_functions(
                 signature_changed=signature_changed,
                 returns_changed=returns_changed,
                 added_required_parameter=definition.required > before.required,
+                added_raise=bool(definition.raises - before.raises),
                 anchor_line=min(inside),
             )
         )
@@ -427,19 +510,61 @@ def callers_of(graph: CallGraph, changed: ChangedFunction) -> tuple[Caller, ...]
     return tuple(out)
 
 
-def note_for(graph: CallGraph, changed: ChangedFunction) -> ImpactNote | None:
+def arity_breaks_of(
+    changed: ChangedFunction, callers: Sequence[Caller]
+) -> tuple[CallSite, ...]:
+    """Call sites that now pass fewer positional arguments than the function takes.
+
+    This is the only claim yellow makes that does **not** rest on a coverage
+    proxy, because it is decidable from the two trees: the head definition says
+    how many positional parameters have no default, and the call site says how
+    many it writes. Every uncertainty abstains --
+
+    - a call with `*args`, `**kwargs` or any keyword argument may supply the
+      missing parameter, so `unknown_arity` sites are dropped;
+    - a method reached as `x.f(...)` binds `self` implicitly, so one parameter
+      is discounted for an attribute call on a nested qualname;
+    - a call inside a test is still a break, and is still reported: an arity
+      mismatch is not a coverage remark.
+    """
+    definition = changed.definition
+    is_method = "." in definition.qualname
+    out: list[CallSite] = []
+    for caller in callers:
+        site = caller.site
+        if site.unknown_arity:
+            continue
+        implicit = 1 if (is_method and site.attribute_call) else 0
+        if site.positional + implicit < definition.required:
+            out.append(site)
+    return tuple(out)
+
+
+def note_for(
+    graph: CallGraph,
+    changed: ChangedFunction,
+    *,
+    conditions: Sequence[str] = ENABLED_CONDITIONS,
+) -> ImpactNote | None:
     """One note, or None when this level has nothing an author can act on.
 
-    The conjunction is the rule (D-145): **the interface moved and some caller is
-    named by no test**. Either half alone is refused. An interface change whose
-    every caller a test already names has a test suite that will report the
-    breakage without this level's help; an untested caller under an unchanged
-    interface is a coverage observation, and this level does not measure
-    coverage.
+    Three conditions, each measured on its own before it was allowed to speak
+    (D-150), and each of them a conjunction:
 
-    Four abstentions, each of them deliberate: an ambiguous name, no caller at
-    all, an interface change every test names, and an untested caller with no
-    interface change."""
+    - **a1** the *signature* moved **and** some caller is named by no test.
+      D-145's rule, retained unchanged.
+    - **a2** the function *raises a type the base did not*, or its *return
+      annotation* moved, **and** some caller is named by no test. A caller that
+      never had to handle `KeyError` now does, and no test names it.
+    - **a3** the function *gained a required parameter* **and** some call site
+      statically passes fewer positional arguments than it now takes. This one
+      carries no coverage half, because arity is decidable: the call is wrong
+      whether or not a test names it.
+
+    Four abstentions survive from D-145, each of them deliberate: an ambiguous
+    name, no caller at all, an interface change every test names, and an
+    untested caller under an unchanged interface.
+    """
     definition = changed.definition
     if graph.unique(definition.name) is None:
         return None  # the name is defined more than once: no claim is possible
@@ -447,11 +572,38 @@ def note_for(graph: CallGraph, changed: ChangedFunction) -> ImpactNote | None:
     if not callers:
         return None
     untested = tuple(c for c in callers if not c.named_by_test)
-    if not (changed.interface_changed and untested):
+
+    if CONDITION_ARITY in conditions and changed.added_required_parameter:
+        breaks = arity_breaks_of(changed, callers)
+        if breaks:
+            return ImpactNote(
+                changed=changed,
+                callers=callers,
+                untested=untested,
+                reason="a required parameter was added and a call site passes too few",
+                condition=CONDITION_ARITY,
+                arity_breaks=breaks,
+            )
+    if not untested:
         return None
-    what = "signature" if changed.signature_changed else "return annotation"
-    reason = f"the {what} changed and a caller is named by no test"
-    return ImpactNote(changed=changed, callers=callers, untested=untested, reason=reason)
+    if CONDITION_SIGNATURE in conditions and changed.signature_changed:
+        return ImpactNote(
+            changed=changed,
+            callers=callers,
+            untested=untested,
+            reason="the signature changed and a caller is named by no test",
+            condition=CONDITION_SIGNATURE,
+        )
+    if CONDITION_RAISE_OR_RETURNS in conditions and (changed.added_raise or changed.returns_changed):
+        what = "a new exception type is raised" if changed.added_raise else "the return annotation changed"
+        return ImpactNote(
+            changed=changed,
+            callers=callers,
+            untested=untested,
+            reason=f"{what} and a caller is named by no test",
+            condition=CONDITION_RAISE_OR_RETURNS,
+        )
+    return None
 
 
 def notes_for_change(
@@ -459,17 +611,26 @@ def notes_for_change(
     changed: Sequence[ChangedFunction],
     *,
     limit: int = MAX_NOTES,
+    conditions: Sequence[str] = ENABLED_CONDITIONS,
 ) -> tuple[ImpactNote, ...]:
     """The notes one pull request may show, most consequential first.
 
-    Every note that reaches here already carries both halves of D-145's
-    conjunction, so the order is: a changed signature before a changed return
-    annotation, then by how many callers are untested, then by coordinate, so
+    Every note that reaches here already carries both halves of its condition's
+    conjunction, so the order is by condition -- a decidable arity break before
+    a coverage-proxy claim, a changed signature before a raise or a return
+    annotation -- then by how many callers are untested, then by coordinate, so
     the order is total and does not depend on file order."""
-    produced = [note for definition in changed if (note := note_for(graph, definition))]
+    produced = [
+        note
+        for definition in changed
+        if (note := note_for(graph, definition, conditions=conditions))
+    ]
+    # A decidable break outranks a coverage-proxy claim, and a moved signature
+    # outranks a moved raise or return annotation.
+    rank = {CONDITION_ARITY: 0, CONDITION_SIGNATURE: 1, CONDITION_RAISE_OR_RETURNS: 2}
     produced.sort(
         key=lambda n: (
-            not n.changed.signature_changed,
+            rank.get(n.condition, 3),
             -len(n.untested),
             n.changed.definition.path,
             n.changed.definition.line,

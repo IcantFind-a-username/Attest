@@ -123,6 +123,18 @@ Important limits:
   did show is that value-class candidates are *rare* in natural defect-introducing commits:
   nine of the eleven produced only crash-shaped or unfaithful ones
   ([report](docs/acceptance/2026-09-05-forward-pair-reviews.md));
+- **a function whose value is not reproducible cannot be recorded, so it is never
+  certified** (`attest.probe.record-replay.v1`, D-146/D-148, 2026-09-06). The generator
+  records what the merge base does and the kernel writes the assertion from the recording,
+  so a function that returns a different value on each call has no expectation to write. The
+  probe executes the merge base **three times** and refuses the recording unless all three
+  observations are identical; the refusal is `probe refused: the merge base returned X, then
+  the merge base returned Y`. The measured case is `more-itertools random_product`, which
+  returns one of four tuples uniformly: the legacy generator published it (by asserting the
+  *shape* of the result), the probe path drawers it, and **that is a real recall cost of
+  recording and not a defect** — a value that is not reproducible is not a differential.
+  Nothing finite closes the hole; what bounds it is that the replay's own three base runs
+  must agree too, so six identical observations stand behind a receipt;
 - **measured so far.** Every row names the per-review budget and the models it ran under,
   because both move every number in it. `S` is the proposal model, `G` the reproduction
   generator. The shipped default budget is **$1.00** as of 2026-09-04 (D-126); it was $0.25
