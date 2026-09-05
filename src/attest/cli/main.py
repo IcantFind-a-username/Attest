@@ -9,6 +9,7 @@ import math
 import os
 import subprocess
 import sys
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -131,8 +132,24 @@ def cmd_review(args: argparse.Namespace) -> int:
                 head_sha=head_sha,
                 provider=provider,
                 budget=review.budget,
+                task_id=review.task_id,
             )
         )
+        # D-167: the ledger is the record of what this product *said*, and until
+        # now only `attest ci` wrote the rows for the three levels below red.
+        # A repository reviewed only locally therefore read as "green never
+        # spoke" in `attest stats`, on runs where green spoke on a third of the
+        # commits. Every failure here is silence, like the levels themselves.
+        with suppress(Exception):
+            _record_notes(
+                Ledger(repo),
+                task_id=review.task_id,
+                repo=repo,
+                impact=impact,
+                nullability=nullability,
+                propagation=propagation,
+                structural=structural,
+            )
     if getattr(args, "json", False):
         # D-163: the same run, projected for a machine. Nothing here is computed
         # that the text report does not already show.
@@ -193,6 +210,87 @@ def cmd_review(args: argparse.Namespace) -> int:
         )
     )
     return 0
+
+
+def _record_notes(
+    ledger: Ledger,
+    *,
+    task_id: str,
+    repo: Path,
+    impact: list[Any],
+    nullability: list[Any],
+    propagation: list[Any],
+    structural: list[Any],
+) -> None:
+    """Write the same rows `run_ci` writes for the three levels below red.
+
+    The shapes are `run_ci`'s, field for field, because `attest stats` and every
+    later reader must not be able to tell which entry point said a thing.
+    """
+    from attest.github.presentation import (
+        impact_member_id,
+        nullability_member_id,
+        propagation_member_id,
+        structural_member_id,
+    )
+    from attest.review.impact import IMPACT_POLICY_VERSION
+    from attest.review.nullability import NULLABILITY_POLICY_VERSION
+    from attest.review.structural import (
+        STRUCTURAL_NOTE_SCHEMA_VERSION,
+        structural_fingerprint,
+    )
+
+    for note in structural:
+        ledger.append(
+            {
+                "kind": "structural_note",
+                "schema_version": STRUCTURAL_NOTE_SCHEMA_VERSION,
+                "task_id": task_id,
+                "policy_version": note.finding.policy_version,
+                "note_id": structural_member_id(note),
+                "fingerprint": structural_fingerprint(repo, note.finding),
+                "similarity": note.finding.similarity,
+                "advice_published": bool(note.advice),
+                "refusal": note.refusal,
+            }
+        )
+    for scoped in impact:
+        ledger.append(
+            {
+                "kind": "impact_note",
+                "schema_version": "attest.impact-note.v1",
+                "task_id": task_id,
+                "policy_version": IMPACT_POLICY_VERSION,
+                "note_id": impact_member_id(scoped),
+                "reason": scoped.reason,
+                "callers": len(scoped.callers),
+                "untested_callers": len(scoped.untested),
+            }
+        )
+    for null in nullability:
+        ledger.append(
+            {
+                "kind": "nullability_note",
+                "schema_version": "attest.nullability-note.v1",
+                "task_id": task_id,
+                "policy_version": NULLABILITY_POLICY_VERSION,
+                "note_id": nullability_member_id(null),
+            }
+        )
+    for escaping in propagation:
+        ledger.append(
+            {
+                "kind": "propagation_note",
+                "schema_version": "attest.propagation-note.v1",
+                "task_id": task_id,
+                "policy_version": escaping.policy_version,
+                "note_id": propagation_member_id(escaping),
+                "callee": escaping.callee,
+                "exception": escaping.exception,
+                "evidence": escaping.evidence,
+                "caller": f"{escaping.caller_path}:{escaping.caller_line}",
+            }
+        )
 
 
 def _head_sha(repo: Path) -> str:

@@ -196,3 +196,61 @@ def test_the_stats_command_prints_valid_json(
 
     assert code == 0
     assert json.loads(capsys.readouterr().out)["reviews"] == 1
+
+
+def test_a_local_review_records_the_levels_below_red_too(
+    repo: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """D-167: the ledger is the record of what this product *said*, and until now
+    only `attest ci` wrote the rows for the three levels below red. A repository
+    reviewed only locally therefore read as "green never spoke" in
+    `attest stats` on runs where green spoke on a third of the commits."""
+    body = (
+        "def summarise(rows, key):\n"
+        "    seen = {}\n"
+        "    for row in rows:\n"
+        "        value = row.get(key)\n"
+        "        if value is None:\n"
+        "            continue\n"
+        "        seen.setdefault(value, []).append(row)\n"
+        "    return [(name, len(items)) for name, items in sorted(seen.items())]\n"
+    )
+    (repo / "one.py").write_text(body, encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "one"], check=True, capture_output=True
+    )
+    (repo / "two.py").write_text(body.replace("summarise", "tally"), encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "two"], check=True, capture_output=True
+    )
+
+    code = main(
+        [
+            "--repo",
+            str(repo),
+            "review",
+            "--base",
+            "HEAD~1",
+            "--k",
+            "1",
+            "--mock",
+            str(_payload(tmp_path)),
+        ]
+    )
+    out = capsys.readouterr().out
+
+    assert code == 0
+    assert "[green]" in out, "the fixture did not make green speak"
+    rows = [
+        json.loads(line)
+        for line in (repo / ".attest" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    green_rows = [row for row in rows if row.get("kind") == "structural_note"]
+    assert len(green_rows) == out.count("[green]")
+    assert green_rows[0]["fingerprint"], "the row must carry D-160's fingerprint"
+    assert green_rows[0]["schema_version"] == "attest.structural-note.v2"
+
+    # and the summary now agrees with what the terminal printed
+    assert stats_json(repo)["spoke_on"]["green"] == 1

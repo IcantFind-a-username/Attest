@@ -1727,3 +1727,14 @@ is active only when the owning architecture/acceptance document changes with it.
 - **RED:** `tests/test_gate_level.py` (the grade), and the re-run's two evidence files.
 - **Trace:** D-126, D-137, D-156, D-157; `G-NEWCODE-001`.
 
+### D-167 — The ledger records what the product said, whichever entry point said it
+
+- **Date/status/scope:** 2026-09-07 · active · `src/attest/cli/main.py` (`_record_notes`), `tests/test_machine_output.py`.
+- **What was wrong.** `run_ci` wrote one ledger row per note for green and both yellows; `attest review` wrote none. A repository reviewed only locally therefore read as **"green never spoke"** in `attest stats` on runs where green spoke on a third of the commits — the terminal printed the line and the record did not keep it. Found by smoke-testing `stats --json` against a corpus clone with 90 real reviews: `spoke_on.green == 0` beside a log full of `[green]` lines.
+- **What changed.** The local path writes the same rows, field for field, so no reader can tell which entry point said a thing. Wrapped in `suppress`, like the levels themselves: a failure to *record* a courtesy must not fail a review.
+- **A consequence worth stating.** D-160's green dedup now applies locally too, so a second `attest review` of the same duplicated pair, both spans unchanged, is silent about it. That is what D-160 decided; it was previously true only of pull requests because only pull requests recorded.
+- **Cost:** $0.00.
+- **Reversal:** delete the `_record_notes` call.
+- **RED:** `tests/test_machine_output.py` — the row count equals the number of `[green]` lines the terminal printed, and `stats_json`'s `spoke_on.green` agrees with both.
+- **Trace:** D-133, D-152, D-160, D-163.
+
