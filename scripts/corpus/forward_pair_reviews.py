@@ -134,7 +134,12 @@ def cmd_run(args: argparse.Namespace) -> int:
             env=env,
         )
         log.write(
-            completed.stdout[-6000:] + completed.stderr[-1500:] + f"\n[rc {completed.returncode}]\n"
+            # 40k, not 6k: a 42-candidate review's drawer listing pushed the
+            # `run status:` line out of a 6k tail, and that line is the table's
+            # primary source. The fallback below covers a log that lost it anyway.
+            completed.stdout[-40000:]
+            + completed.stderr[-1500:]
+            + f"\n[rc {completed.returncode}]\n"
         )
         found = re.search(r"spend \$([0-9.]+) of", completed.stdout)
         if found:
@@ -151,6 +156,26 @@ STATUS = re.compile(
     r"certified: (?P<certified>\d+); published: (?P<published>\d+)"
 )
 VERIFY = re.compile(r"verification: (?P<finding>[0-9a-f]+): (?P<reason>.+)")
+# Every review prints this last, however many candidates it had, so it is the
+# fallback when a very large review's `run status:` block did not survive the
+# driver's stdout window.
+SUMMARY = re.compile(
+    r"(?P<candidates>\d+) candidate\(s\): (?P<verified>\d+) verified, "
+    r"(?P<unverified>\d+) unverified, (?P<discarded>\d+) discarded"
+)
+# A verification line is one of three things, and only the third is the product
+# answering about the code: the budget ran out before a reproduction was bought,
+# the host or the image could not run one, or the policy reached a verdict.
+BUDGET_REFUSED = ("generation failed: BudgetExceeded",)
+INFRASTRUCTURE = (
+    "isolation backend unavailable",
+    "collection deferred",
+    "executor failure",
+    "process containment unavailable",
+    "shared verification deadline",
+    "could not create",
+    "unsupported anchor language",
+)
 VALUE_MARKERS = (
     "value change confirmed, intent unknown",
     "constant change confirmed, intent unknown",
@@ -158,16 +183,36 @@ VALUE_MARKERS = (
 )
 
 
-def _ledger_rows(clone: Path) -> list[dict[str, object]]:
-    path = clone / ".attest" / "ledger.jsonl"
-    if not path.is_file():
-        return []
-    rows = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line:
-            rows.append(json.loads(line))
-    return rows
+BUNDLE = re.compile(r"bundle:\s+(\.attest/evidence/\S+)")
+
+
+def _certified_classes(clone: Path, body: str) -> list[dict[str, object]]:
+    """For every bundle this review wrote, the evidence class it certified under
+    and whether the intent observation calls it a **value** mismatch.
+
+    A drawer reason names the value class in its own text; a *certified* one does
+    not, because the receipt publishes as the regression it is and the
+    specification it contradicts lives in the intent observation. So the bundle
+    is where a certified value-class row has to be read from.
+    """
+    found: list[dict[str, object]] = []
+    for match in BUNDLE.finditer(body):
+        directory = clone / match.group(1)
+        receipt = directory / "receipt.json"
+        intent = directory / "intent.json"
+        if not receipt.is_file():
+            continue
+        row: dict[str, object] = {
+            "bundle": match.group(1),
+            "evidence_class": json.loads(receipt.read_text(encoding="utf-8")).get("evidence_class"),
+            "value_mismatch": None,
+        }
+        if intent.is_file():
+            row["value_mismatch"] = bool(
+                json.loads(intent.read_text(encoding="utf-8")).get("value_mismatch")
+            )
+        found.append(row)
+    return found
 
 
 def cmd_table(args: argparse.Namespace) -> int:
@@ -188,11 +233,16 @@ def cmd_table(args: argparse.Namespace) -> int:
         head = parts[0]
         pair = pairs[head]
         status = STATUS.search(body)
+        summary = SUMMARY.search(body)
         verdicts = [
             {"finding": match.group("finding"), "reason": match.group("reason").strip()}
             for match in VERIFY.finditer(body)
         ]
         value_rows = [v for v in verdicts if any(marker in v["reason"] for marker in VALUE_MARKERS)]
+        certified_rows = _certified_classes(clone_of(str(pair["repo"])), body)
+        refused = [v for v in verdicts if str(v["reason"]).startswith(BUDGET_REFUSED)]
+        blocked = [v for v in verdicts if str(v["reason"]).startswith(INFRASTRUCTURE)]
+        answered = [v for v in verdicts if v not in refused and v not in blocked]
         rows.append(
             {
                 "direction": "fwd",  # D-135: every row says which way time ran
@@ -200,13 +250,39 @@ def cmd_table(args: argparse.Namespace) -> int:
                 "head": head[:10],
                 "base": str(pair["base"])[:10],
                 "ran": "[rc " in body,
-                "candidates": int(status.group("candidates")) if status else 0,
-                "eligible": int(status.group("eligible")) if status else 0,
-                "attempted": int(status.group("attempted")) if status else 0,
-                "certified": int(status.group("certified")) if status else 0,
+                "candidates": int(
+                    status.group("candidates")
+                    if status
+                    else (summary.group("candidates") if summary else 0)
+                ),
+                "eligible": int(status.group("eligible")) if status else None,
+                # without the status line the number of *attempts* is not
+                # recoverable, but the number of candidates the verification
+                # stage answered about is: one line each
+                "attempted": int(status.group("attempted")) if status else len(verdicts),
+                "certified": int(
+                    status.group("certified")
+                    if status
+                    else (summary.group("verified") if summary else 0)
+                ),
+                # published <= certified, and a review that certified nothing
+                # published nothing
                 "published": int(status.group("published")) if status else 0,
+                "status_line": bool(status),
+                "budget_refused": len(refused),
+                "infrastructure_blocked": len(blocked),
+                # the recall denominator: candidates whose reproduction reached a
+                # verdict about the code, plus the ones that certified
+                "policy_answered": len(answered)
+                + int(
+                    status.group("certified")
+                    if status
+                    else (summary.group("verified") if summary else 0)
+                ),
                 "verdicts": verdicts,
                 "value_class_drawered": value_rows,
+                "certified_bundles": certified_rows,
+                "value_class_certified": [r for r in certified_rows if r["value_mismatch"]],
                 "fixes": pair["fixes"],
             }
         )
@@ -220,22 +296,32 @@ def cmd_table(args: argparse.Namespace) -> int:
         "n_distinct_pairs": len(pairs),
         "reviewed": len(reviewed),
         "attempted_reproductions": sum(int(row["attempted"]) for row in reviewed),
+        "budget_refused": sum(int(row["budget_refused"]) for row in reviewed),
+        "infrastructure_blocked": sum(int(row["infrastructure_blocked"]) for row in reviewed),
+        "policy_answered": sum(int(row["policy_answered"]) for row in reviewed),
         "certified": sum(int(row["certified"]) for row in reviewed),
         "published": sum(int(row["published"]) for row in reviewed),
         "value_class_drawered": sum(len(list(row["value_class_drawered"])) for row in reviewed),
+        "value_class_certified": sum(len(list(row["value_class_certified"])) for row in reviewed),
         "rows": rows,
     }
     print(
         f"forward pairs: {len(reviewed)} of {len(pairs)} reviewed; "
-        f"reproductions attempted {payload['attempted_reproductions']}; "
+        f"verification answers {payload['attempted_reproductions']} "
+        f"({payload['policy_answered']} about the code, "
+        f"{payload['budget_refused']} budget-refused, "
+        f"{payload['infrastructure_blocked']} host-blocked); "
         f"certified {payload['certified']}; published {payload['published']}; "
-        f"value class drawered {payload['value_class_drawered']}"
+        f"value class: {payload['value_class_certified']} certified, "
+        f"{payload['value_class_drawered']} drawered"
     )
     for row in rows:
         print(
             f"  {row['direction']} {row['repo']:<15} {row['head']} "
-            f"cand={row['candidates']} elig={row['eligible']} att={row['attempted']} "
+            f"cand={row['candidates']} answered={row['policy_answered']} "
+            f"budget={row['budget_refused']} host={row['infrastructure_blocked']} "
             f"cert={row['certified']} pub={row['published']} "
+            f"value-cert={len(list(row['value_class_certified']))} "
             f"value-drawer={len(list(row['value_class_drawered']))}"
         )
     if args.json:
