@@ -151,7 +151,13 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 STATUS = re.compile(
-    r"read (?P<read>\d+) of (?P<total>\d+) units; candidates: (?P<candidates>\d+); "
+    # `, budget-limited` is appended when the review stopped reading units for
+    # want of budget, and a status line that carried it used to fall through to
+    # the summary fallback -- which cannot see `published`, so a published
+    # finding was reported as unpublished. Found on `click cd4674a6de`, the only
+    # budget-limited pair in the corpus.
+    r"read (?P<read>\d+) of (?P<total>\d+) units(?:, budget-limited)?; "
+    r"candidates: (?P<candidates>\d+); "
     r"eligible: (?P<eligible>\d+); reproductions attempted: (?P<attempted>\d+); "
     r"certified: (?P<certified>\d+); published: (?P<published>\d+)"
 )

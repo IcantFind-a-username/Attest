@@ -332,3 +332,42 @@ def test_the_impact_channel_refuses_anything_that_is_not_an_impact_note() -> Non
         except TypeError:
             continue
         raise AssertionError("the impact channel accepted a foreign value")
+
+
+# --- D-147: an inline comment is placed on a line the diff changed -----------
+
+
+def test_a_yellow_comment_is_anchored_on_a_line_the_diff_changed() -> None:
+    """The `def` line is the function's identity and is what the sentence names;
+    it is usually only *context* in the hunk, and GitHub refuses a review comment
+    on a line the diff does not carry -- refusing the whole review with it."""
+
+    notes, _ = _notes(HEAD_PRICING_SIGNATURE, {2})
+
+    note = notes[0]
+    assert note.changed.definition.line == 2
+    assert note.changed.anchor_line == 2  # here the def line *is* the changed one
+
+    # a change one line further in: the sentence still names the def, the
+    # comment moves to the line that changed
+    body = "def quote(items):\n    total = 0\n    return total\n"
+    changed = changed_functions(
+        path="pricing.py",
+        head_source=body,
+        base_source="def quote(items):\n    return 0\n",
+        changed_lines={2},
+    )
+    assert changed[0].definition.line == 1
+    assert changed[0].anchor_line == 2
+
+
+def test_a_comment_whose_anchor_the_diff_does_not_carry_is_not_posted() -> None:
+    notes, _ = _notes(HEAD_PRICING_SIGNATURE, {2})
+
+    assert impact_comments(list(notes), {"pricing.py": {2}}) != []
+    # the same note, against a diff that does not carry line 2
+    assert impact_comments(list(notes), {"pricing.py": {99}}) == []
+    assert impact_comments(list(notes), {"other.py": {2}}) == []
+    # no diff supplied: nothing is filtered, because a filter with no data is a
+    # silent drop
+    assert impact_comments(list(notes), None) != []

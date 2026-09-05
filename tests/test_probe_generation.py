@@ -29,7 +29,13 @@ from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.channels import ChannelPurchase
 from attest.review.config import load_pricing
-from attest.review.executor import EvidenceClass, ExecutionOutcome, ExecutorLimits, verify_candidate
+from attest.review.executor import (
+    PROBE_RECORDINGS,
+    EvidenceClass,
+    ExecutionOutcome,
+    ExecutorLimits,
+    verify_candidate,
+)
 from attest.review.gate import GateResult
 from attest.review.ledger import Ledger
 from attest.review.probe import (
@@ -192,7 +198,7 @@ def test_a_value_recorded_on_base_and_different_on_head_is_a_differential(
     assert "no model wrote this expectation" in run.spec.test_body
     row = next(r for r in Ledger(repo).entries() if r["kind"] == "probe_observation")
     assert (row["observed_kind"], row["observed_detail"]) == ("value", "6")
-    assert row["recordings"] == 2 and row["attempts"] == 1
+    assert row["recordings"] == PROBE_RECORDINGS and row["attempts"] == 1
 
 
 def test_the_same_value_on_both_revisions_is_silence(tmp_path: Path) -> None:
@@ -327,3 +333,84 @@ def test_a_replay_body_asserts_the_recording_and_carries_no_prose() -> None:
         ProbeSpec(**PROBE), Observation(kind="exception", detail="KeyError")
     )
     assert "assert _attest_raised == 'KeyError'" in raised
+
+
+# --- the recorder's own rules, without a container ---------------------------
+
+
+def _result(stdout: str, *, executed: tuple[int, ...] = (12,)) -> Any:
+    from attest.review.executor import ExecutionOutcome as Outcome
+    from attest.review.executor import ExecutionResult
+
+    return ExecutionResult(
+        outcome=Outcome.REPRODUCED,
+        reason="",
+        exit_code=1,
+        stdout=stdout,
+        stderr="",
+        elapsed_s=0.1,
+        network_blocked=True,
+        executed_lines=executed,
+    )
+
+
+def _observation_line(kind: str, detail: str) -> str:
+    import base64 as b64
+
+    payload = b64.b64encode(
+        json.dumps({"detail": detail, "kind": kind}, sort_keys=True).encode()
+    ).decode()
+    return f"ATTEST-PROBE-OBSERVATION {payload}"
+
+
+def test_the_recorder_demands_three_agreeing_observations() -> None:
+    """D-148 raised this from two. `random_product` returns one of four tuples
+    uniformly, so two recordings agree one time in four -- and did, on
+    `more-itertools 2deea20ead`, whose replay then failed on base."""
+    from attest.review.executor import PROBE_RECORDINGS, _record_on_base
+
+    assert PROBE_RECORDINGS == 3
+    calls: list[int] = []
+
+    def run(index: int, body: str) -> Any:
+        del body
+        calls.append(index)
+        return _result(_observation_line("value", "6"))
+
+    recorded = _record_on_base(
+        probe=ProbeSpec(**PROBE), reprobe=None, run=run, anchored="mod.py"
+    )
+    assert calls == [1, 2, 3]
+    assert recorded.observation == Observation(kind="value", detail="6")
+    assert recorded.attempts == 1
+
+
+def test_a_recording_that_disagrees_with_itself_is_refused() -> None:
+    from attest.review.executor import _record_on_base
+
+    answers = iter(["6", "7", "6"])
+
+    def run(index: int, body: str) -> Any:
+        del index, body
+        return _result(_observation_line("value", next(answers)))
+
+    recorded = _record_on_base(
+        probe=ProbeSpec(**PROBE), reprobe=None, run=run, anchored="mod.py"
+    )
+    assert recorded.observation is None
+    assert "not stable on base" in recorded.reason
+    assert "the merge base returned 6" in recorded.reason
+
+
+def test_a_probe_that_touched_nothing_in_the_anchored_file_is_refused() -> None:
+    from attest.review.executor import _record_on_base
+
+    def run(index: int, body: str) -> Any:
+        del index, body
+        return _result(_observation_line("value", "6"), executed=())
+
+    recorded = _record_on_base(
+        probe=ProbeSpec(**PROBE), reprobe=None, run=run, anchored="mod.py"
+    )
+    assert recorded.observation is None
+    assert "did not execute mod.py on base" in recorded.reason

@@ -31,7 +31,8 @@ reaches the author.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
+from typing import cast
 
 from attest.certification.types import CertifiedFinding
 from attest.review.finding_evidence import FindingEvidence, render_markdown
@@ -149,14 +150,44 @@ def inline_comments(
     ]
 
 
-def structural_comments(notes: Sequence[StructuralNote]) -> list[dict[str, object]]:
+def structural_comments(
+    notes: Sequence[StructuralNote],
+    changed_lines: Mapping[str, Collection[int]] | None = None,
+) -> list[dict[str, object]]:
     """D-133: at most two green comments per pull request, in the caller's order.
 
     Each is anchored on the coordinate this change touched, marked `structural`,
     and says in its first words that it claims no defect.
+
+    D-147: with ``changed_lines`` a note whose anchor is not a line the diff
+    changed produces **no inline comment**. GitHub refuses a review comment on a
+    line outside the diff, and it refuses the *whole review* -- so one
+    unanchorable green note used to take every other comment down with it. The
+    note is not lost: it still appears in the summary, which is not anchored.
     """
     admitted = [note for note in _structural_only(notes) if _admits_note(note)]
-    return [_structural_comment(note) for note in admitted[:MAX_STRUCTURAL_COMMENTS]]
+    out: list[dict[str, object]] = []
+    for note in admitted[:MAX_STRUCTURAL_COMMENTS]:
+        comment = _structural_comment(note)
+        if _anchored(comment, changed_lines):
+            out.append(comment)
+    return out
+
+
+def _anchored(
+    comment: Mapping[str, object], changed_lines: Mapping[str, Collection[int]] | None
+) -> bool:
+    """Is this comment placed on a line the diff changed? (D-147)
+
+    ``None`` means the caller did not supply the diff -- every offline renderer
+    and every test that builds comments without a repository -- and then nothing
+    is filtered, because a filter with no data is a silent drop."""
+    if changed_lines is None:
+        return True
+    lines = changed_lines.get(str(comment["path"]))
+    if not lines:
+        return False
+    return int(cast(int, comment["line"])) in lines
 
 
 def _structural_only(notes: Sequence[StructuralNote]) -> list[StructuralNote]:
@@ -238,9 +269,17 @@ def impact_member_id(note: ImpactNote) -> str:
     return f"{definition.path}:{definition.line}"
 
 
-def impact_comments(notes: Sequence[ImpactNote]) -> list[dict[str, object]]:
-    """The yellow (a) notes one pull request may show, each anchored on the
-    changed function and each admitted by the format adjudicator (D-142)."""
+def impact_comments(
+    notes: Sequence[ImpactNote],
+    changed_lines: Mapping[str, Collection[int]] | None = None,
+) -> list[dict[str, object]]:
+    """The yellow (a) notes one pull request may show, each anchored on a line
+    the diff changed and each admitted by the format adjudicator (D-142).
+
+    The *sentence* names the function's `def` line, which is its identity; the
+    *comment* is placed on the first changed line inside it, because a `def`
+    line is often only context in the hunk and GitHub refuses a comment there
+    (D-147). ``changed_lines``, when supplied, is the last check on that."""
     out: list[dict[str, object]] = []
     for note in _impact_only(notes)[:IMPACT_MAX_COMMENTS]:
         line = impact_line(note)
@@ -252,12 +291,11 @@ def impact_comments(notes: Sequence[ImpactNote]) -> list[dict[str, object]]:
             + ("" if caller.named_by_test else " — named by no test")
             for caller in note.callers[:IMPACT_MAX_CALLERS_LISTED]
         )
-        out.append(
-            {
-                "path": definition.path,
-                "line": definition.line,
-                "side": "RIGHT",
-                "body": "\n".join(
+        comment = {
+            "path": definition.path,
+            "line": note.changed.anchor_line or definition.line,
+            "side": "RIGHT",
+            "body": "\n".join(
                     [
                         f"{IMPACT_MARKER_PREFIX}{impact_member_id(note)} -->",
                         line,
@@ -269,9 +307,10 @@ def impact_comments(notes: Sequence[ImpactNote]) -> list[dict[str, object]]:
                         "registry or `getattr` is invisible here, so this says *named by no "
                         "test*, never *not covered*.",
                     ]
-                ),
-            }
-        )
+            ),
+        }
+        if _anchored(comment, changed_lines):
+            out.append(comment)
     return out
 
 

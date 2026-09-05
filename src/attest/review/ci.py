@@ -832,6 +832,17 @@ def _delivery_members(value: object, *, allow_empty: bool = False) -> tuple[tupl
     return tuple(members)
 
 
+def _marker_id(comment: Mapping[str, object]) -> str:
+    """The identity a rendered inline comment carries in its own first line."""
+    first = str(comment["body"]).splitlines()[0]
+    match = _INLINE_STRUCTURAL_MARKER_RE.fullmatch(first) or _INLINE_IMPACT_MARKER_RE.fullmatch(
+        first
+    )
+    if match is None:  # pragma: no cover - the renderers always write a marker
+        raise ValueError("rendered comment carries no marker")
+    return match.group(1)
+
+
 def _body_finding_ids(value: object, channel: str) -> tuple[str, ...]:
     if type(value) is not dict:
         raise ValueError("publication body must be an exact object")
@@ -1545,10 +1556,17 @@ def run_ci(
             clock=clock,
         )
     if surfaced or green or yellow:
+        # D-147: GitHub refuses a review comment on a line the diff does not
+        # carry, and it refuses the whole review with it. Both unanchored
+        # channels are handed the diff so an unanchorable note is dropped from
+        # the inline review instead of taking every other comment down.
+        changed_lines = _changed_line_numbers(repo, merge_base, context.head_sha)
+        green_comments = structural_comments(green, changed_lines)
+        yellow_comments = impact_comments(yellow, changed_lines)
         review_comments = [
             *inline_comments(inline_results, finding_evidence),
-            *structural_comments(green),
-            *impact_comments(yellow),
+            *green_comments,
+            *yellow_comments,
         ]
         review_error = journal.attempt(
             channel="inline_review",
@@ -1556,10 +1574,13 @@ def run_ci(
                 *((_candidate_id(finding), "inline") for finding in inline_results),
                 # green members carry their coordinate, not a candidate id: they
                 # have no receipt and no candidate to be identified by
-                *((structural_member_id(note), "structural") for note in green),
+                # the members are read off the comments that will actually be
+                # posted, never off the notes: a note dropped for want of an
+                # anchor is not a member of a review it is not in
+                *((_marker_id(comment), "structural") for comment in green_comments),
                 # yellow members carry the coordinate of the function they are
                 # about, for the same reason: no receipt, no candidate
-                *((impact_member_id(note), "impact") for note in yellow),
+                *((_marker_id(comment), "impact") for comment in yellow_comments),
             ),
             body={
                 "commit_id": context.head_sha,

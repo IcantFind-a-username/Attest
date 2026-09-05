@@ -250,3 +250,23 @@ def test_a_chinese_hedge_is_refused_inside_a_sentence_with_no_spaces() -> None:
     assert banned_phrase("建议重构这段代码") == ("hedge", "建议")
     assert banned_phrase("这里可能有问题") == ("hedge", "可能")
     assert check("[green] src/a.py:1 — 这里可能有问题 — src/b.py:2").category == "hedge"
+
+
+def test_a_green_note_the_diff_cannot_anchor_is_dropped_from_the_inline_review() -> None:
+    """D-147, found by yellow (a)'s first real pull request: a green note can
+    name a coordinate the diff does not carry -- the structural rule requires a
+    changed *file*, not a changed line -- and GitHub rejects the **whole review**
+    for it, taking every other comment down with it. The note keeps its place in
+    the summary, which is not anchored."""
+    from attest.github.presentation import structural_comments
+
+    note = _note()
+    comment = structural_comments([note])[0]
+    path, line = str(comment["path"]), int(comment["line"])  # type: ignore[call-overload]
+
+    assert structural_comments([note], {path: {line}}) == [comment]
+    assert structural_comments([note], {path: {line + 500}}) == []
+    assert structural_comments([note], {}) == []
+    # no diff supplied filters nothing: every offline renderer and every test
+    # that builds comments without a repository still gets its comment
+    assert structural_comments([note], None) == [comment]
