@@ -30,8 +30,10 @@ a false-positive rate. Every note is a count over an abstract syntax tree, and t
 note can be *wrong* is if the count is wrong — which is what §3 checks.
 
 167 changed functions were examined in the forward population and 90 in the controls; 7 notes
-came out, so the level is silent about **97.3%** of the functions it looks at. The cap is 2 notes
-per pull request and no unit reached it.
+came out, so the level is silent about **97.3%** of the functions it looks at. **56 of those 257
+functions changed their interface** and only 6 produced a note — the rest were dropped by the
+abstentions of §4: an ambiguous bare name, no caller at all, or no counterpart in the base. The
+cap is 2 notes per pull request and no unit reached it.
 
 **Both numbers fell during this measurement, twice, and each time because a hand check found a
 claim that was not true** (§3 and §4). Forward went 45.5% → 36.4% and controls 7.3% → 4.4% →
@@ -65,7 +67,7 @@ Rendered through the D-142 output contract, exactly as an author would see them.
 | 1 | `click cd4674a6de` — `_pipepager` changed signature | `git diff` of the two revisions: `(generator, cmd_parts, color) -> bool` became `(cmd_parts, color=None) -> Iterator[...]` | **correct**, and independently corroborated: D-140's generated test for the sibling `_tempfilepager` failed on base with *"missing 2 required positional arguments: 'cmd_parts' and 'color'"* |
 | 2 | `more-itertools 2deea20ead` — `random_product` changed signature | `git diff`: `def random_product(*args, repeat=1)` → `def random_product(*iterables, repeat=1)` | **correct** |
 | 3 | `jinja 73a94e00d4` — `make_attrgetter`, 9 of 9 callers named by no test | `git grep make_attrgetter` at that commit: `src/jinja2/filters.py` and `src/jinja2/asyncfilters.py` only, nothing under `tests/` | **correct** |
-| 4 | `packaging 97db717567` — `_parse_requirement_marker`, 2 of 2 callers named by no test | `git grep`: definition at `_parser.py:139`, call sites at 115 and 126, no test names it | **correct**, and the note is gone anyway at the final implementation: both call sites sit in `_parse_requirement`, which the tests do reach |
+| 4 | `packaging 97db717567` — `_parse_requirement_marker`, 2 of 2 callers named by no test | `git grep`: definition at `_parser.py:139`, call sites at 115 and 126, no test names it | **correct as measured then, and the note is gone at the final implementation**: both call sites sit in `_parse_requirement_details`, and the path to a test is `_parse_requirement_details` → `_parse_requirement` → `parse_requirement` → `Requirement.__init__` → a test naming `Requirement` — four hops, and the last one is the constructor that check 6 unlocked |
 | 5 | `urllib3 21671d8158` — `Timeout.get_connect_duration`, "2 of 5 callers named by no test" | `git grep read_timeout` under `test/`: **5 hits**. The two call sites sit inside the `read_timeout` **property**, which tests read as an attribute rather than call | **wrong, and it changed the implementation** |
 | 6 | `itsdangerous 3703fbdedd` — `want_bytes`, "4 of 23 callers named by no test", witness `serializer.py:89` | that line is inside `Serializer.__init__`, and `tests/test_itsdangerous/test_encoding.py` names `want_bytes` four times while the whole suite instantiates `Serializer` constantly | **wrong, and it changed the implementation** |
 
@@ -97,6 +99,11 @@ wrong.
   dropped here; that is the gate level (N-01, D-137).
 - **A dunder is addressed by its class.** `__init__` is never written by a caller, so the name a
   test would have to use for a constructor is the class's.
+- **The walk is bounded at four hops, and that bound cuts the wrong way.** A test five calls
+  away from a caller counts as not naming it, and "named by no test" is what makes this level
+  speak — so the bound produces speech, not silence. The `packaging` line above needed exactly
+  four hops to be refuted; a path one hop longer would still be reported today. Raising the bound
+  can only make the level quieter, and it is the first thing to try if a note is ever disputed.
 - **A function with no caller produces nothing**, and neither does a body change all of whose
   callers a test names — the case the owner named as the silent one.
 

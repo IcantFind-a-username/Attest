@@ -44,6 +44,8 @@ CATEGORY = "impact"
 MAX_FILES = 5_000
 MAX_FILE_BYTES = 1_000_000
 MAX_DEPTH = 4  # hops from a caller back to a test before "no test names it"
+# and this bound produces speech rather than silence: a test five calls away
+# leaves the caller reported as unnamed. Raising it can only quieten the level.
 MAX_NOTES = 2  # author-visible notes per pull request (the same cap green has)
 
 SKIPPED_DIRS = frozenset(
