@@ -33,8 +33,10 @@ match the bug.
   and its current safety limitations. It is non-normative: target architecture and release
   gates override its implementation-era usage instructions.
 - the dated handoffs are SHA-bound records of one window each; the newest is
-  [`overnight-handoff-2026-09-05c.md`](overnight-handoff-2026-09-05c.md) (the independent null
-  population, the gate level in shadow, and the forward-pair corpus), preceded by
+  [`overnight-handoff-2026-09-05d.md`](overnight-handoff-2026-09-05d.md) (the working directory
+  out of the repository tree, the independent null run to its stop, the first forward-pair recall
+  number, and the registry witness designed and measured), preceded by
+  `overnight-handoff-2026-09-05c.md`,
   `overnight-handoff-2026-09-05b.md`, `overnight-handoff-2026-09-05.md`,
   `overnight-handoff-2026-09-04{,b,c}.md`, `overnight-handoff-2026-09-03{,b,c,d,e,f,g}.md` and the
   older [`overnight-handoff.md`](overnight-handoff.md)
