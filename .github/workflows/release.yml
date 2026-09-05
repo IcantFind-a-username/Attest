@@ -1,0 +1,87 @@
+name: release
+
+# A tag builds the distributions and attaches them to its GitHub Release.
+# **Nothing is published to PyPI.** This is an internal trial: the artifacts
+# exist so a colleague can install the exact bytes a tag names, and the name
+# `attest` on PyPI is not claimed by an experiment.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and check only; attach nothing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build
+        run: |
+          python -m pip install build
+          python -m build --outdir dist
+          ls -l dist
+
+      # The tag and the metadata must agree. A release whose wheel carries a
+      # different version from the tag that produced it is unusable evidence,
+      # and finding that out after the release is published is too late.
+      - name: The tag and the built version agree
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          built="$(ls dist/*.whl | sed -E 's|.*/attest-([^-]+)-py3.*|\1|')"
+          echo "tag=$tag built=$built"
+          python - "$tag" "$built" <<'PY'
+          import sys
+          from packaging.version import Version
+          tag, built = sys.argv[1], sys.argv[2]
+          if Version(tag) != Version(built):
+              raise SystemExit(f"tag {tag} does not match built version {built}")
+          print("tag and wheel agree")
+          PY
+
+      - name: The built wheel's CLI runs from a clean environment
+        run: |
+          python -m pip install pipx
+          python -m pipx run --spec "$(ls dist/*.whl)" attest verify --help
+
+      - name: Upload the distributions as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: attest-dist-${{ github.ref_name }}
+          path: dist/*
+          if-no-files-found: error
+
+      # Only a tag attaches. A `workflow_dispatch` dry run stops above, with the
+      # distributions kept as a workflow artifact so the run can be inspected.
+      - name: Attach the distributions to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 \
+            || gh release create "${GITHUB_REF_NAME}" \
+                 --title "${GITHUB_REF_NAME}" \
+                 --notes "Internal trial build. Not published to PyPI." \
+                 --prerelease
+          gh release upload "${GITHUB_REF_NAME}" dist/* --clobber

@@ -4,13 +4,44 @@ build-backend = "hatchling.build"
 
 [project]
 name = "attest"
-version = "0.0.1"
-description = "Experimental evidence-first LLM code evaluation with differential reproduction"
+version = "0.1.0rc1"
+description = "Evidence-first pull-request review: every claim is a reproduction on two revisions"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [{ name = "Franz Xu" }]
+keywords = [
+    "code-review",
+    "static-analysis",
+    "pull-request",
+    "llm",
+    "pytest",
+    "reproduction",
+    "differential-testing",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
 dependencies = ["numpy>=1.26", "anthropic>=1.0", "pytest>=8"]
+
+[project.urls]
+Homepage = "https://github.com/IcantFind-a-username/Attest"
+Repository = "https://github.com/IcantFind-a-username/Attest"
+Documentation = "https://github.com/IcantFind-a-username/Attest/blob/main/docs/README.md"
+Changelog = "https://github.com/IcantFind-a-username/Attest/blob/main/CHANGELOG.md"
+Issues = "https://github.com/IcantFind-a-username/Attest/issues"
 
 [project.scripts]
 attest = "attest.cli.main:main"
@@ -31,6 +62,27 @@ targets = ["linux-x86_64", "macos-arm64"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/attest"]
+
+[tool.hatch.build.targets.sdist]
+# the source distribution is the product plus what makes its claims checkable:
+# the decisions, the acceptance evidence and the spend ledger travel with it
+include = [
+    "src/attest",
+    "tests",
+    "docs",
+    "scripts",
+    "action.yml",
+    "conftest.py",
+    "pyproject.toml",
+    "README.md",
+    "CHANGELOG.md",
+    "DECISIONS.md",
+    "DEVSPEND.md",
+    "AGENTS.md",
+    "LICENSE",
+    "NOTICE",
+    "requirements-toolchain.lock",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -22,7 +22,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Review pull request
-        uses: IcantFind-a-username/Attest@v0.1.0-pilot.1
+        uses: IcantFind-a-username/Attest@v0.1.0-rc.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

@@ -19,6 +19,19 @@ inputs:
     description: Shared verification time limit, in seconds.
     required: false
     default: "600"
+  install-ref:
+    description: >-
+      Which attest to install. Empty (the default) installs the checkout this
+      action was resolved from, which is what `uses: …@<tag>` already pins.
+      Set it to a tag, branch or commit to install that ref from the public
+      repository instead -- useful when the action is vendored or when a
+      workflow wants the product and the action to come from different refs.
+    required: false
+    default: ""
+  repository:
+    description: Repository to install `install-ref` from.
+    required: false
+    default: IcantFind-a-username/Attest
 runs:
   using: composite
   steps:
@@ -36,11 +49,22 @@ runs:
       shell: sh
       env:
         ATTEST_VENV: ${{ runner.temp }}/attest-venv
+        INSTALL_REF: ${{ inputs.install-ref }}
+        INSTALL_REPOSITORY: ${{ inputs.repository }}
       run: |
         python -m venv "$ATTEST_VENV"
         "$ATTEST_VENV/bin/python" -m pip install -r "${{ github.action_path }}/requirements-toolchain.lock"
-        "$ATTEST_VENV/bin/python" -m pip install --no-deps --no-build-isolation -e "${{ github.action_path }}"
+        if [ -n "$INSTALL_REF" ]; then
+          # An immutable ref, installed by pip from git. The toolchain lock is
+          # still what pins every dependency, so --no-deps stays: the ref
+          # chooses the product, never its dependency versions.
+          "$ATTEST_VENV/bin/python" -m pip install --no-deps --no-build-isolation \
+            "git+https://github.com/${INSTALL_REPOSITORY}@${INSTALL_REF}"
+        else
+          "$ATTEST_VENV/bin/python" -m pip install --no-deps --no-build-isolation -e "${{ github.action_path }}"
+        fi
         "$ATTEST_VENV/bin/python" -m pip check
+        "$ATTEST_VENV/bin/python" -c "import attest; print('attest', attest.__version__)"
     - name: Run attest CI review
       if: ${{ steps.trust.outputs.trusted == 'true' }}
       shell: sh

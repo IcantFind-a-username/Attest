@@ -70,3 +70,18 @@ jobs:
             echo "--- attest.$package"
             python -m coverage report --include="src/attest/$package/*" --fail-under=0
           done
+
+      # 7.1: the wheel is part of the gate, not an afterthought at tag time. A
+      # metadata mistake that only shows up when someone tries to install the
+      # release is the kind of failure a tag cannot take back.
+      - name: Build the wheel and the sdist
+        run: |
+          python -m pip install build
+          python -m build --outdir dist
+          ls -l dist
+
+      - name: The built wheel's CLI runs from a clean environment
+        run: |
+          python -m pip install pipx
+          python -m pipx run --spec "$(ls dist/*.whl)" attest verify --help
+
