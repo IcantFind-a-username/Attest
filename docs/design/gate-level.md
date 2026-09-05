@@ -188,4 +188,8 @@ Two more that must exist before it can be believed, and they are cheap:
 - **No value claims, ever** — the class that cost red two policy versions.
 - **No cross-file reasoning about reachability.** One call site, in the head tree, read
   syntactically. A call reached through a registry, a decorator or a plugin table is not
-  witnessed and abstains.
+  witnessed and abstains. **What lifting this would take, and what it would buy, is worked out
+  in [gate-reachability-registry.md](gate-reachability-registry.md)** — four adapters, a
+  `through_registry` grade whose traversal is proved in the trace, and a measured ceiling of
+  **0 of 224** recorded new-code candidates and **1 of 53** replay bundles. That document
+  recommends keeping this exclusion, and the owner kept it (2026-09-05d).

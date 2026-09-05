@@ -46,6 +46,7 @@ from attest.review.executor import (
     execute_repro,
 )
 from attest.review.intent import RaiseOrigin, statement_kinds
+from attest.review.workdir import gate_root
 
 GATE_POLICY_VERSION = "attest.gate.v0-shadow"
 GATE_SHADOW_SCHEMA_VERSION = "attest.gate-shadow.v1"
@@ -492,12 +493,9 @@ class HeadOnlyExecution:
 
     @property
     def _root(self) -> Path:
-        return (
-            self.repo.resolve()
-            / ".attest"
-            / "gate"
-            / self.candidate.task_id
-            / self.candidate.finding.finding_id
+        # D-138: outside the repository tree, like every other execution path
+        return gate_root(
+            self.repo.resolve(), self.candidate.task_id, self.candidate.finding.finding_id
         )
 
     def __enter__(self) -> HeadOnlyExecution:

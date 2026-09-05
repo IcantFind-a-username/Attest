@@ -30,6 +30,7 @@ from attest.review.config import ReviewConfig
 from attest.review.executor import ExecutorLimits
 from attest.review.ledger import Ledger
 from attest.review.proposer import ProviderResult
+from attest.review.workdir import work_root
 
 
 class RecordingProvider:
@@ -647,7 +648,7 @@ def test_fork_is_skipped_before_provider_or_executor_use(
     assert result.deferred_reason is not None
     assert "fork" in result.deferred_reason.lower()
     assert provider.calls == []
-    assert not (repo / ".attest" / "repro").exists()
+    assert not (work_root(repo) / "repro").exists()
     assert len(github_server.status_bodies) == 1
     assert "DEFER" in github_server.status_bodies[0]
     assert "fork" in github_server.status_bodies[0].lower()
@@ -801,7 +802,7 @@ def test_generation_latency_exhausts_deadline_before_executor_starts(
     assert result.deferred_reason is not None
     assert "deadline" in result.deferred_reason
     assert result.surfaced_count == 0
-    assert not (repo / ".attest" / "repro").exists()
+    assert not (work_root(repo) / "repro").exists()
     verification = next(row for row in _ledger_rows(repo) if row["kind"] == "verification")
     assert verification["outcome"] == "deferred"
     assert "deadline" in str(verification["reason"])

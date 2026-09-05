@@ -49,6 +49,11 @@ match the bug.
   resolved in that gate's own text — the pilot precondition governs speech, not observation. The
   document still describes the shape; [the report](acceptance/2026-09-05-gate-shadow.md) says
   what shipped and what is still unmeasured.
+  [`design/gate-reachability-registry.md`](design/gate-reachability-registry.md) is a design in
+  the ordinary sense — **not implemented and not asking to be**: it works out what the gate
+  level's §7 registry exclusion would cost to lift, and measures that lifting it would newly
+  admit **0 of 224** recorded new-code candidates and **1 of 53** replay bundles. Its
+  recommendation is to keep §7.
 
 ## Evidence and historical documents
 

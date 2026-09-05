@@ -39,6 +39,7 @@ from attest.review.gate import GateResult
 from attest.review.ledger import Ledger
 from attest.review.proposer import ProviderResult
 from attest.review.schema import Finding
+from attest.review.workdir import repro_root, work_root
 
 VerifyWithDefaults = Callable[..., VerificationRun]
 
@@ -390,7 +391,7 @@ def two_commit_repo(
 
 
 def assert_worktrees_cleaned(repo: Path, stored: StoredCandidate) -> None:
-    trees = repo / ".attest" / "repro" / stored.task_id / stored.finding.finding_id / "trees"
+    trees = repro_root(repo, stored.task_id, stored.finding.finding_id) / "trees"
     assert not trees.exists()
     assert len(run_git(repo, "worktree", "list").splitlines()) == 1
 
@@ -644,14 +645,7 @@ def test_execute_assertion_failure_is_reproduced_and_uses_task_path(tmp_path: Pa
         ExecutorLimits(),
     )
 
-    expected = (
-        tmp_path
-        / ".attest"
-        / "repro"
-        / stored.task_id
-        / stored.finding.finding_id
-        / "test_repro.py"
-    )
+    expected = repro_root(tmp_path, stored.task_id, stored.finding.finding_id) / "test_repro.py"
     assert expected.read_text(encoding="utf-8") == "def test_repro():\n    assert 2 + 2 == 5\n"
     assert result.outcome is ExecutionOutcome.REPRODUCED
     assert result.exit_code == 1
@@ -892,7 +886,7 @@ def test_execute_privileged_posix_user_defers_before_running_generated_code(
 
     assert result.outcome is executor.ExecutionOutcome.DEFERRED
     assert result.reason == "process containment unavailable for privileged POSIX user"
-    assert not (tmp_path / ".attest" / "repro").exists()
+    assert not (work_root(tmp_path) / "repro").exists()
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX privilege check")
@@ -932,7 +926,7 @@ def test_execute_linux_privilege_state_fails_closed_before_generated_code(
 
     assert result.outcome is executor.ExecutionOutcome.DEFERRED
     assert result.reason == reason
-    assert not (tmp_path / ".attest" / "repro").exists()
+    assert not (work_root(tmp_path) / "repro").exists()
 
 
 @pytest.mark.skipif(os.name != "posix", reason="kernel process limit is POSIX-only")
@@ -1051,7 +1045,7 @@ def test_execute_non_python_anchor_is_deferred_without_artifacts(tmp_path: Path)
     assert result.outcome is ExecutionOutcome.DEFERRED
     assert result.exit_code is None
     assert result.reason == "unsupported anchor language: .js"
-    assert not (tmp_path / ".attest" / "repro").exists()
+    assert not (work_root(tmp_path) / "repro").exists()
 
 
 def test_execute_unsafe_task_identity_is_deferred_without_path_escape(tmp_path: Path) -> None:
@@ -1086,7 +1080,7 @@ def test_execute_resolves_relative_repository_before_building_paths(
 
     assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
     assert (
-        repo / ".attest" / "repro" / stored.task_id / stored.finding.finding_id / "test_repro.py"
+        repro_root(repo, stored.task_id, stored.finding.finding_id) / "test_repro.py"
     ).is_file()
 
 
@@ -1491,8 +1485,9 @@ def test_execute_repro_imports_code_from_the_given_tree(tmp_path: Path) -> None:
     assert one.network_blocked is True
     assert two.outcome is ExecutionOutcome.NOT_REPRODUCED, f"{two.reason}\n{two.stdout}"
     assert mismatched.outcome is ExecutionOutcome.REPRODUCED
-    # the generated source stays on disk under the repository for the audit trail
-    work = repo / ".attest" / "repro" / stored.task_id / stored.finding.finding_id
+    # the generated source stays on disk for the audit trail -- outside the
+    # repository since D-138, in this process's working root
+    work = repro_root(repo, stored.task_id, stored.finding.finding_id)
     assert (work / "tree-one" / "test_repro.py").is_file()
     assert (work / "tree-two" / "test_repro.py").is_file()
 
@@ -1689,7 +1684,7 @@ def test_execute_differential_runs_one_test_source_with_one_interpreter(
     assert result.outcome is ExecutionOutcome.REPRODUCED
     assert result.reason == "head FAIL 3/3, base PASS 3/3"
     assert result.network_blocked is True
-    work = repo / ".attest" / "repro" / stored.task_id / stored.finding.finding_id
+    work = repro_root(repo, stored.task_id, stored.finding.finding_id)
     labels = ["head-1", "head-2", "head-3", "base-1", "base-2", "base-3"]
     sources = {(work / label / "test_repro.py").read_bytes() for label in labels}
     assert len(sources) == 1
@@ -1775,7 +1770,7 @@ def test_verify_candidate_regenerates_a_reproduction_that_does_not_stand_alone(
     # what actually reached the executor: the test-module import nowhere at all,
     # the uncollectable file only in the collection round that refused it, and
     # the self-contained reproduction in every behavioural run
-    work = repo / ".attest" / "repro" / stored.task_id / stored.finding.finding_id
+    work = repro_root(repo, stored.task_id, stored.finding.finding_id)
     written = {
         path.parent.name: path.read_text(encoding="utf-8")
         for path in work.glob("*/test_repro.py")

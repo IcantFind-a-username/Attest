@@ -1,0 +1,37 @@
+{
+  "adapters": [
+    "argparse",
+    "click",
+    "http",
+    "fixture"
+  ],
+  "candidates": {
+    "detail": [],
+    "newly_admitted": 0,
+    "per_adapter": {},
+    "rows": 224,
+    "scanned": 194,
+    "with_call_site": 24
+  },
+  "positive_control": "argparse: 300:    run.set_defaults(func=cmd_run)",
+  "replay": {
+    "detail": [
+      {
+        "adapter": "argparse",
+        "annotated": null,
+        "documented": null,
+        "evidence": "300:    run.set_defaults(func=cmd_run)",
+        "path": "scripts/corpus/heldout_run.py",
+        "symbol": "cmd_run"
+      }
+    ],
+    "newly_admitted": 1,
+    "per_adapter": {
+      "argparse": 1
+    },
+    "rows": 53,
+    "scanned": 1,
+    "with_call_site": 28
+  },
+  "schema_version": "attest.registry-ceiling.v1"
+}

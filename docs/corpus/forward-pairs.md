@@ -95,7 +95,15 @@ must carry that sentence — the D-134 replay's `0 of 48` included.
 
 One full `attest review` per **distinct** pair (head = the commit that introduced the defect,
 base = its parent), `attest.intent.v4.1`, K=4, `--budget 1.00`, containers, local only. It did
-not run this window: the host's container backend stopped working mid-window
+not run in the 2026-09-05c window: the host's container backend stopped working mid-window
 ([the fault, isolated](../acceptance/2026-09-05-g-null-001a-independent.md#4-the-host-fault-isolated)),
-and a review whose reproduction cannot execute yields no value-class row. At the corpus's
-measured price, 11 reviews is about $3.
+and a review whose reproduction cannot execute yields no value-class row.
+
+**It ran in 2026-09-05d**, after the fault was cleared and the working directory left the
+repository tree entirely (D-138). Driver:
+[`scripts/corpus/forward_pair_reviews.py`](../../scripts/corpus/forward_pair_reviews.py) —
+`run` buys the reviews under a hard cumulative cap, `table` reads the value-class table back out
+of the driver's own log, and **every row it prints carries `fwd`**, because a value-class row
+from a reversed pair may not be quoted (§1) and a table that does not say which it is invites
+exactly that. The result is in
+[the report](../acceptance/2026-09-05-forward-pair-reviews.md).

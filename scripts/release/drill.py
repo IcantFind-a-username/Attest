@@ -62,6 +62,7 @@ from attest.review.gate import GateResult  # noqa: E402
 from attest.review.proposer import ProviderResult  # noqa: E402
 from attest.review.run import run_review  # noqa: E402
 from attest.review.schema import Finding  # noqa: E402
+from attest.review.workdir import work_root  # noqa: E402
 
 
 @dataclass
@@ -363,8 +364,10 @@ def drill_revoked_credential(workspace: Path) -> Drill:
     drill.check("no evidence bundle is written", not _bundles(repo), f"{len(_bundles(repo))}")
     drill.check(
         "no head code is executed",
-        not (repo / ".attest" / "repro").exists(),
-        ".attest/repro does not exist",
+        # D-138: the working directory left the repository tree, so both places
+        # are checked -- the one it used to be and the one it is now
+        not (repo / ".attest" / "repro").exists() and not (work_root(repo) / "repro").exists(),
+        "no reproduction working directory exists",
     )
     rendered = str(run.deferred_reason) + " ".join(run.notes)
     drill.check(

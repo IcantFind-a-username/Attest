@@ -25,12 +25,20 @@ RESULTS = ROOT / ".attest" / "corpora" / "swebench" / "results"
 from attest.execution.backends import select_backend  # noqa: E402
 from attest.review.candidates import CandidateStore  # noqa: E402
 from attest.review.executor import ExecutorLimits, ReproSpec, execute_differential  # noqa: E402
+from attest.review.workdir import WORK_PREFIX, repo_key, work_parent  # noqa: E402
 
 
 def latest_generated(case: Path, task_id: str) -> tuple[str, str, str] | None:
     """(finding_id, test source, anchored file) of the latest generated test for the task."""
-    repro = case / "repo" / ".attest" / "repro" / task_id
-    if not repro.is_dir():
+    # D-138: the reproduction working directory left the repository tree. This
+    # pilot reads what an *earlier* process wrote, and that process's session
+    # directory is not this one's, so the legacy in-repo path is tried first and
+    # every session root under the temporary directory after it.
+    candidates = [case / "repo" / ".attest" / "repro" / task_id]
+    key = repo_key(case / "repo")
+    candidates += sorted(work_parent().glob(f"{WORK_PREFIX}-*/{key}/repro/{task_id}"))
+    repro = next((path for path in candidates if path.is_dir()), None)
+    if repro is None:
         return None
     store = CandidateStore(case / "repo")
     for finding_dir in sorted(repro.iterdir()):

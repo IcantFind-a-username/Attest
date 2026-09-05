@@ -1,0 +1,282 @@
+"""One full `attest review` per **forward** pair (D-135, owner instruction 3 of 2026-09-05d).
+
+The pairs come from `forward_pairs.py`, whose construction is free: `head` is the
+commit that *introduced* a defect and `base` is its parent, so time runs the way
+it runs in a pull request. The reviews here are the paid half, and they are the
+first value-class recall number this project may quote at all -- D-135 bars the
+number from the reversed corpus, where clause (c) is wrong on 4 of 4.
+
+  run     one `attest review` per **distinct** `(repo, head, base)`, head
+          checked out detached in the clone, `--base` its parent, K=4,
+          `--budget 1.00`, containers, local only. Resumes from its own log,
+          runs nothing twice, and stops at a hard cumulative cap.
+  table   the value-class table, read from the driver's log and each clone's
+          ledger and bundles. Every row carries `fwd`, because a value-class
+          row from a reversed pair may not be quoted (D-135) and a table that
+          does not say which it is invites exactly that.
+
+**n is 11 and the tables say so.** Three of the thirteen resolutions converge on
+one `click` pair; a review of it buys the same evidence three times.
+
+Paid: `run`. Reserve in DEVSPEND.md first.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+CORPORA = ROOT / ".attest" / "corpora"
+RUNS = ROOT / "benchmarks" / "attest-v2" / "runs"
+PAIRS = RUNS / "2026-09-05-forward-pairs.json"
+
+
+# Where each repository of the forward-pair corpus is cloned. `attest`,
+# `us-stock-helper` and `corum` sit directly under the corpora root; the eight
+# public clones of `G-NULL-001a` are shared with the null study, which is why
+# the two drivers may not run at the same time -- both check a commit out.
+def clone_of(repo: str) -> Path:
+    direct = CORPORA / repo
+    return direct if direct.is_dir() else CORPORA / "gnull" / repo
+
+
+def distinct_pairs() -> list[dict[str, str]]:
+    """The distinct `(repo, head, base)` triples, in a fixed order, each with
+    the repairing commits whose oracle located it."""
+    document = json.loads(PAIRS.read_text(encoding="utf-8"))
+    order: list[tuple[str, str, str]] = []
+    fixes: dict[tuple[str, str, str], list[str]] = {}
+    for pair in document["pairs"]:
+        if not pair.get("resolved"):
+            continue
+        key = (str(pair["repo"]), str(pair["head"]), str(pair["base"]))
+        if key not in fixes:
+            order.append(key)
+            fixes[key] = []
+        fixes[key].append(str(pair.get("fix_subject", ""))[:70])
+    return [
+        {
+            "repo": repo,
+            "head": head,
+            "base": base,
+            "fixes": fixes[(repo, head, base)],
+        }
+        for repo, head, base in order
+    ]
+
+
+def git(repo: Path, *args: str) -> str:
+    completed = subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True
+    )
+    return completed.stdout.strip()
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    pairs = distinct_pairs()
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(ROOT / "src")
+
+    done: set[str] = set()
+    spent = 0.0
+    log_path = Path(args.log)
+    if log_path.is_file():
+        text = log_path.read_text(encoding="utf-8")
+        for block in re.split(r"^=== fp ", text, flags=re.M)[1:]:
+            head, _, body = block.partition("\n")
+            if "[rc " in body:
+                done.add(head.split()[0])
+        seen = re.findall(r"\[cumulative spend \$([0-9.]+)\]", text)
+        spent = float(seen[-1]) if seen else 0.0
+    log = log_path.open("a", encoding="utf-8")  # noqa: SIM115 - appended across the loop
+
+    for pair in pairs:
+        head = str(pair["head"])
+        if head in done:
+            continue
+        clone = clone_of(str(pair["repo"]))
+        log.write(f"=== fp {head} {pair['repo']} base={str(pair['base'])[:10]} fwd\n")
+        if not clone.is_dir():
+            log.write(f"[skipped: no clone at {clone}]\n")
+            log.flush()
+            continue
+        if spent >= args.cap:
+            log.write("[skipped: cumulative cap]\n")
+            log.flush()
+            continue
+        git(clone, "checkout", "-q", "--detach", head)
+        completed = subprocess.run(
+            [
+                str(ROOT / ".venv" / "bin" / "python"),
+                "-c",
+                "from attest.cli.main import main; import sys; sys.exit(main(sys.argv[1:]))",
+                "--repo",
+                str(clone),
+                "review",
+                "--base",
+                str(pair["base"]),
+                "--k",
+                "4",
+                "--budget",
+                f"{args.budget:.2f}",
+                "--verification-timeout",
+                str(args.verification_timeout),
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        log.write(
+            completed.stdout[-6000:] + completed.stderr[-1500:] + f"\n[rc {completed.returncode}]\n"
+        )
+        found = re.search(r"spend \$([0-9.]+) of", completed.stdout)
+        if found:
+            spent += float(found.group(1))
+        log.write(f"[cumulative spend ${spent:.6f}]\n")
+        log.flush()
+    log.write("=== fp done\n")
+    return 0
+
+
+STATUS = re.compile(
+    r"read (?P<read>\d+) of (?P<total>\d+) units; candidates: (?P<candidates>\d+); "
+    r"eligible: (?P<eligible>\d+); reproductions attempted: (?P<attempted>\d+); "
+    r"certified: (?P<certified>\d+); published: (?P<published>\d+)"
+)
+VERIFY = re.compile(r"verification: (?P<finding>[0-9a-f]+): (?P<reason>.+)")
+VALUE_MARKERS = (
+    "value change confirmed, intent unknown",
+    "constant change confirmed, intent unknown",
+    "intent stated in the change itself",
+)
+
+
+def _ledger_rows(clone: Path) -> list[dict[str, object]]:
+    path = clone / ".attest" / "ledger.jsonl"
+    if not path.is_file():
+        return []
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            rows.append(json.loads(line))
+    return rows
+
+
+def cmd_table(args: argparse.Namespace) -> int:
+    """The value-class table on forward pairs, read from the driver's log.
+
+    The log is the only record that names the pair beside its outcome: a
+    `review_run` ledger row carries no head sha, so a ledger-only table cannot
+    say which pair a row is about (the same lesson D-136's driver learned).
+    """
+    pairs = {str(p["head"]): p for p in distinct_pairs()}
+    text = Path(args.log).read_text(encoding="utf-8")
+    rows: list[dict[str, object]] = []
+    for block in re.split(r"^=== fp ", text, flags=re.M)[1:]:
+        header, _, body = block.partition("\n")
+        parts = header.split()
+        if not parts or parts[0] not in pairs:
+            continue
+        head = parts[0]
+        pair = pairs[head]
+        status = STATUS.search(body)
+        verdicts = [
+            {"finding": match.group("finding"), "reason": match.group("reason").strip()}
+            for match in VERIFY.finditer(body)
+        ]
+        value_rows = [v for v in verdicts if any(marker in v["reason"] for marker in VALUE_MARKERS)]
+        rows.append(
+            {
+                "direction": "fwd",  # D-135: every row says which way time ran
+                "repo": pair["repo"],
+                "head": head[:10],
+                "base": str(pair["base"])[:10],
+                "ran": "[rc " in body,
+                "candidates": int(status.group("candidates")) if status else 0,
+                "eligible": int(status.group("eligible")) if status else 0,
+                "attempted": int(status.group("attempted")) if status else 0,
+                "certified": int(status.group("certified")) if status else 0,
+                "published": int(status.group("published")) if status else 0,
+                "verdicts": verdicts,
+                "value_class_drawered": value_rows,
+                "fixes": pair["fixes"],
+            }
+        )
+
+    reviewed = [row for row in rows if row["ran"]]
+    payload = {
+        "schema_version": "attest.forward-pair-reviews.v1",
+        "generated": datetime.now(UTC).isoformat(timespec="seconds"),
+        "policy": "attest.intent.v4.1",
+        "direction": "fwd",
+        "n_distinct_pairs": len(pairs),
+        "reviewed": len(reviewed),
+        "attempted_reproductions": sum(int(row["attempted"]) for row in reviewed),
+        "certified": sum(int(row["certified"]) for row in reviewed),
+        "published": sum(int(row["published"]) for row in reviewed),
+        "value_class_drawered": sum(len(list(row["value_class_drawered"])) for row in reviewed),
+        "rows": rows,
+    }
+    print(
+        f"forward pairs: {len(reviewed)} of {len(pairs)} reviewed; "
+        f"reproductions attempted {payload['attempted_reproductions']}; "
+        f"certified {payload['certified']}; published {payload['published']}; "
+        f"value class drawered {payload['value_class_drawered']}"
+    )
+    for row in rows:
+        print(
+            f"  {row['direction']} {row['repo']:<15} {row['head']} "
+            f"cand={row['candidates']} elig={row['eligible']} att={row['attempted']} "
+            f"cert={row['certified']} pub={row['published']} "
+            f"value-drawer={len(list(row['value_class_drawered']))}"
+        )
+    if args.json:
+        Path(args.json).write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+    return 0
+
+
+def cmd_list(args: argparse.Namespace) -> int:
+    for index, pair in enumerate(distinct_pairs(), start=1):
+        clone = clone_of(str(pair["repo"]))
+        print(
+            f"{index:>2} fwd {pair['repo']:<15} {str(pair['head'])[:10]} "
+            f"<- {str(pair['base'])[:10]}  clone={'yes' if clone.is_dir() else 'MISSING'} "
+            f"({len(list(pair['fixes']))} fix commit(s))"
+        )
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("list").set_defaults(func=cmd_list)
+
+    r = sub.add_parser("run")
+    r.add_argument("--budget", type=float, required=True)
+    r.add_argument("--cap", type=float, required=True, help="hard cumulative spend cap")
+    r.add_argument("--log", required=True)
+    r.add_argument("--verification-timeout", type=int, default=1200)
+    r.set_defaults(func=cmd_run)
+
+    t = sub.add_parser("table")
+    t.add_argument("--log", required=True, help="the driver log the run wrote")
+    t.add_argument("--json", type=Path)
+    t.set_defaults(func=cmd_table)
+
+    args = parser.parse_args(argv)
+    return int(args.func(args))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

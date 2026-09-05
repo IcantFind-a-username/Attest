@@ -48,6 +48,7 @@ from attest.review.proposer import (
     redacted_error,
     response_fragment,
 )
+from attest.review.workdir import repro_root
 
 MAX_CONTEXT_LINES = 200
 REPRO_MAX_OUTPUT_TOKENS = 3_000
@@ -1317,7 +1318,7 @@ def execute_repro(
     if not Path(interpreter).is_file() or not os.access(interpreter, os.X_OK):
         return _deferred("reviewed-project Python interpreter is unavailable", started)
 
-    work_dir = repo_root / ".attest" / "repro" / candidate.task_id / candidate.finding.finding_id
+    work_dir = repro_root(repo_root, candidate.task_id, candidate.finding.finding_id)
     if run_label:
         work_dir = work_dir / run_label
     generated_path = work_dir / "test_repro.py"
@@ -1720,9 +1721,7 @@ def execute_differential(
         return finish(ExecutionOutcome.DEFERRED, _bounded_reason(reason), evidence_class)
 
     node: str | None = None
-    candidate_root = (
-        repo_root / ".attest" / "repro" / candidate.task_id / candidate.finding.finding_id
-    )
+    candidate_root = repro_root(repo_root, candidate.task_id, candidate.finding.finding_id)
     # one controller for the whole differential: every run gets its own nonce
     # and a result can only ever answer the request it was issued for
     controller = Controller(candidate_root)
@@ -1766,9 +1765,7 @@ def execute_differential(
         return deferred("unsafe task identity")
     if deadline is not None and deadline - clock() <= 0:
         return deferred(DEADLINE_REASON)
-    trees_dir = (
-        repo_root / ".attest" / "repro" / candidate.task_id / candidate.finding.finding_id / "trees"
-    )
+    trees_dir = repro_root(repo_root, candidate.task_id, candidate.finding.finding_id) / "trees"
     created: list[Path] = []
     try:
         trees_dir.mkdir(parents=True, exist_ok=True)
