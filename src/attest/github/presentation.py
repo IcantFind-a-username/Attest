@@ -21,6 +21,12 @@ certified finding the deterministic sentence is published in its place, so
 wording never silences evidence; for a green note, which has no receipt to fall
 back on, the note is dropped. A wholly silent review says exactly one line, and
 that line names the change units it read.
+
+D-145 makes yellow (a) author-visible on the same terms: its own marker, its own
+section, its own cap of two, and a rule narrow enough that on the 79 units it was
+measured over it says nothing at all. A yellow note is a count over an abstract
+syntax tree; it claims no defect, and when the level is silent nothing about it
+reaches the author.
 """
 
 from __future__ import annotations
@@ -48,6 +54,10 @@ STRUCTURAL_ADVICE_HEADING = "Suggested fix (written by a model, not part of the 
 MAX_STRUCTURAL_COMMENTS = 2
 # D-143: yellow (a), the impact scope. Same cap as green, its own marker.
 IMPACT_MARKER_PREFIX = "<!-- attest:impact:"
+IMPACT_HEADING = (
+    "Impact scope — counted over the call graph; no defect is claimed and no coverage "
+    "was measured:"
+)
 IMPACT_MAX_COMMENTS = 2
 IMPACT_MAX_CALLERS_LISTED = 8
 
@@ -71,16 +81,22 @@ def render_complete(
     evidence: Mapping[str, FindingEvidence] | None = None,
     structural: Sequence[StructuralNote] = (),
     units: tuple[int, int] | None = None,
+    impact: Sequence[ImpactNote] = (),
 ) -> str:
     """Render only receipt-backed findings, in the caller's order; with
     ``evidence`` each finding is followed by its runnable test (item 7).
 
-    Structural notes, when there are any, follow in their own section (D-133).
-    The two sections never merge and the green one never borrows the red one's
-    words: nothing there is "verified" and nothing there is a "finding"."""
+    Structural notes, when there are any, follow in their own section (D-133),
+    and yellow (a)'s impact notes in a third (D-145). The sections never merge
+    and neither of the two lower ones borrows red's words: nothing there is
+    "verified" and nothing there is a "finding".
+
+    **A level with nothing to say contributes no line at all** -- there is no
+    "no impact notes" line, because a level's silence is not a claim."""
     certified = _certified_only(findings)
     notes = [note for note in _structural_only(structural) if _admits_note(note)]
-    if not certified and not notes:
+    scope = [note for note in _impact_only(impact) if contract_check(impact_line(note))]
+    if not certified and not notes and not scope:
         # D-142: a wholly silent review owes exactly one line, and it says over
         # how many change units the silence holds.
         read, planned = units if units is not None else (0, 0)
@@ -110,6 +126,12 @@ def render_complete(
         if note.advice:
             lines.append("")
             lines.append(contract_collapsed(note.advice, summary=STRUCTURAL_ADVICE_HEADING))
+    for index, scoped in enumerate(scope[:IMPACT_MAX_COMMENTS]):
+        if lines[-1] != "":
+            lines.append("")
+        if index == 0:
+            lines.append(IMPACT_HEADING)
+        lines.append(f"- {impact_line(scoped)}")
     lines.append(f"Spend ${spend_usd:.4f}; {elapsed_s:.1f}s.")
     return "\n".join(lines)
 
@@ -179,26 +201,26 @@ def structural_line(note: StructuralNote, *, bullet: str = "- ") -> str:
 
 
 def impact_line(note: ImpactNote) -> str:
-    """One yellow (a) note as one contract line (D-143).
+    """One yellow (a) note as one contract line (D-143, narrowed by D-145).
 
     Every clause is a count this level computed: how the interface moved, how
     many call sites name the function, and how many of those are named by no
-    test. The evidence coordinate is an untested caller when there is one --
-    the place the author would look first -- and otherwise the nearest caller.
+    test. Both halves are always present -- the level does not speak otherwise --
+    and the evidence coordinate is the first untested caller, which is the place
+    the author would look first.
     """
     changed = note.changed
     definition = changed.definition
-    if changed.signature_changed:
-        moved = f"`{definition.qualname}` changed signature"
-    elif changed.returns_changed:
-        moved = f"`{definition.qualname}` changed its return annotation"
-    else:
-        moved = f"`{definition.qualname}` changed"
+    moved = (
+        f"`{definition.qualname}` changed signature"
+        if changed.signature_changed
+        else f"`{definition.qualname}` changed its return annotation"
+    )
     fact = (
         f"{moved}; {len(note.callers)} call site(s) name it, "
         f"{len(note.untested)} of them named by no test"
     )
-    witness = (note.untested or note.callers)[0].site
+    witness = note.untested[0].site
     return claim_line(
         "yellow",
         path=definition.path,
@@ -208,11 +230,19 @@ def impact_line(note: ImpactNote) -> str:
     )
 
 
+def impact_member_id(note: ImpactNote) -> str:
+    """The delivery journal identifies every author-visible comment. A yellow (a)
+    note has no receipt and no candidate, so it is identified by the coordinate
+    of the function it is about -- unique per note within one pull request."""
+    definition = note.changed.definition
+    return f"{definition.path}:{definition.line}"
+
+
 def impact_comments(notes: Sequence[ImpactNote]) -> list[dict[str, object]]:
     """The yellow (a) notes one pull request may show, each anchored on the
     changed function and each admitted by the format adjudicator (D-142)."""
     out: list[dict[str, object]] = []
-    for note in notes[:IMPACT_MAX_COMMENTS]:
+    for note in _impact_only(notes)[:IMPACT_MAX_COMMENTS]:
         line = impact_line(note)
         if not contract_check(line):
             continue
@@ -229,7 +259,7 @@ def impact_comments(notes: Sequence[ImpactNote]) -> list[dict[str, object]]:
                 "side": "RIGHT",
                 "body": "\n".join(
                     [
-                        f"{IMPACT_MARKER_PREFIX}{definition.path}:{definition.line} -->",
+                        f"{IMPACT_MARKER_PREFIX}{impact_member_id(note)} -->",
                         line,
                         "",
                         "Call sites, by name, in this repository:",
@@ -243,6 +273,12 @@ def impact_comments(notes: Sequence[ImpactNote]) -> list[dict[str, object]]:
             }
         )
     return out
+
+
+def _impact_only(notes: Sequence[ImpactNote]) -> list[ImpactNote]:
+    if any(type(note) is not ImpactNote for note in notes):
+        raise TypeError("the impact channel accepts only ImpactNote values")
+    return list(notes)
 
 
 def _admits_note(note: StructuralNote) -> bool:

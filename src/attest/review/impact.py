@@ -25,9 +25,17 @@ ambiguity** rather than narrowing a claim it cannot support:
   test *names* it**, which is what was actually measured;
 - a repository that exceeds the file, byte or node caps yields nothing at all.
 
-It speaks only when there is something an author can act on: a changed
-signature, or a caller no test names. A change to a function body whose every
-caller is under test is exactly the case where this level stays quiet.
+It speaks only when there is something an author can act on, and since D-145
+that is a **conjunction**: the signature or return annotation moved **and** some
+call site is named by no test. Either half on its own is refused — an interface
+change whose callers are all named by tests will be reported by those tests, and
+an untested caller under an unchanged interface is a coverage remark this level
+has no standing to make. A change to a function body is silent whatever its
+callers look like.
+
+The cost of that rule is measured and stated rather than hidden: on the 79 units
+of the 2026-09-06 scan the conjunction fires on **none of them**, so this level
+is author-visible and expected to be silent on ordinary traffic.
 """
 
 from __future__ import annotations
@@ -38,7 +46,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-IMPACT_POLICY_VERSION = "attest.impact.caller-scope.v0"
+IMPACT_POLICY_VERSION = "attest.impact.caller-scope.v1"
 CATEGORY = "impact"
 
 MAX_FILES = 5_000
@@ -415,8 +423,16 @@ def callers_of(graph: CallGraph, changed: ChangedFunction) -> tuple[Caller, ...]
 def note_for(graph: CallGraph, changed: ChangedFunction) -> ImpactNote | None:
     """One note, or None when this level has nothing an author can act on.
 
-    Three abstentions, each of them deliberate: an ambiguous name, no caller at
-    all, and a body change whose every caller is named by a test."""
+    The conjunction is the rule (D-145): **the interface moved and some caller is
+    named by no test**. Either half alone is refused. An interface change whose
+    every caller a test already names has a test suite that will report the
+    breakage without this level's help; an untested caller under an unchanged
+    interface is a coverage observation, and this level does not measure
+    coverage.
+
+    Four abstentions, each of them deliberate: an ambiguous name, no caller at
+    all, an interface change every test names, and an untested caller with no
+    interface change."""
     definition = changed.definition
     if graph.unique(definition.name) is None:
         return None  # the name is defined more than once: no claim is possible
@@ -424,13 +440,10 @@ def note_for(graph: CallGraph, changed: ChangedFunction) -> ImpactNote | None:
     if not callers:
         return None
     untested = tuple(c for c in callers if not c.named_by_test)
-    if changed.interface_changed:
-        what = "signature" if changed.signature_changed else "return annotation"
-        reason = f"the {what} changed"
-    elif untested:
-        reason = "a caller is named by no test"
-    else:
+    if not (changed.interface_changed and untested):
         return None
+    what = "signature" if changed.signature_changed else "return annotation"
+    reason = f"the {what} changed and a caller is named by no test"
     return ImpactNote(changed=changed, callers=callers, untested=untested, reason=reason)
 
 
@@ -442,14 +455,14 @@ def notes_for_change(
 ) -> tuple[ImpactNote, ...]:
     """The notes one pull request may show, most consequential first.
 
-    Order: a changed signature with untested callers, then a changed signature,
-    then untested callers; ties by how many callers are untested, then by
-    coordinate, so the order is total and does not depend on file order."""
+    Every note that reaches here already carries both halves of D-145's
+    conjunction, so the order is: a changed signature before a changed return
+    annotation, then by how many callers are untested, then by coordinate, so
+    the order is total and does not depend on file order."""
     produced = [note for definition in changed if (note := note_for(graph, definition))]
     produced.sort(
         key=lambda n: (
-            not (n.changed.interface_changed and n.untested),
-            not n.changed.interface_changed,
+            not n.changed.signature_changed,
             -len(n.untested),
             n.changed.definition.path,
             n.changed.definition.line,

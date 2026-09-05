@@ -22,7 +22,10 @@ from attest.github.client import (
 )
 from attest.github.context import PullRequestContext
 from attest.github.presentation import (
+    IMPACT_MAX_COMMENTS,
     MAX_STRUCTURAL_COMMENTS,
+    impact_comments,
+    impact_member_id,
     inline_comments,
     render_complete,
     render_deferred,
@@ -34,6 +37,15 @@ from attest.review.budget import Budget
 from attest.review.config import DISABLED_REASON, ReviewConfig, resolve_review_policy
 from attest.review.diffs import resolve_merge_base
 from attest.review.executor import ExecutorLimits
+from attest.review.impact import (
+    IMPACT_POLICY_VERSION,
+    ChangedFunction,
+    ImpactNote,
+    build_call_graph,
+    changed_functions,
+    notes_for_change,
+    read_tree,
+)
 from attest.review.ledger import Ledger
 from attest.review.output_contract import LEVEL_MARKERS
 from attest.review.proposer import Provider
@@ -222,6 +234,9 @@ _INLINE_FINDING_MARKER_RE = re.compile(r"<!-- attest:finding-id:([0-9a-f]{10}) -
 # D-133: a green comment carries no receipt and no candidate, so the journal
 # identifies it by the pair of coordinates it is about
 _INLINE_STRUCTURAL_MARKER_RE = re.compile(r"<!-- attest:structural:([^\s>]+) -->")
+# D-145: and neither does a yellow (a) comment, so it is identified by the
+# coordinate of the changed function it is about
+_INLINE_IMPACT_MARKER_RE = re.compile(r"<!-- attest:impact:([^\s>]+) -->")
 _SUMMARY_FINDING_MARKER_RE = re.compile(
     # D-142: the level marker is part of the shape the journal checks, so a
     # summary line that lost it cannot be delivered as a finding.
@@ -830,8 +845,10 @@ def _body_finding_ids(value: object, channel: str) -> tuple[str, ...]:
                 raise ValueError("inline review comment has no exact body")
             lines = comment["body"].splitlines()
             first = lines[0] if lines else ""
-            match = _INLINE_FINDING_MARKER_RE.fullmatch(first) or (
-                _INLINE_STRUCTURAL_MARKER_RE.fullmatch(first)
+            match = (
+                _INLINE_FINDING_MARKER_RE.fullmatch(first)
+                or _INLINE_STRUCTURAL_MARKER_RE.fullmatch(first)
+                or _INLINE_IMPACT_MARKER_RE.fullmatch(first)
             )
             if match is None:
                 raise ValueError("inline review comment has no finding marker")
@@ -1007,6 +1024,108 @@ def _changed_python_files(repo: Path, base_sha: str, head_sha: str) -> set[str]:
         for line in proc.stdout.splitlines()
         if line.strip().endswith(".py")
     }
+
+
+_DIFF_HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+
+
+def _changed_line_numbers(repo: Path, base_sha: str, head_sha: str) -> dict[str, set[int]]:
+    """Head-side line numbers the diff touched, per Python file.
+
+    `--unified=0` so a hunk's header names exactly the changed lines; context
+    lines would widen every function's span and make the impact level speak
+    about code the change did not touch."""
+    proc = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "diff",
+            "--unified=0",
+            "--no-color",
+            base_sha,
+            head_sha,
+            "--",
+            "*.py",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if proc.returncode != 0:
+        return {}
+    out: dict[str, set[int]] = {}
+    path: str | None = None
+    for line in proc.stdout.splitlines():
+        if line.startswith("+++ b/"):
+            candidate = line[6:].strip()
+            path = None if candidate == "/dev/null" else candidate
+            if path is not None:
+                out.setdefault(path, set())
+            continue
+        match = _DIFF_HUNK.match(line)
+        if match is not None and path is not None:
+            start = int(match.group(1))
+            count = int(match.group(2) or 1)
+            out[path].update(range(start, start + max(count, 1)))
+    return {name: lines for name, lines in out.items() if lines}
+
+
+def _base_source(repo: Path, base_sha: str, path: str) -> str | None:
+    """The file as the merge base had it, or None when the base lacks it.
+
+    A file the base does not have is **added code**: it has no interface to have
+    moved, so yellow (a) makes no claim about it."""
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "show", f"{base_sha}:{path}"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def impact_notes(
+    *,
+    repo: Path,
+    base_sha: str,
+    head_sha: str,
+    limit: int = IMPACT_MAX_COMMENTS,
+) -> list[ImpactNote]:
+    """D-145: yellow (a)'s notes for one pull request, at most ``limit``.
+
+    **No model, no execution, no network, no budget** -- `git` reads two trees
+    and `ast` does the rest, so this cannot spend and cannot fail a review. Like
+    green, any failure anywhere here is silence: the impact level never affects
+    the red path and never delays a receipt.
+
+    The head tree is read from the working tree, which `run_ci` has already
+    verified is the reviewed head; the base side is read out of git.
+    """
+    try:
+        touched = _changed_line_numbers(repo, base_sha, head_sha)
+        if not touched:
+            return []
+        sources = read_tree(repo)
+        graph = build_call_graph(sources)
+        changed: list[ChangedFunction] = []
+        for path, lines in sorted(touched.items()):
+            head_source = sources.get(path)
+            if head_source is None:
+                continue  # deleted, unreadable, or outside the scanned tree
+            changed.extend(
+                changed_functions(
+                    path=path,
+                    head_source=head_source,
+                    base_source=_base_source(repo, base_sha, path),
+                    changed_lines=lines,
+                )
+            )
+        return list(notes_for_change(graph, changed, limit=limit))
+    except Exception:  # noqa: BLE001 - yellow is a courtesy; it never breaks a review
+        return []
 
 
 def structural_notes(
@@ -1356,6 +1475,23 @@ def run_ci(
                 "refusal": note.refusal,
             }
         )
+    # D-145: yellow (a), the impact scope. Free by construction -- no provider and
+    # no budget are passed, because none can be spent. Silence here is silence in
+    # the comment: a level with nothing to say contributes no line.
+    yellow = impact_notes(repo=repo, base_sha=merge_base, head_sha=context.head_sha)
+    for scoped in yellow[:IMPACT_MAX_COMMENTS]:
+        ledger.append(
+            {
+                "kind": "impact_note",
+                "schema_version": "attest.impact-note.v1",
+                "task_id": task_id,
+                "policy_version": IMPACT_POLICY_VERSION,
+                "note_id": impact_member_id(scoped),
+                "reason": scoped.reason,
+                "callers": len(scoped.callers),
+                "untested_callers": len(scoped.untested),
+            }
+        )
     published_ids = {_candidate_id(finding) for finding in inline_results}
     ledger.record_ci_final(
         task_id=task_id,
@@ -1385,7 +1521,7 @@ def run_ci(
         spend_usd=review.budget.spent_usd,
         elapsed_s=clock() - started,
     )
-    if (surfaced or green) and _workspace_head(repo) != context.head_sha:
+    if (surfaced or green or yellow) and _workspace_head(repo) != context.head_sha:
         # revalidate the task immediately before the first author-visible write --
         # a green note is coordinates, and coordinates against a drifted head are
         # wrong in exactly the way this guard exists to prevent
@@ -1408,10 +1544,11 @@ def run_ci(
             started=started,
             clock=clock,
         )
-    if surfaced or green:
+    if surfaced or green or yellow:
         review_comments = [
             *inline_comments(inline_results, finding_evidence),
             *structural_comments(green),
+            *impact_comments(yellow),
         ]
         review_error = journal.attempt(
             channel="inline_review",
@@ -1420,6 +1557,9 @@ def run_ci(
                 # green members carry their coordinate, not a candidate id: they
                 # have no receipt and no candidate to be identified by
                 *((structural_member_id(note), "structural") for note in green),
+                # yellow members carry the coordinate of the function they are
+                # about, for the same reason: no receipt, no candidate
+                *((impact_member_id(note), "impact") for note in yellow),
             ),
             body={
                 "commit_id": context.head_sha,
@@ -1504,6 +1644,7 @@ def run_ci(
             finding_evidence,
             structural=green,
             units=_units_read(ledger, task_id),
+            impact=yellow,
         ),
     )
     try:

@@ -61,7 +61,7 @@ working adjudicator ships nothing, however good its proposals look.
 | **red** | this change broke something that worked | a **differential receipt**: the generated test fails on head, passes on base, in isolation, repeated, changed lines executed, bundle verifies offline | the certification kernel, the binding policy, and the intent discriminator (D-102, D-120, D-128) |
 | **gate** | this new code fails on an input the change makes reachable | an **executable failure of new code** on a witnessed reachable input — there is no base revision to compare against, so the failure itself is the evidence | reachability of the input plus the same execution, isolation and repetition the receipt demands (N-01) |
 | **yellow** | this looks wrong, and here is exactly what I checked | the model states a hypothesis as **premises**; a deterministic checker verifies each premise separately; the finding states **only the premises that were verified** and its confidence is a function of which ones were | the premise checker: an unverified premise is deleted from the text, not softened |
-| **yellow (a)** — *the impact scope, D-143* | this change reaches a caller no test names, or its signature moved | **counts over an abstract syntax tree**: the call sites of each changed function, whether a test names each caller, and whether the signature or return annotation moved against the base | the counts themselves; no model is called at all, and an ambiguous name, an uncalled function or new code is an abstention |
+| **yellow (a)** — *the impact scope, D-143, narrowed and shipped by D-145* | this change moved an interface **and** reaches a caller no test names | **counts over an abstract syntax tree**: the call sites of each changed function, whether a test names each caller, and whether the signature or return annotation moved against the base | the counts themselves; no model is called at all, and an ambiguous name, an uncalled function, new code, a tested-caller interface change and an untested caller under an unchanged interface are all abstentions |
 | **green** | this is structurally so, here and here | a **computable structural measure** with **at least two concrete coordinates** (file and line, both ends) | the measure itself; the model is called only after the measure holds, and only to translate it and propose a fix |
 
 Three consequences the levels are chosen for:
@@ -120,11 +120,13 @@ it. The quickstart's first screen is the workflow file itself, copyable whole.
    pilot's defects are collected by the thing itself.
 4. **yellow** — last, because a premise checker is the largest new deterministic surface of the
    four and the easiest to fake; it should be built when the pattern it follows has already been
-   demonstrated twice. **Its first sub-level exists and is measured, not shipped**: yellow (a),
+   demonstrated twice. **Its first sub-level exists, is measured, and now speaks**: yellow (a),
    the impact scope (D-143, owner decision 7 of 2026-09-06), computes call sites, test naming and
    signature movement from `ast` alone — no model, no execution, $0.00 — and was run offline on
-   79 corpus units (4 of 11 forward pairs, 1 of 68 null controls) **before** being given any
-   author-visible path, which it does not yet have.
+   79 corpus units **before** being given an author-visible path. It was given one on 2026-09-06b
+   (D-145) under the owner's **conjunction**: the interface moved *and* a caller is named by no
+   test. That rule fires on **0 of those 79 units** — the disjunction fired on 5 — so the level
+   ships quiet by construction and every note it does make is one an author can act on.
 
 ## 2. Steps, in order
 
