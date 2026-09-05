@@ -72,9 +72,13 @@ COLLECTION_REGENERATIONS = 1
 # D-146: how many probes one candidate may buy before the recording is given up
 MAX_PROBE_ATTEMPTS = 2
 # D-146: how many times the probe is executed on base before its observation is
-# trusted. Two, because one cannot show stability and three buys nothing a
-# second disagreement would not already have shown.
-PROBE_RECORDINGS = 2
+# trusted. **Three**, raised from two by D-148 after a real case slipped through:
+# `more-itertools.random_product` returns one of four tuples uniformly, so two
+# recordings agree one time in four, and the replay then failed on base. No
+# finite number closes that hole -- what closes it is that the replay's own
+# three base runs must agree as well, so six identical observations stand
+# between a nondeterministic value and a receipt.
+PROBE_RECORDINGS = 3
 CLEANUP_TIMEOUT_S = 1.0
 GIT_TIMEOUT_S = 60.0
 MAX_REASON_CHARS = 300
@@ -2144,13 +2148,17 @@ def execute_differential(
             if run.outcome is ExecutionOutcome.DEFERRED:
                 return deferred(f"base run {index}/{repeats} deferred: {run.reason}")
             if probe is not None:
-                # D-146: structurally impossible on this path -- the assertion is
-                # what base itself produced, twice, minutes ago. Reaching here is
-                # a defect in the recording, not evidence about the diff, and the
-                # reason says so rather than blaming the generator.
+                # D-146/D-148: the assertion is what base itself produced,
+                # identically, minutes ago -- so this is never the generator
+                # asserting a behaviour base lacks. It is the *second* stability
+                # gate catching a value the first was fooled by: an observation
+                # with few enough outcomes that N recordings agreed by chance.
+                # The reason says that, because "unfaithful" would blame the
+                # wrong thing and hide a real limit of recording.
                 return deferred(
-                    "probe replay failed on base: the recorded observation did not hold on "
-                    "re-execution; this is a bug in the recording, not evidence",
+                    f"probe observation did not survive re-execution: base produced it "
+                    f"{PROBE_RECORDINGS} times and then did not; the value is not "
+                    "deterministic",
                     EvidenceClass.UNFAITHFUL,
                 )
             return deferred(

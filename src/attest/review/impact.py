@@ -118,6 +118,11 @@ class ChangedFunction:
     signature_changed: bool
     returns_changed: bool
     added_required_parameter: bool
+    # the first line *inside* this function that the diff actually changed. The
+    # `def` line is the function's identity and is what the published sentence
+    # names; this is where an inline comment may be placed, because GitHub
+    # refuses a review comment on a line the diff does not carry (D-147).
+    anchor_line: int = 0
 
     @property
     def interface_changed(self) -> bool:
@@ -343,7 +348,8 @@ def changed_functions(
     out: list[ChangedFunction] = []
     for definition in head_visitor.definitions:
         span = range(definition.line, definition.end_line + 1)
-        if not touched.intersection(span):
+        inside = touched.intersection(span)
+        if not inside:
             continue
         before = base_by_qualname.get(definition.qualname)
         if before is None:
@@ -356,6 +362,7 @@ def changed_functions(
                 signature_changed=signature_changed,
                 returns_changed=returns_changed,
                 added_required_parameter=definition.required > before.required,
+                anchor_line=min(inside),
             )
         )
     # a nested function and its parent both match the touched lines; the
