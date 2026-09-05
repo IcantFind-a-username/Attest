@@ -1,0 +1,377 @@
+{
+ "schema_version": "attest.four-levels.v1",
+ "generated": "2026-09-05T22:03:25.047226+00:00",
+ "summary": {
+  "units": 13,
+  "ran": 13,
+  "red_spoke": 0,
+  "yellow_a_spoke": 0,
+  "yellow_b_spoke": 0,
+  "green_spoke": 6,
+  "gate_candidates": 3,
+  "gate_admissible": 0,
+  "gate_through_caller": 0,
+  "gate_direct": 0,
+  "image_lookups": 7,
+  "image_hits": 3,
+  "all_silent": 7,
+  "median_elapsed_s": 31.96,
+  "total_elapsed_s": 539.59,
+  "total_spend_usd": 1.6972,
+  "image_hit_rate": 0.4286,
+  "speech_rate": {
+   "red": 0.0,
+   "yellow_a": 0.0,
+   "yellow_b": 0.0,
+   "green": 0.4615
+  }
+ },
+ "rows": [
+  {
+   "repo": "gnull/attrs",
+   "head": "3b0378dd66d33ebddb52be85b8c4aac6a914b1a2",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): src/attr/_make.py:1058-1081 `add_init` and src/attr/_make.py:1096-1119 `add_attrs_init` normalise to token sequences of 67 and 67 tokens whose similarity is 1.000 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "elapsed_s": 11.05,
+   "spend_usd": 0.0173,
+   "images": [],
+   "ran": true
+  },
+  {
+   "repo": "gnull/attrs",
+   "head": "e7ebf4bf8185681fb8f178597ffd73d183dfdc1a",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 2 of 2 units; nothing met an adjudicator's bar; $0.2076, 42.1s."
+   ],
+   "gate": [
+    {
+     "finding_id": "6dfc222794",
+     "at": "tests/__init__.py:41",
+     "symbol": "returns_distinct_classes",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "`returns_distinct_classes` takes no parameter: there is no domain to be inside"
+    }
+   ],
+   "units_read": 2,
+   "units_planned": 2,
+   "candidates": 5,
+   "drawer": 5,
+   "accounting": "read 2/2 units, candidates 5, drawer 5",
+   "elapsed_s": 44.67,
+   "spend_usd": 0.2076,
+   "images": [
+    {
+     "tag": "attest-repro:f24510efde6984fe",
+     "cached": true,
+     "build_elapsed_s": 0.0
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "gnull/click",
+   "head": "3b16957cba718a6d77ef680114de8e0830c436ba",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 2 of 2 units; nothing met an adjudicator's bar; $0.3713, 86.7s."
+   ],
+   "gate": [
+    {
+     "finding_id": "45363db13a",
+     "at": "src/click/types.py:102",
+     "symbol": "__class_getitem__",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `__class_getitem__` outside the added lines and no documented domain"
+    }
+   ],
+   "units_read": 2,
+   "units_planned": 2,
+   "candidates": 9,
+   "drawer": 9,
+   "accounting": "read 2/2 units, candidates 9, drawer 9",
+   "elapsed_s": 90.7,
+   "spend_usd": 0.3713,
+   "images": [
+    {
+     "tag": "attest-repro:98c2bbffa7c6102c",
+     "cached": false,
+     "build_elapsed_s": 16.68
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "gnull/click",
+   "head": "7d05a59b9d46a415d85937630d1d812cf477f60a",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): src/click/core.py:1772-1815 `result_callback` and src/click/core.py:1801-1813 `decorator` normalise to token sequences of 64 and 58 tokens whose similarity is 0.951 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 6,
+   "drawer": 6,
+   "accounting": "read 1/1 units, candidates 6, drawer 6",
+   "elapsed_s": 81.23,
+   "spend_usd": 0.3605,
+   "images": [
+    {
+     "tag": "attest-repro:733fde470a714378",
+     "cached": false,
+     "build_elapsed_s": 15.99
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "gnull/click",
+   "head": "b7e5fd4cc7de70280eccd39f2bb956df617e5519",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): src/click/shell_completion.py:348-358 `get_completion_args` and src/click/shell_completion.py:370-380 `get_completion_args` normalise to token sequences of 43 and 43 tokens whose similarity is 1.000 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 8,
+   "drawer": 8,
+   "accounting": "read 1/1 units, candidates 8, drawer 8",
+   "elapsed_s": 100.38,
+   "spend_usd": 0.3341,
+   "images": [
+    {
+     "tag": "attest-repro:d03aad96c04846bb",
+     "cached": false,
+     "build_elapsed_s": 18.56
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "gnull/click",
+   "head": "becbde5cf416441627f779e8dd34e57738ee1c1f",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0230, 8.3s."
+   ],
+   "gate": [
+    {
+     "finding_id": "e53674ec5a",
+     "at": "src/click/_termui_impl.py:609",
+     "symbol": "",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "the failing line is not inside a definition, or the head source does not parse; nothing declares a domain"
+    }
+   ],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 1,
+   "drawer": 1,
+   "accounting": "read 1/1 units, candidates 1, drawer 1",
+   "elapsed_s": 11.71,
+   "spend_usd": 0.023,
+   "images": [],
+   "ran": true
+  },
+  {
+   "repo": "gnull/click",
+   "head": "c3535905c77a29afc84861b29d3ad366ce5451bd",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): src/click/shell_completion.py:348-358 `get_completion_args` and src/click/shell_completion.py:370-380 `get_completion_args` normalise to token sequences of 43 and 43 tokens whose similarity is 1.000 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 8,
+   "drawer": 8,
+   "accounting": "read 1/1 units, candidates 8, drawer 8",
+   "elapsed_s": 79.62,
+   "spend_usd": 0.0732,
+   "images": [
+    {
+     "tag": "attest-repro:0bd007de5575b23e",
+     "cached": false,
+     "build_elapsed_s": 18.05
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "gnull/itsdangerous",
+   "head": "910a7a94ee88b15d0677f65ed87d7ccbbd998048",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.1609, 35.0s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 4,
+   "drawer": 4,
+   "accounting": "read 1/1 units, candidates 4, drawer 4",
+   "elapsed_s": 38.64,
+   "spend_usd": 0.1609,
+   "images": [
+    {
+     "tag": "attest-repro:ece8a4110dd9840c",
+     "cached": true,
+     "build_elapsed_s": 0.0
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "gnull/more-itertools",
+   "head": "93c1cf8484f00a63f940be94b9e78c8347992a8b",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): more_itertools/more.py:5466-5474 `_windowed_running_min` and more_itertools/more.py:5507-5515 `_windowed_running_max` normalise to token sequences of 72 and 72 tokens whose similarity is 0.986 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not.",
+    "[green] Structural (no defect claimed): more_itertools/more.py:5122-5143 `dft` and more_itertools/more.py:5146-5167 `idft` normalise to token sequences of 57 and 58 tokens whose similarity is 0.957 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 1,
+   "drawer": 1,
+   "accounting": "read 1/1 units, candidates 1, drawer 1",
+   "elapsed_s": 31.96,
+   "spend_usd": 0.0705,
+   "images": [
+    {
+     "tag": "attest-repro:8c71f3bd20d13f28",
+     "cached": true,
+     "build_elapsed_s": 0.0
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "gnull/more-itertools",
+   "head": "b0aa91efbb452eeb8ffa0447047519c6e84d5292",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0109, 6.1s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "elapsed_s": 9.24,
+   "spend_usd": 0.0109,
+   "images": [],
+   "ran": true
+  },
+  {
+   "repo": "gnull/more-itertools",
+   "head": "cf186b5de4797602fef76c3391da2d110b88a954",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): more_itertools/more.py:5056-5077 `dft` and more_itertools/more.py:5080-5101 `idft` normalise to token sequences of 57 and 58 tokens whose similarity is 0.957 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "elapsed_s": 13.44,
+   "spend_usd": 0.0147,
+   "images": [],
+   "ran": true
+  },
+  {
+   "repo": "gnull/more-itertools",
+   "head": "ebe42b056eccc424ee1682c25eeabda74cbc46c0",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0136, 5.4s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 0,
+   "drawer": 0,
+   "accounting": "read 1/1 units, candidates 0, drawer 0",
+   "elapsed_s": 8.23,
+   "spend_usd": 0.0136,
+   "images": [],
+   "ran": true
+  },
+  {
+   "repo": "gnull/packaging",
+   "head": "da65bc27b439b2106da04e3c706355bd2f453088",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.0396, 15.5s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 3,
+   "drawer": 3,
+   "accounting": "read 1/1 units, candidates 3, drawer 3",
+   "elapsed_s": 18.72,
+   "spend_usd": 0.0396,
+   "images": [],
+   "ran": true
+  }
+ ]
+}

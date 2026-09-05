@@ -700,19 +700,33 @@ that publishes nothing cannot pre-empt that decision. What shadow mode does not 
 the pilot: a shadow record enters the collection only when it is adjudicated under
 `G-MEASURE-004` like any other, wrong, DEFER and no-finding outcomes included.
 
-**Pilot progress, cumulatively (2026-09-06c).** Shadow records collected so far, none of them
-adjudicated and therefore **none of them yet in the pilot's 120**:
+**Pilot progress, cumulatively (2026-09-07).** Shadow records collected so far, none of them
+adjudicated and therefore **none of them yet in the pilot's 120**. `through_test_caller` is
+counted apart as of D-166 — a call site inside the change's own test satisfies the letter of the
+through-caller rule and not its point, and it **never publishes**:
 
-| population | new-code candidates | `through_caller` | `direct` |
-|---|---|---|---|
-| E-04 stratum v2 (2026-09-05, [report](2026-09-05-gate-shadow.md)) | 224 | 0 | 0 |
-| 11 forward pairs, 40 owner commits, 10 `corum` commits ([report](2026-09-06c-gate-shadow.md)) | 90 | **9** | 0 |
-| **cumulative** | **314** | **9** (2.9%) | **0** |
+| population | new-code candidates | `through_caller` | `through_test_caller` | `direct` |
+|---|---|---|---|---|
+| E-04 stratum v2 (2026-09-05, [report](2026-09-05-gate-shadow.md)) | 224 | 0 | 0 | 0 |
+| 11 forward pairs, 40 owner commits, 10 `corum` commits ([report](2026-09-06c-gate-shadow.md)) | 90 | **6** | **3** | 0 |
+| the 17 budget-starved commits at `--budget 1.00` ([report](2026-09-07-budget-rerun.md)) | 128 | **20** | 0 | 0 |
+| the 13 forward-pair **fix** commits — the new-code direction ([report](2026-09-07-forward-fix.md)) | **3** | 0 | 0 | 0 |
+| **cumulative** | **445** | **26** (5.8%) | **3** | **0** |
 
-The 2026-09-05 zero is a *static* result: no reproduction executed, so no grade could be taken.
-**2.9% is a ceiling on how often this level could speak at all**, not a rate at which it would be
-right, and three of the nine enter through a test rather than through production code — an open
-question recorded in that report's §3.
+Three things this table is careful about.
+
+1. **The 2026-09-05 zero is a *static* result**: no reproduction executed, so no grade could be
+   taken. It is not evidence that the grade is unreachable.
+2. **The 128 and the 90 overlap in population.** The 17 commits re-reviewed at `--budget 1.00`
+   are 17 of the 40 in the row above them, re-discovered at four times the budget; the
+   cumulative sum counts *observations*, not distinct commits, and no distinct-defect claim may
+   be read off it.
+3. **A repair adds almost no new code the gate can see.** Thirteen fix commits produced **three**
+   new-code candidates between them and **none admissible** — the new-code direction is where
+   this level ought to be richest, and on real repairs it is nearly empty.
+
+**5.8% is a ceiling on how often this level could speak at all**, not a rate at which it would
+be right.
 
 **After owner selection:** create a separate implementation/calibration work order whose
 N-series ID is assigned only then, and require that class to pass its own `G-CERT-*`,
