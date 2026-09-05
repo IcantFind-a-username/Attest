@@ -30,6 +30,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -141,6 +142,29 @@ def _gate_grades(repo: Path, task_id: str, head: str, base: str) -> list[dict[st
     return out
 
 
+def _image_cache_rows(repo: Path, task_id: str) -> list[dict[str, object]]:
+    """This task's `image_cache` rows: was the reproduction image reused? (D-156)"""
+    ledger = repo / ".attest" / "ledger.jsonl"
+    if not ledger.is_file() or not task_id:
+        return []
+    out: list[dict[str, object]] = []
+    with ledger.open(encoding="utf-8") as handle:
+        for line in handle:
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if row.get("kind") == "image_cache" and row.get("task_id") == task_id:
+                out.append(
+                    {
+                        "tag": row.get("tag"),
+                        "cached": row.get("cached"),
+                        "build_elapsed_s": row.get("build_elapsed_s"),
+                    }
+                )
+    return out
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
     log_path = Path(args.log)
@@ -156,10 +180,25 @@ def cmd_run(args: argparse.Namespace) -> int:
         spent = float(seen[-1]) if seen else 0.0
     log = log_path.open("a", encoding="utf-8")  # noqa: SIM115 - appended across the loop
     env = dict(os.environ)
-    env["PYTHONPATH"] = str(ROOT / "src")
+    # ``--code`` pins the *product* code to a fixed checkout, so an edit to the
+    # working tree during a run cannot change what is being measured. It is the
+    # standing fix for the 2026-09-06c operator error.
+    code_root = Path(args.code) if args.code else ROOT
+    env["PYTHONPATH"] = str(code_root / "src")
+    if args.code:
+        sha = subprocess.run(
+            ["git", "-C", str(code_root), "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        log.write(f"[code {code_root} {sha}]\n")
+        print(f"product code from {code_root} ({sha})", flush=True)
+    only = {value.strip() for value in args.only.split(",")} if args.only else None
     for unit in plan["units"]:
         head = str(unit["head"])
         if head in done:
+            continue
+        if only is not None and not any(head.startswith(prefix) for prefix in only):
             continue
         repo = CORPORA / str(unit["repo"])
         log.write(f"=== unit {head} {unit['repo']} base={str(unit['base'])[:10]}\n")
@@ -173,6 +212,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             log.write(f"[skipped: {error}]\n[rc 99]\n")
             log.flush()
             continue
+        unit_started = time.monotonic()
         done_run = subprocess.run(
             [
                 str(ROOT / ".venv" / "bin" / "python"),
@@ -201,12 +241,19 @@ def cmd_run(args: argparse.Namespace) -> int:
         found = re.search(r"spend \$([0-9.]+) of", done_run.stdout)
         if found:
             spent += float(found.group(1))
+        elapsed = time.monotonic() - unit_started
         task = _latest_task(repo)
         grades = _gate_grades(repo, task, head, str(unit["base"])) if task else []
         log.write("[gate " + json.dumps(grades) + "]\n")
+        log.write("[images " + json.dumps(_image_cache_rows(repo, task)) + "]\n")
+        log.write(f"[elapsed {elapsed:.2f}]\n")
         log.write(f"[cumulative spend ${spent:.6f}]\n")
         log.flush()
-        print(f"{unit['repo']} {head[:10]} rc={done_run.returncode} ${spent:.4f}", flush=True)
+        print(
+            f"{unit['repo']} {head[:10]} rc={done_run.returncode} "
+            f"${spent:.4f} {elapsed:.1f}s",
+            flush=True,
+        )
     log.write("=== unit done\n")
     return 0
 
@@ -243,6 +290,15 @@ def cmd_table(args: argparse.Namespace) -> int:
             if found:
                 spoken[found.group(1)].append(line.strip())
         accounting = ACCOUNTING.search(body)
+        elapsed_row = re.search(r"^\[elapsed ([0-9.]+)\]$", body, flags=re.M)
+        images: list[dict[str, object]] = []
+        images_row = re.search(r"^\[images (.*)\]$", body, flags=re.M)
+        if images_row:
+            try:
+                images = json.loads(images_row.group(1))
+            except json.JSONDecodeError:
+                images = []
+        spend_row = re.search(r"spend \$([0-9.]+) of", body)
         grades = []
         gate_row = re.search(r"^\[gate (.*)\]$", body, flags=re.M)
         if gate_row:
@@ -273,6 +329,9 @@ def cmd_table(args: argparse.Namespace) -> int:
                 "candidates": int(accounting.group(3)) if accounting else None,
                 "drawer": int(accounting.group(4)) if accounting else None,
                 "accounting": accounting.group(0) if accounting else "",
+                "elapsed_s": float(elapsed_row.group(1)) if elapsed_row else None,
+                "spend_usd": float(spend_row.group(1)) if spend_row else None,
+                "images": images,
                 "ran": "[rc 0]" in body,
             }
         )
@@ -303,10 +362,31 @@ def cmd_table(args: argparse.Namespace) -> int:
             for g in r["gate"]
             if g.get("kind") == "direct"  # type: ignore[union-attr]
         ),
+        "image_lookups": sum(len(r["images"]) for r in rows),  # type: ignore[arg-type]
+        "image_hits": sum(
+            1
+            for r in rows
+            for image in r["images"]
+            if image.get("cached")  # type: ignore[union-attr]
+        ),
         "all_silent": sum(
             1 for r in rows if not (r["red"] or r["yellow_a"] or r["yellow_b"] or r["green"])
         ),
     }
+    timings = sorted(float(r["elapsed_s"]) for r in rows if r["elapsed_s"] is not None)
+    if timings:
+        middle = len(timings) // 2
+        summary["median_elapsed_s"] = round(
+            timings[middle] if len(timings) % 2 else (timings[middle - 1] + timings[middle]) / 2, 2
+        )
+        summary["total_elapsed_s"] = round(sum(timings), 2)
+    spends = [float(r["spend_usd"]) for r in rows if r["spend_usd"] is not None]
+    if spends:
+        summary["total_spend_usd"] = round(sum(spends), 6)
+    if summary["image_lookups"]:
+        summary["image_hit_rate"] = round(
+            summary["image_hits"] / summary["image_lookups"], 4  # type: ignore[operator]
+        )
     summary["speech_rate"] = {
         level: round(summary[f"{level}_spoke"] / n, 4)  # type: ignore[operator]
         for level in ("red", "yellow_a", "yellow_b", "green")
@@ -340,6 +420,8 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--budget", type=float, default=1.00)
     run.add_argument("--cap", type=float, required=True)
     run.add_argument("--verification-timeout", type=float, default=600.0)
+    run.add_argument("--code", default=None, help="fixed checkout whose attest code runs")
+    run.add_argument("--only", default=None, help="comma-separated head sha prefixes")
     run.set_defaults(func=cmd_run)
     table = sub.add_parser("table")
     table.add_argument("--log", required=True)
