@@ -123,14 +123,22 @@ recorded verbatim instead, which is durable where a screenshot is not.
 
 ## 8. Gates
 
-`ruff` clean; `mypy` clean over 88 source files. **The `gates` workflow failed on a runner at
-`61835fa`, and reading that failure is how the last two defects were found**: five report tests
-carried D-152's replaced prose, and the three M-01 cases errored. Both are fixed; the local suite
-at `bcc56c1` is green apart from those three, which pass on their own. Coverage was **93.12%**
-against the 90% floor in that same failing run, so the floor is not at risk. The runner result to
-read is the one on `bcc56c1`. New
-tests: `test_nullability.py` (6), `test_local_report.py` (4), `test_delivery_journal_history.py`
-(3), 5 in `test_impact_scope.py`. All fail on the previous implementations.
+`ruff` clean; `mypy` clean over 88 source files.
+
+**The `gates` workflow failed on a runner at `61835fa`, and reading that failure is how the last
+two defects were found** — five report tests carried D-152's replaced prose, and the three M-01
+cases errored. Both are fixed. What is verified at the tip, exactly: a full local run showed
+**0 `FAILED` and 3 `ERROR`, all three the M-01 cases**, and that run predates the M-01 fix; the
+M-01 file was then run on its own at the fixed tip and passed **8 of 8**. Coverage was **93.12%**
+against the 90% floor in the failing runner run, so the floor is not at risk.
+
+**The runner result at the final tip was still queued when this window ended** — every push
+cancels the previous run under the workflow's concurrency group, and the last push is `bfc1bff`.
+That is the run to read, and it is the one honest gap in this section.
+
+New tests: `test_nullability.py` (6), `test_local_report.py` (4),
+`test_delivery_journal_history.py` (3), 5 in `test_impact_scope.py`. All fail on the previous
+implementations.
 
 ## 9. What was not done, and why
 
