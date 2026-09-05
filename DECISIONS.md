@@ -1619,3 +1619,16 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** `repro_concurrency = 1` in `.attest.toml`, which restores the exact previous path.
 - **RED:** `tests/test_repro_concurrency.py` — four: identical ledger signature serial vs parallel, measured overlap, ranked dispatch under overlap, and the policy bound.
 - **Trace:** D-111 (pinned at `repro_concurrency=1` in `tests/test_ci_flow.py`), D-126.
+
+### D-158 — What each corpus is allowed to be a denominator for
+
+- **Date/status/scope:** 2026-09-07 · active, owner-directed (instruction 2.1) · `README.md` (the empirical table), `docs/acceptance/2026-09-06c-heldout-probe.md`; **`attest.intent.v4.1` is not touched**.
+- **The rule, in one line.** **The held-out slice reports crash/exception-class recall only. A value-class recall number may be quoted only from forward pairs.**
+- **Why the held-out slice cannot answer for the value class.** Its 28 run cases split by what the run *observed*, not by what anyone hoped: **4 certified**, **12 reached a value-class observation** — behaviour changed, nothing was raised, and the intent clause refused because the base tree does not say what the value should be — and **12 never reached a classifying observation at all** (the probe deferred on base, collection failed, the environment did not build, or the generated test was unfaithful). A denominator of 28 mixes three different questions and answers none. Under the rule, the crash/exception denominator is **16** and the recall is **4 of 16 (25%)**; the twelve value-class cases are excluded from it and are not a value-class recall figure either, because this corpus is reversed by construction.
+- **Why forward pairs are the only value-class denominator.** D-135's measurement: clause (c) — *intent stated in the change itself* — is right on **7 of 8** forward receipts and wrong on **4 of 4** reversed ones, because on a reversed pair the diff **is** the repair, so the fix's own docstring, test and changelog arrive in the same diff and the clause reads an author stating their intent, correctly, about that diff. Every value-class figure taken from a reversed corpus is therefore about the construction, not about the product. D-140's forward measurement of the value clause is **0 of 1**, and one case is a data point, not a rate.
+- **What this changes and what it does not.** It changes what may be written down; it changes no code and no threshold. `attest.intent.v4.1` is unchanged, as owner instruction 2.1 requires. The 2026-09-06c report's headline — *four cases the old generator published are now drawered, every one by the value-class clause* — stands, and under this rule it is stated as **a cost of the clause on this corpus**, not as a recall number.
+- **Cost:** $0.00.
+- **Reversal:** one paragraph in the README and this entry.
+- **RED:** none; the deliverable is a caliber rule over numbers already measured, and the split is recomputable from `.attest/corpora/swebench/results/*.probe.json` (12 / 4 / 12, printed above).
+- **Trace:** D-134, D-135, D-140, D-146; `G-RECALL-002`.
+
