@@ -372,7 +372,7 @@ def _named_by_test(graph: CallGraph, site: CallSite) -> tuple[bool, int | None]:
         qualname, depth = frontier.popleft()
         if depth >= MAX_DEPTH:
             continue
-        bare = qualname.rsplit(".", 1)[-1]
+        bare = _addressable_name(qualname)
         for caller in graph.mentions.get(bare, ()):
             if caller.is_test:
                 return True, depth + 1
@@ -380,6 +380,21 @@ def _named_by_test(graph: CallGraph, site: CallSite) -> tuple[bool, int | None]:
                 seen.add(caller.inside)
                 frontier.append((caller.inside, depth + 1))
     return False, None
+
+
+def _addressable_name(qualname: str) -> str:
+    """The name a test would have to write to reach this function.
+
+    A constructor is the case that matters: nothing outside the class writes
+    `__init__`, so asking whether a test names `__init__` answers "no" for every
+    constructor in every repository, and the published sentence would call a
+    class that ten tests instantiate "named by no test". For a dunder the
+    addressable name is the **class**; for everything else it is the function's
+    own name."""
+    parts = qualname.split(".")
+    if parts[-1].startswith("__") and parts[-1].endswith("__") and len(parts) > 1:
+        return parts[-2]
+    return parts[-1]
 
 
 def callers_of(graph: CallGraph, changed: ChangedFunction) -> tuple[Caller, ...]:

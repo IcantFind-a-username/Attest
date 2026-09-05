@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-05T14:01:42.400975+00:00",
+ "generated": "2026-09-05T14:04:10.187050+00:00",
  "policy_version": "attest.impact.caller-scope.v0",
  "population": "both",
  "rows": [
@@ -109,31 +109,19 @@
   },
   {
    "base": "64048c1106eb4e0ed70e64d16e230553a464087b",
-   "callers": [
-    23,
-    2
-   ],
+   "callers": [],
    "changed_functions": 35,
    "files_changed": 15,
    "head": "3703fbdedd13b2630dd9be75a3638408c193765d",
    "interface_changes": 0,
-   "lines": [
-    "[yellow] src/itsdangerous/encoding.py:8 \u2014 `want_bytes` changed; 23 call site(s) name it, 4 of them named by no test \u2014 src/itsdangerous/serializer.py:89",
-    "[yellow] src/itsdangerous/serializer.py:10 \u2014 `is_text_serializer` changed; 2 call site(s) name it, 1 of them named by no test \u2014 src/itsdangerous/serializer.py:96"
-   ],
-   "notes": 2,
+   "lines": [],
+   "notes": 0,
    "ok": true,
    "population": "forward",
-   "reasons": [
-    "a caller is named by no test",
-    "a caller is named by no test"
-   ],
+   "reasons": [],
    "repo": "itsdangerous",
    "tree_files": 18,
-   "untested": [
-    4,
-    1
-   ]
+   "untested": []
   },
   {
    "base": "d0c20f594667738b714a1f7786da82e0de70fbf5",
@@ -713,27 +701,19 @@
   },
   {
    "base": "3b06e0b75aaa68533c7fbd4f89053309f2e4ed8a",
-   "callers": [
-    5
-   ],
+   "callers": [],
    "changed_functions": 2,
    "files_changed": 2,
    "head": "fde47b4b4f978f179b9dff34583cb2b99021f482",
    "interface_changes": 0,
-   "lines": [
-    "[yellow] src/click/_termui_impl.py:234 \u2014 `ProgressBar.render_progress` changed; 5 call site(s) name it, 2 of them named by no test \u2014 src/click/_termui_impl.py:115"
-   ],
-   "notes": 1,
+   "lines": [],
+   "notes": 0,
    "ok": true,
    "population": "controls",
-   "reasons": [
-    "a caller is named by no test"
-   ],
+   "reasons": [],
    "repo": "click",
    "tree_files": 61,
-   "untested": [
-    2
-   ]
+   "untested": []
   },
   {
    "base": "6386d1379c272f1d2b71d9e2a89721aa9572440d",
@@ -1145,27 +1125,19 @@
   },
   {
    "base": "ddf54e1c7eed60406de14615556650633e84799c",
-   "callers": [
-    2
-   ],
+   "callers": [],
    "changed_functions": 1,
    "files_changed": 1,
    "head": "97db7175675a618b78838ccdf4b78108d3eca6f3",
    "interface_changes": 0,
-   "lines": [
-    "[yellow] src/packaging/_parser.py:139 \u2014 `_parse_requirement_marker` changed; 2 call site(s) name it, 2 of them named by no test \u2014 src/packaging/_parser.py:115"
-   ],
-   "notes": 1,
+   "lines": [],
+   "notes": 0,
    "ok": true,
    "population": "controls",
-   "reasons": [
-    "a caller is named by no test"
-   ],
+   "reasons": [],
    "repo": "packaging",
    "tree_files": 29,
-   "untested": [
-    2
-   ]
+   "untested": []
   },
   {
    "base": "08d8af08fdf9bac223d3af22a1ace16356e3f643",
@@ -1348,27 +1320,26 @@
  "summary": {
   "controls": {
    "changed_functions_total": 90,
-   "notes_total": 3,
+   "notes_total": 1,
    "reasons": {
-    "a caller is named by no test": 3
+    "a caller is named by no test": 1
    },
-   "trigger_rate": 0.0441,
+   "trigger_rate": 0.0147,
    "units_failed": 0,
    "units_scanned": 68,
-   "units_triggering": 3
+   "units_triggering": 1
   },
   "forward": {
    "changed_functions_total": 167,
-   "notes_total": 8,
+   "notes_total": 6,
    "reasons": {
-    "a caller is named by no test": 2,
     "the return annotation changed": 2,
     "the signature changed": 4
    },
-   "trigger_rate": 0.4545,
+   "trigger_rate": 0.3636,
    "units_failed": 0,
    "units_scanned": 11,
-   "units_triggering": 5
+   "units_triggering": 4
   }
  }
 }

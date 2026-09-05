@@ -293,8 +293,8 @@ Coding agents start with [AGENTS.md](AGENTS.md). The complete documentation map 
   reproductions opened and classified: **0 environment failures**, 18 asserting a behaviour the
   base revision does not have either;
 - `docs/acceptance/2026-09-06-impact-scope-scan.md` — yellow (a), the impact scope, measured
-  offline on 79 units before it is ever author-visible: it speaks on 5 of 11 defect-introducing
-  commits and 3 of 68 ordinary ones, at $0.00;
+  offline on 79 units before it is ever author-visible: it speaks on 4 of 11 defect-introducing
+  commits and 1 of 68 ordinary ones, at $0.00;
 - `docs/acceptance/2026-09-06-v01-tag-readiness.md` — the seven product conditions re-checked
   and the eight things a `v0.1` tag still needs, listed and not started.
 

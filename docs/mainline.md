@@ -120,7 +120,11 @@ it. The quickstart's first screen is the workflow file itself, copyable whole.
    pilot's defects are collected by the thing itself.
 4. **yellow** — last, because a premise checker is the largest new deterministic surface of the
    four and the easiest to fake; it should be built when the pattern it follows has already been
-   demonstrated twice.
+   demonstrated twice. **Its first sub-level exists and is measured, not shipped**: yellow (a),
+   the impact scope (D-143, owner decision 7 of 2026-09-06), computes call sites, test naming and
+   signature movement from `ast` alone — no model, no execution, $0.00 — and was run offline on
+   79 corpus units (4 of 11 forward pairs, 1 of 68 null controls) **before** being given any
+   author-visible path, which it does not yet have.
 
 ## 2. Steps, in order
 

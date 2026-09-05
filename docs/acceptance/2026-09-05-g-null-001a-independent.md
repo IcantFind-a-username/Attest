@@ -6,6 +6,10 @@
 ([result](evidence/2026-09-05-g-null-001a-independent.json), $1.075100 of $4.00). **§§6–9 are the
 2026-09-05d run, which is the one that carries a result**
 ([result](evidence/2026-09-05d-g-null-001a-independent.json), $0.880000 of $6.00, $5.12 released).
+**Superseded on 2026-09-06**: under the probe-adjudicated stop rule (D-141) the run resumed from
+the same log and the population is now complete at n = 68 —
+[the final report](2026-09-06-g-null-001a-final.md) carries the table, and this document remains
+the record of how it stopped.
 
 **Headline: the run stopped at control 54 of 68 because a control published, and the publication
 is a true positive on a live defect in `more-itertools` — not a false publication.** Under the

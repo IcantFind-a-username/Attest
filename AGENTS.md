@@ -288,8 +288,13 @@ with an adjudicator that calls no model (mainline §1.1):
                                    model is called after the evidence holds, to translate
 INTEGRATION: GitHub Action + repository Secret, and nothing else. The product never
   touches, stores, transmits or logs a key. `attest init` is optional and ordered last.
-LEVEL ORDER: v4 (done) -> green (author-visible, D-133) -> gate -> yellow. Green first:
-  zero execution cost, so it is the cheapest test of the architecture itself.
+LEVEL ORDER: v4 (done) -> green (author-visible, D-133) -> gate (shadow, D-137) -> yellow
+  (a) built and measured offline, not author-visible (D-143). Green first: zero execution
+  cost, so it is the cheapest test of the architecture itself.
+OUTPUT CONTRACT (D-142): one line per finding -- level marker, file:line, one sentence of
+  fact, evidence. A line that does not conform is not published; a certified finding falls
+  back to the receipt's own sentence. A wholly silent review says one line with its unit
+  count.
 
 C-02 -> C-03 -> C-04 -> R-03 -> R-01 -> V-01 -> E-02 pilot (fork on numbers, §4)
      -> C-05 -> V-02 -> X-01 -> X-02 -> V-03 -> E-02 held-out -> E-01 -> E-04 -> L-01

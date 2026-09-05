@@ -52,20 +52,22 @@ than the rule's restraint. D-134's 5.2% at n = 58 remains the only bound this ga
 - **Yellow (a), the impact scope (D-143)**: call sites of each changed function, whether a test
   *names* each caller, whether the signature or return annotation moved — `ast` and `git`, no
   model, **$0.00**. Offline on 79 units
-  ([report](acceptance/2026-09-06-impact-scope-scan.md)): **5 of 11 forward pairs (45.5%)** and
-  **3 of 68 controls (4.4%)**, 11 notes over 257 changed functions, cap 2 per PR, **not wired
-  into the publication path**. A hand spot-check found a wrong claim (a property tests read as an
-  attribute) and the walk now counts mentions, not only calls; the control rate fell 7.3% → 4.4%.
+  ([report](acceptance/2026-09-06-impact-scope-scan.md)): **4 of 11 forward pairs (36.4%)** and
+  **1 of 68 controls (1.5%)**, 7 notes over 257 changed functions, cap 2 per PR, **not wired into
+  the publication path**. Reading its own output against the repositories found **two claims that
+  were not true** — a property tests read as an attribute, and `__init__`, which no caller ever
+  writes — and both fixes made it quieter: forward 45.5% → 36.4%, controls 7.3% → 4.4% → 1.5%.
 
 ## 3. For the owner — three items
 
-1. **Yellow (a) fires on interface changes whose every caller is already tested** — 6 of the 8
-   forward notes, 2 of them annotation-only (`-> str` added). Narrow the rule? **Default: drop
-   the annotation-only case when no caller is untested, keep signature changes** — it removes the
-   two weakest lines and keeps four the author can act on.
+1. **Yellow (a) now speaks almost only on interface changes**: all 6 forward notes are signature
+   or annotation changes whose every caller is already tested, and the "untested caller" trigger
+   fires once in 79 units. Narrow it? **Default: drop the annotation-only case when no caller is
+   untested (2 of the 6), keep signature changes** — narrowing further to "interface change *with*
+   an untested caller" leaves 0 of 11 forward pairs, which is no level at all.
 2. **Should yellow (a) become author-visible?** It costs $0, caps at 2 per PR, and is quiet on
-   95.6% of ordinary commits. **Default: yes, after item 1's narrowing** — the cheapest test of
-   whether the contract holds up on a second level.
+   **98.5%** of ordinary commits. **Default: yes, after item 1's narrowing** — the cheapest test
+   of whether the contract holds up on a second level.
 3. **What null claim does `v0.1` make?** (a) quote **5.2% at n = 58** with its "regression test
    as much as a null study" caveat; (b) raise the cap by ~$65 to reach `G-NULL-001`'s n ≥ 300;
    (c) ship with no null claim. **Default: (a)** — (b) does not fit the $34 left under the cap.
@@ -74,7 +76,7 @@ than the rule's restraint. D-134's 5.2% at n = 58 remains the only bound this ga
 
 `ruff check .` clean; `mypy` clean over 86 source files; `pytest --cov=src/attest` — **result
 recorded in the commit that follows this handoff**. New tests: `test_null_study_stop_rule.py` (7),
-`test_output_contract.py` (20), `test_impact_scope.py` (10); 6 of 7, 20 of 20 and 10 of 10 fail
+`test_output_contract.py` (21), `test_impact_scope.py` (11); 7 of 7, 21 of 21 and 11 of 11 fail
 on the previous implementations. Two existing assertions were **deliberately** changed by D-142:
 the wholly silent body is now the contract's silence line, and a summary finding line must carry
 `[red]` for the delivery journal to accept it.

@@ -218,3 +218,27 @@ def test_reading_a_tree_skips_the_directories_that_are_not_source(tmp_path: Path
     (tmp_path / ".venv" / "b.py").write_text("def g():\n    return 1\n", encoding="utf-8")
     sources = read_tree(tmp_path)
     assert set(sources) == {"pkg/a.py"}
+
+
+def test_a_call_inside_a_constructor_is_named_by_a_test_that_names_the_class() -> None:
+    """Nothing outside a class writes `__init__`, so asking whether a test names
+    it answers "no" for every constructor ever written. The addressable name of
+    a dunder is its class."""
+
+    head = "def quote(items, currency):\n    return 0\n"
+    base = "def quote(items):\n    return 0\n"
+    library = {
+        "pricing.py": head,
+        "basket.py": "from pricing import quote\n\n\nclass Basket:\n"
+        "    def __init__(self, items):\n        self.total = quote(items, 'usd')\n",
+        "tests/test_basket.py": "from basket import Basket\n\n\n"
+        "def test_basket_totals():\n    assert Basket([]).total == 0\n",
+    }
+    graph = build_call_graph(library)
+    changed = changed_functions(
+        path="pricing.py", head_source=head, base_source=base, changed_lines={1}
+    )
+    notes = notes_for_change(graph, changed)
+    assert len(notes) == 1  # the signature changed, so it still speaks
+    assert notes[0].untested == ()  # but the constructor is not "named by no test"
+    assert "0 of them named by no test" in impact_line(notes[0])
