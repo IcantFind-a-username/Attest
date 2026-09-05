@@ -1714,3 +1714,16 @@ is active only when the owning architecture/acceptance document changes with it.
 - **RED:** `tests/test_nullability.py` — four added: a default of None with no annotation, the function's own `is None` test, a parameter nothing says anything about (still void), and the four readings of `_returns_none` including a nested `def` that must not count.
 - **Trace:** D-151; mainline §1.1.
 
+### D-166 — The budget was not the binding constraint, and the through-caller grade tells a test from a caller
+
+- **Date/status/scope:** 2026-09-07 · active · [report](docs/acceptance/2026-09-07-budget-rerun.md); `src/attest/review/gate_level.py` (`through_test_caller`).
+- **The measurement that retires a sentence.** 2026-09-06c concluded *"on this traffic the binding constraint is the budget, not the adjudicators"*. This window re-reviewed **exactly the 17 commits the budget starved**, at `--budget 1.00` against `0.25`. Spend **$1.64 → $10.32** (6.3×), candidates **105 → 331** (3.2×), and **not one verdict moved**: red 0 of 17 both times, both yellows 0 of 17 both times, green on **the same 8** commits.
+- **Why, in the drawer's own words.** Candidates refused *for budget* went **up**, 40 → 44, and the new dominant reason is that the ranking never reached them (167 `no-reproduction-bought`). **Raising the budget raises discovery, and discovery re-starves the budget**: the proposal stage's share of a larger budget produces more candidates, so a review with 56 candidates and $1.00 is a longer queue in front of the same door, not four times a review with 15 and $0.25. Exactly **one** candidate reached an adjudicator at $1.00 that never reached one at $0.25 — a `value change, intent unknown`, drawered.
+- **What it costs:** median review wall clock 29.6 s → 125.2 s. Both columns run under `repro_concurrency = 2`, so this comparison **does not isolate** D-157 and no speed-up is claimed from it here.
+- **The image cache, measured:** 15 lookups across 17 reviews, **15 reused, 0 built**. The run contains no cold build and therefore does not time one; what it establishes is that on ordinary traffic an image is built once per repository per dependency change and reused by every commit in between.
+- **`through_test_caller`.** The through-caller rule exists so that *something the change did not add* depends on the new code. A call site inside the change's own new test satisfies the letter and not one word of the point, so it is now its own grade, reported separately and **never publishing** — the adjudication still requires `through_caller` exactly.
+- **Cost:** $10.3202 for the re-run; $0.00 for the grade split.
+- **Reversal:** the grade split is one branch in `witness`.
+- **RED:** `tests/test_gate_level.py` (the grade), and the re-run's two evidence files.
+- **Trace:** D-126, D-137, D-156, D-157; `G-NEWCODE-001`.
+

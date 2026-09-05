@@ -1,0 +1,1221 @@
+{
+ "schema_version": "attest.four-levels.v1",
+ "generated": "2026-09-05T21:36:08.960720+00:00",
+ "summary": {
+  "units": 11,
+  "ran": 11,
+  "red_spoke": 0,
+  "yellow_a_spoke": 0,
+  "yellow_b_spoke": 0,
+  "green_spoke": 7,
+  "gate_candidates": 99,
+  "gate_admissible": 35,
+  "gate_through_caller": 11,
+  "gate_direct": 0,
+  "image_lookups": 9,
+  "image_hits": 9,
+  "all_silent": 4,
+  "median_elapsed_s": 139.12,
+  "total_elapsed_s": 1426.75,
+  "total_spend_usd": 6.2039,
+  "image_hit_rate": 1.0,
+  "speech_rate": {
+   "red": 0.0,
+   "yellow_a": 0.0,
+   "yellow_b": 0.0,
+   "green": 0.6364
+  }
+ },
+ "rows": [
+  {
+   "repo": "attest",
+   "head": "eede42194df5f33ef7b18a417cb57a3747a353a9",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): scripts/corpus/impact_scan.py:62-68 `git` and scripts/corpus/qualify_controls.py:45-54 `git` normalise to token sequences of 50 and 50 tokens whose similarity is 1.000 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not.",
+    "[green] Structural (no defect claimed): scripts/corpus/impact_scan.py:62-68 `git` and scripts/corpus/null_study.py:148-154 `git` normalise to token sequences of 50 and 53 tokens whose similarity is 0.971 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [
+    {
+     "finding_id": "d1dada2905",
+     "at": "src/attest/review/impact.py:226",
+     "symbol": "_raised_types",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_raised_types` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "a248657748",
+     "at": "src/attest/review/impact.py:515",
+     "symbol": "arity_breaks_of",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `arity_breaks_of` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "de592e43a6",
+     "at": "src/attest/review/impact.py:522",
+     "symbol": "arity_breaks_of",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `arity_breaks_of` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "b028983edb",
+     "at": "src/attest/review/impact.py:528",
+     "symbol": "arity_breaks_of",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `arity_breaks_of` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "cc6c76dc40",
+     "at": "tests/test_impact_scope.py:415",
+     "symbol": "_one_note",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_one_note` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "a0cdcb81b1",
+     "at": "tests/test_impact_scope.py:465",
+     "symbol": "test_a3_an_added_parameter_that_breaks_a_call_speaks_even_when_a_test_names_it",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "`test_a3_an_added_parameter_that_breaks_a_call_speaks_even_when_a_test_names_it` takes no parameter: there is no domain to be inside"
+    }
+   ],
+   "units_read": 5,
+   "units_planned": 5,
+   "candidates": 31,
+   "drawer": 31,
+   "accounting": "read 5/5 units, candidates 31, drawer 31",
+   "elapsed_s": 178.01,
+   "spend_usd": 0.8919,
+   "images": [
+    {
+     "tag": "attest-repro:96b9871908772ebd",
+     "cached": true,
+     "build_elapsed_s": 0.0
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "attest",
+   "head": "9b1c9a869989fddc5db3a25cffbf08b4e64065c4",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): src/attest/benchmark/measurement.py:1763-1769 `_exact_number` and src/attest/review/ci.py:914-920 `_delivery_number` normalise to token sequences of 51 and 49 tokens whose similarity is 0.960 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not.",
+    "[green] Structural (no defect claimed): src/attest/review/ci.py:914-920 `_delivery_number` and src/attest/review/ledger.py:88-93 `_require_finite_nonnegative` normalise to token sequences of 49 and 49 tokens whose similarity is 0.959 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 4,
+   "drawer": 4,
+   "accounting": "read 1/1 units, candidates 4, drawer 4",
+   "elapsed_s": 50.47,
+   "spend_usd": 0.2642,
+   "images": [
+    {
+     "tag": "attest-repro:96b9871908772ebd",
+     "cached": true,
+     "build_elapsed_s": 0.0
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "attest",
+   "head": "8537f6a9d3ad89d6517b1c15d1cb8f181bb03585",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 3 of 3 units; nothing met an adjudicator's bar; $0.0636, 20.8s."
+   ],
+   "gate": [],
+   "units_read": 3,
+   "units_planned": 3,
+   "candidates": 4,
+   "drawer": 4,
+   "accounting": "read 3/3 units, candidates 4, drawer 4",
+   "elapsed_s": 21.13,
+   "spend_usd": 0.0636,
+   "images": [],
+   "ran": true
+  },
+  {
+   "repo": "attest",
+   "head": "150804a34bf09ab84dc4e2f9a6a943c9b0824405",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): src/attest/review/executor.py:816-905 `generate_repro` and src/attest/review/executor.py:908-997 `generate_probe` normalise to token sequences of 231 and 240 tokens whose similarity is 0.977 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not.",
+    "[green] Structural (no defect claimed): src/attest/benchmark/measurement.py:1763-1769 `_exact_number` and src/attest/review/ci.py:901-907 `_delivery_number` normalise to token sequences of 51 and 49 tokens whose similarity is 0.960 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [
+    {
+     "finding_id": "44d21df40b",
+     "at": "src/attest/github/presentation.py:186",
+     "symbol": "_anchored",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "src/attest/review/executor.py:2216",
+     "reason": "the reproduction enters at src/attest/review/executor.py:2216 and `_anchored` runs underneath"
+    },
+    {
+     "finding_id": "9ef18d74d4",
+     "at": "src/attest/github/presentation.py:188",
+     "symbol": "_anchored",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "src/attest/review/executor.py:2216",
+     "reason": "the reproduction enters at src/attest/review/executor.py:2216 and `_anchored` runs underneath"
+    },
+    {
+     "finding_id": "a5ea8fbe0c",
+     "at": "src/attest/review/ci.py:840",
+     "symbol": "_marker_id",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_marker_id` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "f5095bdd44",
+     "at": "src/attest/review/ci.py:841",
+     "symbol": "_marker_id",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_marker_id` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "5fdd325d9f",
+     "at": "tests/test_impact_scope.py:372",
+     "symbol": "test_a_comment_whose_anchor_the_diff_does_not_carry_is_not_posted",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "`test_a_comment_whose_anchor_the_diff_does_not_carry_is_not_posted` takes no parameter: there is no domain to be inside"
+    }
+   ],
+   "units_read": 4,
+   "units_planned": 4,
+   "candidates": 21,
+   "drawer": 21,
+   "accounting": "read 4/4 units, candidates 21, drawer 21",
+   "elapsed_s": 180.16,
+   "spend_usd": 0.9225,
+   "images": [
+    {
+     "tag": "attest-repro:96b9871908772ebd",
+     "cached": true,
+     "build_elapsed_s": 0.0
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "attest",
+   "head": "993ae171e7959529bfcd839777dae84cd265ddfb",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 1 of 1 units; nothing met an adjudicator's bar; $0.4551, 47.0s."
+   ],
+   "gate": [],
+   "units_read": 1,
+   "units_planned": 1,
+   "candidates": 5,
+   "drawer": 5,
+   "accounting": "read 1/1 units, candidates 5, drawer 5",
+   "elapsed_s": 50.47,
+   "spend_usd": 0.4551,
+   "images": [
+    {
+     "tag": "attest-repro:96b9871908772ebd",
+     "cached": true,
+     "build_elapsed_s": 0.0
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "attest",
+   "head": "48b418c895735beecea1d1f66bf4b7cbc0995b87",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): src/attest/review/executor.py:812-901 `generate_repro` and src/attest/review/executor.py:904-993 `generate_probe` normalise to token sequences of 231 and 240 tokens whose similarity is 0.977 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not.",
+    "[green] Structural (no defect claimed): src/attest/benchmark/api.py:938-949 `_git` and src/attest/benchmark/api.py:952-962 `_git_bytes` normalise to token sequences of 42 and 40 tokens whose similarity is 0.976 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [
+    {
+     "finding_id": "c7ddb4a4b5",
+     "at": "src/attest/benchmark/runner.py:148",
+     "symbol": "replay_probe_generation",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `replay_probe_generation` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "2bebe033a4",
+     "at": "src/attest/review/executor.py:980",
+     "symbol": "generate_probe",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `generate_probe` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "934dc7cd18",
+     "at": "src/attest/review/executor.py:1854",
+     "symbol": "_record_on_base",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_record_on_base` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "6096eb4829",
+     "at": "src/attest/review/executor.py:1856",
+     "symbol": "_record_on_base",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_record_on_base` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "a5368f4a84",
+     "at": "src/attest/review/executor.py:1876",
+     "symbol": "_record_on_base",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_record_on_base` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "88ba58cf9a",
+     "at": "src/attest/review/probe.py:163",
+     "symbol": "parse_probe",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `parse_probe` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "66233207e8",
+     "at": "src/attest/review/probe.py:165",
+     "symbol": "parse_probe",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `parse_probe` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "aba7c6d3ca",
+     "at": "src/attest/review/probe.py:187",
+     "symbol": "probe_test_body",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `probe_test_body` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "d48de0aba9",
+     "at": "src/attest/review/probe.py:238",
+     "symbol": "replay_test_body",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `replay_test_body` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "9415f67cd3",
+     "at": "src/attest/review/probe.py:245",
+     "symbol": "replay_test_body",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `replay_test_body` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "efdf7559d7",
+     "at": "src/attest/review/probe.py:246",
+     "symbol": "replay_test_body",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `replay_test_body` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "c4e61ab90a",
+     "at": "src/attest/review/probe.py:247",
+     "symbol": "replay_test_body",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `replay_test_body` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "d306646ede",
+     "at": "src/attest/review/probe.py:248",
+     "symbol": "replay_test_body",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `replay_test_body` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "fcb07d5970",
+     "at": "src/attest/review/probe.py:263",
+     "symbol": "replay_test_body",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `replay_test_body` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "df9a748148",
+     "at": "src/attest/review/probe.py:276",
+     "symbol": "_render",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "src/attest/benchmark/artifacts.py:224",
+     "reason": "the reproduction enters at src/attest/benchmark/artifacts.py:224 and `_render` runs underneath"
+    },
+    {
+     "finding_id": "222dd634ac",
+     "at": "src/attest/review/probe.py:288",
+     "symbol": "",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "the failing line is not inside a definition, or the head source does not parse; nothing declares a domain"
+    },
+    {
+     "finding_id": "7f33d3ca42",
+     "at": "src/attest/review/probe.py:296",
+     "symbol": "parse_observation",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `parse_observation` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "dcbb19b9a5",
+     "at": "src/attest/review/probe.py:298",
+     "symbol": "parse_observation",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `parse_observation` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "602ca21f51",
+     "at": "tests/test_ci_flow.py:635",
+     "symbol": "test_a_changed_signature_with_an_untested_caller_reaches_the_author_as_yellow",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `test_a_changed_signature_with_an_untested_caller_reaches_the_author_as_yellow` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "78ad594db2",
+     "at": "tests/test_ci_flow.py:651",
+     "symbol": "test_a_changed_signature_with_an_untested_caller_reaches_the_author_as_yellow",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `test_a_changed_signature_with_an_untested_caller_reaches_the_author_as_yellow` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "2a3ec81493",
+     "at": "tests/test_ci_flow.py:660",
+     "symbol": "test_a_changed_signature_with_an_untested_caller_reaches_the_author_as_yellow",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `test_a_changed_signature_with_an_untested_caller_reaches_the_author_as_yellow` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "541a9fdc02",
+     "at": "tests/test_ci_flow.py:700",
+     "symbol": "test_a_body_change_with_an_untested_caller_produces_no_yellow_line",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `test_a_body_change_with_an_untested_caller_produces_no_yellow_line` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "eeab1c75e2",
+     "at": "tests/test_probe_generation.py:94",
+     "symbol": "two_revisions",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `two_revisions` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "dbee64fc81",
+     "at": "tests/test_probe_generation.py:122",
+     "symbol": "sample",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "scripts/corpus/structural_wording_check.py:131",
+     "reason": "the reproduction enters at scripts/corpus/structural_wording_check.py:131 and `sample` runs underneath"
+    },
+    {
+     "finding_id": "bcef9f929d",
+     "at": "tests/test_probe_generation.py:124",
+     "symbol": "sample",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "scripts/corpus/structural_wording_check.py:131",
+     "reason": "the reproduction enters at scripts/corpus/structural_wording_check.py:131 and `sample` runs underneath"
+    },
+    {
+     "finding_id": "2e1ed405ac",
+     "at": "tests/test_probe_generation.py:126",
+     "symbol": "sample",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "scripts/corpus/structural_wording_check.py:131",
+     "reason": "the reproduction enters at scripts/corpus/structural_wording_check.py:131 and `sample` runs underneath"
+    },
+    {
+     "finding_id": "4ef4e7bc32",
+     "at": "tests/test_probe_generation.py:203",
+     "symbol": "test_the_same_value_on_both_revisions_is_silence",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `test_the_same_value_on_both_revisions_is_silence` outside the added lines and no documented domain"
+    }
+   ],
+   "units_read": 10,
+   "units_planned": 14,
+   "candidates": 49,
+   "drawer": 49,
+   "accounting": "read 10/14 units, candidates 49, drawer 49",
+   "elapsed_s": 330.76,
+   "spend_usd": 0.9236,
+   "images": [
+    {
+     "tag": "attest-repro:96b9871908772ebd",
+     "cached": true,
+     "build_elapsed_s": 0.0
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "attest",
+   "head": "c88f67e599893055eec843b9498795ef0222641f",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): src/attest/benchmark/measurement.py:1763-1769 `_exact_number` and src/attest/review/ci.py:890-896 `_delivery_number` normalise to token sequences of 51 and 49 tokens whose similarity is 0.960 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not.",
+    "[green] Structural (no defect claimed): src/attest/review/ci.py:890-896 `_delivery_number` and src/attest/review/ledger.py:88-93 `_require_finite_nonnegative` normalise to token sequences of 49 and 49 tokens whose similarity is 0.959 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [
+    {
+     "finding_id": "a37398d452",
+     "at": "src/attest/github/presentation.py:278",
+     "symbol": "_impact_only",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_impact_only` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "926e4f7cab",
+     "at": "src/attest/review/ci.py:1050",
+     "symbol": "_changed_line_numbers",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_changed_line_numbers` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "079113409b",
+     "at": "src/attest/review/ci.py:1080",
+     "symbol": "_base_source",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_base_source` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "eda4c09577",
+     "at": "src/attest/review/ci.py:1082",
+     "symbol": "_base_source",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_base_source` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "3684536086",
+     "at": "src/attest/review/ci.py:1091",
+     "symbol": "impact_notes",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `impact_notes` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "9e565f4bb4",
+     "at": "src/attest/review/ci.py:1093",
+     "symbol": "impact_notes",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `impact_notes` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "c6eacfa073",
+     "at": "src/attest/review/ci.py:1123",
+     "symbol": "impact_notes",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `impact_notes` nor enters at a call site of it"
+    }
+   ],
+   "units_read": 6,
+   "units_planned": 6,
+   "candidates": 27,
+   "drawer": 27,
+   "accounting": "read 6/6 units, candidates 27, drawer 27",
+   "elapsed_s": 209.91,
+   "spend_usd": 0.9061,
+   "images": [
+    {
+     "tag": "attest-repro:96b9871908772ebd",
+     "cached": true,
+     "build_elapsed_s": 0.0
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "attest",
+   "head": "820b973d0949df7055d8ebe2a3648aad7888b248",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 2 of 2 units; nothing met an adjudicator's bar; $0.1575, 33.1s."
+   ],
+   "gate": [
+    {
+     "finding_id": "4a1f7f569b",
+     "at": "src/attest/review/impact.py:385",
+     "symbol": "_addressable_name",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_addressable_name` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "cba391213c",
+     "at": "src/attest/review/impact.py:388",
+     "symbol": "_addressable_name",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_addressable_name` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "a6df20593a",
+     "at": "src/attest/review/impact.py:391",
+     "symbol": "_addressable_name",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_addressable_name` outside the added lines and no documented domain"
+    }
+   ],
+   "units_read": 2,
+   "units_planned": 2,
+   "candidates": 9,
+   "drawer": 9,
+   "accounting": "read 2/2 units, candidates 9, drawer 9",
+   "elapsed_s": 38.33,
+   "spend_usd": 0.1575,
+   "images": [
+    {
+     "tag": "attest-repro:96b9871908772ebd",
+     "cached": true,
+     "build_elapsed_s": 0.0
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "attest",
+   "head": "84c75985a0d826a9b1fca1753a4e32082a2f493a",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): scripts/corpus/impact_scan.py:56-62 `git` and scripts/corpus/qualify_controls.py:45-54 `git` normalise to token sequences of 50 and 50 tokens whose similarity is 1.000 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not.",
+    "[green] Structural (no defect claimed): scripts/corpus/impact_scan.py:56-62 `git` and scripts/corpus/null_study.py:148-154 `git` normalise to token sequences of 50 and 53 tokens whose similarity is 0.971 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [
+    {
+     "finding_id": "fd38b21144",
+     "at": "scripts/corpus/impact_scan.py:82",
+     "symbol": "tree_sources",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `tree_sources` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "53ad32cfd3",
+     "at": "scripts/corpus/impact_scan.py:88",
+     "symbol": "tree_sources",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `tree_sources` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "8953cd9cf0",
+     "at": "scripts/corpus/impact_scan.py:105",
+     "symbol": "changed_lines",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `changed_lines` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "ef1c5cb154",
+     "at": "scripts/corpus/impact_scan.py:124",
+     "symbol": "units",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "scripts/corpus/gate_shadow.py:122",
+     "reason": "the reproduction enters at scripts/corpus/gate_shadow.py:122 and `units` runs underneath"
+    },
+    {
+     "finding_id": "286feba820",
+     "at": "scripts/corpus/impact_scan.py:175",
+     "symbol": "scan_unit",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `scan_unit` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "ef6597305b",
+     "at": "scripts/corpus/impact_scan.py:178",
+     "symbol": "scan_unit",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `scan_unit` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "ddd8ac9b25",
+     "at": "scripts/corpus/impact_scan.py:179",
+     "symbol": "scan_unit",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `scan_unit` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "a25ac6276e",
+     "at": "scripts/corpus/impact_scan.py:210",
+     "symbol": "cmd_scan",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `cmd_scan` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "8d84e248f8",
+     "at": "scripts/corpus/impact_scan.py:212",
+     "symbol": "cmd_scan",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `cmd_scan` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "46b6cf8ea9",
+     "at": "scripts/corpus/impact_scan.py:220",
+     "symbol": "cmd_scan",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `cmd_scan` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "7f3ec750a3",
+     "at": "src/attest/github/presentation.py:195",
+     "symbol": "impact_line",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `impact_line` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "9756780da9",
+     "at": "src/attest/github/presentation.py:205",
+     "symbol": "impact_line",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `impact_line` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "229113103d",
+     "at": "src/attest/github/presentation.py:207",
+     "symbol": "impact_line",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `impact_line` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "c8682009dd",
+     "at": "src/attest/github/presentation.py:216",
+     "symbol": "impact_comments",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `impact_comments` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "475f0d8387",
+     "at": "src/attest/github/presentation.py:222",
+     "symbol": "impact_comments",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `impact_comments` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "6749ec5421",
+     "at": "src/attest/github/presentation.py:248",
+     "symbol": "_admits_note",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_admits_note` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "1203b29a40",
+     "at": "src/attest/github/presentation.py:277",
+     "symbol": "_receipt_sentence",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_receipt_sentence` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "aad07d5abb",
+     "at": "src/attest/github/presentation.py:278",
+     "symbol": "_receipt_sentence",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_receipt_sentence` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "85344a7ab6",
+     "at": "src/attest/review/ci.py:958",
+     "symbol": "_units_read",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_units_read` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "6de80bd838",
+     "at": "src/attest/review/ci.py:964",
+     "symbol": "_units_read",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_units_read` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "fa70b107da",
+     "at": "src/attest/review/ci.py:967",
+     "symbol": "_units_read",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_units_read` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "38ef53431b",
+     "at": "src/attest/review/ci.py:968",
+     "symbol": "_units_read",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_units_read` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "aad13c60e8",
+     "at": "src/attest/review/impact.py:160",
+     "symbol": "is_test_path",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "src/attest/review/structural.py:263",
+     "reason": "the reproduction enters at src/attest/review/structural.py:263 and `is_test_path` runs underneath"
+    },
+    {
+     "finding_id": "8d4ae851c3",
+     "at": "src/attest/review/impact.py:176",
+     "symbol": "_signature",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_signature` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "667394761b",
+     "at": "src/attest/review/impact.py:274",
+     "symbol": "build_call_graph",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `build_call_graph` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "c9123d80cf",
+     "at": "src/attest/review/impact.py:304",
+     "symbol": "read_tree",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `read_tree` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "0c87d1a83d",
+     "at": "src/attest/review/impact.py:316",
+     "symbol": "changed_functions",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `changed_functions` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "4de9f32a3d",
+     "at": "src/attest/review/impact.py:327",
+     "symbol": "changed_functions",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `changed_functions` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "9cef86ffd9",
+     "at": "src/attest/review/impact.py:342",
+     "symbol": "changed_functions",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `changed_functions` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "5e249d894e",
+     "at": "src/attest/review/impact.py:345",
+     "symbol": "changed_functions",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `changed_functions` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "071b895385",
+     "at": "src/attest/review/impact.py:358",
+     "symbol": "changed_functions",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `changed_functions` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "6bab47c86a",
+     "at": "src/attest/review/impact.py:361",
+     "symbol": "changed_functions",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `changed_functions` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "ddd9496f75",
+     "at": "src/attest/review/impact.py:371",
+     "symbol": "_named_by_test",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_named_by_test` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "6fc3745c2f",
+     "at": "src/attest/review/impact.py:380",
+     "symbol": "_named_by_test",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_named_by_test` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "b9de5b51e1",
+     "at": "src/attest/review/impact.py:384",
+     "symbol": "_named_by_test",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `_named_by_test` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "16c2df6eeb",
+     "at": "src/attest/review/impact.py:396",
+     "symbol": "callers_of",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `callers_of` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "aede98b241",
+     "at": "src/attest/review/impact.py:397",
+     "symbol": "callers_of",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `callers_of` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "91c813eb23",
+     "at": "src/attest/review/output_contract.py:118",
+     "symbol": "",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "the failing line is not inside a definition, or the head source does not parse; nothing declares a domain"
+    },
+    {
+     "finding_id": "28bec84bce",
+     "at": "src/attest/review/output_contract.py:148",
+     "symbol": "",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "the failing line is not inside a definition, or the head source does not parse; nothing declares a domain"
+    },
+    {
+     "finding_id": "7bacab62da",
+     "at": "src/attest/review/output_contract.py:178",
+     "symbol": "has_evidence",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `has_evidence` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "a679795ae3",
+     "at": "src/attest/review/output_contract.py:181",
+     "symbol": "has_evidence",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `has_evidence` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "e0a098afc8",
+     "at": "src/attest/review/output_contract.py:195",
+     "symbol": "check",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "scripts/release/drill.py:182",
+     "reason": "the reproduction enters at scripts/release/drill.py:182 and `check` runs underneath"
+    },
+    {
+     "finding_id": "f471247cdf",
+     "at": "src/attest/review/output_contract.py:196",
+     "symbol": "check",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "scripts/release/drill.py:182",
+     "reason": "the reproduction enters at scripts/release/drill.py:182 and `check` runs underneath"
+    },
+    {
+     "finding_id": "854043a499",
+     "at": "src/attest/review/output_contract.py:205",
+     "symbol": "check",
+     "kind": "through_caller",
+     "admissible": true,
+     "call_site": "scripts/release/drill.py:182",
+     "reason": "the reproduction enters at scripts/release/drill.py:182 and `check` runs underneath"
+    },
+    {
+     "finding_id": "77f13eccd0",
+     "at": "src/attest/review/output_contract.py:256",
+     "symbol": "silence_line",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `silence_line` outside the added lines and no documented domain"
+    }
+   ],
+   "units_read": 9,
+   "units_planned": 10,
+   "candidates": 56,
+   "drawer": 56,
+   "accounting": "read 9/10 units, candidates 56, drawer 56",
+   "elapsed_s": 223.68,
+   "spend_usd": 0.8823,
+   "images": [
+    {
+     "tag": "attest-repro:96b9871908772ebd",
+     "cached": true,
+     "build_elapsed_s": 0.0
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "attest",
+   "head": "6579a8fec7145a17defec9b6b9886be0d2318238",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [
+    "[green] Structural (no defect claimed): scripts/corpus/null_study.py:148-154 `git` and scripts/corpus/qualify_controls.py:45-54 `git` normalise to token sequences of 53 and 50 tokens whose similarity is 0.971 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not.",
+    "[green] Structural (no defect claimed): scripts/corpus/forward_pairs.py:105-111 `git` and scripts/corpus/null_study.py:148-154 `git` normalise to token sequences of 57 and 53 tokens whose similarity is 0.964 (threshold 0.92); identifiers and literal values are erased, attribute and callee names are not."
+   ],
+   "silent": [],
+   "gate": [
+    {
+     "finding_id": "14b8fe2c8f",
+     "at": "scripts/corpus/null_study.py:118",
+     "symbol": "adjudication",
+     "kind": "none",
+     "admissible": true,
+     "call_site": null,
+     "reason": "the reproduction neither calls `adjudication` nor enters at a call site of it"
+    },
+    {
+     "finding_id": "f259c090e9",
+     "at": "tests/test_null_study_stop_rule.py:30",
+     "symbol": "null_study",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "`null_study` takes no parameter: there is no domain to be inside"
+    },
+    {
+     "finding_id": "af4f62d1b6",
+     "at": "tests/test_null_study_stop_rule.py:54",
+     "symbol": "test_a_probe_on_one_interpreter_is_not_an_adjudication",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `test_a_probe_on_one_interpreter_is_not_an_adjudication` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "b833e41c7c",
+     "at": "tests/test_null_study_stop_rule.py:60",
+     "symbol": "test_a_probe_on_one_interpreter_is_not_an_adjudication",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `test_a_probe_on_one_interpreter_is_not_an_adjudication` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "41ad394203",
+     "at": "tests/test_null_study_stop_rule.py:62",
+     "symbol": "test_a_probe_on_one_interpreter_is_not_an_adjudication",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `test_a_probe_on_one_interpreter_is_not_an_adjudication` outside the added lines and no documented domain"
+    },
+    {
+     "finding_id": "ec3ceb44a8",
+     "at": "tests/test_null_study_stop_rule.py:76",
+     "symbol": "_log",
+     "kind": "none",
+     "admissible": false,
+     "call_site": null,
+     "reason": "no call site of `_log` outside the added lines and no documented domain"
+    }
+   ],
+   "units_read": 5,
+   "units_planned": 5,
+   "candidates": 17,
+   "drawer": 17,
+   "accounting": "read 5/5 units, candidates 17, drawer 17",
+   "elapsed_s": 139.12,
+   "spend_usd": 0.7213,
+   "images": [
+    {
+     "tag": "attest-repro:96b9871908772ebd",
+     "cached": true,
+     "build_elapsed_s": 0.0
+    }
+   ],
+   "ran": true
+  },
+  {
+   "repo": "attest",
+   "head": "4c3492065c0872627bd5d6e6e29bcbd200a57e1c",
+   "red": [],
+   "yellow_a": [],
+   "yellow_b": [],
+   "green": [],
+   "silent": [
+    "[silent] read 2 of 2 units; nothing met an adjudicator's bar; $0.0158, 4.4s."
+   ],
+   "gate": [],
+   "units_read": 2,
+   "units_planned": 2,
+   "candidates": 3,
+   "drawer": 3,
+   "accounting": "read 2/2 units, candidates 3, drawer 3",
+   "elapsed_s": 4.71,
+   "spend_usd": 0.0158,
+   "images": [],
+   "ran": true
+  }
+ ]
+}

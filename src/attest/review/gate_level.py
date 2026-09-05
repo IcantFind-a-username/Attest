@@ -62,6 +62,11 @@ MAX_SOURCE_BYTES = 400_000
 TEST_PATH = re.compile(r"(^|/)(tests?/|test_[^/]*\.py$|[^/]*_test\.py$)")
 
 THROUGH_CALLER = "through_caller"
+# D-166: the through-caller rule exists so that *something the change did not
+# add* depends on the new code. A call site inside the change's own new test
+# satisfies the letter of that and not one word of its point, so it is graded
+# apart and never publishes.
+THROUGH_TEST_CALLER = "through_test_caller"
 DIRECT = "direct"
 NONE = "none"
 
@@ -332,7 +337,9 @@ def witness(
     if called_directly:
         kind = DIRECT
     elif site is not None:
-        kind = THROUGH_CALLER
+        # D-166: a caller that is itself a test is the change's own coverage,
+        # not a dependency on the new code.
+        kind = THROUGH_TEST_CALLER if TEST_PATH.search(site.path) else THROUGH_CALLER
     else:
         kind = NONE
     admissible = not unannotated and bool(names) and (site is not None or documented)
@@ -353,6 +360,12 @@ def witness(
         reason = (
             f"the reproduction calls `{symbol}` itself; reachability is argued from the "
             "annotation rather than witnessed in the trace"
+        )
+    elif kind == THROUGH_TEST_CALLER:
+        reason = (
+            f"the reproduction enters at {site.path}:{site.line}"  # type: ignore[union-attr]
+            f", which is a test: `{symbol}` is covered by the change's own test rather "
+            "than depended on by something the change did not add"
         )
     else:
         reason = (
