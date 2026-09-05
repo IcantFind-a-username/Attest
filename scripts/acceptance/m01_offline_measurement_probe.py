@@ -15,6 +15,7 @@ import tempfile
 import threading
 import traceback
 from collections.abc import Callable, Mapping
+from dataclasses import fields
 from pathlib import Path
 from typing import Any, cast
 
@@ -193,7 +194,15 @@ def _run(args: argparse.Namespace) -> int:
         truth = TruthDefect("defect-1", CASE_ID, "calc.py", 2, 2)
         request = ProjectEvaluationRequest(case_id=CASE_ID, repo=repo, base_ref=fixed,
             head_ref=buggy, workspace_root=root / "workspace", repeat=args.repeat, repeats=1,
-            config=ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[]),
+            # D-146: this probe replays a cassette recorded against the legacy
+            # generator, so it must run the legacy generator; a recording cannot
+            # answer a question it never heard. The keyword is passed only when
+            # the *source root under measurement* has it -- this script also runs
+            # against an older baseline worktree, where the field does not exist
+            # and where the legacy generator is the only one there is.
+            config=ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[],
+                **({"probe_generation": False}
+                   if any(f.name == "probe_generation" for f in fields(ReviewConfig)) else {})),
             limits=ExecutorLimits(wall_timeout_s=30.0),
             truth=ProjectTruth(defects=(truth,), fixed_ref=fixed))
         product, oracle = Provider(), Provider(); store = ArtifactStore(root / "artifacts")
