@@ -116,7 +116,13 @@ Important limits:
   2026-09-05) **in a recognisable form** — backticked, dot-qualified, or a long bare name
   English does not supply (`attest.intent.v4.1`, D-134, 2026-09-05). On the whole corpus
   replay this class certifies **0 of 48** receipts under both: the recall cost is the
-  decision, and it is large;
+  decision, and it is large. **That 48 is a reversed corpus and therefore inflates the
+  class** (D-135). The first number taken where time runs forwards is **0 certified of 1
+  value-class candidate over 11 forward pairs** (D-140, 2026-09-05) — `n = 11`, one candidate,
+  a 95% upper bound of 95%, and no recall rate is estimable from it. What eleven forward pairs
+  did show is that value-class candidates are *rare* in natural defect-introducing commits:
+  nine of the eleven produced only crash-shaped or unfaithful ones
+  ([report](docs/acceptance/2026-09-05-forward-pair-reviews.md));
 - **measured so far.** Every row names the per-review budget and the models it ran under,
   because both move every number in it. `S` is the proposal model, `G` the reproduction
   generator. The shipped default budget is **$1.00** as of 2026-09-04 (D-126); it was $0.25
@@ -270,7 +276,14 @@ Coding agents start with [AGENTS.md](AGENTS.md). The complete documentation map 
 - `docs/acceptance/2026-09-05-shadow-adjudication.md` — the two surviving shadow findings
   adjudicated by exhaustive static search, both false;
 - `docs/acceptance/2026-09-05-green-channel.md` — the wording adjudicator against the real
-  default model, twenty calls, and the author-visible green channel it gates.
+  default model, twenty calls, and the author-visible green channel it gates;
+- `docs/acceptance/2026-09-05-forward-pair-reviews.md` — 11 forward pairs reviewed, 3 published
+  and 2 of those the defect the later repair fixed, the value class 0 of 1, and the measurement
+  that forward pairs cost recall in *generation*: 20 of 31 answered candidates produced a
+  reproduction that fails on base as well;
+- `docs/acceptance/2026-09-05-g-null-001a-independent.md` — the independent null population run
+  to a stop on control 54, and the adjudication that its one publication is a **true positive**
+  on a live `more-itertools` defect rather than a false one.
 
 Read each with its stated limitations. In particular, hash consistency is not execution
 authenticity, a reverse-fix corpus is not natural PR traffic, and an all-abstain result does

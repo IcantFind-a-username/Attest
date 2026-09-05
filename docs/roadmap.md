@@ -487,6 +487,17 @@ replayable evidence on the current code.
   `G-RECALL-002`.
 - [ ] **E-03 — heterogeneous stability.** Execute the nontrivial repeated-case design in
   `G-STAB-001`; repeats remain operational only.
+- **THE FIRST FORWARD-PAIR RECALL NUMBER, 2026-09-05d (D-140).** All 11 distinct forward pairs
+  reviewed ([report](acceptance/2026-09-05-forward-pair-reviews.md)): 75 candidates, of which
+  **25 were refused a reproduction by the review budget** and 3 blocked by the container image,
+  leaving **31 the policy answered about**. **3 certified and published**, two of them the very
+  defect the later repairing commit fixed. **The value class is 0 certified of 1 candidate**,
+  drawered by clause (c) — on a *forward* pair, which is the side D-135 exonerated it on, so
+  that single case is an owner adjudication. `n = 11` and no recall rate is estimable.
+  **The wall on forward pairs is generation**: 20 of the 31 answers are
+  `unfaithful generated test: fails on base as well`, because a forward diff — unlike a
+  reversed one — does not hand the proposer the defect in its own text. That is the
+  measurement behind D-135's warning that every reversed-corpus recall figure is inflated.
 - **BLOCKED 2026-09-04 (D-127).** `G-NULL-001a` ran and failed: a properly qualified null
   control published a defect claim about a change its author made deliberately and documented in
   the same diff. Root cause is structural — every rule asks whether the behaviour changed and

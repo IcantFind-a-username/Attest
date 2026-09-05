@@ -1,0 +1,529 @@
+{
+  "attempted_reproductions": 59,
+  "budget_refused": 25,
+  "certified": 3,
+  "direction": "fwd",
+  "generated": "2026-09-05T11:40:01+00:00",
+  "infrastructure_blocked": 3,
+  "n_distinct_pairs": 11,
+  "policy": "attest.intent.v4.1",
+  "policy_answered": 31,
+  "published": 3,
+  "reviewed": 11,
+  "rows": [
+    {
+      "attempted": 1,
+      "base": "75723b7720",
+      "budget_refused": 0,
+      "candidates": 2,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": 1,
+      "fixes": [
+        "Cope with `field_transformer` being a generator (#1417)"
+      ],
+      "head": "e048efcb39",
+      "infrastructure_blocked": 1,
+      "policy_answered": 0,
+      "published": 0,
+      "ran": true,
+      "repo": "attrs",
+      "status_line": true,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "2579b69fc0",
+          "reason": "isolation backend unavailable: environment bootstrap failed (python 3.13, roots ['.']): Dockerfile:5"
+        }
+      ]
+    },
+    {
+      "attempted": 1,
+      "base": "564fade925",
+      "budget_refused": 0,
+      "candidates": 1,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": 1,
+      "fixes": [
+        "Allow single attributes to be excluded"
+      ],
+      "head": "7c85d68de2",
+      "infrastructure_blocked": 0,
+      "policy_answered": 1,
+      "published": 0,
+      "ran": true,
+      "repo": "attrs",
+      "status_line": true,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "3bae040b2a",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        }
+      ]
+    },
+    {
+      "attempted": 9,
+      "base": "cfa01eeb78",
+      "budget_refused": 0,
+      "candidates": 10,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": 9,
+      "fixes": [
+        "Make `prompt`/`ParamType` typing work without runtime `typing_extensio"
+      ],
+      "head": "0585f456ba",
+      "infrastructure_blocked": 0,
+      "policy_answered": 9,
+      "published": 0,
+      "ran": true,
+      "repo": "click",
+      "status_line": true,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "0f367118c2",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "1389e7d11d",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "1a316517b9",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        },
+        {
+          "finding": "30a5ce2d3c",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "34128dc2a2",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "5f38006c2c",
+          "reason": "new-code candidate: reproduction fails on head and the symbol is absent on base; not priced"
+        },
+        {
+          "finding": "99e1314cc4",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "cac89100da",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "f6d19e9783",
+          "reason": "new-code candidate: reproduction fails on head and the symbol is absent on base; not priced"
+        }
+      ]
+    },
+    {
+      "attempted": 30,
+      "base": "d5fbd32842",
+      "budget_refused": 25,
+      "candidates": 42,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": null,
+      "fixes": [
+        "Fix get_parameter_source() during type conversion and eager callbacks",
+        "Fix broken fish completion and multiline help string",
+        "pager doesn't close std streams"
+      ],
+      "head": "cd4674a6de",
+      "infrastructure_blocked": 1,
+      "policy_answered": 4,
+      "published": 0,
+      "ran": true,
+      "repo": "click",
+      "status_line": false,
+      "value_class_certified": [],
+      "value_class_drawered": [
+        {
+          "finding": "628b125c83",
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+        }
+      ],
+      "verdicts": [
+        {
+          "finding": "6377855624",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        },
+        {
+          "finding": "492d6c7ed7",
+          "reason": "collection deferred: pytest collection/import/syntax or infrastructure failure during collection (exit code 2) (after 2 generations)"
+        },
+        {
+          "finding": "628b125c83",
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+        },
+        {
+          "finding": "6522feec26",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "d9609539dd",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "07b9c34e04",
+          "reason": "generation failed: BudgetExceeded: call 'verify-07b9c34e04-attempt-2' estimated $0.0996; projected total $1.0105 exceeds budget $1.00"
+        },
+        {
+          "finding": "07c0c1977f",
+          "reason": "generation failed: BudgetExceeded: call 'verify-07c0c1977f-attempt-2' estimated $0.1136; projected total $1.0385 exceeds budget $1.00"
+        },
+        {
+          "finding": "12504d0b78",
+          "reason": "generation failed: BudgetExceeded: call 'verify-12504d0b78-attempt-2' estimated $0.1079; projected total $1.0270 exceeds budget $1.00"
+        },
+        {
+          "finding": "259d83e343",
+          "reason": "generation failed: BudgetExceeded: call 'verify-259d83e343-attempt-2' estimated $0.0991; projected total $1.0094 exceeds budget $1.00"
+        },
+        {
+          "finding": "2a4b15f60a",
+          "reason": "generation failed: BudgetExceeded: call 'verify-2a4b15f60a-attempt-2' estimated $0.1033; projected total $1.0178 exceeds budget $1.00"
+        },
+        {
+          "finding": "428e4575f4",
+          "reason": "generation failed: BudgetExceeded: call 'verify-428e4575f4-attempt-2' estimated $0.1135; projected total $1.0382 exceeds budget $1.00"
+        },
+        {
+          "finding": "472c71111f",
+          "reason": "generation failed: BudgetExceeded: call 'verify-472c71111f-attempt-2' estimated $0.1262; projected total $1.0636 exceeds budget $1.00"
+        },
+        {
+          "finding": "6887874a0b",
+          "reason": "generation failed: BudgetExceeded: call 'verify-6887874a0b-attempt-2' estimated $0.1008; projected total $1.0128 exceeds budget $1.00"
+        },
+        {
+          "finding": "7b966bd39a",
+          "reason": "generation failed: BudgetExceeded: call 'verify-7b966bd39a-attempt-2' estimated $0.1278; projected total $1.0668 exceeds budget $1.00"
+        },
+        {
+          "finding": "7ffe8ca361",
+          "reason": "generation failed: BudgetExceeded: call 'verify-7ffe8ca361-attempt-2' estimated $0.1000; projected total $1.0113 exceeds budget $1.00"
+        },
+        {
+          "finding": "82721f36b7",
+          "reason": "generation failed: BudgetExceeded: call 'verify-82721f36b7-attempt-2' estimated $0.1185; projected total $1.0483 exceeds budget $1.00"
+        },
+        {
+          "finding": "8f9e2d4ac5",
+          "reason": "generation failed: BudgetExceeded: call 'verify-8f9e2d4ac5-attempt-2' estimated $0.1194; projected total $1.0501 exceeds budget $1.00"
+        },
+        {
+          "finding": "91b1c4b4a6",
+          "reason": "generation failed: BudgetExceeded: call 'verify-91b1c4b4a6-attempt-2' estimated $0.1277; projected total $1.0666 exceeds budget $1.00"
+        },
+        {
+          "finding": "9a3780079c",
+          "reason": "generation failed: BudgetExceeded: call 'verify-9a3780079c-attempt-2' estimated $0.1138; projected total $1.0389 exceeds budget $1.00"
+        },
+        {
+          "finding": "9e7eb8eae4",
+          "reason": "generation failed: BudgetExceeded: call 'verify-9e7eb8eae4-attempt-2' estimated $0.1046; projected total $1.0205 exceeds budget $1.00"
+        },
+        {
+          "finding": "a948f702ac",
+          "reason": "generation failed: BudgetExceeded: call 'verify-a948f702ac-attempt-2' estimated $0.1011; projected total $1.0136 exceeds budget $1.00"
+        },
+        {
+          "finding": "b015d2ad24",
+          "reason": "generation failed: BudgetExceeded: call 'verify-b015d2ad24-attempt-2' estimated $0.1033; projected total $1.0180 exceeds budget $1.00"
+        },
+        {
+          "finding": "b17e4182fd",
+          "reason": "generation failed: BudgetExceeded: call 'verify-b17e4182fd-attempt-2' estimated $0.1185; projected total $1.0484 exceeds budget $1.00"
+        },
+        {
+          "finding": "bcc16d8890",
+          "reason": "generation failed: BudgetExceeded: call 'verify-bcc16d8890-attempt-2' estimated $0.1077; projected total $1.0266 exceeds budget $1.00"
+        },
+        {
+          "finding": "d65240680e",
+          "reason": "generation failed: BudgetExceeded: call 'verify-d65240680e-attempt-2' estimated $0.1130; projected total $1.0373 exceeds budget $1.00"
+        },
+        {
+          "finding": "d753acf028",
+          "reason": "generation failed: BudgetExceeded: call 'verify-d753acf028-attempt-2' estimated $0.1072; projected total $1.0256 exceeds budget $1.00"
+        },
+        {
+          "finding": "e8d811c3cb",
+          "reason": "generation failed: BudgetExceeded: call 'verify-e8d811c3cb-attempt-2' estimated $0.1022; projected total $1.0158 exceeds budget $1.00"
+        },
+        {
+          "finding": "f208b8154c",
+          "reason": "generation failed: BudgetExceeded: call 'verify-f208b8154c-attempt-2' estimated $0.1085; projected total $1.0283 exceeds budget $1.00"
+        },
+        {
+          "finding": "f52f2039b9",
+          "reason": "generation failed: BudgetExceeded: call 'verify-f52f2039b9-attempt-2' estimated $0.1274; projected total $1.0661 exceeds budget $1.00"
+        },
+        {
+          "finding": "ff6ec792e7",
+          "reason": "generation failed: BudgetExceeded: call 'verify-ff6ec792e7-attempt-2' estimated $0.1181; projected total $1.0476 exceeds budget $1.00"
+        }
+      ]
+    },
+    {
+      "attempted": 7,
+      "base": "c69643b60c",
+      "budget_refused": 0,
+      "candidates": 7,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": 7,
+      "fixes": [
+        "Fix broken fish completion and multiline help string"
+      ],
+      "head": "19fd4d6e18",
+      "infrastructure_blocked": 0,
+      "policy_answered": 7,
+      "published": 0,
+      "ran": true,
+      "repo": "click",
+      "status_line": true,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "457771a1e8",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "8397d3f1d5",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "155ef5b6b8",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "50c92eacb6",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "aaab2e272a",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "d9da8ab508",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "eae3dab7a5",
+          "reason": "unfaithful generated test: fails on base as well"
+        }
+      ]
+    },
+    {
+      "attempted": 5,
+      "base": "64048c1106",
+      "budget_refused": 0,
+      "candidates": 7,
+      "certified": 1,
+      "certified_bundles": [
+        {
+          "bundle": ".attest/evidence/20260905-193535-ef9d97e7/ac074352b1",
+          "evidence_class": "regression_reproduced",
+          "value_mismatch": false
+        }
+      ],
+      "direction": "fwd",
+      "eligible": 5,
+      "fixes": [
+        "datetimes are timezone-aware utc"
+      ],
+      "head": "3703fbdedd",
+      "infrastructure_blocked": 0,
+      "policy_answered": 5,
+      "published": 1,
+      "ran": true,
+      "repo": "itsdangerous",
+      "status_line": true,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "5486de076b",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "72859502fb",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "bf96d32ed3",
+          "reason": "unfaithful generated test: fails on base as well"
+        },
+        {
+          "finding": "e369c66f11",
+          "reason": "unfaithful generated test: fails on base as well"
+        }
+      ]
+    },
+    {
+      "attempted": 1,
+      "base": "d0c20f5946",
+      "budget_refused": 0,
+      "candidates": 1,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": 1,
+      "fixes": [
+        "Revert \"first_true: pred -> predicate\""
+      ],
+      "head": "d63a26e56e",
+      "infrastructure_blocked": 0,
+      "policy_answered": 1,
+      "published": 0,
+      "ran": true,
+      "repo": "more-itertools",
+      "status_line": true,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "b115ea9d69",
+          "reason": "binding: the reproduction exercises none of the changed lines of more_itertools/recipes.py"
+        }
+      ]
+    },
+    {
+      "attempted": 1,
+      "base": "6235e945d9",
+      "budget_refused": 0,
+      "candidates": 1,
+      "certified": 1,
+      "certified_bundles": [
+        {
+          "bundle": ".attest/evidence/20260905-193730-fa015ad8/39a2ce1267",
+          "evidence_class": "regression_reproduced",
+          "value_mismatch": false
+        }
+      ],
+      "direction": "fwd",
+      "eligible": 1,
+      "fixes": [
+        "Fix random_product() as well"
+      ],
+      "head": "2deea20ead",
+      "infrastructure_blocked": 0,
+      "policy_answered": 1,
+      "published": 1,
+      "ran": true,
+      "repo": "more-itertools",
+      "status_line": true,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": []
+    },
+    {
+      "attempted": 1,
+      "base": "3331507287",
+      "budget_refused": 0,
+      "candidates": 1,
+      "certified": 1,
+      "certified_bundles": [
+        {
+          "bundle": ".attest/evidence/20260905-193750-17d8eecf/0c8e71fe96",
+          "evidence_class": "regression_reproduced",
+          "value_mismatch": false
+        }
+      ],
+      "direction": "fwd",
+      "eligible": 1,
+      "fixes": [
+        "Fix product_index() with iterator input"
+      ],
+      "head": "71b76842d3",
+      "infrastructure_blocked": 0,
+      "policy_answered": 1,
+      "published": 1,
+      "ran": true,
+      "repo": "more-itertools",
+      "status_line": true,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": []
+    },
+    {
+      "attempted": 2,
+      "base": "935db916c7",
+      "budget_refused": 0,
+      "candidates": 2,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": 2,
+      "fixes": [
+        "Reduce groupby.__next__ calls in all_equal"
+      ],
+      "head": "390a3db74c",
+      "infrastructure_blocked": 0,
+      "policy_answered": 2,
+      "published": 0,
+      "ran": true,
+      "repo": "more-itertools",
+      "status_line": true,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "e04874a4ad",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        },
+        {
+          "finding": "119e489be4",
+          "reason": "unfaithful generated test: fails on base as well"
+        }
+      ]
+    },
+    {
+      "attempted": 1,
+      "base": "e934f4896e",
+      "budget_refused": 0,
+      "candidates": 1,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": 1,
+      "fixes": [
+        "Revert \"Specifier.version now returns Version, not string\""
+      ],
+      "head": "527be81862",
+      "infrastructure_blocked": 1,
+      "policy_answered": 0,
+      "published": 0,
+      "ran": true,
+      "repo": "packaging",
+      "status_line": true,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "02f98e819f",
+          "reason": "isolation backend unavailable: environment bootstrap failed (python 3.9, roots ['.', 'tasks']): Dockerfile:5"
+        }
+      ]
+    }
+  ],
+  "schema_version": "attest.forward-pair-reviews.v1",
+  "value_class_certified": 0,
+  "value_class_drawered": 1
+}
