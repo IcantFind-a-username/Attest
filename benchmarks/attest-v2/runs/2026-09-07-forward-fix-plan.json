@@ -1,0 +1,72 @@
+{
+ "schema_version": "attest.four-levels-plan.v1",
+ "generated": "2026-09-05T21:46:49.992365+00:00",
+ "rule": "the fix commit of every resolved forward pair (D-135), paired with its first parent -- the new-code direction, for the gate level's shadow",
+ "units": [
+  {
+   "repo": "gnull/attrs",
+   "head": "3b0378dd66d33ebddb52be85b8c4aac6a914b1a2",
+   "base": "19943b775d40c018e844f2cb1728442f58112a3b"
+  },
+  {
+   "repo": "gnull/attrs",
+   "head": "e7ebf4bf8185681fb8f178597ffd73d183dfdc1a",
+   "base": "943d686509ce29087e6dce2b6cc7946c765acd57"
+  },
+  {
+   "repo": "gnull/click",
+   "head": "3b16957cba718a6d77ef680114de8e0830c436ba",
+   "base": "0585f456baa6eeb2edbaab7c85fa796a004aef86"
+  },
+  {
+   "repo": "gnull/click",
+   "head": "7d05a59b9d46a415d85937630d1d812cf477f60a",
+   "base": "4b24a6c8f6658ef89fd6db4dcaf8ee88eef75dfa"
+  },
+  {
+   "repo": "gnull/click",
+   "head": "b7e5fd4cc7de70280eccd39f2bb956df617e5519",
+   "base": "5b1aba82745cbde04c75e0bab995e5ddf0804196"
+  },
+  {
+   "repo": "gnull/click",
+   "head": "becbde5cf416441627f779e8dd34e57738ee1c1f",
+   "base": "a5f5aa6d4012d256ccca24638f2642fc371e9f77"
+  },
+  {
+   "repo": "gnull/click",
+   "head": "c3535905c77a29afc84861b29d3ad366ce5451bd",
+   "base": "bc36cd1a2b3bc18f401a98476154dbc5a2d212c9"
+  },
+  {
+   "repo": "gnull/itsdangerous",
+   "head": "910a7a94ee88b15d0677f65ed87d7ccbbd998048",
+   "base": "3703fbdedd13b2630dd9be75a3638408c193765d"
+  },
+  {
+   "repo": "gnull/more-itertools",
+   "head": "93c1cf8484f00a63f940be94b9e78c8347992a8b",
+   "base": "e90bda0657c9cc7cddbec3ee4268c6bfcfb118e3"
+  },
+  {
+   "repo": "gnull/more-itertools",
+   "head": "b0aa91efbb452eeb8ffa0447047519c6e84d5292",
+   "base": "073d23421b60e05a99872e7b174902f4aa151f31"
+  },
+  {
+   "repo": "gnull/more-itertools",
+   "head": "cf186b5de4797602fef76c3391da2d110b88a954",
+   "base": "aa8c480086052d4c2a64490d3214e67b7c6e674b"
+  },
+  {
+   "repo": "gnull/more-itertools",
+   "head": "ebe42b056eccc424ee1682c25eeabda74cbc46c0",
+   "base": "4f4217c164eb99df5c09a3882b8c7222d7c74d6c"
+  },
+  {
+   "repo": "gnull/packaging",
+   "head": "da65bc27b439b2106da04e3c706355bd2f453088",
+   "base": "527be818629b8a4c8c4c5cb995961754d52ff0ce"
+  }
+ ]
+}
