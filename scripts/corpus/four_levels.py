@@ -209,9 +209,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
-def _latest_task(repo: Path) -> str:
+def _latest_task(repo: Path, ledger_name: str) -> str:
     """The task id of the review just run, read from the ledger's last row."""
-    ledger = repo / ".attest" / "ledger.jsonl"
+    ledger = repo / ".attest" / ledger_name
     if not ledger.is_file():
         return ""
     task = ""

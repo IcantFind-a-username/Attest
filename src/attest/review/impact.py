@@ -489,7 +489,7 @@ def _addressable_name(qualname: str) -> str:
     addressable name is the **class**; for everything else it is the function's
     own name."""
     parts = qualname.split(".")
-    if parts[-1].startswith("__") and parts[-1].endswith("__") and len(parts) > 1:
+    if parts[-1].startswith("__") and parts[-1].endswith("__"):
         return parts[-2]
     return parts[-1]
 
