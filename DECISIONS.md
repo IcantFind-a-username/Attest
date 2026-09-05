@@ -1687,3 +1687,16 @@ is active only when the owning architecture/acceptance document changes with it.
 - **RED:** `tests/test_machine_output.py` — six, including the projection-agreement test and the empty repository that returns `null` rather than dividing by zero.
 - **Trace:** D-142, D-152, D-156, D-161.
 
+### D-164 — Yellow (b)'s second class: an exception that now reaches a caller that never handled it
+
+- **Date/status/scope:** 2026-09-07 · active, owner-directed (phase 5) · `src/attest/review/propagation.py` (new), `github/presentation.py`, `review/ci.py`, `cli/main.py`, `scripts/corpus/propagation_scan.py`, `tests/test_propagation.py`, [report](docs/acceptance/2026-09-07-propagation-scan.md).
+- **The rule.** Three premises, **all three or nothing**: (i) the changed function calls something at head that the **base revision of the same function** did not call; (ii) that callee names an exception — `raise X` in its own body, or a docstring declaring `Raises: X` / `:raises X:`; (iii) from the changed function out to some **non-test** caller, nothing catches it. A bare `raise` names nothing. A bare `except:`, an `except Exception`, or a handler expression this checker cannot read all catch everything and void the note.
+- **Free, and the model decides nothing.** Every premise is `ast` over the two trees. The published sentence is built from the premises that held; a model may be asked to phrase it, and if it hedges or names no coordinate the deterministic sentence is published instead. Unlike the null/Optional class this level costs **$0.00 per review**, not one call.
+- **The measurement: 0 of 79, and this time the refusals are informative.** 0 of 11 forward pairs and 0 of 68 controls, **control noise 0%** against the owner's 3% ceiling. Of **198 changed functions**: 135 (68%) added no call at all; 43 (22%) called a name defined more than once in the tree, which is an abstention rather than a guess; 15 (8%) called something that names no exception; 5 (3%) caught everything themselves. **Nothing reached premise (iii) and found a guard.**
+- **How that differs from D-151's number.** The first class died on a property of the *corpus* — no type annotations anywhere — so its 0 says nothing about its rule. This one dies on a property of *changes*: the conjunction is **rare**, not unverifiable. That is a better negative and it is still a negative: **it is not claimed to work.**
+- **The one lever, named and not pulled.** Resolving callee names by import rather than by bare name would convert most of the 43 ambiguity abstentions into decidable cases. 43 of 198 is a reason to consider it, not evidence that the answers would be right.
+- **Cost:** $0.00 for the level and $0.00 for the 79-unit scan.
+- **Reversal:** delete the `propagation_notes` call in `run_ci` and `cmd_review`; the level has no other entry point.
+- **RED:** `tests/test_propagation.py` — twelve, including the owner's three: all three premises produce one note; a call the base already made produces none; a handler around the call, in the changed function, or in the caller each voids it on its own.
+- **Trace:** D-142, D-145, D-150, D-151; yellow's cap of two is **shared** across every class.
+
