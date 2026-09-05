@@ -1700,3 +1700,17 @@ is active only when the owning architecture/acceptance document changes with it.
 - **RED:** `tests/test_propagation.py` — twelve, including the owner's three: all three premises produce one note; a call the base already made produces none; a handler around the call, in the changed function, or in the caller each voids it on its own.
 - **Trace:** D-142, D-145, D-150, D-151; yellow's cap of two is **shared** across every class.
 
+### D-165 — Yellow (b)'s nullability premises stop depending on type annotations
+
+- **Date/status/scope:** 2026-09-07 · active, owner-directed (instruction 1.2) · `src/attest/review/nullability.py` (policy `attest.nullability.premised-hypothesis.**v2**`), `tests/test_nullability.py`.
+- **What changed and why.** D-151 measured the class at **0 of 79**, and **11 of its 13 hypotheses died on premise (i)** for one structural reason: the corpus carries no type annotations at all, so *"the parameter admits None"* was unverifiable however true it was. The premises now read **three annotation-independent sources**, each of them a fact an author wrote in code:
+  1. the parameter's **default is `None`** (already read; kept);
+  2. the function **itself tests it against `None`** — `x is None`, `is not None`, `== None`, or `not x`. Someone who writes that guard has said the value can be None. A test *anywhere* in the function establishes premise (i); whether one stands *above the dereference* is premise (ii)'s separate question, and the two are not the same;
+  3. for premise (iii), the source function's body contains a **`return None`** (explicit or bare), not only a return annotation admitting None.
+- **What is not weakened.** All three premises are still required, all three are still decided by `ast` over the head tree, and every existing direction of doubt still voids: an unrecognised guard, an untraceable argument, an ambiguous name, a nested `def`'s return (which belongs to the nested function, not its parent).
+- **The annotation reading is kept.** Removing it would be a pure loss; this widens the disjunction, it does not replace it.
+- **Cost:** $0.00 for the rule. The re-measurement over the same 79 units is priced separately.
+- **Reversal:** three helpers (`_tested_against_none`, `_returns_none`) and their call sites; the policy version returns to `v1`.
+- **RED:** `tests/test_nullability.py` — four added: a default of None with no annotation, the function's own `is None` test, a parameter nothing says anything about (still void), and the four readings of `_returns_none` including a nested `def` that must not count.
+- **Trace:** D-151; mainline §1.1.
+

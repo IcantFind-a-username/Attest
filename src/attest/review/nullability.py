@@ -62,7 +62,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-NULLABILITY_POLICY_VERSION = "attest.nullability.premised-hypothesis.v1"
+NULLABILITY_POLICY_VERSION = "attest.nullability.premised-hypothesis.v2"
 CATEGORY = "nullability"
 
 # The model is asked for candidates, not for conclusions, and the prompt says so.
@@ -199,6 +199,37 @@ def _annotation_admits_none(annotation: ast.expr | None) -> str | None:
 # premise (i): the parameter admits None
 
 
+def _tested_against_none(
+    function: ast.FunctionDef | ast.AsyncFunctionDef, parameter: str
+) -> bool:
+    """Does this function itself compare ``parameter`` against ``None``? (D-165)
+
+    An author who writes ``if x is None`` has said, in code, that `x` can be
+    None -- and said it without a type annotation, which is what the first
+    measurement of this level ran out of. A test anywhere in the function
+    counts: what premise (ii) then asks is whether one stands *above the
+    dereference*, and those are different questions. `x is None`,
+    `x is not None`, `x == None` and `not x` are read; anything else is not.
+    """
+    for node in ast.walk(function):
+        if isinstance(node, ast.Compare):
+            if not _names(node.left, parameter):
+                continue
+            for operator, comparator in zip(node.ops, node.comparators, strict=False):
+                if isinstance(operator, ast.Is | ast.IsNot | ast.Eq | ast.NotEq) and (
+                    isinstance(comparator, ast.Constant) and comparator.value is None
+                ):
+                    return True
+        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            if _names(node.operand, parameter):
+                return True
+    return False
+
+
+def _names(expression: ast.expr, parameter: str) -> bool:
+    return isinstance(expression, ast.Name) and expression.id == parameter
+
+
 def check_optional(
     function: ast.FunctionDef | ast.AsyncFunctionDef, parameter: str
 ) -> tuple[PremiseVerdict, str]:
@@ -221,11 +252,19 @@ def check_optional(
                     PremiseVerdict(PREMISE_OPTIONAL, True, "defaults to `None`"),
                     "default None",
                 )
+        if _tested_against_none(function, parameter):
+            return (
+                PremiseVerdict(
+                    PREMISE_OPTIONAL, True, "the function itself tests it against `None`"
+                ),
+                "tested against None",
+            )
         return (
             PremiseVerdict(
                 PREMISE_OPTIONAL,
                 False,
-                "the annotation does not admit None and the default is not None",
+                "no annotation admits None, the default is not None, and the function "
+                "never tests it against None",
             ),
             "",
         )
@@ -243,11 +282,19 @@ def check_optional(
                 PremiseVerdict(PREMISE_OPTIONAL, True, "defaults to `None`"),
                 "default None",
             )
+        if _tested_against_none(function, parameter):
+            return (
+                PremiseVerdict(
+                    PREMISE_OPTIONAL, True, "the function itself tests it against `None`"
+                ),
+                "tested against None",
+            )
         return (
             PremiseVerdict(
                 PREMISE_OPTIONAL,
                 False,
-                "the annotation does not admit None and the default is not None",
+                "no annotation admits None, the default is not None, and the function "
+                "never tests it against None",
             ),
             "",
         )
@@ -605,9 +652,24 @@ def check_caller(
         )
     returns = _annotation_admits_none(definitions[0].returns)
     if returns is None:
+        # D-165: an unannotated function that writes `return None` -- or falls
+        # off the end of a branch -- has said what it returns in code. The
+        # annotation was the only reading before, and 11 of 13 hypotheses died
+        # here on a corpus that carries no annotations at all.
+        if _returns_none(definitions[0]):
+            return (
+                PremiseVerdict(
+                    PREMISE_CALLER,
+                    True,
+                    f"`{source}` has a `return None` in its body and the call passes it here",
+                ),
+                "returns None",
+            )
         return (
             PremiseVerdict(
-                PREMISE_CALLER, False, f"`{source}` has no return annotation admitting None"
+                PREMISE_CALLER,
+                False,
+                f"`{source}` has no return annotation admitting None and no `return None`",
             ),
             "",
         )
@@ -617,6 +679,28 @@ def check_caller(
         ),
         returns,
     )
+
+
+def _returns_none(function: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Does this function's own body write `return None`, or a bare `return`?
+
+    A nested `def` is its own function, so the walk stops at one. A bare
+    `return` returns None as surely as an explicit one; a function with no
+    `return` at all also returns None, but that is a function nobody calls for
+    a value and reading it that way would make the premise vacuous.
+    """
+    stack: list[ast.AST] = list(ast.iter_child_nodes(function))
+    while stack:
+        current = stack.pop()
+        if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            continue
+        if isinstance(current, ast.Return):
+            if current.value is None:
+                return True
+            if isinstance(current.value, ast.Constant) and current.value.value is None:
+                return True
+        stack.extend(ast.iter_child_nodes(current))
+    return False
 
 
 # --------------------------------------------------------------------------

@@ -11,6 +11,8 @@ Every one of them fails on any implementation that trusts what the model said.
 
 from __future__ import annotations
 
+import ast
+
 from attest.github.presentation import nullability_line
 from attest.review.nullability import (
     PREMISE_CALLER,
@@ -138,3 +140,67 @@ def test_a_hypothesis_naming_the_wrong_argument_source_is_void() -> None:
 
     assert _verdicts(TREE, hypothesis)[PREMISE_CALLER] is False
     assert note_for(TREE, hypothesis) is None
+
+
+# --- D-165: the three annotation-independent sources ------------------------
+
+
+def test_a_default_of_none_is_a_source_without_any_annotation() -> None:
+    from attest.review.nullability import check_optional
+
+    tree = ast.parse("def f(x=None):\n    return x.name\n")
+    function = tree.body[0]
+
+    verdict, reading = check_optional(function, "x")
+
+    assert verdict.holds is True
+    assert reading == "default None"
+
+
+def test_the_function_testing_it_against_none_is_a_source() -> None:
+    """An author who writes `if x is None` has said, in code, that x can be
+    None -- and said it without a type annotation, which is what the first
+    measurement of this level ran out of."""
+    from attest.review.nullability import check_optional
+
+    tree = ast.parse(
+        "def f(x):\n"
+        "    result = x.name\n"
+        "    if x is None:\n"
+        "        return ''\n"
+        "    return result\n"
+    )
+
+    verdict, reading = check_optional(tree.body[0], "x")
+
+    assert verdict.holds is True
+    assert reading == "tested against None"
+    assert "tests it against `None`" in verdict.detail
+
+
+def test_a_parameter_nothing_says_anything_about_is_still_void() -> None:
+    from attest.review.nullability import check_optional
+
+    tree = ast.parse("def f(x):\n    return x.name\n")
+
+    verdict, reading = check_optional(tree.body[0], "x")
+
+    assert verdict.holds is False
+    assert reading == ""
+    assert "never tests it against None" in verdict.detail
+
+
+def test_a_return_none_in_the_body_is_a_source_for_the_caller_premise() -> None:
+    """11 of 13 hypotheses died on the annotation reading, on a corpus that
+    carries no annotations at all. A `return None` is the same fact in code."""
+    from attest.review.nullability import _returns_none
+
+    explicit = ast.parse("def g():\n    if True:\n        return None\n    return 1\n").body[0]
+    bare = ast.parse("def g():\n    if True:\n        return\n    return 1\n").body[0]
+    never = ast.parse("def g():\n    return 1\n").body[0]
+    nested = ast.parse("def g():\n    def inner():\n        return None\n    return 1\n").body[0]
+
+    assert _returns_none(explicit) is True
+    assert _returns_none(bare) is True
+    assert _returns_none(never) is False
+    assert _returns_none(nested) is False, "a nested def is its own function"
