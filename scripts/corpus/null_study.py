@@ -40,6 +40,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
@@ -333,6 +334,22 @@ STATUS = re.compile(
     r"certified: (?P<certified>\d+); published: (?P<published>\d+)"
 )
 DEFER = re.compile(r"verification: [0-9a-f]+: (?P<reason>.+)")
+# Verification outcomes that are the **host or the harness** failing rather than
+# the certification policy answering. A control whose only verification line is
+# one of these could not have published whatever the rule said, so it carries no
+# information about wrong publication. Everything else -- an intent drawer, a
+# reproduction refuted on base, a candidate that did not reproduce -- is the
+# policy answering, and answering is what a null study measures.
+INFRASTRUCTURE_DEFERS = (
+    "isolation backend unavailable",
+    "collection deferred",
+    "executor failure",
+    "process containment unavailable",
+    "shared verification deadline",
+    "budget",
+    "could not create",
+    "unsupported anchor language",
+)
 
 
 def cmd_table(args: argparse.Namespace) -> int:
@@ -376,8 +393,25 @@ def cmd_table(args: argparse.Namespace) -> int:
     informative = [
         row for row in ran if int(row["attempted"] or 0) > 0 and not row["verification_defers"]
     ]
+    # A second, wider reading of the same question, reported beside the first and
+    # never instead of it. `informative` above counts only controls that recorded
+    # no verification line at all; but a control the **policy** declined to
+    # publish -- an intent drawer, an unfaithful reproduction refuted on base --
+    # did reach the point where publishing was possible and the rule is what
+    # stopped it, which is the strongest evidence a null study can have. Only an
+    # *infrastructure* non-answer carries no information. The prefix list is
+    # written here, in the driver, rather than chosen after reading a result.
+    answered = [
+        row
+        for row in ran
+        if int(row["attempted"] or 0) > 0
+        and all(
+            not reason.startswith(INFRASTRUCTURE_DEFERS)
+            for reason in cast(list, row["verification_defers"])
+        )
+    ]
     payload = {
-        "schema_version": "attest.g-null-001a-result.v2",
+        "schema_version": "attest.g-null-001a-result.v3",
         "gate": "G-NULL-001a",
         "population": "independent" if args.independent else "first",
         "manifest": _manifest_path(args.independent).name,
@@ -386,6 +420,7 @@ def cmd_table(args: argparse.Namespace) -> int:
         "publications": published,
         "reproductions_attempted": attempted,
         "informative_controls": len(informative),
+        "answered_controls": len(answered),
         "eligible_total": sum(int(row["eligible"] or 0) for row in ran),
         "spend_usd": round(sum(float(row["spend"] or 0.0) for row in ran), 6),
         "rows": rows,
@@ -395,7 +430,8 @@ def cmd_table(args: argparse.Namespace) -> int:
     print(
         f"{len(ran)} of {len(by_sha)} controls reviewed, {payload['eligible_total']} eligible "
         f"candidates, {attempted} reproductions attempted, {len(informative)} informative "
-        f"controls, {published} publications, ${payload['spend_usd']:.6f}"
+        f"controls ({len(answered)} policy-answered), {published} publications, "
+        f"${payload['spend_usd']:.6f}"
     )
     return 0
 

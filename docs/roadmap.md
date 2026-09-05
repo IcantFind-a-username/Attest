@@ -502,14 +502,21 @@ replayable evidence on the current code.
   the two commits the last two rule revisions were written against. A disjoint, seed-shifted
   sample from the same eight repositories under the same cutoff costs ~$1.10 and is the owner
   item that would settle it.
-- **THE INDEPENDENT SAMPLE EXISTS AND HAS NOT YET BEEN MEASURED, 2026-09-05c (D-136).** The
-  disjoint population is built and committed: same eight clones, same cutoff, shifted seed,
-  every commit of the first draw removed from the pool, **n = 68, overlap 0**
-  ([report](acceptance/2026-09-05-g-null-001a-independent.md)). The paid run reviewed 45 of the
-  68 and produced **0 informative controls** — the host's container backend stopped working
-  mid-window and all 13 reproduction attempts DEFERred, so no control could publish and no bound
-  follows. **The bound is owed, not refuted**; resuming costs about $0.60 on a host whose Docker
-  bind mounts work.
+- **THE INDEPENDENT SAMPLE RAN, PUBLISHED, AND STOPPED — AND THE PUBLICATION IS REAL,
+  2026-09-05d (D-136, D-139).** The disjoint population is built and committed: same eight
+  clones, same cutoff, shifted seed, every commit of the first draw removed from the pool,
+  **n = 68, overlap 0**. The 2026-09-05c attempt executed nothing (host container fault); the
+  2026-09-05d run executed and **stopped at control 54 of 68 under `RISK-CERT-01` because
+  `more-itertools f4f2cfec9d` published** ([report](acceptance/2026-09-05-g-null-001a-independent.md)).
+  **The publication is a true positive**: a 2019 `try/except TypeError` guard in `divide()` that
+  a plain `dict` escapes on Python 3.12, still at that project's tip, shown by a probe with no
+  product code in it. So **0 wrong publications**, and the root cause is **the control
+  definition** — old and untouched does not mean defect-free, and a language change can make an
+  old line newly wrong. Not fixed and not resumed, per the owner's rule.
+  **Still no independent bound**: only **6** controls put the rule in a position to answer, and
+  3/6 = 50% is not a bound. D-134's 5.2% on the first population remains the only one, with its
+  caveat intact. Two owner items follow: what a control definition should be when controls carry
+  a real base rate of defects, and whether to resume the last 14.
 - [ ] **E-04 — prospective natural-PR shadow.** Execute the authorized traffic, blind
   adjudication, silent sampling, safety, utility, cost, and latency design in
   `G-SHADOW-001`.
