@@ -76,6 +76,7 @@ from attest.review.structural import (
     find_duplicate_implementations,
     structural_note,
 )
+from attest.review.support import preflight
 from attest.review.verification import CERTIFICATION_REPEATS, run_verification_stage
 
 DELIVERY_TRANSCRIPT_SCHEMA_VERSION = 1
@@ -1479,6 +1480,31 @@ def run_ci(
             task_id=task_id,
             journal=journal,
             reason=reason,
+        )
+        return _ci_run(
+            repo=repo,
+            task_id=task_id,
+            candidate_count=0,
+            surfaced_count=0,
+            deferred_reason=reason,
+            spend_usd=0.0,
+            started=started,
+            clock=clock,
+        )
+
+    # D-159: an unsupported scenario is one fixed sentence naming the reason,
+    # decided before the model, the container and the merge base -- so a
+    # repository this product cannot review is told so rather than shown a
+    # bootstrap traceback or an empty "nothing found".
+    refusal = preflight(repo)
+    if refusal is not None:
+        reason = _post_deferred(
+            context=context,
+            client=client,
+            ledger=ledger,
+            task_id=task_id,
+            journal=journal,
+            reason=refusal.reason,
         )
         return _ci_run(
             repo=repo,

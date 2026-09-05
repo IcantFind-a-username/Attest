@@ -1632,3 +1632,25 @@ is active only when the owning architecture/acceptance document changes with it.
 - **RED:** none; the deliverable is a caliber rule over numbers already measured, and the split is recomputable from `.attest/corpora/swebench/results/*.probe.json` (12 / 4 / 12, printed above).
 - **Trace:** D-134, D-135, D-140, D-146; `G-RECALL-002`.
 
+### D-159 — What the product does not review, said in one fixed line and exited zero
+
+- **Date/status/scope:** 2026-09-07 · active · `src/attest/review/support.py` (new), `src/attest/cli/main.py`, `src/attest/review/ci.py`, `tests/test_unsupported.py`.
+- **What changed.** Four unsupported scenarios each have **one fixed sentence naming the reason**, rendered as the `[silent]` line, with exit code **0**: a repository with no Python source, a dependency lock file that cannot be parsed, docker unavailable, and pytest that could not be provided in the reproduction image. Before this, a user met a bootstrap traceback, an exit code 2, or — worst — a review that read as *nothing found*.
+- **Where each is decided, and why it matters.** Two are properties of the **tree** and are decided before anything is bought (`preflight`). Two are properties of the **environment** and are recognised from the backend's own reason (`from_reason`), because they cannot be guessed from the tree.
+- **The instruction said "no pytest" and the first implementation of it was wrong.** A pre-flight that refused a repository *declaring* no pytest fired on **37 of this product's own tests**, and every one of those was a legitimate review: Attest installs `pytest` into the image itself and **writes the test it runs**, so a repository with no test suite is supported. What actually blocks is pytest failing in the image that was built, and that is where the line is emitted. `declares_pytest` remains available as a *statistic*, never as a refusal.
+- **Cost:** $0.00, and the pre-flight is two tree walks with the same skip list the image builder uses.
+- **Reversal:** delete the two call sites; the reasons revert to their previous prose.
+- **RED:** `tests/test_unsupported.py` — ten, including the two that pin the correction: a repository with no test suite is **not** refused, and an ordinary DEFER is not dressed up as unsupported.
+- **Trace:** D-142 (the one-line contract), X-02 item 8.
+
+### D-160 — A green note is told once, not on every pull request that passes nearby
+
+- **Date/status/scope:** 2026-09-07 · active · `src/attest/review/structural.py`, `src/attest/review/ci.py`, `tests/test_green_dedup.py`.
+- **What changed.** Green states something structurally so: this implementation appears here and here. That fact does not change because someone edited a third file, so the same pair is no longer reported again while **both of its spans are unchanged**. The `structural_note` ledger row carries a `fingerprint` (schema `v2`), and a later review drops any finding whose fingerprint the ledger already holds.
+- **What the fingerprint is.** The policy version, the category, both coordinates and **the source text of both spans**. A change to either span brings the note back, because the claim is then about different code; a change anywhere else does not.
+- **Three properties the tests pin.** A review never suppresses itself (the exclusion is by task id); a row written before fingerprints existed suppresses nothing (D-149's lesson — a row records what was known when it was written); and unreadable source digests as its own absence, so a note whose spans cannot be read is never silently dropped.
+- **Cost:** $0.00, and it *saves* the wording call on every suppressed note.
+- **Reversal:** delete the filter in `structural_notes`; the rows are inert.
+- **RED:** `tests/test_green_dedup.py` — five.
+- **Trace:** D-130, D-133.
+

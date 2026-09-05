@@ -23,6 +23,7 @@ from attest.review.proposer import ApiProvider, MockProvider, Provider
 from attest.review.report import render
 from attest.review.run import run_review
 from attest.review.status import categorise_failure
+from attest.review.support import from_reason, preflight
 
 
 def _positive_finite(value: str) -> float:
@@ -52,6 +53,14 @@ def cmd_review(args: argparse.Namespace) -> int:
             print(f"error: {exc}", file=sys.stderr)
             return 2
 
+    # D-159: an unsupported scenario is one fixed line and exit 0. The two that
+    # are properties of the tree are decided here, before a provider exists and
+    # before anything is bought.
+    refusal = preflight(repo)
+    if refusal is not None:
+        print(refusal.line)
+        return 0
+
     provider: Provider
     if args.mock is not None:
         provider = MockProvider([Path(p).read_text(encoding="utf-8") for p in args.mock])
@@ -71,6 +80,19 @@ def cmd_review(args: argparse.Namespace) -> int:
     if review.deferred_reason == "unreachable gate":
         print(f"error: {review.notes[0]}", file=sys.stderr)
         return 2
+    # D-159: the other two unsupported scenarios are properties of the
+    # environment, and the backend is what finds out. Its reason becomes the
+    # same fixed line, and the exit code stays 0 -- an unsupported host is not
+    # a failed review.
+    environment = from_reason(review.deferred_reason or "")
+    if environment is None:
+        environment = next(
+            (found for found in map(from_reason, review.verification_reasons.values()) if found),
+            None,
+        )
+    if environment is not None:
+        print(environment.line)
+        return 0
     # D-152: the local report carries the same four levels the pull-request
     # comment does. Green and both yellows are computed here rather than inside
     # `run_review`, because they are courtesies: every one of them is wrapped so
