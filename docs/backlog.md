@@ -70,3 +70,27 @@ reproduction turns one into a real defect.
   guard, not a measured fix, and should be re-measured on a different model or a harder prompt.
 - **The wording adjudicator's denylist is a denylist**, English and Chinese. A hedge phrased
   outside the list passes.
+
+## Forward-pair generation: observe the base before asserting (not implemented)
+
+*Recorded 2026-09-06 from the classification of D-140's 20 unfaithful reproductions
+([report](acceptance/2026-09-06-forward-pair-generation-failures.md)); the owner's conditional
+backlog item — "if the environment class dominates, match interpreter and dependency versions to
+the commit's era" — **does not fire**: the environment class is **0 of 20**.*
+
+What the data says instead: **18 of the 20** generated tests assert a behaviour the base
+revision does not have either — 11 fail *identically* on both sides (the claim's premise about
+base was simply false) and 7 encode a contract that postdates the base entirely. The proposer
+sees a forward diff and head-side context; the base's actual behaviour is in neither.
+
+The cheap experiment this suggests, **not implemented and not scheduled**: before writing the
+assertion, let the generator run one exploratory probe against the *base* tree and quote its
+observed output into the test's expectation. Costs one extra sandboxed execution per candidate
+and no model call. It changes generation, so it may not be introduced in the middle of a study
+whose recall numbers are being quoted — it needs its own before/after measurement on the same
+11 pairs.
+
+Era-matched interpreters and pinned dependencies remain worth doing for a different, smaller
+population: the **4** candidates that DEFERred at `isolation backend unavailable` (the `attrs`
+and `packaging` pairs, Python 3.13 and 3.9 image bootstraps) or `collection deferred`. That is
+an image-build fix, not a generation fix, and it would have changed none of the 20.

@@ -14,8 +14,9 @@ clones of public repositories under `.attest/corpora/gnull/`.
            take a deterministic sample, qualify each, and write the manifest.
            Free. **The manifest is written and reviewed before anything is run.**
   run      one `attest review` per control, head = the control commit, base =
-           its parent. Hard cumulative cap. **Any publication stops the whole
-           run at once** for root cause under RISK-CERT-01.
+           its parent. Hard cumulative cap. **A publication stops the run** for
+           root cause under RISK-CERT-01, unless an independent probe has
+           already adjudicated that control a real defect (`ADJUDICATED`).
   table    the result table, read from each clone's ledger.
 
 ``--independent`` selects the **second population** (owner instruction 1 of
@@ -75,6 +76,73 @@ SEED_INDEPENDENT = "g-null-001a-independent/2026-09-05"
 # the two constructions are identical.
 INDEPENDENT_LADDER = ((13, 120), (16, 300), (20, 600), (25, 900))
 INDEPENDENT_TARGET = 50
+
+
+# The stop rule (D-141, owner instruction 1 of 2026-09-06). A control that
+# publishes stops the run. Before the run may continue, the publication is
+# adjudicated by an **independent probe**: a minimal reproduction transcribed
+# from the two revisions, carrying **no product code**, run on **at least two
+# Python versions** -- interpreter version is itself a variable that can decide
+# whether a guard holds, so one interpreter cannot settle the question. A probe
+# that shows a real defect makes the control a `true_positive_on_control`: it is
+# recorded, it is **not** a wrong publication, and the run continues. A probe
+# that shows none leaves the run stopped for root cause.
+#
+# Adjudications are written **here, in the driver**, each naming its probe and
+# the interpreters it ran on, so that a run's behaviour is readable from the
+# driver alone. A publication whose control is absent from this table stops the
+# run: silence is a stop and never a pass.
+ADJUDICATED: dict[str, dict[str, object]] = {
+    # `divide()`'s 2019 `try: iterable[:0] / except TypeError` guard catches
+    # TypeError only, so any object whose `__getitem__` raises something else
+    # for a slice escapes it. On Python >= 3.12, where `slice` became hashable,
+    # a plain `dict` is such an object. Still present at that project's tip.
+    "f4f2cfec9d1af6780012a5021e46c191d14148e0": {
+        "repo": "more-itertools",
+        "verdict": "true_positive_on_control",
+        "probe": "docs/acceptance/evidence/2026-09-05d-divide-probe.py",
+        "interpreters": ["3.9.25", "3.11.5", "3.12.2", "3.13.1"],
+        "adjudicated": "2026-09-06",
+        "note": (
+            "divide() raises KeyError on a plain dict from Python 3.12 and on any "
+            "__getitem__ that raises a non-TypeError on every version; base returns "
+            "partitions. Root cause is the control definition, not certification."
+        ),
+    },
+}
+
+TRUE_POSITIVE = "true_positive_on_control"
+MIN_PROBE_INTERPRETERS = 2
+
+
+def adjudication(sha: str) -> dict[str, object] | None:
+    """The recorded adjudication of a publishing control, or None.
+
+    An entry counts only if it is a `true_positive_on_control` verdict backed by
+    a named probe run on at least `MIN_PROBE_INTERPRETERS` interpreters. An
+    entry that does not meet that shape is treated as no entry at all -- the
+    rule is the probe, not the row."""
+    entry = ADJUDICATED.get(sha)
+    if entry is None:
+        return None
+    if entry.get("verdict") != TRUE_POSITIVE or not entry.get("probe"):
+        return None
+    interpreters = entry.get("interpreters")
+    if not isinstance(interpreters, list) or len(interpreters) < MIN_PROBE_INTERPRETERS:
+        return None
+    return entry
+
+
+def stop_decision(sha: str) -> tuple[bool, str]:
+    """`(stop?, one line for the log)` for a control that has just published."""
+    entry = adjudication(sha)
+    if entry is None:
+        return True, "STOP: a control published; RISK-CERT-01 root cause required"
+    interpreters = ", ".join(str(v) for v in cast(list, entry["interpreters"]))
+    return False, (
+        f"CONTINUE: {TRUE_POSITIVE} adjudicated {entry['adjudicated']} by "
+        f"{entry['probe']} on python {interpreters}; not a wrong publication"
+    )
 
 
 def git(repo: Path, *args: str, check: bool = True) -> str:
@@ -320,10 +388,13 @@ def cmd_run(args: argparse.Namespace) -> int:
         log.flush()
         published = re.search(r"published: (\d+)", completed.stdout)
         if published and int(published.group(1)) > 0:
-            log.write("=== gn STOP: a control published; RISK-CERT-01 root cause required\n")
+            stop, line = stop_decision(sha)
+            log.write(f"=== gn {line}\n")
             log.flush()
-            print(f"STOP: control {control['repo']} {sha} published", file=sys.stderr)
-            return 3
+            if stop:
+                print(f"STOP: control {control['repo']} {sha} published", file=sys.stderr)
+                return 3
+            print(f"continuing: {control['repo']} {sha} is an adjudicated {TRUE_POSITIVE}")
     log.write("=== gn done\n")
     return 0
 
@@ -365,14 +436,21 @@ def cmd_table(args: argparse.Namespace) -> int:
         head, _, body = block.partition("\n")
         parts = head.split()
         sha = parts[0]
+        # The driver writes its own decisions into the same log with the same
+        # `=== gn ` prefix (`STOP:`, `CONTINUE:`, `done`). They are not controls
+        # and must not become rows of the result table.
+        if not re.fullmatch(r"[0-9a-f]{40}", sha):
+            continue
         control = by_sha.get(sha)
         status = STATUS.search(body)
         spend = re.search(r"spend \$([0-9.]+) of", body)
         defers = [match.group("reason").strip()[:120] for match in DEFER.finditer(body)]
+        entry = adjudication(sha)
         rows.append(
             {
                 "repo": parts[1] if len(parts) > 1 else "",
                 "sha": sha[:10],
+                "adjudication": None if entry is None else TRUE_POSITIVE,
                 "age_days": None if control is None else control["age_days"],
                 "ran": "[rc " in body,
                 "candidates": int(status["candidates"]) if status else None,
@@ -387,6 +465,16 @@ def cmd_table(args: argparse.Namespace) -> int:
     ran = [row for row in rows if row["ran"]]
     published = sum(int(row["published"] or 0) for row in ran)
     attempted = sum(int(row["attempted"] or 0) for row in ran)
+    # D-141: a publication is a **wrong** publication only if an independent
+    # probe failed to adjudicate it a real defect. A control that turned out to
+    # carry one is counted and named, and it is not an error of the product --
+    # it is an error of the control definition. The bound is taken on wrong
+    # publications; `publications` stays in the payload so the two are never
+    # conflated.
+    true_positive = sum(
+        int(row["published"] or 0) for row in ran if row["adjudication"] == TRUE_POSITIVE
+    )
+    wrong = published - true_positive
     # A control that could not buy evidence cannot publish, so it carries no
     # information about wrong publication. `informative` is the denominator any
     # bound from this run must use, and it is **not** the number of controls run.
@@ -418,6 +506,8 @@ def cmd_table(args: argparse.Namespace) -> int:
         "n_qualified": len(by_sha),
         "reviews": len(ran),
         "publications": published,
+        "true_positive_on_control": true_positive,
+        "wrong_publications": wrong,
         "reproductions_attempted": attempted,
         "informative_controls": len(informative),
         "answered_controls": len(answered),
@@ -425,13 +515,24 @@ def cmd_table(args: argparse.Namespace) -> int:
         "spend_usd": round(sum(float(row["spend"] or 0.0) for row in ran), 6),
         "rows": rows,
     }
+    # Rule of three, and only when it is defined: zero wrong publications in n
+    # policy-answered controls bounds the per-review wrong-publication rate at
+    # 3/n with 95% confidence. With a wrong publication observed there is no
+    # zero-error bound and the payload says so rather than printing a number.
+    if wrong == 0 and answered:
+        payload["wrong_publication_bound_95"] = round(3.0 / len(answered), 4)
+        payload["bound_denominator"] = "answered_controls"
+    else:
+        payload["wrong_publication_bound_95"] = None
     if args.json:
         args.json.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    bound = payload["wrong_publication_bound_95"]
     print(
         f"{len(ran)} of {len(by_sha)} controls reviewed, {payload['eligible_total']} eligible "
         f"candidates, {attempted} reproductions attempted, {len(informative)} informative "
-        f"controls ({len(answered)} policy-answered), {published} publications, "
-        f"${payload['spend_usd']:.6f}"
+        f"controls ({len(answered)} policy-answered), {published} publications "
+        f"({true_positive} {TRUE_POSITIVE}, {wrong} wrong), "
+        f"bound {'none' if bound is None else f'{bound:.1%}'}, ${payload['spend_usd']:.6f}"
     )
     return 0
 

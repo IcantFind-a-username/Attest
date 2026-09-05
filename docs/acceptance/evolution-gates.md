@@ -532,7 +532,12 @@ by the amendment's two checks, every trial carrying a replayable evidence bundle
 repo-cluster analysis reported (not passed — it is uninformative below ~10 clusters).
 
 **Safety stop:** unchanged from `G-NULL-001` — a wrong publication stops the run and is
-root-caused before anything else is bought.
+root-caused before anything else is bought. **Since D-141 (2026-09-06), whether a publication is
+*wrong* is decided by an independent probe**: a minimal reproduction transcribed from the two
+revisions, carrying no product code, run on at least two Python versions. A probe that shows a
+real defect makes the control a `true_positive_on_control` — recorded and named, excluded from
+the wrong-publication count and from the bound's numerator, and the run continues. A probe that
+shows none, or a publication with no adjudication at all, leaves the run stopped.
 
 **Result, 2026-09-04: the stop fired and the gate does not pass.** On the fifteenth of 58
 preregistered controls, `jinja` `ac3ac6c9` published a defect claim about a change its author
@@ -543,6 +548,15 @@ change of a returned value is invisible to all of them. The gate **cannot be re-
 an owner decision lands on that discriminator**: re-running the same population against the same
 blind spot would only buy the same failure again.
 [Report](2026-09-04-g-null-001a.md).
+
+**Result, 2026-09-06: the independent population is complete and the gate still does not pass.**
+68 of 68 disjoint controls (D-136), **0 wrong publications**, **1 `true_positive_on_control`**
+(`more-itertools f4f2cfec9d` — a live defect in a commit this corpus filed as a control, D-139,
+D-141), **7 policy-answered controls** and therefore a rule-of-three bound of **42.9%**, which is
+not a bound anyone may quote as a safety result. 57 of the 68 controls produced no candidate at
+all, so the population measures discovery's silence more than the rule's restraint. D-134's
+**5.2%** on the first 58-control population remains the only bound this gate has.
+[Report](2026-09-06-g-null-001a-final.md).
 
 **Permitted claim:** “On n preregistered qualified null commits across k repositories, zero
 wrong publications were observed; the 95% upper bound on the per-review wrong-publication rate
