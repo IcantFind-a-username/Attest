@@ -3,7 +3,9 @@
 **Window spend $1.073500 of $6; cumulative $50.563241 of $90.** Remote writes: **push to `main`
 only**. Gates at the tip: `ruff` clean, `mypy` clean over 82 source files, `git diff --check`
 clean, **`pytest` exit 0 with zero failures** over the whole suite minus
-`tests/execution/test_isolation.py`, run on a clean tree.
+`tests/execution/test_isolation.py`, run on a clean tree; and the **GitHub-runner `gates`
+workflow passed on the tip this handoff names** — run 33930801526, `success`, no deselection, so
+the isolation tests ran there.
 
 ## 1. `attest.intent.v4.1` (D-134) — clause (c) narrowed, and it changes nothing
 
