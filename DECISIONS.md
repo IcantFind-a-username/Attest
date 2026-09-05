@@ -1607,3 +1607,15 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** drop the lock names from `_MANIFESTS`.
 - **RED:** `tests/execution/test_image_cache.py` — eight: the same lock file is not rebuilt on the next commit; a moved pin is a different image; every named lock file is part of the key.
 - **Trace:** X-02 item 8.
+
+### D-157 — Two candidates' reproductions may overlap; the journal still reads serially
+
+- **Date/status/scope:** 2026-09-07 · active · `src/attest/review/config.py` (`repro_concurrency`, default **2**), `src/attest/review/verification.py`, `src/attest/review/budget.py`, `src/attest/review/ledger.py` (`BufferedLedger`), `src/attest/review/executor.py`, `tests/test_repro_concurrency.py`.
+- **What changed.** Reproductions of *different* candidates now run up to `repro_concurrency` at a time. The three runs **inside** one candidate stay strictly serial: the repeat count is what makes a reproduction stable, and a concurrent repeat is a different experiment.
+- **The journal is not allowed to notice.** Each concurrent candidate writes into a `BufferedLedger`, and the buffers are flushed in the ranked order the serial path would have used, so the ledger bytes are identical either way. Order-independence is the RED, not a hope.
+- **What genuinely differs, stated rather than hidden.** D-111 says reproductions are bought best-first so a shared deadline or an exhausted budget stops at the *weakest* candidate. With two in flight the ranking still governs **dispatch** — the queue is the same sorted list, and nothing is started once the budget is exhausted or the deadline has passed — but a lower-ranked candidate may already hold the last of the budget when a higher-ranked one asks for it. This is a real weakening of D-111's tail and it is why `repro_concurrency = 1` exists.
+- **The cap is strengthened, not weakened.** `Budget.reserve` was a read-modify-write; two threads interleaving it lose a reservation, and a lost reservation is spend above the cap. Reserve, settle and cancel now hold a lock, so the check-and-debit is one step. Single-threaded behaviour is unchanged.
+- **Cost:** $0.00; the saving is wall clock.
+- **Reversal:** `repro_concurrency = 1` in `.attest.toml`, which restores the exact previous path.
+- **RED:** `tests/test_repro_concurrency.py` — four: identical ledger signature serial vs parallel, measured overlap, ranked dispatch under overlap, and the policy bound.
+- **Trace:** D-111 (pinned at `repro_concurrency=1` in `tests/test_ci_flow.py`), D-126.

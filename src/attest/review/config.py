@@ -62,6 +62,11 @@ class ReviewConfig:
     # D-114 path where the model writes the assertion from the diff alone; it is
     # the reversal, and it is what the before/after measurement compares.
     probe_generation: bool = True
+    # D-157: how many candidates' reproductions may run at once. The three runs
+    # *inside* one candidate stay serial -- the repeat count is what makes a
+    # reproduction stable, and a concurrent repeat is a different experiment.
+    # 1 restores the strictly serial path.
+    repro_concurrency: int = 2
 
     def __post_init__(self) -> None:
         validate_review_config(self)
@@ -103,6 +108,8 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError("enabled must be a boolean")
     if type(config.probe_generation) is not bool:
         raise ValueError("probe_generation must be a boolean")
+    if type(config.repro_concurrency) is not int or not 1 <= config.repro_concurrency <= 8:
+        raise ValueError("repro_concurrency must be an integer in [1, 8]")
 
 
 CONTEXT_STRATEGIES = frozenset({"r01", "package-cache"})
@@ -121,6 +128,7 @@ _KNOWN_POLICY_KEYS = {
     "auto_tighten_alpha",
     "tier0_commands",
     "probe_generation",
+    "repro_concurrency",
 }
 
 

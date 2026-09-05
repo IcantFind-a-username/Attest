@@ -8,6 +8,7 @@ Actual usage replaces the estimate once known.
 from __future__ import annotations
 
 import math
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -43,6 +44,11 @@ class Budget:
     # model id -> its price table; one review may buy from more than one model
     # (D-115: proposals on the default, reproductions on the generation model)
     _prices: dict[str, dict[str, float]] = field(default_factory=dict)
+    # D-157: reproductions may run two candidates at once. The lock is not part
+    # of the budget's value -- never compared, never printed, never serialised.
+    _lock: threading.RLock = field(
+        default_factory=threading.RLock, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         if (
@@ -108,20 +114,27 @@ class Budget:
     ) -> float:
         """Pre-debit a planned call; raises BudgetExceeded instead of calling."""
         est = self.estimate_cost(input_chars, max_output_tokens, model)
-        projected = self.spent_usd + self.reserved_usd + est
-        ceiling = self.stage_ceiling_usd
-        if ceiling is not None and projected > ceiling:
-            raise BudgetExceeded(
-                f"call '{label}' estimated ${est:.4f}; projected total "
-                f"${projected:.4f} exceeds the {self.stage_label} share "
-                f"${ceiling:.4f} of budget ${self.limit_usd:.2f}"
-            )
-        if projected > self.limit_usd:
-            raise BudgetExceeded(
-                f"call '{label}' estimated ${est:.4f}; projected total "
-                f"${projected:.4f} exceeds budget ${self.limit_usd:.2f}"
-            )
-        self.reserved_usd += est
+        # D-157: reproductions may run two candidates at once, and
+        # `self.reserved_usd += est` is a read-modify-write. Two threads
+        # interleaving it lose a reservation, and a lost reservation is spend
+        # above the cap -- the one number this project never lets slip. The
+        # lock makes the check-and-debit one step; single-threaded behaviour is
+        # unchanged.
+        with self._lock:
+            projected = self.spent_usd + self.reserved_usd + est
+            ceiling = self.stage_ceiling_usd
+            if ceiling is not None and projected > ceiling:
+                raise BudgetExceeded(
+                    f"call '{label}' estimated ${est:.4f}; projected total "
+                    f"${projected:.4f} exceeds the {self.stage_label} share "
+                    f"${ceiling:.4f} of budget ${self.limit_usd:.2f}"
+                )
+            if projected > self.limit_usd:
+                raise BudgetExceeded(
+                    f"call '{label}' estimated ${est:.4f}; projected total "
+                    f"${projected:.4f} exceeds budget ${self.limit_usd:.2f}"
+                )
+            self.reserved_usd += est
         return est
 
     def settle(
@@ -144,20 +157,27 @@ class Budget:
             + cache_read_input_tokens * prices["cache_read"]
             + output_tokens * prices["out"]
         )
-        self.reserved_usd = max(0.0, self.reserved_usd - reserved)
-        self.spent_usd += actual
-        self.calls.append(
-            {
-                "label": label,
-                "model": model or self.model,
-                "input_tokens": input_tokens,
-                "cache_creation_input_tokens": cache_creation_input_tokens,
-                "cache_read_input_tokens": cache_read_input_tokens,
-                "output_tokens": output_tokens,
-                "cost_usd": actual,
-            }
-        )
+        with self._lock:
+            self.reserved_usd = max(0.0, self.reserved_usd - reserved)
+            self.spent_usd += actual
+            self.calls.append(
+                {
+                    "label": label,
+                    "model": model or self.model,
+                    "input_tokens": input_tokens,
+                    "cache_creation_input_tokens": cache_creation_input_tokens,
+                    "cache_read_input_tokens": cache_read_input_tokens,
+                    "output_tokens": output_tokens,
+                    "cost_usd": actual,
+                }
+            )
         return actual
 
     def cancel(self, reserved: float) -> None:
-        self.reserved_usd = max(0.0, self.reserved_usd - reserved)
+        with self._lock:
+            self.reserved_usd = max(0.0, self.reserved_usd - reserved)
+
+    def exhausted(self) -> bool:
+        """Is there nothing left to reserve? (the dispatch guard, D-157)"""
+        with self._lock:
+            return self.spent_usd + self.reserved_usd >= self.limit_usd

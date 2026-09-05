@@ -2331,6 +2331,7 @@ def verify_candidate(
     shared_system: str = "",
     generation_model: str = "",
     probe_generation: bool = True,
+    ledger: Ledger | None = None,
 ) -> VerificationRun:
     """Generate a reproduction and run it on both revisions.
 
@@ -2425,7 +2426,8 @@ def verify_candidate(
                 reprobe=choose_probe if probe_generation else None,
             )
 
-    Ledger(repo).record_verification(
+    journal = ledger if ledger is not None else Ledger(repo)
+    journal.record_verification(
         task_id=candidate.task_id,
         finding_id=candidate.finding.finding_id,
         outcome=execution.outcome.value,
@@ -2447,7 +2449,7 @@ def verify_candidate(
         # D-146: the recording is audit, not certification. It goes in the ledger
         # rather than the receipt, because every field added to the receipt
         # decays the bundles that predate it (INV-VERSION-001).
-        Ledger(repo).append(
+        journal.append(
             {
                 "kind": "probe_observation",
                 "schema_version": "attest.probe-observation.v1",

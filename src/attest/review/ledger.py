@@ -976,3 +976,32 @@ class Ledger:
             if start == alpha:
                 alpha = end
         return alpha
+
+
+@dataclass
+class BufferedLedger(Ledger):
+    """A ledger that holds its rows until someone writes them (D-157).
+
+    Reproductions may run two candidates at once, and two threads appending to
+    one file interleave by completion time. The journal is evidence, so its
+    order must not depend on which container finished first: each concurrent
+    candidate writes here, and the caller flushes the buffers in the ranked
+    order the serial path would have used. The bytes are then identical.
+    """
+
+    rows: list[tuple[bool, dict[str, Any]]] = field(default_factory=list)
+
+    def append(self, entry: dict[str, Any]) -> None:
+        self.rows.append((False, dict(entry)))
+
+    def append_durable(self, entry: dict[str, Any]) -> None:
+        self.rows.append((True, dict(entry)))
+
+    def flush(self, target: Ledger) -> None:
+        """Write every buffered row to ``target``, in the order it was made."""
+        for durable, entry in self.rows:
+            if durable:
+                target.append_durable(entry)
+            else:
+                target.append(entry)
+        self.rows.clear()

@@ -2005,7 +2005,15 @@ def test_reproductions_are_bought_in_ranking_order(
     A shared deadline or an exhausted budget therefore stopped at whichever
     candidate happened to be last in the file rather than at the weakest one.
     Reproductions are now attempted best-first, by the same key C-05 already
-    uses to publish: score first, candidate id to break ties."""
+    uses to publish: score first, candidate id to break ties.
+
+    Pinned at `repro_concurrency=1`, which is what the condition is about. With
+    two reproductions in flight (D-157's default) the ranking still governs
+    *dispatch* -- the queue is the same sorted list -- but two candidates are
+    started before either finishes, so the order the model is called in is no
+    longer a reading of the ranking. `test_repro_concurrency.py` pins the
+    dispatch order under overlap; this pins what the deadline and the budget
+    stop at when nothing overlaps."""
     from attest.review.ci import run_ci
 
     repo, base_sha, head_sha = planted_repo
@@ -2052,7 +2060,9 @@ def test_reproductions_are_bought_in_ranking_order(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
+        ReviewConfig(
+            probe_generation=False, k_samples=2, tier0_commands=[], repro_concurrency=1
+        ),
         provider,
     )
 

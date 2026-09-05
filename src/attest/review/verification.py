@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,7 +28,7 @@ from attest.certification.types import CertifiedFinding
 from attest.certification.units import unit_counts
 from attest.execution.backends import select_backend
 from attest.execution.controller import ExecutorAdapter
-from attest.review.candidates import CandidateStore
+from attest.review.candidates import CandidateStore, StoredCandidate
 from attest.review.certify import (
     EXECUTOR_PROFILE,
     attempt_certification,
@@ -35,10 +36,15 @@ from attest.review.certify import (
     certification_task,
 )
 from attest.review.config import ReviewConfig
-from attest.review.executor import ExecutionOutcome, ExecutorLimits, verify_candidate
+from attest.review.executor import (
+    ExecutionOutcome,
+    ExecutorLimits,
+    VerificationRun,
+    verify_candidate,
+)
 from attest.review.finding_evidence import FindingEvidence, evidence_from_bundle
 from attest.review.gate import GateResult
-from attest.review.ledger import Ledger
+from attest.review.ledger import BufferedLedger, Ledger
 from attest.review.planner import package_block
 from attest.review.proposer import Provider
 from attest.review.run import ReviewRun
@@ -116,6 +122,19 @@ def run_verification_stage(
         adapter = backend.adapter
         backend_reason = backend.reason
         profile = backend.profile
+        if backend.image is not None:
+            # D-156: the image tag is keyed by the interpreter and the tree's
+            # dependency manifests, so it is reused across commits that changed
+            # only source. Whether that reuse happens is recorded, not assumed.
+            ledger.append(
+                {
+                    "kind": "image_cache",
+                    "task_id": task_id,
+                    "tag": backend.image.tag,
+                    "cached": backend.image.cached,
+                    "build_elapsed_s": round(backend.image.build_elapsed_s, 2),
+                }
+            )
     else:
         profile = adapter.profile if adapter is not None else EXECUTOR_PROFILE
     ledger.append(
@@ -143,58 +162,12 @@ def run_verification_stage(
     reasons: dict[str, str] = {}
     evidence: dict[str, FindingEvidence] = {}
     attempted = 0
-    for index, candidate in enumerate(candidates):
-        if candidate.eligibility != "regression":
-            # typed abstention before any paid generation; not a verification
-            # DEFER and never part of the eligible denominator
-            ledger.append(
-                {
-                    "kind": "certification",
-                    "task_id": task_id,
-                    "finding_id": candidate.finding.finding_id,
-                    "outcome": "not_attempted",
-                    "reason": (
-                        f"ineligible: {candidate.eligibility}: {candidate.eligibility_reason}"
-                    ),
-                    "executor_profile": EXECUTOR_PROFILE,
-                }
-            )
-            continue
-        if adapter is None:
-            reason = f"isolation backend unavailable: {backend_reason}"
-            ledger.record_verification(
-                task_id=candidate.task_id,
-                finding_id=candidate.finding.finding_id,
-                outcome=ExecutionOutcome.DEFERRED.value,
-                reason=reason,
-                elapsed_s=0.0,
-                network_blocked=False,
-                evidence="",
-            )
-            verification_defers.append(reason)
-            reasons[candidate.finding.finding_id] = reason
-            continue
-        remaining_s = max(0.0, deadline - clock())
-        if remaining_s <= 0:
-            reason = f"shared verification deadline exceeded after {verification_timeout_s:g}s"
-            for unprocessed in candidates[index:]:
-                ledger.record_verification(
-                    task_id=unprocessed.task_id,
-                    finding_id=unprocessed.finding.finding_id,
-                    outcome=ExecutionOutcome.DEFERRED.value,
-                    reason=reason,
-                    elapsed_s=0.0,
-                    network_blocked=False,
-                    evidence="",
-                )
-                verification_defers.append(reason)
-                reasons[unprocessed.finding.finding_id] = reason
-            break
-        attempted += 1
+
+    def _verify(candidate: StoredCandidate, journal: Ledger) -> VerificationRun:
         shared_system = ""
         if config.context_strategy == "package-cache":
             shared_system = package_block(repo, candidate.finding.file)
-        verification = verify_candidate(
+        return verify_candidate(
             repo,
             candidate,
             results_by_id[candidate.finding.finding_id],
@@ -210,37 +183,142 @@ def run_verification_stage(
             shared_system=shared_system,
             generation_model=config.generation_model,
             probe_generation=config.probe_generation,
+            ledger=journal,
         )
-        results_by_id[candidate.finding.finding_id] = verification.gate_result
-        if verification.execution.outcome is ExecutionOutcome.DEFERRED:
-            verification_defers.append(verification.execution.reason)
-            reasons[candidate.finding.finding_id] = verification.execution.reason
-        elif verification.execution.outcome is ExecutionOutcome.NOT_REPRODUCED:
-            reasons[candidate.finding.finding_id] = verification.execution.reason
-        attempt = attempt_certification(
-            certification,
-            policy,
-            candidate,
-            verification,
-            limits=default_limits,
-            bundle_root=repo,
-        )
-        ledger.append(attempt.to_ledger_row(task_id))
-        if (
-            attempt.outcome == "rejected"
-            and attempt.rejection_codes
-            and attempt.rejection_codes[0].startswith("bundle_")
-        ):
-            # D-124: the receipt validated but its bundle did not; that is an
-            # abstention, not a finding, and the author sees the reason
-            verification_defers.append(attempt.reason)
-            reasons[candidate.finding.finding_id] = attempt.reason
-        if attempt.finding is not None:
-            certified_by_id[candidate.finding.finding_id] = attempt.finding
-            if attempt.bundle is not None:
-                block = evidence_from_bundle(attempt.bundle.path, repo=repo)
-                if block is not None:
-                    evidence[candidate.finding.finding_id] = block
+
+    # D-157: reproductions of *different* candidates may overlap; the three
+    # runs inside one candidate stay strictly serial, because the repeat count
+    # is what makes a reproduction stable and a concurrent repeat is a
+    # different experiment. Each concurrent candidate journals into its own
+    # buffer, and the buffers are written in ranked order below, so the ledger
+    # is byte-identical to the serial one. Only the *tail* of a run differs:
+    # with two in flight, a candidate the serial path would never have started
+    # may already hold the last of the budget when a higher-ranked one asks.
+    dispatch = max(1, int(config.repro_concurrency))
+    schedulable = [item for item in candidates if item.eligibility == "regression"]
+    pool: ThreadPoolExecutor | None = None
+    if dispatch > 1 and adapter is not None and len(schedulable) > 1:
+        pool = ThreadPoolExecutor(max_workers=dispatch, thread_name_prefix="attest-repro")
+    in_flight: dict[str, tuple[Future[VerificationRun], BufferedLedger]] = {}
+    queue = list(schedulable)
+
+    def _dispatch_ahead() -> None:
+        """Keep up to ``dispatch`` reproductions in flight, in ranked order."""
+        if pool is None:
+            return
+        while queue and len(in_flight) < dispatch:
+            if clock() >= deadline or review.budget.exhausted():
+                return
+            nxt = queue.pop(0)
+            buffer = BufferedLedger(repo)
+            in_flight[nxt.finding.finding_id] = (
+                pool.submit(_verify, nxt, buffer),
+                buffer,
+            )
+
+    try:
+        for index, candidate in enumerate(candidates):
+            if candidate.eligibility != "regression":
+                # typed abstention before any paid generation; not a verification
+                # DEFER and never part of the eligible denominator
+                ledger.append(
+                    {
+                        "kind": "certification",
+                        "task_id": task_id,
+                        "finding_id": candidate.finding.finding_id,
+                        "outcome": "not_attempted",
+                        "reason": (
+                            f"ineligible: {candidate.eligibility}: {candidate.eligibility_reason}"
+                        ),
+                        "executor_profile": EXECUTOR_PROFILE,
+                    }
+                )
+                continue
+            if adapter is None:
+                reason = f"isolation backend unavailable: {backend_reason}"
+                ledger.record_verification(
+                    task_id=candidate.task_id,
+                    finding_id=candidate.finding.finding_id,
+                    outcome=ExecutionOutcome.DEFERRED.value,
+                    reason=reason,
+                    elapsed_s=0.0,
+                    network_blocked=False,
+                    evidence="",
+                )
+                verification_defers.append(reason)
+                reasons[candidate.finding.finding_id] = reason
+                continue
+            finding_id = candidate.finding.finding_id
+            started_here = in_flight.pop(finding_id, None)
+            if started_here is None:
+                remaining_s = max(0.0, deadline - clock())
+                if remaining_s <= 0:
+                    reason = (
+                        f"shared verification deadline exceeded after {verification_timeout_s:g}s"
+                    )
+                    for unprocessed in candidates[index:]:
+                        ledger.record_verification(
+                            task_id=unprocessed.task_id,
+                            finding_id=unprocessed.finding.finding_id,
+                            outcome=ExecutionOutcome.DEFERRED.value,
+                            reason=reason,
+                            elapsed_s=0.0,
+                            network_blocked=False,
+                            evidence="",
+                        )
+                        verification_defers.append(reason)
+                        reasons[unprocessed.finding.finding_id] = reason
+                    break
+                _dispatch_ahead()
+                started_here = in_flight.pop(finding_id, None)
+            attempted += 1
+            if started_here is None:
+                verification = _verify(candidate, ledger)
+            else:
+                future, buffer = started_here
+                verification = future.result()
+                # ranked order, not completion order: the bytes match the
+                # serial run's exactly
+                buffer.flush(ledger)
+                _dispatch_ahead()
+            results_by_id[finding_id] = verification.gate_result
+            if verification.execution.outcome is ExecutionOutcome.DEFERRED:
+                verification_defers.append(verification.execution.reason)
+                reasons[finding_id] = verification.execution.reason
+            elif verification.execution.outcome is ExecutionOutcome.NOT_REPRODUCED:
+                reasons[finding_id] = verification.execution.reason
+            attempt = attempt_certification(
+                certification,
+                policy,
+                candidate,
+                verification,
+                limits=default_limits,
+                bundle_root=repo,
+            )
+            ledger.append(attempt.to_ledger_row(task_id))
+            if (
+                attempt.outcome == "rejected"
+                and attempt.rejection_codes
+                and attempt.rejection_codes[0].startswith("bundle_")
+            ):
+                # D-124: the receipt validated but its bundle did not; that is an
+                # abstention, not a finding, and the author sees the reason
+                verification_defers.append(attempt.reason)
+                reasons[finding_id] = attempt.reason
+            if attempt.finding is not None:
+                certified_by_id[finding_id] = attempt.finding
+                if attempt.bundle is not None:
+                    block = evidence_from_bundle(attempt.bundle.path, repo=repo)
+                    if block is not None:
+                        evidence[finding_id] = block
+    finally:
+        if pool is not None:
+            # a candidate the loop never reached still holds a container; its
+            # buffered rows are dropped on purpose -- the ledger records what
+            # the review acted on, and it acted on nothing this thread produced
+            for future, _buffer in in_flight.values():
+                future.cancel()
+            pool.shutdown(wait=True)
 
     # D-137, the gate level, in shadow and off by default. It runs **after**
     # every certification decision has been taken and touches none of them: its
