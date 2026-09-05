@@ -60,8 +60,10 @@ def test_bootstrap_failure_is_the_reason_not_silence(
 
 def test_project_python_honours_requires_python_and_classifiers(tmp_path: Path) -> None:
     """The image interpreter follows the project's declaration: a lower bound
-    from requires-python, an upper bound from classifiers, the era fallback
-    only when nothing is declared (2026-09-03)."""
+    from requires-python, an upper bound from classifiers, and the **primary**
+    (3.12) when nothing is declared. D-162 moved the supported range to
+    3.10-3.13 and the no-declaration answer from the 3.9 era fallback to the
+    primary; `tests/execution/test_python_matrix.py` pins the range itself."""
     from attest.execution.container_images import project_python
 
     (tmp_path / "pyproject.toml").write_text(
@@ -75,7 +77,7 @@ def test_project_python_honours_requires_python_and_classifiers(tmp_path: Path) 
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
     assert project_python(tmp_path)[0] == "3.12"
     (tmp_path / "setup.py").unlink()
-    assert project_python(tmp_path)[0] == "3.9"
+    assert project_python(tmp_path)[0] == "3.12"
 
 
 def test_dockerfile_pretends_the_scm_version_and_keeps_nested_projects_best_effort(

@@ -29,8 +29,13 @@ from attest.execution.container_adapter import (
     image_id,
 )
 
-AVAILABLE_PYTHONS = ("3.13", "3.12", "3.11", "3.10", "3.9")
-FALLBACK_PYTHON = "3.9"
+# D-162: the supported interpreter matrix. 3.9 was the era fallback when the
+# corpus was old open-source Python; the declared range is now 3.10-3.13, and a
+# tree that names nothing usable gets the **primary** -- the version this
+# project itself is built and shipped on (`docs/operations/install-ref.md`).
+AVAILABLE_PYTHONS = ("3.13", "3.12", "3.11", "3.10")
+PRIMARY_PYTHON = "3.12"
+FALLBACK_PYTHON = PRIMARY_PYTHON  # the name the older call sites use
 _CLASSIFIER_RE = re.compile(r"Programming Language :: Python :: 3\.(\d+)")
 # The dependency declaration of a tree, in the order the digest reads them.
 # The lock files are here for the cache key, not for installation: two commits
@@ -80,17 +85,54 @@ class ProjectRoot:
 
 
 _REQUIRES_PYTHON_RE = re.compile(r"requires-python\s*=\s*[\"']\s*>=\s*3\.(\d+)")
+# D-162: the same lower bound as a lock file states it. `uv.lock` writes
+# `requires-python`, `poetry.lock` writes `python-versions` in its metadata, and
+# `Pipfile` writes `python_version`; all three are read for the bound only.
+_LOCK_LOWER_RES = (
+    re.compile(r"requires-python\s*=\s*[\"']\s*>=\s*3\.(\d+)"),
+    re.compile(r"python-versions\s*=\s*[\"'][^\"']*?>=\s*3\.(\d+)"),
+    re.compile(r"python[-_]version\s*=\s*[\"']\s*3\.(\d+)\s*[\"']"),
+)
+_LOCK_SOURCES = ("uv.lock", "poetry.lock", "pdm.lock", "Pipfile")
+
+
+def _lock_lower_bounds(tree: Path, roots: list[ProjectRoot]) -> list[int]:
+    """Every `>= 3.X` a lock file in this tree states, as minor versions."""
+    found: list[int] = []
+    for root in roots:
+        base = tree / root.relative if root.relative else tree
+        for name in _LOCK_SOURCES:
+            path = base / name
+            if not path.is_file():
+                continue
+            try:
+                text = path.read_text(errors="replace")
+            except OSError:
+                continue
+            for pattern in _LOCK_LOWER_RES:
+                found.extend(int(match) for match in pattern.findall(text))
+    return found
 
 
 def project_python(tree: Path) -> tuple[str, str]:
-    """(python minor version, reason) by the project's own declaration: the
-    highest available interpreter no newer than the newest ``Programming
-    Language :: Python :: 3.X`` classifier and no older than the strictest
-    ``requires-python = ">=3.X"`` lower bound (2026-09-03: the natural-null
-    corpus declares only the lower bound); else the era fallback."""
+    """(python minor version, reason) by the project's own declaration.
+
+    The highest **supported** interpreter (3.10-3.13) no newer than the newest
+    ``Programming Language :: Python :: 3.X`` classifier and no older than the
+    strictest lower bound the tree states -- in ``requires-python`` or in a lock
+    file (``uv.lock``'s ``requires-python``, ``poetry.lock``'s
+    ``python-versions``, ``Pipfile``'s ``python_version``). A tree that names
+    nothing usable gets the **primary**, 3.12 (D-162).
+
+    A declared floor below 3.10 does not select 3.9: the supported range is the
+    supported range, and a project that cannot install on 3.10 is a bootstrap
+    DEFER with its reason, never a finding.
+    """
     declared: list[int] = []
     lower: list[int] = []
-    for root in discover_roots(tree):
+    roots = discover_roots(tree)
+    lower.extend(_lock_lower_bounds(tree, roots))
+    for root in roots:
         for name in ("setup.py", "setup.cfg", "pyproject.toml"):
             path = tree / root.relative / name if root.relative else tree / name
             if path.is_file():
@@ -114,11 +156,11 @@ def project_python(tree: Path) -> tuple[str, str]:
         if ceiling is not None:
             reason.append(f"classifiers up to 3.{ceiling}")
         if floor is not None:
-            reason.append(f"requires-python >= 3.{floor}")
+            reason.append(f"declared floor >= 3.{floor}")
         return version, "; ".join(reason)
     if floor is not None or ceiling is not None:
-        return FALLBACK_PYTHON, "declared range not available; fallback"
-    return FALLBACK_PYTHON, "no classifiers or requires-python; era fallback"
+        return PRIMARY_PYTHON, "declared range outside 3.10-3.13; primary"
+    return PRIMARY_PYTHON, "no declaration found; primary"
 
 
 def discover_roots(tree: Path) -> list[ProjectRoot]:

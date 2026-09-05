@@ -1665,3 +1665,14 @@ is active only when the owning architecture/acceptance document changes with it.
 - **RED:** `tests/test_cost_guardrails.py` — ten, including the window boundary, the unreadable timestamp, the over-ceiling review that spends `$0.00`, and both shapes of the silence line.
 - **Trace:** D-126, D-142, D-152; the four-level table's finding that the budget, not the adjudicators, is the binding constraint on real traffic.
 
+### D-162 — The reproduction interpreter is 3.10–3.13, and a lock file is a declaration
+
+- **Date/status/scope:** 2026-09-07 · active, owner-directed (instruction 3.6) · `src/attest/execution/container_images.py`, `docs/operations/support-matrix.md`, `tests/execution/test_python_matrix.py`.
+- **What changed.** The supported interpreter matrix is **3.10, 3.11, 3.12, 3.13**, and the answer when a tree declares nothing usable is the **primary — 3.12**, the version this project is itself built and shipped on. 3.9 is no longer offered. Lock files now count as declarations of the floor: `uv.lock`'s `requires-python`, `poetry.lock`'s `python-versions`, `Pipfile`'s `python_version`, because a project that pins its interpreter there and nowhere else has still said what it needs.
+- **A floor below 3.10 does not reach back.** The old rule's 3.9 era fallback existed because the held-out corpus is old open-source Python. Under the new rule a project declaring `>= 3.7` gets the primary; if it cannot install there, that is a **bootstrap DEFER with its reason** — the failure the support matrix already promises — and never a finding. Stating the range and failing inside it is honest; silently running 3.9 and calling it supported was not.
+- **What it costs, named rather than discovered later.** Cases in the held-out SWE-bench slice that only install on 3.9 will now fail to bootstrap. That is a real reduction in what that corpus can measure, and it is the price of a declared range.
+- **Cost:** $0.00; one image rebuild per repository whose selected version moves.
+- **Reversal:** restore `AVAILABLE_PYTHONS` and `FALLBACK_PYTHON`.
+- **RED:** `tests/execution/test_python_matrix.py` — twelve, including the owner's three: three synthetic trees with three different declarations select three different interpreters, and the three lock-file forms each state the floor alone.
+- **Trace:** X-02 item 8; owner item 3 of 2026-09-02 (the classifier rule this replaces).
+
