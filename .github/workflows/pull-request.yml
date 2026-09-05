@@ -35,7 +35,11 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          budget-usd: "0.25"
+          # The action's own default, stated here so the number this
+          # repository reviews itself under is visible in the workflow. Raised
+          # from 0.25 after the four-level table measured the binding
+          # constraint on real traffic to be the budget, not the adjudicators.
+          budget-usd: "1.00"
           samples: "4"
       - name: Upload attest ledger
         if: always()
