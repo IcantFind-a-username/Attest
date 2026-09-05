@@ -15,6 +15,7 @@ from pathlib import Path
 from attest.execution.container_adapter import (
     CONTAINER_PROFILE,
     ContainerAdapter,
+    ContainerImage,
     docker_executable,
 )
 from attest.execution.container_images import BootstrapFailed, ensure_image
@@ -30,6 +31,7 @@ class BackendSelection:
     adapter: ExecutorAdapter | None
     profile: str
     reason: str  # why this backend, or why none
+    image: ContainerImage | None = None  # D-156: the image, and whether it was reused
 
 
 def requested_backend(default: str) -> str:
@@ -76,5 +78,8 @@ def select_backend(
     except BootstrapFailed as exc:
         return BackendSelection(None, CONTAINER_PROFILE, str(exc))
     return BackendSelection(
-        ContainerAdapter(image), CONTAINER_PROFILE, f"image {image.tag or image.reference}"
+        ContainerAdapter(image),
+        CONTAINER_PROFILE,
+        f"image {image.tag or image.reference}",
+        image=image,
     )

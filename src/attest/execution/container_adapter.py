@@ -58,6 +58,12 @@ class ContainerImage:
     reference: str  # what `docker run` is given: an image id, or a name:tag
     digest: str  # the image id/digest docker reports, or "" when unresolved
     tag: str = ""  # the name:tag the reference was resolved from, for humans
+    # D-156: was this image reused, or built for this task? The tag is keyed by
+    # the interpreter and the dependency manifests, so an unchanged dependency
+    # set reuses one image across every commit of a repository -- and how often
+    # that actually happens is a number, not a hope, only if it is recorded.
+    cached: bool = False
+    build_elapsed_s: float = 0.0
 
 
 class ContainerUnavailable(RuntimeError):

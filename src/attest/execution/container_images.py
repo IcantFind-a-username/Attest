@@ -18,6 +18,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,7 +32,27 @@ from attest.execution.container_adapter import (
 AVAILABLE_PYTHONS = ("3.13", "3.12", "3.11", "3.10", "3.9")
 FALLBACK_PYTHON = "3.9"
 _CLASSIFIER_RE = re.compile(r"Programming Language :: Python :: 3\.(\d+)")
-_MANIFESTS = ("pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", "requirements-dev.txt")
+# The dependency declaration of a tree, in the order the digest reads them.
+# The lock files are here for the cache key, not for installation: two commits
+# that changed only source code carry byte-identical locks and must reuse one
+# image, and a commit that moved a pin must not (D-156).
+_MANIFESTS = (
+    "pyproject.toml",
+    "setup.py",
+    "setup.cfg",
+    "requirements.txt",
+    "requirements-dev.txt",
+    "poetry.lock",
+    "uv.lock",
+    "pdm.lock",
+    "Pipfile",
+    "Pipfile.lock",
+    "requirements.lock",
+    "constraints.txt",
+)
+LOCK_MANIFESTS = frozenset(
+    {"poetry.lock", "uv.lock", "pdm.lock", "Pipfile", "Pipfile.lock", "requirements.lock"}
+)
 _SKIP = {
     ".git",
     ".attest",
@@ -271,7 +292,8 @@ def ensure_image(
     existing = resolve_image(tag, docker=binary)
     if existing and not rebuild:
         # addressed by id from here on: the tag was only ever the cache key
-        return ContainerImage(existing, existing, tag)
+        return ContainerImage(existing, existing, tag, cached=True)
+    build_started = time.monotonic()
     timeout_s = build_timeout(remaining_s)
     if timeout_s <= 0:
         raise _bootstrap_failure(
@@ -331,4 +353,6 @@ def ensure_image(
         raise BootstrapFailed(
             f"environment bootstrap failed: image {tag} has no digest after build"
         )
-    return ContainerImage(digest, digest, tag)
+    return ContainerImage(
+        digest, digest, tag, cached=False, build_elapsed_s=time.monotonic() - build_started
+    )

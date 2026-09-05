@@ -1597,3 +1597,13 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** delete the `seal_unterminated_delivery_journals` call in `run_review`; the reconciler keeps reading seals already written.
 - **RED:** `tests/test_delivery_journal_abort.py` — seven, including the end-to-end one: a review killed after its last settlement, then a second `attest review` of the same repository, which used to raise `delivery journal requires one exact finalization` at startup.
 - **Trace:** D-149, D-154; `RISK-CERT-01` untouched — nothing here changes what may be published.
+
+### D-156 — One reproduction image per dependency set, and the reuse is counted
+
+- **Date/status/scope:** 2026-09-07 · active · `src/attest/execution/container_images.py`, `container_adapter.py`, `backends.py`, `src/attest/review/verification.py`, `tests/execution/test_image_cache.py`.
+- **What changed.** The image tag was already a digest of the interpreter and the tree's dependency manifests, so an unchanged project reused its image; **lock files were not part of that digest**. `poetry.lock`, `uv.lock`, `pdm.lock`, `Pipfile`, `Pipfile.lock` and `requirements.lock` now are, which both widens the key (a lock-only change is a different environment and must not reuse) and narrows it in practice (two commits that touched only source share one image). The image also reports whether it was **reused or built**, and the verification stage writes an `image_cache` ledger row saying so.
+- **Why the row matters.** "The image is cached across commits" was an unmeasured claim. A reader of a 40-commit run could not tell a warm cache from a cold one, and the difference is minutes a commit.
+- **Cost:** $0.00. One image rebuild per repository the first time the widened key is used.
+- **Reversal:** drop the lock names from `_MANIFESTS`.
+- **RED:** `tests/execution/test_image_cache.py` — eight: the same lock file is not rebuilt on the next commit; a moved pin is a different image; every named lock file is part of the key.
+- **Trace:** X-02 item 8.
