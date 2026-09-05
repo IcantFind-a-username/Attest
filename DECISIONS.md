@@ -1654,3 +1654,14 @@ is active only when the owning architecture/acceptance document changes with it.
 - **RED:** `tests/test_green_dedup.py` — five.
 - **Trace:** D-130, D-133.
 
+### D-161 — Two ceilings, and a silence that says which one stopped it
+
+- **Date/status/scope:** 2026-09-07 · active · `src/attest/review/budget.py`, `config.py` (`daily_budget_usd`, default **0.0 = off**), `run.py`, `output_contract.py`, `github/presentation.py`, `review/ci.py`, `tests/test_cost_guardrails.py`.
+- **What changed, one.** `budget_usd` bounds one review and bounds nothing else: an afternoon of pull requests costs an unbounded amount however small each one is. `daily_budget_usd` bounds a **repository's** spend over a rolling 24 hours of its own ledger. Over it the review buys nothing, before the first model call, and the reason names the figure, the window and the number of reviews behind it.
+- **What changed, two.** A silence that was **bought out** is a different claim from a silence where every candidate was judged, and a reader cannot act on the first without knowing how many were never looked at. The silence line now reads *"the budget ceiling was reached; N candidate(s) were not verified"* whenever N > 0, in the terminal and in the pull-request comment alike.
+- **Two directions of doubt, both chosen deliberately.** A ledger row whose timestamp cannot be read is **charged** rather than skipped — a safety ceiling's safe direction is to over-count. And the default is **off**: a ceiling nobody chose produces a silence nobody can explain, so the knob ships at 0.0 and the operator sets it.
+- **Cost:** $0.00; it is a read of rows already written.
+- **Reversal:** `daily_budget_usd = 0.0`, which is the default.
+- **RED:** `tests/test_cost_guardrails.py` — ten, including the window boundary, the unreadable timestamp, the over-ceiling review that spends `$0.00`, and both shapes of the silence line.
+- **Trace:** D-126, D-142, D-152; the four-level table's finding that the budget, not the adjudicators, is the binding constraint on real traffic.
+

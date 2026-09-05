@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 
 from attest.certification.types import CertifiedFinding
-from attest.review.budget import Budget, BudgetExceeded
+from attest.review.budget import Budget, BudgetExceeded, daily_spend
 from attest.review.candidates import CandidateStore
 from attest.review.channels import gate_feasibility
 from attest.review.config import DISABLED_REASON, ReviewConfig, resolve_review_policy
@@ -282,6 +282,27 @@ def run_review(
         alpha, tighten_note = ledger.maybe_tighten_alpha(alpha, config.auto_tighten_alpha)
     except (OSError, RuntimeError) as exc:
         raise ReviewSetupError("review setup failed") from exc
+    # D-161: the per-repository daily ceiling, checked before the first model
+    # call. Over it, the review says so in one line and buys nothing.
+    if config.daily_budget_usd > 0:
+        spent_today, rows_today = daily_spend(ledger.entries(), now=time.time())
+        if spent_today >= config.daily_budget_usd:
+            reason = (
+                f"daily budget ceiling reached: ${spent_today:.4f} of "
+                f"${config.daily_budget_usd:.2f} spent in this repository over the last "
+                f"24h across {rows_today} review(s); 0 candidates were verified."
+            )
+            return ReviewRun(
+                task_id=task_id or make_task_id(diff.text),
+                alpha=alpha,
+                budget=budget,
+                results=[],
+                outcome=_empty_outcome(),
+                notes=[reason],
+                deferred_reason=reason,
+                elapsed_s=clock() - started,
+                diff_digest=diff_digest,
+            )
     notes = [tighten_note] if tighten_note else []
     if sealed:
         notes.insert(

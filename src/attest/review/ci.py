@@ -63,7 +63,7 @@ from attest.review.nullability import (
     prompt_for,
 )
 from attest.review.nullability import notes_for_change as nullability_notes_for_change
-from attest.review.output_contract import LEVEL_MARKERS
+from attest.review.output_contract import LEVEL_MARKERS, budget_unverified
 from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
 from attest.review.status import status_from_rows
@@ -1984,6 +1984,9 @@ def run_ci(
             units=_units_read(ledger, task_id),
             impact=yellow,
             nullability=nullability,
+            # D-161: a silence bought out by the ceiling says how many
+            # candidates it stopped
+            unverified=budget_unverified(review.verification_reasons),
         ),
     )
     try:

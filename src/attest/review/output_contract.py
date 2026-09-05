@@ -32,6 +32,7 @@ of 13 are different claims and a reader cannot tell them apart from a bare
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 CONTRACT_VERSION = "attest.output-contract.v1"
@@ -256,15 +257,48 @@ def claim_line(
     return f"{prefix}{body}" if prefix else body
 
 
-def silence_line(*, units_read: int, units_planned: int, spend_usd: float, elapsed_s: float) -> str:
+# D-161: a silence bought out by the ceiling is a different claim from a silence
+# where every candidate was judged, and the reader cannot act on the first
+# without knowing how many were never looked at.
+BUDGET_REASON_MARKERS = ("budget", "预算")
+
+
+def budget_unverified(reasons: Mapping[str, str] | None) -> int:
+    """How many candidates were left unverified because the budget ran out."""
+    if not reasons:
+        return 0
+    return sum(
+        1
+        for reason in reasons.values()
+        if type(reason) is str
+        and any(marker in reason.lower() for marker in BUDGET_REASON_MARKERS)
+    )
+
+
+def silence_line(
+    *,
+    units_read: int,
+    units_planned: int,
+    spend_usd: float,
+    elapsed_s: float,
+    unverified: int = 0,
+) -> str:
     """The one line a wholly silent review owes, in a fixed shape (D-142).
 
     It names the units read because a silence over 1 of 13 units and a silence
-    over 13 of 13 are different claims."""
+    over 13 of 13 are different claims. When the budget ceiling is what stopped
+    the run it says so, and how many candidates it stopped (D-161) -- a silence
+    that means *nothing was wrong* and a silence that means *nobody looked* are
+    not the same answer."""
     planned = units_planned or units_read
+    verdict = (
+        f"the budget ceiling was reached; {unverified} candidate(s) were not verified"
+        if unverified > 0
+        else "nothing met an adjudicator's bar"
+    )
     return (
         f"{SILENCE_MARKER} read {units_read} of {planned} units; "
-        f"nothing met an adjudicator's bar; ${spend_usd:.4f}, {elapsed_s:.1f}s."
+        f"{verdict}; ${spend_usd:.4f}, {elapsed_s:.1f}s."
     )
 
 

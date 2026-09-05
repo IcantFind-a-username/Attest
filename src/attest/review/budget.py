@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import math
 import threading
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any
+from datetime import datetime
+from typing import Any, cast
 
 from attest.review.config import load_pricing
 
@@ -181,3 +182,49 @@ class Budget:
         """Is there nothing left to reserve? (the dispatch guard, D-157)"""
         with self._lock:
             return self.spent_usd + self.reserved_usd >= self.limit_usd
+
+
+# D-161: the second ceiling. `limit_usd` bounds one review; this bounds a
+# repository's spend over a rolling day, so a busy afternoon of pull requests
+# cannot cost an unbounded amount however small each one is.
+DAILY_WINDOW_S = 86_400.0
+_SPEND_KINDS = frozenset({"review_run", "ci_final"})
+
+
+def _row_epoch(value: object) -> float | None:
+    """The epoch seconds of a ledger row's `ts`, or None when it cannot be read."""
+    if type(value) is not str or not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S%z").timestamp()
+    except ValueError:
+        return None
+
+
+def daily_spend(
+    entries: Sequence[Mapping[str, Any]], *, now: float, window_s: float = DAILY_WINDOW_S
+) -> tuple[float, int]:
+    """(total spend, rows counted) over the last ``window_s`` of this ledger.
+
+    A row whose timestamp cannot be read is **counted** rather than skipped:
+    the ceiling is a safety limit, and the safe direction for an unreadable row
+    is to charge it. A row with no spend field contributes nothing either way.
+    """
+    total = 0.0
+    counted = 0
+    for row in entries:
+        if row.get("kind") not in _SPEND_KINDS:
+            continue
+        stamp = _row_epoch(row.get("ts"))
+        if stamp is not None and stamp < now - window_s:
+            continue
+        spend = row.get("spend_usd")
+        if type(spend) not in {int, float} or isinstance(spend, bool):
+            continue
+        value = float(cast(float, spend))
+        if not math.isfinite(value) or value < 0:
+            continue
+        total += value
+        counted += 1
+    return total, counted
+

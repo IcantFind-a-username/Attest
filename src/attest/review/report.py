@@ -32,7 +32,7 @@ from collections.abc import Mapping, Sequence
 from attest.certification.types import CertifiedFinding
 from attest.review.finding_evidence import FindingEvidence, render_text
 from attest.review.gate import GateOutcome, GateResult
-from attest.review.output_contract import claim_line, silence_line
+from attest.review.output_contract import budget_unverified, claim_line, silence_line
 from attest.review.status import RunStatus
 
 
@@ -172,6 +172,7 @@ def render(
                 units_planned=status.units_planned or status.units_read,
                 spend_usd=spend_usd,
                 elapsed_s=elapsed_s,
+                unverified=budget_unverified(reasons),
             )
         )
 

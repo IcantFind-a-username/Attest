@@ -91,6 +91,7 @@ def render_complete(
     units: tuple[int, int] | None = None,
     impact: Sequence[ImpactNote] = (),
     nullability: Sequence[NullabilityNote] = (),
+    unverified: int = 0,
 ) -> str:
     """Render only receipt-backed findings, in the caller's order; with
     ``evidence`` each finding is followed by its runnable test (item 7).
@@ -120,6 +121,7 @@ def render_complete(
             units_planned=planned,
             spend_usd=spend_usd,
             elapsed_s=elapsed_s,
+            unverified=unverified,
         )
     lines = ["Review complete."]
     if certified:

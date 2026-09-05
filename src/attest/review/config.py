@@ -67,6 +67,12 @@ class ReviewConfig:
     # reproduction stable, and a concurrent repeat is a different experiment.
     # 1 restores the strictly serial path.
     repro_concurrency: int = 2
+    # D-161: the second ceiling. `budget_usd` bounds one review; this bounds a
+    # repository's spend over a rolling 24 hours, so an afternoon of pull
+    # requests cannot cost an unbounded amount however small each one is.
+    # 0.0 is off, which is the shipped default -- a ceiling nobody chose is a
+    # silence nobody can explain.
+    daily_budget_usd: float = 0.0
 
     def __post_init__(self) -> None:
         validate_review_config(self)
@@ -110,6 +116,13 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError("probe_generation must be a boolean")
     if type(config.repro_concurrency) is not int or not 1 <= config.repro_concurrency <= 8:
         raise ValueError("repro_concurrency must be an integer in [1, 8]")
+    if (
+        isinstance(config.daily_budget_usd, bool)
+        or not isinstance(config.daily_budget_usd, (int, float))
+        or not math.isfinite(config.daily_budget_usd)
+        or config.daily_budget_usd < 0
+    ):
+        raise ValueError("daily_budget_usd must be a finite non-negative number")
 
 
 CONTEXT_STRATEGIES = frozenset({"r01", "package-cache"})
@@ -129,6 +142,7 @@ _KNOWN_POLICY_KEYS = {
     "tier0_commands",
     "probe_generation",
     "repro_concurrency",
+    "daily_budget_usd",
 }
 
 
