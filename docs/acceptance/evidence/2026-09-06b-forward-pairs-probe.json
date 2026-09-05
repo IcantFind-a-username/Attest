@@ -1,15 +1,15 @@
 {
-  "attempted_reproductions": 97,
-  "budget_refused": 59,
+  "attempted_reproductions": 98,
+  "budget_refused": 49,
   "certified": 3,
   "direction": "fwd",
-  "generated": "2026-09-05T16:54:40+00:00",
+  "generated": "2026-09-05T17:24:36+00:00",
   "infrastructure_blocked": 2,
   "n_distinct_pairs": 11,
   "policy": "attest.intent.v4.1",
-  "policy_answered": 37,
-  "probe_refused": 4,
-  "published": 2,
+  "policy_answered": 47,
+  "probe_refused": 7,
+  "published": 3,
   "reviewed": 11,
   "rows": [
     {
@@ -135,14 +135,14 @@
       ]
     },
     {
-      "attempted": 68,
+      "attempted": 69,
       "base": "d5fbd32842",
-      "budget_refused": 59,
+      "budget_refused": 49,
       "candidates": 93,
       "certified": 1,
       "certified_bundles": [],
       "direction": "fwd",
-      "eligible": null,
+      "eligible": 69,
       "fixes": [
         "Fix get_parameter_source() during type conversion and eager callbacks",
         "Fix broken fish completion and multiline help string",
@@ -150,12 +150,12 @@
       ],
       "head": "cd4674a6de",
       "infrastructure_blocked": 0,
-      "policy_answered": 10,
-      "probe_refused": 1,
-      "published": 0,
+      "policy_answered": 20,
+      "probe_refused": 4,
+      "published": 1,
       "ran": true,
       "repo": "click",
-      "status_line": false,
+      "status_line": true,
       "unfaithful": 0,
       "value_class_certified": [],
       "value_class_drawered": [
@@ -173,6 +173,22 @@
         },
         {
           "finding": "f0c5f9607d",
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+        },
+        {
+          "finding": "ad115e73f1",
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+        },
+        {
+          "finding": "492d6c7ed7",
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+        },
+        {
+          "finding": "71ae755dea",
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+        },
+        {
+          "finding": "0a4cebf482",
           "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
         }
       ],
@@ -207,7 +223,7 @@
         },
         {
           "finding": "ad115e73f1",
-          "reason": "pytest passed on head in 3/3 runs; base not executed"
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
         },
         {
           "finding": "f9279fa8c4",
@@ -215,239 +231,239 @@
         },
         {
           "finding": "0606ae231b",
-          "reason": "generation failed: BudgetExceeded: call 'probe-0606ae231b-attempt-2' estimated $0.0714; projected total $1.0337 exceeds budget $1.00"
+          "reason": "probe reported no observation on base"
         },
         {
           "finding": "492d6c7ed7",
-          "reason": "generation failed: BudgetExceeded: call 'probe-492d6c7ed7-attempt-2' estimated $0.0824; projected total $1.0556 exceeds budget $1.00"
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
         },
         {
           "finding": "5e320cbe3b",
-          "reason": "generation failed: BudgetExceeded: call 'probe-5e320cbe3b-attempt-2' estimated $0.0592; projected total $1.0093 exceeds budget $1.00"
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
         },
         {
           "finding": "628b125c83",
-          "reason": "generation failed: BudgetExceeded: call 'probe-628b125c83-attempt-2' estimated $0.0905; projected total $1.0719 exceeds budget $1.00"
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
         },
         {
           "finding": "6522feec26",
-          "reason": "generation failed: BudgetExceeded: call 'probe-6522feec26-attempt-2' estimated $0.0655; projected total $1.0219 exceeds budget $1.00"
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
         },
         {
           "finding": "71ae755dea",
-          "reason": "generation failed: BudgetExceeded: call 'probe-71ae755dea-attempt-2' estimated $0.0587; projected total $1.0082 exceeds budget $1.00"
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
         },
         {
           "finding": "d9609539dd",
-          "reason": "generation failed: BudgetExceeded: call 'probe-d9609539dd-attempt-2' estimated $0.0700; projected total $1.0309 exceeds budget $1.00"
+          "reason": "probe reported no observation on base"
         },
         {
           "finding": "07b9c34e04",
-          "reason": "generation failed: BudgetExceeded: call 'probe-07b9c34e04-attempt-2' estimated $0.0620; projected total $1.0149 exceeds budget $1.00"
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
         },
         {
           "finding": "07c0c1977f",
-          "reason": "generation failed: BudgetExceeded: call 'probe-07c0c1977f-attempt-2' estimated $0.0760; projected total $1.0428 exceeds budget $1.00"
+          "reason": "probe deferred on base: reproduction attempted to create a child process; new probe failed: BudgetExceeded: call 'probe-07c0c1977f-attempt-2' estimated $0.0760; projected total $1.0231 exceeds budget $1.00"
         },
         {
           "finding": "0a4cebf482",
-          "reason": "generation failed: BudgetExceeded: call 'probe-0a4cebf482-attempt-2' estimated $0.0595; projected total $1.0098 exceeds budget $1.00"
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
         },
         {
           "finding": "102e4b63f4",
-          "reason": "generation failed: BudgetExceeded: call 'probe-102e4b63f4-attempt-2' estimated $0.0669; projected total $1.0247 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-102e4b63f4-attempt-2' estimated $0.0669; projected total $1.0376 exceeds budget $1.00"
         },
         {
           "finding": "104a4b6e62",
-          "reason": "generation failed: BudgetExceeded: call 'probe-104a4b6e62-attempt-2' estimated $0.0712; projected total $1.0333 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-104a4b6e62-attempt-2' estimated $0.0712; projected total $1.0461 exceeds budget $1.00"
         },
         {
           "finding": "12504d0b78",
-          "reason": "generation failed: BudgetExceeded: call 'probe-12504d0b78-attempt-2' estimated $0.0703; projected total $1.0314 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-12504d0b78-attempt-2' estimated $0.0703; projected total $1.0443 exceeds budget $1.00"
         },
         {
           "finding": "13d2fa3273",
-          "reason": "generation failed: BudgetExceeded: call 'probe-13d2fa3273-attempt-2' estimated $0.0589; projected total $1.0086 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-13d2fa3273-attempt-2' estimated $0.0589; projected total $1.0214 exceeds budget $1.00"
         },
         {
           "finding": "1a87d763e8",
-          "reason": "generation failed: BudgetExceeded: call 'probe-1a87d763e8-attempt-2' estimated $0.0575; projected total $1.0059 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-1a87d763e8-attempt-2' estimated $0.0575; projected total $1.0187 exceeds budget $1.00"
         },
         {
           "finding": "259d83e343",
-          "reason": "generation failed: BudgetExceeded: call 'probe-259d83e343-attempt-2' estimated $0.0615; projected total $1.0138 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-259d83e343-attempt-2' estimated $0.0615; projected total $1.0266 exceeds budget $1.00"
         },
         {
           "finding": "2a4b15f60a",
-          "reason": "generation failed: BudgetExceeded: call 'probe-2a4b15f60a-attempt-2' estimated $0.0657; projected total $1.0222 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-2a4b15f60a-attempt-2' estimated $0.0657; projected total $1.0351 exceeds budget $1.00"
         },
         {
           "finding": "30f568f87f",
-          "reason": "generation failed: BudgetExceeded: call 'probe-30f568f87f-attempt-2' estimated $0.0739; projected total $1.0387 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-30f568f87f-attempt-2' estimated $0.0739; projected total $1.0516 exceeds budget $1.00"
         },
         {
           "finding": "39c1d131ba",
-          "reason": "generation failed: BudgetExceeded: call 'probe-39c1d131ba-attempt-2' estimated $0.0668; projected total $1.0244 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-39c1d131ba-attempt-2' estimated $0.0668; projected total $1.0373 exceeds budget $1.00"
         },
         {
           "finding": "3d4d2df83e",
-          "reason": "generation failed: BudgetExceeded: call 'probe-3d4d2df83e-attempt-2' estimated $0.0594; projected total $1.0097 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-3d4d2df83e-attempt-2' estimated $0.0594; projected total $1.0225 exceeds budget $1.00"
         },
         {
           "finding": "40de338233",
-          "reason": "generation failed: BudgetExceeded: call 'probe-40de338233-attempt-2' estimated $0.0623; projected total $1.0155 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-40de338233-attempt-2' estimated $0.0623; projected total $1.0284 exceeds budget $1.00"
         },
         {
           "finding": "428e4575f4",
-          "reason": "generation failed: BudgetExceeded: call 'probe-428e4575f4-attempt-2' estimated $0.0759; projected total $1.0426 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-428e4575f4-attempt-2' estimated $0.0759; projected total $1.0555 exceeds budget $1.00"
         },
         {
           "finding": "46b4cd385b",
-          "reason": "generation failed: BudgetExceeded: call 'probe-46b4cd385b-attempt-2' estimated $0.0712; projected total $1.0333 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-46b4cd385b-attempt-2' estimated $0.0712; projected total $1.0461 exceeds budget $1.00"
         },
         {
           "finding": "472c71111f",
-          "reason": "generation failed: BudgetExceeded: call 'probe-472c71111f-attempt-2' estimated $0.0886; projected total $1.0680 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-472c71111f-attempt-2' estimated $0.0886; projected total $1.0809 exceeds budget $1.00"
         },
         {
           "finding": "53e6cc3652",
-          "reason": "generation failed: BudgetExceeded: call 'probe-53e6cc3652-attempt-2' estimated $0.0735; projected total $1.0378 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-53e6cc3652-attempt-2' estimated $0.0735; projected total $1.0506 exceeds budget $1.00"
         },
         {
           "finding": "5ca7018521",
-          "reason": "generation failed: BudgetExceeded: call 'probe-5ca7018521-attempt-2' estimated $0.0596; projected total $1.0101 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-5ca7018521-attempt-2' estimated $0.0596; projected total $1.0229 exceeds budget $1.00"
         },
         {
           "finding": "5faa19e710",
-          "reason": "generation failed: BudgetExceeded: call 'probe-5faa19e710-attempt-2' estimated $0.0594; projected total $1.0097 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-5faa19e710-attempt-2' estimated $0.0594; projected total $1.0226 exceeds budget $1.00"
         },
         {
           "finding": "6887874a0b",
-          "reason": "generation failed: BudgetExceeded: call 'probe-6887874a0b-attempt-2' estimated $0.0632; projected total $1.0172 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-6887874a0b-attempt-2' estimated $0.0632; projected total $1.0300 exceeds budget $1.00"
         },
         {
           "finding": "7b966bd39a",
-          "reason": "generation failed: BudgetExceeded: call 'probe-7b966bd39a-attempt-2' estimated $0.0902; projected total $1.0712 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-7b966bd39a-attempt-2' estimated $0.0902; projected total $1.0841 exceeds budget $1.00"
         },
         {
           "finding": "7ffe8ca361",
-          "reason": "generation failed: BudgetExceeded: call 'probe-7ffe8ca361-attempt-2' estimated $0.0624; projected total $1.0157 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-7ffe8ca361-attempt-2' estimated $0.0624; projected total $1.0285 exceeds budget $1.00"
         },
         {
           "finding": "82721f36b7",
-          "reason": "generation failed: BudgetExceeded: call 'probe-82721f36b7-attempt-2' estimated $0.0809; projected total $1.0527 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-82721f36b7-attempt-2' estimated $0.0809; projected total $1.0655 exceeds budget $1.00"
         },
         {
           "finding": "87a4aac759",
-          "reason": "generation failed: BudgetExceeded: call 'probe-87a4aac759-attempt-2' estimated $0.0677; projected total $1.0263 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-87a4aac759-attempt-2' estimated $0.0677; projected total $1.0391 exceeds budget $1.00"
         },
         {
           "finding": "8e07fa660f",
-          "reason": "generation failed: BudgetExceeded: call 'probe-8e07fa660f-attempt-2' estimated $0.0581; projected total $1.0071 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-8e07fa660f-attempt-2' estimated $0.0581; projected total $1.0199 exceeds budget $1.00"
         },
         {
           "finding": "8f9e2d4ac5",
-          "reason": "generation failed: BudgetExceeded: call 'probe-8f9e2d4ac5-attempt-2' estimated $0.0818; projected total $1.0545 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-8f9e2d4ac5-attempt-2' estimated $0.0818; projected total $1.0673 exceeds budget $1.00"
         },
         {
           "finding": "91b1c4b4a6",
-          "reason": "generation failed: BudgetExceeded: call 'probe-91b1c4b4a6-attempt-2' estimated $0.0901; projected total $1.0710 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-91b1c4b4a6-attempt-2' estimated $0.0901; projected total $1.0839 exceeds budget $1.00"
         },
         {
           "finding": "92f2678d98",
-          "reason": "generation failed: BudgetExceeded: call 'probe-92f2678d98-attempt-2' estimated $0.0548; projected total $1.0004 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-92f2678d98-attempt-2' estimated $0.0548; projected total $1.0132 exceeds budget $1.00"
         },
         {
           "finding": "9a3780079c",
-          "reason": "generation failed: BudgetExceeded: call 'probe-9a3780079c-attempt-2' estimated $0.0762; projected total $1.0433 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-9a3780079c-attempt-2' estimated $0.0762; projected total $1.0561 exceeds budget $1.00"
         },
         {
           "finding": "9dbbb91959",
-          "reason": "generation failed: BudgetExceeded: call 'probe-9dbbb91959-attempt-2' estimated $0.0715; projected total $1.0339 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-9dbbb91959-attempt-2' estimated $0.0715; projected total $1.0467 exceeds budget $1.00"
         },
         {
           "finding": "9e7eb8eae4",
-          "reason": "generation failed: BudgetExceeded: call 'probe-9e7eb8eae4-attempt-2' estimated $0.0670; projected total $1.0249 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-9e7eb8eae4-attempt-2' estimated $0.0670; projected total $1.0377 exceeds budget $1.00"
         },
         {
           "finding": "a948f702ac",
-          "reason": "generation failed: BudgetExceeded: call 'probe-a948f702ac-attempt-2' estimated $0.0636; projected total $1.0180 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-a948f702ac-attempt-2' estimated $0.0636; projected total $1.0308 exceeds budget $1.00"
         },
         {
           "finding": "aa378bf846",
-          "reason": "generation failed: BudgetExceeded: call 'probe-aa378bf846-attempt-2' estimated $0.0715; projected total $1.0338 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-aa378bf846-attempt-2' estimated $0.0715; projected total $1.0467 exceeds budget $1.00"
         },
         {
           "finding": "ac3f91c94f",
-          "reason": "generation failed: BudgetExceeded: call 'probe-ac3f91c94f-attempt-2' estimated $0.0591; projected total $1.0091 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-ac3f91c94f-attempt-2' estimated $0.0591; projected total $1.0220 exceeds budget $1.00"
         },
         {
           "finding": "b015d2ad24",
-          "reason": "generation failed: BudgetExceeded: call 'probe-b015d2ad24-attempt-2' estimated $0.0658; projected total $1.0224 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-b015d2ad24-attempt-2' estimated $0.0658; projected total $1.0352 exceeds budget $1.00"
         },
         {
           "finding": "b17e4182fd",
-          "reason": "generation failed: BudgetExceeded: call 'probe-b17e4182fd-attempt-2' estimated $0.0810; projected total $1.0528 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-b17e4182fd-attempt-2' estimated $0.0810; projected total $1.0656 exceeds budget $1.00"
         },
         {
           "finding": "ba344cb259",
-          "reason": "generation failed: BudgetExceeded: call 'probe-ba344cb259-attempt-2' estimated $0.0817; projected total $1.0543 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-ba344cb259-attempt-2' estimated $0.0817; projected total $1.0671 exceeds budget $1.00"
         },
         {
           "finding": "bcc16d8890",
-          "reason": "generation failed: BudgetExceeded: call 'probe-bcc16d8890-attempt-2' estimated $0.0701; projected total $1.0310 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-bcc16d8890-attempt-2' estimated $0.0701; projected total $1.0439 exceeds budget $1.00"
         },
         {
           "finding": "d0462609f3",
-          "reason": "generation failed: BudgetExceeded: call 'probe-d0462609f3-attempt-2' estimated $0.0715; projected total $1.0339 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-d0462609f3-attempt-2' estimated $0.0715; projected total $1.0467 exceeds budget $1.00"
         },
         {
           "finding": "d65240680e",
-          "reason": "generation failed: BudgetExceeded: call 'probe-d65240680e-attempt-2' estimated $0.0754; projected total $1.0417 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-d65240680e-attempt-2' estimated $0.0754; projected total $1.0545 exceeds budget $1.00"
         },
         {
           "finding": "d753acf028",
-          "reason": "generation failed: BudgetExceeded: call 'probe-d753acf028-attempt-2' estimated $0.0696; projected total $1.0300 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-d753acf028-attempt-2' estimated $0.0696; projected total $1.0429 exceeds budget $1.00"
         },
         {
           "finding": "dbda8457c7",
-          "reason": "generation failed: BudgetExceeded: call 'probe-dbda8457c7-attempt-2' estimated $0.0584; projected total $1.0076 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-dbda8457c7-attempt-2' estimated $0.0584; projected total $1.0205 exceeds budget $1.00"
         },
         {
           "finding": "debd28ad5a",
-          "reason": "generation failed: BudgetExceeded: call 'probe-debd28ad5a-attempt-2' estimated $0.0732; projected total $1.0372 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-debd28ad5a-attempt-2' estimated $0.0732; projected total $1.0501 exceeds budget $1.00"
         },
         {
           "finding": "e0008d177b",
-          "reason": "generation failed: BudgetExceeded: call 'probe-e0008d177b-attempt-2' estimated $0.0716; projected total $1.0341 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-e0008d177b-attempt-2' estimated $0.0716; projected total $1.0469 exceeds budget $1.00"
         },
         {
           "finding": "e4a4fc26ea",
-          "reason": "generation failed: BudgetExceeded: call 'probe-e4a4fc26ea-attempt-2' estimated $0.0598; projected total $1.0105 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-e4a4fc26ea-attempt-2' estimated $0.0598; projected total $1.0234 exceeds budget $1.00"
         },
         {
           "finding": "e56570ec5c",
-          "reason": "generation failed: BudgetExceeded: call 'probe-e56570ec5c-attempt-2' estimated $0.0692; projected total $1.0293 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-e56570ec5c-attempt-2' estimated $0.0692; projected total $1.0421 exceeds budget $1.00"
         },
         {
           "finding": "e8d811c3cb",
-          "reason": "generation failed: BudgetExceeded: call 'probe-e8d811c3cb-attempt-2' estimated $0.0647; projected total $1.0202 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-e8d811c3cb-attempt-2' estimated $0.0647; projected total $1.0330 exceeds budget $1.00"
         },
         {
           "finding": "f208b8154c",
-          "reason": "generation failed: BudgetExceeded: call 'probe-f208b8154c-attempt-2' estimated $0.0709; projected total $1.0327 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-f208b8154c-attempt-2' estimated $0.0709; projected total $1.0455 exceeds budget $1.00"
         },
         {
           "finding": "f52f2039b9",
-          "reason": "generation failed: BudgetExceeded: call 'probe-f52f2039b9-attempt-2' estimated $0.0898; projected total $1.0705 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-f52f2039b9-attempt-2' estimated $0.0898; projected total $1.0833 exceeds budget $1.00"
         },
         {
           "finding": "fcec43c6ad",
-          "reason": "generation failed: BudgetExceeded: call 'probe-fcec43c6ad-attempt-2' estimated $0.0815; projected total $1.0539 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-fcec43c6ad-attempt-2' estimated $0.0815; projected total $1.0667 exceeds budget $1.00"
         },
         {
           "finding": "ff6ec792e7",
-          "reason": "generation failed: BudgetExceeded: call 'probe-ff6ec792e7-attempt-2' estimated $0.0806; projected total $1.0520 exceeds budget $1.00"
+          "reason": "generation failed: BudgetExceeded: call 'probe-ff6ec792e7-attempt-2' estimated $0.0806; projected total $1.0648 exceeds budget $1.00"
         }
       ]
     },
@@ -542,7 +558,7 @@
       "certified": 1,
       "certified_bundles": [
         {
-          "bundle": ".attest/evidence/20260906-005227-ef9d97e7/ac074352b1",
+          "bundle": ".attest/evidence/20260906-012212-ef9d97e7/ac074352b1",
           "evidence_class": "regression_reproduced",
           "value_mismatch": false
         }
@@ -562,12 +578,7 @@
       "status_line": true,
       "unfaithful": 0,
       "value_class_certified": [],
-      "value_class_drawered": [
-        {
-          "finding": "bf96d32ed3",
-          "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)"
-        }
-      ],
+      "value_class_drawered": [],
       "verdicts": [
         {
           "finding": "5486de076b",
@@ -579,7 +590,7 @@
         },
         {
           "finding": "bf96d32ed3",
-          "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)"
+          "reason": "generation failed: ProbeRefused: probe imports test module(s) tests.test_itsdangerous.test_serializer; it must be self-contained"
         },
         {
           "finding": "e369c66f11",
@@ -643,7 +654,7 @@
       "verdicts": [
         {
           "finding": "39a2ce1267",
-          "reason": "probe replay failed on base: the recorded observation did not hold on re-execution; this is a bug in the recording, not evidence"
+          "reason": "probe observation is not stable on base: the merge base returned (0, 0), then the merge base returned (0, 2)"
         }
       ]
     },
@@ -655,7 +666,7 @@
       "certified": 1,
       "certified_bundles": [
         {
-          "bundle": ".attest/evidence/20260906-005347-17d8eecf/0c8e71fe96",
+          "bundle": ".attest/evidence/20260906-012333-17d8eecf/0c8e71fe96",
           "evidence_class": "regression_reproduced",
           "value_mismatch": false
         }
@@ -746,5 +757,5 @@
   "schema_version": "attest.forward-pair-reviews.v1",
   "unfaithful": 0,
   "value_class_certified": 0,
-  "value_class_drawered": 12
+  "value_class_drawered": 15
 }

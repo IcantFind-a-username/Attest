@@ -71,9 +71,78 @@ Yellow reaches an author the way green does, and never the way red does.
   `impact_note` ledger row per note records the policy version, the reason, the caller count and
   the untested count.
 
-## 3. The one real comment
+## 3. The one real comment, and the defect it found
 
-*(pending — the throwaway pull request in this repository; see §4 for what was asked of it)*
+[`IcantFind-a-username/Attest#10`](https://github.com/IcantFind-a-username/Attest/pull/10),
+opened as a throwaway and **closed unmerged with its branch deleted** — the comments stay
+readable on the closed pull request, which is the record. One change:
+`write_comparison_report` gains a keyword-only `basename` (a signature change), and its single
+call site, `scripts/benchmark.py:1251`, is named by no test. The Action ran on a GitHub runner at
+`budget-usd 0.25`.
+
+**The inline comment**
+([permalink](https://github.com/IcantFind-a-username/Attest/pull/10#discussion_r3941395689)),
+anchored on `src/attest/benchmark/report.py:1276` — the line the diff changed:
+
+```
+<!-- attest:impact:src/attest/benchmark/report.py:1275 -->
+[yellow] src/attest/benchmark/report.py:1275 — `write_comparison_report` changed signature;
+1 call site(s) name it, 1 of them named by no test — scripts/benchmark.py:1251
+
+Call sites, by name, in this repository:
+- scripts/benchmark.py:1251 — named by no test
+
+Static reachability over names: a caller reached only through a registry or `getattr` is
+invisible here, so this says *named by no test*, never *not covered*.
+```
+
+(The claim is one line; it is wrapped here for the page width and is 174 characters as posted, inside the contract's 400.)
+
+**The summary comment**, three levels partitioned, red silent:
+
+```
+Structural observations — measured, not reproduced; no defect is claimed:
+- [green] Structural (no defect claimed): src/attest/benchmark/report.py:897-910 `write_report`
+  and src/attest/benchmark/report.py:1390-1405 `write_stability_report` normalise to token
+  sequences of 58 and 58 tokens whose similarity is 1.000 (threshold 0.92); …
+
+Impact scope — counted over the call graph; no defect is claimed and no coverage was measured:
+- [yellow] src/attest/benchmark/report.py:1275 — `write_comparison_report` changed signature;
+  1 call site(s) name it, 1 of them named by no test — scripts/benchmark.py:1251
+Spend $0.0992; 55.1s.
+```
+
+Everything the instruction asked for holds: **one** yellow comment (the cap is two), one contract
+line, in its own section, claiming no defect, red untouched.
+
+### The first attempt posted nothing, and that is the useful part (D-147)
+
+The first run of this pull request came back **`DEFER: GitHub comment: GitHub API request failed
+with HTTP 422`** and posted **no inline comment at all** — not the yellow one, not the green one.
+
+The cause is in the green channel and it is three windows old. A structural finding requires one
+of its two coordinates to be in a file the change **touched**; it does not require the coordinate
+to be a line the change **changed**. Here green matched `write_report` at `report.py:897` against
+`write_stability_report` at `report.py:1390`, neither of which the diff carries. GitHub refuses a
+review comment on a line outside the diff — and refuses the **whole review** for it, so one
+unanchorable note took every other comment down with it.
+
+Fixed in the same window (D-147), in the only way that is not a patch over a symptom:
+
+- both unanchored channels are handed the diff's changed lines. A green note that cannot be
+  anchored **is dropped from the inline review and keeps its place in the summary**, which is
+  not anchored — which is exactly what the comment above shows.
+- a yellow note is placed on **the first changed line inside the function**. The sentence still
+  names the `def` line, because that is the function's identity, but a `def` line is usually
+  only *context* in a hunk and GitHub's tolerance for context lines is not something this
+  product should be betting a whole review on.
+- the delivery journal's members are read off **the comments that will actually be posted**,
+  never off the notes, so a dropped note is not recorded as delivered.
+
+Yellow (a)'s first author-visible run therefore found a latent defect in the level that shipped
+before it. That is the second time a first real comment has done so — the green channel's own
+first comment (2026-09-05) exposed that a refused model sentence was being discarded without a
+record.
 
 ## 4. Limits
 
