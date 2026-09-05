@@ -124,8 +124,25 @@ class RunStatus:
         return f"<details>\n<summary>Run status</summary>\n\n{body}\n\n</details>"
 
 
-def _bounded(reason: str, limit: int = 200) -> str:
+# The default bound on a reproduction reason. A bootstrap failure is the one
+# category whose reason is *the evidence*: `failure-modes.md` tells the operator
+# to read the build log's tail there, and the fixed prefix
+# `isolation backend unavailable: ` alone spends 31 of the 200, so ~9% of the
+# 1,200-character tail arrived. That category gets a bound sized to the tail it
+# is documented to carry (2026-09-03 backlog, D-105 review finding 7).
+REASON_LIMIT = 200
+BOOTSTRAP_REASON_LIMIT = 1_400
+_BOOTSTRAP_MARKERS = ("environment bootstrap failed", "isolation backend unavailable")
+
+
+def _bounded(reason: str, limit: int | None = None) -> str:
     reason = " ".join(str(reason).split())
+    if limit is None:
+        limit = (
+            BOOTSTRAP_REASON_LIMIT
+            if any(marker in reason for marker in _BOOTSTRAP_MARKERS)
+            else REASON_LIMIT
+        )
     return reason if len(reason) <= limit else reason[: limit - 3] + "..."
 
 

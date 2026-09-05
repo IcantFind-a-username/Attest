@@ -132,3 +132,30 @@ def test_a_timed_out_image_build_is_categorised_as_a_bootstrap_failure() -> None
         "(python 3.10, roots ['.']): the image build timed out after 1800 s"
     )
     assert categorise_failure(reason) == "environment bootstrap failed"
+
+
+def test_a_bootstrap_reason_keeps_the_build_log_tail_the_docs_promise() -> None:
+    """`failure-modes.md` tells the operator to read the build log's tail in the
+    run status. The 200-character bound, minus the 31-character
+    `isolation backend unavailable: ` prefix, delivered about 9% of the
+    1,200-character tail the bootstrap attaches -- so the code implied far more
+    than it showed (2026-09-03 backlog, D-105 review finding 7)."""
+    from attest.review.status import (
+        BOOTSTRAP_REASON_LIMIT,
+        REASON_LIMIT,
+        _bounded,
+    )
+
+    tail = "ERROR: could not build wheels for numpy " * 40
+    bootstrap = f"isolation backend unavailable: environment bootstrap failed (python 3.12): {tail}"
+    ordinary = f"pytest passed on head: {tail}"
+
+    kept = _bounded(bootstrap)
+    assert len(kept) == BOOTSTRAP_REASON_LIMIT
+    assert kept.count("could not build wheels") > 25, "the tail is still mostly gone"
+
+    assert len(_bounded(ordinary)) == REASON_LIMIT
+    assert REASON_LIMIT < BOOTSTRAP_REASON_LIMIT
+
+    short = "isolation backend unavailable: docker not found"
+    assert _bounded(short) == short
