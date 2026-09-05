@@ -24,6 +24,11 @@ from attest.github.client import GitHubClient
 from attest.review import certify as certify_module
 from attest.review.ci import run_ci
 from attest.review.config import ReviewConfig
+
+# D-146: every `ReviewConfig` here pins `probe_generation=False`. These tests supply
+# the exact reproduction they want executed; the product's default path, probe +
+# record/replay, is exercised in `tests/test_probe_generation.py` and rehearsed by the
+# release drills.
 from attest.review.evidence import verify_bundle
 from attest.review.executor import ExecutorLimits
 from attest.review.proposer import ProviderResult
@@ -91,7 +96,7 @@ def test_a_regenerated_reproduction_puts_its_own_bytes_in_the_bundle(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider,
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
@@ -127,7 +132,7 @@ def test_a_bundle_that_does_not_verify_publishes_nothing(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider,
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )

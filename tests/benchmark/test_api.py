@@ -25,6 +25,11 @@ from attest.benchmark.measurement import decode_measurement_record, reduce_measu
 from attest.benchmark.runner import BenchmarkRunner, Cassette, ReplayProvider
 from attest.benchmark.schema import TruthDefect
 from attest.review.config import ReviewConfig
+
+# D-146: every `ReviewConfig` here pins `probe_generation=False`. These tests supply
+# the exact reproduction they want executed; the product's default path, probe +
+# record/replay, is exercised in `tests/test_probe_generation.py` and rehearsed by the
+# release drills.
 from attest.review.executor import ExecutorLimits
 from attest.review.ledger import Ledger
 from attest.review.proposer import ProviderResult
@@ -61,7 +66,7 @@ def _request(tmp_path: Path, repo: Path, base_sha: str, head_sha: str, **kwargs:
         "base_ref": base_sha,
         "head_ref": head_sha,
         "workspace_root": tmp_path / "workspace",
-        "config": ReviewConfig(k_samples=2, tier0_commands=[]),
+        "config": ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         "limits": ExecutorLimits(wall_timeout_s=30.0),
         "repeats": 1,
     }
@@ -714,7 +719,9 @@ def test_mixed_surface_defer_preserves_predictions(tmp_path: Path) -> None:
             base_sha,
             head_sha,
             truth=truth,
-            config=ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[]),
+            config=ReviewConfig(
+                probe_generation=False, k_samples=2, max_findings=3, tier0_commands=[]
+            ),
         ),
         provider=MixedProvider(),
     )
@@ -924,7 +931,7 @@ def test_frozen_request_uses_predeclared_shas_even_if_symbolic_refs_move(
 @pytest.mark.parametrize(
     ("field", "value"),
     (
-        ("config", ReviewConfig(alpha=0.2)),
+        ("config", ReviewConfig(probe_generation=False, alpha=0.2)),
         ("limits", ExecutorLimits(wall_timeout_s=61.0)),
         ("verification_timeout_s", 601.0),
         ("repeats", 4),

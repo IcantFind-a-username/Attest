@@ -8,6 +8,12 @@ import pytest
 
 from attest.review.candidates import CandidateStore
 from attest.review.config import ReviewConfig
+
+# D-146: every `ReviewConfig` here pins `probe_generation=False`. These tests
+# supply the exact reproduction they want executed, because what they test is the
+# differential, the certification kernel and the publication policy -- not how the
+# test was written. The product's default path, probe + record/replay, is exercised
+# end to end in `tests/test_probe_generation.py`.
 from attest.review.proposer import MockProvider
 from attest.review.run import run_review
 
@@ -51,7 +57,7 @@ def test_run_review_persists_one_task_scoped_drawer_and_elapsed_time(repo: Path)
     run = run_review(
         repo,
         None,
-        ReviewConfig(k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
         MockProvider([_payload()]),
         clock=lambda: next(ticks),
     )
@@ -97,7 +103,7 @@ def test_run_review_defers_before_a_model_call_when_budget_is_exceeded(repo: Pat
     run = run_review(
         repo,
         None,
-        ReviewConfig(budget_usd=0.000001, k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, budget_usd=0.000001, k_samples=1, tier0_commands=[]),
         provider,
         clock=lambda: 5.0,
     )
@@ -115,7 +121,7 @@ def test_run_review_cancels_partial_reservations_on_budget_defer(repo: Path) -> 
     run = run_review(
         repo,
         None,
-        ReviewConfig(budget_usd=0.03, k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, budget_usd=0.03, k_samples=2, tier0_commands=[]),
         provider,
         clock=lambda: 5.0,
     )
@@ -131,7 +137,7 @@ def test_run_review_defers_when_no_provider_sample_is_valid(repo: Path, payload:
     run = run_review(
         repo,
         None,
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         MockProvider([payload]),
     )
 
@@ -142,13 +148,13 @@ def test_run_review_accepts_valid_empty_and_partial_success(repo: Path) -> None:
     empty = run_review(
         repo,
         None,
-        ReviewConfig(k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
         MockProvider(['{"findings": []}']),
     )
     partial = run_review(
         repo,
         None,
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         MockProvider(["{not-json", _payload()]),
     )
 
@@ -161,7 +167,7 @@ def test_unreachable_gate_records_explainable_defer_and_zero_spend_run(repo: Pat
     run = run_review(
         repo,
         None,
-        ReviewConfig(alpha=0.001, k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, alpha=0.001, k_samples=1, tier0_commands=[]),
         MockProvider([_payload()]),
     )
 
@@ -259,7 +265,7 @@ def test_local_review_runs_the_differential_stage_and_publishes_a_receipt(
     review = run_review(
         repo,
         base_sha[:7],
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         PlantedProvider(),
         verify=True,
         limits=ExecutorLimits(wall_timeout_s=20.0),

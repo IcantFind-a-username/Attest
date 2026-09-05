@@ -17,6 +17,8 @@ import pytest
 from attest.github.client import STATUS_MARKER, GitHubClient
 from attest.github.context import PullRequestContext
 from attest.github.presentation import (
+    IMPACT_HEADING,
+    IMPACT_MARKER_PREFIX,
     STRUCTURAL_ADVICE_HEADING,
     STRUCTURAL_HEADING,
     STRUCTURAL_MARKER_PREFIX,
@@ -28,7 +30,14 @@ from attest.review.acceptance import (
     parse_ledger,
 )
 from attest.review.config import ReviewConfig
+
+# D-146: every `ReviewConfig` here pins `probe_generation=False`. These tests
+# supply the exact reproduction they want executed, because what they test is the
+# differential, the certification kernel and the publication policy -- not how the
+# test was written. The product's default path, probe + record/replay, is exercised
+# end to end in `tests/test_probe_generation.py`.
 from attest.review.executor import ExecutorLimits
+from attest.review.impact import IMPACT_POLICY_VERSION
 from attest.review.ledger import Ledger
 from attest.review.output_contract import LEVEL_MARKERS
 from attest.review.output_contract import check as contract_check
@@ -281,7 +290,7 @@ def test_st_cap_without_accepted_receipt_never_reaches_the_author(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(
+        ReviewConfig(probe_generation=False,
             alpha=alpha,
             k_samples=2,
             tier0_commands=["ruff"],
@@ -335,7 +344,7 @@ def test_planted_bug_waits_for_failing_repro_before_speaking(
         repo,
         context,
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider,
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
@@ -408,7 +417,7 @@ def test_real_ci_drawer_reproduction_inline_ledger_is_accepted(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider,
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
@@ -450,7 +459,7 @@ def test_clean_negative_control_posts_no_inline_review(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
         provider,
     )
 
@@ -538,7 +547,7 @@ def test_a_duplicated_implementation_reaches_the_author_as_a_structural_comment(
         tmp_path,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
         provider,
     )
 
@@ -569,6 +578,152 @@ def test_a_duplicated_implementation_reaches_the_author_as_a_structural_comment(
     note_row = next(row for row in rows if row["kind"] == "structural_note")
     assert note_row["advice_published"] is True and note_row["refusal"] is None
     assert note_row["note_id"] == "invoices.py:1|orders.py:1"
+
+
+def test_a_changed_signature_with_an_untested_caller_reaches_the_author_as_yellow(
+    tmp_path: Path, github_server: RecordingGitHub
+) -> None:
+    """D-145: yellow (a) is author-visible, and the whole path is free.
+
+    One function's signature moves; one caller is named by a test and one is
+    named by none. The level publishes exactly one comment, its claim line is
+    one D-142 contract line, the ledger records the note, and the summary keeps
+    it in its own section with red untouched.
+    """
+    from attest.review.ci import run_ci
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(tmp_path), *args], check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test")
+    (tmp_path / "pricing.py").write_text(
+        "def quote(items):\n    return sum(item.price for item in items)\n", encoding="utf-8"
+    )
+    (tmp_path / "checkout.py").write_text(
+        "from pricing import quote\n\n\ndef checkout(basket):\n    return quote(basket)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "reporting.py").write_text(
+        "from pricing import quote\n\n\ndef nightly(basket):\n    return quote(basket)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_checkout.py").write_text(
+        "from checkout import checkout\n\n\ndef test_checkout():\n    assert checkout([]) == 0\n",
+        encoding="utf-8",
+    )
+    git("add", ".")
+    git("commit", "-m", "base")
+    base_sha = git("rev-parse", "HEAD")
+    (tmp_path / "pricing.py").write_text(
+        "def quote(items, currency):\n    return sum(item.price for item in items)\n",
+        encoding="utf-8",
+    )
+    git("add", "pricing.py")
+    git("commit", "-m", "quote takes a currency")
+    head_sha = git("rev-parse", "HEAD")
+
+    provider = RecordingProvider(_payload(), '{"test_body":"assert False"}')
+
+    result = run_ci(
+        tmp_path,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
+        provider,
+    )
+
+    assert result.surfaced_count == 0  # yellow claims no defect and surfaces none
+    comments = [c for body in github_server.review_bodies for c in body["comments"]]
+    yellow = [c for c in comments if str(c["body"]).startswith(IMPACT_MARKER_PREFIX)]
+    assert len(yellow) == 1
+    assert yellow[0]["path"] == "pricing.py" and yellow[0]["line"] == 1
+    lines = str(yellow[0]["body"]).splitlines()
+    assert lines[0] == "<!-- attest:impact:pricing.py:1 -->"
+    claim = lines[1]
+    assert claim.startswith(LEVEL_MARKERS["yellow"])
+    assert contract_check(claim).admitted is True
+    assert "changed signature" in claim and "1 of them named by no test" in claim
+    assert "reporting.py:5 — named by no test" in str(yellow[0]["body"])
+    assert "never *not covered*" in str(yellow[0]["body"])
+
+    final = github_server.status_bodies[-1]
+    red, heading, scope = final.partition(IMPACT_HEADING)
+    assert heading and LEVEL_MARKERS["yellow"] in scope
+    assert LEVEL_MARKERS["yellow"] not in red and LEVEL_MARKERS["red"] not in final
+
+    row = next(r for r in _ledger_rows(tmp_path) if r["kind"] == "impact_note")
+    assert row["note_id"] == "pricing.py:1"
+    assert row["untested_callers"] == 1 and row["callers"] == 2
+    assert row["policy_version"] == IMPACT_POLICY_VERSION
+
+
+def test_a_body_change_with_an_untested_caller_produces_no_yellow_line(
+    tmp_path: Path, github_server: RecordingGitHub
+) -> None:
+    """The other half of the owner's RED: when yellow is silent, no yellow
+    comment, no heading and no marker reaches the author.
+
+    The case is chosen to be the one D-143's rule *would* have published — a
+    body change with a caller no test names — so this fails on the either-half
+    rule and not merely on the absence of wiring."""
+    from attest.review.ci import run_ci
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(tmp_path), *args], check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test")
+    (tmp_path / "pricing.py").write_text(
+        "def quote(items):\n    return sum(item.price for item in items)\n", encoding="utf-8"
+    )
+    (tmp_path / "checkout.py").write_text(
+        "from pricing import quote\n\n\ndef checkout(basket):\n    return quote(basket)\n",
+        encoding="utf-8",
+    )
+    # a caller no test names: the D-143 rule spoke on exactly this
+    (tmp_path / "reporting.py").write_text(
+        "from pricing import quote\n\n\ndef nightly(basket):\n    return quote(basket)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_checkout.py").write_text(
+        "from checkout import checkout\n\n\ndef test_checkout():\n    assert checkout([]) == 0\n",
+        encoding="utf-8",
+    )
+    git("add", ".")
+    git("commit", "-m", "base")
+    base_sha = git("rev-parse", "HEAD")
+    (tmp_path / "pricing.py").write_text(
+        "def quote(items):\n    total = 0\n    for item in items:\n"
+        "        total += item.price\n    return total\n",
+        encoding="utf-8",
+    )
+    git("add", "pricing.py")
+    git("commit", "-m", "unroll the sum")
+    head_sha = git("rev-parse", "HEAD")
+
+    run_ci(
+        tmp_path,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
+        RecordingProvider(_payload(), '{"test_body":"assert False"}'),
+    )
+
+    comments = [c for body in github_server.review_bodies for c in body["comments"]]
+    assert [c for c in comments if str(c["body"]).startswith(IMPACT_MARKER_PREFIX)] == []
+    final = github_server.status_bodies[-1]
+    assert LEVEL_MARKERS["yellow"] not in final
+    assert IMPACT_HEADING not in final
+    assert [r for r in _ledger_rows(tmp_path) if r["kind"] == "impact_note"] == []
 
 
 def test_a_refused_model_sentence_is_recorded_rather_than_hidden(
@@ -624,7 +779,7 @@ def test_a_refused_model_sentence_is_recorded_rather_than_hidden(
         tmp_path,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
         provider,
     )
 
@@ -652,7 +807,7 @@ def test_fork_is_skipped_before_provider_or_executor_use(
         repo,
         _context(base_sha, head_sha, is_fork=True),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
         provider,
     )
 
@@ -680,7 +835,7 @@ def test_review_budget_defer_is_explicit_and_does_not_verify(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(budget_usd=0.000001, k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, budget_usd=0.000001, k_samples=1, tier0_commands=[]),
         provider,
     )
 
@@ -707,7 +862,7 @@ def test_executor_timeout_defers_without_buying_verification_evidence(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
         provider,
         limits=ExecutorLimits(wall_timeout_s=0.05),
     )
@@ -746,7 +901,7 @@ def test_expired_shared_deadline_defers_every_unprocessed_candidate_without_v(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
         provider,
         verification_timeout_s=0.0,
     )
@@ -804,7 +959,7 @@ def test_generation_latency_exhausts_deadline_before_executor_starts(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
         provider,
         verification_timeout_s=1.0,
         clock=clock,
@@ -833,7 +988,7 @@ def test_intermediate_github_failure_is_explicit_without_second_model_call(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
         provider,
     )
 
@@ -858,7 +1013,7 @@ def test_invalid_base_defers_with_immediate_comment_events_under_one_task(
             repo,
             _context("missing-base-ref", head_sha),
             GitHubClient("local-token", github_server.url),
-            ReviewConfig(k_samples=1, tier0_commands=[]),
+            ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
             provider,
         )
     except (RuntimeError, subprocess.CalledProcessError):
@@ -896,7 +1051,7 @@ def test_pre_provider_ledger_preparation_failure_is_zero_spend_setup_defer(
             repo,
             _context(base_sha, head_sha),
             GitHubClient("local-token", github_server.url),
-            ReviewConfig(k_samples=1, tier0_commands=[]),
+            ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
             provider,
         )
     except OSError:
@@ -931,7 +1086,7 @@ def test_post_provider_persistence_failure_retains_spend_phase_and_task_accounti
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=1, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
         provider,
     )
 
@@ -977,7 +1132,7 @@ def test_final_review_run_accounting_failure_becomes_post_provider_defer(
             repo,
             _context(base_sha, head_sha),
             GitHubClient("local-token", github_server.url),
-            ReviewConfig(k_samples=1, tier0_commands=[]),
+            ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
             provider,
         )
     except OSError:
@@ -1050,7 +1205,7 @@ def test_surface_overflow_stays_visible_without_extra_inline_placement(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, max_findings=3, tier0_commands=[]),
         provider,
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
@@ -1156,7 +1311,7 @@ def test_mixed_defer_summary_keeps_all_surfaced_overflow_and_hides_deferred_deta
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, max_findings=3, tier0_commands=[]),
         MixedProvider(),
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
@@ -1390,7 +1545,9 @@ def test_pr_family_policy_caps_publication_and_counts_a_defect_once(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(alpha=0.1, k_samples=2, max_findings=3, tier0_commands=[]),
+        ReviewConfig(
+            probe_generation=False, alpha=0.1, k_samples=2, max_findings=3, tier0_commands=[]
+        ),
         TwoSampleProvider(),
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
@@ -1454,7 +1611,7 @@ def test_silent_run_status_comment_names_counts_and_every_failure_reason(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider,
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
@@ -1492,7 +1649,7 @@ def test_verified_finding_comment_carries_a_test_and_command_that_reproduce_on_b
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider,
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
@@ -1680,7 +1837,7 @@ def test_a_new_rejection_without_a_base_witness_publishes_nothing_and_is_labelle
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider,
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
@@ -1719,7 +1876,7 @@ def test_a_new_rejection_the_base_tests_attest_publishes_as_a_behavior_change(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider,
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
@@ -1812,7 +1969,7 @@ def test_an_unattempted_certification_names_the_profile_that_actually_ran(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider,
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
@@ -1879,7 +2036,7 @@ def test_reproductions_are_bought_in_ranking_order(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider,
     )
 

@@ -498,6 +498,9 @@ def _snapshot_project_evaluation_request(
         max_findings=request.config.max_findings,
         auto_tighten_alpha=request.config.auto_tighten_alpha,
         tier0_commands=list(request.config.tier0_commands),
+        # D-146: how a reproduction is written is policy, and a harness that
+        # silently reset it would report a measurement of the wrong generator
+        probe_generation=request.config.probe_generation,
     )
     truth = request.truth
     if truth is not None:

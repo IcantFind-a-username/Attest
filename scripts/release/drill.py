@@ -95,7 +95,19 @@ class ScriptedProvider:
         timeout_s: float | None = None,
     ) -> ProviderResult:
         self.calls += 1
-        if "focused pytest reproduction" in system:
+        if "choosing ONE call" in system:
+            # D-146: the drills rehearse the product's default generator, so what
+            # this replays is a **probe** -- what to call, and nothing about what
+            # it should do. The merge base is executed to record that `average([])`
+            # returns 0, and the kernel writes the assertion from the recording.
+            payload = json.dumps(
+                {
+                    "imports": "import runpy",
+                    "setup": "average = runpy.run_path('app.py')['average']",
+                    "expression": "average([])",
+                }
+            )
+        elif "focused pytest reproduction" in system:
             payload = json.dumps(
                 {
                     "test_body": "import runpy\n\n"

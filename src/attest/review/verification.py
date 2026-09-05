@@ -209,6 +209,7 @@ def run_verification_stage(
             adapter=adapter,
             shared_system=shared_system,
             generation_model=config.generation_model,
+            probe_generation=config.probe_generation,
         )
         results_by_id[candidate.finding.finding_id] = verification.gate_result
         if verification.execution.outcome is ExecutionOutcome.DEFERRED:

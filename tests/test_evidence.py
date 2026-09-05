@@ -10,6 +10,12 @@ from attest.certification.types import AcceptedReceipt
 from attest.github.client import GitHubClient
 from attest.review.ci import run_ci
 from attest.review.config import ReviewConfig
+
+# D-146: every `ReviewConfig` here pins `probe_generation=False`. These tests
+# supply the exact reproduction they want executed, because what they test is the
+# differential, the certification kernel and the publication policy -- not how the
+# test was written. The product's default path, probe + record/replay, is exercised
+# end to end in `tests/test_probe_generation.py`.
 from attest.review.evidence import verify_bundle
 from attest.review.executor import ExecutorLimits
 from test_ci_flow import (  # noqa: F401 - fixtures are re-exported into this module
@@ -49,7 +55,7 @@ def test_accepted_receipt_verifies_offline_and_any_flipped_byte_rejects(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider,
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )

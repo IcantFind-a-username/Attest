@@ -55,6 +55,13 @@ class ReviewConfig:
     # no author-visible surface either way; what it costs when it is on is one
     # reproduction and three head runs per attempt, which is why it is opt-in.
     gate_shadow: bool = False
+    # D-146: how a reproduction is written. True (the product's setting) asks the
+    # model only *what to call*, executes that probe on the merge base, records
+    # what base did, and writes the assertion from the recording -- so a test
+    # that fails on base as well is structurally impossible. False restores the
+    # D-114 path where the model writes the assertion from the diff alone; it is
+    # the reversal, and it is what the before/after measurement compares.
+    probe_generation: bool = True
 
     def __post_init__(self) -> None:
         validate_review_config(self)
@@ -94,6 +101,8 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError(f"context_strategy must be one of {sorted(CONTEXT_STRATEGIES)}")
     if type(config.enabled) is not bool:
         raise ValueError("enabled must be a boolean")
+    if type(config.probe_generation) is not bool:
+        raise ValueError("probe_generation must be a boolean")
 
 
 CONTEXT_STRATEGIES = frozenset({"r01", "package-cache"})
@@ -111,6 +120,7 @@ _KNOWN_POLICY_KEYS = {
     "max_findings",
     "auto_tighten_alpha",
     "tier0_commands",
+    "probe_generation",
 }
 
 

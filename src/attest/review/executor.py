@@ -18,7 +18,7 @@ from contextlib import suppress
 from dataclasses import asdict, dataclass, replace
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from attest.certification.binding import (
     BINDING_POLICY_VERSION,
@@ -40,6 +40,19 @@ from attest.review.gate import GateResult, apply_verification
 from attest.review.intent import RaiseOrigin, observe_intent, parse_raise_record
 from attest.review.ledger import Ledger
 from attest.review.planner import generation_context
+from attest.review.probe import (
+    PROBE_MAX_OUTPUT_TOKENS,
+    PROBE_POLICY_VERSION,
+    PROBE_SCHEMA,
+    PROBE_SYSTEM,
+    Observation,
+    ProbeRefused,
+    ProbeSpec,
+    parse_observation,
+    parse_probe,
+    probe_test_body,
+    replay_test_body,
+)
 from attest.review.proposer import (
     Provider,
     call_provider,
@@ -56,6 +69,12 @@ MAX_REPRO_ATTEMPTS = 2
 # D-114: extra generations bought when the reproduction does not collect on
 # head. One: a second scaffolding failure is a signal, not a budget to spend.
 COLLECTION_REGENERATIONS = 1
+# D-146: how many probes one candidate may buy before the recording is given up
+MAX_PROBE_ATTEMPTS = 2
+# D-146: how many times the probe is executed on base before its observation is
+# trusted. Two, because one cannot show stability and three buys nothing a
+# second disagreement would not already have shown.
+PROBE_RECORDINGS = 2
 CLEANUP_TIMEOUT_S = 1.0
 GIT_TIMEOUT_S = 60.0
 MAX_REASON_CHARS = 300
@@ -349,6 +368,23 @@ class ExecutionResult:
 
 
 @dataclass(frozen=True)
+class ProbeObservation:
+    """What the merge base did when the probe called it, and how it was recorded.
+
+    Kept beside the differential rather than inside the receipt: the receipt's
+    schema is versioned and every field added to it decays the bundles that
+    predate the field (`INV-VERSION-001`), and nothing in certification needs
+    this. It is audit, and it lives in the ledger."""
+
+    policy_version: str
+    expression: str
+    kind: str  # "value" | "exception"
+    detail: str  # repr(value), or the exception's type name
+    recordings: int  # how many identical observations base produced
+    attempts: int  # how many probes were bought before one recorded
+
+
+@dataclass(frozen=True)
 class DifferentialExecution:
     head_runs: tuple[ExecutionResult, ...]
     base_runs: tuple[ExecutionResult, ...]
@@ -363,6 +399,7 @@ class DifferentialExecution:
     collection_run: ExecutionResult | None = None  # the collect-only run (V-01)
     binding: BindingObservation | None = None  # changed-line binding (V-02)
     intent: IntentObservation | None = None  # regression or new rejection (D-102)
+    probe: ProbeObservation | None = None  # D-146: what base did, recorded
     # D-124: the spec whose bytes the recorded runs actually executed. The
     # collection loop may replace the generated test (D-114), so the caller's
     # first spec is not in general the one the receipt is about; the evidence
@@ -862,6 +899,98 @@ def generate_repro(
     if last_schema_error is None:  # pragma: no cover - fixed positive attempt count
         raise RuntimeError("reproduction generation made no attempts")
     raise last_schema_error
+
+
+def generate_probe(
+    repo: Path,
+    candidate: StoredCandidate,
+    provider: Provider,
+    budget: Budget,
+    *,
+    timeout_s: float | None = None,
+    base_ref: str | None = None,
+    shared_system: str = "",
+    model: str = "",
+) -> ProbeSpec:
+    """One probe: what to call, never what it should do (D-146).
+
+    The same shape as ``generate_repro`` -- reserve every attempt up front,
+    settle each, cancel the rest -- because the budget must know the worst case
+    before the first call. What differs is the question and the size of the
+    answer: a probe is three short fields, so it reserves a fifth of the output
+    tokens a whole test file does."""
+    model = effective_model(provider, model)
+    prompt = _generation_prompt(repo, candidate, base_ref)
+    labels = [
+        f"probe-{candidate.finding.finding_id}-attempt-{attempt}"
+        for attempt in range(1, MAX_PROBE_ATTEMPTS + 1)
+    ]
+    reservations: list[float] = []
+    try:
+        for label in labels:
+            reservations.append(
+                budget.reserve(
+                    label,
+                    len(PROBE_SYSTEM) + len(prompt),
+                    PROBE_MAX_OUTPUT_TOKENS,
+                    model or None,
+                )
+            )
+    except Exception:
+        for reservation in reservations:
+            budget.cancel(reservation)
+        raise
+
+    last_error: Exception | None = None
+    for index, (label, reservation) in enumerate(zip(labels, reservations, strict=True)):
+        try:
+            result = call_provider(
+                provider,
+                PROBE_SYSTEM,
+                prompt,
+                cast(dict[str, Any], PROBE_SCHEMA),
+                PROBE_MAX_OUTPUT_TOKENS,
+                timeout_s=timeout_s,
+                shared_prefix=prompt,
+                shared_system=shared_system,
+                model=model,
+            )
+        except Exception:
+            for unused in reservations[index:]:
+                budget.cancel(unused)
+            raise
+        budget.settle(
+            label,
+            reservation,
+            result.input_tokens,
+            result.output_tokens,
+            cache_creation_input_tokens=result.cache_creation_input_tokens,
+            cache_read_input_tokens=result.cache_read_input_tokens,
+            model=model or None,
+        )
+        if result.text is None:
+            last_error = GenerationNoText(no_text_reason(result))
+            continue
+        try:
+            spec = parse_probe(result.text)
+        except ProbeRefused as exc:
+            last_error = exc
+            continue
+        imported = imported_test_modules(spec.imports)
+        if imported:
+            # D-114 holds for a probe too: the recording runs outside the test
+            # tree, so a probe that borrows from it records nothing about the diff
+            last_error = ProbeRefused(
+                f"probe imports test module(s) {', '.join(imported)}; it must be self-contained"
+            )
+            continue
+        for unused in reservations[index + 1 :]:
+            budget.cancel(unused)
+        return spec
+
+    if last_error is None:  # pragma: no cover - fixed positive attempt count
+        raise RuntimeError("probe generation made no attempts")
+    raise last_error
 
 
 def _truncate_output(output: bytes | str | None, limit: int) -> str:
@@ -1659,6 +1788,100 @@ STALE_REFERENCE_REASON = (
 )
 
 
+@dataclass(frozen=True)
+class _Recording:
+    """The outcome of asking the merge base what the probe's call does."""
+
+    probe: ProbeSpec
+    observation: Observation | None
+    reason: str
+    attempts: int
+    exhausted_deadline: bool = False
+
+
+def _record_on_base(
+    *,
+    probe: ProbeSpec,
+    reprobe: Callable[[], ProbeSpec] | None,
+    run: Callable[[int, str], ExecutionResult | None],
+    anchored: str,
+) -> _Recording:
+    """Execute the probe on base until it records, or say why it never did.
+
+    Two admissibility rules, both structural and both stated as refusals rather
+    than as repairs:
+
+    - **it must reach the anchored file.** `executed_lines` is the tracer's
+      record of lines of the anchored file this run executed; an empty tuple
+      means the probe recorded the behaviour of something other than the code
+      under review -- a signature only head has, an import that did not resolve,
+      or a pasted copy of the function. Nothing about the diff follows from it.
+    - **it must record the same thing twice.** A `repr` carrying an address, a
+      clock, a set's iteration order: any of them would make the replay fail on
+      base for a reason that has nothing to do with the change.
+
+    A fresh probe is bought only when the model's first one is inadmissible, and
+    only while ``reprobe`` is supplied.
+    """
+    current = probe
+    reason = "probe was never executed"
+    for attempt in range(1, MAX_PROBE_ATTEMPTS + 1):
+        if attempt > 1:
+            if reprobe is None:
+                break
+            try:
+                current = reprobe()
+            except Exception as exc:  # noqa: BLE001 - budget/deadline/provider
+                return _Recording(
+                    probe=current,
+                    observation=None,
+                    reason=f"{reason}; new probe failed: {type(exc).__name__}: "
+                    f"{redacted_error(exc)}",
+                    attempts=attempt - 1,
+                )
+        body = probe_test_body(current)
+        observations: list[Observation] = []
+        for index in range(1, PROBE_RECORDINGS + 1):
+            result = run(index, body)
+            if result is None:
+                return _Recording(
+                    probe=current,
+                    observation=None,
+                    reason=DEADLINE_REASON,
+                    attempts=attempt,
+                    exhausted_deadline=True,
+                )
+            if result.outcome is ExecutionOutcome.DEFERRED:
+                reason = f"probe deferred on base: {result.reason}"
+                break
+            observed = parse_observation(
+                result.stdout, result.stderr, result.failure_message, result.failure_detail
+            )
+            if observed is None:
+                reason = "probe reported no observation on base"
+                break
+            if not result.executed_lines:
+                reason = (
+                    f"probe did not execute {anchored} on base, so it recorded the behaviour "
+                    "of something other than the code under review"
+                )
+                break
+            observations.append(observed)
+        if len(observations) == PROBE_RECORDINGS:
+            if observations[0] == observations[1]:
+                return _Recording(
+                    probe=current,
+                    observation=observations[0],
+                    reason="",
+                    attempts=attempt,
+                )
+            reason = (
+                "probe observation is not stable on base: "
+                f"{observations[0].sentence()}, then {observations[1].sentence()}"
+            )
+    return _Recording(probe=current, observation=None, reason=reason, attempts=MAX_PROBE_ATTEMPTS)
+
+
 def execute_differential(
     repo: Path,
     candidate: StoredCandidate,
@@ -1672,6 +1895,8 @@ def execute_differential(
     clock: Callable[[], float] = time.monotonic,
     adapter: ExecutorAdapter | None = None,
     regenerate: Callable[[], ReproSpec] | None = None,
+    probe: ProbeSpec | None = None,
+    reprobe: Callable[[], ProbeSpec] | None = None,
 ) -> DifferentialExecution:
     """Run the same reproduction repeatedly against detached head/base
     worktrees. Only a deterministic head failure that shows the code
@@ -1680,7 +1905,12 @@ def execute_differential(
     DEFERRED (flaky or
     unfaithful evidence must never purchase V). Every result also carries an
     evidence class, which describes what was seen without pricing it: a
-    new-code candidate is recorded and still DEFERRED."""
+    new-code candidate is recorded and still DEFERRED.
+
+    With ``probe`` the reproduction is not supplied but **recorded** (D-146):
+    the probe is executed on the base worktree, what base did is recorded, and
+    ``spec`` is written from that recording. On this path a base run that fails
+    is a bug in the recording rather than an unfaithful test, and it says so."""
     started = time.monotonic()
     repo_root = repo.resolve()
     head_runs: list[ExecutionResult] = []
@@ -1689,6 +1919,7 @@ def execute_differential(
     collection_runs: list[ExecutionResult] = []
     bindings: list[BindingObservation] = []
     intents: list[IntentObservation] = []
+    probes: list[ProbeObservation] = []
 
     def finish(
         outcome: ExecutionOutcome,
@@ -1710,6 +1941,7 @@ def execute_differential(
             collection_run=collection_runs[-1] if collection_runs else None,
             binding=bindings[0] if bindings else None,
             intent=intents[0] if intents else None,
+            probe=probes[0] if probes else None,
             # read at call time: after a D-114 regeneration this is the round's
             # spec, not the one the caller passed in
             executed_spec=spec,
@@ -1729,6 +1961,8 @@ def execute_differential(
         "head": _resolve_commit(repo_root, head_sha) or "",
         "base": _resolve_commit(repo_root, base_sha) or "",
     }
+    # a probe run is a base run: its recorded execution identity must say so
+    revisions["probe"] = revisions["base"]
 
     def run_once(
         side: str, index: int, tree: Path, *, collect_only: bool = False
@@ -1778,12 +2012,52 @@ def execute_differential(
                 return deferred(f"could not create {side} worktree: {added.stderr.strip()}")
             created.append(trees_dir / side)
 
+        # D-146: in probe mode the reproduction does not exist yet. Record what
+        # the merge base does with the model's chosen call, and write the test
+        # from that recording -- so the expectation the differential asserts was
+        # measured on base rather than guessed at from the diff.
+        if probe is not None:
+
+            def run_probe(index: int, body: str) -> ExecutionResult | None:
+                """One recording run on base, with the probe file in place of the
+                reproduction. `spec` is what `run_once` writes, so the recording
+                and the replay are the same code path under the same guards."""
+                nonlocal spec
+                spec = ReproSpec(test_body=body)
+                return run_once("probe", index, trees_dir / "base")
+
+            recorded = _record_on_base(
+                probe=probe,
+                reprobe=reprobe,
+                run=run_probe,
+                anchored=candidate.finding.file,
+            )
+            if recorded.observation is None:
+                if recorded.exhausted_deadline:
+                    return deferred(DEADLINE_REASON)
+                return deferred(recorded.reason, EvidenceClass.UNFAITHFUL)
+            spec = ReproSpec(
+                test_body=replay_test_body(recorded.probe, recorded.observation)
+            )
+            probes.append(
+                ProbeObservation(
+                    policy_version=PROBE_POLICY_VERSION,
+                    expression=recorded.probe.expression,
+                    kind=recorded.observation.kind,
+                    detail=recorded.observation.detail[:MAX_REASON_CHARS],
+                    recordings=PROBE_RECORDINGS,
+                    attempts=recorded.attempts,
+                )
+            )
+
         # V-01: collect first, under the same guards, and demand exactly one
         # node; every behavioural run then selects that node explicitly.
         # D-114: a file that does not collect is a scaffolding failure, not
         # evidence about the diff, so the generator is asked again before any
-        # behavioural run is bought.
-        rounds = 1 if regenerate is None else 1 + COLLECTION_REGENERATIONS
+        # behavioural run is bought. In probe mode the file is rendered by this
+        # process from a template that already collects, and a fresh probe was
+        # already bought if the first would not record, so there is one round.
+        rounds = 1 if (regenerate is None or probe is not None) else 1 + COLLECTION_REGENERATIONS
         collected: ExecutionResult | None = None
         failures: list[str] = []
         for round_index in range(rounds):
@@ -1869,6 +2143,16 @@ def execute_differential(
                 return deferred(NEW_CODE_REASON, EvidenceClass.NEW_CODE_CANDIDATE)
             if run.outcome is ExecutionOutcome.DEFERRED:
                 return deferred(f"base run {index}/{repeats} deferred: {run.reason}")
+            if probe is not None:
+                # D-146: structurally impossible on this path -- the assertion is
+                # what base itself produced, twice, minutes ago. Reaching here is
+                # a defect in the recording, not evidence about the diff, and the
+                # reason says so rather than blaming the generator.
+                return deferred(
+                    "probe replay failed on base: the recorded observation did not hold on "
+                    "re-execution; this is a bug in the recording, not evidence",
+                    EvidenceClass.UNFAITHFUL,
+                )
             return deferred(
                 "unfaithful generated test: fails on base as well", EvidenceClass.UNFAITHFUL
             )
@@ -2038,7 +2322,15 @@ def verify_candidate(
     adapter: ExecutorAdapter | None = None,
     shared_system: str = "",
     generation_model: str = "",
+    probe_generation: bool = True,
 ) -> VerificationRun:
+    """Generate a reproduction and run it on both revisions.
+
+    ``probe_generation`` is D-146's path and the default: the model chooses one
+    call, the merge base is executed to record what that call does, and the test
+    is written from the recording. Passing ``False`` restores the D-114 path
+    where the model writes the assertion too -- the reversal for D-146, kept so
+    the two can be measured against each other on the same corpus."""
     started = time.monotonic()
     resolved_base = _resolve_commit(repo, base_sha)
     resolved_head = _resolve_commit(repo, head_sha)
@@ -2071,23 +2363,39 @@ def verify_candidate(
         execution = deferred_execution(violation)
     else:
 
-        def generate() -> ReproSpec:
+        def _remaining() -> float | None:
             remaining = None if deadline is None else max(0.0, deadline - clock())
             if remaining is not None and remaining <= 0:
                 raise TimeoutError("shared verification deadline exceeded before generation")
+            return remaining
+
+        def generate() -> ReproSpec:
             return generate_repro(
                 repo,
                 candidate,
                 provider,
                 budget,
-                timeout_s=remaining,
+                timeout_s=_remaining(),
+                base_ref=resolved_base,
+                shared_system=shared_system,
+                model=generation_model,
+            )
+
+        def choose_probe() -> ProbeSpec:
+            return generate_probe(
+                repo,
+                candidate,
+                provider,
+                budget,
+                timeout_s=_remaining(),
                 base_ref=resolved_base,
                 shared_system=shared_system,
                 model=generation_model,
             )
 
         try:
-            spec = generate()
+            probe = choose_probe() if probe_generation else None
+            spec = ReproSpec(test_body="") if probe_generation else generate()
         except Exception as exc:  # noqa: BLE001 - generation failures are ternary DEFER
             execution = deferred_execution(
                 f"generation failed: {type(exc).__name__}: {redacted_error(exc)}"
@@ -2104,7 +2412,9 @@ def verify_candidate(
                 deadline=deadline,
                 clock=clock,
                 adapter=adapter,
-                regenerate=generate,
+                regenerate=None if probe_generation else generate,
+                probe=probe,
+                reprobe=choose_probe if probe_generation else None,
             )
 
     Ledger(repo).record_verification(
@@ -2125,6 +2435,26 @@ def verify_candidate(
         run_evidence=_differential_run_evidence(execution),
         intent=None if execution.intent is None else asdict(execution.intent),
     )
+    if execution.probe is not None:
+        # D-146: the recording is audit, not certification. It goes in the ledger
+        # rather than the receipt, because every field added to the receipt
+        # decays the bundles that predate it (INV-VERSION-001).
+        Ledger(repo).append(
+            {
+                "kind": "probe_observation",
+                "schema_version": "attest.probe-observation.v1",
+                "task_id": candidate.task_id,
+                "finding_id": candidate.finding.finding_id,
+                # spelled out rather than splatted: the observation has a `kind`
+                # of its own and it must not overwrite the row's
+                "policy_version": execution.probe.policy_version,
+                "expression": execution.probe.expression,
+                "observed_kind": execution.probe.kind,
+                "observed_detail": execution.probe.detail,
+                "recordings": execution.probe.recordings,
+                "attempts": execution.probe.attempts,
+            }
+        )
     # D-124: the differential may have regenerated the test (D-114); the spec
     # that produced the recorded runs is the only one a receipt is about
     executed = execution.executed_spec or spec

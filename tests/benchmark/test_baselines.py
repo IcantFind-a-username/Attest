@@ -86,6 +86,11 @@ from attest.benchmark.report import (
 from attest.benchmark.runner import Cassette, ReplayProvider
 from attest.benchmark.schema import load_manifest, normalize_unified_diff_bytes
 from attest.review.config import ReviewConfig
+
+# D-146: every `ReviewConfig` here pins `probe_generation=False`. These tests supply
+# the exact reproduction they want executed; the product's default path, probe +
+# record/replay, is exercised in `tests/test_probe_generation.py` and rehearsed by the
+# release drills.
 from attest.review.diffs import parse_diff
 from attest.review.executor import ExecutorLimits
 from attest.review.proposer import PROPOSER_MAX_OUTPUT_TOKENS, ProviderResult
@@ -494,7 +499,7 @@ def test_bare_prompt_baseline_makes_one_schema_call_and_keeps_valid_findings() -
         case_id="case-aaaaaaaaaaaa",
         role="historical_bug_replay",
         diff=parse_diff(_DIFF),
-        config=ReviewConfig(tier0_commands=[]),
+        config=ReviewConfig(probe_generation=False, tier0_commands=[]),
     )
 
     assert len(provider.calls) == 1
@@ -516,7 +521,7 @@ def test_bare_prompt_baseline_defers_on_budget_and_on_invalid_response() -> None
     """The same per-case USD ceiling applies before the call is made, and a
     broken response is an abstention, never inferred silence."""
     provider = _RecordingProvider(json.dumps({"findings": []}))
-    tiny = ReviewConfig(budget_usd=1e-06, tier0_commands=[])
+    tiny = ReviewConfig(probe_generation=False, budget_usd=1e-06, tier0_commands=[])
 
     refused = BarePromptBaseline(provider).evaluate(
         case_id="case-aaaaaaaaaaaa",
@@ -532,7 +537,7 @@ def test_bare_prompt_baseline_defers_on_budget_and_on_invalid_response() -> None
         case_id="case-aaaaaaaaaaaa",
         role="historical_bug_replay",
         diff=parse_diff(_DIFF),
-        config=ReviewConfig(tier0_commands=[]),
+        config=ReviewConfig(probe_generation=False, tier0_commands=[]),
     )
     assert broken.status == "deferred"
     assert broken.abstain_reason == "invalid_model_response"
@@ -542,7 +547,7 @@ def test_bare_prompt_baseline_defers_on_budget_and_on_invalid_response() -> None
         case_id="case-aaaaaaaaaaaa",
         role="historical_bug_replay",
         diff=parse_diff(_DIFF),
-        config=ReviewConfig(tier0_commands=[]),
+        config=ReviewConfig(probe_generation=False, tier0_commands=[]),
     )
     assert silent.status == "completed"
     assert silent.findings == ()
@@ -735,7 +740,7 @@ def _plans(tmp_path: Path) -> tuple[list[ComparisonPlan], dict[str, Cassette], P
                     base_ref=case.fixed_commit if replayed else case.buggy_commit,
                     head_ref=case.buggy_commit if replayed else case.fixed_commit,
                     workspace_root=tmp_path / "workspace",
-                    config=ReviewConfig(
+                    config=ReviewConfig(probe_generation=False,
                         k_samples=2, tier0_commands=[], auto_tighten_alpha=False
                     ),
                     limits=ExecutorLimits(wall_timeout_s=60.0),

@@ -176,6 +176,13 @@ INFRASTRUCTURE = (
     "could not create",
     "unsupported anchor language",
 )
+# D-146: the two generator-specific verdicts the before/after table compares.
+# `UNFAITHFUL` is the legacy generator's wall -- the model asserted a behaviour
+# base does not have. `PROBE_REFUSED` is what replaces it: the recording was not
+# admissible, which is a refusal *before* any head run is bought rather than a
+# reproduction discovered to be worthless after six.
+UNFAITHFUL = "unfaithful generated test: fails on base as well"
+PROBE_REFUSED = "probe "
 VALUE_MARKERS = (
     "value change confirmed, intent unknown",
     "constant change confirmed, intent unknown",
@@ -271,6 +278,11 @@ def cmd_table(args: argparse.Namespace) -> int:
                 "status_line": bool(status),
                 "budget_refused": len(refused),
                 "infrastructure_blocked": len(blocked),
+                # D-146's before/after columns
+                "unfaithful": sum(1 for v in verdicts if UNFAITHFUL in str(v["reason"])),
+                "probe_refused": sum(
+                    1 for v in verdicts if str(v["reason"]).startswith(PROBE_REFUSED)
+                ),
                 # the recall denominator: candidates whose reproduction reached a
                 # verdict about the code, plus the ones that certified
                 "policy_answered": len(answered)
@@ -299,6 +311,8 @@ def cmd_table(args: argparse.Namespace) -> int:
         "budget_refused": sum(int(row["budget_refused"]) for row in reviewed),
         "infrastructure_blocked": sum(int(row["infrastructure_blocked"]) for row in reviewed),
         "policy_answered": sum(int(row["policy_answered"]) for row in reviewed),
+        "unfaithful": sum(int(row["unfaithful"]) for row in reviewed),
+        "probe_refused": sum(int(row["probe_refused"]) for row in reviewed),
         "certified": sum(int(row["certified"]) for row in reviewed),
         "published": sum(int(row["published"]) for row in reviewed),
         "value_class_drawered": sum(len(list(row["value_class_drawered"])) for row in reviewed),
@@ -311,6 +325,7 @@ def cmd_table(args: argparse.Namespace) -> int:
         f"({payload['policy_answered']} about the code, "
         f"{payload['budget_refused']} budget-refused, "
         f"{payload['infrastructure_blocked']} host-blocked); "
+        f"unfaithful {payload['unfaithful']}; probe-refused {payload['probe_refused']}; "
         f"certified {payload['certified']}; published {payload['published']}; "
         f"value class: {payload['value_class_certified']} certified, "
         f"{payload['value_class_drawered']} drawered"

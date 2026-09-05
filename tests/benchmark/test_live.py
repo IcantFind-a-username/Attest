@@ -97,6 +97,11 @@ from attest.benchmark.schema import (
     load_manifest,
 )
 from attest.review.config import ReviewConfig
+
+# D-146: every `ReviewConfig` here pins `probe_generation=False`. These tests supply
+# the exact reproduction they want executed; the product's default path, probe +
+# record/replay, is exercised in `tests/test_probe_generation.py` and rehearsed by the
+# release drills.
 from attest.review.proposer import Provider
 
 from ._validation_v2 import KEY, KEY_ID, build_validation_v2_bundle, verified_validation_authority
@@ -546,7 +551,7 @@ def _fake_case(
             else case.fixed_commit
         ),
         workspace_root=tmp_path / "ws",
-        config=ReviewConfig(budget_usd=budget),
+        config=ReviewConfig(probe_generation=False, budget_usd=budget),
         repeats=1,
         line_slack=line_slack,
         truth=truth,
@@ -594,7 +599,7 @@ def _manifest_live_case(
                 else case.fixed_commit
             ),
             workspace_root=root.parent / "workspace",
-            config=ReviewConfig(k_samples=2),
+            config=ReviewConfig(probe_generation=False, k_samples=2),
             repeats=1,
             truth=manifest_project_truth(manifest, case.case_id),
             repository=(source.project_url if source is not None else f"local:{repo.resolve()}"),
@@ -2001,7 +2006,7 @@ def test_two_case_live_run_interrupted_after_provider_completion_resumes_cleanly
     control = cases_by_role["developer_fix_control"]
     replay = cases_by_role["historical_bug_replay"]
     truth = ProjectTruth(defects=manifest.truth_defects, fixed_ref=replay.fixed_commit)
-    config = ReviewConfig(k_samples=2)
+    config = ReviewConfig(probe_generation=False, k_samples=2)
     plan = [
         LiveCase(
             request=ProjectEvaluationRequest(

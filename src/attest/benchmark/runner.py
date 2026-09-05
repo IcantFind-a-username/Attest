@@ -24,7 +24,7 @@ import json
 import math
 import time
 from collections import Counter
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -82,6 +82,7 @@ from attest.review.ledger import Ledger, ci_final_decisions_from_rows
 from attest.review.proposer import Provider, ProviderResult
 
 GENERATOR_MARKER = "focused pytest reproduction"
+PROBE_MARKER = "choosing ONE call"  # D-146: the probe generator's system prompt
 
 #: Differential evidence class -> the benchmark's scoreable reproduction status.
 #: Only ``buggy_fail_fixed_pass`` may participate in matching; a new-code
@@ -104,12 +105,19 @@ NOT_EXECUTED = "not_executed"
 
 @dataclass(frozen=True)
 class Cassette:
-    """One recorded proposer response and one recorded generator response."""
+    """One recorded proposer response and one recorded generator response.
+
+    D-146: a cassette is a recording of **one** generator. ``probe`` holds the
+    probe the product's default generator would have chosen; a cassette recorded
+    before that generator existed has none, and replaying it means replaying the
+    legacy generator -- which :func:`replay_probe_generation` says out loud
+    rather than leaving to a silent fallback."""
 
     proposal: str
     repro: str
     input_tokens: int = 0
     output_tokens: int = 0
+    probe: str = ""
 
 
 def load_cassette(root: Path, case_id: str) -> Cassette:
@@ -125,12 +133,26 @@ def load_cassette(root: Path, case_id: str) -> Cassette:
     repro = document.get("repro")
     if not isinstance(proposal, str) or not isinstance(repro, str):
         raise ValueError(f"cassette for {case_id} must record a proposal and a reproduction")
+    probe = document.get("probe", "")
+    if not isinstance(probe, str):
+        raise ValueError(f"cassette for {case_id} records a probe that is not a string")
     return Cassette(
         proposal=proposal,
         repro=repro,
         input_tokens=_count(document.get("input_tokens", 0), case_id),
         output_tokens=_count(document.get("output_tokens", 0), case_id),
+        probe=probe,
     )
+
+
+def replay_probe_generation(cassettes: Iterable[Cassette]) -> bool:
+    """Which generator these recordings can replay (D-146).
+
+    Every cassette must carry a probe, or the replay runs the legacy generator.
+    A mixed set replays the legacy one: a population half of whose cases used a
+    different generator measures neither."""
+    recorded = list(cassettes)
+    return bool(recorded) and all(cassette.probe for cassette in recorded)
 
 
 def _count(value: object, case_id: str) -> int:
@@ -163,7 +185,14 @@ class ReplayProvider:
     ) -> ProviderResult:
         """Return the recorded response for whichever product prompt asked."""
         with self._lock:
-            if GENERATOR_MARKER in system:
+            if PROBE_MARKER in system:
+                if not self._cassette.probe:
+                    # fail closed: answering a probe question with a recorded
+                    # *test* would replay neither generator faithfully
+                    raise ValueError("cassette records no probe; replay the legacy generator")
+                self.generator_calls += 1
+                text = self._cassette.probe
+            elif GENERATOR_MARKER in system:
                 self.generator_calls += 1
                 text = self._cassette.repro
             else:

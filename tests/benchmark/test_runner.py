@@ -39,6 +39,11 @@ from attest.github.client import GitHubApiError, PreparedGitHubWrite
 from attest.review.candidates import CandidateStore, StoredCandidate
 from attest.review.ci import CiPublicationEvent, reconcile_delivery_rows
 from attest.review.config import ReviewConfig
+
+# D-146: every `ReviewConfig` here pins `probe_generation=False`. These tests supply
+# the exact reproduction they want executed; the product's default path, probe +
+# record/replay, is exercised in `tests/test_probe_generation.py` and rehearsed by the
+# release drills.
 from attest.review.executor import ExecutorLimits, ReproSpec
 from attest.review.gate import GateResult
 from attest.review.ledger import Ledger, ci_final_decisions_from_rows
@@ -79,7 +84,7 @@ def test_execution_authority_normalizes_negative_zero(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -107,7 +112,7 @@ def test_taskless_rebuild_rejects_caller_fields_outside_frozen_authority(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -196,7 +201,7 @@ def test_taskless_rebuild_derives_deferred_reason_from_frozen_measurement(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -269,7 +274,7 @@ def test_fresh_rebuild_replaces_stateful_caller_mappings_with_frozen_values(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -380,7 +385,7 @@ def test_replay_runner_drives_the_real_review_gate_executor_and_ledger(tmp_path:
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
             fixed_sha=base_sha,
@@ -435,7 +440,7 @@ def test_replay_report_preserves_generation_defer_reason_from_ledger(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(invalid_repro),
             client=github.client(),
         )
@@ -542,7 +547,7 @@ def test_same_defect_certified_findings_publish_once_and_the_rest_stay_private(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(alpha=0.15, k_samples=2, max_findings=1),
+            config=ReviewConfig(probe_generation=False, alpha=0.15, k_samples=2, max_findings=1),
             provider=ReplayProvider(Cassette(proposal=proposal, repro=REPRO)),
             client=github.client(),
         )
@@ -572,7 +577,7 @@ def test_identical_cassettes_produce_identical_scored_output(tmp_path: Path) -> 
                 case_id=CASE_ID,
                 base_sha=base_sha,
                 head_sha=head_sha,
-                config=ReviewConfig(k_samples=2, tier0_commands=[]),
+                config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
                 provider=ReplayProvider(cassette()),
                 client=github.client(),
                 fixed_sha=base_sha,
@@ -882,7 +887,7 @@ def test_failed_publication_is_not_author_visible_measurement(tmp_path: Path) ->
         case_id=CASE_ID,
         base_sha=base_sha,
         head_sha=head_sha,
-        config=ReviewConfig(k_samples=2, tier0_commands=[]),
+        config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider=ReplayProvider(cassette()),
         client=FailedPublicationClient(),  # type: ignore[arg-type]
     )
@@ -955,7 +960,7 @@ def test_non_integer_github_response_identity_is_ambiguous(tmp_path: Path) -> No
         case_id=CASE_ID,
         base_sha=base_sha,
         head_sha=head_sha,
-        config=ReviewConfig(k_samples=2, tier0_commands=[]),
+        config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider=ReplayProvider(cassette()),
         client=InvalidIdentityClient(),  # type: ignore[arg-type]
     )
@@ -1013,7 +1018,7 @@ def test_definitive_review_rejection_then_defer_summary_success_is_visible(
         case_id=CASE_ID,
         base_sha=base_sha,
         head_sha=head_sha,
-        config=ReviewConfig(k_samples=2, tier0_commands=[]),
+        config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider=ReplayProvider(cassette()),
         client=RejectedReviewClient(),  # type: ignore[arg-type]
     )
@@ -1111,7 +1116,7 @@ def test_inline_success_survives_a_failed_final_summary(
         case_id=CASE_ID,
         base_sha=base_sha,
         head_sha=head_sha,
-        config=ReviewConfig(alpha=0.15, k_samples=2, max_findings=1),
+        config=ReviewConfig(probe_generation=False, alpha=0.15, k_samples=2, max_findings=1),
         provider=ReplayProvider(Cassette(proposal=proposal, repro=REPRO)),
         client=InlineOnlyClient(),  # type: ignore[arg-type]
     )
@@ -1199,7 +1204,7 @@ def test_inline_success_survives_final_status_prepare_read_failure(
         case_id=CASE_ID,
         base_sha=base_sha,
         head_sha=head_sha,
-        config=ReviewConfig(k_samples=2, tier0_commands=[]),
+        config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider=ReplayProvider(cassette()),
         client=PrepareFailureClient(),  # type: ignore[arg-type]
     )
@@ -1333,7 +1338,7 @@ def test_legacy_run_record_withholds_ambiguous_task_delivery_point_estimate(
         case_id=CASE_ID,
         base_sha=base_sha,
         head_sha=head_sha,
-        config=ReviewConfig(k_samples=2, tier0_commands=[]),
+        config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         provider=ReplayProvider(cassette()),
         client=object(),  # type: ignore[arg-type]
         deadline_s=60.0,
@@ -1382,7 +1387,7 @@ def test_runner_rejects_a_non_exact_delivery_transcript_source(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=object(),  # type: ignore[arg-type]
         )
@@ -1469,7 +1474,7 @@ def test_inline_event_names_only_the_three_comments_actually_sent(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(alpha=0.15, k_samples=2, max_findings=4),
+            config=ReviewConfig(probe_generation=False, alpha=0.15, k_samples=2, max_findings=4),
             provider=PerModuleProvider(),
             client=github.client(),
         )
@@ -1508,7 +1513,7 @@ def test_silent_complete_retains_task_delivery_without_a_finding_publication(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(Cassette(proposal='{"findings": []}', repro="{}")),
             client=github.client(),
         )
@@ -1537,7 +1542,7 @@ def test_delivery_ledger_reconciliation_is_exact_and_fail_closed(tmp_path: Path)
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -1646,7 +1651,7 @@ def test_delivery_reconciliation_rejects_deleted_attempt_prefix(tmp_path: Path) 
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -1693,7 +1698,7 @@ def test_delivery_reconciliation_rejects_noncanonical_patch_comment_paths(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -1739,7 +1744,7 @@ def test_status_summary_body_cannot_hide_finding_markers_behind_empty_members(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -1781,7 +1786,7 @@ def test_delivery_journal_finalizes_the_expected_attempt_count(tmp_path: Path) -
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -1814,7 +1819,7 @@ def test_delivery_finalization_rejects_coordinated_tail_rewrite(tmp_path: Path) 
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -1857,7 +1862,7 @@ def test_sealed_measurement_rejects_a_self_consistent_rewritten_transcript(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -1914,7 +1919,7 @@ def test_delivery_settlement_rejects_a_noncanonical_response_identity(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -2010,7 +2015,7 @@ def test_delivery_reconciliation_rejects_noncausal_physical_row_order(
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -2146,7 +2151,7 @@ def test_status_summary_uses_one_bound_attempt_for_publication_and_task_delivery
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(cassette()),
             client=github.client(),
         )
@@ -2205,7 +2210,7 @@ def test_model_text_cannot_inject_a_publication_membership_marker(tmp_path: Path
             case_id=CASE_ID,
             base_sha=base_sha,
             head_sha=head_sha,
-            config=ReviewConfig(k_samples=2, tier0_commands=[]),
+            config=ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             provider=ReplayProvider(
                 Cassette(proposal=json.dumps(proposal), repro=cassette().repro)
             ),

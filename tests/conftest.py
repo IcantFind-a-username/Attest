@@ -149,7 +149,14 @@ def verify_with_defaults() -> VerifyWithDefaults:
         *,
         base_sha: str,
         head_sha: str,
+        probe_generation: bool = False,
     ) -> VerificationRun:
+        """D-146: the default here is the **legacy** generator, on purpose.
+
+        Every test that reaches this fixture supplies the exact reproduction it
+        wants executed, because what it is testing is the differential and the
+        certification kernel rather than how the test was written. The probe
+        path is exercised end to end in `tests/test_probe_generation.py`."""
         pricing = load_pricing()
         return verify_candidate(
             repo,
@@ -160,6 +167,7 @@ def verify_with_defaults() -> VerifyWithDefaults:
             ExecutorLimits(),
             base_sha=base_sha,
             head_sha=head_sha,
+            probe_generation=probe_generation,
         )
 
     return run

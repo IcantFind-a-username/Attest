@@ -8,6 +8,12 @@ from pathlib import Path
 
 from attest.cli.main import main
 from attest.review.config import ReviewConfig
+
+# D-146: every `ReviewConfig` here pins `probe_generation=False`. These tests
+# supply the exact reproduction they want executed, because what they test is the
+# differential, the certification kernel and the publication policy -- not how the
+# test was written. The product's default path, probe + record/replay, is exercised
+# end to end in `tests/test_probe_generation.py`.
 from attest.review.executor import ExecutorLimits
 from attest.review.proposer import ProviderResult
 from attest.review.run import run_review
@@ -76,7 +82,7 @@ def test_uncertified_candidate_is_visible_in_the_drawer_with_its_failure_reason(
     review = run_review(
         repo,
         base_sha,
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         UnfaithfulProvider(),
         verify=True,
         limits=ExecutorLimits(wall_timeout_s=20.0),

@@ -459,6 +459,7 @@ def test_verify_passes_remaining_shared_deadline_to_repro_provider(tmp_path: Pat
         head_sha=head_sha,
         deadline=15.0,
         clock=lambda: 10.0,
+        probe_generation=False,
     )
 
     assert provider.timeouts == [5.0]
@@ -1162,6 +1163,7 @@ def test_verification_subprocess_drops_credentials_and_redacts_ledger(
         ExecutorLimits(wall_timeout_s=10),
         base_sha=base_sha,
         head_sha=head_sha,
+        probe_generation=False,
     )
 
     # the version-independent failure reproduces on both trees: unfaithful
@@ -1440,6 +1442,7 @@ def test_verify_candidate_defers_failures_without_buying_v_evidence(
         ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
+        probe_generation=False,
     )
 
     assert verification.execution.outcome is ExecutionOutcome.DEFERRED
@@ -1852,6 +1855,7 @@ def test_verify_candidate_deadline_expiring_after_generation_defers_differential
         head_sha=head_sha,
         deadline=15.0,
         clock=clock,
+        probe_generation=False,
     )
 
     assert len(provider.requests) == 1
@@ -1904,6 +1908,7 @@ def test_verify_candidate_validates_revisions_before_calling_provider(
         ExecutorLimits(),
         base_sha=requested_base,
         head_sha=requested_head,
+        probe_generation=False,
     )
 
     assert provider.requests == []
@@ -2803,6 +2808,7 @@ def test_thinking_only_generator_response_is_recorded_as_generation_no_text(
         ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
+        probe_generation=False,
     )
 
     reason = verification.execution.reason

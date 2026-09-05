@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import json
 import os
@@ -83,7 +84,12 @@ from attest.benchmark.report import (
     write_report,
     write_stability_report,
 )
-from attest.benchmark.runner import Cassette, ReplayProvider, load_cassette
+from attest.benchmark.runner import (
+    Cassette,
+    ReplayProvider,
+    load_cassette,
+    replay_probe_generation,
+)
 from attest.benchmark.schema import BenchmarkCase, BenchmarkManifest, load_manifest
 from attest.benchmark.stability import run_stability_study
 from attest.review.config import ReviewConfig
@@ -982,6 +988,9 @@ def _replay_plan(
     receipt: ValidationReceipt | None,
 ) -> tuple[list[ProjectEvaluationRequest], dict[str, Cassette], list[ReportExclusion]]:
     """Build one request per case that has both a recording and a checkout."""
+    # D-146: which generator a replay runs is decided by the recordings, not by
+    # the default. A cassette set with no probe in it can only replay the legacy
+    # generator, and pretending otherwise would turn every case into a deferral.
     config = ReviewConfig(
         alpha=args.alpha,
         budget_usd=args.budget_usd,
@@ -989,6 +998,7 @@ def _replay_plan(
         max_findings=args.max_findings,
         auto_tighten_alpha=bool(args.auto_tighten_alpha),
         tier0_commands=list(args.tier0_command),
+        probe_generation=False,
     )
     limits = ExecutorLimits(wall_timeout_s=args.wall_timeout)
     workspace_root = args.workspace or (args.output / "workspace")
@@ -1034,6 +1044,13 @@ def _replay_plan(
                 repository=_repository_identity(sources, case.source_id, repo),
             )
         )
+    if replay_probe_generation(cassettes.values()):
+        # every cassette records a probe, so this replay can run the product's
+        # default generator; a set with even one legacy-only recording cannot
+        probe_config = dataclasses.replace(config, probe_generation=True)
+        requests = [
+            dataclasses.replace(request, config=probe_config) for request in requests
+        ]
     return requests, cassettes, exclusions
 
 

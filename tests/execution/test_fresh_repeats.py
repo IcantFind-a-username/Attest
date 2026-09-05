@@ -30,7 +30,7 @@ def _certified_bundle(tmp_path: Path) -> tuple[Path, Path]:
     review = run_review(
         repo,
         base_sha,
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         PlantedProvider(),
         verify=True,
         limits=ExecutorLimits(wall_timeout_s=20.0),

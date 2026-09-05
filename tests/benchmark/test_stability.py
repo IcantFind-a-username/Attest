@@ -39,6 +39,11 @@ from attest.benchmark.stability import (
     summarize_stability,
 )
 from attest.review.config import ReviewConfig
+
+# D-146: every `ReviewConfig` here pins `probe_generation=False`. These tests supply
+# the exact reproduction they want executed; the product's default path, probe +
+# record/replay, is exercised in `tests/test_probe_generation.py` and rehearsed by the
+# release drills.
 from attest.review.executor import ExecutorLimits
 from attest.review.proposer import Provider
 
@@ -405,7 +410,7 @@ def _study_request(tmp_path: Path) -> ProjectEvaluationRequest:
         base_ref=case.fixed_commit,
         head_ref=case.buggy_commit,
         workspace_root=tmp_path / "workspace",
-        config=ReviewConfig(
+        config=ReviewConfig(probe_generation=False,
             alpha=0.1, k_samples=1, tier0_commands=[], auto_tighten_alpha=False
         ),
         limits=ExecutorLimits(wall_timeout_s=60.0),
@@ -777,7 +782,7 @@ def test_run_stability_study_fails_closed_on_drift_truth_or_corrupt_state(
 
     drifted = replace(
         request,
-        config=ReviewConfig(
+        config=ReviewConfig(probe_generation=False,
             alpha=0.05, k_samples=1, tier0_commands=[], auto_tighten_alpha=False
         ),
     )

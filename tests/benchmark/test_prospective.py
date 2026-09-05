@@ -373,6 +373,11 @@ def test_shadow_would_publish_exactly_what_ci_publishes_with_no_remote_write(
     from attest.github.client import GitHubClient
     from attest.review.ci import run_ci
     from attest.review.config import ReviewConfig
+
+# D-146: every `ReviewConfig` here pins `probe_generation=False`. These tests supply
+# the exact reproduction they want executed; the product's default path, probe +
+# record/replay, is exercised in `tests/test_probe_generation.py` and rehearsed by the
+# release drills.
     from attest.review.executor import ExecutorLimits
     from attest.review.run import run_review
     from test_ci_flow import (
@@ -401,7 +406,7 @@ def test_shadow_would_publish_exactly_what_ci_publishes_with_no_remote_write(
             repo,
             _context(base_sha, head_sha),
             GitHubClient("local-token", server.url),
-            ReviewConfig(k_samples=2, tier0_commands=[]),
+            ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
             RecordingProvider(_finding_payload(), repro),
             limits=ExecutorLimits(wall_timeout_s=20.0),
         )
@@ -423,7 +428,7 @@ def test_shadow_would_publish_exactly_what_ci_publishes_with_no_remote_write(
     shadow = run_review(
         shadow_repo,
         shadow_base,
-        ReviewConfig(k_samples=2, tier0_commands=[]),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
         RecordingProvider(_finding_payload(), repro),
         verify=True,
         limits=ExecutorLimits(wall_timeout_s=20.0),

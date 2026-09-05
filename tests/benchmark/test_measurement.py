@@ -44,6 +44,11 @@ from attest.benchmark.runner import (
 )
 from attest.benchmark.schema import is_scored_placement, load_manifest
 from attest.review.config import ReviewConfig
+
+# D-146: every `ReviewConfig` here pins `probe_generation=False`. These tests supply
+# the exact reproduction they want executed; the product's default path, probe +
+# record/replay, is exercised in `tests/test_probe_generation.py` and rehearsed by the
+# release drills.
 from attest.review.executor import ExecutorLimits
 from attest.review.proposer import ProviderResult
 
@@ -3512,7 +3517,9 @@ def test_real_mixed_publications_remain_scored_when_one_candidate_defers(
             base_sha=replay.fixed_commit,
             head_sha=replay.buggy_commit,
             fixed_sha=replay.fixed_commit,
-            config=ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[]),
+            config=ReviewConfig(
+                probe_generation=False, k_samples=2, max_findings=3, tier0_commands=[]
+            ),
             provider=MixedProvider(),
             oracle_provider=MixedProvider(),
             client=github.client(),
@@ -3543,7 +3550,7 @@ def test_real_mixed_publications_remain_scored_when_one_candidate_defers(
         base_ref=replay.fixed_commit,
         head_ref=replay.buggy_commit,
         workspace_root=tmp_path / "api-workspace",
-        config=ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[]),
+        config=ReviewConfig(probe_generation=False, k_samples=2, max_findings=3, tier0_commands=[]),
         limits=ExecutorLimits(wall_timeout_s=30.0),
         repeats=1,
         truth=ProjectTruth(

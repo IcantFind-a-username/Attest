@@ -71,7 +71,7 @@ reproduction turns one into a real defect.
 - **The wording adjudicator's denylist is a denylist**, English and Chinese. A hedge phrased
   outside the list passes.
 
-## Forward-pair generation: observe the base before asserting (not implemented)
+## Forward-pair generation: observe the base before asserting — **DONE 2026-09-06 (D-146)**
 
 *Recorded 2026-09-06 from the classification of D-140's 20 unfaithful reproductions
 ([report](acceptance/2026-09-06-forward-pair-generation-failures.md)); the owner's conditional
@@ -83,12 +83,13 @@ revision does not have either — 11 fail *identically* on both sides (the claim
 base was simply false) and 7 encode a contract that postdates the base entirely. The proposer
 sees a forward diff and head-side context; the base's actual behaviour is in neither.
 
-The cheap experiment this suggests, **not implemented and not scheduled**: before writing the
-assertion, let the generator run one exploratory probe against the *base* tree and quote its
-observed output into the test's expectation. Costs one extra sandboxed execution per candidate
-and no model call. It changes generation, so it may not be introduced in the middle of a study
-whose recall numbers are being quoted — it needs its own before/after measurement on the same
-11 pairs.
+The cheap experiment this suggested is **implemented as of 2026-09-06 (D-146)** and went
+further than "quote its observed output": the model no longer writes an assertion at all. It
+chooses one call; the merge base is executed twice to record what that call does; the kernel
+writes the assertion from the recording. `fails on base as well` is structurally impossible on
+that path. It was measured before and after on **the same 11 pairs**, as this item required
+([report](acceptance/2026-09-06b-forward-pairs-probe.md)), and the legacy generator remains
+available as `probe_generation = false`.
 
 Era-matched interpreters and pinned dependencies remain worth doing for a different, smaller
 population: the **4** candidates that DEFERred at `isolation backend unavailable` (the `attrs`
