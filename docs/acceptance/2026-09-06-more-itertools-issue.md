@@ -40,7 +40,7 @@ object whose `__getitem__` raises something other than `TypeError` when handed a
 
 | axis | affected from | notes |
 |---|---|---|
-| library | **`more-itertools` 8.1.0** and every release since, up to and including the current `main` (`d92f081a08`, tag `v11.1.0` in the clone) | introduced by `f4f2cfec9d1af6780012a5021e46c191d14148e0` (2019-12-29, *“In `divide`: avoid tuple conversion if possible”*); `git tag --contains` first lists `8.1.0` |
+| library | **`more-itertools` 8.1.0** and every release since, up to and including the clone's default-branch tip `d92f081a08` — `git describe` says `v11.1.0-102-gd92f081`, i.e. 102 commits after the newest release tag in the clone | introduced by `f4f2cfec9d1af6780012a5021e46c191d14148e0` (2019-12-29, *“In `divide`: avoid tuple conversion if possible”*); `git tag --contains` first lists `8.1.0` |
 | interpreter, mapping input | **Python 3.12** and later (3.12, 3.13 confirmed) | `slice` objects became hashable in 3.12, so `{}[:0]` raises `KeyError` instead of `TypeError` and escapes the guard |
 | interpreter, non-mapping input | **every** version (3.9, 3.11, 3.12, 3.13 confirmed) | any `__getitem__` that raises a non-`TypeError` for a slice — e.g. the legacy sequence protocol raising `IndexError` — has always escaped the guard |
 

@@ -1,4 +1,4 @@
-# Handoff — 2026-09-06 (`abad758` → `84c7598`)
+# Handoff — 2026-09-06 (`abad758` → `0abdb8a`, plus this document)
 
 **Spend $0.374300 of $10; cumulative $56.061237 of $90.** Remote writes: push to `main` only.
 Seven owner instructions, all seven done; only the first cost money.
@@ -63,8 +63,9 @@ than the rule's restraint. D-134's 5.2% at n = 58 remains the only bound this ga
 1. **Yellow (a) now speaks almost only on interface changes**: all 6 forward notes are signature
    or annotation changes whose every caller is already tested, and the "untested caller" trigger
    fires once in 79 units. Narrow it? **Default: drop the annotation-only case when no caller is
-   untested (2 of the 6), keep signature changes** — narrowing further to "interface change *with*
-   an untested caller" leaves 0 of 11 forward pairs, which is no level at all.
+   untested (2 of the 6, both on one pair; 4 notes on 3 pairs remain), keep signature changes** —
+   narrowing further to "interface change *with* an untested caller" leaves 0 of 11 forward
+   pairs, which is no level at all.
 2. **Should yellow (a) become author-visible?** It costs $0, caps at 2 per PR, and is quiet on
    **98.5%** of ordinary commits. **Default: yes, after item 1's narrowing** — the cheapest test
    of whether the contract holds up on a second level.
@@ -74,8 +75,10 @@ than the rule's restraint. D-134's 5.2% at n = 58 remains the only bound this ga
 
 ## 4. Gates at this tip
 
-`ruff check .` clean; `mypy` clean over 86 source files; `pytest --cov=src/attest` — **result
-recorded in the commit that follows this handoff**. New tests: `test_null_study_stop_rule.py` (7),
+`ruff check .` clean; `mypy` clean over 86 source files; **`pytest --cov=src/attest`: 1,903
+tests, all passed, none failed, none skipped**, coverage **92.70%** against the 90% floor — the
+previous tip's 1,864 plus this window's 39. Zero skips again means the container backend was up.
+New tests: `test_null_study_stop_rule.py` (7),
 `test_output_contract.py` (21), `test_impact_scope.py` (11); 7 of 7, 21 of 21 and 11 of 11 fail
 on the previous implementations. Two existing assertions were **deliberately** changed by D-142:
 the wholly silent body is now the contract's silence line, and a summary finding line must carry

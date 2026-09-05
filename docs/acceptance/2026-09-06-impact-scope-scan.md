@@ -115,7 +115,7 @@ control. The signature clause is what makes this level speak at all.
 
 Two of the six are **annotation-only** (`-> str` added), which is a declaration change and not a
 behavioural one; an author may reasonably read those two as noise. Dropping the annotation-only
-case when no caller is untested would leave **4 forward notes on 2 of 11 pairs** and the same
+case when no caller is untested would leave **4 forward notes on 3 of 11 pairs** and the same
 single control note. Narrowing further — *"an interface change **with** an untested caller, or an
 untested caller"* — would leave the level speaking on **0 of 11 forward pairs and 1 of 68
 controls**, which is a level that does not exist.
