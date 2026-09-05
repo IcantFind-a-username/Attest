@@ -171,10 +171,20 @@ def _run(args: argparse.Namespace) -> int:
     generators = cast(list[dict[str, object]], doc["generators"])
     class Provider:
         def __init__(self) -> None:
-            self.proposals = 0; self.generators = 0; self.lock = threading.Lock()
+            self.proposals = 0; self.generators = 0; self.nullability = 0
+            self.lock = threading.Lock()
         def sample(self, system: str, prompt: str, schema: dict[str, Any], max_tokens: int,
                    *, timeout_s: float | None = None) -> ProviderResult:
             with self.lock:
+                # D-151: yellow (b) asks a question this cassette never recorded.
+                # Answering it with the recorded *proposal* would replay neither,
+                # and counting it as a proposal would move a guard this probe
+                # exists to hold fixed. The empty hypothesis list is the faithful
+                # answer: the level is silent, which is what it is on any failure.
+                if "used without being checked for None" in system:
+                    self.nullability += 1
+                    return ProviderResult(text='{"hypotheses": []}',
+                        input_tokens=0, output_tokens=0)
                 if "focused pytest reproduction" not in system:
                     self.proposals += 1; row = proposal
                 else:
