@@ -700,6 +700,20 @@ that publishes nothing cannot pre-empt that decision. What shadow mode does not 
 the pilot: a shadow record enters the collection only when it is adjudicated under
 `G-MEASURE-004` like any other, wrong, DEFER and no-finding outcomes included.
 
+**Pilot progress, cumulatively (2026-09-06c).** Shadow records collected so far, none of them
+adjudicated and therefore **none of them yet in the pilot's 120**:
+
+| population | new-code candidates | `through_caller` | `direct` |
+|---|---|---|---|
+| E-04 stratum v2 (2026-09-05, [report](2026-09-05-gate-shadow.md)) | 224 | 0 | 0 |
+| 11 forward pairs, 40 owner commits, 10 `corum` commits ([report](2026-09-06c-gate-shadow.md)) | 90 | **9** | 0 |
+| **cumulative** | **314** | **9** (2.9%) | **0** |
+
+The 2026-09-05 zero is a *static* result: no reproduction executed, so no grade could be taken.
+**2.9% is a ceiling on how often this level could speak at all**, not a rate at which it would be
+right, and three of the nine enter through a test rather than through production code — an open
+question recorded in that report's §3.
+
 **After owner selection:** create a separate implementation/calibration work order whose
 N-series ID is assigned only then, and require that class to pass its own `G-CERT-*`,
 `G-SEM-*`, `G-NULL-001`, `G-CORPUS-001`, and `G-SHADOW-001` applicability before public
