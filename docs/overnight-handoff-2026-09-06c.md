@@ -1,6 +1,6 @@
-# Handoff — 2026-09-06c (`e8468ba` → `5595477`, plus this document)
+# Handoff — 2026-09-06c (`e8468ba` → `bcc56c1`, plus this document)
 
-**Spend $8.36 of $28; cumulative $68.67 of $90.** Remote writes: pushes to `main`, and one
+**Spend $7.90 of $28; cumulative $68.21 of $90.** Remote writes: pushes to `main`, and one
 throwaway pull request ([#11](https://github.com/IcantFind-a-username/Attest/pull/11)), **closed
 unmerged, branch deleted**. Ten owner instructions; **nine done, one partly** (§9). Two real
 defects found and fixed, one of them by the work itself.
