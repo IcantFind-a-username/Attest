@@ -31,6 +31,7 @@ detection path at all.
 from __future__ import annotations
 
 import ast
+import hashlib
 import os
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
@@ -434,6 +435,50 @@ class StructuralNote:
     evidence: str
     advice: str
     refusal: str | None
+
+
+STRUCTURAL_NOTE_SCHEMA_VERSION = "attest.structural-note.v2"
+
+
+def structural_fingerprint(repo: Path, finding: DuplicateImplementation) -> str:
+    """What makes this note the same note as one already reported (D-160).
+
+    The two coordinates **and the source of both spans**. A repository whose
+    duplicated pair is still duplicated, unchanged, does not need to be told
+    again on every pull request that touches either file; a repository where
+    one of the two spans moved does, because the claim is now about different
+    code. Unreadable source digests as its own absence, so a note whose spans
+    cannot be read is never suppressed.
+    """
+    digest = hashlib.sha256()
+    digest.update(f"{finding.policy_version}\n{finding.category}\n".encode())
+    for path, name, start, end in (
+        (finding.path_a, finding.name_a, finding.line_a, finding.end_line_a),
+        (finding.path_b, finding.name_b, finding.line_b, finding.end_line_b),
+    ):
+        digest.update(f"{path}\n{name}\n".encode())
+        try:
+            lines = (repo / path).read_text(errors="replace").splitlines()
+        except OSError:
+            digest.update(b"<unreadable>\n")
+            continue
+        span = "\n".join(lines[max(0, start - 1) : end])
+        digest.update(span.encode("utf-8", errors="replace") + b"\n")
+    return digest.hexdigest()[:16]
+
+
+def reported_fingerprints(entries: list[dict[str, object]], *, exclude_task: str = "") -> set[str]:
+    """Every structural fingerprint this repository has already been told."""
+    seen: set[str] = set()
+    for row in entries:
+        if row.get("kind") != "structural_note":
+            continue
+        if exclude_task and row.get("task_id") == exclude_task:
+            continue
+        value = row.get("fingerprint")
+        if type(value) is str and value:
+            seen.add(value)
+    return seen
 
 
 def structural_note(

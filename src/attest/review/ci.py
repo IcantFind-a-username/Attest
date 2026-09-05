@@ -68,12 +68,15 @@ from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
 from attest.review.status import status_from_rows
 from attest.review.structural import (
+    STRUCTURAL_NOTE_SCHEMA_VERSION,
     WORDING_MAX_TOKENS,
     WORDING_SCHEMA,
     WORDING_SYSTEM,
     StructuralNote,
     collect,
     find_duplicate_implementations,
+    reported_fingerprints,
+    structural_fingerprint,
     structural_note,
 )
 from attest.review.support import preflight
@@ -1393,6 +1396,7 @@ def structural_notes(
     provider: Provider,
     budget: Budget,
     limit: int = MAX_STRUCTURAL_COMMENTS,
+    task_id: str = "",
 ) -> list[StructuralNote]:
     """D-133: the green channel's notes for one pull request, at most ``limit``.
 
@@ -1407,7 +1411,17 @@ def structural_notes(
         changed = _changed_python_files(repo, base_sha, head_sha)
         if not changed:
             return []
-        findings = find_duplicate_implementations(collect(repo), changed_files=changed)[:limit]
+        detected = find_duplicate_implementations(collect(repo), changed_files=changed)
+        # D-160: a pair this repository has already been told about, whose two
+        # spans are both unchanged since, is not news. The fingerprint covers
+        # the coordinates **and the source of both spans**, so a note comes back
+        # the moment either side moves.
+        already = reported_fingerprints(Ledger(repo).entries(), exclude_task=task_id)
+        findings = tuple(
+            finding
+            for finding in detected
+            if structural_fingerprint(repo, finding) not in already
+        )[:limit]
     except Exception:  # noqa: BLE001 - green is a courtesy; it never breaks a review
         return []
 
@@ -1738,6 +1752,7 @@ def run_ci(
         head_sha=context.head_sha,
         provider=provider,
         budget=review.budget,
+        task_id=task_id,
     )
     # D-130's promise is that a refused sentence is *recorded rather than hidden*.
     # The comment cannot carry the reason -- it would be a hedge about a hedge --
@@ -1746,10 +1761,12 @@ def run_ci(
         ledger.append(
             {
                 "kind": "structural_note",
-                "schema_version": "attest.structural-note.v1",
+                "schema_version": STRUCTURAL_NOTE_SCHEMA_VERSION,
                 "task_id": task_id,
                 "policy_version": note.finding.policy_version,
                 "note_id": structural_member_id(note),
+                # D-160: what makes this the same note next time
+                "fingerprint": structural_fingerprint(repo, note.finding),
                 "similarity": note.finding.similarity,
                 "advice_published": bool(note.advice),
                 "refusal": note.refusal,
