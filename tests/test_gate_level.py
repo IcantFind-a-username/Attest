@@ -380,3 +380,63 @@ def test_the_status_line_does_not_read_gate_rows():
 
     source = (Path(status.__file__)).read_text(encoding="utf-8")
     assert "gate_shadow" not in source
+
+
+def test_a_caller_that_is_itself_a_test_is_graded_apart(tmp_path: Path) -> None:
+    """D-166: the through-caller rule exists so that *something the change did
+    not add* depends on the new code. A call site inside the change's own test
+    satisfies the letter of that and not one word of its point, so it is its own
+    grade -- reported separately, and never publishing.
+
+    Owner item 2 of the 2026-09-06c handoff: 3 of the gate's 9 cumulative
+    `through_caller` observations enter through a test rather than production
+    code."""
+    from attest.review.gate_level import THROUGH_CALLER, THROUGH_TEST_CALLER
+
+    # the only call site of `widen` outside the added lines is in a test file
+    only_a_test = (
+        "from lib import widen\n\n\ndef test_widen_lowercases():\n    assert widen('A')\n"
+    )
+    repo = tmp_path / "t"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "fixture@example.invalid")
+    _git(repo, "config", "user.name", "Fixture")
+    (repo / "test_lib.py").write_text(only_a_test, encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "base")
+    base = _git(repo, "rev-parse", "HEAD")
+    (repo / "lib.py").write_text(LIB_NEW, encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "head")
+    head = _git(repo, "rev-parse", "HEAD")
+    diff = parse_diff(_git(repo, "diff", "-U0", base, head))
+    added = {path: set(lines) for path, lines in diff.added_lines.items()}
+
+    reach = witness(
+        repo,
+        head,
+        path="lib.py",
+        origin_line=2,
+        added=added,
+        head_source=LIB_NEW,
+        test_source="from test_lib import test_widen_lowercases\n",
+    )
+
+    assert reach.call_site is not None
+    assert reach.call_site.path == "test_lib.py"
+    assert reach.kind == THROUGH_TEST_CALLER
+    assert reach.kind != THROUGH_CALLER
+    assert "which is a test" in reach.reason
+
+    # and the grade never publishes: adjudication requires `through_caller` exactly
+    observation = adjudicate(
+        path="lib.py",
+        reachability=reach,
+        origin=CRASH,
+        origin_reason="",
+        runs=RUNS,
+        repeats=3,
+        control=PASSING_CONTROL,
+    )
+    assert observation.would_publish is False
