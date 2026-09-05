@@ -109,11 +109,12 @@ read-modify-write loses a reservation and a lost reservation is spend above the 
 
 ## 8. Gates
 
-`ruff` (over the **whole tree** — a `ruff check .` failure on the runner is how four
-over-length test lines were found), `mypy` over 91 files, **2,032 passed, 10 skipped, coverage
-93.17%** against the 90% floor, wheel and sdist built and the built wheel's CLI run from a clean
-environment — all on a GitHub runner at `f09a213`. The full suite also passed locally in an
-isolated worktree.
+**Green at the final tip, on a GitHub runner at `0775965`:** `ruff` over the **whole tree** (a
+`ruff check .` failure on the runner is how four over-length test lines were found), `mypy` over
+91 source files, `git diff --check`, **2,033 passed, 10 skipped, coverage 93.17%** against the
+90% floor, wheel and sdist built, and the built wheel's CLI run under `pipx` from a clean
+environment. The full suite passed locally too, in a `git worktree` at the same commit — which
+is the workaround for the P1 M-01 probe item, not a fix for it.
 
 `v0.1.0-rc.1` is tagged and its GitHub **prerelease** carries
 `attest-0.1.0rc1-py3-none-any.whl` (531 KB) and `attest-0.1.0rc1.tar.gz` (2.0 MB). **Nothing was
