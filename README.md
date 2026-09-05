@@ -13,12 +13,12 @@ Every author-visible line is **one line** carrying a level marker, a coordinate,
 fact and its evidence (D-142). There are four levels and they never merge, never borrow each
 other's words, and never speak for each other:
 
-| | says | costs a model call? | status |
+| | one sentence | costs a model call? | status |
 |---|---|---|---|
-| **red** | a defect, backed by a reproduction that fails on head and passes on the merge base, three runs each way | yes | **live** |
-| **gate** | a defect in *new* code, admitted only through a caller outside the added lines | yes | **shadow** — nothing on this path is author-visible |
-| **yellow** | a hypothesis whose premises were each verified by a deterministic checker: (a) the change's impact scope, (b) a null/Optional dereference | (a) no · (b) one | **live**, ≤ 2 per pull request, shared between (a) and (b) |
-| **green** | something structurally so, computed with no model at all — today, the same implementation in two places | only to word it | **live** |
+| **red** | *this change broke something* — a generated test that fails on head and passes on the merge base, three runs each way, with an offline-verifiable receipt | yes | **live** |
+| **gate** | *this new code crashes on an input a pre-existing caller produces* — new code has no merge base, so it is admitted only through a caller outside the added lines | yes | **shadow** — nothing on this path is author-visible |
+| **yellow** | *here is a hypothesis, and here are the premises I checked* — (a) the change's impact scope, (b) a null/Optional dereference or an exception no caller handles | (a) no · (b) one for the null class, none for the exception class | **live**, ≤ 2 per pull request, shared across every class |
+| **green** | *this is structurally so* — computed with no model at all; today, the same implementation in two places | only to word it | **live** |
 
 ```text
 [red]    requests/models.py:389 — the generated test fails on head in 3/3 runs and passes on the
@@ -32,24 +32,57 @@ other's words, and never speak for each other:
 
 **A level that has nothing to say contributes no line.** When every level is silent the product
 still owes exactly one, and it names how many change units the silence covers — a silence over
-1 of 13 units and a silence over 13 of 13 are different claims.
+1 of 13 units and a silence over 13 of 13 are different claims. A silence bought out by the
+budget says so, and how many candidates it stopped.
 
-**What each level has actually said, on 40 real commits** — the most recent 20 of this repository
-and 20 of `us-stock-helper`, reviewed in shadow
+### What each level has actually said
+
+**On 40 real commits** — the most recent 20 of this repository and 20 of `us-stock-helper`,
+reviewed in shadow at `--budget 0.25`
 ([table](docs/acceptance/2026-09-06c-four-levels.md)):
 
-| level | spoke on | what the rate is not |
+| level | spoke on | what the rate is **not** |
 |---|---|---|
 | **red** | **0 of 40** | not a precision number: no commit in the 40 is known to contain a defect |
 | **yellow (a)** | **0 of 40** (1 of 10 more on a third repository, true and not actionable) | — |
-| **yellow (b)** | **0 of 40**, and 13 of 13 hypotheses void on a separate 79-unit scan | — |
+| **yellow (b)** | **0 of 40**, and **0 of 79** on a separate scan, under two rule versions | — |
 | **green** | **8 of 40** (20%), three of them the same duplicated `git` helper | — |
 | **every level silent** | **32 of 40** (80%) | a silence is an abstention, never a true negative |
 
-`$2.03` for 40 reviews — **$0.051 a commit** — at the `budget-usd 0.25` this repository's own
-Action uses. The binding constraint on this traffic is that budget: of 141 candidates, 40 died
-with it exhausted and 87 were never ranked high enough for a reproduction to be bought, so only
-**11 reached a verdict any adjudicator is responsible for**.
+`$2.03` for 40 reviews — **$0.051 a commit**.
+
+**And what four times the budget buys: nothing.**
+[The 17 of those 40 whose candidates died with the budget gone were re-reviewed at
+`--budget 1.00`](docs/acceptance/2026-09-07-budget-rerun.md). Spend **$1.64 → $10.32**,
+candidates **105 → 331**, and **not one verdict moved** — red 0 both times, both yellows 0 both
+times, green on the same 8 commits. Candidates refused *for budget* went **up**, 40 → 44:
+raising the budget raises discovery, and discovery re-starves the budget. Exactly one candidate
+reached an adjudicator that had not before, and it was drawered.
+
+### Known limitations — the ones that would change your mind
+
+- **The value class is conservative and it costs recall.** A change that alters a returned value,
+  where the base tree does not say what that value should be, is refused with *value change
+  confirmed, intent unknown*. On a held-out slice of **known defects** that clause cost **four
+  publications**; on forward pairs it is right where it fires. Two populations, two answers
+  (D-158).
+- **Reachability has a ceiling.** The gate level requires a call site outside the added lines and
+  a fully annotated signature; on real traffic **30 of 90** new-code candidates were admissible
+  at all, and a caller reached only through a registry looks unreachable.
+- **Non-deterministic functions cannot be certified.** A reproduction must agree with itself
+  three times on head and three on base; anything that does not is an abstention, not a finding.
+- **Yellow (b)'s null/Optional class has never produced a sentence.** 0 of 79 units under two
+  rule versions, 28 hypotheses proposed, 0 surviving all three premises — and its detection call
+  is paid on every review whether or not anything is found. It ships because it cannot speak
+  without three readings taken out of the tree; **it is not claimed to work** (D-151, D-165).
+  Its second class, exception propagation, is also 0 of 79 — but free, and its refusals say why:
+  of 198 changed functions, 135 added no call at all (D-164).
+- **The boundary is Python, pytest and Linux containers.** A repository with no Python source, an
+  unparsable lock file, no docker, or an image that cannot provide pytest gets **one line naming
+  the reason and exit 0** — never a traceback and never a silence that reads as *nothing found*
+  (D-159). Interpreters are **3.10–3.13**, primary 3.12 (D-162).
+- **A silence is never a true negative.** Nothing here licenses "attest found nothing, so it is
+  fine".
 
 ## Install it in one file
 
