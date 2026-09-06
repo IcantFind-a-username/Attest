@@ -14,6 +14,15 @@ only published ref is a pilot tag, and the sections below say plainly which is w
 
 ### The release-readiness acceptance, 2026-09-09 ([report](docs/acceptance/2026-09-09-release-readiness.md))
 
+- **A review with nothing left to say posted itself anyway** (D-180). Found by this repository's
+  own workflow reviewing the pull request that merges this acceptance. The inline review is
+  entered when a *note* exists, and every comment can be dropped after that — an unanchorable
+  green note, a comment the new action clause refuses, a propagation note that is a shadow. The
+  result was an author-visible `Attest review.` carrying **no comments**, and then an exit 2
+  from the delivery journal refusing the empty member list it had just been handed — *after*
+  everything was published. The review is now attempted only when a comment survives. **No
+  receipt can be lost to this**: red is never dropped, so an empty list means nothing was
+  certified.
 - **An outside repository could not be reviewed at all, and now can** (D-176). `tenacity`, a
   public pytest project nobody here owns, was cloned, and the tagged wheel was installed into a
   clean virtualenv. The reproduction image build died: the tree is copied without `.git`, so a

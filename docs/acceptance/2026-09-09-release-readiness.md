@@ -528,6 +528,18 @@ python -m mypy src/attest     Success: no issues found in 94 source files
 git diff --check              clean
 ```
 
+**The pull request that merges this report found a defect in it, and it is fixed here.**
+[PR #13](https://github.com/IcantFind-a-username/Attest/pull/13) is reviewed by this
+repository's own workflow, which uses the action as it stands in the pull request. The review
+produced two green notes, both unanchorable, no red — and posted an **empty inline review**
+(`Attest review.`, zero comments) before exiting **2** on
+`inline review requires members and cannot carry terminal task status`. The branch that posts
+the inline review is entered when a *note* exists; every comment can be dropped after that, and
+D-178's action clause is a third way for it to happen. **D-180**: the delivery is attempted only
+when a comment survives. RED:
+`tests/test_ci_flow.py::test_a_review_whose_every_note_was_dropped_posts_no_review_at_all`,
+which reproduces the exit-2 in 1.6 s.
+
 Baseline `1bf4110` → `aa0d2c6`, branch `docs/release-readiness-acceptance`, three commits.
 Nothing here weakens a regression pin, skips a security test, lowers a coverage threshold or
 changes a denominator. No ledger, receipt or artifact schema moved: the two new `RunStatus`

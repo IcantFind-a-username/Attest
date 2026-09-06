@@ -1976,6 +1976,10 @@ def run_ci(
             started=started,
             clock=clock,
         )
+    green_comments: list[dict[str, object]] = []
+    yellow_comments: list[dict[str, object]] = []
+    null_comments: list[dict[str, object]] = []
+    review_comments: list[dict[str, object]] = []
     if surfaced or green or yellow or nullability or propagation:
         # D-147: GitHub refuses a review comment on a line the diff does not
         # carry, and it refuses the whole review with it. Both unanchored
@@ -2012,6 +2016,15 @@ def run_ci(
             *null_comments,
             *propagation_inline,
         ]
+    # Entering the branch above means a *note* exists; it does not mean a comment
+    # survived. A green note whose anchor is not a line the diff carries is
+    # dropped (D-147), a comment the action clause refuses is dropped (D-178),
+    # and a propagation note is a shadow that contributes none at all (D-169).
+    # An inline review with no comments is an author-visible "Attest review."
+    # that judged nothing, and the delivery journal refuses its empty member list
+    # -- after the review has already been posted. Red is never dropped, so an
+    # empty list here also means no receipt is being withheld.
+    if review_comments:
         review_error = journal.attempt(
             channel="inline_review",
             members=(

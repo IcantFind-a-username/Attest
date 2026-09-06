@@ -1908,3 +1908,13 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Cost:** $0.00. Every drill is offline; the 429 and the network failure are injected providers, not real calls.
 - **Reversal:** three constants and one function; `run.py` returns to the literal.
 - **Trace:** D-159, D-161, D-177.
+
+### D-180 — A review with no comment left is not posted at all
+
+- **Date/status/scope:** 2026-09-10 · active · found by this repository's own workflow on [PR #13](https://github.com/IcantFind-a-username/Attest/pull/13) · `src/attest/review/ci.py`; RED `tests/test_ci_flow.py::test_a_review_whose_every_note_was_dropped_posts_no_review_at_all`.
+- **The defect, and it was live.** The inline-review branch is entered when a **note** exists; the comments are assembled inside it, and every one of them can be dropped afterwards — a green note whose anchor is not a line the diff carries (D-147), a comment the action clause refuses (D-178), or a propagation note, which is a shadow and contributes no comment at all (D-169). The review was then posted with **zero comments**: an author-visible `Attest review.` that judged nothing, followed by a `delivery_attempt_intent` whose member list is empty — which the journal's own reconciliation refuses. Measured on PR #13: review `5126295032` posted, summary posted, then `error: inline review requires members and cannot carry terminal task status` and **exit 2**, after everything had already been published. Two green notes, both unanchorable, and no red.
+- **Decision.** The four comment lists are initialised empty, and the delivery is attempted only `if review_comments`. The journal invariant is right and is untouched; what changes is that the product no longer writes a row it will refuse to read.
+- **Why no receipt can be lost by this.** Red is never gated on wording or anchoring — `inline_comments` is `_certified_only(...)[:3]` and D-178 does not adjudicate it — so an empty list here means `surfaced` was empty. A certified finding still reaches the author through the same review it always did.
+- **The failure mode it replaces.** A run whose every note was dropped now posts the summary only, which already carries the notes in their own unanchored section, and exits 0.
+- **Reversal:** one `if` and four initialisers.
+- **Trace:** D-142, D-147, D-169, D-177, D-178.
