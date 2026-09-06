@@ -64,6 +64,11 @@ explained in [the FAQ](../faq.md). Nothing except a `[red]` line is a finding.
 `attest stats --drawer` lists what was held back and why, `attest stats --json` summarises a
 repository, and `attest feedback <id> --fix|--good|--dismiss` labels a finding.
 
+For a reporting period rather than running totals, `attest stats --since 7d` (or a date, or
+`24h`, `2w`) prints what spoke on how many reviews, why the silent candidates were silent, the
+spend, and the image reuse — over that window only. An empty window says so rather than reading
+as silence.
+
 ### What a review typically costs
 
 Measured, not estimated. Every figure is a per-review mean over reviews that actually ran, at

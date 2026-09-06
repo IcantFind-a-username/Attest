@@ -2,7 +2,7 @@
 
 - **[P0] 2026-09-04 (D-127), the longest-standing open owner item.** An intended change of a returned *value* is invisible to every discriminator the product owns, and it published on a properly qualified null control (`jinja` `ac3ac6c9`: the commit takes `__name__` from the async function on purpose and says so in its own comment; the generated test asserts the sync name). D-102's intent rule covers a `raise`/`assert` in changed lines only, and the receipt records its silence verbatim — `new_rejection: false`, `exception_type: ""`, `witnesses: []`. Three shapes, none touching alpha, the LR, K or the cap: (a) extend the intent policy from new rejections to any changed-line-bound behavioural difference, requiring a base-tree witness exactly as D-102 does; (b) publish only when the head failure is a crash rather than a value mismatch; (c) require the claim's prose and the test's failing assertion to agree before publication. (c) also fixes the separate defect in the same receipt: the published sentence said `__wrapped__` pointed at the wrong function, the test asserted the opposite and *passed* that assertion, and nothing checks that the two agree. **§16 owner decision; `G-NULL-001a` cannot be resumed and mainline condition 4 cannot move until one lands.**
 
-- **[P1] 2026-09-04, reproducing the 2026-09-02 item, and hit twice again on 2026-09-07.** `tests/benchmark/test_m01_offline_measurement_probe.py` gives three module-fixture errors when the benchmark suite runs at the same time as anything else touching the checkout (this window: the `G-NULL-001a` study and its `git blame` fan-out). Run exclusively it is green, at this tip and at `5ebcf88` in a separate worktree. The probe digests the source tree it is pointed at, so a concurrent process writing into the checkout moves that digest under it; either the probe should snapshot the tree it measures or the gate runner should take a lock. **Keep full-suite gates exclusive** until one of those exists. On 2026-09-07 it cost two full-suite runs before the operator moved the gate run into a separate `git worktree` at a fixed commit, which works and is now the standing local practice — the probe then measures a tree nobody is editing. That is a workaround, not the fix: **the probe should snapshot the tree it digests.** Priority **P1**: it is the only item that has recurred in four consecutive windows.
+- **[P1 → DONE 2026-09-08] 2026-09-04, reproducing the 2026-09-02 item, hit twice again on 2026-09-07, and now fixed.** The probe imported `src` from the **working tree** and refused to run when `git status` showed that tree dirty, so any edit or concurrent write beside a full-suite run failed the probe rather than the edit — four consecutive windows, two whole-suite runs lost in the last one. It now materialises the **HEAD commit tree** with `git archive` (or a directory pinned with `--source-snapshot`) and imports that; the clean-tree guard is gone and `source_tree_sha256` is a digest of the snapshot actually imported. Two REDs in `tests/benchmark/test_m01_offline_measurement_probe.py`: a detached worktree whose `src` carries an uncommitted edit produces the same measurement and the same digest as the clean bundle, and an explicit snapshot is what gets measured. **The separate-worktree practice is no longer needed for this reason**, though it remains sound for others.
 
 - **[P2] 2026-09-04.** `G-NULL-001a`'s control definition (D-122) is applied to *every* changed text file, so a commit that also edited a changelog is disqualified the moment that changelog is rewritten or deleted — which every one of the eight public clones has done. Measured qualification rate: **58 of 903 (6.4%)**, `click` 3 of 120. Restricting the untouched check to the files a review can anchor in (Python) would raise the yield sharply without loosening what "untouched" means for the reviewed code. A change to D-122, not to the study.
 
@@ -21,6 +21,26 @@ raise a measurement's yield; unlabelled items are records, not intentions. `DONE
 rather than deleted — a backlog whose closed items vanish cannot be audited.
 
 <!-- entries below, newest first -->
+
+- **[P1] 2026-09-08 (D-168): at the shipped `k_samples = 5` the 30% discovery share can refuse
+  a review its first change unit.** The ceiling is checked against the *preflight reservation*,
+  which prices K samples at the 3,200-token output bound and overstates a real proposal by about
+  **3×** ($3.1538 reserved against $1.0671 actually spent, over the 17 commits). At K=4, 0 of 28
+  recorded reviews are refused. At K=5, **one is** — `click cd4674a6`, first unit 47,448 chars,
+  reservation $0.3182 against a $0.30 ceiling — and it is one of the three reviews that has ever
+  published a receipt. It would defer with a stated budget reason, which is a contract line, but
+  it would publish nothing. `k_samples = 4` or `budget_usd >= 1.06` removes it; either is a
+  policy change, so it is the owner's. A third shape, not costed: reserve at a measured
+  percentile of real proposal output rather than at the token bound, which weakens the hard-budget
+  guarantee and is therefore not proposed lightly.
+
+- **[P2] 2026-09-08 (D-170): yellow (a)'s a4 meets the 3% control ceiling by one event.** 2 of 68
+  is 2.9%; 3 of 68 would be 4.4% and would fail. The 95% Clopper-Pearson upper bound on the true
+  rate is **9.0%**, so what n=68 establishes is that the rate is not large, not that it is under
+  3%. Both firings are literally true statements about commits nobody had to fix. Either a larger
+  control population or a tighter threshold (4 callers, 3 files) would settle it; neither is free
+  of the other's cost, and a4 is currently the **only** condition of this level that has ever
+  spoken.
 
 - 2026-09-03 (real-traffic corpus, m/alpha): the family threshold is `m/alpha = 10m`, and on real traffic **m is not small**. Across 43 reviews the eligible-candidate counts were `0×19, 1×4, 2×2, 3×4, 4×2, 5×3, 7, 8×4, 9×2, 10, 14` — of the 24 reviews with any eligible candidate, **median m = 4.5, mean 5.2, max 14**, and 18 of 43 reviews had m ≥ 3, i.e. a publication bar of 30 or more. Six certified receipts were suppressed as "below family threshold" this window, against seven published; on `d05` all five certified receipts were suppressed at m = 7 (threshold 70) and on `d16` at m = 9 (threshold 90). The e-value a single reproduction can earn is bounded by the LR the kernel buys, so **a large PR is close to unpublishable by construction, and the product is silent exactly where a reviewer is most useful.** Three shapes worth pricing, none of them a change to alpha, the LR, K or the cap: (a) define the family per *change unit* rather than per pull request, so m is the count of eligible candidates competing inside one file/unit; (b) let a candidate that clears an absolute evidence bar publish regardless of m, with the multiplicity correction reported rather than enforced; (c) report suppressed-but-certified receipts to the author in a collapsed section that is explicitly not a finding. All three move the publication surface and are §16 owner decisions; (a) is the only one that keeps a family-wise guarantee.
 
@@ -109,15 +129,17 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   in the tree. Resolving by import would make most of those decidable. 43 of 198 is a reason to
   consider it; it is **not** evidence that the answers would be right, and it is a real piece of
   work, so it is here rather than done.
-- **[P2] Yellow (b)'s null/Optional class costs a model call on every review and has produced
-  0 sentences on 79 units under two rule versions** (D-151, D-165). Switching it off is one line
-  in `run_ci` and `cmd_review`. It is an owner decision because it changes what the product
-  offers, not what it claims.
-- **Recorded, not a defect: `us-stock-helper`'s half of the 1.1 re-run exceeded its cumulative
-  cap by $0.62.** The driver's `--cap` gates *starting* a unit, not finishing it, so a unit that
-  begins at $3.25 against a $3.50 cap may end at $4.12. That is the documented behaviour of every
-  corpus driver in this repository and the reservation basis already accounts for it; it is
-  written down because a reader comparing DEVSPEND's reservation to its outcome will notice.
+- **[P2 → DONE 2026-09-08] Yellow (b)'s null/Optional class costs a model call on every review
+  and has produced 0 sentences on 79 units under two rule versions** (D-151, D-165). Closed by
+  owner decision 2 of 2026-09-07 (D-169): `NULLABILITY_ENABLED = False`, and the guard returns
+  before the tree read and the model call, so the class costs $0.00 rather than a little less.
+  The module, the premises and the REDs remain; one flag reopens it.
+- **[DONE 2026-09-08] `us-stock-helper`'s half of the 1.1 re-run exceeded its cumulative cap by
+  $0.62.** The driver's `--cap` gated *starting* a unit on money already spent, not on what the
+  unit might cost, so a unit that began at $3.25 against a $3.50 cap ended the run at $4.12. Every
+  driver now reserves the per-review `--budget` before a unit starts and settles it afterwards
+  (`scripts/corpus/driver_budget.py`, D-172). Replayed on the recorded run: four units start
+  instead of six, the run ends at $2.6486, and the two it refused are named in the log.
 - **The `[gate]` level has never had an author-visible line**, by construction (D-137), and its
   cumulative shadow is now graded three ways (`through_caller`, `through_test_caller`, `direct`).
   Nothing to do until `G-NEWCODE-001` gets an owner decision on its LR.

@@ -10,6 +10,42 @@ live under [`docs/acceptance/`](docs/acceptance/). This file is the index, not t
 Versions follow [semantic versioning](https://semver.org/) once `v0.1.0` exists. Until then the
 only published ref is a pilot tag, and the sections below say plainly which is which.
 
+## Unreleased — since `v0.1.0-rc.1`
+
+### Behaviour a reader pointing a repository at `main` should know about
+
+- **A review now spends 30% of its budget on discovery, not 60%, and the first change unit is
+  no longer exempt.** With the ranking and the per-unit cap below, this halved the spend on both
+  recorded populations and kept every receipt (D-168,
+  [replay](docs/acceptance/2026-09-08-schedule-replay.md)). The consequence to weigh: a large
+  first change unit can now exhaust the discovery share on its own, and that review defers with
+  a stated budget reason instead of proposing. On 28 recorded reviews at K=4 that happened
+  **0 times**; at K=5, the shipped default, it would happen **once**.
+- **Reproductions are bought in a new order and there are fewer of them.** Cluster size first,
+  then a static credibility score computed from the head tree, then the finding id — a total
+  order — and at most **3 per changed file**. A candidate the cap held back says so:
+  `ranked below verification cap`, in the ledger and under `--explain`, kept apart from a
+  candidate the ranking never reached (D-168).
+- **Yellow (b)'s null/Optional class is off.** It produced no sentence on 79 units under two
+  rule versions and cost one model call on every review; that call is now not made at all
+  (D-169). Its sibling, exception propagation, still runs and still costs nothing, and is now a
+  **shadow**: it writes to the ledger and reaches no comment.
+- **Yellow (a) gained a fourth condition and it is the only one that has ever spoken.** A
+  changed function with ≥ 3 call sites across ≥ 2 files that **no test names at all**: 1 of 11
+  forward pairs, **2 of 68 null controls (2.9%)** against the owner's 3% ceiling — inside it by
+  one event, and the 95% upper bound on that rate is 9% (D-170).
+- **`attest stats --since 7d`** prints a period report — what spoke on how many reviews, why the
+  silent candidates were silent, spend, image reuse — instead of running totals (D-171).
+
+### Fixed
+
+- The offline M-01 measurement probe imports a **snapshot of the HEAD commit tree**, not the
+  working tree, and no longer refuses to run when `src` is dirty. It had broken two full-suite
+  runs in the previous window alone.
+- Every paid corpus driver reserves a unit's **maximum** cost against its cumulative cap before
+  starting it. The old rule gated on money already spent and let a run end $0.62 above its own
+  cap (D-172).
+
 ## v0.1.0-rc.1 — 2026-09-07 · **internal trial, not a public release**
 
 Tagged so a colleague can install the exact bytes a ref names. **Not published to PyPI**, and

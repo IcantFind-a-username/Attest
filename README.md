@@ -71,12 +71,25 @@ reached an adjudicator that had not before, and it was drawered.
   at all, and a caller reached only through a registry looks unreachable.
 - **Non-deterministic functions cannot be certified.** A reproduction must agree with itself
   three times on head and three on base; anything that does not is an abstention, not a finding.
-- **Yellow (b)'s null/Optional class has never produced a sentence.** 0 of 79 units under two
-  rule versions, 28 hypotheses proposed, 0 surviving all three premises — and its detection call
-  is paid on every review whether or not anything is found. It ships because it cannot speak
-  without three readings taken out of the tree; **it is not claimed to work** (D-151, D-165).
-  Its second class, exception propagation, is also 0 of 79 — but free, and its refusals say why:
-  of 198 changed functions, 135 added no call at all (D-164).
+- **Yellow (b)'s null/Optional class is closed, and this is the reason it stayed open so long.**
+  0 of 79 units under two rule versions, 28 hypotheses proposed, 0 surviving all three premises,
+  and one model call paid on every review to keep the option alive. It is now **off** (D-169):
+  the code, the rules and the tests remain, and one flag turns it back on. The argument for
+  turning it on is the one that has never been tested — the corpus that defeated it carries no
+  type annotations and many repositories do — so if your code is annotated, this class has not
+  been measured on code like yours either way (D-151, D-165).
+- **Yellow (b)'s second class, exception propagation, is a shadow.** Also 0 of 79 — but free, and
+  its refusals say why: of 198 changed functions, 135 added no call at all and 43 called a name
+  defined more than once. It runs on every review and writes to the ledger; it reaches **no
+  author-visible surface**, because a level that has never said anything has not yet earned a
+  reader's attention (D-164, D-169).
+- **A review reads only what 30% of its budget buys, and verifies at most three candidates per
+  changed file.** Discovery is capped at 30% of one review's budget and reproductions are ranked
+  by cluster size and a static credibility score, so a large change is read **partially and
+  visibly** — the accounting line says `read 3/10 units`, and a candidate the cap held back says
+  `ranked below verification cap` under `--explain`. Replayed over 28 recorded reviews this
+  halves the spend and keeps every receipt, but it is a *replay*: no paid run has been taken
+  under it yet (D-168).
 - **The boundary is Python, pytest and Linux containers.** A repository with no Python source, an
   unparsable lock file, no docker, or an image that cannot provide pytest gets **one line naming
   the reason and exit 0** — never a traceback and never a silence that reads as *nothing found*
@@ -308,7 +321,7 @@ The current CLI remains available while the receipt-only architecture is impleme
 attest review [--base REF] [--alpha X] [--budget USD] [--k N]
 attest verify <finding-id> --reproduced|--not-reproduced
 attest feedback <finding-id> --fix|--good|--dismiss
-attest stats
+attest stats [--since 7d|2026-09-01] [--drawer] [--json]
 ```
 
 `attest verify --reproduced` currently updates local legacy gate bookkeeping. Do not treat

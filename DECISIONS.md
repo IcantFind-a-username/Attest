@@ -1738,3 +1738,86 @@ is active only when the owning architecture/acceptance document changes with it.
 - **RED:** `tests/test_machine_output.py` — the row count equals the number of `[green]` lines the terminal printed, and `stats_json`'s `spoke_on.green` agrees with both.
 - **Trace:** D-133, D-152, D-160, D-163.
 
+
+### D-168 — What a review's budget is spent on: a discovery share, a ranking, and a per-unit cap
+
+- **Date/status/scope:** 2026-09-08 · active · owner decision 1 of 2026-09-07 · [replay](docs/acceptance/2026-09-08-schedule-replay.md); `src/attest/review/ranking.py` (new), `budget.PROPOSAL_SHARE`, `review/config.py` (`verification_cap_per_unit`), `review/verification.py`, `review/report.py`.
+- **The measurement it answers.** D-166: four times the budget bought 3.2× the candidates and moved **not one verdict**. The knob is not how much money a review has; it is what the money buys.
+- **Three rules.**
+  1. **Discovery ≤ 30% of one review's budget** (`PROPOSAL_SHARE` 0.6 → 0.3), and it now binds the **first** change unit as well. D-111 exempted the first unit so that a review could always read *something*; the cost of the exemption is that discovery may take the whole budget and leave verification nothing, silently. A first unit that does not fit now raises `BudgetExceeded`, which the caller turns into a stated budget DEFER — a contract line.
+  2. **Candidates rank by cluster size, descending**, ties broken by a **static credibility** score — the anchor sits inside a definition in a non-test Python file (+1), and that definition is called somewhere in the tree (+1) — and `finding_id` breaks what remains. The key is a total order, so no permutation of samples, findings or files can move a candidate. The old key was the gate's wealth, which is **flat**: 190 of the 226 candidates of the 2026-09-07 `attest` run sat at exactly 2.0, so the effective order was a hash of the finding id.
+  3. **At most `verification_cap_per_unit` reproductions per change unit** (default **3**, policy-configurable). What the cap holds back is written to the ledger and to `--explain` as `ranked below verification cap`, and it has its own drawer class — a candidate the ranking *reached and declined* is a different fact from one it never reached.
+- **What the offline replay says**, over the ledgers of the 17 commits of D-166 and of the 11 forward pairs, at `--budget 1.00`, `--cap 3`, K=4:
+
+  | | 17 commits | 11 forward pairs |
+  |---|---|---|
+  | units read | 76 → **46** | 31 → **31** |
+  | regression-eligible candidates | 168 → **142** | 98 → **98** |
+  | reproductions bought | 168 → **79** | 98 → **51** |
+  | spend | $10.27 → **$5.24** | $2.03 → **$1.08** |
+  | receipts published | 0 → **0** | 3 → **3** |
+  | candidates verified that were not before | **0** | **0** |
+
+  **Half the money, every receipt.** The forward pairs are the only population in this project's history where red has published, and all three receipts survive.
+- **A correction to D-166 that this replay forced.** D-166 read the drawer's 167 `no-reproduction-bought` as *"never ranked high enough to buy a reproduction"*. That is wrong. Of the 331 candidates, **168 were regression-eligible and every one of them bought a reproduction attempt**; the 167 are the **ineligible** ones — 128 `new_code` and 35 `non_python` — which have no verification reason to record and therefore fall into the empty-reason class. Discovery was not starving verification of eligible candidates; it was buying candidates that can never be certified.
+- **The cliff, named rather than discovered later.** The 30% ceiling is checked against the *preflight* reservation, which prices K samples at the 3,200-token output bound and overstates a real proposal by about **3×** (reserved $3.15 against $1.07 actually spent, over the 17). At K=4 no review of either population is refused its first unit. **At K=5 — the shipped default — one of the 28 is**: `click cd4674a6`, whose first unit is 47,448 characters, reserves $0.3182 against a $0.30 ceiling, and would defer on discovery alone. That review is one of the three that published a receipt. Either `k_samples = 4` or `budget_usd >= 1.06` removes it; the owner decides which, and until then it is on the record.
+- **What the cap does not change.** The publication family. `m` is still every regression-eligible candidate, so the cap cannot make anything publish that would not have published before; it only decides what is bought.
+- **Cost:** $0.00 — the replay is offline over ledgers already on disk.
+- **Reversal:** `PROPOSAL_SHARE = 0.6` and the `index > 0` guard in `propose_plan`; `rank`/`within_cap` are two calls in `run_verification_stage`.
+- **RED:** `tests/test_verification_ranking.py` — the order is invariant under 64 permutations and is a total order; the N+1st candidate of a unit is refused before any image, container or generation call, and carries its own drawer class; the proposal stage cannot reserve past 30% and the refusal names the share.
+- **Trace:** D-111, D-126, D-157, D-166; `certification/units.py` (the change unit).
+
+### D-169 — Yellow (b): the null/Optional class is closed, the propagation class becomes a shadow
+
+- **Date/status/scope:** 2026-09-08 · active · owner decision 2 of 2026-09-07 · `src/attest/review/nullability.py` (`NULLABILITY_ENABLED`), `src/attest/review/propagation.py` (`PROPAGATION_SHADOW`), `src/attest/review/ci.py`, README limitations.
+- **Class 1, closed.** Measured twice on the same 79 units — 11 forward pairs, 68 null controls. `v1` (D-151): 13 hypotheses, **0** surviving all three premises. `v2` (D-165), premise (i) rewritten to be annotation-independent: 15 hypotheses, **still 0**. Premise (i) fails first on 13 of 15, and **10 of those name a parameter with no annotation, no `None` default and no `is None` test anywhere in its function** — the wall was not only annotations. It cost **one model call on every review** to keep the option open. The guard returns before the changed-line walk, the tree read and the model call, so a closed class costs exactly **$0.00**, not a little less.
+- **What is kept.** The module, the three premises, the void accounting and every RED. Reopening is one flag. The one argument for reopening that has never been tested is written into the README where a reader can weigh it: the corpus that defeated it carries no type annotations, and an annotated repository has not been measured either way.
+- **Class 2, a shadow.** Exception propagation is the better negative — *rare*, not *unverifiable*: 0 of 11 forward pairs, 0 of 68 controls, **0% control noise** against the owner's 3% ceiling, and of 198 changed functions 135 added no call at all while 43 called an ambiguous name. It is free, so it keeps running and keeps writing `propagation_note` rows. It now reaches **no author-visible surface** — no inline comment, no line in the summary body — which is the arrangement D-137 gave the gate level. A level that has never said anything has not earned a reader's attention; a level that is free has not earned deletion either.
+- **Cost:** $0.00, and it *removes* about $0.005 a review.
+- **Reversal:** `NULLABILITY_ENABLED = True`; `PROPAGATION_SHADOW = False`.
+- **RED:** `tests/test_yellow_b_disposition.py` — the closed class buys nothing from a provider that raises if asked, and the shadow class still records while publishing nothing.
+- **Trace:** D-137, D-151, D-164, D-165.
+
+### D-170 — Yellow (a)'s fourth condition: fan-out that no test names
+
+- **Date/status/scope:** 2026-09-08 · active · owner instruction 6 of 2026-09-07 · [scan](acceptance/evidence/2026-09-08-impact-a4.json); `src/attest/review/impact.py`, `src/attest/github/presentation.py`.
+- **The condition.** A changed function with **≥ 3 call sites across ≥ 2 files** that **no test names at all**. Both halves are counts over an abstract syntax tree; no model, no execution, `$0.00`. The second half is deliberately *not* `_named_by_test`: that walks up to four hops from a caller back to a test, which a1 and a2 need. a4 asks whether the changed function's own name is written anywhere under a test path — one lookup, and a name a test writes in any form (a call, an import, an attribute read, a patch target) refuses the claim.
+- **Measured before it was enabled**, on the same 79 units as every other condition — 11 forward pairs, 68 null controls:
+
+  | condition | forward | controls |
+  |---|---|---|
+  | a1 signature + untested caller | 0 of 11 | 0 of 68 |
+  | a2 new raise / return + untested caller | 0 of 11 | 0 of 68 |
+  | a3 added parameter, arity break | 0 of 11 | 0 of 68 |
+  | **a4 fan-out, no test names it** | **1 of 11 (9.1%)** | **2 of 68 (2.9%)** |
+
+  **2.9% is inside the owner's 3% ceiling, and it is inside it by one event.** Three of 68 would be 4.4% and would fail. The 95% Clopper-Pearson upper bound on the control rate is **9.0%**, so what this measurement establishes is that the rate is not *large*, not that it is under 3%. Enabled under the rule as stated; the fragility is on the record and is owner item 3 of this window.
+- **The control firings are true.** `click.version_option` at `5ea0257962` — 3 call sites in 3 files — and `jinja2.make_attrgetter` at `73a94e00d4` — 9 call sites in 2 files — are named by no test at those revisions; `git grep` over each `tests/` tree returns nothing. A control firing here is a *true statement on a commit nobody had to fix*, which is what yellow's contract permits: it claims no defect.
+- **It is the only condition of this level that has ever spoken.** a1, a2 and a3 are 0 of 79 and 0 of 40 owner commits. The forward-pair firing is on a defect-introducing commit (`itsdangerous 3703fbdedd`, `Serializer._loads_unsafe_impl`), which is where a level like this ought to speak.
+- **Ranking:** below a3. A statically wrong call is worth more than a fan-out remark, so a decidable arity break still outranks it; above a1 and a2, which have never fired.
+- **Cost:** $0.00.
+- **Reversal:** remove `CONDITION_FANOUT` from `ENABLED_CONDITIONS`; the measurement keeps running.
+- **RED:** `tests/test_impact_scope.py` — five: it speaks at exactly the thresholds, is silent when any test names the function, is silent below either threshold, never outranks a3, and its published line is one contract line whose coordinate is a real call site.
+- **Trace:** D-143, D-145, D-150.
+
+### D-171 — `attest stats --since`: a reporting period, and a report shaped for one
+
+- **Date/status/scope:** 2026-09-08 · active · owner instruction 7 of 2026-09-07 · `src/attest/review/window.py` (new), `src/attest/cli/main.py`.
+- **What it is.** `--since` takes a date (`2026-09-01`), a timestamp (`2026-09-01T09:00:00+0800`) or a duration back from now (`7d`, `24h`, `90m`, `2w`), slices the ledger **before anything is counted**, and prints a period report instead of running totals: reviews and spend, what spoke on how many reviews with every silence named, why the silent candidates were silent, image reuse, median review. With `--json` the same numbers plus a `window` object. A spec it cannot read is **exit 2 with the spellings it can**, not a guess — a report over the wrong window is worse than a report that did not run.
+- **The unreadable row goes the other way from `daily_spend`, on purpose.** A ledger row whose `ts` cannot be read is **kept** here and **charged** there. A spending cap is safe when it charges what it cannot read; a report is honest when it shows it, and says how many.
+- **Cost:** $0.00.
+- **Reversal:** the flag and one module.
+- **RED:** `tests/test_stats_window.py` — every spelling; seven that are refused; the boundary is inclusive; an unreadable timestamp is shown and counted; an empty window says so rather than reading as silence; a bad spec exits 2 and prints nothing to stdout.
+- **Trace:** D-161, D-163.
+
+### D-172 — A paid driver reserves a unit's maximum before it starts it
+
+- **Date/status/scope:** 2026-09-08 · active · owner instruction 5 of 2026-09-07 · `scripts/corpus/driver_budget.py` (new) and the eight drivers that hold a `--cap`.
+- **The overrun this replaces, from the record.** On 2026-09-07 `us-stock-helper`'s half of the budget re-run held a **$3.50** cumulative cap and a `--budget 1.00` per review. Its sixth unit began at **$3.25 spent** — under the cap, so `if spent >= args.cap: skip` started it — and the run ended at **$4.12**: $0.62 over the item's cap and $0.32 over the window's reservation. Nothing misbehaved; the rule did. A cap that gates *starting* on money already spent cannot bound a run whose next unit may cost up to the per-review budget.
+- **What replaces it.** `DriverCap`, the same shape `attest`'s own `Budget` has: a unit may start only when `spent + reserved + reservation <= cap`, where the reservation is the per-review `--budget` — the product's own hard ceiling and the only figure available before the unit runs. The reservation is held while the unit runs and replaced by its actual spend afterwards.
+- **Two consequences, both chosen.** A run **stops one unit earlier** than it used to, and the units it did not attempt are **named** rather than dropped: an unattempted unit is a smaller `n`, which is reportable, where an overrun is not reversible. And a unit whose actual spend could not be read is **charged the reservation** — the safe direction for an unknown cost is to charge it, the convention `daily_spend` already uses for an unparsable ledger row.
+- **Replayed on the recorded run:** the six units cost $0.5127, $0.5861, $0.6641, $0.8857, $0.6054, $0.8623. The old rule started all six and ended at **$4.1163**. This rule starts **four**, ends at **$2.6486**, and names the two it refused.
+- **Cost:** $0.00, and it removes a class of overrun.
+- **Reversal:** the eight `cap.refusal(...)` call sites.
+- **RED:** `tests/test_driver_budget.py` — the recorded overrun replayed both ways; a run's total is bounded however the units fall; an unreadable cost is charged; a resumed run honours the figure it read out of its log; a cap that cannot bound anything is refused at construction.
+- **Trace:** D-133, D-161, D-166; `DEVSPEND.md` (the entry that records the overrun).

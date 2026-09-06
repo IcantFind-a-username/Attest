@@ -29,6 +29,9 @@ execution, not a silent fallback.
 | `generation_model` | `generation_model` in the shipped pricing table | the model that writes the reproduction. Proposals rank; the reproduction is the evidence, so the two roles are set apart. |
 | `tier0_commands` | `["ruff"]` | cheap pre-checks run before any paid generation. |
 | `context_strategy` | `"r01"` | planner retrieval strategy. |
+| `verification_cap_per_unit` | `3` | how many candidates of one **changed file** may buy a reproduction. Candidates are ranked by cluster size, then by a static credibility score computed from the head tree, then by finding id; the rest are recorded as `ranked below verification cap` in the ledger and under `--explain`. Raising it buys more reproductions inside one file and fewer across the change; it cannot make anything publish that would not have published, because the family denominator is unchanged (D-168). |
+| `repro_concurrency` | `2` | how many candidates' reproductions may run at once. The three runs *inside* one candidate stay serial; `1` restores the strictly serial path, and the ledger's bytes are identical either way (D-157). |
+| `daily_budget_usd` | `0.0` | a second ceiling, over a rolling 24 hours for the whole repository. `0.0` is off, which is the shipped default — a ceiling nobody chose is a silence nobody can explain (D-161). |
 
 ## What a repository setting can never do
 

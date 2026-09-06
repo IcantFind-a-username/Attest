@@ -202,3 +202,8 @@ which used the budget knob explicitly.
 $0.1062 (yellow (b) under D-165) and $1.6972 (the gate shadow over the fix commits).
 **Cumulative: $80.33 of the $110 cap** raised by owner decision C of this window.
 
+| 2026-09-08 | **the whole window: nothing was bought** — owner instructions 1–8 of 2026-09-08 are two offline replays over ledgers already on disk (the discovery schedule over the 17 budget-re-run commits and the 11 forward pairs, D-168), one free `ast` scan over the same 79 units (yellow (a)'s fourth condition, D-170), the closure of a class that *was* costing a model call a review (D-169), two P1 fixes (the M-01 snapshot probe; the driver cap that reserves a unit's maximum, D-172), one CLI flag (`stats --since`, D-171), and one runner dispatch of the free red-team matrix with the external observer attached. **No provider is constructed anywhere in this window.** Reservation basis: the owner's ceiling for the window is $8 and the measured basis is $0.00, because every item is arithmetic over recorded data | $8.00 | **$0.000000**; $8.000000 released. The one item that *changes* spend is D-169: closing yellow (b)'s null/Optional class removes about **$0.005 a review** from every future review, and D-168's schedule halves it again on the replayed populations |
+
+**Window total for 2026-09-08: $0.0000** of the $8 window cap. **Cumulative: $80.33 of the
+$110 cap** — unchanged, because nothing was bought.
+

@@ -21,7 +21,8 @@ cost. `attest review --json` gives the same thing to a machine.
 
 | reason class | what actually happened | what you can do |
 |---|---|---|
-| **no reproduction bought** | the candidate was never ranked high enough for the budget to reach it | raise `budget-usd`, but read *"Should I raise the budget?"* below first |
+| **no reproduction bought** | the candidate was never ranked high enough for the budget to reach it — **or it was never eligible for a reproduction at all**, which on the 2026-09-07 corpus was 163 of the 167 in this class (new code, or a non-Python anchor) | raise `budget-usd`, but read *"Should I raise the budget?"* below first |
+| **ranked below verification cap** | the ranking *reached* this candidate and declined to buy it: a review verifies at most `verification_cap_per_unit` candidates per changed file, and this one was below that line by cluster size and static credibility | raise `verification_cap_per_unit` in `.attest.toml` if you want more reproductions inside one file. It cannot change what publishes, only what is tried |
 | **budget-exhausted** | generation for this candidate would have exceeded the per-review budget | the same answer |
 | **intent stated in the change itself** | the diff's own docstring, test or changelog says the behaviour was meant to change, so the "regression" is a feature | nothing — this is the level working |
 | **value change / constant change, intent unknown** | head returns a different value from base, and the base tree does not say what that value should be | write a test or a docstring that pins the intended value; the clause reads the base tree |
