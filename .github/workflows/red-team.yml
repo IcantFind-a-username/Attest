@@ -59,10 +59,18 @@ jobs:
         run: cat redteam.md || echo "no matrix written"
 
       # G-SEC-002's `INSUFFICIENT` row. Every other row of the matrix is
-      # observed from inside the product; this one asks the kernel. It is a
-      # separate step because it needs root and changes the runner's audit
-      # configuration, and because a failure here must not fail the matrix.
-      - name: External observer (kernel audit)
+      # observed from inside the product; this one asks the kernel. It is opt-in
+      # because it needs root and changes the runner's audit configuration, and
+      # every step is `continue-on-error` because a failure here must not fail
+      # the matrix.
+      #
+      # Three steps, because the privileges are opposite: audit rules need root
+      # and the matrix must not have it. Run as root the product's own
+      # containment guard refuses every fixture -- "process containment
+      # unavailable for privileged POSIX user" -- and a matrix of refusals
+      # observed by a kernel that saw no container is evidence of nothing. The
+      # first attempt did exactly that; run 34014105381 is the record.
+      - name: External observer — arm the kernel's audit rules
         if: ${{ inputs.observer }}
         continue-on-error: true
         run: |
@@ -71,12 +79,28 @@ jobs:
           sudo auditctl -s || true
           sudo -E "$(which python)" scripts/release/observer.py probe \
             --json observer-probe.json || true
-          sudo -E "$(which python)" scripts/release/observer.py run \
-            --json observer.json --matrix redteam-observed.md || true
+          MARK=$(sudo -E "$(which python)" scripts/release/observer.py arm \
+            --json observer-arm.json) || MARK=""
+          echo "OBSERVER_SINCE=$MARK" >> "$GITHUB_ENV"
+
+      - name: External observer — the matrix, unprivileged, under observation
+        if: ${{ inputs.observer && env.OBSERVER_SINCE != '' }}
+        continue-on-error: true
+        run: python scripts/release/redteam.py --record redteam-observed.md
+
+      - name: External observer — collect the kernel's record and disarm
+        if: ${{ always() && inputs.observer && env.OBSERVER_SINCE != '' }}
+        continue-on-error: true
+        run: |
+          sudo -E "$(which python)" scripts/release/observer.py collect \
+            --since "$OBSERVER_SINCE" --json observer.json \
+            --matrix redteam-observed.md || true
 
       - name: The observer's record
         if: ${{ always() && inputs.observer }}
-        run: cat observer.json observer-probe.json 2>/dev/null || echo "no observer record"
+        run: |
+          cat observer-probe.json observer-arm.json observer.json 2>/dev/null \
+            || echo "no observer record"
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -84,6 +108,8 @@ jobs:
           name: redteam-matrix
           path: |
             redteam.md
+            redteam-observed.md
             observer.json
+            observer-arm.json
             observer-probe.json
           if-no-files-found: warn

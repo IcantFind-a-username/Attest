@@ -11,8 +11,17 @@ subsystem to record the syscalls the container's processes make, runs the attack
 fixtures, and then compares **the kernel's record** with **the harness's claim**.
 Nothing attest writes is trusted; `attest` is not even imported by the comparison.
 
-    observer probe   --json <out>   # can this host observe at all?
-    observer run     --json <out>   # install rules, run the fixtures, compare
+    observer probe   --json <out>              # can this host observe at all?
+    sudo observer arm                          # install the rules, print the mark
+    python scripts/release/redteam.py ...      # the matrix, **unprivileged**
+    sudo observer collect --since <mark> --json <out>   # compare, then disarm
+
+The three steps are separate because the privileges are opposite. Audit rules
+need root; the matrix must **not** have it. Run as root, the product's own
+containment guard refuses every fixture -- *"process containment unavailable for
+privileged POSIX user"* -- because `RLIMIT_NPROC = 0` does not bind a privileged
+uid, and a matrix of refusals observed by a kernel that saw no container is not
+evidence of anything. The first attempt did exactly that and is on the record.
 
 Why the audit subsystem and not a seccomp `SCMP_ACT_LOG` profile: adding a
 seccomp profile means handing `docker run` a *different* security configuration
@@ -205,6 +214,79 @@ def cmd_probe(args: argparse.Namespace) -> int:
     return 0 if found.feasible else 3
 
 
+def cmd_arm(args: argparse.Namespace) -> int:
+    """Install the rules and print the mark `collect` will search from."""
+    found = probe()
+    if not found.feasible:
+        print(found.blocked_by(), file=sys.stderr)
+        return 3
+    step = install_rules(found.auditctl)
+    mark = datetime.now().strftime("%H:%M:%S")
+    payload = {
+        "schema_version": OBSERVER_SCHEMA_VERSION,
+        "probe": asdict(found),
+        "armed": step.ok,
+        "since": mark,
+        "step": asdict(step),
+    }
+    if args.json:
+        args.json.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    print(mark)
+    return 0 if step.ok else 4
+
+
+def cmd_collect(args: argparse.Namespace) -> int:
+    """Read the kernel's record, compare it with the harness's, and disarm."""
+    found = probe()
+    if not found.feasible:
+        print(found.blocked_by(), file=sys.stderr)
+        return 3
+    records, error = collect(found.ausearch, args.since)
+    steps = [
+        Step("collect", not error, f"{len(records)} kernel record(s)", error or ""),
+        remove_rules(found.auditctl),
+    ]
+    claim: dict[str, object] = {}
+    if args.matrix and args.matrix.is_file():
+        text = args.matrix.read_text(encoding="utf-8", errors="replace")
+        claim = {
+            "rows": text.count("\n| "),
+            "says_certified": "certified" in text.lower(),
+            "path": str(args.matrix),
+        }
+    syscalls: dict[str, int] = {}
+    for record in records:
+        name = record.get("SYSCALL") or record.get("SYSCALL_NAME") or "?"
+        syscalls[name] = syscalls.get(name, 0) + 1
+    network = [r for r in records if (r.get("SYSCALL") or "") in {"connect", "socket"}]
+    succeeded = [r for r in network if (r.get("SUCCESS") or "").lower() == "yes"]
+    observed = bool(records)
+    payload = {
+        "schema_version": OBSERVER_SCHEMA_VERSION,
+        "generated": datetime.now(UTC).isoformat(),
+        "probe": asdict(found),
+        "feasible": True,
+        "since": args.since,
+        "watched": list(WATCHED),
+        "container_uid": CONTAINER_UID,
+        "steps": [asdict(step) for step in steps],
+        "records": len(records),
+        "syscalls": dict(sorted(syscalls.items())),
+        "network_attempts": len(network),
+        "network_attempts_that_succeeded": len(succeeded),
+        "harness_claim": claim,
+        "verdict": "OBSERVED" if observed else "NOTHING_RECORDED",
+        "what_this_does_not_show": (
+            "audit records what its rules match. This says nothing about syscalls "
+            "outside the watched list, and a rule set is a list of names someone chose."
+        ),
+    }
+    if args.json:
+        args.json.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    print(json.dumps(payload, indent=1, sort_keys=True))
+    return 0 if observed else 4
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     found = probe()
     steps: list[Step] = []
@@ -298,6 +380,14 @@ def main(argv: list[str] | None = None) -> int:
     run_cmd.add_argument("--json", type=Path)
     run_cmd.add_argument("--matrix", type=Path, default=Path("redteam-observed.md"))
     run_cmd.set_defaults(func=cmd_run)
+    arm = sub.add_parser("arm")
+    arm.add_argument("--json", type=Path)
+    arm.set_defaults(func=cmd_arm)
+    gather = sub.add_parser("collect")
+    gather.add_argument("--since", required=True, help="the mark `arm` printed")
+    gather.add_argument("--json", type=Path)
+    gather.add_argument("--matrix", type=Path, default=None)
+    gather.set_defaults(func=cmd_collect)
     args = parser.parse_args(argv)
     return int(args.func(args))
 
