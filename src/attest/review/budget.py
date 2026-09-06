@@ -21,7 +21,20 @@ from attest.review.config import load_pricing
 # cannot starve every reproduction (owner decision 3 of 2026-09-03d). On
 # `d7be758` the proposal stage produced 12 candidates from a 210-line change and
 # left nine of eleven reproductions with no budget to generate a test at all.
-PROPOSAL_SHARE = 0.6
+#
+# 0.6 -> 0.3, and it now binds the *whole* proposal stage rather than every unit
+# after the first (owner decision 1 of 2026-09-07, D-168). The 2026-09-07 budget
+# re-run is the measurement: four times the budget bought 3.2x the candidates and
+# moved not one verdict, and 167 of the 331 candidates were drawered
+# `no-reproduction-bought` -- discovered, then never ranked high enough to buy a
+# reproduction. Raising the budget raises discovery, and discovery re-starves the
+# budget; capping discovery is what makes a larger budget buy reproductions.
+#
+# The first unit no longer has D-111's exemption. A review that cannot read one
+# change unit inside 30% of its budget now defers with a budget reason, which is
+# a contract line a reader can act on -- where the exemption let discovery take
+# the whole budget and leave verification nothing, silently.
+PROPOSAL_SHARE = 0.3
 
 # rough chars-per-token for preflight estimates (conservative: low divisor
 # overestimates tokens and cost)

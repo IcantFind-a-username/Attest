@@ -405,11 +405,17 @@ def propose_plan(
     large change is reviewed partially and *visibly*, never truncated in
     silence. A first unit that does not fit raises BudgetExceeded as before.
 
-    D-111: *breadth* is what starves verification, so every unit after the
-    first is bought inside a PROPOSAL_SHARE cap on the budget. The first unit
-    is bought against the whole budget: a review that cannot afford to read
-    one change unit has nothing to say, and the share must bound discovery,
-    not decide whether the product runs at all.
+    D-111: *breadth* is what starves verification, so the proposal stage is
+    bought inside a PROPOSAL_SHARE cap on the budget.
+
+    D-168 extends that cap to the **first** unit as well, and lowers it to 30%.
+    D-111 exempted the first unit on the argument that a review which cannot
+    afford to read one change unit has nothing to say; the 2026-09-07 budget
+    re-run showed the cost of the exemption -- discovery that takes the whole
+    budget leaves verification nothing, and the review is then silent for a
+    reason no reader can see. A first unit that does not fit inside the share
+    now raises BudgetExceeded, which the caller turns into a stated budget
+    DEFER.
     """
     per_sample: list[list[Finding]] = []
     rejected: list[str] = []
@@ -421,8 +427,7 @@ def propose_plan(
     for index, unit in enumerate(plan.units):
         try:
             with ExitStack() as stack:
-                if index > 0:
-                    stack.enter_context(budget.stage("discovery", PROPOSAL_SHARE))
+                stack.enter_context(budget.stage("discovery", PROPOSAL_SHARE))
                 run = propose(
                     unit.diff(),
                     config,

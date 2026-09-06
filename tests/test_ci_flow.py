@@ -467,11 +467,13 @@ def test_clean_negative_control_posts_no_inline_review(
     assert result.candidate_count == 0
     assert result.surfaced_count == 0
     assert result.deferred_reason is None
-    # Two calls, not one: the red proposal, plus yellow (b)'s single hypothesis
-    # call (D-151). Unlike green's wording call -- paid only when a finding
-    # already exists -- yellow (b)'s is a *detection* call, paid on every
-    # review that has a changed function short enough to show.
-    assert len(provider.calls) == 2
+    # One call: the red proposal, and nothing else. Yellow (b)'s null/Optional
+    # class used to add a second -- a *detection* call paid on every review that
+    # had a changed function short enough to show -- and D-169 closed the class
+    # after two rule versions produced no sentence on 79 units. The guard returns
+    # before the tree read and before the provider, so the call is not made at
+    # all rather than made and discarded.
+    assert len(provider.calls) == 1
     assert github_server.review_bodies == []
     final_body = github_server.status_bodies[-1]
     # D-142: a wholly silent review says one line, and it names the units read
@@ -917,11 +919,13 @@ def test_expired_shared_deadline_defers_every_unprocessed_candidate_without_v(
     assert result.candidate_count == 2
     assert result.deferred_reason is not None
     assert "deadline" in result.deferred_reason
-    # Two calls, not one: the red proposal, plus yellow (b)'s single hypothesis
-    # call (D-151). Unlike green's wording call -- paid only when a finding
-    # already exists -- yellow (b)'s is a *detection* call, paid on every
-    # review that has a changed function short enough to show.
-    assert len(provider.calls) == 2
+    # One call: the red proposal, and nothing else. Yellow (b)'s null/Optional
+    # class used to add a second -- a *detection* call paid on every review that
+    # had a changed function short enough to show -- and D-169 closed the class
+    # after two rule versions produced no sentence on 79 units. The guard returns
+    # before the tree read and before the provider, so the call is not made at
+    # all rather than made and discarded.
+    assert len(provider.calls) == 1
     verification_rows = [row for row in _ledger_rows(repo) if row["kind"] == "verification"]
     assert len(verification_rows) == 2
     assert {row["outcome"] for row in verification_rows} == {"deferred"}
@@ -977,11 +981,9 @@ def test_generation_latency_exhausts_deadline_before_executor_starts(
         clock=clock,
     )
 
-    # Two calls, not one: the red proposal, plus yellow (b)'s single hypothesis
-    # call (D-151). Unlike green's wording call -- paid only when a finding
-    # already exists -- yellow (b)'s is a *detection* call, paid on every
-    # review that has a changed function short enough to show.
-    assert provider.calls == 3
+    # D-169 closed yellow (b)'s null/Optional class, so its detection call is
+    # no longer made and this review buys one fewer.
+    assert provider.calls == 2
     assert result.deferred_reason is not None
     assert "deadline" in result.deferred_reason
     assert result.surfaced_count == 0
@@ -1221,7 +1223,16 @@ def test_surface_overflow_stays_visible_without_extra_inline_placement(
         repo,
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
-        ReviewConfig(probe_generation=False, k_samples=2, max_findings=3, tier0_commands=[]),
+        # D-168 caps reproductions at three per changed file; this test is about
+        # the publication family (C-05), so the cap is lifted rather than left to
+        # decide how many receipts the family policy gets to see.
+        ReviewConfig(
+            probe_generation=False,
+            k_samples=2,
+            max_findings=3,
+            tier0_commands=[],
+            verification_cap_per_unit=8,
+        ),
         provider,
         limits=ExecutorLimits(wall_timeout_s=20.0),
     )
@@ -1562,7 +1573,15 @@ def test_pr_family_policy_caps_publication_and_counts_a_defect_once(
         _context(base_sha, head_sha),
         GitHubClient("local-token", github_server.url),
         ReviewConfig(
-            probe_generation=False, alpha=0.1, k_samples=2, max_findings=3, tier0_commands=[]
+            # D-168's per-unit cap is lifted here for the same reason: this
+            # test is about the family policy, not about how many
+            # reproductions a review buys.
+            probe_generation=False,
+            alpha=0.1,
+            k_samples=2,
+            max_findings=3,
+            tier0_commands=[],
+            verification_cap_per_unit=8,
         ),
         TwoSampleProvider(),
         limits=ExecutorLimits(wall_timeout_s=20.0),

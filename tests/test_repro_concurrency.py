@@ -167,6 +167,11 @@ def _run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, concurrency: int):
             k_samples=1,
             tier0_commands=[],
             repro_concurrency=concurrency,
+            # D-168 caps reproductions at three per changed file and all four of
+            # these candidates are anchored in `app.py`. What these tests pin is
+            # the *queue* -- same bytes, less wall clock -- so the cap is lifted
+            # here rather than shrinking the population the queue is measured on.
+            verification_cap_per_unit=CANDIDATES,
         ),
         provider=None,
         adapter=LocalDevelopmentAdapter(),
@@ -234,8 +239,13 @@ def test_dispatch_follows_the_ranking_even_when_two_are_in_flight(
     assert peak == 2
     verifications = [row for row in rows if row.get("kind") == "verification"]
     order = [row["finding_id"] for row in verifications]
-    ranked = [result.finding.finding_id for result in _results()]
-    assert order == ranked, "the journal did not read in wealth order"
+    # D-168 replaced the wealth key with cluster size, then static credibility,
+    # then the finding id. These four candidates have identical clusters and
+    # module-level anchors, so the id is what separates them -- and the point of
+    # the assertion is unchanged: the journal reads in the ranking's order, not
+    # in the order the containers happened to finish.
+    ranked = sorted(result.finding.finding_id for result in _results())
+    assert order == ranked, "the journal did not read in ranked order"
 
 
 def test_concurrency_is_bounded_by_the_policy(

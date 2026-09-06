@@ -86,6 +86,10 @@ DRAWER_REASON_PREFIXES = (
     ("shared verification deadline", "deadline"),
     ("pytest passed on head", "not-reproduced-on-head"),
     ("ineligible", "ineligible"),
+    # D-168: the ranking reached this candidate and declined to buy it. That is
+    # a decision, and it is kept apart from `no-reproduction-bought`, which is
+    # the class for a candidate the ranking never reached at all.
+    ("ranked below verification cap", "ranked-below-cap"),
 )
 
 

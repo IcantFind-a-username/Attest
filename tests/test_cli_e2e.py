@@ -432,8 +432,12 @@ def test_ci_mock_provider_routes_offline_and_prints_one_json_result(
             str(event_path),
             "--verification-timeout",
             "15",
+            # D-168: discovery may reserve at most 30% of the budget, and one
+            # proposal sample reserves $0.032 at the token bound, so $0.10 no
+            # longer covers a single unit. This test is about `--mock` routing
+            # offline; the budget is raised to keep it about that.
             "--budget",
-            "0.1",
+            "0.5",
             "--model",
             str(load_pricing()["default_model"]),
             "--k",

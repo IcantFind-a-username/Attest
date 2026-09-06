@@ -808,27 +808,31 @@ def test_discovery_cannot_spend_more_than_its_share_of_the_review_budget() -> No
     """D-111: on `d7be758` the proposal stage produced 12 candidates from a
     210-line change and left nine of eleven reproductions unable to afford a
     single generation attempt — the budget went to breadth, not to difficulty.
-    Discovery is now capped at PROPOSAL_SHARE of the limit, and what it does
-    not spend stays available to verification."""
+    Discovery is capped at PROPOSAL_SHARE of the limit, and what it does not
+    spend stays available to verification.
+
+    D-168 lowered the share from 0.6 to 0.3 on the 2026-09-07 measurement that
+    four times the budget bought 3.2× the candidates and moved no verdict. The
+    property is unchanged; the number is the owner's."""
     from attest.review.budget import PROPOSAL_SHARE
 
-    b = Budget(limit_usd=0.25, model=DEFAULT_MODEL)
-    assert PROPOSAL_SHARE == 0.6
-    # 4 samples of 3,200 output tokens each: $0.032 apiece at $10/Mtok
+    b = Budget(limit_usd=1.00, model=DEFAULT_MODEL)
+    assert PROPOSAL_SHARE == 0.3
+    # 9 samples of 3,200 output tokens each: $0.032 apiece at $10/Mtok
     with b.stage("proposal", PROPOSAL_SHARE):
-        for i in range(4):
+        for i in range(9):
             b.reserve(f"sample-{i}", 0, 3200)
         with pytest.raises(BudgetExceeded) as exc:
-            b.reserve("sample-4", 0, 3200)
-    assert "proposal share $0.1500" in exc.value.reason
-    assert "budget $0.25" in exc.value.reason
-    assert b.reserved_usd == pytest.approx(0.128)
+            b.reserve("sample-9", 0, 3200)
+    assert "proposal share $0.3000" in exc.value.reason
+    assert "budget $1.00" in exc.value.reason
+    assert b.reserved_usd == pytest.approx(0.288)
 
     # outside the stage the rest of the budget is still reservable: the share
     # bounds discovery, it does not shrink the review
-    for i in range(3):
+    for i in range(22):
         b.reserve(f"generation-{i}", 0, 3200)
-    assert b.reserved_usd == pytest.approx(0.224)
+    assert b.reserved_usd == pytest.approx(0.992)
     with pytest.raises(BudgetExceeded) as spent:
-        b.reserve("generation-3", 0, 3200)
+        b.reserve("generation-22", 0, 3200)
     assert "exceeds budget" in spent.value.reason

@@ -67,6 +67,12 @@ class ReviewConfig:
     # reproduction stable, and a concurrent repeat is a different experiment.
     # 1 restores the strictly serial path.
     repro_concurrency: int = 2
+    # D-168: how many candidates of one change unit may buy a reproduction.
+    # The 2026-09-07 budget re-run bought 331 candidates' worth of discovery and
+    # moved no verdict; the binding constraint is what the money is spent on, not
+    # how much of it there is. `attest.review.ranking` holds the order and the
+    # cap; this is the number a repository may move.
+    verification_cap_per_unit: int = 3
     # D-161: the second ceiling. `budget_usd` bounds one review; this bounds a
     # repository's spend over a rolling 24 hours, so an afternoon of pull
     # requests cannot cost an unbounded amount however small each one is.
@@ -116,6 +122,8 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError("probe_generation must be a boolean")
     if type(config.repro_concurrency) is not int or not 1 <= config.repro_concurrency <= 8:
         raise ValueError("repro_concurrency must be an integer in [1, 8]")
+    if type(config.verification_cap_per_unit) is not int or config.verification_cap_per_unit < 1:
+        raise ValueError("verification_cap_per_unit must be an integer >= 1")
     if (
         isinstance(config.daily_budget_usd, bool)
         or not isinstance(config.daily_budget_usd, (int, float))
@@ -142,6 +150,7 @@ _KNOWN_POLICY_KEYS = {
     "tier0_commands",
     "probe_generation",
     "repro_concurrency",
+    "verification_cap_per_unit",
     "daily_budget_usd",
 }
 

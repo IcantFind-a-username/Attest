@@ -47,6 +47,13 @@ from attest.review.gate import GateResult
 from attest.review.ledger import BufferedLedger, Ledger
 from attest.review.planner import package_block
 from attest.review.proposer import Provider
+from attest.review.ranking import (
+    VERIFICATION_RANKING_POLICY_VERSION,
+    CredibilityIndex,
+    cluster_size,
+    rank,
+    within_cap,
+)
 from attest.review.run import ReviewRun
 
 # differential repeats per side; the certification policy demands exactly this many
@@ -103,10 +110,45 @@ def run_verification_stage(
     ]
     # D-111: reproductions are bought in ranking order, so a shared deadline or
     # an exhausted budget stops at the *weakest* candidate rather than at
-    # whichever the store happened to hold last. The key is the one C-05
-    # already uses for publication: score first, candidate id to break ties.
-    candidates.sort(key=lambda item: (-item.wealth, item.finding.finding_id))
+    # whichever the store happened to hold last.
+    #
+    # D-168 changes the key. The gate's wealth was flat -- 190 of the 226
+    # candidates of the 2026-09-07 attest run sat at exactly 2.0 -- so the
+    # effective order was the finding id, which is a hash. The key is now
+    # cluster size, then a static credibility score computed from the head tree,
+    # then the id: a total order, so no permutation of samples, findings or
+    # files can move a candidate.
+    # the tree read is the only cost this ranking has, so it is not taken for a
+    # review that found nothing to rank
+    credibility = (
+        CredibilityIndex.for_tree(repo) if candidates else CredibilityIndex({})
+    )
+    candidates = rank(candidates, credibility)
     eligible_candidates = [c for c in candidates if c.eligibility == "regression"]
+    # D-168: and at most `verification_cap_per_unit` of them per change unit may
+    # buy a reproduction. What the cap holds back is recorded, never silent.
+    cap = max(1, int(config.verification_cap_per_unit))
+    purchasable, below_cap = within_cap(eligible_candidates, cap)
+    ledger.append(
+        {
+            "kind": "verification_ranking",
+            "schema_version": VERIFICATION_RANKING_POLICY_VERSION,
+            "task_id": task_id,
+            "cap_per_unit": cap,
+            "eligible": len(eligible_candidates),
+            "purchasable": len(purchasable),
+            "below_cap": len(below_cap),
+            "order": [
+                {
+                    "finding_id": item.finding.finding_id,
+                    "unit": item.finding.file,
+                    "cluster_size": cluster_size(item),
+                    **credibility.of(item.finding.file, item.finding.line).to_row(),
+                }
+                for item in eligible_candidates
+            ],
+        }
+    )
     # D-137: the gate level executes head-only, and it needs the same isolation
     # red does, so a review with only new-code candidates still selects one
     gate_candidates = (
@@ -195,7 +237,11 @@ def run_verification_stage(
     # with two in flight, a candidate the serial path would never have started
     # may already hold the last of the budget when a higher-ranked one asks.
     dispatch = max(1, int(config.repro_concurrency))
-    schedulable = [item for item in candidates if item.eligibility == "regression"]
+    schedulable = [
+        item
+        for item in candidates
+        if item.eligibility == "regression" and item.finding.finding_id in purchasable
+    ]
     pool: ThreadPoolExecutor | None = None
     if dispatch > 1 and adapter is not None and len(schedulable) > 1:
         pool = ThreadPoolExecutor(max_workers=dispatch, thread_name_prefix="attest-repro")
@@ -233,6 +279,24 @@ def run_verification_stage(
                         "executor_profile": EXECUTOR_PROFILE,
                     }
                 )
+                continue
+            if candidate.finding.finding_id in below_cap:
+                # D-168: held back by the per-unit cap, before any image, any
+                # container and any generation call. Recorded as its own outcome
+                # rather than folded into `no-reproduction-bought`: the ranking
+                # reached it and declined it, which is a decision, not an absence.
+                reason = below_cap[candidate.finding.finding_id]
+                ledger.append(
+                    {
+                        "kind": "certification",
+                        "task_id": task_id,
+                        "finding_id": candidate.finding.finding_id,
+                        "outcome": "not_attempted",
+                        "reason": reason,
+                        "executor_profile": EXECUTOR_PROFILE,
+                    }
+                )
+                reasons[candidate.finding.finding_id] = reason
                 continue
             if adapter is None:
                 reason = f"isolation backend unavailable: {backend_reason}"
