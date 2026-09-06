@@ -588,6 +588,100 @@ def test_a_duplicated_implementation_reaches_the_author_as_a_structural_comment(
     assert note_row["note_id"] == "invoices.py:1|orders.py:1"
 
 
+def test_a_review_whose_every_note_was_dropped_posts_no_review_at_all(
+    tmp_path: Path, github_server: RecordingGitHub
+) -> None:
+    """Found by this repository's own workflow on PR #13, which exited 2.
+
+    Every author-visible note can be dropped after the branch that posts the
+    inline review has been entered -- a green note whose anchor is not a line the
+    diff carries (D-147), a comment the action clause refuses (D-178), or a
+    propagation note, which is a shadow and contributes no comment at all
+    (D-169). The review was then posted with **no comments**: an author-visible
+    "Attest review." that judged nothing, and a `delivery_attempt_intent` with an
+    empty member list, which the journal's own reconciliation refuses -- after
+    everything had already been published.
+
+    Here the copy lands in the body of a function whose `def` line the diff does
+    not touch, so the note exists and its comment is unanchorable.
+    """
+    from attest.review.ci import run_ci
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(tmp_path), *args], check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    body = (
+        "def summarise_orders(rows, floor):\n"
+        "    total = 0\n"
+        "    seen = set()\n"
+        "    for row in rows:\n"
+        "        if row.amount < floor:\n"
+        "            continue\n"
+        "        seen.add(row.customer_id)\n"
+        "        total += row.amount * row.quantity\n"
+        "    average = total / max(len(seen), 1)\n"
+        '    return {"total": total, "customers": len(seen), "average": average}\n'
+    )
+    stub = "def tally_invoices(records, minimum):\n    return None\n"
+    copy = (
+        "def tally_invoices(records, minimum):\n"
+        "    running = 0\n"
+        "    people = set()\n"
+        "    for record in records:\n"
+        "        if record.amount < minimum:\n"
+        "            continue\n"
+        "        people.add(record.customer_id)\n"
+        "        running += record.amount * record.quantity\n"
+        "    mean = running / max(len(people), 1)\n"
+        '    return {"total": running, "customers": len(people), "average": mean}\n'
+    )
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test")
+    (tmp_path / "orders.py").write_text(body, encoding="utf-8")
+    (tmp_path / "invoices.py").write_text(stub, encoding="utf-8")
+    git("add", ".")
+    git("commit", "-m", "base")
+    base_sha = git("rev-parse", "HEAD")
+    (tmp_path / "invoices.py").write_text(copy, encoding="utf-8")
+    git("add", "invoices.py")
+    git("commit", "-m", "fill in the tally")
+    head_sha = git("rev-parse", "HEAD")
+
+    provider = RecordingProvider(
+        _payload(),
+        '{"test_body":"assert False"}',
+        json.dumps(
+            {
+                "sentence": "`tally_invoices` in invoices.py is `summarise_orders` renamed.",
+                "fix": "Delete it and import `summarise_orders` from orders.py.",
+            }
+        ),
+    )
+
+    result = run_ci(
+        tmp_path,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
+        provider,
+    )
+
+    # the note is real and was measured -- this fixture would be vacuous without it
+    rows = _ledger_rows(tmp_path)
+    assert [row for row in rows if row["kind"] == "structural_note"]
+    # ... and its comment did not survive the anchor rule
+    assert [c for body_ in github_server.review_bodies for c in body_["comments"]] == []
+    # so no review is posted at all, and none is journalled
+    assert github_server.review_bodies == []
+    assert [row for row in rows if row.get("channel") == "inline_review"] == []
+    # the run still finishes and still says its one silent line
+    assert result.surfaced_count == 0
+    assert "Review complete." in github_server.status_bodies[-1]
+
+
 def test_a_changed_signature_with_an_untested_caller_reaches_the_author_as_yellow(
     tmp_path: Path, github_server: RecordingGitHub
 ) -> None:

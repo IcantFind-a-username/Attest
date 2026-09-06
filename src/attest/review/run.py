@@ -29,6 +29,7 @@ from attest.review.ledger import REVIEW_AUTHORITY_RANKING, Ledger
 from attest.review.planner import package_block, plan_review
 from attest.review.proposer import Provider, propose_plan
 from attest.review.status import RunStatus, status_from_rows
+from attest.review.support import provider_defer_reason
 from attest.review.tier0 import collect_signals, signals_near, unresolved_identifiers
 
 if TYPE_CHECKING:
@@ -395,7 +396,12 @@ def run_review(
             for sample in proposal.sample_observations
         )
         if proposal.successful_samples == 0:
-            deferred_reason = "all provider samples failed or were malformed"
+            # D-179: a provider that rate-limited every call is not a defect in
+            # the change and not a defect in the product; it says so, and what
+            # to do about it.
+            deferred_reason = provider_defer_reason(
+                proposal.transport_errors, proposal.sample_errors
+            )
             ledger.append({"kind": "defer", "task_id": task_id, "reason": deferred_reason})
         # Observation only — this vetoes nothing and changes no wealth. Every
         # candidate below still reaches the gate exactly as it would without

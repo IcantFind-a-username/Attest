@@ -1,29 +1,43 @@
 """Publication policy over certified findings (C-05, mainline §5 A; D-125).
 
-Owner-selected method (2026-09-02): e-value Bonferroni. A certified finding may
-be published only when its e-value (the S/T/V wealth) is at least
-``m_u / alpha``, where ``m_u`` is the number of eligible candidates in **its own
-change unit** (D-125, owner decision 2 of 2026-09-04) -- until then the count was
-the whole pull request's. Same-defect findings are clustered first and count
-once, and a cluster is judged in the unit of its representative; at most
-``hard_cap`` findings are author-visible anywhere (inline or summary); the
-arithmetic mean of the eligible candidates' e-values reports the PR-level global
-null. Suppressed certified findings stay private with a reason. Pure: no I/O, no
-ranking inputs beyond the declared e-values, deterministic tie-breaks.
+**The vocabulary here was downgraded on 2026-09-09, and the arithmetic was not.**
+What this module thresholds is a **priority score** (the S/T/V product), and what
+it applies is a **per-unit family cap**. Neither is an e-value and neither is a
+family-wise error rate. *The only evidence this product publishes on is the
+differential reproduction (V); S and T rank candidates and spend a multiplicity
+budget, and D-174 proved they are not an e-value* -- over 475 candidates of 276
+control reviews the S·T product has mean 2.274 and a **minimum of 2.000**, so it
+cannot fall below 1 at all, which a valid e-value must be able to do. Every
+identifier below (``alpha``, ``e_value``, ``E_VALUE_VALIDITY``,
+``PUBLICATION_METHOD``) keeps its name because it is a recorded ledger key and
+renaming it would rewrite historical rows; the prose no longer claims what the
+names once did.
 
-**What the guarantee is, corrected (D-174).** Bonferroni over ``m_u`` controls
-the family-wise error rate at ``alpha`` **inside one change unit, and nowhere
-else**. Across a pull request the units are separate families, so the union bound
-over the ``U`` units that carried an eligible candidate is
-``pr_error_bound = min(1, U * alpha)``.
+Owner-selected method (2026-09-02), in the downgraded vocabulary: **Bonferroni
+over the per-unit family**. A certified finding may be published only when its
+priority score is at least ``m_u / alpha``, where ``m_u`` is the number of
+eligible candidates in **its own change unit** (D-125, owner decision 2 of
+2026-09-04) -- until then the count was the whole pull request's. Same-defect
+findings are clustered first and count once, and a cluster is judged in the unit
+of its representative; at most ``hard_cap`` findings are author-visible anywhere
+(inline or summary); the arithmetic mean of the eligible candidates' scores is
+reported alongside. Suppressed certified findings stay private with a reason.
+Pure: no I/O, no ranking inputs beyond the declared scores, deterministic
+tie-breaks.
+
+**What the guarantee is, corrected (D-174).** Bonferroni over ``m_u`` bounds the
+per-unit cap at ``alpha`` **inside one change unit, and nowhere else** -- and
+only conditionally, see below. Across a pull request the units are separate
+families, so the union bound over the ``U`` units that carried an eligible
+candidate is ``pr_error_bound = min(1, U * alpha)``.
 
 D-125 said this bound was ``hard_cap * alpha``, reasoning that at most
 ``hard_cap`` claims are ever visible. That is wrong, and in the unsafe direction:
 **the cap truncates the display, not the search.** A unit whose null was rejected
 was searched and rejected whether or not the cap then hid the finding, and a
 Monte-Carlo over this very function makes the gap concrete -- ten units at
-``alpha = 0.1``, each with one candidate whose e-value is a valid e-value under
-the null, publishes something in **65%** of pull requests
+``alpha = 0.1``, each with one candidate whose score behaves as a valid e-value
+under the null, publishes something in **65%** of pull requests
 (``1 - 0.9**10``), against the ``hard_cap * alpha = 0.3`` D-125 claimed
 (`tests/certification/test_pr_error_bound.py`).
 
@@ -34,10 +48,11 @@ now **reports the bound it actually offers**: ``units_searched``,
 ``pr_error_bound``, and ``e_value_validity``.
 
 **``e_value_validity`` is ``"assumed-calibrated"``, and that word is load-bearing.**
-The wealth this module thresholds is a fixed product of likelihood ratios
-(D-007), not a quantity anyone has proved is an e-value: S and T price only
-positive evidence, so ``E[wealth] <= 1`` under the null is an assumption of the
-factor table and not a theorem about it. Every bound above is conditional on it.
+The score this module thresholds is a fixed product of likelihood ratios (D-007),
+not a quantity anyone has proved is an e-value: S and T price only positive
+evidence, so ``E[score] <= 1`` under the null is an assumption of the factor table
+and not a theorem about it. Every bound above is conditional on it, which is why
+the prose above calls the bar a **cap** and not an error rate.
 """
 
 from __future__ import annotations
@@ -52,6 +67,9 @@ from .units import CHANGE_UNIT_POLICY_VERSION, change_unit
 
 # v3 (D-174) adds `units_searched`, `pr_error_bound` and `e_value_validity`.
 PUBLICATION_POLICY_SCHEMA_VERSION = "attest.publication-policy.v3"
+# The recorded method name. Kept verbatim: it is a ledger value read by every
+# historical row and by `attest stats`. Read it as "Bonferroni over the
+# per-unit family", which is what the arithmetic is (D-174, 2026-09-09).
 PUBLICATION_METHOD = "e-value Bonferroni"
 DEFAULT_HARD_CAP = 3
 
@@ -59,9 +77,11 @@ REASON_BELOW_THRESHOLD = "below family threshold"
 REASON_SAME_DEFECT = "same defect as a published finding"
 REASON_BEYOND_CAP = "beyond the hard author-visible cap"
 
-# D-174: the wealth is a fixed product of likelihood ratios (D-007), not a
-# quantity shown to satisfy `E[wealth] <= 1` under the null. Every bound this
-# module reports is conditional on that assumption, and says so.
+# D-174: the priority score is a fixed product of likelihood ratios (D-007),
+# not a quantity shown to satisfy `E[score] <= 1` under the null -- its measured
+# minimum over 475 control candidates is 2.000. Every bound this module reports
+# is conditional on an assumption that has been measured false in that direction,
+# and says so.
 E_VALUE_VALIDITY = "assumed-calibrated"
 
 
@@ -71,15 +91,20 @@ class CertifiedSelection(Protocol):
 
 @dataclass(frozen=True)
 class ScoredFinding:
+    """``e_value`` is the **priority score** (the S/T/V product). The field keeps
+    its name because it is a recorded ledger key; it is not an e-value (D-174)."""
+
     finding: CertifiedFinding
     e_value: float
 
 
 @dataclass(frozen=True)
 class FamilyPolicy:
-    """``eligible_units`` maps a change unit to its eligible-candidate count.
-    ``eligible_count`` stays the PR-wide total: it is what the global-null mean
-    is reported over, and it is what the pre-D-125 threshold was computed from."""
+    """The per-unit family cap. ``eligible_units`` maps a change unit to its
+    eligible-candidate count. ``eligible_count`` stays the PR-wide total: it is
+    what the reported mean is taken over, and what the pre-D-125 threshold was
+    computed from. ``alpha`` is the name of the configuration constant, not a
+    claimed error rate (D-174)."""
 
     alpha: float
     eligible_count: int
@@ -111,9 +136,10 @@ class FamilyPolicy:
     def pr_error_bound(self) -> float:
         """``min(1, U * alpha)``: the union bound over the units searched.
 
-        Conditional on the e-values being calibrated (:data:`E_VALUE_VALIDITY`).
-        It is not ``hard_cap * alpha``: the cap hides findings after the search,
-        and a hidden false claim is still a rejected null."""
+        Conditional on the priority scores being calibrated
+        (:data:`E_VALUE_VALIDITY`), which D-174 measured they are not. It is not
+        ``hard_cap * alpha``: the cap hides findings after the search, and a
+        hidden false claim is still a rejected null."""
         return min(1.0, self.units_searched * self.alpha)
 
 
@@ -129,7 +155,7 @@ class Selection:
     suppressed: tuple[Suppressed, ...]
     clusters: tuple[tuple[str, ...], ...]  # candidate ids per publication cluster
     family_threshold: float  # the PR-wide bar, reported (D-125: no longer applied)
-    mean_e_value: float | None  # arithmetic mean over the eligible candidates
+    mean_e_value: float | None  # arithmetic mean priority score over the eligible
     # D-125: the bar actually applied to each cluster, by the representative's unit
     unit_thresholds: Mapping[str, float] = field(default_factory=dict)
     # D-174: what the PR-level guarantee actually is, on every selection
@@ -153,8 +179,10 @@ def select_for_publication(
     policy: FamilyPolicy,
     eligible_e_values: Sequence[float],
 ) -> Selection:
-    """Cluster, threshold each cluster at its own unit's ``m_u/alpha``, cap;
-    every suppression carries its reason."""
+    """Cluster, threshold each cluster's priority score at its own unit's
+    ``m_u/alpha`` cap, then truncate to ``hard_cap``; every suppression carries
+    its reason. This decides *what is shown*, never *what is true* -- V decided
+    that before any finding reached here."""
     if not 0 < policy.alpha < 1 or policy.hard_cap < 0:
         raise ValueError("family policy requires 0 < alpha < 1 and a non-negative cap")
     by_id = {_candidate_id(item.finding): item for item in scored}

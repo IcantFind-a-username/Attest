@@ -159,3 +159,93 @@ def test_a_bootstrap_reason_keeps_the_build_log_tail_the_docs_promise() -> None:
 
     short = "isolation backend unavailable: docker not found"
     assert _bounded(short) == short
+
+
+def test_a_host_that_cannot_run_the_executor_is_counted_and_named() -> None:
+    """D-177. Every candidate was refused before generation because the host
+    cannot run the declared executor profile, so none was judged. The status
+    carries the count and the reason so the silence line can say which of the
+    two silences this is."""
+    rows: list[dict[str, object]] = [
+        {"kind": "review_plan", "task_id": "t2", "units": [{"unit_id": "u1"}]},
+        *(
+            {
+                "kind": "eligibility",
+                "task_id": "t2",
+                "finding_id": name,
+                "eligibility": "unsupported_executor",
+                "reason": "process containment unavailable: running as uid 0",
+            }
+            for name in ("a", "b", "c")
+        ),
+    ]
+
+    status = status_from_rows(rows, "t2")
+
+    assert status.unsupported_executor == 3
+    assert status.executor_unavailable == "process containment unavailable: running as uid 0"
+    assert status.eligible == 0
+
+
+def test_a_healthy_run_claims_no_executor_problem() -> None:
+    status = status_from_rows(_rows(), "t1")
+    assert status.unsupported_executor == 0
+    assert status.executor_unavailable == ""
+
+
+def test_a_candidate_counted_once_however_many_rows_it_wrote() -> None:
+    """Independent review of 2026-09-09, finding 5. `candidates` and `eligible`
+    are sets of finding ids; the blocked count was a list of rows, so a task with
+    a duplicated eligibility row would publish `4 candidate(s) not verified`
+    beside a collapsed status saying `candidates: 2`. Two numbers about the same
+    thing must not disagree."""
+    row = {
+        "kind": "eligibility",
+        "task_id": "t3",
+        "eligibility": "unsupported_executor",
+        "reason": "process containment unavailable for privileged POSIX user",
+    }
+    rows: list[dict[str, object]] = [
+        {"kind": "review_plan", "task_id": "t3", "units": [{"unit_id": "u1"}]},
+        {**row, "finding_id": "a"},
+        {**row, "finding_id": "b"},
+        {**row, "finding_id": "a"},
+        {**row, "finding_id": "b"},
+    ]
+
+    status = status_from_rows(rows, "t3")
+
+    assert status.candidates == 2
+    assert status.unsupported_executor == 2
+
+
+def test_a_long_executor_reason_cannot_push_the_silence_line_past_the_contract() -> None:
+    """Independent review of 2026-09-09, finding 6. `_bounded` allows 1,400
+    characters when the text carries a bootstrap marker, and an executor reason
+    is exactly the register that could grow one. The line the reader gets is
+    bounded independently of that."""
+    from attest.review.output_contract import MAX_LINE_CHARS, check, silence_line
+
+    rows: list[dict[str, object]] = [
+        {"kind": "review_plan", "task_id": "t4", "units": [{"unit_id": "u1"}]},
+        {
+            "kind": "eligibility",
+            "task_id": "t4",
+            "finding_id": "a",
+            "eligibility": "unsupported_executor",
+            "reason": "isolation backend unavailable: " + "x" * 2000,
+        },
+    ]
+
+    status = status_from_rows(rows, "t4")
+    line = silence_line(
+        units_read=status.units_read,
+        units_planned=status.units_planned,
+        spend_usd=0.0,
+        elapsed_s=1.0,
+        executor_unavailable=status.executor_unavailable,
+        unverified=status.unsupported_executor,
+    )
+
+    assert len(line) <= MAX_LINE_CHARS
+    assert check(line), check(line).reason

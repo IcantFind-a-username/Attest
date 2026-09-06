@@ -16,7 +16,7 @@ other's words, and never speak for each other:
 | | one sentence | costs a model call? | status |
 |---|---|---|---|
 | **red** | *this change broke something* — a generated test that fails on head and passes on the merge base, three runs each way, with an offline-verifiable receipt | yes | **live** |
-| **gate** | *this new code crashes on an input a pre-existing caller produces* — new code has no merge base, so it is admitted only through a caller outside the added lines | yes | **shadow** — nothing on this path is author-visible |
+| **gate** | *this new code crashes on an input a pre-existing caller produces* — new code has no merge base, so it is admitted only through a caller outside the added lines | yes | **shadow** — nothing on this path is author-visible, and on **0 of 445** recorded candidates has it found a publishing-grade witness |
 | **yellow** | *here is a hypothesis, and here are the premises I checked* — (a) the change's impact scope, (b) a null/Optional dereference or an exception no caller handles | (a) no · (b) one for the null class, none for the exception class | **live**, ≤ 2 per pull request, shared across every class |
 | **green** | *this is structurally so* — computed with no model at all; today, the same implementation in two places | only to word it | **live** |
 
@@ -44,7 +44,7 @@ reviewed in shadow at `--budget 0.25`
 | level | spoke on | what the rate is **not** |
 |---|---|---|
 | **red** | **0 of 40** | not a precision number: no commit in the 40 is known to contain a defect |
-| **yellow (a)** | **0 of 40** (1 of 10 more on a third repository, true and not actionable) | — |
+| **yellow (a)** | **0 of 40** (1 of 10 more on a third repository, true and not actionable). Its **first unprompted trigger on this repository's own traffic** came later, on [PR #12](https://github.com/IcantFind-a-username/Attest/pull/12): true, and at the time it carried no action clause (D-178) | — |
 | **yellow (b)** | **0 of 40**, and **0 of 79** on a separate scan, under two rule versions | — |
 | **green** | **8 of 40** (20%), three of them the same duplicated `git` helper | — |
 | **every level silent** | **32 of 40** (80%) | a silence is an abstention, never a true negative |
@@ -61,19 +61,23 @@ reached an adjudicator that had not before, and it was drawered.
 
 ### Known limitations — the ones that would change your mind
 
-- **The wealth this product thresholds is not a proven e-value, and the pull-request `alpha` is
-  not what it looked like.** Over **475 candidates of 276 control reviews** on eight public
-  repositories, the S·T wealth has mean **2.27** and a *minimum of 2.0* — it cannot fall below 1
-  at all, because S prices only positive evidence. That is a structural fact about the factor
-  table, not a statistical one: the 475 are not independent draws and no sample size changes it. A valid e-value satisfies `E[X] <= 1` under
-  the null, so the `m_u / alpha` bar is a fixed likelihood-ratio bar with a calibration claim
-  attached, not a proven error rate; every row records it as `assumed-calibrated`. And
-  per-unit Bonferroni bounds `alpha` **inside a change unit only**: across a pull request the
-  bound is `min(1, U * alpha)` over the units searched, measured at **0.65** for ten units at
-  `alpha = 0.1`. Nothing here impeaches a published receipt — S·T tops out at 9 against a bar of
-  10 at the factory alpha, so every publication rests on the differential execution — but that is
-  a one-unit arithmetic margin rather than an invariant, and no number in this README should be
-  read as a pull-request-level error guarantee (D-174,
+- **S·T is a priority score and a per-unit family cap. It is not an e-value, and it is not
+  evidence.** *The only evidence this product publishes on is the differential reproduction (V).*
+  S and T rank candidates and spend a publication budget; **they were proven not to be an e-value**
+  (D-174), and this README's vocabulary was downgraded to match.
+  Over **475 candidates of 276 control reviews** on eight public repositories the S·T score has
+  mean **2.27** and a *minimum of 2.0* — it cannot fall below 1 at all, because S prices only
+  positive evidence. That is a structural fact about the factor table, not a statistical one: the
+  475 are not independent draws and no sample size changes it. A valid e-value satisfies
+  `E[X] <= 1` under the null, so the `m_u / alpha` bar is a **fixed likelihood-ratio bar with a
+  calibration claim attached**, not a proven error rate; every row records it as
+  `assumed-calibrated`. And the per-unit cap binds **inside a change unit only**: across a pull
+  request the union over the units searched is `min(1, U * alpha)`, measured at **0.65** for ten
+  units at `alpha = 0.1` — where **`alpha` is the name of the configuration constant, not a
+  claimed error rate**. Nothing here impeaches a published receipt — S·T tops out at 9 against a
+  bar of 10 at the factory setting, so every publication rests on the differential execution — but
+  that is a one-unit arithmetic margin rather than an invariant, and **no number in this README is
+  a pull-request-level error guarantee** (D-174,
   [report](docs/acceptance/2026-09-08-binding-and-bounds.md)).
 - **Every level now resolves a name before treating it as a call, and all of them got quieter.**
   Inheritance, decorators, a call through a variable, a package re-export, and any bare name in
@@ -93,6 +97,18 @@ reached an adjudicator that had not before, and it was drawered.
   registry looks unreachable. Since call sites are resolved rather than name-matched, **none of
   the 445 recorded new-code candidates has produced a publishing-grade witness** — the level is
   in shadow, has never spoken, and the reason it has never spoken is now known.
+- **Whether a test may be a gate witness is an open owner decision.** The gate level admits
+  new code only through a caller *outside* the added lines. D-166 grades a caller that is
+  itself a test as `through_test_caller` and **never publishes it** — a test naming the new
+  code is the change's own coverage, not a pre-existing dependency on it. That rule is why the
+  reachability number is **0 of 445** rather than **3 of 445**: the only three witnesses that
+  survive name binding are all test callers. Both answers carry a false-positive risk and the
+  owner has not chosen between them: **keeping the exclusion** risks silence on new code whose
+  only pre-existing caller genuinely is a test fixture or a shared helper — a real dependency
+  that happens to live under `tests/`; **admitting test callers** risks publishing a crash the
+  change's own new test provokes, which is a claim about the test rather than about the code,
+  and on the recorded populations it would move the level from *never having spoken* to
+  speaking on 3 cases nobody has adjudicated. Until it is decided the level stays in shadow.
 - **Non-deterministic functions cannot be certified.** A reproduction must agree with itself
   three times on head and three on base; anything that does not is an abstention, not a finding.
 - **Yellow (b)'s null/Optional class is closed, and this is the reason it stayed open so long.**
@@ -153,7 +169,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Review pull request
-        uses: IcantFind-a-username/Attest@v0.1.0-pilot.1
+        uses: IcantFind-a-username/Attest@v0.1.0-rc.1   # docs/operations/install-ref.md
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -171,9 +187,17 @@ secret**, with the Name exactly `ANTHROPIC_API_KEY` and your Anthropic API key a
 `GITHUB_TOKEN` needs nothing — Actions supplies it. That is the whole installation; if the
 secret is missing the run stops before any model call and the error says where to put it.
 
-Fork pull requests are skipped before credentials or head code are touched, by design.
+**Fork pull requests are never reviewed and never commented on.** Two independent gates
+skip them before any credential enters a runner step, and this repository uses no
+`pull_request_target` trigger anywhere. A skipped fork leaves **no comment, no review, no
+check annotation and no artifact** — nothing that could read as *reviewed, nothing found* —
+only one Actions notice in the run log saying it was skipped.
+
 A review costs about **$0.22** on average and is hard-capped by `budget-usd` (default
-$1.00) — see [`docs/github-action.md`](docs/github-action.md).
+$1.00). **Do not lower it below $0.54**: at the default `samples: "5"` the discovery share is
+$0.16 of output tokens alone, so a smaller budget defers the review before it reads anything
+(measured 2026-09-09). See [`docs/github-action.md`](docs/github-action.md) and the
+[support matrix](docs/operations/support-matrix.md) — GitHub-hosted `ubuntu-*` runners only.
 
 The target architecture separates search from judgment:
 
@@ -282,6 +306,8 @@ Important limits:
   | **yellow (a), in production** | **1** pull-request comment on this repository, a throwaway since closed ([report](docs/acceptance/2026-09-06b-yellow-published.md#3-the-one-real-comment-and-the-defect-it-found)) | one `[yellow]` comment, one contract line, in its own section, **no defect claimed** and **$0.00** for the level itself. The first attempt posted **nothing** — `HTTP 422`, because a green note named a line the diff does not carry and GitHub refuses the whole review for it (D-147) | **$0.25** | S `claude-sonnet-5` | 2026-09-06 |
   | **a live defect in a third-party library**, found as a *control* | `more-itertools f4f2cfec9d` (2019), drawn as a null control of `G-NULL-001a` ([adjudication](docs/acceptance/2026-09-06-g-null-001a-final.md), [draft report](docs/acceptance/2026-09-06-more-itertools-issue.md)) | **real and still live**: `divide()` raises `KeyError` on a plain `dict` from **Python 3.12** — where `slice` became hashable — and on any `__getitem__` raising a non-`TypeError` on every version; present since **8.1.0** and at the clone's default-branch tip (`d92f081a08`, fetched 2026-09-05). Adjudicated by a probe with **no product code** on four interpreters; the receipt's bundle verifies offline with its seal. **Upstream: draft prepared 2026-09-06, not yet filed — issue number pending** | **$1.00** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-05 |
   | **outside repository, in production** | **1** pull-request comment on a repository this project does not develop in ([report](docs/acceptance/2026-09-04-us-stock-helper-action-comment.md)) | the Action installed at `@v0.1.0-pilot.1`, built the container on a GitHub runner, ran a reproduction and **posted one comment — a `DEFER`** | **$0.60** | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-04 |
+  | **`G-NEWCODE-001`, the gate level's reachability** | every recorded new-code candidate of four shadow populations, re-adjudicated under name binding ([report](docs/acceptance/2026-09-08-binding-and-bounds.md)) | **0 of 445 `through_caller`** — a publishing-grade witness has never been produced. Of 29 recorded `through_caller` grades, **26 were name collisions** and **3 resolve to a caller that is itself a test**; those 3 are `through_test_caller` under D-166 and are listed apart because that grade **never publishes** — a test naming the new code is the change's own coverage, not a pre-existing dependency on it. The earlier **26 of 445 (5.8%)** was a name-match count, not reachability | — | — (no model, `$0.00`) | 2026-09-08 |
+  | **yellow (a), unprompted on real traffic** | **1** review comment on [PR #12](https://github.com/IcantFind-a-username/Attest/pull/12) of this repository, produced by the workflow's own run — not a drill and not a constructed case | `[yellow] src/attest/review/gate_level.py:252` — `calls_in` changed; **3 call sites in 2 files** resolve to it and **no test names it**. Produced by `attest.impact.caller-scope.v2`, so the sites were **binding-resolved, not name-matched**, and re-resolving them here confirms all three. **True, and not a defect**: `scripts/corpus/binding_recount.py:102` was rewritten for the new `WrittenCall` signature in the same commit and runs. **The comment carried no action clause** — the fourth check sample of the comment contract, and the reason for D-178 | `$1.00` cap, `$0.1390` spent | S `claude-sonnet-5`, G `claude-opus-5` | 2026-09-09 |
 
   Read every row with its limits. A silence is an abstention, never a true negative; a
   reverse-fix corpus is not natural pull-request traffic; `Attest`'s own repository appears in

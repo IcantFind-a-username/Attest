@@ -1,0 +1,1912 @@
+{
+  "controls": {
+    "findings": 14,
+    "ran": 58,
+    "trigger_rate_over_python_units": 0.2241,
+    "trigger_rate_over_ran": 0.2241,
+    "units": 58,
+    "units_with_a_finding": 13,
+    "units_with_changed_python": 58
+  },
+  "model_calls": 0,
+  "policy_version": "attest.structural.duplicate-implementation.v2",
+  "rows": [
+    {
+      "base": "e60e6ed65e190cd12a9721efa4fa39ac5b19e494",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "ad4c5fe1e334e18c74e91ab772020c502298c52a",
+      "stratum": "refactor",
+      "unit_id": "IcantFind-a-username/Attest@ad4c5fe"
+    },
+    {
+      "base": "04df399cdeffbd6286fd76a296e0e0d1fcfd8b1a",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "5be583d6143f1a59011aed718316bf6114850244",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Corum@5be583d"
+    },
+    {
+      "base": "683b24929808228a341597613a9ba316cfeea200",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "a3db3213d1ab90e42d52edf04198dc27e63aea8c",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@a3db321"
+    },
+    {
+      "base": "375ab52d69b69768fc317329df0c508e01f45117",
+      "changed_python_files": 2,
+      "control": false,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "b",
+          "end_line_a": 345,
+          "end_line_b": 504,
+          "line_a": 334,
+          "line_b": 493,
+          "name_a": "_local_extrema",
+          "name_b": "_local_extrema",
+          "path_a": "services/analysis_core/us_stock_helper_core/patterns.py",
+          "path_b": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "services/analysis_core/us_stock_helper_core/patterns.py:334-345 `_local_extrema` and services/analysis_core/us_stock_helper_core/patterns_shapes.py:493-504 `_local_extrema` normalise to token sequences of 96 and 96 tokens whose token-sequence similarity is 1.000 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 1.0,
+          "tokens_a": 96,
+          "tokens_b": 96
+        },
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 645,
+          "end_line_b": 829,
+          "line_a": 596,
+          "line_b": 776,
+          "name_a": "_build_double_signal",
+          "name_b": "_build_hs_signal",
+          "path_a": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+          "path_b": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "services/analysis_core/us_stock_helper_core/patterns_shapes.py:596-645 `_build_double_signal` and services/analysis_core/us_stock_helper_core/patterns_shapes.py:776-829 `_build_hs_signal` normalise to token sequences of 185 and 177 tokens whose token-sequence similarity is 0.950 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.95,
+          "tokens_a": 185,
+          "tokens_b": 177
+        },
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 490,
+          "end_line_b": 703,
+          "line_a": 451,
+          "line_b": 653,
+          "name_a": "detect_double_extreme_patterns",
+          "name_b": "detect_head_and_shoulders_patterns",
+          "path_a": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+          "path_b": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "services/analysis_core/us_stock_helper_core/patterns_shapes.py:451-490 `detect_double_extreme_patterns` and services/analysis_core/us_stock_helper_core/patterns_shapes.py:653-703 `detect_head_and_shoulders_patterns` normalise to token sequences of 80 and 84 tokens whose token-sequence similarity is 0.927 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.927,
+          "tokens_a": 80,
+          "tokens_b": 84
+        }
+      ],
+      "head": "d7be758c2f1fa63df3910945b7af49738ed6bd8b",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/us-stock-helper@d7be758"
+    },
+    {
+      "base": "626ffa563442f4ffba0a840306fcc8b0a5525f7c",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "e60e6ed65e190cd12a9721efa4fa39ac5b19e494",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@e60e6ed"
+    },
+    {
+      "base": "a13fe8c22f5563bcf559d9c4bc14408236899a2c",
+      "changed_python_files": 2,
+      "control": false,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "a",
+          "end_line_a": 244,
+          "end_line_b": 59,
+          "line_a": 238,
+          "line_b": 54,
+          "name_a": "_validate_unit_interval",
+          "name_b": "_require_probability",
+          "path_a": "src/corum/dependence.py",
+          "path_b": "src/corum/models.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "src/corum/dependence.py:238-244 `_validate_unit_interval` and src/corum/models.py:54-59 `_require_probability` normalise to token sequences of 50 and 48 tokens whose token-sequence similarity is 0.939 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.939,
+          "tokens_a": 50,
+          "tokens_b": 48
+        }
+      ],
+      "head": "04df399cdeffbd6286fd76a296e0e0d1fcfd8b1a",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/Corum@04df399"
+    },
+    {
+      "base": "a8cd058982422b6ecc753f5c359a836279e14759",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "683b24929808228a341597613a9ba316cfeea200",
+      "stratum": "other",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@683b249"
+    },
+    {
+      "base": "c7121f86da88fb6806de69b728f49cb35a1db36b",
+      "changed_python_files": 2,
+      "control": false,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "b",
+          "end_line_a": 205,
+          "end_line_b": 180,
+          "line_a": 195,
+          "line_b": 170,
+          "name_a": "_seconds",
+          "name_b": "_env_fetch_deadline_seconds",
+          "path_a": "services/analysis_api/src/us_stock_helper_analysis_api/evidence_provider.py",
+          "path_b": "services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "services/analysis_api/src/us_stock_helper_analysis_api/evidence_provider.py:195-205 `_seconds` and services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py:170-180 `_env_fetch_deadline_seconds` normalise to token sequences of 43 and 47 tokens whose token-sequence similarity is 0.933 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.933,
+          "tokens_a": 43,
+          "tokens_b": 47
+        }
+      ],
+      "head": "375ab52d69b69768fc317329df0c508e01f45117",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/us-stock-helper@375ab52"
+    },
+    {
+      "base": "f4e201b76bb37054dd447c7e338f3cb3842bcfd2",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "626ffa563442f4ffba0a840306fcc8b0a5525f7c",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@626ffa5"
+    },
+    {
+      "base": "baf94775f4e1941ae4cf23f995ae4ff8ac1033c7",
+      "changed_python_files": 3,
+      "control": false,
+      "findings": [],
+      "head": "a13fe8c22f5563bcf559d9c4bc14408236899a2c",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/Corum@a13fe8c"
+    },
+    {
+      "base": "32f318cd082efd8b00417da6cf8618799bdeb3e0",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "a8cd058982422b6ecc753f5c359a836279e14759",
+      "stratum": "other",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@a8cd058"
+    },
+    {
+      "base": "d9210586d96740046bfc6aa259e4008afba392f1",
+      "changed_python_files": 4,
+      "control": false,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "b",
+          "end_line_a": 205,
+          "end_line_b": 180,
+          "line_a": 195,
+          "line_b": 170,
+          "name_a": "_seconds",
+          "name_b": "_env_fetch_deadline_seconds",
+          "path_a": "services/analysis_api/src/us_stock_helper_analysis_api/evidence_provider.py",
+          "path_b": "services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "services/analysis_api/src/us_stock_helper_analysis_api/evidence_provider.py:195-205 `_seconds` and services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py:170-180 `_env_fetch_deadline_seconds` normalise to token sequences of 43 and 47 tokens whose token-sequence similarity is 0.933 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.933,
+          "tokens_a": 43,
+          "tokens_b": 47
+        }
+      ],
+      "head": "c7121f86da88fb6806de69b728f49cb35a1db36b",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/us-stock-helper@c7121f8"
+    },
+    {
+      "base": "faa8265d3cc02926b74656a6807ce63dfb45504f",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "f4e201b76bb37054dd447c7e338f3cb3842bcfd2",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@f4e201b"
+    },
+    {
+      "base": "f751aa2ef43c956cb5457079046fafa88e83bc38",
+      "changed_python_files": 3,
+      "control": false,
+      "findings": [],
+      "head": "baf94775f4e1941ae4cf23f995ae4ff8ac1033c7",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/Corum@baf9477"
+    },
+    {
+      "base": "7b0ab29801c23fcd8f9f1ccbf7a3652e9b465929",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "32f318cd082efd8b00417da6cf8618799bdeb3e0",
+      "stratum": "other",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@32f318c"
+    },
+    {
+      "base": "facf699a45cd7d40b169bcd705d77447a0b90db3",
+      "changed_python_files": 4,
+      "control": false,
+      "findings": [],
+      "head": "d9210586d96740046bfc6aa259e4008afba392f1",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/us-stock-helper@d921058"
+    },
+    {
+      "base": "b2538766b4377715dab227845366d6cfa1792fab",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "faa8265d3cc02926b74656a6807ce63dfb45504f",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@faa8265"
+    },
+    {
+      "base": "22b373e98e0334511dcf6db962189b6bce24896a",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "f751aa2ef43c956cb5457079046fafa88e83bc38",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Corum@f751aa2"
+    },
+    {
+      "base": "4ea1a0704086e0f2fc11082be5083d34956cf72a",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "7b0ab29801c23fcd8f9f1ccbf7a3652e9b465929",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@7b0ab29"
+    },
+    {
+      "base": "835cd1d858d8cf66082890c4edae0061b891d775",
+      "changed_python_files": 1,
+      "control": false,
+      "findings": [],
+      "head": "facf699a45cd7d40b169bcd705d77447a0b90db3",
+      "stratum": "refactor",
+      "unit_id": "IcantFind-a-username/us-stock-helper@facf699"
+    },
+    {
+      "base": "101d008899911f165debd74dcd290fc160f077be",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "b2538766b4377715dab227845366d6cfa1792fab",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@b253876"
+    },
+    {
+      "base": "22956c331421465c908bcb72ba89c52dcf4ddc15",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "4ea1a0704086e0f2fc11082be5083d34956cf72a",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@4ea1a07"
+    },
+    {
+      "base": "6e9be0e2c28d46b63ddef1e7125cdd7711d21605",
+      "changed_python_files": 1,
+      "control": false,
+      "findings": [],
+      "head": "835cd1d858d8cf66082890c4edae0061b891d775",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/us-stock-helper@835cd1d"
+    },
+    {
+      "base": "6e48f82c012c263b3499faa76b66861ad860023e",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "101d008899911f165debd74dcd290fc160f077be",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@101d008"
+    },
+    {
+      "base": "887868901fb65a06fb112f7eea85835f9d645f55",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "22956c331421465c908bcb72ba89c52dcf4ddc15",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@22956c3"
+    },
+    {
+      "base": "32188a06a8abfa0515678d6dbb23aaebfb4a3a56",
+      "changed_python_files": 4,
+      "control": false,
+      "findings": [],
+      "head": "6e9be0e2c28d46b63ddef1e7125cdd7711d21605",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/us-stock-helper@6e9be0e"
+    },
+    {
+      "base": "6dfcf4b2a36bbde2df4fa5bd17ccddfc79071bae",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "6e48f82c012c263b3499faa76b66861ad860023e",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@6e48f82"
+    },
+    {
+      "base": "62133d8bb010338583d301edad03f69f17c9cd44",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "887868901fb65a06fb112f7eea85835f9d645f55",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@8878689"
+    },
+    {
+      "base": "69f683cc2d58e9fef13d0cd7366942929f19d2dd",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "32188a06a8abfa0515678d6dbb23aaebfb4a3a56",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/us-stock-helper@32188a0"
+    },
+    {
+      "base": "ef4a06aaacf945948b2e024bc23d12c5f22f988a",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "6dfcf4b2a36bbde2df4fa5bd17ccddfc79071bae",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@6dfcf4b"
+    },
+    {
+      "base": "8ad397be5599a7832b40023edab2e5a281615956",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "e00cb5038dee1ece6fc06dc4b24d4cc528ca8e5b",
+      "stratum": "refactor",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@e00cb50"
+    },
+    {
+      "base": "283fb25ec49e01a453b061b9f68f30215f1c404f",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "69f683cc2d58e9fef13d0cd7366942929f19d2dd",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/us-stock-helper@69f683c"
+    },
+    {
+      "base": "b288a1b3a601acadf151e2b5c88c280b829a17be",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "ef4a06aaacf945948b2e024bc23d12c5f22f988a",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@ef4a06a"
+    },
+    {
+      "base": "3c58d6cdc95fb3a5f0f1dcf74442f014133c6af0",
+      "changed_python_files": 1,
+      "control": false,
+      "findings": [],
+      "head": "8ad397be5599a7832b40023edab2e5a281615956",
+      "stratum": "other",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@8ad397b"
+    },
+    {
+      "base": "f2f1dd930368b48d4357d255e67291d7f3f68e6d",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "283fb25ec49e01a453b061b9f68f30215f1c404f",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/us-stock-helper@283fb25"
+    },
+    {
+      "base": "e1b112f89db28bb8d103d855be6c20b3671e6cf3",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "b288a1b3a601acadf151e2b5c88c280b829a17be",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@b288a1b"
+    },
+    {
+      "base": "041cb5aa00a41eb94f018b91967e1ab11f048e59",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "3c58d6cdc95fb3a5f0f1dcf74442f014133c6af0",
+      "stratum": "other",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@3c58d6c"
+    },
+    {
+      "base": "fc96b641990d308b988328ebde4cefd608120548",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "f2f1dd930368b48d4357d255e67291d7f3f68e6d",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/us-stock-helper@f2f1dd9"
+    },
+    {
+      "base": "1ebdc442bf2bacc19a3f4ab976e02d7d0ea92f75",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "e1b112f89db28bb8d103d855be6c20b3671e6cf3",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@e1b112f"
+    },
+    {
+      "base": "87fa0d7e7ef85046c5a7794ca4e1e6f20f5c2a85",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "041cb5aa00a41eb94f018b91967e1ab11f048e59",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@041cb5a"
+    },
+    {
+      "base": "9c8acfc5e571b42ca753044f2c409e696905638d",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "fc96b641990d308b988328ebde4cefd608120548",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@fc96b64"
+    },
+    {
+      "base": "d62bcd6327a5953c23ba4c46c8cfae822e23f624",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "1ebdc442bf2bacc19a3f4ab976e02d7d0ea92f75",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@1ebdc44"
+    },
+    {
+      "base": "f1ae25685257526401c7ca7e4e6426d38ce22891",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "87fa0d7e7ef85046c5a7794ca4e1e6f20f5c2a85",
+      "stratum": "other",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@87fa0d7"
+    },
+    {
+      "base": "faae1b44d683e3ae041cf28db9aeb678c04d4e2d",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "9c8acfc5e571b42ca753044f2c409e696905638d",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@9c8acfc"
+    },
+    {
+      "base": "e0867eb188500ee7da6138c7d798414db259e144",
+      "changed_python_files": 2,
+      "control": false,
+      "findings": [],
+      "head": "d62bcd6327a5953c23ba4c46c8cfae822e23f624",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/Attest@d62bcd6"
+    },
+    {
+      "base": "6c5dcbef0b04e8bc9b08432026c06e1df593e0fc",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "b5e44671bf8d86c8006f2e077b4ea137821710d8",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@b5e4467"
+    },
+    {
+      "base": "d6ceb7006bc6f7a659d9e8cb63be4c9b5cf910e9",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "faae1b44d683e3ae041cf28db9aeb678c04d4e2d",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@faae1b4"
+    },
+    {
+      "base": "67703a6d6c9ef18b3d4497777eacc99c63844998",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "e0867eb188500ee7da6138c7d798414db259e144",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@e0867eb"
+    },
+    {
+      "base": "8fbc16178781142a236f7fb3409eaa9f5c545a2c",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "6c5dcbef0b04e8bc9b08432026c06e1df593e0fc",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/IcantFind-a-username@6c5dcbe"
+    },
+    {
+      "base": "e17c6862ff72662fe8180c4365798d4bad263963",
+      "changed_python_files": 2,
+      "control": false,
+      "findings": [],
+      "head": "d6ceb7006bc6f7a659d9e8cb63be4c9b5cf910e9",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@d6ceb70"
+    },
+    {
+      "base": "34affaf7a69d98c94ea6470cd8b7fe244ea62157",
+      "changed_python_files": 1,
+      "control": false,
+      "findings": [],
+      "head": "67703a6d6c9ef18b3d4497777eacc99c63844998",
+      "stratum": "refactor",
+      "unit_id": "IcantFind-a-username/Attest@67703a6"
+    },
+    {
+      "base": "8d2257a0e2f1cd7c7e8495a3388365f96a75f5ef",
+      "changed_python_files": 4,
+      "control": false,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "b",
+          "end_line_a": 345,
+          "end_line_b": 488,
+          "line_a": 334,
+          "line_b": 477,
+          "name_a": "_local_extrema",
+          "name_b": "_local_extrema",
+          "path_a": "services/analysis_core/us_stock_helper_core/patterns.py",
+          "path_b": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "services/analysis_core/us_stock_helper_core/patterns.py:334-345 `_local_extrema` and services/analysis_core/us_stock_helper_core/patterns_shapes.py:477-488 `_local_extrema` normalise to token sequences of 96 and 96 tokens whose token-sequence similarity is 1.000 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 1.0,
+          "tokens_a": 96,
+          "tokens_b": 96
+        },
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 625,
+          "end_line_b": 812,
+          "line_a": 576,
+          "line_b": 759,
+          "name_a": "_build_double_signal",
+          "name_b": "_build_hs_signal",
+          "path_a": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+          "path_b": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "services/analysis_core/us_stock_helper_core/patterns_shapes.py:576-625 `_build_double_signal` and services/analysis_core/us_stock_helper_core/patterns_shapes.py:759-812 `_build_hs_signal` normalise to token sequences of 185 and 177 tokens whose token-sequence similarity is 0.950 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.95,
+          "tokens_a": 185,
+          "tokens_b": 177
+        },
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 474,
+          "end_line_b": 683,
+          "line_a": 435,
+          "line_b": 633,
+          "name_a": "detect_double_extreme_patterns",
+          "name_b": "detect_head_and_shoulders_patterns",
+          "path_a": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+          "path_b": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "services/analysis_core/us_stock_helper_core/patterns_shapes.py:435-474 `detect_double_extreme_patterns` and services/analysis_core/us_stock_helper_core/patterns_shapes.py:633-683 `detect_head_and_shoulders_patterns` normalise to token sequences of 80 and 84 tokens whose token-sequence similarity is 0.927 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.927,
+          "tokens_a": 80,
+          "tokens_b": 84
+        }
+      ],
+      "head": "e17c6862ff72662fe8180c4365798d4bad263963",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@e17c686"
+    },
+    {
+      "base": "e002bd66799bf3aa5825f4f1f0d76dd652f8cf30",
+      "changed_python_files": 4,
+      "control": false,
+      "findings": [],
+      "head": "34affaf7a69d98c94ea6470cd8b7fe244ea62157",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/Attest@34affaf"
+    },
+    {
+      "base": "0a1e05ab73a80a9ce76abbc317bbc9f46b1f423f",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "8d2257a0e2f1cd7c7e8495a3388365f96a75f5ef",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@8d2257a"
+    },
+    {
+      "base": "b58ffb7db4a44bc2fc5fe53d7f10207536dfd9fc",
+      "changed_python_files": 3,
+      "control": false,
+      "findings": [],
+      "head": "e002bd66799bf3aa5825f4f1f0d76dd652f8cf30",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/Attest@e002bd6"
+    },
+    {
+      "base": "844031e8afedbadace314d3bd5beacc9c75649df",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "0a1e05ab73a80a9ce76abbc317bbc9f46b1f423f",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@0a1e05a"
+    },
+    {
+      "base": "63640104219ba55cdd9a4f269e7760d70e0aa2bb",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "b58ffb7db4a44bc2fc5fe53d7f10207536dfd9fc",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@b58ffb7"
+    },
+    {
+      "base": "a8990c03d26c93ec8dfa60872e4d0c4c10111019",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "844031e8afedbadace314d3bd5beacc9c75649df",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@844031e"
+    },
+    {
+      "base": "8fadb676fc73712d2308092d08f9573341fd9c68",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "63640104219ba55cdd9a4f269e7760d70e0aa2bb",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@6364010"
+    },
+    {
+      "base": "b57092c92c1e02b797b9721ade0d7c61ca9b79f0",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "a8990c03d26c93ec8dfa60872e4d0c4c10111019",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@a8990c0"
+    },
+    {
+      "base": "a02e174ecbb1eda5f296f804477ad0c3e9703e3d",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "8fadb676fc73712d2308092d08f9573341fd9c68",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@8fadb67"
+    },
+    {
+      "base": "9f60377bf227e264705bf048b3fc2d2c442e126d",
+      "changed_python_files": 3,
+      "control": false,
+      "findings": [],
+      "head": "b57092c92c1e02b797b9721ade0d7c61ca9b79f0",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@b57092c"
+    },
+    {
+      "base": "3d5cba6ed9212fc33eeb9f05b69e9d1527b4a631",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "a02e174ecbb1eda5f296f804477ad0c3e9703e3d",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@a02e174"
+    },
+    {
+      "base": "07d3baefed437b63a553a2929dba0881cf95a50d",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "9f60377bf227e264705bf048b3fc2d2c442e126d",
+      "stratum": "refactor",
+      "unit_id": "IcantFind-a-username/us-stock-helper@9f60377"
+    },
+    {
+      "base": "9df938f8aa96c3f5b5d872497fb3501741a2f6b8",
+      "changed_python_files": 1,
+      "control": false,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "a",
+          "end_line_a": 38,
+          "end_line_b": 327,
+          "line_a": 28,
+          "line_b": 317,
+          "name_a": "_classify",
+          "name_b": "classify_subject",
+          "path_a": "scripts/corpus/natural_null.py",
+          "path_b": "src/attest/benchmark/prospective.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "scripts/corpus/natural_null.py:28-38 `_classify` and src/attest/benchmark/prospective.py:317-327 `classify_subject` normalise to token sequences of 65 and 66 tokens whose token-sequence similarity is 0.962 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.962,
+          "tokens_a": 65,
+          "tokens_b": 66
+        }
+      ],
+      "head": "3d5cba6ed9212fc33eeb9f05b69e9d1527b4a631",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/Attest@3d5cba6"
+    },
+    {
+      "base": "4afe9ee5d1324e274eb493bc0fd23565a662baf3",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "07d3baefed437b63a553a2929dba0881cf95a50d",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/us-stock-helper@07d3bae"
+    },
+    {
+      "base": "260e8d9c516ba9ac48b0cd7b77a9501909ffbfea",
+      "changed_python_files": 2,
+      "control": false,
+      "findings": [],
+      "head": "9df938f8aa96c3f5b5d872497fb3501741a2f6b8",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/Attest@9df938f"
+    },
+    {
+      "base": "1d779519ba592f228327acfa0f2ddaf93be569da",
+      "changed_python_files": 5,
+      "control": false,
+      "findings": [],
+      "head": "4afe9ee5d1324e274eb493bc0fd23565a662baf3",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@4afe9ee"
+    },
+    {
+      "base": "d80e0a43d3a740b2fd0ec2c37e4b69ac7602a7fc",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "260e8d9c516ba9ac48b0cd7b77a9501909ffbfea",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@260e8d9"
+    },
+    {
+      "base": "0566440f402dae7812824f0c6aeb46bcdec13d1e",
+      "changed_python_files": 4,
+      "control": false,
+      "findings": [],
+      "head": "1d779519ba592f228327acfa0f2ddaf93be569da",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@1d77951"
+    },
+    {
+      "base": "bd99b1b4db82473f04ba295f9dcfa43bc9528c70",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "d80e0a43d3a740b2fd0ec2c37e4b69ac7602a7fc",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@d80e0a4"
+    },
+    {
+      "base": "ef834f94dfecdae65ac35ecdf91818a2165d91a8",
+      "changed_python_files": 3,
+      "control": false,
+      "findings": [],
+      "head": "0566440f402dae7812824f0c6aeb46bcdec13d1e",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@0566440"
+    },
+    {
+      "base": "b5c80cb31becae6587bdf81b4992d3a9d10b8e2a",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "bd99b1b4db82473f04ba295f9dcfa43bc9528c70",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@bd99b1b"
+    },
+    {
+      "base": "9e45bbd4d5a1bdd60d31f43c5685725019a022ac",
+      "changed_python_files": 3,
+      "control": false,
+      "findings": [],
+      "head": "ef834f94dfecdae65ac35ecdf91818a2165d91a8",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@ef834f9"
+    },
+    {
+      "base": "a664672fa9fce6e7f250dee5f1a2e684e0977d0d",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "b5c80cb31becae6587bdf81b4992d3a9d10b8e2a",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@b5c80cb"
+    },
+    {
+      "base": "7245680bf4932f2b3a324d03f23e421e1060fff1",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "9e45bbd4d5a1bdd60d31f43c5685725019a022ac",
+      "stratum": "refactor",
+      "unit_id": "IcantFind-a-username/us-stock-helper@9e45bbd"
+    },
+    {
+      "base": "55d9ff0b21638b9aabe2b3d852bb22ecc8ee6d27",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "a664672fa9fce6e7f250dee5f1a2e684e0977d0d",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@a664672"
+    },
+    {
+      "base": "7ddc5a4e19863a94d4db774aef292b3a271ca476",
+      "changed_python_files": 16,
+      "control": false,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 145,
+          "end_line_b": 170,
+          "line_a": 123,
+          "line_b": 147,
+          "name_a": "_factor_snapshot",
+          "name_b": "_institutional_flow_reading",
+          "path_a": "services/analysis_api/src/us_stock_helper_analysis_api/service.py",
+          "path_b": "services/analysis_api/src/us_stock_helper_analysis_api/service.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "services/analysis_api/src/us_stock_helper_analysis_api/service.py:123-145 `_factor_snapshot` and services/analysis_api/src/us_stock_helper_analysis_api/service.py:147-170 `_institutional_flow_reading` normalise to token sequences of 50 and 50 tokens whose token-sequence similarity is 1.000 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 1.0,
+          "tokens_a": 50,
+          "tokens_b": 50
+        }
+      ],
+      "head": "7245680bf4932f2b3a324d03f23e421e1060fff1",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@7245680"
+    },
+    {
+      "base": "df410414c626971245c1e059deb473aeae05fa80",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "55d9ff0b21638b9aabe2b3d852bb22ecc8ee6d27",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@55d9ff0"
+    },
+    {
+      "base": "ded4db5a6edc4e852a5687d043b233db8c11323d",
+      "changed_python_files": 3,
+      "control": false,
+      "findings": [],
+      "head": "7ddc5a4e19863a94d4db774aef292b3a271ca476",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@7ddc5a4"
+    },
+    {
+      "base": "185fc487864178e4f2e5abd565f9046545877ac8",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "df410414c626971245c1e059deb473aeae05fa80",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@df41041"
+    },
+    {
+      "base": "d1fd50f8b9589d1a1b13dd83042136215154d6bd",
+      "changed_python_files": 3,
+      "control": false,
+      "findings": [],
+      "head": "ded4db5a6edc4e852a5687d043b233db8c11323d",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/us-stock-helper@ded4db5"
+    },
+    {
+      "base": "6ab0552b376a2eb7f311d43ea1362f4b2c38082a",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "185fc487864178e4f2e5abd565f9046545877ac8",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@185fc48"
+    },
+    {
+      "base": "a782f215132620920999479a8078356b9c60359d",
+      "changed_python_files": 1,
+      "control": false,
+      "findings": [],
+      "head": "d1fd50f8b9589d1a1b13dd83042136215154d6bd",
+      "stratum": "refactor",
+      "unit_id": "IcantFind-a-username/us-stock-helper@d1fd50f"
+    },
+    {
+      "base": "3ace7e52d0f04d646c5dabc8cd1fada35dea61a6",
+      "changed_python_files": 1,
+      "control": false,
+      "findings": [],
+      "head": "6ab0552b376a2eb7f311d43ea1362f4b2c38082a",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/Attest@6ab0552"
+    },
+    {
+      "base": "5b70151f618a91c50951abb2b911677d113cd19e",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "a782f215132620920999479a8078356b9c60359d",
+      "stratum": "refactor",
+      "unit_id": "IcantFind-a-username/us-stock-helper@a782f21"
+    },
+    {
+      "base": "17d5c770c773a1843347faf1d9e6454f9a813834",
+      "changed_python_files": 2,
+      "control": false,
+      "findings": [],
+      "head": "3ace7e52d0f04d646c5dabc8cd1fada35dea61a6",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/Attest@3ace7e5"
+    },
+    {
+      "base": "cdf221f783ef832195bbabe2eb349b40067af572",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "5b70151f618a91c50951abb2b911677d113cd19e",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/us-stock-helper@5b70151"
+    },
+    {
+      "base": "eedb656ccdd689b67b372c0596a1b473bcb6363f",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "17d5c770c773a1843347faf1d9e6454f9a813834",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@17d5c77"
+    },
+    {
+      "base": "2c54997e0fa20db585f4442a3d882f71803bcf07",
+      "changed_python_files": 9,
+      "control": false,
+      "findings": [],
+      "head": "cdf221f783ef832195bbabe2eb349b40067af572",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/us-stock-helper@cdf221f"
+    },
+    {
+      "base": "57c4dfeb822a9af2dc98bf46e4ac2c0348b2c029",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "eedb656ccdd689b67b372c0596a1b473bcb6363f",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@eedb656"
+    },
+    {
+      "base": "e953086c1494ce2536018cde5d14e9e79d8303e3",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "2c54997e0fa20db585f4442a3d882f71803bcf07",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/us-stock-helper@2c54997"
+    },
+    {
+      "base": "0ba623fc409c2070ace336e5ddb066a4efe780de",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "57c4dfeb822a9af2dc98bf46e4ac2c0348b2c029",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@57c4dfe"
+    },
+    {
+      "base": "4570e500d720f75e18df7ec1a4b733fa0dfa85dc",
+      "changed_python_files": 1,
+      "control": false,
+      "findings": [],
+      "head": "e953086c1494ce2536018cde5d14e9e79d8303e3",
+      "stratum": "refactor",
+      "unit_id": "IcantFind-a-username/us-stock-helper@e953086"
+    },
+    {
+      "base": "046422d637c47c8e66d179ce8d719b47b37b08ee",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "0ba623fc409c2070ace336e5ddb066a4efe780de",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@0ba623f"
+    },
+    {
+      "base": "94b7f5181a64aa806514e2d654534350750c6a4f",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "4570e500d720f75e18df7ec1a4b733fa0dfa85dc",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/us-stock-helper@4570e50"
+    },
+    {
+      "base": "45d0e94024d623f2c10b98f38ad5a9aa6578cd55",
+      "changed_python_files": 6,
+      "control": false,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "b",
+          "end_line_a": 84,
+          "end_line_b": 341,
+          "line_a": 72,
+          "line_b": 332,
+          "name_a": "show_file_at",
+          "name_b": "show_file_at",
+          "path_a": "src/attest/review/eligibility.py",
+          "path_b": "src/attest/review/planner.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "src/attest/review/eligibility.py:72-84 `show_file_at` and src/attest/review/planner.py:332-341 `show_file_at` normalise to token sequences of 73 and 73 tokens whose token-sequence similarity is 1.000 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 1.0,
+          "tokens_a": 73,
+          "tokens_b": 73
+        }
+      ],
+      "head": "046422d637c47c8e66d179ce8d719b47b37b08ee",
+      "stratum": "feature",
+      "unit_id": "IcantFind-a-username/Attest@046422d"
+    },
+    {
+      "base": "e1925bb555cf9d7139528282c9211a01cf988175",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "94b7f5181a64aa806514e2d654534350750c6a4f",
+      "stratum": "fix",
+      "unit_id": "IcantFind-a-username/us-stock-helper@94b7f51"
+    },
+    {
+      "base": "68408add6f5c327462401b65a659aeac2aaf7909",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "45d0e94024d623f2c10b98f38ad5a9aa6578cd55",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/Attest@45d0e94"
+    },
+    {
+      "base": "a4edbd6465c728f71ff35f87f75ab44cee35fc52",
+      "changed_python_files": 0,
+      "control": false,
+      "findings": [],
+      "head": "e1925bb555cf9d7139528282c9211a01cf988175",
+      "stratum": "docs",
+      "unit_id": "IcantFind-a-username/us-stock-helper@e1925bb"
+    },
+    {
+      "base": "38d21a7ce6cbc3e63b6adea6fa27e6d8eaebdf9d",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "311816bb80504f4eb2dd3e753fae818058192e9a",
+      "stratum": "null-control",
+      "unit_id": "attrs@311816b"
+    },
+    {
+      "base": "e1fa525307870536e4ab24bdc31018b167b2a0fb",
+      "changed_python_files": 2,
+      "control": true,
+      "findings": [],
+      "head": "649b273c823927650f01150462f7e2c55fe2d13f",
+      "stratum": "null-control",
+      "unit_id": "attrs@649b273"
+    },
+    {
+      "base": "0f62805c7d4682b37ad8b960b6e9cd60c7a9e09a",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "566248a2d8a95d3740045ea314eb3232d52944da",
+      "stratum": "null-control",
+      "unit_id": "attrs@566248a"
+    },
+    {
+      "base": "1b419e304b01bbbcb1d0d7b0515efdbc7de73588",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "91da85935bfbb0599083fe2553243444e1fa8cee",
+      "stratum": "null-control",
+      "unit_id": "attrs@91da859"
+    },
+    {
+      "base": "616adf5af936b9e690e72d740440dcfc9df25c87",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 1097,
+          "end_line_b": 1135,
+          "line_a": 1074,
+          "line_b": 1112,
+          "name_a": "add_init",
+          "name_b": "add_attrs_init",
+          "path_a": "src/attr/_make.py",
+          "path_b": "src/attr/_make.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "src/attr/_make.py:1074-1097 `add_init` and src/attr/_make.py:1112-1135 `add_attrs_init` normalise to token sequences of 67 and 67 tokens whose token-sequence similarity is 1.000 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 1.0,
+          "tokens_a": 67,
+          "tokens_b": 67
+        }
+      ],
+      "head": "19175d91df292e9d0722ecb6575043f1d124a123",
+      "stratum": "null-control",
+      "unit_id": "attrs@19175d9"
+    },
+    {
+      "base": "5f802ac459557685bd6748c6cc75cb4a4a82617e",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "25dfd27c302e212afb436efab2f9b52099f97683",
+      "stratum": "null-control",
+      "unit_id": "click@25dfd27"
+    },
+    {
+      "base": "2d3b2435f29639eb01aab884ce706ed4b0eba515",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "bd131e1ab63da2281d6dd9b8205ad2eb5a085468",
+      "stratum": "null-control",
+      "unit_id": "click@bd131e1"
+    },
+    {
+      "base": "10b77f98f2b2334943cd80b14717a935650cb3d6",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "d36de6fc67882f23d7a7d61cd4c0e25e0f88b0ac",
+      "stratum": "null-control",
+      "unit_id": "click@d36de6f"
+    },
+    {
+      "base": "91952b90cd5c9e8b36f20a2bf05e0496e55c13c3",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "c294b2fb47447d83be02470525c9c6292ce5fd74",
+      "stratum": "null-control",
+      "unit_id": "itsdangerous@c294b2f"
+    },
+    {
+      "base": "117218e006641644a038772e557a3ae6cb1448a1",
+      "changed_python_files": 2,
+      "control": true,
+      "findings": [],
+      "head": "7edfa12ed562c5d5e9d6faa06812e42f02efb0e0",
+      "stratum": "null-control",
+      "unit_id": "itsdangerous@7edfa12"
+    },
+    {
+      "base": "7443b9119b9ea29865c41f61e7f6e4e10873f301",
+      "changed_python_files": 4,
+      "control": true,
+      "findings": [],
+      "head": "506ca21d8cc1d16313270c37b6990c9e7762f68e",
+      "stratum": "null-control",
+      "unit_id": "itsdangerous@506ca21"
+    },
+    {
+      "base": "4dffa1963f896a0a311dec3c14f003a5f382c446",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "4bb03cd6819228f30079885297299fe568a62863",
+      "stratum": "null-control",
+      "unit_id": "itsdangerous@4bb03cd"
+    },
+    {
+      "base": "0b92f16a59022b5756311b1ca5ebd67aabef9371",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "f593a0584f2efe929200a20fd1f78f2c3e1dcb04",
+      "stratum": "null-control",
+      "unit_id": "itsdangerous@f593a05"
+    },
+    {
+      "base": "791dd3b0415b99faac229d42a81db1d7096b003c",
+      "changed_python_files": 2,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 451,
+          "end_line_b": 612,
+          "line_a": 435,
+          "line_b": 601,
+          "name_a": "length",
+          "name_b": "length",
+          "path_a": "src/jinja2/runtime.py",
+          "path_b": "src/jinja2/runtime.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "src/jinja2/runtime.py:435-451 `length` and src/jinja2/runtime.py:601-612 `length` normalise to token sequences of 52 and 54 tokens whose token-sequence similarity is 0.943 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.943,
+          "tokens_a": 52,
+          "tokens_b": 54
+        }
+      ],
+      "head": "d3a0b1a4abac05a071f542aa83edea4551c88fa3",
+      "stratum": "null-control",
+      "unit_id": "jinja@d3a0b1a"
+    },
+    {
+      "base": "09907ef37891be76ab0a1a3dc1a3f7df667db959",
+      "changed_python_files": 2,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 53,
+          "end_line_b": 51,
+          "line_a": 12,
+          "line_b": 13,
+          "name_a": "async_variant",
+          "name_b": "decorator",
+          "path_a": "src/jinja2/async_utils.py",
+          "path_b": "src/jinja2/async_utils.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "src/jinja2/async_utils.py:12-53 `async_variant` and src/jinja2/async_utils.py:13-51 `decorator` normalise to token sequences of 131 and 126 tokens whose token-sequence similarity is 0.981 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.981,
+          "tokens_a": 131,
+          "tokens_b": 126
+        }
+      ],
+      "head": "ac3ac6c965462935f2d1c041ed9e28c1926bdfcc",
+      "stratum": "null-control",
+      "unit_id": "jinja@ac3ac6c"
+    },
+    {
+      "base": "a12ad40d56302c90ccb72471ff34ad320c070ed0",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "5182b64d1c0f56725c1e7739e748dd3d46ffdba9",
+      "stratum": "null-control",
+      "unit_id": "jinja@5182b64"
+    },
+    {
+      "base": "bbdafe33ce9f47e3cbfb9415619e354349f11243",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 1583,
+          "end_line_b": 1581,
+          "line_a": 1565,
+          "line_b": 1567,
+          "name_a": "binop",
+          "name_b": "visitor",
+          "path_a": "src/jinja2/compiler.py",
+          "path_b": "src/jinja2/compiler.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "src/jinja2/compiler.py:1565-1583 `binop` and src/jinja2/compiler.py:1567-1581 `visitor` normalise to token sequences of 79 and 71 tokens whose token-sequence similarity is 0.947 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.947,
+          "tokens_a": 79,
+          "tokens_b": 71
+        },
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 1599,
+          "end_line_b": 1597,
+          "line_a": 1585,
+          "line_b": 1587,
+          "name_a": "uaop",
+          "name_b": "visitor",
+          "path_a": "src/jinja2/compiler.py",
+          "path_b": "src/jinja2/compiler.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "src/jinja2/compiler.py:1585-1599 `uaop` and src/jinja2/compiler.py:1587-1597 `visitor` normalise to token sequences of 55 and 47 tokens whose token-sequence similarity is 0.922 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.922,
+          "tokens_a": 55,
+          "tokens_b": 47
+        }
+      ],
+      "head": "05dee9b87023930f8131cbc0815b56a23e973c3d",
+      "stratum": "null-control",
+      "unit_id": "jinja@05dee9b"
+    },
+    {
+      "base": "9e49736ae075fcffb85f731a3fe2c006cf1edca4",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "9c11dd65ff93e141560f0e1c7a7c590eef4ee1cc",
+      "stratum": "null-control",
+      "unit_id": "jinja@9c11dd6"
+    },
+    {
+      "base": "a4e2532489f804996be36ae32c25a69298bd1106",
+      "changed_python_files": 2,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "b",
+          "end_line_a": 1325,
+          "end_line_b": 121,
+          "line_a": 1306,
+          "line_b": 108,
+          "name_a": "render_async",
+          "name_b": "render_async",
+          "path_a": "src/jinja2/environment.py",
+          "path_b": "src/jinja2/nativetypes.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "src/jinja2/environment.py:1306-1325 `render_async` and src/jinja2/nativetypes.py:108-121 `render_async` normalise to token sequences of 41 and 41 tokens whose token-sequence similarity is 0.976 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.976,
+          "tokens_a": 41,
+          "tokens_b": 41
+        }
+      ],
+      "head": "bb0db82b91e2842e900fd731acb9de7fab1d72ce",
+      "stratum": "null-control",
+      "unit_id": "jinja@bb0db82"
+    },
+    {
+      "base": "e45eabccf0424ea9406ba56549b084e7854c5922",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "da48bb0d2024aa1d673adb3c60dab2819c578691",
+      "stratum": "null-control",
+      "unit_id": "jinja@da48bb0"
+    },
+    {
+      "base": "dcc6db7b7c44a914d20792e9220af24d8a92616c",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 4962,
+          "end_line_b": 4982,
+          "line_a": 4946,
+          "line_b": 4965,
+          "name_a": "dft",
+          "name_b": "idft",
+          "path_a": "more_itertools/more.py",
+          "path_b": "more_itertools/more.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "more_itertools/more.py:4946-4962 `dft` and more_itertools/more.py:4965-4982 `idft` normalise to token sequences of 57 and 58 tokens whose token-sequence similarity is 0.957 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.957,
+          "tokens_a": 57,
+          "tokens_b": 58
+        }
+      ],
+      "head": "e8a7f5a1ab9d9c5d12fef13ac272d5b06cfdbad3",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@e8a7f5a"
+    },
+    {
+      "base": "451c06fe580b005ff74c3511ed4f747125ad5162",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "f83ff2823e18ecb44bcbed1b92896bed247ee568",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@f83ff28"
+    },
+    {
+      "base": "5beda14a3796ee10c5c8fddbc86182a34d868136",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "f253d2ae42d983883675665ac7ddafb98714a9a2",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@f253d2a"
+    },
+    {
+      "base": "fec25b616174ab00f6cfaf476fc1385e3de4b2f0",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "1d35f28ce254b24d746d7f8ab0de7c014940c0cb",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@1d35f28"
+    },
+    {
+      "base": "c074332d4dc586e041d92a1e0478060952d18f36",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "8cfe011a7311f26ff0c3c2522d5534fd730430c2",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@8cfe011"
+    },
+    {
+      "base": "584acbc614aadeeec802f71be55f9e7ffb2319b6",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 5128,
+          "end_line_b": 5152,
+          "line_a": 5107,
+          "line_b": 5131,
+          "name_a": "dft",
+          "name_b": "idft",
+          "path_a": "more_itertools/more.py",
+          "path_b": "more_itertools/more.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "more_itertools/more.py:5107-5128 `dft` and more_itertools/more.py:5131-5152 `idft` normalise to token sequences of 57 and 58 tokens whose token-sequence similarity is 0.957 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.957,
+          "tokens_a": 57,
+          "tokens_b": 58
+        }
+      ],
+      "head": "d6e0d18c81c77548dc4849c450401d2ebcbf0e18",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@d6e0d18"
+    },
+    {
+      "base": "b1f5c1f95a5f988d03ed8a9460ddf10477338dff",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 5082,
+          "end_line_b": 5106,
+          "line_a": 5061,
+          "line_b": 5085,
+          "name_a": "dft",
+          "name_b": "idft",
+          "path_a": "more_itertools/more.py",
+          "path_b": "more_itertools/more.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "more_itertools/more.py:5061-5082 `dft` and more_itertools/more.py:5085-5106 `idft` normalise to token sequences of 57 and 58 tokens whose token-sequence similarity is 0.957 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.957,
+          "tokens_a": 57,
+          "tokens_b": 58
+        }
+      ],
+      "head": "7c10fbd5cb4bf7bd241b286a33beb3d900a155c9",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@7c10fbd"
+    },
+    {
+      "base": "39e3a2d5fb530c8fd523701356305c268b2a34aa",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "74bc8781d6879b7a203503d27710eb8ffec47866",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@74bc878"
+    },
+    {
+      "base": "dfdb47ba9387a37d3a7bd100d68acc29cf450a8f",
+      "changed_python_files": 2,
+      "control": true,
+      "findings": [],
+      "head": "6197c8d5c95f8e1f2936fe1c753d18a881ecca6c",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@6197c8d"
+    },
+    {
+      "base": "cc6f6802dc71645352ba3afb02a5739489efca04",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 4782,
+          "end_line_b": 4802,
+          "line_a": 4766,
+          "line_b": 4785,
+          "name_a": "dft",
+          "name_b": "idft",
+          "path_a": "more_itertools/more.py",
+          "path_b": "more_itertools/more.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "more_itertools/more.py:4766-4782 `dft` and more_itertools/more.py:4785-4802 `idft` normalise to token sequences of 57 and 58 tokens whose token-sequence similarity is 0.957 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.957,
+          "tokens_a": 57,
+          "tokens_b": 58
+        }
+      ],
+      "head": "cbb051842cc2165e87e267d38f6c61a8a13415da",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@cbb0518"
+    },
+    {
+      "base": "f75535b5ed95394a3a24c1495e1f8508a06d56ab",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 5090,
+          "end_line_b": 5114,
+          "line_a": 5069,
+          "line_b": 5093,
+          "name_a": "dft",
+          "name_b": "idft",
+          "path_a": "more_itertools/more.py",
+          "path_b": "more_itertools/more.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "more_itertools/more.py:5069-5090 `dft` and more_itertools/more.py:5093-5114 `idft` normalise to token sequences of 57 and 58 tokens whose token-sequence similarity is 0.957 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.957,
+          "tokens_a": 57,
+          "tokens_b": 58
+        }
+      ],
+      "head": "70885b5a9c76bfd420afe1a9f354725f59741a1a",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@70885b5"
+    },
+    {
+      "base": "13608756d36e34b041b11dc4c955fd08d168e9dc",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 1223,
+          "end_line_b": 1221,
+          "line_a": 1178,
+          "line_b": 1205,
+          "name_a": "collapse",
+          "name_b": "walk",
+          "path_a": "more_itertools/more.py",
+          "path_b": "more_itertools/more.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "more_itertools/more.py:1178-1223 `collapse` and more_itertools/more.py:1205-1221 `walk` normalise to token sequences of 68 and 58 tokens whose token-sequence similarity is 0.921 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.921,
+          "tokens_a": 68,
+          "tokens_b": 58
+        }
+      ],
+      "head": "fbc3d8b1d6a8355440b88a4dd48f591864cbe786",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@fbc3d8b"
+    },
+    {
+      "base": "da6cec163575bb4e87833fa5fe30147eb6c5f033",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "both",
+          "end_line_a": 1064,
+          "end_line_b": 1062,
+          "line_a": 1019,
+          "line_b": 1046,
+          "name_a": "collapse",
+          "name_b": "walk",
+          "path_a": "more_itertools/more.py",
+          "path_b": "more_itertools/more.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "more_itertools/more.py:1019-1064 `collapse` and more_itertools/more.py:1046-1062 `walk` normalise to token sequences of 68 and 58 tokens whose token-sequence similarity is 0.921 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.921,
+          "tokens_a": 68,
+          "tokens_b": 58
+        }
+      ],
+      "head": "13bf54eb0332142ef2d4602e4fa0794ff6ff97cb",
+      "stratum": "null-control",
+      "unit_id": "more-itertools@13bf54e"
+    },
+    {
+      "base": "150c9a6e73e05165900ffb52e1fa72e2188df0c0",
+      "changed_python_files": 2,
+      "control": true,
+      "findings": [],
+      "head": "ddf54e1c7eed60406de14615556650633e84799c",
+      "stratum": "null-control",
+      "unit_id": "packaging@ddf54e1"
+    },
+    {
+      "base": "a85e63daecba56bbb829492624a844d306053504",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "791ccff815fb363a46db662cb7198957a2e764cb",
+      "stratum": "null-control",
+      "unit_id": "packaging@791ccff"
+    },
+    {
+      "base": "39b3b73e5c93ed69a6d012069dda45bf56b95fd6",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "eb5f4926931bdb4ad7a912bd004fc5a15303fd6b",
+      "stratum": "null-control",
+      "unit_id": "packaging@eb5f492"
+    },
+    {
+      "base": "a95a3284ce10075913057f6219d42eab51364ba3",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "1b92c9c34a80267bf7bb20477b3e1564a1dc80fe",
+      "stratum": "null-control",
+      "unit_id": "packaging@1b92c9c"
+    },
+    {
+      "base": "c87e4dff9d3c362fd254e3c170f7f8869d3b1379",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "a2ec3626ee39a86f249db85c406212079af36ecf",
+      "stratum": "null-control",
+      "unit_id": "packaging@a2ec362"
+    },
+    {
+      "base": "30d4a1c5fb5a6c32d6d725f97935330960ce5d15",
+      "changed_python_files": 2,
+      "control": true,
+      "findings": [],
+      "head": "55584fb5ca327ba38b74ca5c668125caaebd9a5d",
+      "stratum": "null-control",
+      "unit_id": "packaging@55584fb"
+    },
+    {
+      "base": "d650cfd74fb9e63175b73603793ccae1d984a8b5",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "093e24f29bc6ce0bd3448d63615b68d584a0cd6b",
+      "stratum": "null-control",
+      "unit_id": "packaging@093e24f"
+    },
+    {
+      "base": "4dc334c86d43f83371b194ca91618ed99e0e49ca",
+      "changed_python_files": 3,
+      "control": true,
+      "findings": [],
+      "head": "9c66f5c844bf3262f560c1521a0e6837079b16ff",
+      "stratum": "null-control",
+      "unit_id": "packaging@9c66f5c"
+    },
+    {
+      "base": "b5878c977206f60302536db969a8cef420853ade",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "64f82b53576497102de6b53bdeb79fc1c66c280a",
+      "stratum": "null-control",
+      "unit_id": "packaging@64f82b5"
+    },
+    {
+      "base": "5de9865be26d93b726f4d85da7f8dda6480d2fb5",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "a7a1d1c9e5147c1234e7a09504f56df3d923c0fe",
+      "stratum": "null-control",
+      "unit_id": "packaging@a7a1d1c"
+    },
+    {
+      "base": "4493dfcd95a893f676a7aa4bd17c547bea676371",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "bb61b7bcbc429b49e6659a8b6c2966b6ebd046b6",
+      "stratum": "null-control",
+      "unit_id": "packaging@bb61b7b"
+    },
+    {
+      "base": "e120b49667e1c769ff60a4181cb1897c78f4f386",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "33cc1f75a0b91113ca1feb0751416ec4a165e3f4",
+      "stratum": "null-control",
+      "unit_id": "packaging@33cc1f7"
+    },
+    {
+      "base": "cadf4fc60a0c2a6de0a743a225cd9b2c48e1426a",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "c22bc509218c981b098df0e028b0a53fbbbb193b",
+      "stratum": "null-control",
+      "unit_id": "python-dotenv@c22bc50"
+    },
+    {
+      "base": "7d9cd4b50904569a2fc828145f4b28186190cc38",
+      "changed_python_files": 2,
+      "control": true,
+      "findings": [],
+      "head": "8080d1d999ea38fad101e04a7a78714981029e2c",
+      "stratum": "null-control",
+      "unit_id": "python-dotenv@8080d1d"
+    },
+    {
+      "base": "9acba4af31757e99e2d6e6700de621ee8f9b98ae",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "8dd413e84b1fb1b3368c02106aab07a533fae015",
+      "stratum": "null-control",
+      "unit_id": "python-dotenv@8dd413e"
+    },
+    {
+      "base": "9d777e3907ee1c2d7550228c7089c0b244d25056",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "5c7f43f7dc6d351ea7e311b525f979bb24a054b4",
+      "stratum": "null-control",
+      "unit_id": "python-dotenv@5c7f43f"
+    },
+    {
+      "base": "02b68577f37da2c4f4b9377d7a0ca2b58fdacf20",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "666984de9a730a54438362b1adedd09bb1e9f5c7",
+      "stratum": "null-control",
+      "unit_id": "python-dotenv@666984d"
+    },
+    {
+      "base": "c72ff2e988cc53b55c464e343125736f3de1346c",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "c7b9adcbbe911bec9249cb78111fa2561238dd70",
+      "stratum": "null-control",
+      "unit_id": "urllib3@c7b9adc"
+    },
+    {
+      "base": "b8f512b225c99c552f461c5a8ed250652c41ee93",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "b9a636fcb3a8fef91a0f876dbb3a468bead9dcf9",
+      "stratum": "null-control",
+      "unit_id": "urllib3@b9a636f"
+    },
+    {
+      "base": "cd75cbd7e0a0ee1bd644e1a1e0b69e909bf455fb",
+      "changed_python_files": 4,
+      "control": true,
+      "findings": [],
+      "head": "9b1d26966444a7994d22183b2c88d0ab8a335f90",
+      "stratum": "null-control",
+      "unit_id": "urllib3@9b1d269"
+    },
+    {
+      "base": "d6ae50674104c81a3aab1c9c50b80cc5967ca2e8",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "b5073f2c462aae0ab40dc2b7ffb9b83ac30b70eb",
+      "stratum": "null-control",
+      "unit_id": "urllib3@b5073f2"
+    },
+    {
+      "base": "bcb0bf22a3f5fed663d2a4c356e18155b8f61ef5",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "ca0b7e2ad8a093815074d8db02deb7a7f16cb63e",
+      "stratum": "null-control",
+      "unit_id": "urllib3@ca0b7e2"
+    },
+    {
+      "base": "216e27449f8ac66fa970f76c7808909f5865c8c8",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "5cbcca09a241b2dbf7b5fb1bd1709c72cb8c6989",
+      "stratum": "null-control",
+      "unit_id": "urllib3@5cbcca0"
+    },
+    {
+      "base": "14015dfdded46ef65a7e0ba7e55c449508cb25f5",
+      "changed_python_files": 2,
+      "control": true,
+      "findings": [
+        {
+          "category": "structural",
+          "changed_side": "a",
+          "end_line_a": 192,
+          "end_line_b": 280,
+          "line_a": 172,
+          "line_b": 258,
+          "name_a": "encodingrequest",
+          "name_b": "encodingrequest",
+          "path_a": "dummyserver/app.py",
+          "path_b": "dummyserver/handlers.py",
+          "policy_version": "attest.structural.duplicate-implementation.v2",
+          "sentence": "dummyserver/app.py:172-192 `encodingrequest` and dummyserver/handlers.py:258-280 `encodingrequest` normalise to token sequences of 114 and 112 tokens whose token-sequence similarity is 0.965 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept.",
+          "similarity": 0.965,
+          "tokens_a": 114,
+          "tokens_b": 112
+        }
+      ],
+      "head": "2b8d9a819f2f100348ed8d06079f9988b3ddf954",
+      "stratum": "null-control",
+      "unit_id": "urllib3@2b8d9a8"
+    },
+    {
+      "base": "42a3ef3ce763ec8434a6ae48bac59434e1b0c9b1",
+      "changed_python_files": 1,
+      "control": true,
+      "findings": [],
+      "head": "1733719676ea30f62dae29ab837c29b548108926",
+      "stratum": "null-control",
+      "unit_id": "urllib3@1733719"
+    }
+  ],
+  "schema_version": "attest.structural-offline.v1",
+  "similarity_threshold": 0.92,
+  "spend_usd": 0.0,
+  "traffic": {
+    "findings": 12,
+    "ran": 100,
+    "trigger_rate_over_python_units": 0.2424,
+    "trigger_rate_over_ran": 0.08,
+    "units": 100,
+    "units_with_a_finding": 8,
+    "units_with_changed_python": 33
+  }
+}

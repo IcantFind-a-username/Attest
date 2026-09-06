@@ -103,7 +103,12 @@ def validate_review_config(config: ReviewConfig) -> None:
         or not math.isfinite(config.budget_usd)
         or config.budget_usd <= 0
     ):
-        raise ValueError("budget must be a finite positive number")
+        raise ValueError(
+            # D-179: name the input, not just the rule. `budget-usd: "0.00"`
+            # in a workflow is the way an operator meets this.
+            "budget must be a finite positive number of US dollars: set the "
+            "Action's `budget-usd` (or `--budget` locally) above 0, for example 1.00"
+        )
     if type(config.k_samples) is not int or config.k_samples < 1:
         raise ValueError("k_samples must be an integer >= 1")
     if type(config.max_findings) is not int or config.max_findings < 1:

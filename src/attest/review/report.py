@@ -177,7 +177,13 @@ def render(
                 units_planned=status.units_planned or status.units_read,
                 spend_usd=spend_usd,
                 elapsed_s=elapsed_s,
-                unverified=budget_unverified(reasons),
+                # D-177: a host that could not run the executor judged nothing
+                unverified=(
+                    status.unsupported_executor
+                    if status.executor_unavailable
+                    else budget_unverified(reasons)
+                ),
+                executor_unavailable=status.executor_unavailable,
             )
         )
 

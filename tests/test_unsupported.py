@@ -139,3 +139,224 @@ def test_every_refusal_reads_as_one_silent_line_naming_its_cause() -> None:
         assert refusal.line.startswith(f"{SILENCE_MARKER} unsupported: ")
         assert "nothing was " in refusal.line
         assert refusal.code in support.SUPPORT_CODES
+
+
+# The tenacity clone of the 2026-09-09 release-readiness acceptance: an outside
+# repository whose image build fails at `pip install <project>`. Docker echoes
+# the whole Dockerfile around the failing step, so the log tail quotes the
+# *successful* `RUN pip install pytest` line -- and a substring search for
+# "pytest" then reports the wrong cause and sends the operator to the wrong fix.
+_TENACITY_BOOTSTRAP_TAIL = (
+    "environment bootstrap failed (python 3.13, roots ['.']): Dockerfile:5\n"
+    "--------------------\n"
+    "   3 |     RUN pip install pytest\n"
+    "   4 |     COPY tree /attest/build\n"
+    "   5 | >>> RUN pip install /attest/build\n"
+    "   6 |     RUN rm -rf /attest/build\n"
+    "--------------------\n"
+    'ERROR: failed to solve: process "/bin/sh -c pip install /attest/build" '
+    "did not complete successfully: exit code: 1\n"
+)
+
+
+def test_a_project_that_will_not_install_is_not_reported_as_a_missing_pytest() -> None:
+    """The failing step is the project, not pytest. `failure-modes.md` already
+    carries the right row for it -- `environment bootstrap failed …`, "the
+    project's manifests do not install on a slim image" -- so the refusal must
+    not overwrite it with a sentence about pytest."""
+    assert from_reason(_TENACITY_BOOTSTRAP_TAIL) is None
+
+
+def test_pytest_itself_failing_to_install_is_still_told_so() -> None:
+    """The other side of the same line: when the step that failed *is* the
+    pytest install, the fixed pytest sentence is still what the operator gets."""
+    reason = (
+        "environment bootstrap failed (python 3.11, roots ['.']): Dockerfile:3\n"
+        "   3 | >>> RUN pip install pytest\n"
+        'ERROR: failed to solve: process "/bin/sh -c pip install pytest" '
+        "did not complete successfully: exit code: 1\n"
+    )
+    assert from_reason(reason) == NO_PYTEST
+
+
+# --- what a rate-limited provider says (D-179) -----------------------------
+# Failure drill 5 of the 2026-09-09 acceptance: every proposal call answers
+# HTTP 429. Before this, the whole review deferred with `all provider samples
+# failed or were malformed` -- a sentence that reads like a defect in the
+# product and offers nothing to do. Nothing was spent, and re-running works.
+
+
+def test_a_rate_limited_provider_says_so_and_what_to_do() -> None:
+    from attest.review.support import provider_defer_reason
+
+    errors = [
+        "sample 0: RuntimeError: Error code: 429 - {'type': 'error', 'error': "
+        "{'type': 'rate_limit_error', 'message': 'Number of request tokens has "
+        "exceeded your per-minute rate limit'}}",
+        "sample 1: RuntimeError: Error code: 429 - {'type': 'rate_limit_error'}",
+    ]
+
+    reason = provider_defer_reason(errors, errors)
+
+    assert "429" in reason
+    assert "rate" in reason.lower()
+    assert "nothing was spent" in reason
+    assert "re-run" in reason
+
+
+def test_an_overloaded_provider_is_the_same_category() -> None:
+    from attest.review.support import provider_defer_reason
+
+    errors = ["sample 0: Error code: 529 - overloaded_error"]
+    reason = provider_defer_reason(errors, errors)
+    assert "re-run" in reason
+
+
+def test_an_ordinary_provider_failure_keeps_the_general_sentence() -> None:
+    from attest.review.support import PROVIDER_SAMPLES_FAILED, provider_defer_reason
+
+    assert provider_defer_reason([], []) == PROVIDER_SAMPLES_FAILED
+    other = ["sample 0: ValueError: bad schema"]
+    assert provider_defer_reason(other, other) == PROVIDER_SAMPLES_FAILED
+
+
+def test_a_zero_budget_says_which_input_to_change() -> None:
+    """Failure drill 4 of the 2026-09-09 acceptance. `budget-usd: "0.00"` in a
+    workflow produced `budget must be a finite positive number` and exit 2 --
+    true, and it names neither the input nor a value that would work."""
+    from attest.review.config import ReviewConfig
+
+    with pytest.raises(ValueError) as raised:
+        ReviewConfig(budget_usd=0.0)
+
+    message = str(raised.value)
+    assert "budget-usd" in message
+    assert "--budget" in message
+
+
+def test_a_runner_with_no_network_says_so_and_what_to_do() -> None:
+    """Failure drill 1 of the same acceptance: the runner cannot reach the model
+    API at all. It is not a rate limit and it is not a malformed sample."""
+    from attest.review.support import PROVIDER_UNREACHABLE, provider_defer_reason
+
+    errors = [
+        "sample 0: APIConnectionError: Connection error.",
+        "sample 1: ConnectionError: [Errno 8] nodename nor servname provided",
+    ]
+
+    assert provider_defer_reason(errors, errors) == PROVIDER_UNREACHABLE
+    assert "network" in PROVIDER_UNREACHABLE
+    assert "nothing was spent" in PROVIDER_UNREACHABLE
+
+
+def test_the_five_failure_modes_each_have_their_own_copy_and_a_next_step() -> None:
+    """One assertion over all five drills of the 2026-09-09 acceptance.
+
+    The property is not "a message exists". It is that **no two of the five say
+    the same thing**, that none of them is the generic sentence, and that each
+    tells the reader what to do — because a failure whose copy is shared with
+    another failure sends half its readers to the wrong fix.
+    """
+    from pathlib import Path
+
+    from attest.review.config import ReviewConfig
+    from attest.review.output_contract import silence_line
+    from attest.review.support import (
+        NO_DOCKER,
+        PROVIDER_RATE_LIMITED,
+        PROVIDER_SAMPLES_FAILED,
+        PROVIDER_UNREACHABLE,
+    )
+
+    entrypoint = Path(__file__).resolve().parents[1] / "scripts" / "action-entrypoint.sh"
+    missing_key = entrypoint.read_text(encoding="utf-8")
+    try:
+        ReviewConfig(budget_usd=0.0)
+    except ValueError as error:
+        zero_budget = str(error)
+    else:  # pragma: no cover - the validator must reject it
+        raise AssertionError("a zero budget must be refused")
+
+    messages = {
+        "no network": PROVIDER_UNREACHABLE,
+        "rate limited": PROVIDER_RATE_LIMITED,
+        "no docker": NO_DOCKER.reason,
+        "zero budget": zero_budget,
+        "executor unavailable": silence_line(
+            units_read=1,
+            units_planned=1,
+            spend_usd=0.0,
+            elapsed_s=1.0,
+            executor_unavailable="process containment unavailable for privileged POSIX user",
+            unverified=2,
+        ),
+    }
+
+    # 1. five distinct sentences, and none of them is the generic one
+    assert len(set(messages.values())) == len(messages)
+    for name, message in messages.items():
+        assert PROVIDER_SAMPLES_FAILED not in message, name
+        assert "nothing met an adjudicator's bar" not in message, name
+
+    # 2. each names something the reader can do or check
+    actionable = {
+        "no network": "egress",
+        "rate limited": "re-run",
+        "no docker": "container",
+        "zero budget": "budget-usd",
+        "executor unavailable": "not verified",
+    }
+    for name, needle in actionable.items():
+        assert needle in messages[name], f"{name}: {messages[name]!r}"
+
+    # 3. the missing-credential message is the entrypoint's, and it names the
+    #    secret, where to create it, and that nothing has happened yet
+    for needle in (
+        "ANTHROPIC_API_KEY",
+        "settings/secrets/actions/new",
+        "Nothing was sent anywhere",
+    ):
+        assert needle in missing_key
+
+    # 4. the fork skip says it happened before credentials, and claims nothing
+    #    about the code
+    fork = "fork pull request skipped before credentials or head-code execution"
+    assert fork in missing_key
+    assert "no problems" not in missing_key
+
+
+def test_a_malformed_answer_is_never_reported_as_a_rate_limit() -> None:
+    """Independent review of 2026-09-09, finding 3. A malformed-answer failure
+    embeds up to 500 characters of the model's **own text**, and the reservation
+    for it is *settled*, not cancelled. Classifying over that text means a review
+    of retry/backoff code — where `429` is a perfectly ordinary string — could be
+    told the API rate-limited it and that nothing was spent. Both false.
+    Classification reads transport errors only."""
+    from attest.review.support import PROVIDER_SAMPLES_FAILED, provider_defer_reason
+
+    malformed = [
+        'sample 0: all findings malformed; raw="the retry policy handles 429 by backing off"',
+        'sample 1: all findings malformed; raw="429 and 529 are both retried"',
+    ]
+
+    assert provider_defer_reason([], malformed) == PROVIDER_SAMPLES_FAILED
+
+
+def test_a_rate_limit_is_only_claimed_when_every_sample_failed_in_transport() -> None:
+    """`nothing was spent` is true of a cancelled reservation and false of a
+    settled one, so the sentence is only reachable when every failure is a
+    transport error."""
+    from attest.review.support import PROVIDER_RATE_LIMITED, provider_defer_reason
+
+    transport = ["sample 0: RuntimeError: Error code: 429", "sample 1: RuntimeError: 429"]
+
+    assert provider_defer_reason(transport, transport) == PROVIDER_RATE_LIMITED
+
+
+def test_a_mixed_run_keeps_the_general_sentence() -> None:
+    from attest.review.support import PROVIDER_SAMPLES_FAILED, provider_defer_reason
+
+    transport = ["sample 0: RuntimeError: Error code: 429"]
+    everything = [*transport, 'sample 1: all findings malformed; raw="..."']
+
+    assert provider_defer_reason(transport, everything) == PROVIDER_SAMPLES_FAILED

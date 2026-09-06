@@ -1,0 +1,710 @@
+{
+ "ledger_files": 104,
+ "publication_policy_rows": 528,
+ "selections_with_certified_findings": 82,
+ "i_suppressed_only_by_family_cap": {
+  "rows": 35,
+  "distinct_task_finding": 35,
+  "distinct_finding_ids": 33,
+  "all_certified_and_reproduced": true,
+  "detail": [
+   {
+    "task_id": "20260903-193709-f014bd70",
+    "finding_id": "058f573208",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260903-193709-f014bd70",
+    "finding_id": "103aa42a3c",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.639,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260903-193709-f014bd70",
+    "finding_id": "6cce86432e",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.639,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260903-193709-f014bd70",
+    "finding_id": "a47e7a8fa9",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 3.0,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260903-193709-f014bd70",
+    "finding_id": "db100c9818",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 3.0,
+    "unit": "src/attest/execution/container_adapter.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-004116-2cadd8db",
+    "finding_id": "8f3851fe4b",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "scripts/corpus/swebench_pilot.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-004449-4e7f19c6",
+    "finding_id": "b89a422892",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.639,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-004449-4e7f19c6",
+    "finding_id": "d2c15a3f07",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-004449-4e7f19c6",
+    "finding_id": "dad85d4e84",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.639,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-040004-18b67397",
+    "finding_id": "1cf3efe423",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-040004-18b67397",
+    "finding_id": "683c292257",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-040004-18b67397",
+    "finding_id": "bb40cb1629",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-040545-c9785a66",
+    "finding_id": "0ab1e8313a",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-040545-c9785a66",
+    "finding_id": "0e910940fa",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-040545-c9785a66",
+    "finding_id": "5576277bdb",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-040545-c9785a66",
+    "finding_id": "99e457d77f",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "src/attest/execution/container_images.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260906-024251-d6495f25",
+    "finding_id": "0561204f7d",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "scripts/corpus/impact_scan.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260906-024251-d6495f25",
+    "finding_id": "14b3a1e026",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "scripts/corpus/impact_scan.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260906-045706-d6495f25",
+    "finding_id": "14b3a1e026",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "scripts/corpus/impact_scan.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260906-045706-d6495f25",
+    "finding_id": "25d170ba38",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "scripts/corpus/impact_scan.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260906-045706-d6495f25",
+    "finding_id": "5f4497390b",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "scripts/corpus/impact_scan.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260906-051043-1b830447",
+    "finding_id": "250c5e3d67",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "src/attest/github/presentation.py",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260903-011606-ab8fcc37",
+    "finding_id": "f118070241",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.9485,
+    "unit": "services/information_layer/information_layer/feeds/nasdaq.py",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260903-193354-4c8189d3",
+    "finding_id": "c5b90ad887",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 3.0,
+    "unit": "scripts/local_runtime_support.py",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260903-193901-ee27b253",
+    "finding_id": "1d0af73c3e",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "scripts/smoke_live.py",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260903-194031-f10f0463",
+    "finding_id": "33aa333ec0",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-005029-9b14404e",
+    "finding_id": "3bba2f62e6",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "services/analysis_core/us_stock_helper_core/scoring.py",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-032523-0a07b6d6",
+    "finding_id": "240836f2e0",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-033730-0a07b6d6",
+    "finding_id": "240836f2e0",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-033730-0a07b6d6",
+    "finding_id": "2c982b3cf3",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-033730-0a07b6d6",
+    "finding_id": "3a3b414a24",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-033730-0a07b6d6",
+    "finding_id": "67dae52f8e",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "services/analysis_core/us_stock_helper_core/patterns_shapes.py",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-034615-e10d6055",
+    "finding_id": "27dd3692d7",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "services/analysis_api/src/us_stock_helper_analysis_api/market_universe_cache.py",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260904-034615-e10d6055",
+    "finding_id": "33243bfa2e",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.0,
+    "unit": "services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl"
+   },
+   {
+    "task_id": "20260903-170105-9b14404e",
+    "finding_id": "58a3076775",
+    "certification": "accepted",
+    "verification": "reproduced",
+    "wealth": 2.9485,
+    "unit": "services/analysis_core/us_stock_helper_core/scoring.py",
+    "ledger": ".attest/pilot-d116/head/.attest/ledger.jsonl"
+   }
+  ]
+ },
+ "ii_published_without_v": {
+  "published_rows": 77,
+  "distinct_published": 77,
+  "count": 0,
+  "detail": []
+ },
+ "iii_top_n_per_unit": {
+  "n": 3,
+  "selections_whose_set_would_differ": 17,
+  "added_capped": 25,
+  "removed_capped": 0,
+  "added_uncapped": 26,
+  "removed_uncapped": 0,
+  "unresolved_units": 0,
+  "detail": [
+   {
+    "task_id": "20260903-193709-f014bd70",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "103aa42a3c",
+     "a47e7a8fa9",
+     "db100c9818"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "103aa42a3c",
+     "6cce86432e",
+     "a47e7a8fa9",
+     "db100c9818"
+    ],
+    "added_capped": [
+     "103aa42a3c",
+     "a47e7a8fa9",
+     "db100c9818"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "103aa42a3c",
+     "6cce86432e",
+     "a47e7a8fa9",
+     "db100c9818"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260904-004116-2cadd8db",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "8f3851fe4b"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "8f3851fe4b"
+    ],
+    "added_capped": [
+     "8f3851fe4b"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "8f3851fe4b"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260904-004449-4e7f19c6",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "b89a422892",
+     "d2c15a3f07",
+     "dad85d4e84"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "b89a422892",
+     "d2c15a3f07",
+     "dad85d4e84"
+    ],
+    "added_capped": [
+     "b89a422892",
+     "d2c15a3f07",
+     "dad85d4e84"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "b89a422892",
+     "d2c15a3f07",
+     "dad85d4e84"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260904-040004-18b67397",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+    "actual_published": [
+     "8193742fef"
+    ],
+    "proposed_top3_per_unit_capped": [
+     "1cf3efe423",
+     "8193742fef",
+     "bb40cb1629"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "1cf3efe423",
+     "8193742fef",
+     "bb40cb1629"
+    ],
+    "added_capped": [
+     "1cf3efe423",
+     "bb40cb1629"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "1cf3efe423",
+     "bb40cb1629"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260904-040545-c9785a66",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "0ab1e8313a"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "0ab1e8313a"
+    ],
+    "added_capped": [
+     "0ab1e8313a"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "0ab1e8313a"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260906-024251-d6495f25",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "0561204f7d"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "0561204f7d"
+    ],
+    "added_capped": [
+     "0561204f7d"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "0561204f7d"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260906-045706-d6495f25",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "14b3a1e026"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "14b3a1e026"
+    ],
+    "added_capped": [
+     "14b3a1e026"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "14b3a1e026"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260906-051043-1b830447",
+    "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "250c5e3d67"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "250c5e3d67"
+    ],
+    "added_capped": [
+     "250c5e3d67"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "250c5e3d67"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260903-011606-ab8fcc37",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+    "actual_published": [
+     "9ed6a71d7b"
+    ],
+    "proposed_top3_per_unit_capped": [
+     "9ed6a71d7b",
+     "f118070241"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "9ed6a71d7b",
+     "f118070241"
+    ],
+    "added_capped": [
+     "f118070241"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "f118070241"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260903-193354-4c8189d3",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "c5b90ad887"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "c5b90ad887"
+    ],
+    "added_capped": [
+     "c5b90ad887"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "c5b90ad887"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260903-193901-ee27b253",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "1d0af73c3e"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "1d0af73c3e"
+    ],
+    "added_capped": [
+     "1d0af73c3e"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "1d0af73c3e"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260903-194031-f10f0463",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "33aa333ec0"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "33aa333ec0"
+    ],
+    "added_capped": [
+     "33aa333ec0"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "33aa333ec0"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260904-005029-9b14404e",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "3bba2f62e6"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "3bba2f62e6"
+    ],
+    "added_capped": [
+     "3bba2f62e6"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "3bba2f62e6"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260904-032523-0a07b6d6",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "240836f2e0"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "240836f2e0"
+    ],
+    "added_capped": [
+     "240836f2e0"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "240836f2e0"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260904-033730-0a07b6d6",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "240836f2e0",
+     "2c982b3cf3",
+     "3a3b414a24"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "240836f2e0",
+     "2c982b3cf3",
+     "3a3b414a24"
+    ],
+    "added_capped": [
+     "240836f2e0",
+     "2c982b3cf3",
+     "3a3b414a24"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "240836f2e0",
+     "2c982b3cf3",
+     "3a3b414a24"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260904-034615-e10d6055",
+    "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "27dd3692d7",
+     "33243bfa2e"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "27dd3692d7",
+     "33243bfa2e"
+    ],
+    "added_capped": [
+     "27dd3692d7",
+     "33243bfa2e"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "27dd3692d7",
+     "33243bfa2e"
+    ],
+    "removed_uncapped": []
+   },
+   {
+    "task_id": "20260903-170105-9b14404e",
+    "ledger": ".attest/pilot-d116/head/.attest/ledger.jsonl",
+    "actual_published": [],
+    "proposed_top3_per_unit_capped": [
+     "58a3076775"
+    ],
+    "proposed_top3_per_unit_uncapped": [
+     "58a3076775"
+    ],
+    "added_capped": [
+     "58a3076775"
+    ],
+    "removed_capped": [],
+    "added_uncapped": [
+     "58a3076775"
+    ],
+    "removed_uncapped": []
+   }
+  ]
+ }
+}

@@ -88,6 +88,10 @@ class RunStatus:
     prompt_tokens: int = 0  # proposal prompt tokens: uncached + cache writes + cache reads
     cache_read_input_tokens: int = 0  # of which served from the prompt cache
     behavior_changes: int = 0  # D-102: accepted receipts of the behavior-change class
+    # D-177: candidates this host could not verify at all, and the reason the
+    # eligibility stage gave. A silence over these is not a clean bill of health.
+    unsupported_executor: int = 0
+    executor_unavailable: str = ""
 
     def lines(self) -> list[str]:
         # A silence covers exactly the change units it read, so it says so
@@ -111,6 +115,13 @@ class RunStatus:
             f"proposal prompt tokens: {self.prompt_tokens}; cache_read_input_tokens: "
             f"{self.cache_read_input_tokens}",
         ]
+        if self.executor_unavailable:
+            # D-177: "eligible: 0" beside "candidates: 4" reads as *nothing was
+            # worth verifying*. It was not judged: the host could not run it.
+            out.append(
+                f"executor unavailable: {self.executor_unavailable}; "
+                f"{self.unsupported_executor} candidate(s) not verified"
+            )
         for index, (category, reason) in enumerate(self.failures, 1):
             out.append(f"reproduction {index}: {category} — {reason}")
         return out
@@ -131,6 +142,9 @@ class RunStatus:
 # 1,200-character tail arrived. That category gets a bound sized to the tail it
 # is documented to carry (2026-09-03 backlog, D-105 review finding 7).
 REASON_LIMIT = 200
+# the executor reason travels into the silent line, which `output_contract`
+# caps at 400 characters; the rest of that line is about 110
+EXECUTOR_REASON_LIMIT = 200
 BOOTSTRAP_REASON_LIMIT = 1_400
 _BOOTSTRAP_MARKERS = ("environment bootstrap failed", "isolation backend unavailable")
 
@@ -174,6 +188,26 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
         for row in mine
         if row.get("kind") == "eligibility" and row.get("eligibility") == "regression"
     }
+    # D-177: the host could not run the executor, so these candidates were never
+    # judged. The reason is the eligibility stage's own, taken from the first row
+    # that carries one -- they all carry the same host fact.
+    blocked_rows = [
+        row
+        for row in mine
+        if row.get("kind") == "eligibility" and row.get("eligibility") == "unsupported_executor"
+    ]
+    # counted like its neighbours: distinct findings, not rows, so this number
+    # and `candidates` above can never disagree about the same task
+    blocked = {str(row.get("finding_id")) for row in blocked_rows if row.get("finding_id")}
+    # bounded at EXECUTOR_REASON_LIMIT and not by `_bounded`'s marker rule: this
+    # string goes into the one line an author reads, which the output contract
+    # caps at 400 characters, and an "isolation backend unavailable" reason would
+    # otherwise be allowed 1,400 (2026-09-09 review, finding 6)
+    executor_unavailable = (
+        _bounded(str(blocked_rows[0].get("reason") or ""), EXECUTOR_REASON_LIMIT)
+        if blocked_rows
+        else ""
+    )
     failures: list[tuple[str, str]] = []
     attempts = 0
     for row in mine:
@@ -243,4 +277,6 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
         prompt_tokens=prompt_tokens,
         cache_read_input_tokens=cache_reads,
         behavior_changes=behavior_changes,
+        unsupported_executor=len(blocked),
+        executor_unavailable=executor_unavailable,
     )

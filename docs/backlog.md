@@ -154,3 +154,23 @@ an image-build fix, not a generation fix, and it would have changed none of the 
 - **The `[gate]` level has never had an author-visible line**, by construction (D-137), and its
   cumulative shadow is now graded three ways (`through_caller`, `through_test_caller`, `direct`).
   Nothing to do until `G-NEWCODE-001` gets an owner decision on its LR.
+- **A single-root project whose `pip install` fails for any reason fails the whole image**, where
+  a nested project's failure is `|| echo "attest: optional project … failed to install"`. D-176
+  fixed the one cause that was actually a defect on our side (`hatch-vcs`); the asymmetry itself
+  is deliberate — the root's import roots are what the reproduction needs — but the operator
+  meets it as *every candidate unreviewable* with only a build log tail to read. Worth measuring
+  how often a public repository hits it before deciding whether the root should be best-effort
+  too. Found by the 2026-09-09 release-readiness acceptance.
+- **The `attest ci` DEFER for an unavailable executor names the reason but no next step.** The
+  local CLI maps it to the fixed `[silent] unsupported: docker is not available here …` line;
+  the pull-request comment says `DEFER: verification deferred: isolation backend unavailable:
+  docker not found`, which is true and offers nothing to do. The three *silent* verdicts were
+  fixed by D-177; this is the DEFER path beside them.
+- **`_RATE_LIMIT_MARKERS` matches the bare substring `429`** (D-179). Guarded by requiring
+  *every* sample error to match, so a stray line number cannot flip a whole review, but it is a
+  substring test over model error text and it is the same class of defect D-174 spent a window
+  removing from four other places. A structured provider error would decide it properly.
+- **A `check_comment` refusal is discarded** (2026-09-09 review, finding 7). The verdict carries
+  a reason and an `actionless` category and nothing records either, so a green or yellow note
+  dropped for format leaves no trace an operator could find — unlike the structural notes, which
+  get a ledger row each. One `ledger.append` at the four gated builders would close it.

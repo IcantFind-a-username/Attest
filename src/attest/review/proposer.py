@@ -364,6 +364,11 @@ class ProposalRun:
     candidates: list[Finding]
     rejected: list[str]  # human-readable rejection reasons (void findings)
     sample_errors: list[str]
+    # D-179, narrowed by the 2026-09-09 review: the subset of `sample_errors`
+    # raised by the *call* rather than parsed out of an answer. Only these have
+    # had their reservation cancelled, so only these can carry a sentence that
+    # says nothing was spent -- and only these are free of the model's own text.
+    transport_errors: list[str]
     successful_samples: int
     sample_observations: list[SampleObservation]
     per_sample: list[list[Finding]] = field(default_factory=list)
@@ -420,6 +425,7 @@ def propose_plan(
     per_sample: list[list[Finding]] = []
     rejected: list[str] = []
     errors: list[str] = []
+    transport: list[str] = []
     observations: list[SampleObservation] = []
     successful = 0
     omitted: list[str] = []
@@ -450,6 +456,7 @@ def propose_plan(
         per_sample.extend(run.per_sample)
         rejected.extend(run.rejected)
         errors.extend(run.sample_errors)
+        transport.extend(run.transport_errors)
         observations.extend(run.sample_observations)
         successful += run.successful_samples
         units_read += 1
@@ -457,6 +464,7 @@ def propose_plan(
         candidates=cluster_findings(per_sample),
         rejected=rejected,
         sample_errors=errors,
+        transport_errors=transport,
         successful_samples=successful,
         sample_observations=observations,
         per_sample=per_sample,
@@ -575,13 +583,16 @@ def propose(
     per_sample: list[list[Finding]] = []
     rejected: list[str] = []
     errors: list[str] = []
+    transport: list[str] = []
     successful_samples = 0
     observations: list[SampleObservation] = []
     for i, outcome in enumerate(results):
         label = sample_offset + i
         if isinstance(outcome, Exception):
             budget.cancel(reservations[i])
-            errors.append(f"sample {label}: {type(outcome).__name__}: {redacted_error(outcome)}")
+            failure = f"sample {label}: {type(outcome).__name__}: {redacted_error(outcome)}"
+            errors.append(failure)
+            transport.append(failure)
             observations.append(
                 SampleObservation(label, f"error:{type(outcome).__name__}", None, "error")
             )
@@ -699,6 +710,7 @@ def propose(
         candidates=cluster_findings(per_sample),
         rejected=rejected,
         sample_errors=errors,
+        transport_errors=transport,
         successful_samples=successful_samples,
         sample_observations=observations,
         per_sample=per_sample,

@@ -222,11 +222,22 @@ def check(line: str) -> ContractVerdict:
     return ADMITTED
 
 
+# The three verdicts a silent review may reach, and nothing else. D-142 says a
+# line that does not conform is not published, so this pattern has to admit
+# every line `silence_line` can produce -- it did not admit D-161's
+# budget-ceiling verdict, which meant the product's own adjudicator refused a
+# line the product emits (found in the 2026-09-09 release-readiness acceptance).
+_SILENCE_VERDICT = (
+    r"(?:nothing met an adjudicator's bar"
+    r"|the budget ceiling was reached; \d+ candidate\(s\) were not verified"
+    r"|executor unavailable: .+?; \d+ candidate\(s\) not verified)"
+)
 _SILENCE_SHAPE = re.compile(
     "^"
     + re.escape(SILENCE_MARKER)
-    + r" read \d+ of \d+ units; nothing met an adjudicator's bar; "
-    + r"\$\d+\.\d{4}, \d+\.\d+s\.$"
+    + r" read \d+ of \d+ units; "
+    + _SILENCE_VERDICT
+    + r"; \$\d+\.\d{4}, \d+\.\d+s\.$"
 )
 
 
@@ -282,6 +293,7 @@ def silence_line(
     spend_usd: float,
     elapsed_s: float,
     unverified: int = 0,
+    executor_unavailable: str = "",
 ) -> str:
     """The one line a wholly silent review owes, in a fixed shape (D-142).
 
@@ -289,30 +301,163 @@ def silence_line(
     over 13 of 13 are different claims. When the budget ceiling is what stopped
     the run it says so, and how many candidates it stopped (D-161) -- a silence
     that means *nothing was wrong* and a silence that means *nobody looked* are
-    not the same answer."""
+    not the same answer.
+
+    A third verdict outranks both: when the **host cannot run the executor at
+    all**, no candidate was judged, and `nothing met an adjudicator's bar` then
+    claims a clean bill of health for code nothing looked at. The reason and the
+    number of candidates it stopped are what the operator can act on, so they
+    come first and the budget count is not shown -- an executor that never ran
+    spent nothing on verification (D-177)."""
     planned = units_planned or units_read
-    verdict = (
-        f"the budget ceiling was reached; {unverified} candidate(s) were not verified"
-        if unverified > 0
-        else "nothing met an adjudicator's bar"
-    )
+    if executor_unavailable:
+        verdict = (
+            f"executor unavailable: {_one_line(executor_unavailable)}; "
+            f"{unverified} candidate(s) not verified"
+        )
+    elif unverified > 0:
+        verdict = f"the budget ceiling was reached; {unverified} candidate(s) were not verified"
+    else:
+        verdict = "nothing met an adjudicator's bar"
     return (
         f"{SILENCE_MARKER} read {units_read} of {planned} units; "
         f"{verdict}; ${spend_usd:.4f}, {elapsed_s:.1f}s."
     )
 
 
+# --- the action clause (D-178) ---------------------------------------------
+# A finding an author cannot act on costs them the same attention as one they
+# can, so every author-visible comment owes **one** line saying what to do next,
+# in that level's own currency:
+#
+#   red    reproduce it: the command, then the bundle to verify offline
+#   gate   the reachable path and the input that triggers it
+#   yellow the affected caller's coordinate, and the two things that close it
+#          -- add a test that names it, or change the caller
+#   green  the two coordinates and where the one surviving copy should live
+#
+# The clause is adjudicated, not requested: `check_comment` refuses a comment
+# without one, exactly as `check` refuses a line without evidence. It is never
+# a model's sentence -- every clause is assembled from coordinates the level
+# already holds.
+#
+# **What that does and does not buy.** A *certified* finding is never gated on
+# this at all: `inline_comments` appends red's clause and does not adjudicate,
+# so no wording can suppress a receipt. The green and yellow builders *are*
+# gated, so for them the honest statement is narrower -- the only text the
+# adjudicator reads is text the product wrote, because `collapsed` neutralises
+# the block delimiters a model would need to reach it.
+ACTION_PREFIX = "Action:"
+
+# What makes an action clause actionable: something to run, open or change.
+_ACTIONABLE = re.compile(
+    r"(?:`[^`]+`)"  # a command or a symbol to run or look for
+    r"|(?:[\w./\\-]+\.[A-Za-z0-9_]+:\d+)"  # a coordinate
+    r"|(?:[\w./\\-]+/[\w./\\-]+)"  # a path
+)
+
+
+# The collapsed block is a model's free text and is explicitly **not part of the
+# claim**. It is therefore not part of the adjudication either: a paragraph that
+# happened to begin a line with "Action:" would otherwise make two clauses out of
+# one and drop the whole note for a word the model chose.
+_COLLAPSED_BLOCK = re.compile(r"<details>.*?</details>", re.DOTALL | re.IGNORECASE)
+
+
+def action_clause(text: str) -> str | None:
+    """The comment's action clause, or None. Exactly one line may carry it: two
+    next steps is no next step. Lines inside a collapsed block do not count."""
+    claimed = _COLLAPSED_BLOCK.sub("", text)
+    found = [
+        line.strip()
+        for line in claimed.splitlines()
+        if line.strip().startswith(ACTION_PREFIX)
+    ]
+    return found[0] if len(found) == 1 else None
+
+
+def has_action(text: str) -> bool:
+    """Does this comment tell the reader something concrete to do?"""
+    clause = action_clause(text)
+    if clause is None:
+        return False
+    body = clause[len(ACTION_PREFIX) :].strip()
+    return bool(body) and _ACTIONABLE.search(body) is not None
+
+
+def claim_of(body: str) -> str | None:
+    """A comment's claim line: the first line that is neither blank nor one of
+    the HTML markers the delivery journal writes to identify it."""
+    for line in body.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("<!--"):
+            continue
+        return stripped
+    return None
+
+
+def check_comment(body: str) -> ContractVerdict:
+    """Adjudicate one whole author-visible comment (D-142, extended by D-178).
+
+    Two conditions, both decided without a model: its **claim line** conforms to
+    the one-line contract, and it carries exactly one **action clause**. A
+    comment that fails either is not published -- the caller substitutes a
+    deterministic comment or says nothing."""
+    claim = claim_of(body)
+    if claim is None:
+        return ContractVerdict(False, "the comment carries no claim line", "empty")
+    verdict = check(claim)
+    if not verdict:
+        return verdict
+    if action_clause(body) is None:
+        return ContractVerdict(
+            False,
+            f"the comment carries no single {ACTION_PREFIX!r} line saying what to do next",
+            "actionless",
+        )
+    if not has_action(body):
+        return ContractVerdict(
+            False,
+            "the action clause names nothing to run, open or change",
+            "actionless",
+        )
+    return ADMITTED
+
+
 COLLAPSED_SUMMARY = "Suggested fix — written by a model, not part of the claim"
 
 
-def collapsed(body: str, *, summary: str = COLLAPSED_SUMMARY) -> str:
+# The block's own delimiters, neutralised wherever they appear in a body. The
+# block is the only thing that marks model prose as *not part of the claim*, so
+# text that could close it early would render as product copy and would be read
+# by `action_clause` as if the product had written it (independent review of
+# 2026-09-09, finding 2). `\u200b` is a zero-width space: the tag stops being a
+# tag and the words still read.
+_BLOCK_DELIMITERS = re.compile(r"</?\s*(details|summary)\b", re.IGNORECASE)
+
+
+def _neutralise_delimiters(body: str) -> str:
+    return _BLOCK_DELIMITERS.sub(lambda m: m.group(0).replace("<", "<\u200b", 1), body)
+
+
+def collapsed(body: str, *, summary: str = COLLAPSED_SUMMARY, trusted: bool = False) -> str:
     """The model's fix suggestion, collapsed by default.
 
     `<details>` renders closed on every GitHub surface, so advice costs the
     reader one line of screen and is there when it is wanted. Nothing inside is
     part of what the product claims, and dropping the whole block changes no
-    claim -- which is the reason a model is allowed near the output at all."""
-    return f"<details>\n<summary>{summary}</summary>\n\n{body.strip()}\n\n</details>"
+    claim -- which is the reason a model is allowed near the output at all.
+
+    **The body's own `<details>`/`<summary>` tags are neutralised on the way in**,
+    so nothing a model writes can close the block early and reappear outside it
+    as product copy. `trusted=True` is the opt-out, for a body this product built
+    itself and whose nested block is meant to be one -- today that is the
+    evidence renderer's own "Full logs" section, and nothing else. The default is
+    the safe direction on purpose: a level added later that forgets the flag
+    renders a tag as text, which is ugly; one that forgets to neutralise
+    publishes a model's markup as its own."""
+    inner = body.strip() if trusted else _neutralise_delimiters(body.strip())
+    return f"<details>\n<summary>{summary}</summary>\n\n{inner}\n\n</details>"
 
 
 def _one_line(value: str) -> str:

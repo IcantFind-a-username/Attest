@@ -1169,6 +1169,26 @@ def _units_read(ledger: Ledger, task_id: str | None) -> tuple[int, int] | None:
     return status.units_read, status.units_planned or status.units_read
 
 
+def _executor_unavailable(ledger: Ledger, task_id: str | None) -> tuple[str, int]:
+    """(reason, candidate count) when this host could not run the executor at
+    all, else ("", 0). Read from the same rows the run status reads.
+
+    **An unreadable ledger returns ("", 0), which reinstates `nothing met an
+    adjudicator's bar`** -- the sentence D-177 exists to prevent. That is not
+    "no claim": it is the wrong claim, and the 2026-09-09 review was right to
+    say so. What keeps it from being a live defect is that the same unreadable
+    ledger also yields no unit counts, so the line reads `read 0 of 0 units`,
+    which no reader takes for a clean bill of health. Naming it here rather than
+    claiming the fallback is safe."""
+    if task_id is None:
+        return "", 0
+    try:
+        status = status_from_rows(ledger.entries(), task_id)
+    except (OSError, RuntimeError, ValueError):
+        return "", 0
+    return status.executor_unavailable, status.unsupported_executor
+
+
 def _with_run_status(ledger: Ledger, task_id: str | None, body: str) -> str:
     """Owner item 6: every final status comment, silent or not, carries a
     collapsed run-status section (counts and reproduction failure categories,
@@ -1956,6 +1976,10 @@ def run_ci(
             started=started,
             clock=clock,
         )
+    green_comments: list[dict[str, object]] = []
+    yellow_comments: list[dict[str, object]] = []
+    null_comments: list[dict[str, object]] = []
+    review_comments: list[dict[str, object]] = []
     if surfaced or green or yellow or nullability or propagation:
         # D-147: GitHub refuses a review comment on a line the diff does not
         # carry, and it refuses the whole review with it. Both unanchored
@@ -1992,6 +2016,15 @@ def run_ci(
             *null_comments,
             *propagation_inline,
         ]
+    # Entering the branch above means a *note* exists; it does not mean a comment
+    # survived. A green note whose anchor is not a line the diff carries is
+    # dropped (D-147), a comment the action clause refuses is dropped (D-178),
+    # and a propagation note is a shadow that contributes none at all (D-169).
+    # An inline review with no comments is an author-visible "Attest review."
+    # that judged nothing, and the delivery journal refuses its empty member list
+    # -- after the review has already been posted. Red is never dropped, so an
+    # empty list here also means no receipt is being withheld.
+    if review_comments:
         review_error = journal.attempt(
             channel="inline_review",
             members=(
@@ -2080,6 +2113,9 @@ def run_ci(
         )
 
     elapsed_s = clock() - started
+    # D-177: one read of the ledger, not two -- the reason and the count come
+    # from the same rows
+    blocked_reason, blocked_count = _executor_unavailable(ledger, task_id)
     complete_body = _with_run_status(
         ledger,
         task_id,
@@ -2096,6 +2132,10 @@ def run_ci(
             # D-161: a silence bought out by the ceiling says how many
             # candidates it stopped
             unverified=budget_unverified(review.verification_reasons),
+            # D-177: and a silence over a host that could not run the executor
+            # at all says that instead -- nothing was judged
+            executor_unavailable=blocked_reason,
+            unsupported_executor=blocked_count,
         ),
     )
     try:
