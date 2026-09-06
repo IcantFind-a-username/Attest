@@ -36,7 +36,7 @@ from typing import cast
 
 from attest.certification.types import CertifiedFinding
 from attest.review.finding_evidence import FindingEvidence, render_markdown
-from attest.review.impact import CONDITION_ARITY, ImpactNote
+from attest.review.impact import CONDITION_ARITY, CONDITION_FANOUT, ImpactNote, fanout_of
 from attest.review.nullability import NullabilityNote
 from attest.review.output_contract import LEVEL_MARKERS, claim_line, silence_line
 from attest.review.output_contract import check as contract_check
@@ -284,6 +284,10 @@ def impact_line(note: ImpactNote) -> str:
     - **a3** how many call sites pass fewer positional arguments than the
       function now takes. This one names no coverage at all, because the claim
       does not rest on any: the evidence coordinate is the first broken call.
+    - **a4** how many call sites in how many files, and that no test names the
+      function. The evidence coordinate is the first call site: with no test
+      naming the function there is no untested *caller* to point at, and the
+      fact the author acts on is the fan-out.
     """
     changed = note.changed
     definition = changed.definition
@@ -299,6 +303,19 @@ def impact_line(note: ImpactNote) -> str:
             path=definition.path,
             line=definition.line,
             fact=fact,
+            evidence=f"{witness.path}:{witness.line}",
+        )
+    if note.condition == CONDITION_FANOUT:
+        sites, files = fanout_of(note.callers)
+        witness = note.callers[0].site
+        return claim_line(
+            "yellow",
+            path=definition.path,
+            line=definition.line,
+            fact=(
+                f"`{definition.qualname}` changed; {sites} call site(s) in {files} file(s) "
+                "name it and no test names it"
+            ),
             evidence=f"{witness.path}:{witness.line}",
         )
     if changed.signature_changed:

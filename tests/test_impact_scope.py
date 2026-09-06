@@ -22,10 +22,14 @@ from attest.github.presentation import (
 )
 from attest.review.impact import (
     CONDITION_ARITY,
+    CONDITION_FANOUT,
     CONDITION_RAISE_OR_RETURNS,
     CONDITION_SIGNATURE,
+    CONDITIONS,
     ENABLED_CONDITIONS,
     MAX_NOTES,
+    MIN_FANOUT_CALLERS,
+    MIN_FANOUT_FILES,
     build_call_graph,
     changed_functions,
     notes_for_change,
@@ -490,3 +494,92 @@ def test_a3_abstains_when_the_call_could_be_supplying_the_parameter() -> None:
     notes = _one_note(head, base, extra={"tests/test_mod.py": caller})
 
     assert [n.condition for n in notes] == []
+
+
+# --- a4: fan-out with no test naming the function (D-170) ---------------------
+# Owner instruction 6 of 2026-09-07. Measured before it was enabled: 1 of 11
+# forward pairs, **2 of 68 controls (2.9%)** against the owner's 3% ceiling, and
+# both control firings are literally true -- no test at those revisions names
+# `click.version_option` or `jinja2.make_attrgetter`.
+
+
+def _fanout_tree(*, body: str, tested: bool) -> dict[str, str]:
+    """Three callers in three files; a test that names the function, or not."""
+    sources = {
+        "pkg/mod.py": body,
+        "pkg/a.py": "from pkg.mod import widget\n\n\ndef a():\n    return widget(1)\n",
+        "pkg/b.py": "from pkg.mod import widget\n\n\ndef b():\n    return widget(2)\n",
+        "pkg/c.py": "from pkg.mod import widget\n\n\ndef c():\n    return widget(3)\n",
+        "tests/test_a.py": "from pkg.a import a\n\n\ndef test_a():\n    assert a()\n",
+    }
+    if tested:
+        sources["tests/test_mod.py"] = (
+            "from pkg.mod import widget\n\n\ndef test_widget():\n    assert widget(1)\n"
+        )
+    return sources
+
+
+def _fanout_notes(sources: dict[str, str], head: str, base: str):
+    graph = build_call_graph(sources)
+    changed = changed_functions(
+        path="pkg/mod.py",
+        head_source=head,
+        base_source=base,
+        changed_lines=range(1, head.count("\n") + 2),
+    )
+    return notes_for_change(graph, changed, limit=10)
+
+
+HEAD_WIDGET = "def widget(a):\n    return a + 1\n"
+BASE_WIDGET = "def widget(a):\n    return a\n"
+
+
+def test_a4_three_callers_in_three_files_with_no_test_naming_the_function_speaks() -> None:
+    """The body moved, the interface did not, and no test writes `widget`."""
+    notes = _fanout_notes(_fanout_tree(body=HEAD_WIDGET, tested=False), HEAD_WIDGET, BASE_WIDGET)
+
+    assert [note.condition for note in notes] == [CONDITION_FANOUT]
+    line = impact_line(notes[0])
+    assert "3 call site(s) in 3 file(s) name it and no test names it" in line
+    assert contract_check(line).admitted is True
+    # the coordinate an author is sent to is a real call site, not an absence,
+    # and it is the first caller no test reaches -- `pkg/a.py` is named by a test
+    assert "pkg/b.py:5" in line
+
+
+def test_a4_is_silent_when_any_test_names_the_function_at_all() -> None:
+    """One test that writes the name refuses the claim, however it reaches it."""
+    tree = _fanout_tree(body=HEAD_WIDGET, tested=True)
+    assert _fanout_notes(tree, HEAD_WIDGET, BASE_WIDGET) == ()
+
+
+def test_a4_is_silent_below_either_threshold() -> None:
+    """Three callers **and** two files; either half short is silence."""
+    two_callers = _fanout_tree(body=HEAD_WIDGET, tested=False)
+    del two_callers["pkg/c.py"]
+    assert _fanout_notes(two_callers, HEAD_WIDGET, BASE_WIDGET) == ()
+
+    one_file = _fanout_tree(body=HEAD_WIDGET, tested=False)
+    del one_file["pkg/b.py"]
+    del one_file["pkg/c.py"]
+    one_file["pkg/a.py"] = (
+        "from pkg.mod import widget\n\n\n"
+        "def a():\n    return widget(1)\n\n\n"
+        "def a2():\n    return widget(2)\n\n\n"
+        "def a3():\n    return widget(3)\n"
+    )
+    assert _fanout_notes(one_file, HEAD_WIDGET, BASE_WIDGET) == ()
+
+
+def test_a4_never_outranks_a_decidable_arity_break() -> None:
+    """A wrong call is worth more than a fan-out remark, so a3 still ranks first."""
+    head = "def widget(a, b):\n    return a + b\n"
+    base = "def widget(a):\n    return a\n"
+    notes = _fanout_notes(_fanout_tree(body=head, tested=False), head, base)
+    assert notes[0].condition == CONDITION_ARITY
+
+
+def test_a4_is_measured_and_enabled_at_the_thresholds_that_were_measured() -> None:
+    assert (MIN_FANOUT_CALLERS, MIN_FANOUT_FILES) == (3, 2)
+    assert CONDITION_FANOUT in CONDITIONS
+    assert CONDITION_FANOUT in ENABLED_CONDITIONS  # controls 2/68 = 2.9% <= 3%

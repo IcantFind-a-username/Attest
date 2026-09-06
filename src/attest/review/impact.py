@@ -65,11 +65,31 @@ MAX_NOTES = 2  # author-visible notes per pull request (the same cap green has)
 CONDITION_SIGNATURE = "a1_signature_untested_caller"
 CONDITION_RAISE_OR_RETURNS = "a2_raise_or_returns_untested_caller"
 CONDITION_ARITY = "a3_added_parameter_arity_break"
-CONDITIONS = (CONDITION_SIGNATURE, CONDITION_RAISE_OR_RETURNS, CONDITION_ARITY)
+# D-170 (owner instruction 6 of 2026-09-07): the fan-out condition. A changed
+# function with at least MIN_FANOUT_CALLERS call sites spread over at least
+# MIN_FANOUT_FILES files, which **no test names at all**. Its second half is a
+# coverage fact like a1's and a2's, but a stronger one: a1 asks whether *some*
+# caller is unnamed by any test, a4 asks whether the changed function itself is
+# named by none -- which is decidable in one lookup and cannot be satisfied by a
+# function ten tests exercise through one covered caller.
+CONDITION_FANOUT = "a4_fanout_no_direct_test"
+MIN_FANOUT_CALLERS = 3
+MIN_FANOUT_FILES = 2
+CONDITIONS = (
+    CONDITION_SIGNATURE,
+    CONDITION_RAISE_OR_RETURNS,
+    CONDITION_ARITY,
+    CONDITION_FANOUT,
+)
 # The conditions this level is allowed to publish. A condition whose measured
 # trigger rate on the null controls exceeds the owner's 3% ceiling stays out of
 # this tuple and is measured without ever being author-visible.
-ENABLED_CONDITIONS: tuple[str, ...] = CONDITIONS
+ENABLED_CONDITIONS: tuple[str, ...] = (
+    CONDITION_SIGNATURE,
+    CONDITION_RAISE_OR_RETURNS,
+    CONDITION_ARITY,
+    CONDITION_FANOUT,
+)
 
 SKIPPED_DIRS = frozenset(
     {
@@ -479,6 +499,25 @@ def _named_by_test(graph: CallGraph, site: CallSite) -> tuple[bool, int | None]:
     return False, None
 
 
+def named_by_a_test_directly(graph: CallGraph, definition: FunctionDef) -> bool:
+    """Does any test in this repository write this function's own name?
+
+    One lookup, no hops. `_named_by_test` walks up to `MAX_DEPTH` callers back
+    to a test and answers a different question -- *is this caller reached by a
+    test* -- which a1 and a2 need and this condition does not. What a4 claims is
+    that the function a change touched is named by no test, and a name a test
+    writes anywhere (a call, an import, an attribute read, a patch target) is
+    enough to refuse the claim.
+    """
+    name = _addressable_name(definition.qualname)
+    return any(site.is_test for site in graph.mentions.get(name, ()))
+
+
+def fanout_of(callers: Sequence[Caller]) -> tuple[int, int]:
+    """(call sites, distinct files) of a changed function."""
+    return len(callers), len({caller.site.path for caller in callers})
+
+
 def _addressable_name(qualname: str) -> str:
     """The name a test would have to write to reach this function.
 
@@ -578,6 +617,22 @@ def note_for(
                 reason="a required parameter was added and a call site passes too few",
                 condition=CONDITION_ARITY,
                 arity_breaks=breaks,
+            )
+    if CONDITION_FANOUT in conditions:
+        sites, files = fanout_of(callers)
+        if (
+            sites >= MIN_FANOUT_CALLERS
+            and files >= MIN_FANOUT_FILES
+            and not named_by_a_test_directly(graph, definition)
+        ):
+            return ImpactNote(
+                changed=changed,
+                callers=callers,
+                untested=untested,
+                reason=(
+                    f"{sites} call sites in {files} files and no test names this function"
+                ),
+                condition=CONDITION_FANOUT,
             )
     if not untested:
         return None
