@@ -7,6 +7,15 @@ name: red-team
 
 on:
   workflow_dispatch:
+    inputs:
+      observer:
+        description: >-
+          Also attempt the external observer: ask the kernel's audit subsystem to
+          record the container's syscalls and compare that record with what the
+          harness claims. Off by default -- it needs root, installs auditd, and
+          adds audit rules to the runner.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -49,9 +58,32 @@ jobs:
         if: always()
         run: cat redteam.md || echo "no matrix written"
 
+      # G-SEC-002's `INSUFFICIENT` row. Every other row of the matrix is
+      # observed from inside the product; this one asks the kernel. It is a
+      # separate step because it needs root and changes the runner's audit
+      # configuration, and because a failure here must not fail the matrix.
+      - name: External observer (kernel audit)
+        if: ${{ inputs.observer }}
+        continue-on-error: true
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq auditd audispd-plugins
+          sudo auditctl -s || true
+          sudo -E "$(which python)" scripts/release/observer.py probe \
+            --json observer-probe.json || true
+          sudo -E "$(which python)" scripts/release/observer.py run \
+            --json observer.json --matrix redteam-observed.md || true
+
+      - name: The observer's record
+        if: ${{ always() && inputs.observer }}
+        run: cat observer.json observer-probe.json 2>/dev/null || echo "no observer record"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: redteam-matrix
-          path: redteam.md
+          path: |
+            redteam.md
+            observer.json
+            observer-probe.json
           if-no-files-found: warn
