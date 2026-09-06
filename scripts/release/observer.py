@@ -71,6 +71,11 @@ CONTAINER_UID = 65534
 WATCHED = ("connect", "socket", "openat", "execve", "clone", "unlink", "unlinkat")
 
 AUDIT_KEY = "attest-observer"
+# A second rule with **no uid filter** and one syscall, armed beside the first.
+# It exists to tell three failures apart that a run of zero records cannot:
+# the uid filter does not match the container, the rule set does not work at
+# all, or the host's audit pipeline records nothing whatever the rule says.
+AUDIT_KEY_ANY = "attest-observer-any"
 
 
 @dataclass
@@ -203,8 +208,33 @@ def rules_now(auditctl: str) -> str:
     return (done.stdout + done.stderr).strip()[:1200]
 
 
+def install_unfiltered_rule(auditctl: str) -> Step:
+    """`execve`, any uid: the broadest rule this observer will ever install."""
+    done = _run(
+        auditctl, "-a", "always,exit", "-F", "arch=b64", "-S", "execve", "-k", AUDIT_KEY_ANY
+    )
+    return Step(
+        "install_unfiltered_rule",
+        done.returncode == 0,
+        "execve, no uid filter",
+        (done.stdout + done.stderr)[:300],
+    )
+
+
+def raw_log_mentions(key: str) -> int:
+    """How many lines of the raw audit log carry ``key`` -- ausearch not involved."""
+    log = Path("/var/log/audit/audit.log")
+    if not log.is_file():
+        return -1
+    try:
+        with log.open("rb") as handle:
+            return sum(1 for line in handle if key.encode() in line)
+    except OSError:
+        return -1
+
+
 def remove_rules(auditctl: str) -> Step:
-    done = _run(auditctl, "-D", "-k", AUDIT_KEY)
+    done = _run(auditctl, "-D")
     return Step("remove_rules", done.returncode == 0, output=(done.stdout + done.stderr)[:400])
 
 
@@ -248,6 +278,7 @@ def cmd_arm(args: argparse.Namespace) -> int:
         return 3
     mark = datetime.now().strftime("%H:%M:%S")
     step = install_rules(found.auditctl)
+    broad = install_unfiltered_rule(found.auditctl)
     control = marker()
     payload = {
         "schema_version": OBSERVER_SCHEMA_VERSION,
@@ -256,6 +287,7 @@ def cmd_arm(args: argparse.Namespace) -> int:
         "since": mark,
         "step": asdict(step),
         "marker": asdict(control),
+        "unfiltered_rule": asdict(broad),
         "rules_after_arming": rules_now(found.auditctl),
     }
     if args.json:
@@ -272,6 +304,9 @@ def cmd_collect(args: argparse.Namespace) -> int:
         return 3
     rules_before = rules_now(found.auditctl)
     unfiltered = _run(found.ausearch, "-k", AUDIT_KEY)
+    any_uid = _run(found.ausearch, "-k", AUDIT_KEY_ANY)
+    raw_key = raw_log_mentions(AUDIT_KEY)
+    raw_any = raw_log_mentions(AUDIT_KEY_ANY)
     log = Path("/var/log/audit/audit.log")
     records, error = collect(found.ausearch, args.since)
     steps = [
@@ -281,8 +316,11 @@ def cmd_collect(args: argparse.Namespace) -> int:
             True,
             f"rules still loaded: {bool(rules_before and 'No rules' not in rules_before)}; "
             f"audit.log {log.stat().st_size if log.is_file() else 'absent'} bytes; "
-            f"unfiltered ausearch rc={unfiltered.returncode}, "
-            f"{len(unfiltered.stdout.splitlines())} line(s)",
+            f"ausearch by key rc={unfiltered.returncode}, "
+            f"{len(unfiltered.stdout.splitlines())} line(s); "
+            f"ausearch for the no-uid rule rc={any_uid.returncode}, "
+            f"{len(any_uid.stdout.splitlines())} line(s); "
+            f"raw log lines carrying the keys: {raw_key} / {raw_any}",
             (rules_before + "\n" + (unfiltered.stdout + unfiltered.stderr)[:600])[:1400],
         ),
         remove_rules(found.auditctl),
