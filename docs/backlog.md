@@ -22,6 +22,17 @@ rather than deleted — a backlog whose closed items vanish cannot be audited.
 
 <!-- entries below, newest first -->
 
+- **[P2] 2026-09-08: `evaluate_project` reconstructs a `ReviewConfig` field by field, and will
+  silently drop the next policy key too.** `src/attest/benchmark/api.py` lists eight of the
+  fourteen fields; `context_strategy`, `generation_model`, `gate_shadow`, `repro_concurrency`
+  and `daily_budget_usd` are reset to their defaults whatever the caller set, and
+  `verification_cap_per_unit` was too until D-168 added a ninth line. A benchmark that resets a
+  policy key reports a measurement of a policy nobody asked for, which is what the comment above
+  `probe_generation` already says. `dataclasses.replace(request.config)` after
+  `validate_review_config` would be exact and future-proof; it also carries `gate_shadow`, which
+  is a behaviour change the reconstruction may have been deliberately preventing. Small, and
+  worth doing on purpose rather than after the next key goes missing.
+
 - **[P1] 2026-09-08 (D-168): at the shipped `k_samples = 5` the 30% discovery share can refuse
   a review its first change unit.** The ceiling is checked against the *preflight reservation*,
   which prices K samples at the 3,200-token output bound and overstates a real proposal by about
