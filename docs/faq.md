@@ -100,10 +100,22 @@ Then one of four unsupported scenarios applies, and the one line you got names w
 - **no Python source** in the repository;
 - **an unparsable dependency lock file**, so the reproduction environment cannot be built;
 - **docker unavailable**, and head code runs only inside a container;
-- **pytest could not be provided** in the built image.
+- **pytest could not be provided** in the built image — and since D-175 this line is decided by
+  the build step that *actually* failed, so a project whose own `pip install` fails now gets
+  `environment bootstrap failed …` instead, which is a different problem with a different fix.
 
 All four exit **0**: an unsupported repository is not a failed review. A repository with **no
 test suite** is *not* in this list — attest installs pytest itself and writes the test it runs.
+
+## The silence line said something other than "nothing met an adjudicator's bar"
+
+There are three verdicts, and which one you got is the whole message:
+
+| line | what it means |
+|---|---|
+| `nothing met an adjudicator's bar` | every candidate was judged and none cleared its level's bar. **Still an abstention** |
+| `the budget ceiling was reached; N candidate(s) were not verified` | the money ran out. Raise `budget-usd`; the units it never read were **not** reviewed |
+| `executor unavailable: <reason>; N candidate(s) not verified` | **nothing was judged.** The host could not run the reproduction executor at all — most often because the job runs as root, which the containment guard refuses (D-177) |
 
 ## Does a silence mean my change is fine?
 

@@ -34,11 +34,18 @@ match the bug.
 - [`github-action.md`](github-action.md) documents how the current prototype Action behaves
   and its current safety limitations. It is non-normative: target architecture and release
   gates override its implementation-era usage instructions.
+- [`../SECURITY.md`](../SECURITY.md) is the security policy: reporting channel, supported
+  versions, disclosure, what is in scope and what is **not claimed**.
 - the dated handoffs are SHA-bound records of one window each; the newest is
+  [`overnight-handoff-2026-09-09.md`](overnight-handoff-2026-09-09.md) (the release-readiness
+  acceptance: an outside repository could not be reviewed at all until D-176, every comment now
+  carries an adjudicated action clause, and six gates still do not pass —
+  [report](acceptance/2026-09-09-release-readiness.md)), preceded by
+  `overnight-handoff-2026-09-08{,b}.md`, `overnight-handoff-2026-09-07{,-p0,-p2,-p5}.md`,
+  `overnight-handoff-2026-09-06c.md`,
   [`overnight-handoff-2026-09-06b.md`](overnight-handoff-2026-09-06b.md) (the independent null
   population closed at answered n = 7, yellow (a) author-visible and silent on 79 of 79 units, and
-  reproduction by probe and record/replay taking unfaithful generated tests from 20 to 0), preceded
-  by [`overnight-handoff-2026-09-06.md`](overnight-handoff-2026-09-06.md) (the probe-adjudicated
+  reproduction by probe and record/replay taking unfaithful generated tests from 20 to 0), and [`overnight-handoff-2026-09-06.md`](overnight-handoff-2026-09-06.md) (the probe-adjudicated
   stop rule and the independent null population finished at n = 68, the output contract, and
   yellow (a) measured offline),
   [`overnight-handoff-2026-09-05d.md`](overnight-handoff-2026-09-05d.md) (the working directory

@@ -12,6 +12,45 @@ only published ref is a pilot tag, and the sections below say plainly which is w
 
 ## Unreleased — since `v0.1.0-rc.1`
 
+### The release-readiness acceptance, 2026-09-09 ([report](docs/acceptance/2026-09-09-release-readiness.md))
+
+- **An outside repository could not be reviewed at all, and now can** (D-176). `tenacity`, a
+  public pytest project nobody here owns, was cloned, and the tagged wheel was installed into a
+  clean virtualenv. The reproduction image build died: the tree is copied without `.git`, so a
+  project that versions itself from the repository cannot build, and the detector for that
+  recognised `setuptools_scm` but not **`hatch-vcs`** — the same library reached through
+  `hatchling`. One tuple. **If your `pyproject.toml` says `[tool.hatch.version] source = "vcs"`,
+  no ref before this one could review your repository.**
+- **And the refusal named the wrong cause** (D-175). BuildKit echoes the whole Dockerfile around
+  a failure, so a build that died installing *the project* carried the successful
+  `RUN pip install pytest` in its log and reported *"pytest could not be provided"*. The refusal
+  is now decided by the failing step the builder names.
+- **Every author-visible comment now says what to do next** (D-178). Four real comments were
+  audited element by element; three carried no action at all. `check_comment` refuses a comment
+  without exactly one `Action:` line naming something to run, open or change. Red's is the
+  receipt's own command and bundle, yellow's the untested caller and the two things that close
+  it, green's the two coordinates and which copy to keep. **Assembled from coordinates, never
+  from a model**, so wording cannot suppress a finding.
+- **A silence over a host that could not run the executor said `nothing met an adjudicator's
+  bar`** (D-177) — a clean bill of health for code nothing looked at. It now names the reason and
+  how many candidates it stopped. In the same line: D-161's budget verdict had never been
+  admitted by `output_contract.check`, so the product's own adjudicator refused a line the
+  product emits.
+- **Two failures had no copy of their own** (D-179): every proposal call answering HTTP 429, and
+  a runner that cannot reach the API, both ended at `all provider samples failed or were
+  malformed`. Each now has its own sentence, says *nothing was spent*, and says what to do.
+  `budget-usd: "0.00"` now names the input and a value that works.
+- **The vocabulary was downgraded, and no constant moved.** *e-value* → **priority score**,
+  *family-wise error* → **per-unit family cap**, in the README, the mainline, `selection.py` and
+  the base-policy document. `alpha` stays the name of a configuration constant. The only
+  evidence this product publishes on is the differential reproduction; S/T rank candidates and
+  spend a multiplicity budget, and D-174 proved they are not an e-value.
+- **A budget below `$0.54` cannot review anything at the factory `samples: "5"`** — measured, not
+  derived: five samples reserve $0.16 of output tokens alone against a 30% discovery share. At
+  `$0.25` exactly one of five samples is bought.
+- **New: [`SECURITY.md`](SECURITY.md)** — reporting channel, supported versions, disclosure, what
+  is in scope, and what is *not claimed*.
+
 ### Behaviour a reader pointing a repository at `main` should know about
 
 - **A call site is now the definition the name *resolves to*, not whatever wrote the name**

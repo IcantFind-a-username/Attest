@@ -15,7 +15,7 @@ point: it grants only read access to contents and pull-request write access, can
 superseded runs for the same PR, and retains `.attest/ledger.jsonl` as evidence.
 
 ```yaml
-- uses: IcantFind-a-username/Attest@main
+- uses: IcantFind-a-username/Attest@v0.1.0-rc.1   # docs/operations/install-ref.md
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -24,8 +24,10 @@ superseded runs for the same PR, and retains `.attest/ledger.jsonl` as evidence.
     verification-timeout: "600"
 ```
 
-The action installs attest from the action checkout into a temporary `uv` virtual
-environment; it does not install a published package. `budget-usd`, `samples`, and
+The action installs attest from the action checkout into a temporary virtual environment
+built with `python -m venv` and `pip`, pinned by `requirements-toolchain.lock`; it does
+not install a published package. *(Corrected 2026-09-09: this said `uv`, which the action
+does not use.)* `budget-usd`, `samples`, and
 `verification-timeout` shown above are the defaults.
 
 **Typical cost per review.** `budget-usd` is a hard cap, not a price. Measured over the
@@ -45,11 +47,29 @@ executor still applies its process, network, time, memory, and output controls.
 
 ## Safety model
 
-The action first compares the head and destination repository names in a
-credential-free gate step. Cross-repository pull requests are skipped before the
-entrypoint receives credentials or runs the review command against head code. This
-keeps the trusted token and model key out of the fork path; the skip is intentional
-and records no finding.
+### Fork pull requests are not reviewed, and leave nothing behind
+
+**A fork pull request is never reviewed and never receives a comment.** Two independent
+gates enforce it, and this repository uses **no `pull_request_target` trigger anywhere** —
+the trigger that would hand a fork's head code a privileged context:
+
+1. the **workflow's own guard** —
+   `if: github.event.pull_request.head.repo.full_name == github.repository` — so the job
+   never starts, and no runner step with the secret in its environment is ever entered;
+2. the action's **credential-free gate step** (`scripts/action-gate.sh`), which compares the
+   head and destination repository names *before* any credential is introduced, writes
+   `trusted=false`, and makes every later step conditional on it. `scripts/action-entrypoint.sh`
+   refuses the same event again, in case the action is used without the workflow guard.
+
+**What a skipped fork leaves behind is nothing that could read as "reviewed, no problems":**
+no pull-request comment, no review, no check annotation, no ledger, no artifact. What it does
+leave is one Actions **notice** in the run log —
+`::notice title=attest::Fork pull request skipped before credentials or head-code execution` —
+which names the skip. A reader who sees a green check on a fork pull request is seeing a job
+that did not run, and there is no attest output on the pull request to suggest otherwise.
+
+This keeps the trusted token and model key out of the fork path; the skip is intentional and
+records no finding.
 
 For the same-repository path, review and generated reproduction tests run against the
 checked-out head. That code can mutate its ephemeral runner, so this current prototype is

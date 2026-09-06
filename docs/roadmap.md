@@ -589,7 +589,9 @@ measured together.
 
 ### Work orders
 
-- [~] **L-01 — release candidate.** Stable install ref (`v0.1.0-pilot.1`), minimal
+- [~] **L-01 — release candidate.** Stable install ref (**`v0.1.0-rc.1`** since 2026-09-07;
+  `v0.1.0-pilot.1` is the oldest ref a pilot may roll back to —
+  [`operations/install-ref.md`](operations/install-ref.md) is the single source), minimal
   quickstart, base-owned policy docs, executor support matrix, privacy/retention policy,
   failure-mode copy, rollback/kill switch, and private-user pilot. The **document and pilot
   list is done** — private pilot on `IcantFind-a-username/us-stock-helper`
@@ -611,6 +613,14 @@ measured together.
   `G-SEC-002`'s remaining fixture classes with an external observer, and conditions 3, 4 and
   5 ([six conditions](acceptance/2026-09-03-mainline-six-conditions.md), D-119, whose
   reading of condition 1 is superseded).
+  **Amended 2026-09-09 by the release-readiness acceptance**
+  ([report](acceptance/2026-09-09-release-readiness.md)): condition 1 holds only on a
+  repository the **owner owns**. A public repository nobody here owns (`tenacity`) could not
+  be reviewed **at all** until D-176 — a `hatch-vcs` project's reproduction image never
+  built, and the refusal blamed pytest (D-175). Both are fixed and the review now runs end to
+  end from a packaged install; **an outside real trial on a repository this project does not
+  own has still never happened**, and it is the one item on this list that nothing local can
+  substitute for.
 
 ### Mandatory prerequisites
 

@@ -1,5 +1,7 @@
 # Three real comments, one per level
 
+*Audited element by element on 2026-09-09; the audit and what it changed are at the bottom of this file.*
+
 Every line below is **verbatim output from a real run** on a real repository — not a mockup and
 not an illustration. Each carries the coordinate a reader can open and the evidence a reader can
 follow, and nothing else.
@@ -91,3 +93,47 @@ because a silence over 1 of 13 and a silence over 13 of 13 are different claims.
 is what stopped the run it says that instead, and how many candidates it stopped.
 
 **A silence is an abstention, never a true negative.**
+
+---
+
+## The audit, and the fourth element (D-178)
+
+Every comment above was checked on 2026-09-09 against the four things a comment owes —
+**position**, **fact**, **evidence**, **action** — together with the first unprompted yellow (a)
+comment on real traffic, which arrived after they were written.
+
+| comment | position | fact | evidence | action |
+|---|---|---|---|---|
+| `[red]` `four_levels.py:212` | ✅ the changed line, in the diff | ✅ a reproduction, three runs each way | ✅ receipt `e89b0fe548b6` and the bundle | ⚠️ **present but unlabelled** — the body carried the `pytest` command and `attest verify --bundle …`, in prose no adjudicator read |
+| `[yellow]` `four_levels.py:212` | ✅ | ✅ counts from `ast` at both revisions | ✅ second coordinate `four_levels.py:202` | ❌ **absent** |
+| `[green]` `impact_scan.py:62-68` | ✅ | ✅ a similarity measure over two token sequences | ✅ second coordinate `qualify_controls.py:45-54` | ❌ **absent** — the model's advice was collapsed and explicitly *not part of the claim*, so nothing said what to do |
+| `[yellow]` `gate_level.py:252`, [PR #12](https://github.com/IcantFind-a-username/Attest/pull/12) | ✅ | ✅ 3 call sites resolve to it, no test names it — re-resolved and confirmed | ✅ `scripts/corpus/binding_recount.py:102`, and every site listed | ❌ **absent** |
+
+Three of four had nothing to act on, and the fourth had it only in prose. **D-178 makes the
+action clause a fifth adjudicated element**: `output_contract.check_comment` refuses a comment
+that does not carry exactly one `Action:` line naming something to run, open or change, and each
+level assembles its clause from coordinates it already holds — so wording can never be what
+suppresses a finding. The clauses those same comments carry now:
+
+```
+[red]    Action: reproduce it — `python -m pytest .attest-repro/test_repro.py::test_case` —
+         then check the receipt offline with `attest verify --bundle <path> --require-seal`.
+
+[yellow] Action: add a test that names `scripts/corpus/four_levels.py:202`, or change the
+         caller there to match the new interface.
+
+[green]  Action: keep one of `scripts/corpus/impact_scan.py:62` and
+         `scripts/corpus/qualify_controls.py:45`, and call it from the other.
+```
+
+The `gate` level is still in shadow and publishes nothing; its clause — the reachable path and
+the input that triggers it — is defined with the others and ships when the level does.
+
+**One more thing the audit changed.** The yellow (a) comment ended with *"Static reachability
+over names: a caller reached only through a registry or `getattr` is invisible here"*. D-174 had
+already made a call site the thing a name **resolves to**, so that sentence described a rule the
+product no longer runs. It now states the resolution and keeps the honesty clause verbatim:
+
+> Resolved statically: a call reached only through inheritance, a decorator, a package
+> re-export, a variable or `getattr` does not resolve and is not listed, so this says
+> *named by no test*, never *not covered*.
