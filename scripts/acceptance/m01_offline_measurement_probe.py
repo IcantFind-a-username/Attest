@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import importlib
 import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -56,8 +58,50 @@ def _count(row: Mapping[str, object], key: str) -> int:
         raise ValueError(f"{key} must be a non-negative integer")
     return value
 
-def _support() -> Support:
-    support_src = str(Path(__file__).resolve().parents[2] / "src")
+# repo root + commit -> a materialised snapshot of that commit's `src`. Built
+# once per process: `git archive` cannot see an uncommitted edit, so the probe
+# measures the same tree from the first repeat to the twentieth however much
+# the operator is editing beside it (P1, M-01).
+_SNAPSHOTS: dict[tuple[str, str], Path] = {}
+
+def _snapshot(root: Path, explicit: Path | None = None) -> tuple[Path, str]:
+    """(snapshot root, HEAD sha) for ``root``; never reads the working tree.
+
+    The snapshot is the HEAD commit tree by default and an operator-pinned
+    directory when ``--source-snapshot`` names one. This replaces the old
+    clean-tree guard, which imported the working tree and then *refused to run*
+    when it was dirty -- so any edit during a full test run failed the probe
+    rather than the edit, four windows running.
+    """
+    root = root.resolve(strict=True)
+    sha = _git(root, "rev-parse", "HEAD")
+    if explicit is not None:
+        return explicit.resolve(strict=True), sha
+    key = (str(root), sha)
+    held = _SNAPSHOTS.get(key)
+    if held is None:
+        holder = Path(tempfile.mkdtemp(prefix="attest-m01-src-"))
+        atexit.register(shutil.rmtree, holder, True)
+        archive = subprocess.run(["git", "-C", str(root), "archive", "--format=tar", sha, "--", "src"],
+                                 check=True, capture_output=True)
+        subprocess.run(["tar", "-xf", "-", "-C", str(holder)], input=archive.stdout,
+                       check=True, capture_output=True)
+        held = _SNAPSHOTS[key] = holder
+    return held, sha
+
+def _tree_digest(snapshot: Path, digest: Callable[[bytes], str]) -> str:
+    """A digest of the source tree that was actually imported.
+
+    Every file under the snapshot's ``src``, sorted by POSIX path, each named
+    beside the digest of its bytes -- so this identifies the code under
+    measurement whether the snapshot came from a commit or from ``--source-snapshot``."""
+    src = snapshot / "src"
+    lines = [f"{path.relative_to(src).as_posix()} {digest(path.read_bytes())}"
+             for path in sorted(src.rglob("*")) if path.is_file()]
+    return digest("\n".join(lines).encode())
+
+def _support(snapshot: Path) -> Support:
+    support_src = str(snapshot / "src")
     sys.path.insert(0, support_src)
     try:
         artifacts = importlib.import_module("attest.benchmark.artifacts")
@@ -80,7 +124,11 @@ def _guard_environment() -> tuple[list[str], bool]:
     unexpected = sorted(set(os.environ) - ALLOWED_ENV)
     if not unexpected:
         return sorted(os.environ), platform_removed
-    support_src = str(Path(__file__).resolve().parents[2] / "src")
+    # the environment is already wrong and this run already exits 2; the import
+    # below only decides how precisely the reason is named, and it reads the
+    # committed tree so an edit beside the run cannot turn a named refusal into
+    # a traceback
+    support_src = str(_snapshot(Path(__file__).resolve().parents[2])[0] / "src")
     sys.path.insert(0, support_src)
     try:
         is_secret_name = cast(
@@ -95,13 +143,18 @@ def _guard_environment() -> tuple[list[str], bool]:
     credential = any(is_secret_name(name) for name in unexpected)
     raise ValueError(f"unexpected {'credential environment' if credential else 'environment'} variable name(s): {unexpected}")
 
-def _source(source: Path) -> tuple[Path, str]:
-    source = source.resolve(strict=True); sys.path.insert(0, str(source / "src"))
+def _source(source: Path, explicit: Path | None = None) -> tuple[str, Path]:
+    """Activate the code under measurement: (HEAD sha, snapshot root).
+
+    The snapshot is what gets imported. The working tree is read for nothing at
+    all, so a dirty `src` is no longer an error and no longer changes what the
+    twenty repeats measure."""
+    snapshot, sha = _snapshot(source, explicit)
+    sys.path.insert(0, str(snapshot / "src"))
     module = Path(cast(str, importlib.import_module("attest").__file__)).resolve()
-    if (not module.is_relative_to((source / "src").resolve())
-            or _git(source, "status", "--porcelain", "--", "src")):
-        raise ValueError("source import or clean-tree guard failed")
-    return source, _git(source, "rev-parse", "HEAD")
+    if not module.is_relative_to((snapshot / "src").resolve()):
+        raise ValueError("source import guard failed: attest did not resolve inside the snapshot")
+    return sha, snapshot
 
 def _cassette(path: Path, digest: Callable[[bytes], str]) -> tuple[dict[str, object], str]:
     raw = path.read_bytes(); doc = _exact(json.loads(raw), CASSETTE_FIELDS, "cassette")
@@ -146,8 +199,11 @@ def _repository(root: Path, fixture: Mapping[str, object]) -> tuple[Path, str, s
     return repo, buggy, _git(repo, "rev-parse", "HEAD")
 
 def _run(args: argparse.Namespace) -> int:
-    canonical, digest, _, write_once = _support()
-    source, source_sha = _source(args.source_root)
+    # the probe's own helpers come from the probe's repository at HEAD, and the
+    # code under measurement from `--source-root` at HEAD: two snapshots, because
+    # a baseline worktree predates the helpers this probe writes its output with
+    canonical, digest, _, write_once = _support(_snapshot(Path(__file__).resolve().parents[2])[0])
+    source_sha, snapshot = _source(args.source_root, args.source_snapshot)
     from attest.benchmark.api import ProjectEvaluationRequest, ProjectTruth, evaluate_project
     from attest.benchmark.artifacts import ArtifactStore
     from attest.benchmark.live import LIVE_MODE, build_calibration_report, case_payload
@@ -264,7 +320,7 @@ def _run(args: argparse.Namespace) -> int:
     payload: dict[str, object] = {
         "schema_version": "attest.m01-offline-run.v2", "source_sha": source_sha,
         "source_sha256": digest(source_sha.encode()),
-        "source_tree_sha256": digest(_git(source, "rev-parse", "HEAD^{tree}").encode()),
+        "source_tree_sha256": _tree_digest(snapshot, digest),
         "input_sha256": digest(canonical(doc)), "probe_sha256": digest(Path(__file__).read_bytes()),
         "cassette_sha256": cassette_sha, "fixture_sha256": digest(canonical(doc["fixture"])),
         "repeat": args.repeat, "repeats": 1, "isolation_sha256": isolation_sha,
@@ -299,8 +355,9 @@ def _run(args: argparse.Namespace) -> int:
     return 0
 
 def _aggregate(args: argparse.Namespace) -> int:
-    canonical, digest, read_canonical, write_once = _support()
-    source, source_sha = _source(args.source_root)
+    canonical, digest, read_canonical, write_once = _support(
+        _snapshot(Path(__file__).resolve().parents[2])[0])
+    source_sha, snapshot = _source(args.source_root, args.source_snapshot)
     from attest.benchmark.measurement import (decode_measurement_record,
         reduce_measurements, semantic_measurement_sha256)
     root = args.input_root.resolve(strict=True)
@@ -335,7 +392,7 @@ def _aggregate(args: argparse.Namespace) -> int:
         raise ValueError("aggregate source SHA does not match selected source")
     if payloads[0]["source_sha256"] != digest(source_sha.encode()):
         raise ValueError("aggregate source digest mismatch")
-    if payloads[0]["source_tree_sha256"] != digest(_git(source, "rev-parse", "HEAD^{tree}").encode()):
+    if payloads[0]["source_tree_sha256"] != _tree_digest(snapshot, digest):
         raise ValueError("aggregate source tree digest mismatch")
     if payloads[0]["probe_sha256"] != digest(Path(__file__).read_bytes()):
         raise ValueError("aggregate probe digest mismatch")
@@ -382,10 +439,15 @@ def main() -> int:
         run.add_argument(f"--{name}", type=Path, required=True)
     run.add_argument("--repeat", type=int, required=True)
     run.add_argument("--repeats", type=int, choices=(1,), required=True)
+    run.add_argument("--source-snapshot", type=Path, default=None,
+                     help="import the code under measurement from this directory instead of "
+                          "materialising --source-root's HEAD commit; the working tree is never read")
     aggregate = commands.add_parser("aggregate")
     for name in ("source-root", "input-root", "output"):
         aggregate.add_argument(f"--{name}", type=Path, required=True)
     aggregate.add_argument("--expected-repeats", type=int, choices=(20,), required=True)
+    aggregate.add_argument("--source-snapshot", type=Path, default=None,
+                           help="the same snapshot the runs were taken against")
     args = parser.parse_args()
     if args.command == "run" and args.repeat < 0:
         parser.error("--repeat must be non-negative")

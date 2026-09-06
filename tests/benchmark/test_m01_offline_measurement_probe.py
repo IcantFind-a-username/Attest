@@ -294,3 +294,109 @@ def test_aggregate_refuses_to_replace_an_existing_output(
     )
     assert completed.returncode == 2
     assert output.read_bytes() == original
+
+
+# --- P1: the probe reads a snapshot, never the working tree -------------------
+# It used to import `src` from the working tree and refuse to run when `git
+# status` showed that tree dirty, so an ordinary edit beside a full test run
+# failed the probe rather than the edit -- four windows running, two whole-suite
+# runs lost in the last one. The snapshot is the HEAD commit tree (or a directory
+# the caller pins), and these are the two REDs for that.
+
+
+def _dirty_worktree(root: Path) -> Path:
+    """A detached worktree at HEAD whose `src` carries an uncommitted edit."""
+    source = root / "source"
+    subprocess.run(
+        ["git", "worktree", "add", "--detach", str(source), "HEAD"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
+    edited = source / "src" / "attest" / "__init__.py"
+    edited.write_text(
+        edited.read_text(encoding="utf-8") + "\n# uncommitted edit\n", encoding="utf-8"
+    )
+    dirty = subprocess.run(
+        ["git", "-C", str(source), "status", "--porcelain", "--", "src"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert dirty.strip(), "the RED needs a genuinely dirty source tree"
+    return source
+
+
+def test_an_edited_working_tree_does_not_change_what_the_probe_measures(
+    tmp_path: Path,
+    current_bundle: tuple[
+        Path, dict[str, str], tuple[dict[str, object], ...], dict[str, object]
+    ],
+) -> None:
+    _, _, payloads, _ = current_bundle
+    source = _dirty_worktree(tmp_path)
+    try:
+        output = tmp_path / "dirty.json"
+        completed = subprocess.run(
+            _run_command(source, output, 0),
+            capture_output=True,
+            text=True,
+            env=_environment(tmp_path / "home"),
+        )
+        assert (completed.returncode, completed.stdout, completed.stderr) == (0, "", "")
+        payload = json.loads(output.read_bytes())
+    finally:
+        subprocess.run(
+            ["git", "worktree", "remove", "--force", str(source)],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        )
+    # same commit, so the same tree was imported and the same measurement came out
+    assert payload["source_sha"] == payloads[0]["source_sha"]
+    assert payload["source_tree_sha256"] == payloads[0]["source_tree_sha256"]
+    assert payload["semantic_digest"] == payloads[0]["semantic_digest"]
+
+
+def test_an_explicit_snapshot_is_the_tree_that_is_measured(
+    tmp_path: Path,
+    current_bundle: tuple[
+        Path, dict[str, str], tuple[dict[str, object], ...], dict[str, object]
+    ],
+) -> None:
+    _, _, payloads, _ = current_bundle
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    archive = subprocess.run(
+        ["git", "-C", str(ROOT), "archive", "--format=tar", "HEAD", "--", "src"],
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["tar", "-xf", "-", "-C", str(snapshot)],
+        input=archive.stdout,
+        check=True,
+        capture_output=True,
+    )
+    output = tmp_path / "pinned.json"
+    completed = subprocess.run(
+        [*_run_command(ROOT, output, 0), "--source-snapshot", str(snapshot)],
+        capture_output=True,
+        text=True,
+        env=_environment(tmp_path / "home"),
+    )
+    assert (completed.returncode, completed.stdout, completed.stderr) == (0, "", "")
+    payload = json.loads(output.read_bytes())
+    # the pinned snapshot is byte-identical to HEAD, so it digests to the same tree
+    assert payload["source_tree_sha256"] == payloads[0]["source_tree_sha256"]
+    (snapshot / "src" / "attest" / "extra.py").write_text("# not in HEAD\n", encoding="utf-8")
+    moved = tmp_path / "moved.json"
+    completed = subprocess.run(
+        [*_run_command(ROOT, moved, 0), "--source-snapshot", str(snapshot)],
+        capture_output=True,
+        text=True,
+        env=_environment(tmp_path / "home"),
+    )
+    assert completed.returncode == 0
+    # and the field tracks the tree that was imported, not the repository's HEAD
+    assert json.loads(moved.read_bytes())["source_tree_sha256"] != payload["source_tree_sha256"]
