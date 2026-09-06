@@ -87,7 +87,15 @@ is **still not filed** (checked twice upstream); the draft is
 
 ## 6. Gates
 
-GATES_LINE
+**Green at the tip:** `ruff` over the whole tree, `mypy` over 93 source files, `git diff --check`,
+**2,087 passed, coverage 93.17%** against the 90% floor.
+
+Two things about how that was reached, because both were nearly missed. A `pytest -q` tail read
+as all dots **hid five errors** in one file; the coverage run is what surfaced them. And the
+errors were real: `evaluate_project` rebuilds a `ReviewConfig` field by field and silently dropped
+`verification_cap_per_unit`, so the M-01 cassette — five candidates in one file — replayed four of
+its five recorded generator responses. Five more policy keys are still dropped that way and are
+now a P2.
 
 ## 7. For the owner — three items
 
