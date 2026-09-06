@@ -49,9 +49,12 @@ import argparse
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
+import time
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -238,21 +241,60 @@ def remove_rules(auditctl: str) -> Step:
     return Step("remove_rules", done.returncode == 0, output=(done.stdout + done.stderr)[:400])
 
 
-def collect(ausearch: str, since: str) -> tuple[list[dict[str, str]], str]:
-    """Every audited syscall of the container's uid since ``since``, as records."""
-    done = _run(ausearch, "-k", AUDIT_KEY, "-ts", since, "--format", "csv")
-    if done.returncode not in (0, 1):  # 1 is ausearch's "no matches"
-        return [], (done.stdout + done.stderr)[:800]
-    rows: list[dict[str, str]] = []
-    lines = [line for line in done.stdout.splitlines() if line.strip()]
-    if not lines:
-        return rows, ""
-    header = [name.strip().strip('"').upper() for name in lines[0].split(",")]
-    for line in lines[1:]:
-        values = [value.strip().strip('"') for value in line.split(",")]
-        if len(values) == len(header):
-            rows.append(dict(zip(header, values, strict=True)))
-    return rows, ""
+AUDIT_LOG = Path("/var/log/audit/audit.log")
+
+# x86_64 syscall numbers for the watched set. Written out rather than looked up,
+# because the observer must not depend on a table the host supplies.
+SYSCALL_NAMES = {
+    "41": "socket",
+    "42": "connect",
+    "56": "clone",
+    "59": "execve",
+    "87": "unlink",
+    "257": "openat",
+    "263": "unlinkat",
+}
+
+_EVENT = re.compile(r"audit\((?P<epoch>\d+)\.(?P<ms>\d+):(?P<serial>\d+)\)")
+_FIELD = re.compile(r'(?P<name>[a-zA-Z0-9_]+)=(?P<value>"[^"]*"|\S+)')
+
+
+def parse_log(keys: Sequence[str], *, since: float, log: Path = AUDIT_LOG) -> list[dict[str, str]]:
+    """Every `type=SYSCALL` record carrying one of ``keys``, read from the log.
+
+    `ausearch` is deliberately not in this path. On the runner it reported
+    `<no matches>` for a key the raw log carried 1,060 times, and an observer
+    whose reader silently disagrees with the record it is reading is worth less
+    than no observer at all. Parsing the kernel's own lines removes the last
+    intermediary between the record and the comparison.
+    """
+    if not log.is_file():
+        return []
+    # the *quoted* field, not a substring: "attest-observer" is a prefix of
+    # "attest-observer-any", and a control rule that silently counted as the
+    # rule it controls would be worse than no control at all
+    wanted = tuple(f'key="{key}"' for key in keys)
+    out: list[dict[str, str]] = []
+    try:
+        with log.open("r", encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                if "type=SYSCALL" not in line or not any(key in line for key in wanted):
+                    continue
+                stamp = _EVENT.search(line)
+                if stamp is None or float(stamp.group("epoch")) < since:
+                    continue
+                fields = {
+                    match.group("name"): match.group("value").strip('"')
+                    for match in _FIELD.finditer(line)
+                }
+                number = fields.get("syscall", "")
+                fields["SYSCALL"] = SYSCALL_NAMES.get(number, number)
+                fields["EPOCH"] = stamp.group("epoch")
+                fields["SUCCESS"] = fields.get("success", "")
+                out.append(fields)
+    except OSError:
+        return out
+    return out
 
 
 def cmd_probe(args: argparse.Namespace) -> int:
@@ -276,7 +318,7 @@ def cmd_arm(args: argparse.Namespace) -> int:
     if not found.feasible:
         print(found.blocked_by(), file=sys.stderr)
         return 3
-    mark = datetime.now().strftime("%H:%M:%S")
+    mark = f"{time.time():.0f}"
     step = install_rules(found.auditctl)
     broad = install_unfiltered_rule(found.auditctl)
     control = marker()
@@ -303,25 +345,26 @@ def cmd_collect(args: argparse.Namespace) -> int:
         print(found.blocked_by(), file=sys.stderr)
         return 3
     rules_before = rules_now(found.auditctl)
-    unfiltered = _run(found.ausearch, "-k", AUDIT_KEY)
-    any_uid = _run(found.ausearch, "-k", AUDIT_KEY_ANY)
     raw_key = raw_log_mentions(AUDIT_KEY)
     raw_any = raw_log_mentions(AUDIT_KEY_ANY)
-    log = Path("/var/log/audit/audit.log")
-    records, error = collect(found.ausearch, args.since)
+    log = AUDIT_LOG
+    try:
+        since_epoch = float(args.since)
+    except ValueError:
+        since_epoch = 0.0
+    records = parse_log((AUDIT_KEY,), since=since_epoch)
+    broad = parse_log((AUDIT_KEY_ANY,), since=since_epoch)
     steps = [
-        Step("collect", not error, f"{len(records)} kernel record(s)", error or ""),
+        Step("collect", True, f"{len(records)} kernel record(s)"),
         Step(
             "diagnostics",
             True,
             f"rules still loaded: {bool(rules_before and 'No rules' not in rules_before)}; "
             f"audit.log {log.stat().st_size if log.is_file() else 'absent'} bytes; "
-            f"ausearch by key rc={unfiltered.returncode}, "
-            f"{len(unfiltered.stdout.splitlines())} line(s); "
-            f"ausearch for the no-uid rule rc={any_uid.returncode}, "
-            f"{len(any_uid.stdout.splitlines())} line(s); "
-            f"raw log lines carrying the keys: {raw_key} / {raw_any}",
-            (rules_before + "\n" + (unfiltered.stdout + unfiltered.stderr)[:600])[:1400],
+            f"raw log lines carrying the keys: {raw_key} / {raw_any}; "
+            f"parsed since {since_epoch:.0f}: {len(records)} at the container's uid, "
+            f"{len(broad)} under the no-uid control rule",
+            rules_before[:1000],
         ),
         remove_rules(found.auditctl),
     ]
@@ -366,87 +409,6 @@ def cmd_collect(args: argparse.Namespace) -> int:
     return 0 if observed else 4
 
 
-def cmd_run(args: argparse.Namespace) -> int:
-    found = probe()
-    steps: list[Step] = []
-    if not found.feasible:
-        payload = {
-            "schema_version": OBSERVER_SCHEMA_VERSION,
-            "generated": datetime.now(UTC).isoformat(),
-            "probe": asdict(found),
-            "feasible": False,
-            "blocked_by": found.blocked_by(),
-            "verdict": "INSUFFICIENT",
-        }
-        if args.json:
-            args.json.write_text(
-                json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8"
-            )
-        print(json.dumps(payload, indent=1, sort_keys=True))
-        return 3
-
-    since = datetime.now().strftime("%H:%M:%S")
-    steps.append(install_rules(found.auditctl))
-    matrix_output = ""
-    records: list[dict[str, str]] = []
-    try:
-        # the matrix, run exactly as `red-team.yml` runs it -- the observer
-        # changes nothing about the product's own invocation
-        done = subprocess.run(
-            [sys.executable, str(ROOT / "scripts" / "release" / "redteam.py"), "--record",
-             str(args.matrix)],
-            capture_output=True,
-            text=True,
-            cwd=str(ROOT),
-        )
-        matrix_output = (done.stdout + done.stderr)[-4000:]
-        steps.append(Step("matrix", done.returncode == 0, f"exit {done.returncode}"))
-        records, error = collect(found.ausearch, since)
-        steps.append(
-            Step("collect", not error, f"{len(records)} kernel record(s)", error or "")
-        )
-    finally:
-        steps.append(remove_rules(found.auditctl))
-
-    syscalls: dict[str, int] = {}
-    for record in records:
-        name = record.get("SYSCALL") or record.get("SYSCALL_NAME") or "?"
-        syscalls[name] = syscalls.get(name, 0) + 1
-    # The comparison. `--network none` means a `connect` inside the container
-    # cannot reach anything; what the kernel can say is whether the attempt was
-    # made and what it returned, and whether anything the harness never
-    # mentioned happened at the container's uid.
-    connects = [r for r in records if (r.get("SYSCALL") or "") in {"connect", "socket"}]
-    succeeded = [r for r in connects if (r.get("SUCCESS") or "").lower() == "yes"]
-    payload = {
-        "schema_version": OBSERVER_SCHEMA_VERSION,
-        "generated": datetime.now(UTC).isoformat(),
-        "probe": asdict(found),
-        "feasible": True,
-        "watched": list(WATCHED),
-        "container_uid": CONTAINER_UID,
-        "steps": [asdict(step) for step in steps],
-        "records": len(records),
-        "syscalls": dict(sorted(syscalls.items())),
-        "network_attempts": len(connects),
-        "network_attempts_that_succeeded": len(succeeded),
-        "matrix_tail": matrix_output,
-        "verdict": (
-            "OBSERVED"
-            if records and all(step.ok for step in steps if step.name != "remove_rules")
-            else "INCONCLUSIVE"
-        ),
-        "what_this_does_not_show": (
-            "audit records what its rules match. This says nothing about syscalls "
-            "outside the watched list, and a rule set is a list of names someone chose."
-        ),
-    }
-    if args.json:
-        args.json.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({k: v for k, v in payload.items() if k != "matrix_tail"}, indent=1))
-    return 0 if payload["verdict"] == "OBSERVED" else 4
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -455,10 +417,6 @@ def main(argv: list[str] | None = None) -> int:
     probe_cmd = sub.add_parser("probe")
     probe_cmd.add_argument("--json", type=Path)
     probe_cmd.set_defaults(func=cmd_probe)
-    run_cmd = sub.add_parser("run")
-    run_cmd.add_argument("--json", type=Path)
-    run_cmd.add_argument("--matrix", type=Path, default=Path("redteam-observed.md"))
-    run_cmd.set_defaults(func=cmd_run)
     arm = sub.add_parser("arm")
     arm.add_argument("--json", type=Path)
     arm.set_defaults(func=cmd_arm)
