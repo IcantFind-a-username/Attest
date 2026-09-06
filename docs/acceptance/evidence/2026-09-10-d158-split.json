@@ -1,0 +1,59 @@
+{
+ "certified": [
+  "psf__requests-5414",
+  "pytest-dev__pytest-10051",
+  "pytest-dev__pytest-6197",
+  "pytest-dev__pytest-7324"
+ ],
+ "value_class": [
+  "psf__requests-1142",
+  "psf__requests-1921",
+  "pylint-dev__pylint-4551",
+  "pylint-dev__pylint-4604",
+  "pylint-dev__pylint-7080",
+  "pylint-dev__pylint-7277",
+  "pylint-dev__pylint-8898",
+  "pytest-dev__pytest-5262",
+  "pytest-dev__pytest-5631",
+  "pytest-dev__pytest-7432",
+  "pytest-dev__pytest-7521",
+  "pytest-dev__pytest-7982"
+ ],
+ "no_classifying_observation": [
+  "psf__requests-1724",
+  "psf__requests-2317",
+  "psf__requests-6028",
+  "pylint-dev__pylint-4661",
+  "pylint-dev__pylint-6528",
+  "pylint-dev__pylint-6903",
+  "pytest-dev__pytest-10356",
+  "pytest-dev__pytest-5787",
+  "pytest-dev__pytest-5840",
+  "pytest-dev__pytest-7205",
+  "pytest-dev__pytest-7490",
+  "pytest-dev__pytest-7571"
+ ],
+ "counts": {
+  "certified": 4,
+  "value_class": 12,
+  "no_classifying_observation": 12
+ },
+ "crash_denominator_16": [
+  "psf__requests-1724",
+  "psf__requests-2317",
+  "psf__requests-5414",
+  "psf__requests-6028",
+  "pylint-dev__pylint-4661",
+  "pylint-dev__pylint-6528",
+  "pylint-dev__pylint-6903",
+  "pytest-dev__pytest-10051",
+  "pytest-dev__pytest-10356",
+  "pytest-dev__pytest-5787",
+  "pytest-dev__pytest-5840",
+  "pytest-dev__pytest-6197",
+  "pytest-dev__pytest-7205",
+  "pytest-dev__pytest-7324",
+  "pytest-dev__pytest-7490",
+  "pytest-dev__pytest-7571"
+ ]
+}

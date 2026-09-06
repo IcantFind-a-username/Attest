@@ -37,6 +37,9 @@ sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
 
 from driver_budget import DriverCap  # noqa: E402
 
+sys.path.insert(0, str(ROOT / "src"))
+from attest.certification.intent import INTENT_POLICY_VERSION  # noqa: E402
+
 CORPORA = ROOT / ".attest" / "corpora"
 RUNS = ROOT / "benchmarks" / "attest-v2" / "runs"
 PAIRS = RUNS / "2026-09-05-forward-pairs.json"
@@ -190,6 +193,20 @@ SUMMARY = re.compile(
     r"(?P<candidates>\d+) candidate\(s\): (?P<verified>\d+) verified, "
     r"(?P<unverified>\d+) unverified, (?P<discarded>\d+) discarded"
 )
+# The local `attest review` closing line as it stands today. Neither of the two
+# patterns above matches it, so between the 2026-09-06 run and the 2026-09-10
+# one this table silently read `candidates 0, certified 0` for every pair while
+# the reviews themselves were fine -- a reporting defect, found by the K=5 run
+# (D-184). `eligible` and `attempted` are not in this line and stay unknown.
+LOCAL = re.compile(
+    r"read (?P<read>\d+)/(?P<total>\d+) units(?:, budget-limited)?, "
+    r"candidates (?P<candidates>\d+), drawer (?P<drawer>\d+)[^;]*; "
+    r"verified (?P<verified>\d+), discarded (?P<discarded>\d+)"
+)
+# D-142: a published finding is one contract line, and its level marker starts
+# it. Locally that is the only place publication is stated, because no ledger
+# row here carries the pair's head sha.
+PUBLISHED_LINE = re.compile(r"^\[red\] ", re.M)
 # A verification line is one of three things, and only the third is the product
 # answering about the code: the budget ran out before a reproduction was bought,
 # the host or the image could not run one, or the policy reached a verdict.
@@ -268,6 +285,7 @@ def cmd_table(args: argparse.Namespace) -> int:
         pair = pairs[head]
         status = STATUS.search(body)
         summary = SUMMARY.search(body)
+        local = LOCAL.search(body)
         verdicts = [
             {"finding": match.group("finding"), "reason": match.group("reason").strip()}
             for match in VERIFY.finditer(body)
@@ -287,7 +305,11 @@ def cmd_table(args: argparse.Namespace) -> int:
                 "candidates": int(
                     status.group("candidates")
                     if status
-                    else (summary.group("candidates") if summary else 0)
+                    else (
+                        summary.group("candidates")
+                        if summary
+                        else (local.group("candidates") if local else 0)
+                    )
                 ),
                 "eligible": int(status.group("eligible")) if status else None,
                 # without the status line the number of *attempts* is not
@@ -297,12 +319,21 @@ def cmd_table(args: argparse.Namespace) -> int:
                 "certified": int(
                     status.group("certified")
                     if status
-                    else (summary.group("verified") if summary else 0)
+                    else (
+                        summary.group("verified")
+                        if summary
+                        else (local.group("verified") if local else 0)
+                    )
                 ),
                 # published <= certified, and a review that certified nothing
                 # published nothing
-                "published": int(status.group("published")) if status else 0,
+                "published": (
+                    int(status.group("published"))
+                    if status
+                    else len(PUBLISHED_LINE.findall(body))
+                ),
                 "status_line": bool(status),
+                "local_line": bool(local),
                 "budget_refused": len(refused),
                 "infrastructure_blocked": len(blocked),
                 # D-146's before/after columns
@@ -330,7 +361,11 @@ def cmd_table(args: argparse.Namespace) -> int:
     payload = {
         "schema_version": "attest.forward-pair-reviews.v1",
         "generated": datetime.now(UTC).isoformat(timespec="seconds"),
-        "policy": "attest.intent.v4.1",
+        # Read from the product, not written down here: this string was a
+        # literal `attest.intent.v4.1` and stayed that way through D-174's move
+        # to v4.2, so a K=5 table generated today claimed a policy version the
+        # run did not use.
+        "policy": INTENT_POLICY_VERSION,
         "direction": "fwd",
         "n_distinct_pairs": len(pairs),
         "reviewed": len(reviewed),

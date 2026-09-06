@@ -12,6 +12,30 @@ only published ref is a pilot tag, and the sections below say plainly which is w
 
 ## Unreleased — since `v0.1.0-rc.1`
 
+### The factory K, measured, 2026-09-10 ([report](docs/acceptance/2026-09-10-factory-k5.md))
+
+- **This repository stopped overriding the shipped `samples`** (D-183). `pull-request.yml` set
+  `samples: "4"` under a comment claiming 4 was the action's own default; it is **5**. The one
+  repository that reviews itself was the one place the shipped configuration never ran, which
+  is why every empirical number here was a K=4 number.
+- **At the factory K=5 the forward-pair corpus still publishes three receipts, and not the same
+  three.** `click cd4674a6de` — one of the three this corpus has ever published — **defers on
+  the discovery share before reading any code**: five samples at `budget-usd: "1.00"` project
+  $0.3218 against a $0.30 ceiling, a 7% overshoot. **If you review large first change units,
+  `budget-usd: "1.06"` or `samples: "4"` buys that finding back.** In the other direction
+  `packaging 527be81862` now certifies, which is **D-162's interpreter range** rather than K:
+  its image was built on Python 3.9 and would not build; it is built on 3.12 and does.
+- **An old `pytest` has been unreviewable since 2026-09-07, and nothing said so** (D-185, open).
+  D-162 set the reproduction range to 3.10–3.13 on the ground that a project that cannot
+  install on 3.10 is a bootstrap failure. A 2019–2022 `pytest` installs fine on 3.12 and then
+  cannot *collect* — `TypeError: required field "lineno" missing from alias` — and the review
+  reports `no JUnit artifact`, which reads as a broken host. **If your project's own package
+  supplies the test runner, or it cannot run under 3.10+, this affects you**; the repair is in
+  the backlog, not in this ref.
+- **Two owner decisions, no code**: a caller that is itself a test is not a gate witness and the
+  gate stays in shadow (D-181); the publication rule stays `V ∧ intent ∧ per-unit family cap`
+  and the replay of the alternative is filed as a baseline (D-182).
+
 ### The release-readiness acceptance, 2026-09-09 ([report](docs/acceptance/2026-09-09-release-readiness.md))
 
 - **A review with nothing left to say posted itself anyway** (D-180). Found by this repository's

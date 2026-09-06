@@ -42,7 +42,13 @@ def cmd_forward(args: argparse.Namespace) -> int:
         cells = []
         for f in FIELDS:
             x, y = ra.get(f), rb.get(f)
-            cells.append(f"{x}" if x == y else f"**{x}→{y}**")
+            # `eligible` is not in the local closing line, so the K=5 column does
+            # not carry it. That is *unknown*, not *changed*, and the table says
+            # so rather than printing a fall to zero that did not happen.
+            if y is None:
+                cells.append(f"{x} → n/a")
+            else:
+                cells.append(f"{x}" if x == y else f"**{x}→{y}**")
         va, vb = _verdicts(ra), _verdicts(rb)
         moved = [k for k in set(va) | set(vb) if va.get(k) != vb.get(k)]
         if moved:

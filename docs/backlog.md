@@ -174,3 +174,11 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   a reason and an `actionless` category and nothing records either, so a green or yellow note
   dropped for format leaves no trace an operator could find — unlike the structural notes, which
   get a ledger row each. One `ledger.append` at the four gated builders would close it.
+- **A project outside the reproduction interpreter range fails as a missing artifact** (D-185,
+  2026-09-10). D-162's range is 3.10–3.13 and a lower declared floor gets 3.12; a tree that
+  installs there and then cannot *collect* — an old `pytest`, whose assertion rewriter raises
+  `TypeError: required field "lineno" missing from alias` — produces
+  `no JUnit artifact` rather than a refusal. 7 of the 9 `pytest` cases of the held-out sample
+  are unreviewable and have been since 2026-09-07; nothing said so. The choice is between
+  widening the range, pinning the interpreter per project, and turning a collection-time
+  interpreter incompatibility into a stated refusal in D-159's register.

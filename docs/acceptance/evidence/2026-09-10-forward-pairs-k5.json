@@ -1,0 +1,452 @@
+{
+  "attempted_reproductions": 26,
+  "budget_refused": 0,
+  "certified": 3,
+  "direction": "fwd",
+  "generated": "2026-09-06T19:51:13+00:00",
+  "infrastructure_blocked": 0,
+  "n_distinct_pairs": 11,
+  "policy": "attest.intent.v4.2",
+  "policy_answered": 26,
+  "probe_refused": 3,
+  "published": 3,
+  "reviewed": 11,
+  "rows": [
+    {
+      "attempted": 1,
+      "base": "75723b7720",
+      "budget_refused": 0,
+      "candidates": 2,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": null,
+      "fixes": [
+        "Cope with `field_transformer` being a generator (#1417)"
+      ],
+      "head": "e048efcb39",
+      "infrastructure_blocked": 0,
+      "local_line": true,
+      "policy_answered": 1,
+      "probe_refused": 1,
+      "published": 0,
+      "ran": true,
+      "repo": "attrs",
+      "status_line": false,
+      "unfaithful": 0,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "2579b69fc0",
+          "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+        }
+      ]
+    },
+    {
+      "attempted": 1,
+      "base": "564fade925",
+      "budget_refused": 0,
+      "candidates": 1,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": null,
+      "fixes": [
+        "Allow single attributes to be excluded"
+      ],
+      "head": "7c85d68de2",
+      "infrastructure_blocked": 0,
+      "local_line": true,
+      "policy_answered": 1,
+      "probe_refused": 0,
+      "published": 0,
+      "ran": true,
+      "repo": "attrs",
+      "status_line": false,
+      "unfaithful": 0,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "4c4ead60b3",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        }
+      ]
+    },
+    {
+      "attempted": 10,
+      "base": "cfa01eeb78",
+      "budget_refused": 0,
+      "candidates": 11,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": null,
+      "fixes": [
+        "Make `prompt`/`ParamType` typing work without runtime `typing_extensio"
+      ],
+      "head": "0585f456ba",
+      "infrastructure_blocked": 0,
+      "local_line": true,
+      "policy_answered": 10,
+      "probe_refused": 1,
+      "published": 0,
+      "ran": true,
+      "repo": "click",
+      "status_line": false,
+      "unfaithful": 0,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "5f38006c2c",
+          "reason": "probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))"
+        },
+        {
+          "finding": "cbd39d8fb7",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        },
+        {
+          "finding": "0f367118c2",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        },
+        {
+          "finding": "1a316517b9",
+          "reason": "ranked below verification cap: 4 of src/click/termui.py's candidates by cluster size and static credibility; this review buys at most 3 reproduction(s) per change unit"
+        },
+        {
+          "finding": "30a5ce2d3c",
+          "reason": "ranked below verification cap: 5 of src/click/termui.py's candidates by cluster size and static credibility; this review buys at most 3 reproduction(s) per change unit"
+        },
+        {
+          "finding": "34128dc2a2",
+          "reason": "ranked below verification cap: 6 of src/click/termui.py's candidates by cluster size and static credibility; this review buys at most 3 reproduction(s) per change unit"
+        },
+        {
+          "finding": "99e1314cc4",
+          "reason": "ranked below verification cap: 7 of src/click/termui.py's candidates by cluster size and static credibility; this review buys at most 3 reproduction(s) per change unit"
+        },
+        {
+          "finding": "cac89100da",
+          "reason": "ranked below verification cap: 8 of src/click/termui.py's candidates by cluster size and static credibility; this review buys at most 3 reproduction(s) per change unit"
+        },
+        {
+          "finding": "4615700df3",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        },
+        {
+          "finding": "f6d19e9783",
+          "reason": "ranked below verification cap: 9 of src/click/termui.py's candidates by cluster size and static credibility; this review buys at most 3 reproduction(s) per change unit"
+        }
+      ]
+    },
+    {
+      "attempted": 0,
+      "base": "d5fbd32842",
+      "budget_refused": 0,
+      "candidates": 0,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": null,
+      "fixes": [
+        "Fix get_parameter_source() during type conversion and eager callbacks",
+        "Fix broken fish completion and multiline help string",
+        "pager doesn't close std streams"
+      ],
+      "head": "cd4674a6de",
+      "infrastructure_blocked": 0,
+      "local_line": true,
+      "policy_answered": 0,
+      "probe_refused": 0,
+      "published": 0,
+      "ran": true,
+      "repo": "click",
+      "status_line": false,
+      "unfaithful": 0,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": []
+    },
+    {
+      "attempted": 7,
+      "base": "c69643b60c",
+      "budget_refused": 0,
+      "candidates": 8,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": null,
+      "fixes": [
+        "Fix broken fish completion and multiline help string"
+      ],
+      "head": "19fd4d6e18",
+      "infrastructure_blocked": 0,
+      "local_line": true,
+      "policy_answered": 7,
+      "probe_refused": 0,
+      "published": 0,
+      "ran": true,
+      "repo": "click",
+      "status_line": false,
+      "unfaithful": 0,
+      "value_class_certified": [],
+      "value_class_drawered": [
+        {
+          "finding": "8397d3f1d5",
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+        },
+        {
+          "finding": "50c92eacb6",
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+        },
+        {
+          "finding": "d7ae2297c3",
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+        }
+      ],
+      "verdicts": [
+        {
+          "finding": "8397d3f1d5",
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+        },
+        {
+          "finding": "50c92eacb6",
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+        },
+        {
+          "finding": "d7ae2297c3",
+          "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+        },
+        {
+          "finding": "d9da8ab508",
+          "reason": "ranked below verification cap: 4 of src/click/shell_completion.py's candidates by cluster size and static credibility; this review buys at most 3 reproduction(s) per change unit"
+        },
+        {
+          "finding": "eae3dab7a5",
+          "reason": "ranked below verification cap: 5 of src/click/shell_completion.py's candidates by cluster size and static credibility; this review buys at most 3 reproduction(s) per change unit"
+        },
+        {
+          "finding": "155ef5b6b8",
+          "reason": "ranked below verification cap: 6 of src/click/shell_completion.py's candidates by cluster size and static credibility; this review buys at most 3 reproduction(s) per change unit"
+        },
+        {
+          "finding": "aaab2e272a",
+          "reason": "ranked below verification cap: 7 of src/click/shell_completion.py's candidates by cluster size and static credibility; this review buys at most 3 reproduction(s) per change unit"
+        }
+      ]
+    },
+    {
+      "attempted": 2,
+      "base": "64048c1106",
+      "budget_refused": 0,
+      "candidates": 3,
+      "certified": 1,
+      "certified_bundles": [
+        {
+          "bundle": ".attest/evidence/20260907-034433-ef9d97e7/d73089b5a3",
+          "evidence_class": "regression_reproduced",
+          "value_mismatch": false
+        }
+      ],
+      "direction": "fwd",
+      "eligible": null,
+      "fixes": [
+        "datetimes are timezone-aware utc"
+      ],
+      "head": "3703fbdedd",
+      "infrastructure_blocked": 0,
+      "local_line": true,
+      "policy_answered": 2,
+      "probe_refused": 0,
+      "published": 1,
+      "ran": true,
+      "repo": "itsdangerous",
+      "status_line": false,
+      "unfaithful": 0,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "25bfa3cfaf",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        },
+        {
+          "finding": "72859502fb",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        }
+      ]
+    },
+    {
+      "attempted": 1,
+      "base": "d0c20f5946",
+      "budget_refused": 0,
+      "candidates": 1,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": null,
+      "fixes": [
+        "Revert \"first_true: pred -> predicate\""
+      ],
+      "head": "d63a26e56e",
+      "infrastructure_blocked": 0,
+      "local_line": true,
+      "policy_answered": 1,
+      "probe_refused": 0,
+      "published": 0,
+      "ran": true,
+      "repo": "more-itertools",
+      "status_line": false,
+      "unfaithful": 0,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "b115ea9d69",
+          "reason": "binding: the reproduction exercises none of the changed lines of more_itertools/recipes.py"
+        }
+      ]
+    },
+    {
+      "attempted": 1,
+      "base": "6235e945d9",
+      "budget_refused": 0,
+      "candidates": 1,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": null,
+      "fixes": [
+        "Fix random_product() as well"
+      ],
+      "head": "2deea20ead",
+      "infrastructure_blocked": 0,
+      "local_line": true,
+      "policy_answered": 1,
+      "probe_refused": 1,
+      "published": 0,
+      "ran": true,
+      "repo": "more-itertools",
+      "status_line": false,
+      "unfaithful": 0,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "39a2ce1267",
+          "reason": "probe observation is not stable on base: the merge base returned (1, 2), then the merge base returned (0, 0)"
+        }
+      ]
+    },
+    {
+      "attempted": 0,
+      "base": "3331507287",
+      "budget_refused": 0,
+      "candidates": 2,
+      "certified": 1,
+      "certified_bundles": [
+        {
+          "bundle": ".attest/evidence/20260907-034615-17d8eecf/aef0ec6452",
+          "evidence_class": "regression_reproduced",
+          "value_mismatch": false
+        }
+      ],
+      "direction": "fwd",
+      "eligible": null,
+      "fixes": [
+        "Fix product_index() with iterator input"
+      ],
+      "head": "71b76842d3",
+      "infrastructure_blocked": 0,
+      "local_line": true,
+      "policy_answered": 0,
+      "probe_refused": 0,
+      "published": 1,
+      "ran": true,
+      "repo": "more-itertools",
+      "status_line": false,
+      "unfaithful": 0,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": []
+    },
+    {
+      "attempted": 2,
+      "base": "935db916c7",
+      "budget_refused": 0,
+      "candidates": 2,
+      "certified": 0,
+      "certified_bundles": [],
+      "direction": "fwd",
+      "eligible": null,
+      "fixes": [
+        "Reduce groupby.__next__ calls in all_equal"
+      ],
+      "head": "390a3db74c",
+      "infrastructure_blocked": 0,
+      "local_line": true,
+      "policy_answered": 2,
+      "probe_refused": 0,
+      "published": 0,
+      "ran": true,
+      "repo": "more-itertools",
+      "status_line": false,
+      "unfaithful": 0,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "e04874a4ad",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        },
+        {
+          "finding": "119e489be4",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        }
+      ]
+    },
+    {
+      "attempted": 1,
+      "base": "e934f4896e",
+      "budget_refused": 0,
+      "candidates": 3,
+      "certified": 1,
+      "certified_bundles": [
+        {
+          "bundle": ".attest/evidence/20260907-034713-a15435a5/02f98e819f",
+          "evidence_class": "regression_reproduced",
+          "value_mismatch": false
+        }
+      ],
+      "direction": "fwd",
+      "eligible": null,
+      "fixes": [
+        "Revert \"Specifier.version now returns Version, not string\""
+      ],
+      "head": "527be81862",
+      "infrastructure_blocked": 0,
+      "local_line": true,
+      "policy_answered": 1,
+      "probe_refused": 0,
+      "published": 1,
+      "ran": true,
+      "repo": "packaging",
+      "status_line": false,
+      "unfaithful": 0,
+      "value_class_certified": [],
+      "value_class_drawered": [],
+      "verdicts": [
+        {
+          "finding": "216b6376af",
+          "reason": "pytest passed on head in 3/3 runs; base not executed"
+        }
+      ]
+    }
+  ],
+  "schema_version": "attest.forward-pair-reviews.v1",
+  "unfaithful": 0,
+  "value_class_certified": 0,
+  "value_class_drawered": 3
+}
