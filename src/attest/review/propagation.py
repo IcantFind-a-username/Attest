@@ -47,6 +47,22 @@ from attest.review.impact import (
 )
 
 PROPAGATION_POLICY_VERSION = "attest.propagation.unhandled-exception.v1"
+
+# Owner decision 2 of 2026-09-07: this class stays, and stays a **shadow**.
+#
+# It is the better of yellow (b)'s two negatives -- *rare*, not *unverifiable*:
+# on the 79 units of the 2026-09-06 scan it fired on 0 forward pairs and 0
+# controls, with 0% control noise against the owner's 3% ceiling, and of 198
+# changed functions 135 added no call at all while 43 called a name defined more
+# than once. Those refusals are informative, and it costs $0.00 to keep taking
+# them. What it has not earned is an author's attention: a level that has never
+# said anything is not yet a level a reader should be asked to read.
+#
+# So it runs on every review, writes `propagation_note` rows to the ledger, and
+# reaches no author-visible surface -- no inline comment, no line in the summary
+# body. This is the arrangement D-137 gave the gate level. Publishing it is this
+# one flag.
+PROPAGATION_SHADOW = True
 # yellow's cap is shared between (a) and (b) (D-151); this is the bound on how
 # many this class may contribute before that cap is applied.
 MAX_NOTES = 2

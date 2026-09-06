@@ -1049,11 +1049,11 @@ def test_compare_arms_measures_all_three_arms_with_honest_evidence(tmp_path: Pat
         for run in measurements.runs
         if run.arm == ARM_PRODUCT and run.oracle_spend_usd > 0
     )
-    # 0.0144, not 0.0108: D-151 adds yellow (b)'s one hypothesis call per review,
-    # and unlike green's wording call it is a *detection* call, so the product arm
-    # pays it on every case. The comparison's spend column moved because the
-    # product's price did.
-    assert positive_product_run.spend_usd == pytest.approx(0.0144)
+    # 0.0108, not 0.0144: D-169 closed yellow (b)'s null/Optional class, so the
+    # product arm no longer pays its detection call on every case. This is the
+    # same figure the arm had before D-151 added that call, and it is the whole
+    # of what closing the class buys -- about $0.0036 a review here.
+    assert positive_product_run.spend_usd == pytest.approx(0.0108)
     assert positive_product_run.oracle_spend_usd == pytest.approx(0.0036)
     product_rows = [
         row

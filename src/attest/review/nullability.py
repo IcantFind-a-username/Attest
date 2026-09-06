@@ -63,6 +63,28 @@ from dataclasses import dataclass
 from typing import Any
 
 NULLABILITY_POLICY_VERSION = "attest.nullability.premised-hypothesis.v2"
+
+# Owner decision 2 of 2026-09-07: **off**, and off is the product's setting.
+#
+# The class was measured twice on the same 79 units -- 11 forward pairs and 68
+# null controls -- under two rule versions. `v1` (D-151): 13 hypotheses, **0**
+# surviving all three premises, 0 units triggering. `v2` (D-165), with premise
+# (i) reading a `None` default, the function's own `is None` test and a
+# `return None` in the source function's body instead of an annotation the
+# corpus does not carry: 15 hypotheses, **still 0**. Premise (i) fails first on
+# 13 of the 15, and 10 of those name a parameter with no annotation, no `None`
+# default and no `is None` test anywhere in its function -- so the wall was not
+# only annotations.
+#
+# It costs **one model call on every review** to keep that option open. Its
+# sibling class -- exception propagation, D-164 -- asks a comparable question
+# for $0.00. Two rule versions and 158 unit-measurements produced no sentence,
+# so the option is closed rather than paid for indefinitely. The code, the
+# rules and the REDs stay: turning it back on is this one flag, and the
+# argument for doing so (the corpus that defeated it has no annotations; the
+# owner's own repositories do) is written into the README's limitations where a
+# reader can weigh it.
+NULLABILITY_ENABLED = False
 CATEGORY = "nullability"
 
 # The model is asked for candidates, not for conclusions, and the prompt says so.

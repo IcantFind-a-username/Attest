@@ -57,6 +57,7 @@ from attest.review.nullability import (
     HYPOTHESIS_MAX_TOKENS,
     HYPOTHESIS_SCHEMA,
     HYPOTHESIS_SYSTEM,
+    NULLABILITY_ENABLED,
     NULLABILITY_MAX_FUNCTION_LINES,
     NULLABILITY_MAX_UNITS_PER_CALL,
     NULLABILITY_POLICY_VERSION,
@@ -66,7 +67,7 @@ from attest.review.nullability import (
 )
 from attest.review.nullability import notes_for_change as nullability_notes_for_change
 from attest.review.output_contract import LEVEL_MARKERS, budget_unverified
-from attest.review.propagation import PropagationNote
+from attest.review.propagation import PROPAGATION_SHADOW, PropagationNote
 from attest.review.propagation import notes_for_change as propagation_for_change
 from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
@@ -1394,6 +1395,11 @@ def nullability_notes(
     Like green and yellow (a): any failure anywhere here is silence. It never
     affects the red path and never delays a receipt.
     """
+    if not NULLABILITY_ENABLED:
+        # owner decision 2 of 2026-09-07: closed. Before the changed-line walk,
+        # before the tree read and above all before the model call, so a closed
+        # class costs exactly $0.00 rather than a little less.
+        return []
     try:
         touched = _changed_line_numbers(repo, base_sha, head_sha)
         if not touched:
@@ -1963,9 +1969,18 @@ def run_ci(
         null_comments = nullability_comments(nullability, changed_lines)[
             : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments))
         ]
-        propagation_inline = propagation_comments(propagation, changed_lines)[
-            : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments) - len(null_comments))
-        ]
+        # Owner decision 2 of 2026-09-07: yellow (b)'s second class stays, and
+        # stays a **shadow**. It fired on 0 of 79 units with 0% control noise,
+        # which is a level that has not yet earned an author's attention, and it
+        # is free -- so it keeps being measured into the ledger and reaches no
+        # author-visible surface at all (the arrangement D-137 gave the gate).
+        propagation_inline = (
+            []
+            if PROPAGATION_SHADOW
+            else propagation_comments(propagation, changed_lines)[
+                : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments) - len(null_comments))
+            ]
+        )
         review_comments = [
             *inline_comments(inline_results, finding_evidence),
             *green_comments,
@@ -2073,7 +2088,7 @@ def run_ci(
             units=_units_read(ledger, task_id),
             impact=yellow,
             nullability=nullability,
-            propagation=propagation,
+            propagation=[] if PROPAGATION_SHADOW else propagation,
             # D-161: a silence bought out by the ceiling says how many
             # candidates it stopped
             unverified=budget_unverified(review.verification_reasons),
