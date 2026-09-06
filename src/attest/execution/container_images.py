@@ -195,10 +195,23 @@ def manifest_digest(tree: Path, roots: list[ProjectRoot]) -> str:
 
 
 _VERSION_FILE_RE = re.compile(r"""^\s*(?:__version__|version)\s*=\s*['"]([^'"]+)['"]""", re.M)
+# `_version.py` is **content from the tree under review**, and what this regex
+# captures is interpolated into a Dockerfile that `docker build` executes with
+# network access. `[^'"]` matches newlines, so an unvalidated capture is a
+# Dockerfile injection. A version is a short run of version characters or it is
+# not used (independent review of 2026-09-09, finding 1).
+_SAFE_VERSION_RE = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._+!-]{0,63}\Z")
+
+
+# Every spelling of "this project takes its version from the repository". They
+# all end in setuptools_scm and all honour SETUPTOOLS_SCM_PRETEND_VERSION;
+# `hatch-vcs` is the one that reaches it through hatchling, and missing it cost
+# `tenacity` its whole image build (D-176).
+_SCM_MARKERS = ("setuptools_scm", "setuptools-scm", "hatch_vcs", "hatch-vcs")
 
 
 def scm_pretend_version(tree: Path, roots: list[ProjectRoot]) -> str | None:
-    """For a project that versions itself with setuptools_scm: the version its
+    """For a project that versions itself from the repository: the version its
     committed ``_version.py`` carries (the tree is copied without ``.git``, so
     scm metadata is absent at build time); None when scm is not used."""
     uses_scm = False
@@ -210,7 +223,7 @@ def scm_pretend_version(tree: Path, roots: list[ProjectRoot]) -> str | None:
                     text = path.read_text(errors="replace")
                 except OSError:
                     continue
-                if "setuptools_scm" in text or "setuptools-scm" in text:
+                if any(marker in text for marker in _SCM_MARKERS):
                     uses_scm = True
     if not uses_scm:
         return None
@@ -221,7 +234,7 @@ def scm_pretend_version(tree: Path, roots: list[ProjectRoot]) -> str | None:
             found = _VERSION_FILE_RE.search(candidate.read_text(errors="replace"))
         except OSError:
             continue
-        if found:
+        if found and _SAFE_VERSION_RE.match(found.group(1)):
             return found.group(1)
     return "0.0.1"
 

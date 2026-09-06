@@ -26,8 +26,9 @@ finding. It only refuses to pretend.
 
 from __future__ import annotations
 
+import re
 import tomllib
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -171,21 +172,50 @@ def preflight(tree: Path) -> Unsupported | None:
     return None
 
 
+# Which build step failed, as the builder itself names it. BuildKit prints the
+# failing command once (`process "/bin/sh -c <cmd>" did not complete
+# successfully`) and marks its Dockerfile line with `>>>`, while echoing every
+# *neighbouring* line as plain context. A search over the whole reason therefore
+# reads the successful `RUN pip install pytest` two lines above the failure and
+# calls a project that will not install a missing pytest, which is the wrong
+# sentence and the wrong next step (measured on `tenacity`, 2026-09-09).
+_FAILED_COMMAND_RE = re.compile(r'process "(?:/bin/sh -c )?(.+?)" did not complete', re.S)
+_MARKED_DOCKERFILE_LINE_RE = re.compile(r"^\s*\d+\s*\|\s*>>>\s*(.+)$", re.M)
+
+
+def failed_build_step(reason: str) -> str | None:
+    """The command a bootstrap failure actually died on, or None if the reason
+    does not name one (a resolver error, a timeout, a daemon refusal)."""
+    if type(reason) is not str or not reason:
+        return None
+    found = _FAILED_COMMAND_RE.search(reason)
+    if found:
+        return found.group(1).strip()
+    marked = _MARKED_DOCKERFILE_LINE_RE.search(reason)
+    return marked.group(1).strip() if marked else None
+
+
 def from_reason(reason: str) -> Unsupported | None:
     """The fixed refusal behind a backend or bootstrap reason, if it is one.
 
     The reason strings are the product's own (`select_backend`,
     `container_images._bootstrap_failure`); anything else is a real DEFER with
-    its own sentence and is left alone.
+    its own sentence and is left alone -- including a bootstrap failure whose
+    cause is the project rather than the toolchain, which `failure-modes.md`
+    already answers under *environment bootstrap failed*.
     """
     if type(reason) is not str or not reason:
         return None
     lowered = reason.lower()
     if "docker not found" in lowered or "docker is not installed" in lowered:
         return NO_DOCKER
-    if "environment bootstrap failed" in lowered and "pytest" in lowered:
-        return NO_PYTEST
-    return None
+    if "environment bootstrap failed" not in lowered:
+        return None
+    step = failed_build_step(reason)
+    if step is not None:
+        # decided on the failing step alone; the echoed context cannot vote
+        return NO_PYTEST if "pytest" in step.lower() else None
+    return NO_PYTEST if "pytest" in lowered else None
 
 
 def declares_pytest(tree: Path) -> bool:
@@ -196,3 +226,79 @@ def declares_pytest(tree: Path) -> bool:
     into the image. Exposed because the reports say how often it is true.
     """
     return _declares_pytest(tree)
+
+
+# --- what a failed provider call says (D-179) ------------------------------
+# Every proposal call failing is one deferral with several causes, and only one
+# of them is the product's problem. A 429 or a 529 means the operator's own API
+# account is momentarily out of headroom: nothing was spent, nothing is wrong
+# with the change, and re-running works. The general sentence said none of that.
+PROVIDER_SAMPLES_FAILED = "all provider samples failed or were malformed"
+PROVIDER_RATE_LIMITED = (
+    "the model API refused every proposal for rate or capacity (HTTP 429/529); "
+    "nothing was spent and nothing was reviewed -- re-run this job, or lower "
+    "`samples` if it happens on every run"
+)
+PROVIDER_UNREACHABLE = (
+    "the model API could not be reached from this runner (network or DNS); nothing "
+    "was spent and nothing was reviewed -- check the runner's egress, then re-run "
+    "this job"
+)
+_RATE_LIMIT_MARKERS = (
+    "429",
+    "529",
+    "rate_limit",
+    "rate limit",
+    "overloaded",
+    "too many requests",
+)
+_UNREACHABLE_MARKERS = (
+    "apiconnectionerror",
+    "connection error",
+    "connectionerror",
+    "connection refused",
+    "connection reset",
+    "network is unreachable",
+    "name or service not known",
+    "nodename nor servname",
+    "temporary failure in name resolution",
+    "failed to establish a new connection",
+    "read timed out",
+    "connect timeout",
+    "connection timed out",
+)
+
+
+def _all_match(errors: Sequence[str], markers: Sequence[str]) -> bool:
+    lowered = [str(error).lower() for error in errors]
+    return bool(lowered) and all(
+        any(marker in error for marker in markers) for error in lowered
+    )
+
+
+def provider_defer_reason(
+    transport_errors: Sequence[str], sample_errors: Sequence[str]
+) -> str:
+    """The deferral sentence for a proposal stage where nothing came back.
+
+    Two causes are the operator's environment rather than the change or the
+    product, and each gets its own sentence and its own next step: the API
+    refusing for rate or capacity, and the runner not reaching it at all.
+    Everything else keeps the general sentence, because guessing a cause is
+    worse than naming none.
+
+    **Only transport errors are read** (independent review of 2026-09-09,
+    finding 3). A malformed-answer failure embeds the model's own text, where
+    `429` is an ordinary string in a review of retry code, and its reservation
+    is *settled* rather than cancelled -- so classifying over it could assert
+    both a wrong cause and `nothing was spent` when money was. Both sentences
+    below are reachable only when **every** failure was a transport error,
+    which is exactly the case in which nothing was charged.
+    """
+    if len(transport_errors) != len(sample_errors):
+        return PROVIDER_SAMPLES_FAILED
+    if _all_match(transport_errors, _RATE_LIMIT_MARKERS):
+        return PROVIDER_RATE_LIMITED
+    if _all_match(transport_errors, _UNREACHABLE_MARKERS):
+        return PROVIDER_UNREACHABLE
+    return PROVIDER_SAMPLES_FAILED

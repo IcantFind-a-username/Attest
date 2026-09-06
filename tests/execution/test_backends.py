@@ -307,3 +307,89 @@ def test_a_reusable_image_is_found_and_addressed_by_id_not_by_tag(
     assert image.digest == identifier
     assert image.tag.startswith("attest-repro:")
     assert not any(args[1:2] == ["build"] for args in calls), "a warm image was rebuilt"
+
+
+def test_a_hatch_vcs_project_pretends_its_version_like_a_setuptools_scm_one(
+    tmp_path: Path,
+) -> None:
+    """`hatch-vcs` is setuptools_scm behind a different name in `pyproject.toml`,
+    and it fails identically when the tree is copied without `.git`:
+    `LookupError: Error getting the version from source 'vcs'`. Measured on
+    `tenacity` at `26f719d` (release-readiness acceptance, 2026-09-09), where the
+    whole image build died at `pip install /attest/build` and the repository was
+    reported unreviewable. The version file it names is gitignored, so the
+    fallback is what has to carry it."""
+    from attest.execution.container_images import (
+        discover_roots,
+        dockerfile,
+        scm_pretend_version,
+    )
+
+    (tmp_path / "pyproject.toml").write_text(
+        '[build-system]\nrequires = ["hatchling", "hatch-vcs"]\n'
+        '[tool.hatch.version]\nsource = "vcs"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    roots = discover_roots(tmp_path)
+
+    scm = scm_pretend_version(tmp_path, roots)
+
+    assert scm == "0.0.1"
+    assert "ENV SETUPTOOLS_SCM_PRETEND_VERSION=0.0.1" in dockerfile("3.13", roots, scm)
+
+
+def test_a_version_string_from_the_reviewed_tree_cannot_write_a_dockerfile_step(
+    tmp_path: Path,
+) -> None:
+    """Independent review of 2026-09-09, finding 1. `_version.py` is **content
+    from the tree under review**, and its captured value is interpolated into a
+    generated Dockerfile that `docker build` runs with network access. The
+    capture class `[^'"]+` matches newlines, so a crafted version file could
+    append its own `RUN` step. Nothing about a version number needs a newline."""
+    from attest.execution.container_images import (
+        discover_roots,
+        dockerfile,
+        scm_pretend_version,
+    )
+
+    (tmp_path / "pyproject.toml").write_text(
+        '[build-system]\nrequires = ["setuptools", "setuptools-scm"]\n', encoding="utf-8"
+    )
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "pkg" / "_version.py").write_text(
+        'version = "1.0.0\nRUN echo pwned > /tmp/pwned\n"\n', encoding="utf-8"
+    )
+    roots = discover_roots(tmp_path)
+
+    scm = scm_pretend_version(tmp_path, roots)
+
+    assert scm is not None
+    assert "\n" not in scm
+    assert "RUN" not in scm
+    text = dockerfile("3.12", roots, scm)
+    assert "pwned" not in text
+    assert sum(1 for line in text.splitlines() if line.startswith("RUN")) == len(
+        [line for line in text.splitlines() if line.startswith("RUN")]
+    )
+    assert all(
+        line.startswith(("FROM ", "ENV ", "RUN ", "COPY "))
+        for line in text.splitlines()
+        if line.strip()
+    )
+
+
+def test_an_ordinary_version_string_is_still_used(tmp_path: Path) -> None:
+    from attest.execution.container_images import discover_roots, scm_pretend_version
+
+    (tmp_path / "pyproject.toml").write_text(
+        '[build-system]\nrequires = ["hatchling", "hatch-vcs"]\n', encoding="utf-8"
+    )
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "_version.py").write_text(
+        'version = "7.4.0.dev3+g1a2b3c4"\n', encoding="utf-8"
+    )
+
+    assert scm_pretend_version(tmp_path, discover_roots(tmp_path)) == "7.4.0.dev3+g1a2b3c4"
