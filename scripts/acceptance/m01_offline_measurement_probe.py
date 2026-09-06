@@ -266,9 +266,22 @@ def _run(args: argparse.Namespace) -> int:
             # the *source root under measurement* has it -- this script also runs
             # against an older baseline worktree, where the field does not exist
             # and where the legacy generator is the only one there is.
+            # Two keyword arguments passed only when the *source root under
+            # measurement* has them, because this probe also runs against an
+            # older baseline worktree where neither field exists.
+            # `probe_generation` (D-146): the cassette was recorded against the
+            # legacy generator, and a recording cannot answer a question it never
+            # heard. `verification_cap_per_unit` (D-168): the product buys at
+            # most three reproductions per changed file, and all five of this
+            # cassette's candidates are anchored in `calc.py` -- so the shipped
+            # cap would replay four of the five recorded generator responses and
+            # measure a different scenario. The cassette's own candidate count is
+            # what this probe is a measurement *of*; the schedule is measured
+            # elsewhere.
             config=ReviewConfig(k_samples=2, max_findings=3, tier0_commands=[],
-                **({"probe_generation": False}
-                   if any(f.name == "probe_generation" for f in fields(ReviewConfig)) else {})),
+                **{name: value for name, value in
+                   (("probe_generation", False), ("verification_cap_per_unit", 5))
+                   if any(f.name == name for f in fields(ReviewConfig))}),
             limits=ExecutorLimits(wall_timeout_s=30.0),
             truth=ProjectTruth(defects=(truth,), fixed_ref=fixed))
         product, oracle = Provider(), Provider(); store = ArtifactStore(root / "artifacts")

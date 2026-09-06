@@ -501,6 +501,12 @@ def _snapshot_project_evaluation_request(
         # D-146: how a reproduction is written is policy, and a harness that
         # silently reset it would report a measurement of the wrong generator
         probe_generation=request.config.probe_generation,
+        # D-168, for the same reason: which candidates buy a reproduction is
+        # policy. A harness that reset the cap would report a measurement of a
+        # schedule the caller did not ask for -- and did, until this line: the
+        # M-01 cassette's five candidates all anchor in one file, so the shipped
+        # cap replayed four of its five recorded generator responses.
+        verification_cap_per_unit=request.config.verification_cap_per_unit,
     )
     truth = request.truth
     if truth is not None:
