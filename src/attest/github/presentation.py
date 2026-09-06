@@ -38,7 +38,13 @@ from attest.certification.types import CertifiedFinding
 from attest.review.finding_evidence import FindingEvidence, render_markdown
 from attest.review.impact import CONDITION_ARITY, CONDITION_FANOUT, ImpactNote, fanout_of
 from attest.review.nullability import NullabilityNote
-from attest.review.output_contract import LEVEL_MARKERS, claim_line, silence_line
+from attest.review.output_contract import (
+    ACTION_PREFIX,
+    LEVEL_MARKERS,
+    check_comment,
+    claim_line,
+    silence_line,
+)
 from attest.review.output_contract import check as contract_check
 from attest.review.output_contract import collapsed as contract_collapsed
 from attest.review.propagation import PropagationNote
@@ -96,6 +102,8 @@ def render_complete(
     nullability: Sequence[NullabilityNote] = (),
     propagation: Sequence[PropagationNote] = (),
     unverified: int = 0,
+    executor_unavailable: str = "",
+    unsupported_executor: int = 0,
 ) -> str:
     """Render only receipt-backed findings, in the caller's order; with
     ``evidence`` each finding is followed by its runnable test (item 7).
@@ -132,7 +140,10 @@ def render_complete(
             units_planned=planned,
             spend_usd=spend_usd,
             elapsed_s=elapsed_s,
-            unverified=unverified,
+            # D-177: an executor this host could not run judged nothing, so the
+            # silence names the reason instead of claiming a clean bill of health
+            unverified=unsupported_executor if executor_unavailable else unverified,
+            executor_unavailable=executor_unavailable,
         )
     lines = ["Review complete."]
     if certified:
@@ -147,7 +158,13 @@ def render_complete(
                 # three pytest transcripts is a summary nobody reads to the end,
                 # and the receipt line above is what the finding actually says.
                 lines.append("")
-                lines.append(contract_collapsed(render_markdown(block), summary=EVIDENCE_HEADING))
+                lines.append(
+                    # the product's own evidence markdown, whose nested
+                    # `Full logs` block is meant to be a block
+                    contract_collapsed(
+                        render_markdown(block), summary=EVIDENCE_HEADING, trusted=True
+                    )
+                )
                 lines.append("")
     else:
         lines.append("No finding was verified by a reproduction; abstained.")
@@ -210,7 +227,7 @@ def structural_comments(
     out: list[dict[str, object]] = []
     for note in admitted[:MAX_STRUCTURAL_COMMENTS]:
         comment = _structural_comment(note)
-        if _anchored(comment, changed_lines):
+        if _anchored(comment, changed_lines) and check_comment(str(comment["body"])):
             out.append(comment)
     return out
 
@@ -259,6 +276,15 @@ def _structural_comment(note: StructuralNote) -> dict[str, object]:
         "coordinates above, not a reproduction: no test was generated and no "
         "receipt backs it.",
     ]
+    # D-178: green's currency is the pair. The measure does not say which copy
+    # should survive, so the clause names both and leaves that to the author.
+    parts.extend(
+        [
+            "",
+            f"{ACTION_PREFIX} keep one of `{finding.path_a}:{finding.line_a}` and "
+            f"`{finding.path_b}:{finding.line_b}`, and call it from the other.",
+        ]
+    )
     if note.advice:
         parts.extend(["", contract_collapsed(note.advice, summary=STRUCTURAL_ADVICE_HEADING)])
     return {"path": path, "line": line, "side": "RIGHT", "body": "\n".join(parts)}
@@ -427,6 +453,20 @@ def impact_comments(
             + ("" if caller.named_by_test else " — named by no test")
             for caller in note.callers[:IMPACT_MAX_CALLERS_LISTED]
         )
+        untested = next(
+            (caller for caller in note.callers if not caller.named_by_test), None
+        )
+        # D-178: yellow's currency is the caller. Two things close this note and
+        # the level does not choose between them; it names both and the place.
+        target = (
+            f"`{untested.site.path}:{untested.site.line}`"
+            if untested is not None
+            else f"`{definition.path}:{definition.line}`"
+        )
+        action = (
+            f"{ACTION_PREFIX} add a test that names {target}, or change the caller there to "
+            f"match the new interface."
+        )
         comment = {
             "path": definition.path,
             "line": note.changed.anchor_line or definition.line,
@@ -436,16 +476,22 @@ def impact_comments(
                     f"{IMPACT_MARKER_PREFIX}{impact_member_id(note)} -->",
                     line,
                     "",
-                    "Call sites, by name, in this repository:",
+                    # D-174 made a call site the thing a name **resolves to**;
+                    # this copy said "by name", which describes the rule the
+                    # product stopped running.
+                    "Call sites that resolve to this definition:",
                     callers,
                     "",
-                    "Static reachability over names: a caller reached only through a "
-                    "registry or `getattr` is invisible here, so this says *named by no "
-                    "test*, never *not covered*.",
+                    "Resolved statically: a call reached only through inheritance, a "
+                    "decorator, a package re-export, a variable or `getattr` does not "
+                    "resolve and is not listed, so this says *named by no test*, never "
+                    "*not covered*.",
+                    "",
+                    action,
                 ]
             ),
         }
-        if _anchored(comment, changed_lines):
+        if _anchored(comment, changed_lines) and check_comment(str(comment["body"])):
             out.append(comment)
     return out
 
@@ -484,10 +530,16 @@ def nullability_comments(
                         "*no None guard above it*, never *cannot be None*.",
                         summary="The three premises, as checked",
                     ),
+                    "",
+                    # D-178: the same two options yellow (a) offers, in this
+                    # class's own coordinates.
+                    f"{ACTION_PREFIX} guard the value at "
+                    f"`{note.hypothesis.path}:{note.hypothesis.access_line}`, or change the "
+                    f"caller that can pass `None` to it.",
                 ]
             ),
         }
-        if _anchored(comment, changed_lines):
+        if _anchored(comment, changed_lines) and check_comment(str(comment["body"])):
             out.append(comment)
     return out
 
@@ -539,10 +591,15 @@ def propagation_comments(
                         "*cannot be handled*.",
                         summary="The three premises, as checked",
                     ),
+                    "",
+                    # D-178
+                    f"{ACTION_PREFIX} handle `{note.exception}` in "
+                    f"`{note.caller_path}:{note.caller_line}`, or stop the new call at "
+                    f"`{note.path}:{note.line}` from raising it.",
                 ]
             ),
         }
-        if _anchored(comment, changed_lines):
+        if _anchored(comment, changed_lines) and check_comment(str(comment["body"])):
             out.append(comment)
     return out
 
@@ -636,6 +693,19 @@ def _inline_comment(
         ),
         f"Test: {receipt.test_node}",
         f"{RECEIPT_LINE_PREFIX} {receipt.provenance_digest}",
+        # D-178: red's currency is the reproduction. Both halves are the
+        # receipt's own strings, so this clause can never be the thing that
+        # suppresses a certified finding.
+        (
+            f"{ACTION_PREFIX} reproduce it — `{_one_line(evidence.command)}` — then check the "
+            f"receipt offline with `{_one_line(evidence.verify_command)}`."
+            if evidence is not None
+            else (
+                f"{ACTION_PREFIX} reproduce it — run `{receipt.test_node}` on this head and on "
+                f"the merge base — then check the receipt offline with "
+                f"`attest verify --bundle <this run's evidence bundle> --require-seal`."
+            )
+        ),
     ]
     if evidence is not None:
         parts.extend(["", render_markdown(evidence)])

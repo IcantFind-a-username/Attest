@@ -270,3 +270,121 @@ def test_a_green_note_the_diff_cannot_anchor_is_dropped_from_the_inline_review()
     # no diff supplied filters nothing: every offline renderer and every test
     # that builds comments without a repository still gets its comment
     assert structural_comments([note], None) == [comment]
+
+
+# --- the silence line's three verdicts, and its own adjudicator ------------
+# Release-readiness acceptance, 2026-09-09. D-142 says a line that does not
+# conform is not published, and `_SILENCE_SHAPE` is what decides conformance
+# for the silent line. D-161 then gave the line a second verdict (the budget
+# ceiling) without widening the shape, so the product's own adjudicator refused
+# the line the product emits. The executor-unavailable verdict is the third.
+
+
+def test_every_silence_verdict_passes_the_contract_that_judges_it() -> None:
+    lines = (
+        silence_line(units_read=1, units_planned=3, spend_usd=0.1, elapsed_s=5.0),
+        silence_line(units_read=1, units_planned=3, spend_usd=0.1, elapsed_s=5.0, unverified=2),
+        silence_line(
+            units_read=2,
+            units_planned=2,
+            spend_usd=0.0,
+            elapsed_s=1.5,
+            executor_unavailable="running as uid 0 refuses process containment",
+            unverified=4,
+        ),
+    )
+    for line in lines:
+        assert check(line), f"{line!r} -> {check(line).reason}"
+
+
+def test_an_unavailable_executor_is_not_reported_as_nothing_meeting_a_bar() -> None:
+    """When no candidate could be verified because the host cannot run the
+    executor at all, `nothing met an adjudicator's bar` says the code was judged
+    and found clean. It was not judged. The line names the reason and how many
+    candidates it stopped."""
+    line = silence_line(
+        units_read=2,
+        units_planned=2,
+        spend_usd=0.0,
+        elapsed_s=1.5,
+        executor_unavailable="process containment unavailable: running as uid 0",
+        unverified=4,
+    )
+
+    assert "nothing met an adjudicator's bar" not in line
+    assert "executor unavailable: process containment unavailable: running as uid 0" in line
+    assert "4 candidate(s) not verified" in line
+
+
+def test_the_executor_reason_wins_over_the_budget_reason() -> None:
+    """A host that cannot run the executor spent nothing on verification, so a
+    budget count is not what the reader needs; the blocking fact is first."""
+    line = silence_line(
+        units_read=1,
+        units_planned=1,
+        spend_usd=0.02,
+        elapsed_s=1.0,
+        executor_unavailable="docker daemon refused the connection",
+        unverified=1,
+    )
+
+    assert "budget ceiling" not in line
+    assert "executor unavailable: docker daemon refused the connection" in line
+
+
+def test_the_summary_of_a_host_without_an_executor_says_so(monkeypatch) -> None:
+    """The whole wiring, from the ledger rows an unsupported executor writes to
+    the one line an author reads (D-177)."""
+    from attest.github.presentation import render_complete
+    from attest.review.status import status_from_rows
+
+    rows: list[dict[str, object]] = [
+        {"kind": "review_plan", "task_id": "t", "units": [{"unit_id": "u1"}, {"unit_id": "u2"}]},
+        *(
+            {
+                "kind": "eligibility",
+                "task_id": "t",
+                "finding_id": name,
+                "eligibility": "unsupported_executor",
+                "reason": "process containment unavailable: running as uid 0",
+            }
+            for name in ("a", "b", "c", "d")
+        ),
+    ]
+    status = status_from_rows(rows, "t")
+
+    body = render_complete(
+        [],
+        0.0184,
+        2.5,
+        units=(status.units_read, status.units_planned),
+        executor_unavailable=status.executor_unavailable,
+        unsupported_executor=status.unsupported_executor,
+    )
+
+    assert body == (
+        "[silent] read 2 of 2 units; executor unavailable: process containment "
+        "unavailable: running as uid 0; 4 candidate(s) not verified; $0.0184, 2.5s."
+    )
+    assert check(body)
+
+
+def test_the_silence_line_stays_one_line_however_long_the_executor_reason_is() -> None:
+    """`RunStatus` bounds a reason at 200 characters and the contract bounds a
+    line at 400; the sum has to fit, or the executor verdict would produce a line
+    its own adjudicator refuses — the defect D-177 fixed, reintroduced from the
+    other end."""
+    from attest.review.output_contract import MAX_LINE_CHARS
+    from attest.review.status import REASON_LIMIT
+
+    line = silence_line(
+        units_read=999,
+        units_planned=999,
+        spend_usd=1234.5678,
+        elapsed_s=9999.9,
+        executor_unavailable="x" * REASON_LIMIT,
+        unverified=999,
+    )
+
+    assert len(line) <= MAX_LINE_CHARS
+    assert check(line), check(line).reason
