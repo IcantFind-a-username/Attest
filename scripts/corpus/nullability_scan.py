@@ -30,6 +30,9 @@ from typing import Any, cast
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
+
+from driver_budget import DriverCap  # noqa: E402
 
 from attest.github.presentation import nullability_line  # noqa: E402
 from attest.review.impact import changed_functions  # noqa: E402
@@ -223,13 +226,19 @@ def cmd_scan(args: argparse.Namespace) -> int:
             return 2
         provider = ApiProvider(model=args.model)
     rows: list[dict[str, object]] = []
-    spent = 0.0
+    # D-172: a unit's *maximum* is reserved before it starts. This level buys at
+    # most one proposal per unit, so `--reserve` is that call's ceiling rather
+    # than a per-review budget; the measured cost is ~$0.0013 a unit.
+    cap = DriverCap(cap=args.cap, reservation_usd=args.reserve)
     for unit in units(args.population):
-        if spent >= args.cap:
-            print(f"cumulative ${spent:.4f} reached the cap ${args.cap:.2f}; stopping", flush=True)
+        refusal = cap.refusal(str(unit.get("head", ""))[:10])
+        if refusal is not None:
+            print(refusal, flush=True)
             break
+        cap.start(str(unit.get("head", ""))[:10])
         row = scan_unit(unit, provider)
-        spent += float(row.get("spend_usd", 0.0) or 0.0)
+        cap.settle(float(row.get("spend_usd", 0.0) or 0.0))
+        spent = cap.spent
         rows.append(row)
         print(
             f"{row['population']:8s} {row['repo']:>14s} {str(row['head'])[:10]} "
@@ -298,6 +307,13 @@ def main(argv: list[str] | None = None) -> int:
     scan.add_argument("--json", type=Path)
     scan.add_argument("--model", default="claude-sonnet-5")
     scan.add_argument("--cap", type=float, default=5.0)
+    scan.add_argument(
+        "--reserve",
+        type=float,
+        default=0.05,
+        help="the most one unit's single proposal call may cost; reserved before "
+        "the unit starts and released to its actual cost afterwards",
+    )
     scan.add_argument("--dry-run", action="store_true")
     scan.set_defaults(func=cmd_scan)
     args = parser.parse_args(argv)

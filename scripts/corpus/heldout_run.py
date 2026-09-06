@@ -24,6 +24,10 @@ from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
+
+from driver_budget import DriverCap  # noqa: E402
+
 PLAN = ROOT / "benchmarks" / "attest-v2" / "runs" / "2026-09-03-e02-heldout-plan.json"
 SPLIT = ROOT / "benchmarks" / "attest-v2" / "splits" / "swebench-verified-v1.json"
 RESULTS = ROOT / ".attest" / "corpora" / "swebench" / "results"
@@ -94,18 +98,25 @@ def cmd_run(args: argparse.Namespace) -> int:
         ).stdout.strip()
         print(f"product code from {args.code} ({code_sha}); pilot script from {ROOT}", flush=True)
     only = set(args.only.split(",")) if args.only else None
-    spent = 0.0
+    # D-172: the cap reserves a case's *maximum* -- one review at `--budget` --
+    # before the case starts. Gating on money already spent let the 2026-09-07
+    # run end $0.62 above its own cumulative cap.
+    cap = (
+        None
+        if args.cap is None
+        else DriverCap(cap=args.cap, reservation_usd=args.budget)
+    )
     for iid, control in _jobs():
         if only is not None and iid not in only:
             continue
         if args.defects_only and control:
             continue
-        if args.cap is not None and spent >= args.cap:
-            print(
-                f"cumulative spend ${spent:.4f} reached the cap ${args.cap:.2f}; stopping",
-                flush=True,
-            )
-            break
+        if cap is not None:
+            refusal = cap.refusal(iid)
+            if refusal is not None:
+                print(refusal, flush=True)
+                break
+            cap.start(iid)
         argv = [
             sys.executable,
             str(pilot),
@@ -126,8 +137,13 @@ def cmd_run(args: argparse.Namespace) -> int:
         subprocess.run(argv, check=False, env=env)
         suffix = f"--{control}" if control else ""
         result_path = RESULTS / f"{iid}{suffix}{args.results_suffix}.json"
-        if result_path.is_file():
-            spent += float(json.loads(result_path.read_text()).get("spend_usd", 0.0))
+        actual = (
+            float(json.loads(result_path.read_text()).get("spend_usd", 0.0))
+            if result_path.is_file()
+            else None  # no result file: charged the reservation, never nothing
+        )
+        if cap is not None:
+            cap.settle(actual)
     return 0
 
 

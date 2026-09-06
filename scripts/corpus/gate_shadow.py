@@ -37,6 +37,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
+
+from driver_budget import DriverCap  # noqa: E402
 
 from attest.execution.backends import select_backend  # noqa: E402
 from attest.review.budget import Budget  # noqa: E402
@@ -210,16 +213,23 @@ def cmd_run(args: argparse.Namespace) -> int:
         done = set(re.findall(r"^=== gate (\S+)", text, flags=re.M))
         seen = re.findall(r"\[cumulative \$([0-9.]+)\]", text)
         spent = float(seen[-1]) if seen else 0.0
+    # D-172: the cap reserves a unit's *maximum* -- one gate stage at
+    # `budget_usd` -- before the unit starts, and releases it for a unit that
+    # bought nothing. Gating on money already spent let the 2026-09-07 run end
+    # $0.62 above its own cumulative cap.
+    cap = DriverCap(cap=args.cap, reservation_usd=config.budget_usd, spent=spent)
     for unit in population:
         key = f"{unit['repo']}@{str(unit['head'])[:10]}"
         if key in done:
             continue
         repo = CORPORA / str(unit["repo"])
         log.write(f"=== gate {key} {unit['unit_id']}\n")
-        if spent >= args.cap:
-            log.write("[skipped: cumulative cap]\n")
+        refusal = cap.refusal(key)
+        if refusal is not None:
+            log.write(f"[{refusal}]\n")
             log.flush()
             continue
+        cap.start(key)
         task_id = str(unit["task_id"])
         candidates = (
             [c for c in CandidateStore(repo).load(task_id) if c.action != "discard"]
@@ -233,14 +243,16 @@ def cmd_run(args: argparse.Namespace) -> int:
             task_id = candidates[0].task_id if candidates else ""
         new_code = [c for c in candidates if c.eligibility == "new_code"]
         if not new_code:
-            log.write(f"[no new-code candidate]\n[cumulative ${spent:.6f}]\n")
+            cap.settle(0.0)
+            log.write(f"[no new-code candidate]\n[cumulative ${cap.spent:.6f}]\n")
             log.flush()
             continue
         # The free witness has already been taken over this study's candidates,
         # so a unit none of whose new-code candidates carries a call site cannot
         # produce a publishable grade and is skipped before an image is built.
         if reachable and not (reachable & {c.finding.finding_id for c in new_code}):
-            log.write(f"[no candidate with a call site]\n[cumulative ${spent:.6f}]\n")
+            cap.settle(0.0)
+            log.write(f"[no candidate with a call site]\n[cumulative ${cap.spent:.6f}]\n")
             log.flush()
             continue
         git(repo, "checkout", "-q", "--detach", str(unit["head"]))
@@ -251,6 +263,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         # the design's `linux-container-v1` and is not worth buying.
         backend = select_backend(repo, production=True, remaining_s=args.timeout)
         if backend.adapter is None:
+            cap.settle(0.0)
             log.write(f"[no container backend: {backend.reason}]\n")
             log.flush()
             continue
@@ -271,10 +284,12 @@ def cmd_run(args: argparse.Namespace) -> int:
                 ledger=Ledger(repo),
             )
         except Exception as exc:  # noqa: BLE001 - a driver records, it does not raise
+            # whatever the stage bought before it raised is still spent
+            cap.settle(budget.spent_usd)
             log.write(f"[error {type(exc).__name__}: {str(exc)[:200]}]\n")
             log.flush()
             continue
-        spent += budget.spent_usd
+        cap.settle(budget.spent_usd)
         log.write(
             f"[considered {stage.considered} admissible {stage.admissible} attempted "
             f"{stage.attempted} would_publish {stage.would_publish} "
@@ -284,7 +299,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             log.write(
                 f"  {finding_id} {observation.reachability.kind} {observation.reason[:110]}\n"
             )
-        log.write(f"[cumulative ${spent:.6f}]\n")
+        log.write(f"[cumulative ${cap.spent:.6f}]\n")
         log.flush()
     log.write("=== gate done\n")
     log.close()

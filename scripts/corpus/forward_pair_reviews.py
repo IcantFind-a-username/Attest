@@ -33,6 +33,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
+
+from driver_budget import DriverCap  # noqa: E402
+
 CORPORA = ROOT / ".attest" / "corpora"
 RUNS = ROOT / "benchmarks" / "attest-v2" / "runs"
 PAIRS = RUNS / "2026-09-05-forward-pairs.json"
@@ -95,6 +99,10 @@ def cmd_run(args: argparse.Namespace) -> int:
                 done.add(head.split()[0])
         seen = re.findall(r"\[cumulative spend \$([0-9.]+)\]", text)
         spent = float(seen[-1]) if seen else 0.0
+    # D-172: the cap reserves a unit's *maximum* -- one review at `--budget` --
+    # before the unit starts. Gating on money already spent let the 2026-09-07
+    # run end $0.62 above its own cumulative cap.
+    cap = DriverCap(cap=args.cap, reservation_usd=args.budget, spent=spent)
     log = log_path.open("a", encoding="utf-8")  # noqa: SIM115 - appended across the loop
 
     for pair in pairs:
@@ -107,10 +115,12 @@ def cmd_run(args: argparse.Namespace) -> int:
             log.write(f"[skipped: no clone at {clone}]\n")
             log.flush()
             continue
-        if spent >= args.cap:
-            log.write("[skipped: cumulative cap]\n")
+        refusal = cap.refusal(head[:10])
+        if refusal is not None:
+            log.write(f"[{refusal}]\n")
             log.flush()
             continue
+        cap.start(head[:10])
         git(clone, "checkout", "-q", "--detach", head)
         completed = subprocess.run(
             [
@@ -142,9 +152,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             + f"\n[rc {completed.returncode}]\n"
         )
         found = re.search(r"spend \$([0-9.]+) of", completed.stdout)
-        if found:
-            spent += float(found.group(1))
-        log.write(f"[cumulative spend ${spent:.6f}]\n")
+        cap.settle(float(found.group(1)) if found else None)
+        log.write(f"[cumulative spend ${cap.spent:.6f}]\n")
         log.flush()
     log.write("=== fp done\n")
     return 0

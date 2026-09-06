@@ -50,6 +50,7 @@ RUNS = ROOT / "benchmarks" / "attest-v2" / "runs"
 MANIFEST = RUNS / "2026-09-04-g-null-001a-population.json"
 MANIFEST_INDEPENDENT = RUNS / "2026-09-05-g-null-001a-independent-population.json"
 
+from driver_budget import DriverCap  # noqa: E402
 from qualify_controls import default_tip, qualify  # noqa: E402
 
 # Preregistered before any qualification ran: the cutoff, the sampling seed and
@@ -341,6 +342,10 @@ def cmd_run(args: argparse.Namespace) -> int:
                 done.add(head.split()[0])
         seen = re.findall(r"\[cumulative spend \$([0-9.]+)\]", text)
         spent = float(seen[-1]) if seen else 0.0
+    # D-172: the cap reserves a unit's *maximum* -- one review at `--budget` --
+    # before the unit starts. Gating on money already spent let the 2026-09-07
+    # run end $0.62 above its own cumulative cap.
+    cap = DriverCap(cap=args.cap, reservation_usd=args.budget, spent=spent)
     log = log_path.open("a", encoding="utf-8")  # noqa: SIM115 - appended across the loop
 
     for control in controls:
@@ -352,10 +357,12 @@ def cmd_run(args: argparse.Namespace) -> int:
             f"=== gn {sha} {control['repo']} age={control['age_days']}d "
             f"{str(control['subject'])[:60]}\n"
         )
-        if spent >= args.cap:
-            log.write("[skipped: cumulative cap]\n")
+        refusal = cap.refusal(sha[:10])
+        if refusal is not None:
+            log.write(f"[{refusal}]\n")
             log.flush()
             continue
+        cap.start(sha[:10])
         git(clone, "checkout", "-q", "--detach", sha)
         completed = subprocess.run(
             [
@@ -382,9 +389,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             completed.stdout[-4000:] + completed.stderr[-1200:] + f"\n[rc {completed.returncode}]\n"
         )
         found = re.search(r"spend \$([0-9.]+) of", completed.stdout)
-        if found:
-            spent += float(found.group(1))
-        log.write(f"[cumulative spend ${spent:.6f}]\n")
+        cap.settle(float(found.group(1)) if found else None)
+        log.write(f"[cumulative spend ${cap.spent:.6f}]\n")
         log.flush()
         published = re.search(r"published: (\d+)", completed.stdout)
         if published and int(published.group(1)) > 0:

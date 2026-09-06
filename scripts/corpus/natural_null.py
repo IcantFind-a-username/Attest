@@ -20,6 +20,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
+
+from driver_budget import DriverCap  # noqa: E402
+
 CORPUS = ROOT / ".attest" / "corpora" / "us-stock-helper"
 PLAN = ROOT / "benchmarks" / "attest-v2" / "runs" / "2026-09-03-e01-natural-null-plan.json"
 QUOTA = {"docs": 6, "refactor": 7, "feature": 7}
@@ -76,7 +80,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     env = dict(os.environ)
     if args.code:
         env["PYTHONPATH"] = str(Path(args.code) / "src")
-    spent = 0.0
+    # D-172: the cap reserves a unit's *maximum* -- one review at `--budget` --
+    # before the unit starts. Gating on money already spent let the 2026-09-07
+    # run end $0.62 above its own cumulative cap.
+    # this driver's review is invoked at a fixed `--budget 0.25`, so that is
+    # the most one unit can cost
+    cap = DriverCap(cap=args.cap, reservation_usd=0.25)
     log = Path(args.log).open("a", encoding="utf-8")  # noqa: SIM115 - appended across the loop
     only = set(args.only.split(",")) if args.only else None
     for row in plan:
@@ -91,9 +100,11 @@ def cmd_run(args: argparse.Namespace) -> int:
             check=True,
         ).stdout.strip()
         log.write(f"=== e01 {row['class']} {sha} {row['message'][:60]}\n")
-        if spent >= args.cap:
-            log.write("[skipped: budget cap]\n")
+        refusal = cap.refusal(str(sha)[:10])
+        if refusal is not None:
+            log.write(f"[{refusal}]\n")
             continue
+        cap.start(str(sha)[:10])
         completed = subprocess.run(
             [
                 sys.executable,
@@ -119,9 +130,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             completed.stdout[-2500:] + completed.stderr[-800:] + f"\n[rc {completed.returncode}]\n"
         )
         found = re.search(r"spend \$([0-9.]+) of", completed.stdout)
-        if found:
-            spent += float(found.group(1))
-        log.write(f"[cumulative spend ${spent:.4f}]\n")
+        cap.settle(float(found.group(1)) if found else None)
+        log.write(f"[cumulative spend ${cap.spent:.4f}]\n")
         log.flush()
     log.write("=== e01 done\n")
     return 0
