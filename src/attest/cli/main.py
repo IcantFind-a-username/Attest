@@ -10,8 +10,9 @@ import os
 import subprocess
 import sys
 from contextlib import suppress
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from attest.github.client import GitHubClient
 from attest.github.context import load_pull_request_context
@@ -32,6 +33,7 @@ from attest.review.report import _certified_line, render
 from attest.review.run import run_review
 from attest.review.status import categorise_failure
 from attest.review.support import from_reason, preflight
+from attest.review.window import WINDOW_SCHEMA_VERSION, parse_since, since
 
 
 def _positive_finite(value: str) -> float:
@@ -498,18 +500,109 @@ def render_drawer(entries: list[dict[str, Any]], store: CandidateStore, limit: i
     )
 
 
+def _weekly_report(
+    repo: Path,
+    entries: list[dict[str, Any]],
+    window_from: datetime,
+    spec: str,
+    unreadable: int,
+) -> str:
+    """One reporting period, in the shape a person forwards on a Monday (D-171).
+
+    The same numbers `stats --json` carries, ordered so the first line answers
+    the question the report exists for -- *did this thing say anything, and what
+    did it cost* -- and every silence is named rather than left as a blank.
+    """
+    summary = stats_json(repo, entries=entries)
+    reviews = int(summary["reviews"] or 0)
+    speech = cast(dict[str, Any], summary["spoke_on"])
+    drawer = cast(dict[str, int], summary["drawer_reasons"])
+    images = cast(dict[str, Any], summary["images"])
+    spend = float(summary["spend_usd"] or 0.0)
+    per_review = summary["spend_per_review_usd"]
+    lines = [
+        f"attest report — {window_from.date().isoformat()} to "
+        f"{datetime.now(window_from.tzinfo).date().isoformat()} ({spec})",
+        f"repository: {repo}",
+        "",
+        f"reviews: {reviews}; candidates: {summary['candidates']}; "
+        f"spend ${spend:.4f}"
+        + (f" (${float(per_review):.4f} a review)" if per_review is not None else ""),
+    ]
+    if not reviews:
+        lines.append("")
+        lines.append("nothing ran in this window. That is a fact about the window, not a verdict.")
+        return "\n".join(lines)
+    lines.append("")
+    lines.append("what spoke, and on how many reviews:")
+    for level in ("red", "yellow", "green", "gate"):
+        spoke = int(speech.get(level, 0) or 0)
+        rate = spoke / reviews
+        lines.append(
+            f"  {level:<6s} {spoke:>4d} of {reviews} ({rate:.1%})"
+            + ("  — silent all window" if spoke == 0 else "")
+        )
+    lines.append("")
+    if drawer:
+        lines.append("why the silent candidates were silent:")
+        for name, count in sorted(drawer.items(), key=lambda item: (-item[1], item[0])):
+            lines.append(f"  {name:<28s} {count}")
+    else:
+        lines.append("no candidate reached verification in this window.")
+    lines.append("")
+    lookups = int(images.get("lookups", 0) or 0)
+    if lookups:
+        lines.append(
+            f"container image: {images['hits']} of {lookups} lookups reused "
+            f"({float(images['hit_rate'] or 0):.0%})"
+        )
+    if summary["p50_elapsed_s"] is not None:
+        lines.append(f"median review: {float(summary['p50_elapsed_s']):.1f}s")
+    if unreadable:
+        lines.append(
+            f"note: {unreadable} ledger row(s) carry a timestamp this window could not read "
+            "and are counted in it rather than dropped from it"
+        )
+    lines.append("a silence is not a true negative.")
+    return "\n".join(lines)
+
+
 def cmd_stats(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     config = load_config(repo)
     ledger = Ledger(repo)
     entries = ledger.entries_strict()
+    # D-171: `--since` slices the ledger to a reporting period. It is applied
+    # before anything is counted, so every number below -- speech rate, spend,
+    # drawer histogram, alpha -- is about the window and not about the ledger.
+    window_from: datetime | None = None
+    unreadable = 0
+    if getattr(args, "since", None):
+        try:
+            window_from = parse_since(str(args.since))
+        except ValueError as bad:
+            print(str(bad), file=sys.stderr)
+            return 2
+        entries, unreadable = since(entries, window_from)
     if getattr(args, "drawer", False):
         print(render_drawer(entries, CandidateStore(repo), args.limit))
         return 0
     if getattr(args, "json", False):
         # D-163: the same summary as numbers -- speech rate per level, spend,
         # the drawer's reason distribution, and how often the image was reused.
-        print(dumps(stats_json(repo, entries=entries)))
+        payload = dict(stats_json(repo, entries=entries))
+        if window_from is not None:
+            payload["window"] = {
+                "schema_version": WINDOW_SCHEMA_VERSION,
+                "since": window_from.isoformat(),
+                "spec": str(args.since),
+                "rows": len(entries),
+                "rows_with_an_unreadable_timestamp": unreadable,
+            }
+        print(dumps(payload))
+        return 0
+    if window_from is not None:
+        print(_weekly_report(repo, entries, window_from, str(args.since), unreadable))
         return 0
     final_runs = [e for e in entries if e.get("kind") == "ci_final"]
     final_tasks = {str(e.get("task_id", "")) for e in final_runs}
@@ -715,6 +808,14 @@ def main(argv: list[str] | None = None) -> int:
         help="list uncertified drawer candidates with votes and reproduction failure reasons",
     )
     p_stats.add_argument("--limit", type=int, default=20, help="drawer rows to show")
+    p_stats.add_argument(
+        "--since",
+        default=None,
+        help="report only on ledger rows at or after this point: a date "
+        "(2026-09-01), a timestamp (2026-09-01T09:00:00+0800), or a duration "
+        "back from now (7d, 24h, 2w). Prints a period report instead of the "
+        "running totals; with --json it adds a `window` object",
+    )
     p_stats.add_argument(
         "--json",
         action="store_true",
