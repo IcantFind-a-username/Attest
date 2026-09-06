@@ -519,8 +519,20 @@ here; 4, 5 and 6 are fixed in the same pass; 7 is in the backlog.
 
 ## Gates for this report's own changes
 
-Command, code and result are in the handoff. Nothing here weakens a regression pin, skips a
-security test, lowers a coverage threshold or changes a denominator.
+```
+python -m pytest --cov=src/attest --cov-report=term-missing
+  2,180 passed, 0 failed, exit 0
+  Required test coverage of 90.0% reached. Total coverage: 93.33%
+python -m ruff check .        All checks passed!
+python -m mypy src/attest     Success: no issues found in 94 source files
+git diff --check              clean
+```
+
+Baseline `1bf4110` → `aa0d2c6`, branch `docs/release-readiness-acceptance`, three commits.
+Nothing here weakens a regression pin, skips a security test, lowers a coverage threshold or
+changes a denominator. No ledger, receipt or artifact schema moved: the two new `RunStatus`
+fields are computed from rows the review already writes and are never persisted, and the
+`--json` projection reads neither.
 
 ## Spend
 
