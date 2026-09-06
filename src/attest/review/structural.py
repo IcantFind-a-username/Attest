@@ -40,7 +40,11 @@ from pathlib import Path, PurePosixPath
 
 from attest.review.output_contract import banned_phrase
 
-STRUCTURAL_POLICY_VERSION = "attest.structural.duplicate-implementation.v1"
+# v2 (2026-09-08): a bare call keeps its callee name. v1's docstring said it
+# did and the code did not -- only *attribute* callees survived normalisation --
+# so `charge(a, b, i)` and `refund(a, b, i)` normalised identically and two
+# bodies doing opposite things measured 1.000.
+STRUCTURAL_POLICY_VERSION = "attest.structural.duplicate-implementation.v2"
 CATEGORY = "structural"
 
 # D-133: the one prompt the level ever uses, held here so the review path and the
@@ -169,8 +173,11 @@ def normalize(node: ast.AST) -> list[str]:
 
     Identifiers and constant values are erased -- a renamed copy is still a copy
     -- while attribute names and callee names are kept, because two functions
-    that call different things are not the same implementation. Docstrings are
-    dropped before the walk.
+    that call different things are not the same implementation. A callee is kept
+    whichever way it is written: `obj.charge(...)` as `ATTR:charge` and
+    `charge(...)` as `CALLEE:charge`. Everything the call *passes* is normalised
+    as usual, so renaming the arguments still leaves a copy a copy. Docstrings
+    are dropped before the walk.
     """
     tokens: list[str] = []
 
@@ -181,6 +188,18 @@ def normalize(node: ast.AST) -> list[str]:
             and isinstance(current.value.value, str)
         ):
             return  # a bare string statement is a docstring or a comment
+        if isinstance(current, ast.Call):
+            tokens.append("Call")
+            # the callee is what the body *does*; its arguments are not
+            if isinstance(current.func, ast.Name):
+                tokens.append(f"CALLEE:{current.func.id}")
+            else:
+                visit(current.func)
+            for argument in current.args:
+                visit(argument)
+            for keyword in current.keywords:
+                visit(keyword)
+            return
         if isinstance(current, ast.Name):
             tokens.append("NAME")
             return
@@ -350,8 +369,9 @@ def evidence_sentence(finding: DuplicateImplementation) -> str:
         f"{finding.path_a}:{finding.line_a}-{finding.end_line_a} `{finding.name_a}` and "
         f"{finding.path_b}:{finding.line_b}-{finding.end_line_b} `{finding.name_b}` normalise "
         f"to token sequences of {finding.tokens_a} and {finding.tokens_b} tokens whose "
-        f"similarity is {finding.similarity:.3f} (threshold {SIMILARITY_THRESHOLD:.2f}); "
-        f"identifiers and literal values are erased, attribute and callee names are not."
+        f"token-sequence similarity is {finding.similarity:.3f} "
+        f"(threshold {SIMILARITY_THRESHOLD:.2f}), not semantic equivalence; "
+        f"identifiers and literal values erased, attribute and callee names kept."
     )
 
 

@@ -1,0 +1,584 @@
+{
+ "control_wealth": {
+  "candidates": 475,
+  "channels_bought": {
+   "S": 475
+  },
+  "ci95": [
+   2.2378255279046866,
+   2.3103197352532088
+  ],
+  "distribution": {
+   "2.0": 318,
+   "2.639": 71,
+   "2.9485": 23,
+   "3.0": 63
+  },
+  "maximum": 3.0,
+  "mean": 2.2740726315789477,
+  "minimum": 2.0,
+  "models": {
+   "claude-sonnet-5/claude-opus-5": 276
+  },
+  "per_repo": {
+   "attrs": {
+    "mean": 2.376272727272727,
+    "n": 22
+   },
+   "click": {
+    "mean": 2.1628501577287067,
+    "n": 317
+   },
+   "itsdangerous": {
+    "mean": 2.4182727272727274,
+    "n": 33
+   },
+   "jinja": {
+    "mean": 2.51625,
+    "n": 24
+   },
+   "more-itertools": {
+    "mean": 2.6226857142857143,
+    "n": 35
+   },
+   "packaging": {
+    "mean": 2.706928571428571,
+    "n": 7
+   },
+   "python-dotenv": {
+    "mean": 2.7593333333333327,
+    "n": 6
+   },
+   "urllib3": {
+    "mean": 2.4126290322580646,
+    "n": 31
+   }
+  },
+  "review_runs": 276,
+  "sd": 0.4030547497758832,
+  "se": 0.018493420241969975,
+  "t_against_one": 68.8932936638458
+ },
+ "decision": "D-174",
+ "schema_version": "attest.binding-recount.v1",
+ "spend_usd": 0.0,
+ "static_witness_224": {
+  "bound": 0,
+  "candidates": 224,
+  "lost": [
+   {
+    "name_matched": [
+     "src/corum/calibration.py:162",
+     "src/corum/calibration.py:204"
+    ],
+    "path": "src/corum/dependence.py",
+    "recorded_call_site": "src/corum/calibration.py:162",
+    "symbol": "_validate_examples",
+    "unit": "IcantFind-a-username/Corum@04df399"
+   },
+   {
+    "name_matched": [
+     "services/adviser_llm/tests/test_degradation.py:83",
+     "services/adviser_llm/tests/test_degradation.py:90",
+     "services/adviser_llm/tests/test_degradation.py:111"
+    ],
+    "path": "services/market_gateway/tests/test_snapshot_contract_v3.py",
+    "recorded_call_site": "services/adviser_llm/tests/test_degradation.py:83",
+    "symbol": "_service",
+    "unit": "IcantFind-a-username/us-stock-helper@facf699"
+   },
+   {
+    "name_matched": [
+     "services/adviser_llm/tests/test_degradation.py:83",
+     "services/adviser_llm/tests/test_degradation.py:90",
+     "services/adviser_llm/tests/test_degradation.py:111"
+    ],
+    "path": "services/market_gateway/tests/test_snapshot_contract_v3.py",
+    "recorded_call_site": "services/adviser_llm/tests/test_degradation.py:83",
+    "symbol": "_service",
+    "unit": "IcantFind-a-username/us-stock-helper@facf699"
+   },
+   {
+    "name_matched": [
+     "scripts/acceptance/m01_offline_measurement_probe.py:379",
+     "scripts/benchmark.py:1689",
+     "scripts/corpus/binding_pilot.py:125"
+    ],
+    "path": "scripts/release/drill.py",
+    "recorded_call_site": "scripts/acceptance/m01_offline_measurement_probe.py:379",
+    "symbol": "main",
+    "unit": "IcantFind-a-username/Attest@e002bd6"
+   },
+   {
+    "name_matched": [
+     "scripts/acceptance/m01_offline_measurement_probe.py:379",
+     "scripts/benchmark.py:1689",
+     "scripts/corpus/binding_pilot.py:125"
+    ],
+    "path": "scripts/release/drill.py",
+    "recorded_call_site": "scripts/acceptance/m01_offline_measurement_probe.py:379",
+    "symbol": "main",
+    "unit": "IcantFind-a-username/Attest@e002bd6"
+   },
+   {
+    "name_matched": [
+     "scripts/acceptance/m01_offline_measurement_probe.py:379",
+     "scripts/benchmark.py:1689",
+     "scripts/corpus/binding_pilot.py:125"
+    ],
+    "path": "scripts/release/drill.py",
+    "recorded_call_site": "scripts/acceptance/m01_offline_measurement_probe.py:379",
+    "symbol": "main",
+    "unit": "IcantFind-a-username/Attest@e002bd6"
+   },
+   {
+    "name_matched": [
+     "scripts/acceptance/m01_offline_measurement_probe.py:379",
+     "scripts/benchmark.py:1689",
+     "scripts/corpus/binding_pilot.py:125"
+    ],
+    "path": "scripts/release/drill.py",
+    "recorded_call_site": "scripts/acceptance/m01_offline_measurement_probe.py:379",
+    "symbol": "main",
+    "unit": "IcantFind-a-username/Attest@e002bd6"
+   },
+   {
+    "name_matched": [
+     "scripts/acceptance/m01_offline_measurement_probe.py:379",
+     "scripts/benchmark.py:1689",
+     "scripts/corpus/binding_pilot.py:125"
+    ],
+    "path": "scripts/release/drill.py",
+    "recorded_call_site": "scripts/acceptance/m01_offline_measurement_probe.py:379",
+    "symbol": "main",
+    "unit": "IcantFind-a-username/Attest@e002bd6"
+   },
+   {
+    "name_matched": [
+     "scripts/acceptance/m01_offline_measurement_probe.py:379",
+     "scripts/benchmark.py:1689",
+     "scripts/corpus/binding_pilot.py:125"
+    ],
+    "path": "scripts/release/drill.py",
+    "recorded_call_site": "scripts/acceptance/m01_offline_measurement_probe.py:379",
+    "symbol": "main",
+    "unit": "IcantFind-a-username/Attest@e002bd6"
+   },
+   {
+    "name_matched": [
+     "scripts/acceptance/m01_offline_measurement_probe.py:379",
+     "scripts/benchmark.py:1689",
+     "scripts/corpus/binding_pilot.py:125"
+    ],
+    "path": "scripts/release/drill.py",
+    "recorded_call_site": "scripts/acceptance/m01_offline_measurement_probe.py:379",
+    "symbol": "main",
+    "unit": "IcantFind-a-username/Attest@e002bd6"
+   },
+   {
+    "name_matched": [
+     "scripts/acceptance/m01_offline_measurement_probe.py:379",
+     "scripts/benchmark.py:1689",
+     "scripts/corpus/binding_pilot.py:125"
+    ],
+    "path": "scripts/release/drill.py",
+    "recorded_call_site": "scripts/acceptance/m01_offline_measurement_probe.py:379",
+    "symbol": "main",
+    "unit": "IcantFind-a-username/Attest@e002bd6"
+   },
+   {
+    "name_matched": [
+     "scripts/acceptance/m01_offline_measurement_probe.py:379",
+     "scripts/benchmark.py:1689",
+     "scripts/corpus/binding_pilot.py:125"
+    ],
+    "path": "scripts/release/drill.py",
+    "recorded_call_site": "scripts/acceptance/m01_offline_measurement_probe.py:379",
+    "symbol": "main",
+    "unit": "IcantFind-a-username/Attest@e002bd6"
+   },
+   {
+    "name_matched": [
+     "deploy/tests/test_deployment_configuration.py:620",
+     "deploy/tests/test_deployment_configuration.py:650",
+     "deploy/tests/test_deployment_configuration.py:658"
+    ],
+    "path": "services/analysis_api/src/us_stock_helper_analysis_api/market_brief.py",
+    "recorded_call_site": "deploy/tests/test_deployment_configuration.py:620",
+    "symbol": "from_environment",
+    "unit": "IcantFind-a-username/us-stock-helper@4afe9ee"
+   },
+   {
+    "name_matched": [
+     "services/analysis_core/tests/test_temporal.py:108",
+     "services/analysis_core/tests/test_temporal.py:109",
+     "services/analysis_core/tests/test_temporal.py:110"
+    ],
+    "path": "services/analysis_core/tests/test_rvol.py",
+    "recorded_call_site": "services/analysis_core/tests/test_temporal.py:108",
+    "symbol": "bar",
+    "unit": "IcantFind-a-username/us-stock-helper@ef834f9"
+   },
+   {
+    "name_matched": [
+     "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:172"
+    ],
+    "path": "services/analysis_api/src/us_stock_helper_analysis_api/gateway_provider.py",
+    "recorded_call_site": "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:172",
+    "symbol": "_flow_points",
+    "unit": "IcantFind-a-username/us-stock-helper@7245680"
+   },
+   {
+    "name_matched": [
+     "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:52"
+    ],
+    "path": "services/analysis_api/src/us_stock_helper_analysis_api/gateway_provider.py",
+    "recorded_call_site": "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:52",
+    "symbol": "_holdings",
+    "unit": "IcantFind-a-username/us-stock-helper@7245680"
+   },
+   {
+    "name_matched": [
+     "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:52"
+    ],
+    "path": "services/analysis_api/src/us_stock_helper_analysis_api/gateway_provider.py",
+    "recorded_call_site": "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:52",
+    "symbol": "_holdings",
+    "unit": "IcantFind-a-username/us-stock-helper@7245680"
+   },
+   {
+    "name_matched": [
+     "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:52"
+    ],
+    "path": "services/analysis_api/src/us_stock_helper_analysis_api/gateway_provider.py",
+    "recorded_call_site": "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:52",
+    "symbol": "_holdings",
+    "unit": "IcantFind-a-username/us-stock-helper@7245680"
+   },
+   {
+    "name_matched": [
+     "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:52"
+    ],
+    "path": "services/analysis_api/src/us_stock_helper_analysis_api/gateway_provider.py",
+    "recorded_call_site": "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:52",
+    "symbol": "_holdings",
+    "unit": "IcantFind-a-username/us-stock-helper@7245680"
+   },
+   {
+    "name_matched": [
+     "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:52"
+    ],
+    "path": "services/analysis_api/src/us_stock_helper_analysis_api/gateway_provider.py",
+    "recorded_call_site": "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:52",
+    "symbol": "_holdings",
+    "unit": "IcantFind-a-username/us-stock-helper@7245680"
+   },
+   {
+    "name_matched": [
+     "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:52"
+    ],
+    "path": "services/analysis_api/src/us_stock_helper_analysis_api/gateway_provider.py",
+    "recorded_call_site": "services/market_gateway/src/us_stock_helper_market_gateway/snapshot.py:52",
+    "symbol": "_holdings",
+    "unit": "IcantFind-a-username/us-stock-helper@7245680"
+   },
+   {
+    "name_matched": [
+     "services/information_layer/information_layer/factors/provider.py:101",
+     "services/information_layer/information_layer/factors/provider.py:133"
+    ],
+    "path": "services/analysis_api/tests/test_evidence_provider.py",
+    "recorded_call_site": "services/information_layer/information_layer/factors/provider.py:101",
+    "symbol": "reading",
+    "unit": "IcantFind-a-username/us-stock-helper@7245680"
+   },
+   {
+    "name_matched": [
+     "services/analysis_api/tests/test_evidence_provider.py:155"
+    ],
+    "path": "services/analysis_api/tests/test_analysis_service.py",
+    "recorded_call_site": "services/analysis_api/tests/test_evidence_provider.py:155",
+    "symbol": "factors_for",
+    "unit": "IcantFind-a-username/us-stock-helper@cdf221f"
+   }
+  ],
+  "name_matched": 23,
+  "recorded_with_call_site": 24
+ },
+ "through_caller": {
+  "kept_under_binding": 3,
+  "recorded": 29,
+  "rows": [
+   {
+    "at": "src/click/_termui_impl.py:391",
+    "bound": [],
+    "head": "cd4674a6de725e1d7cac7ea7b6cd27ea68b4094c",
+    "population": "forward",
+    "recorded_call_site": "src/click/_compat.py:69",
+    "repo": "click",
+    "symbol": "__init__"
+   },
+   {
+    "at": "src/click/exceptions.py:258",
+    "bound": [],
+    "head": "cd4674a6de725e1d7cac7ea7b6cd27ea68b4094c",
+    "population": "forward",
+    "recorded_call_site": "src/click/_compat.py:69",
+    "repo": "click",
+    "symbol": "__init__"
+   },
+   {
+    "at": "src/click/exceptions.py:264",
+    "bound": [],
+    "head": "cd4674a6de725e1d7cac7ea7b6cd27ea68b4094c",
+    "population": "forward",
+    "recorded_call_site": "src/click/_compat.py:69",
+    "repo": "click",
+    "symbol": "__init__"
+   },
+   {
+    "at": "src/attest/github/presentation.py:186",
+    "bound": [],
+    "head": "150804a34bf09ab84dc4e2f9a6a943c9b0824405",
+    "population": "attest-40",
+    "recorded_call_site": "src/attest/review/executor.py:2216",
+    "repo": "attest",
+    "symbol": "_anchored"
+   },
+   {
+    "at": "src/attest/github/presentation.py:188",
+    "bound": [],
+    "head": "150804a34bf09ab84dc4e2f9a6a943c9b0824405",
+    "population": "attest-40",
+    "recorded_call_site": "src/attest/review/executor.py:2216",
+    "repo": "attest",
+    "symbol": "_anchored"
+   },
+   {
+    "at": "src/attest/review/impact.py:160",
+    "bound": [],
+    "head": "84c75985a0d826a9b1fca1753a4e32082a2f493a",
+    "population": "attest-40",
+    "recorded_call_site": "src/attest/review/structural.py:263",
+    "repo": "attest",
+    "symbol": "is_test_path"
+   },
+   {
+    "at": "src/corum/fusion.py:494",
+    "bound": [
+     "tests/test_fusion.py:859",
+     "tests/test_fusion.py:919"
+    ],
+    "head": "14c363ddf1b0977d691aceb9d9a8ebf7110eda29",
+    "population": "corum-10",
+    "recorded_call_site": "tests/test_fusion.py:859",
+    "repo": "corum",
+    "symbol": "fuse_known_pair_likelihoods"
+   },
+   {
+    "at": "src/corum/fusion.py:505",
+    "bound": [
+     "tests/test_fusion.py:859",
+     "tests/test_fusion.py:919"
+    ],
+    "head": "14c363ddf1b0977d691aceb9d9a8ebf7110eda29",
+    "population": "corum-10",
+    "recorded_call_site": "tests/test_fusion.py:859",
+    "repo": "corum",
+    "symbol": "fuse_known_pair_likelihoods"
+   },
+   {
+    "at": "src/corum/fusion.py:511",
+    "bound": [
+     "tests/test_fusion.py:859",
+     "tests/test_fusion.py:919"
+    ],
+    "head": "14c363ddf1b0977d691aceb9d9a8ebf7110eda29",
+    "population": "corum-10",
+    "recorded_call_site": "tests/test_fusion.py:859",
+    "repo": "corum",
+    "symbol": "fuse_known_pair_likelihoods"
+   },
+   {
+    "at": "src/attest/github/presentation.py:186",
+    "bound": [],
+    "head": "150804a34bf09ab84dc4e2f9a6a943c9b0824405",
+    "population": "budget-17-attest",
+    "recorded_call_site": "src/attest/review/executor.py:2216",
+    "repo": "attest",
+    "symbol": "_anchored"
+   },
+   {
+    "at": "src/attest/github/presentation.py:188",
+    "bound": [],
+    "head": "150804a34bf09ab84dc4e2f9a6a943c9b0824405",
+    "population": "budget-17-attest",
+    "recorded_call_site": "src/attest/review/executor.py:2216",
+    "repo": "attest",
+    "symbol": "_anchored"
+   },
+   {
+    "at": "src/attest/review/probe.py:276",
+    "bound": [],
+    "head": "48b418c895735beecea1d1f66bf4b7cbc0995b87",
+    "population": "budget-17-attest",
+    "recorded_call_site": "src/attest/benchmark/artifacts.py:224",
+    "repo": "attest",
+    "symbol": "_render"
+   },
+   {
+    "at": "tests/test_probe_generation.py:122",
+    "bound": [],
+    "head": "48b418c895735beecea1d1f66bf4b7cbc0995b87",
+    "population": "budget-17-attest",
+    "recorded_call_site": "scripts/corpus/structural_wording_check.py:131",
+    "repo": "attest",
+    "symbol": "sample"
+   },
+   {
+    "at": "tests/test_probe_generation.py:124",
+    "bound": [],
+    "head": "48b418c895735beecea1d1f66bf4b7cbc0995b87",
+    "population": "budget-17-attest",
+    "recorded_call_site": "scripts/corpus/structural_wording_check.py:131",
+    "repo": "attest",
+    "symbol": "sample"
+   },
+   {
+    "at": "tests/test_probe_generation.py:126",
+    "bound": [],
+    "head": "48b418c895735beecea1d1f66bf4b7cbc0995b87",
+    "population": "budget-17-attest",
+    "recorded_call_site": "scripts/corpus/structural_wording_check.py:131",
+    "repo": "attest",
+    "symbol": "sample"
+   },
+   {
+    "at": "scripts/corpus/impact_scan.py:124",
+    "bound": [],
+    "head": "84c75985a0d826a9b1fca1753a4e32082a2f493a",
+    "population": "budget-17-attest",
+    "recorded_call_site": "scripts/corpus/gate_shadow.py:122",
+    "repo": "attest",
+    "symbol": "units"
+   },
+   {
+    "at": "src/attest/review/impact.py:160",
+    "bound": [],
+    "head": "84c75985a0d826a9b1fca1753a4e32082a2f493a",
+    "population": "budget-17-attest",
+    "recorded_call_site": "src/attest/review/structural.py:263",
+    "repo": "attest",
+    "symbol": "is_test_path"
+   },
+   {
+    "at": "src/attest/review/output_contract.py:195",
+    "bound": [],
+    "head": "84c75985a0d826a9b1fca1753a4e32082a2f493a",
+    "population": "budget-17-attest",
+    "recorded_call_site": "scripts/release/drill.py:182",
+    "repo": "attest",
+    "symbol": "check"
+   },
+   {
+    "at": "src/attest/review/output_contract.py:196",
+    "bound": [],
+    "head": "84c75985a0d826a9b1fca1753a4e32082a2f493a",
+    "population": "budget-17-attest",
+    "recorded_call_site": "scripts/release/drill.py:182",
+    "repo": "attest",
+    "symbol": "check"
+   },
+   {
+    "at": "src/attest/review/output_contract.py:205",
+    "bound": [],
+    "head": "84c75985a0d826a9b1fca1753a4e32082a2f493a",
+    "population": "budget-17-attest",
+    "recorded_call_site": "scripts/release/drill.py:182",
+    "repo": "attest",
+    "symbol": "check"
+   },
+   {
+    "at": "services/information_layer/information_layer/feeds/nasdaq.py:49",
+    "bound": [],
+    "head": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+    "population": "budget-17-ush",
+    "recorded_call_site": "services/information_layer/information_layer/feeds/generic.py:249",
+    "repo": "us-stock-helper",
+    "symbol": "_parse_rss"
+   },
+   {
+    "at": "services/information_layer/information_layer/feeds/nasdaq.py:63",
+    "bound": [],
+    "head": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+    "population": "budget-17-ush",
+    "recorded_call_site": "services/information_layer/information_layer/feeds/generic.py:249",
+    "repo": "us-stock-helper",
+    "symbol": "_parse_rss"
+   },
+   {
+    "at": "services/information_layer/information_layer/feeds/nasdaq.py:73",
+    "bound": [],
+    "head": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+    "population": "budget-17-ush",
+    "recorded_call_site": "services/information_layer/information_layer/feeds/generic.py:249",
+    "repo": "us-stock-helper",
+    "symbol": "_parse_rss"
+   },
+   {
+    "at": "services/information_layer/information_layer/feeds/nasdaq.py:75",
+    "bound": [],
+    "head": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+    "population": "budget-17-ush",
+    "recorded_call_site": "services/information_layer/information_layer/feeds/generic.py:249",
+    "repo": "us-stock-helper",
+    "symbol": "_parse_rss"
+   },
+   {
+    "at": "services/information_layer/information_layer/feeds/nasdaq.py:76",
+    "bound": [],
+    "head": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+    "population": "budget-17-ush",
+    "recorded_call_site": "services/information_layer/information_layer/feeds/generic.py:249",
+    "repo": "us-stock-helper",
+    "symbol": "_parse_rss"
+   },
+   {
+    "at": "services/information_layer/information_layer/feeds/nasdaq.py:78",
+    "bound": [],
+    "head": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+    "population": "budget-17-ush",
+    "recorded_call_site": "services/information_layer/information_layer/feeds/generic.py:249",
+    "repo": "us-stock-helper",
+    "symbol": "_parse_rss"
+   },
+   {
+    "at": "services/information_layer/information_layer/feeds/nasdaq.py:79",
+    "bound": [],
+    "head": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+    "population": "budget-17-ush",
+    "recorded_call_site": "services/information_layer/information_layer/feeds/generic.py:249",
+    "repo": "us-stock-helper",
+    "symbol": "_parse_rss"
+   },
+   {
+    "at": "services/information_layer/information_layer/feeds/nasdaq.py:81",
+    "bound": [],
+    "head": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+    "population": "budget-17-ush",
+    "recorded_call_site": "services/information_layer/information_layer/feeds/generic.py:249",
+    "repo": "us-stock-helper",
+    "symbol": "_parse_rss"
+   },
+   {
+    "at": "services/information_layer/information_layer/feeds/nasdaq.py:114",
+    "bound": [],
+    "head": "801fb292ce77b6c2768e731859637de50b6f0ae3",
+    "population": "budget-17-ush",
+    "recorded_call_site": "services/information_layer/information_layer/feeds/generic.py:399",
+    "repo": "us-stock-helper",
+    "symbol": "_symbol_relevance"
+   }
+  ]
+ }
+}

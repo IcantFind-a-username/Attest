@@ -61,6 +61,20 @@ but it is the reason the remaining ones can be trusted without one: what the
 pinned literal cannot say about the author's intent, the author's own prose in
 the same diff does.
 
+``attest.intent.v4.2`` (D-174) adds one word to the value rule: the base tree
+must specify the value **about the symbol this change touched**. v4.1 asked only
+whether some file in the tree pinned the same value, so a repository holding
+``assert len("weekday") == 7`` anywhere specified ``7`` for every function that
+returns it, and the receipt published against a sentence that was never about the
+code under test. Under v4.2 an ``assert`` counts only when its own scope -- the
+test function holding it, or the module top level -- writes an anchored symbol as
+a name, an attribute or an import; a docstring counts only when it is that
+symbol's own docstring or names it; a documentation paragraph counts only when
+that paragraph names it. A change that touches no def or class at all anchors no
+symbol, nothing can be a specification of it, and the receipt is drawered with
+that as its reason. The observation's fields are v4's, unchanged: what moved is
+which sites `find_specifications` is allowed to return.
+
 ``attest.intent.v4.1`` (D-134) narrows clause (c) and nothing else. v4 read a
 symbol name as intent wherever it appeared as a word, so a comment saying "back
 to main" or "the snapshot is taken lazily" was a statement about a function named
@@ -87,11 +101,12 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
-INTENT_POLICY_VERSION = "attest.intent.v4.1"  # D-134
+INTENT_POLICY_VERSION = "attest.intent.v4.2"  # D-174
 INTENT_POLICY_V1 = "attest.intent.new-rejection.v1"  # D-102, before D-120
 INTENT_POLICY_V2 = "attest.intent.v2"  # D-120, before D-127
 INTENT_POLICY_V3 = "attest.intent.v3"  # D-127, before D-132
 INTENT_POLICY_V4 = "attest.intent.v4"  # D-132, before D-134
+INTENT_POLICY_V41 = "attest.intent.v4.1"  # D-134, before D-174
 EVIDENCE_CLASS_REGRESSION = "regression_reproduced"
 EVIDENCE_CLASS_BEHAVIOR_CHANGE = "behavior_change"
 INTENT_UNKNOWN_LABEL = "behavior change confirmed, intent unknown"
@@ -100,6 +115,8 @@ CONSTANT_CHANGE_LABEL = "constant change confirmed, intent unknown"
 CONSTANT_CHANGE_LABEL_ZH = "常量改动已证实，意图未知"
 VALUE_CHANGE_LABEL = "value change confirmed, intent unknown"
 VALUE_CHANGE_LABEL_ZH = "返回值变化已证实，意图未知"
+UNANCHORED_LABEL = "value change confirmed, no symbol to specify"
+UNANCHORED_LABEL_ZH = "返回值变化已证实，无可关联符号"
 INTENT_STATED_LABEL = "intent stated in the change itself"
 INTENT_STATED_LABEL_ZH = "改动自身已陈述意图"
 REJECTING_STATEMENTS = ("raise", "assert")
@@ -217,19 +234,31 @@ POLICY_FIELDS: dict[str, tuple[str, ...]] = {
     INTENT_POLICY_V2: _V2_FIELDS,
     INTENT_POLICY_V3: _V3_FIELDS,
     INTENT_POLICY_V4: _V4_FIELDS,
-    # v4.1 records exactly v4's fields: D-134 changes what counts as a mention,
-    # not what an observation is made of. A v4 receipt therefore keeps its own
-    # digest and its own answer, and this version is a promise about the rule.
+    # v4.1 and v4.2 record exactly v4's fields: D-134 changes what counts as a
+    # mention and D-174 what counts as a specification, neither of them what an
+    # observation is made of. A v4 or v4.1 receipt therefore keeps its own
+    # digest and its own answer, and each version is a promise about the rule.
+    INTENT_POLICY_V41: _V4_FIELDS,
     INTENT_POLICY_VERSION: _V4_FIELDS,
 }
 _CONSTANT_RULE_VERSIONS = frozenset(
-    {INTENT_POLICY_V2, INTENT_POLICY_V3, INTENT_POLICY_V4, INTENT_POLICY_VERSION}
+    {
+        INTENT_POLICY_V2,
+        INTENT_POLICY_V3,
+        INTENT_POLICY_V4,
+        INTENT_POLICY_V41,
+        INTENT_POLICY_VERSION,
+    }
 )
 _VALUE_RULE_VERSIONS = frozenset(
-    {INTENT_POLICY_V3, INTENT_POLICY_V4, INTENT_POLICY_VERSION}
+    {INTENT_POLICY_V3, INTENT_POLICY_V4, INTENT_POLICY_V41, INTENT_POLICY_VERSION}
 )
 # D-132 (b) and (c) arrived together and neither reaches a v1, v2 or v3 receipt.
-_V4_RULE_VERSIONS = frozenset({INTENT_POLICY_V4, INTENT_POLICY_VERSION})
+_V4_RULE_VERSIONS = frozenset(
+    {INTENT_POLICY_V4, INTENT_POLICY_V41, INTENT_POLICY_VERSION}
+)
+# D-174's association rule reaches v4.2 and nothing earlier.
+_V42_RULE_VERSIONS = frozenset({INTENT_POLICY_VERSION})
 
 
 def constant_change(observation: IntentObservation) -> bool:
@@ -297,11 +326,25 @@ def value_change_reason(observation: IntentObservation) -> str | None:
             f"which almost any tree asserts somewhere and which therefore specifies "
             f"nothing about the code under test ({VALUE_CHANGE_LABEL_ZH})"
         )
+    # D-174: with no anchored symbol there is nothing a specification could be
+    # *about*, so the absence of one says nothing. Named apart from the ordinary
+    # "not specified" reason because it is a different fact about the change.
+    if observation.policy_version in _V42_RULE_VERSIONS and not observation.anchored_symbols:
+        return (
+            f"{UNANCHORED_LABEL}: this change touches no function or class of the "
+            f"anchored file, so no test, docstring or document can specify the value "
+            f"for it ({UNANCHORED_LABEL_ZH})"
+        )
     specified = {value for value, _path in observation.value_specified}
     if any(value not in specified for value in distinctive):
+        about = (
+            " about the symbol this change touched"
+            if observation.policy_version in _V42_RULE_VERSIONS
+            else ""
+        )
         return (
             f"{VALUE_CHANGE_LABEL}: the base tree does not specify the value this "
-            f"assertion pins -- no base test asserts it and no docstring or "
+            f"assertion pins{about} -- no base test asserts it and no docstring or "
             f"documentation writes it down ({VALUE_CHANGE_LABEL_ZH})"
         )
     return None

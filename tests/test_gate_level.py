@@ -440,3 +440,73 @@ def test_a_caller_that_is_itself_a_test_is_graded_apart(tmp_path: Path) -> None:
         control=PASSING_CONTROL,
     )
     assert observation.would_publish is False
+
+
+# --- §1(a): a witness is a call that *resolves* to the anchored symbol --------
+
+OTHER_WITH_ITS_OWN_WIDEN = (
+    "def widen(name):\n"
+    "    return name\n"
+    "\n"
+    "\n"
+    "def use() -> str:\n"
+    "    return widen('x')\n"
+)
+
+
+def test_a_call_of_another_modules_function_of_the_same_name_is_not_a_witness(
+    tmp_path: Path,
+) -> None:
+    """RED. `other.py` defines its own `widen` and calls it; nothing in the tree
+    imports `lib.widen`. A `grep`-shaped search reads that call as a caller of
+    the new code and grades the candidate `through_caller` -- the one grade that
+    is allowed to publish -- on a call that never reaches it."""
+    repo, head, added = _tree(
+        tmp_path / "repo",
+        base_cli=CLI_BEFORE,
+        head_cli=CLI_BEFORE,  # nothing calls `widen`
+        lib=LIB_NEW,
+    )
+    (repo / "other.py").write_text(OTHER_WITH_ITS_OWN_WIDEN, encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "other")
+    head = _git(repo, "rev-parse", "HEAD")
+
+    reach = witness(
+        repo,
+        head,
+        path="lib.py",
+        origin_line=2,
+        added=added,
+        head_source=LIB_NEW,
+        test_source=TESTS_EXISTING,
+    )
+
+    assert reach.call_site is None
+    assert reach.kind != THROUGH_CALLER
+    assert reach.admissible is False
+
+
+def test_a_real_imported_call_site_is_still_a_witness(tmp_path: Path) -> None:
+    """The retained positive: `from lib import widen` and a call of it in an
+    unchanged line of `main` is exactly what the grade is for."""
+    repo, head, added = _tree(
+        tmp_path / "repo",
+        base_cli=CLI_WITH_EXISTING_CALL,
+        head_cli=CLI_WITH_EXISTING_CALL,
+        lib=LIB_NEW,
+    )
+
+    reach = witness(
+        repo,
+        head,
+        path="lib.py",
+        origin_line=2,
+        added=added,
+        head_source=LIB_NEW,
+        test_source=TESTS_EXISTING,
+    )
+
+    assert reach.call_site is not None
+    assert reach.call_site.path == "cli.py"
+    assert reach.kind == THROUGH_CALLER

@@ -21,9 +21,12 @@ Three premises, each decidable from the two trees, and **all three or nothing**:
         itself, not the caller's call to it.
 
 Every direction of doubt voids the hypothesis and none of them costs precision:
-a callee whose name is defined twice is ambiguous and voids; a bare `except:`
-or an `except Exception` catches everything and voids; a caller this level
-cannot resolve voids; a file that does not parse voids.
+a callee whose written name does not resolve to one definition voids (v2 --
+`attest.review.binding`, which is stricter than the old "defined twice
+anywhere" rule in one direction and far weaker in the other); a bare `except:`
+or an `except Exception` catches everything and voids; a handler whose relation
+to the raised type Python cannot decide voids; a caller this level cannot
+resolve voids; a file that does not parse voids.
 
 The whole check is `ast` and `git`. A model is called **once, after the three
 premises already hold**, to write the sentence a person reads -- and if it
@@ -38,15 +41,28 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
+from attest.review.binding import Reference, dotted_name
 from attest.review.impact import (
+    CATCH_ALL,
     MAX_DEPTH,
     CallGraph,
     ChangedFunction,
     FunctionDef,
+    exception_caught,
+    handler_names,
     is_test_path,
 )
 
-PROPAGATION_POLICY_VERSION = "attest.propagation.unhandled-exception.v1"
+# v2 (2026-09-08): two changes, both of them about *which* facts the three
+# premises are read from. Premise (i)'s callee and premise (iii)'s callers are
+# now resolved by `attest.review.binding` rather than matched by the name they
+# were written with -- so a second definition of one name in an unrelated file
+# is no longer ambiguity, and a `math.sqrt` is no longer a call of this
+# repository's `sqrt`. And a `raise` the same function's own `try` catches no
+# longer counts as raised: `exception_caught` reads the built-in hierarchy, so
+# `except LookupError` covers a `KeyError` and two names Python does not know
+# abstain rather than assert.
+PROPAGATION_POLICY_VERSION = "attest.propagation.unhandled-exception.v2"
 
 # Owner decision 2 of 2026-09-07: this class stays, and stays a **shadow**.
 #
@@ -55,7 +71,9 @@ PROPAGATION_POLICY_VERSION = "attest.propagation.unhandled-exception.v1"
 # controls, with 0% control noise against the owner's 3% ceiling, and of 198
 # changed functions 135 added no call at all while 43 called a name defined more
 # than once. Those refusals are informative, and it costs $0.00 to keep taking
-# them. What it has not earned is an author's attention: a level that has never
+# them. (That 43 was measured under v1, when a second definition *anywhere in
+# the tree* was ambiguity; under v2 most of those are resolvable and the scan
+# has not been re-run.) What it has not earned is an author's attention: a level that has never
 # said anything is not yet a level a reader should be asked to read.
 #
 # So it runs on every review, writes `propagation_note` rows to the ledger, and
@@ -73,10 +91,6 @@ MAX_NOTES = 2
 _SPHINX_RAISES = re.compile(r"^\s*:raises?\s+([A-Za-z_][\w.]*)\s*:", re.M)
 _SECTION_RAISES = re.compile(r"^[ \t]*Raises:?\s*$", re.M)
 _SECTION_ENTRY = re.compile(r"^[ \t]+([A-Za-z_][\w.]*)\s*(?:\(.*?\))?\s*:", re.M)
-
-# an exception name that catches everything. `except:` (bare) is recorded as ""
-# and is here for the same reason.
-_CATCH_ALL = frozenset({"", "Exception", "BaseException"})
 
 # The wording prompt. Deliberately silent about the contract's rules: the
 # adjudicator's job is to hold against a model that was not told, and a prompt
@@ -185,30 +199,18 @@ def _handled_types(node: ast.AST) -> frozenset[str]:
     while stack:
         current = stack.pop()
         if isinstance(current, ast.ExceptHandler):
-            caught.update(_handler_names(current))
+            caught.update(handler_names(current))
         stack.extend(ast.iter_child_nodes(current))
     return frozenset(caught)
 
 
-def _handler_names(handler: ast.ExceptHandler) -> set[str]:
-    if handler.type is None:
-        return {""}  # bare `except:` catches everything
-    targets = (
-        handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
-    )
-    names: set[str] = set()
-    for target in targets:
-        if isinstance(target, ast.Name):
-            names.add(target.id)
-        elif isinstance(target, ast.Attribute):
-            names.add(target.attr)
-        else:
-            names.add("")  # an expression this level cannot read catches everything
-    return names
-
-
 def _called_names(node: ast.AST) -> set[str]:
-    """Every bare callee name called inside ``node``, nested defs excluded."""
+    """Every call expression written inside ``node``, nested defs excluded.
+
+    The expression **as written** -- `read`, `self.read`, `mod.read` -- because
+    that is what the binding layer resolves. Premise (i) compares two revisions
+    of the same function, so both sides are read the same way and a call that
+    only changed its spelling is still a call the change introduced."""
     names: set[str] = set()
     stack: list[ast.AST] = list(ast.iter_child_nodes(node))
     while stack:
@@ -216,11 +218,9 @@ def _called_names(node: ast.AST) -> set[str]:
         if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
             continue
         if isinstance(current, ast.Call):
-            target = current.func
-            if isinstance(target, ast.Name):
-                names.add(target.id)
-            elif isinstance(target, ast.Attribute):
-                names.add(target.attr)
+            written = dotted_name(current.func)
+            if written is not None:
+                names.add(written)
         stack.extend(ast.iter_child_nodes(current))
     return names
 
@@ -250,7 +250,7 @@ def _raises_of(definition: FunctionDef, node: ast.FunctionDef | ast.AsyncFunctio
 VOID_NO_BASE = "no base revision of this function"
 VOID_NO_ADDED_CALL = "the change added no call"
 VOID_HANDLED_HERE = "the changed function catches everything"
-VOID_AMBIGUOUS_CALLEE = "the callee's name is not unique"
+VOID_UNBOUND_CALLEE = "the callee does not resolve to one definition"
 VOID_CALLEE_RAISES_NOTHING = "the callee names no exception"
 VOID_HANDLED_BY_CALLEE_TYPE = "the changed function catches this type"
 VOID_NO_UNGUARDED_CALLER = "no non-test caller is unguarded"
@@ -327,42 +327,44 @@ def note_for(  # noqa: PLR0911 - every return is one premise failing, named
 
     # the changed function's own handlers, read once
     handled_here = _handled_types(head_node)
-    if handled_here & _CATCH_ALL:
+    if handled_here & CATCH_ALL:
         void(VOID_HANDLED_HERE)
         return None
 
-    furthest = VOID_AMBIGUOUS_CALLEE
+    furthest = VOID_UNBOUND_CALLEE
     for callee_name in sorted(added):
-        callee = graph.unique(callee_name)
+        callee = _resolved_callee(graph, subject, callee_name)
         if callee is None or callee.is_test:
-            furthest = VOID_AMBIGUOUS_CALLEE
-            continue  # ambiguous or a test helper: not a hypothesis
+            furthest = VOID_UNBOUND_CALLEE
+            continue  # unresolved or a test helper: not a hypothesis
         callee_node = nodes_of(callee.path).get(callee.qualname)
         raised = _raises_of(callee, callee_node)
         if raised is None:
             furthest = VOID_CALLEE_RAISES_NOTHING
             continue
         exception, evidence = raised
-        if exception in handled_here:
+        # `is not False` and not `is True`: an undecidable handler voids the
+        # hypothesis rather than asserting the exception is unhandled.
+        if exception_caught(handled_here, exception) is not False:
             furthest = VOID_HANDLED_BY_CALLEE_TYPE
             continue
         furthest = VOID_NO_UNGUARDED_CALLER
 
         # (iii) a non-test caller of the changed function that does not catch it
-        for site in graph.sites.get(subject.name, ()):
+        for site in graph.bound_sites(subject):
             if site.is_test or site.inside is None or site.inside == subject.qualname:
                 continue
             caller_node = nodes_of(site.path).get(site.inside)
             if caller_node is None:
                 continue
             caught = _handled_types(caller_node)
-            if caught & _CATCH_ALL or exception in caught:
+            if exception_caught(caught, exception) is not False:
                 continue
             call_line = next(
                 (
                     node.lineno
                     for node in ast.walk(head_node)
-                    if isinstance(node, ast.Call) and _is_named(node.func, callee_name)
+                    if isinstance(node, ast.Call) and dotted_name(node.func) == callee_name
                 ),
                 subject.line,
             )
@@ -382,12 +384,16 @@ def note_for(  # noqa: PLR0911 - every return is one premise failing, named
     return None
 
 
-def _is_named(func: ast.expr, name: str) -> bool:
-    if isinstance(func, ast.Name):
-        return func.id == name
-    if isinstance(func, ast.Attribute):
-        return func.attr == name
-    return False
+def _resolved_callee(
+    graph: CallGraph, subject: FunctionDef, written: str
+) -> FunctionDef | None:
+    """The one definition a call written inside ``subject`` can mean, or None."""
+    if graph.binding is None:
+        return None
+    target = graph.binding.resolve(
+        Reference(path=subject.path, dotted=written, scope=subject.qualname)
+    )
+    return graph.definition_at(target)
 
 
 __all__ = [

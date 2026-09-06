@@ -55,13 +55,17 @@ never publishes more than **two** comments on one pull request, across all of it
 ## `[green]` — something structurally so, with no model in the detection path
 
 From the shadow review of `attest` at `48b418c8`, 2026-09-07
-(`.attest/real-traffic/2026-09-07-budget-attest.log`):
+(`.attest/real-traffic/2026-09-07-budget-attest.log`), with the sentence in the shape
+`attest.structural.duplicate-implementation.v2` prints it (D-174; the recorded line said
+"attribute and callee names are not", which read as the opposite of what it meant, and v1 kept
+only *attribute* callees anyway):
 
 ```
 [green] Structural (no defect claimed): scripts/corpus/impact_scan.py:62-68 `git` and
         scripts/corpus/qualify_controls.py:45-54 `git` normalise to token sequences of
-        50 and 50 tokens whose similarity is 1.000 (threshold 0.92); identifiers and
-        literal values are erased, attribute and callee names are not.
+        50 and 50 tokens whose token-sequence similarity is 1.000 (threshold 0.92), not
+        semantic equivalence; identifiers and literal values erased, attribute and callee
+        names kept.
 ```
 
 **What stands behind it.** Two function bodies, normalised to token sequences by `ast`, whose

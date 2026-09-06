@@ -329,8 +329,24 @@ reports PR-any-wrong exposure.
 **Amended 2026-09-04 (D-125).** The family is the **change unit** — the changed file the
 candidate's anchor names — not the pull request: a certified finding publishes at
 `e >= m_u / alpha` for the `m_u` eligible candidates in its own unit. The guarantee is therefore
-`alpha` **within a unit**, and `hard_cap * alpha` across a pull request, since at most the hard
-cap is ever author-visible. The hard cap, `alpha`, the likelihood ratio and `K` are unchanged.
+`alpha` **within a unit**. The hard cap, `alpha`, the likelihood ratio and `K` are unchanged.
+
+**Corrected 2026-09-08 (D-174).** D-125's sentence "and `hard_cap * alpha` across a pull
+request" was **wrong, in the unsafe direction**, and is withdrawn. Per-unit Bonferroni controls
+the family-wise error inside a unit and nowhere else; across a pull request the units are
+separate families and the union bound over the `U` units that carried an eligible candidate is
+`pr_error_bound = min(1, U * alpha)`. The hard cap truncates the **display**, not the search: a
+unit whose null was rejected was searched and rejected whether or not the cap then hid the
+finding. A Monte-Carlo over the real selector — ten units, `alpha = 0.1`, one candidate each
+whose e-value is valid under the null — publishes something in **65%** of pull requests
+(`1 - 0.9**10`), against the withdrawn `0.3`
+(`tests/certification/test_pr_error_bound.py`). Every `publication_policy` row now records
+`units_searched`, `pr_error_bound` and `e_value_validity`
+(`attest.publication-policy.v3`); `e_value_validity` is `assumed-calibrated`, because the
+wealth is a fixed likelihood-ratio product (D-007) and not a quantity shown to satisfy
+`E[wealth] <= 1` under the null — every bound here is conditional on that. **No threshold,
+`alpha`, likelihood ratio, `K` or cap moved**: restoring a PR-level rate is an owner decision
+under AGENTS §16.
 The unit definition lives alone in `attest/certification/units.py` behind
 `CHANGE_UNIT_POLICY_VERSION`; each ledger row records `eligible_units` and the `unit_thresholds`
 applied, so a row says which rule produced it. Permutation and tie determinism are unchanged and
@@ -713,6 +729,30 @@ through-caller rule and not its point, and it **never publishes**:
 | the 13 forward-pair **fix** commits — the new-code direction ([report](2026-09-07-forward-fix.md)) | **3** | 0 | 0 | 0 |
 | **cumulative** | **445** | **26** (5.8%) | **3** | **0** |
 
+**Corrected 2026-09-08 (D-174): every one of the 26 is 0.** The `through_caller` grade was
+awarded to a call site found by matching the **name** the call was written with. Re-adjudicated
+against `attest.review.binding`, which resolves a call to the definition it can only mean, all
+**26** are name collisions and **none survives**:
+
+| population | recorded `through_caller` | under binding |
+|---|---|---|
+| E-04 stratum v2 (224 candidates) | 24 static call sites (10.7%) | **0** |
+| 11 forward pairs, 40 owner commits, 10 `corum` (90) | 6 | **0** |
+| the 17 budget-starved commits (128) | 20 | **0** |
+| the 13 forward-pair fix commits (3) | 0 | 0 |
+| **cumulative (445)** | **26 (5.8%)** | **0 (0.0%)** |
+
+The three `through_test_caller` observations stand; they are one symbol whose only caller is
+`tests/test_fusion.py`, and that grade never publishes. Examples of what was being counted:
+`src/corum/dependence.py::_validate_examples` witnessed in a file holding **its own**
+`_validate_examples`; `scripts/release/drill.py::main` witnessed in another script's `main`;
+`src/attest/review/output_contract.py::check` witnessed at `drill.check(...)`, a method on a
+local variable. Full re-count in [the 2026-09-08 report](2026-09-08-binding-and-bounds.md).
+**The 5.8% row is retained as the record of what was measured; it is a rate of name matches and
+is not a ceiling on this level's speech.** The honest present figure is that **no recorded
+new-code candidate has ever produced a publishing-grade witness**, and this gate's pilot
+progress is therefore **0 of 445**.
+
 Three things this table is careful about.
 
 1. **The 2026-09-05 zero is a *static* result**: no reproduction executed, so no grade could be
@@ -725,8 +765,10 @@ Three things this table is careful about.
    new-code candidates between them and **none admissible** — the new-code direction is where
    this level ought to be richest, and on real repairs it is nearly empty.
 
-**5.8% is a ceiling on how often this level could speak at all**, not a rate at which it would
-be right.
+**5.8% was read as a ceiling on how often this level could speak at all**, never as a rate at
+which it would be right. Under D-174's correction the measured figure is **0.0%**, and the
+question the design owes -- *can this level produce a witness at all on real traffic?* -- is now
+open with a worse answer than before.
 
 **After owner selection:** create a separate implementation/calibration work order whose
 N-series ID is assigned only then, and require that class to pass its own `G-CERT-*`,

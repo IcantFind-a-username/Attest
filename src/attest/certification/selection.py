@@ -11,14 +11,33 @@ arithmetic mean of the eligible candidates' e-values reports the PR-level global
 null. Suppressed certified findings stay private with a reason. Pure: no I/O, no
 ranking inputs beyond the declared e-values, deterministic tie-breaks.
 
-**What the guarantee now is.** Bonferroni over ``m_u`` controls the family-wise
-error rate at ``alpha`` **within each change unit**. Across a pull request the
-bound is the union over the units that published, and at most ``hard_cap``
-findings are ever author-visible, so the PR-level family-wise error is bounded by
-``hard_cap * alpha`` rather than ``alpha``. That weakening is the whole content
-of the decision and is stated, not hidden: a split of ``alpha`` across units that
-preserved the PR-level rate would give back exactly the ``m/alpha`` threshold it
-replaced. ``alpha``, the likelihood ratio, ``K`` and the cap are untouched.
+**What the guarantee is, corrected (D-174).** Bonferroni over ``m_u`` controls
+the family-wise error rate at ``alpha`` **inside one change unit, and nowhere
+else**. Across a pull request the units are separate families, so the union bound
+over the ``U`` units that carried an eligible candidate is
+``pr_error_bound = min(1, U * alpha)``.
+
+D-125 said this bound was ``hard_cap * alpha``, reasoning that at most
+``hard_cap`` claims are ever visible. That is wrong, and in the unsafe direction:
+**the cap truncates the display, not the search.** A unit whose null was rejected
+was searched and rejected whether or not the cap then hid the finding, and a
+Monte-Carlo over this very function makes the gap concrete -- ten units at
+``alpha = 0.1``, each with one candidate whose e-value is a valid e-value under
+the null, publishes something in **65%** of pull requests
+(``1 - 0.9**10``), against the ``hard_cap * alpha = 0.3`` D-125 claimed
+(`tests/certification/test_pr_error_bound.py`).
+
+Two things follow, and neither is a code change to the arithmetic. ``alpha``, the
+likelihood ratio, ``K`` and the cap are untouched -- restoring a PR-level rate is
+an owner decision under §16, not an agent's. What changes is that every selection
+now **reports the bound it actually offers**: ``units_searched``,
+``pr_error_bound``, and ``e_value_validity``.
+
+**``e_value_validity`` is ``"assumed-calibrated"``, and that word is load-bearing.**
+The wealth this module thresholds is a fixed product of likelihood ratios
+(D-007), not a quantity anyone has proved is an e-value: S and T price only
+positive evidence, so ``E[wealth] <= 1`` under the null is an assumption of the
+factor table and not a theorem about it. Every bound above is conditional on it.
 """
 
 from __future__ import annotations
@@ -31,13 +50,19 @@ from .clustering import publication_clusters
 from .types import CertifiedFinding
 from .units import CHANGE_UNIT_POLICY_VERSION, change_unit
 
-PUBLICATION_POLICY_SCHEMA_VERSION = "attest.publication-policy.v2"
+# v3 (D-174) adds `units_searched`, `pr_error_bound` and `e_value_validity`.
+PUBLICATION_POLICY_SCHEMA_VERSION = "attest.publication-policy.v3"
 PUBLICATION_METHOD = "e-value Bonferroni"
 DEFAULT_HARD_CAP = 3
 
 REASON_BELOW_THRESHOLD = "below family threshold"
 REASON_SAME_DEFECT = "same defect as a published finding"
 REASON_BEYOND_CAP = "beyond the hard author-visible cap"
+
+# D-174: the wealth is a fixed product of likelihood ratios (D-007), not a
+# quantity shown to satisfy `E[wealth] <= 1` under the null. Every bound this
+# module reports is conditional on that assumption, and says so.
+E_VALUE_VALIDITY = "assumed-calibrated"
 
 
 class CertifiedSelection(Protocol):
@@ -73,6 +98,24 @@ class FamilyPolicy:
         """The pre-D-125 PR-wide bar, kept for comparison and reporting."""
         return max(1, self.eligible_count) / self.alpha
 
+    @property
+    def units_searched(self) -> int:
+        """``U``: the change units that carried an eligible candidate.
+
+        A unit with no eligible candidate ran no test and cannot have rejected a
+        null, so it is not in the union bound. When the eligible map is empty --
+        a caller that did not supply it -- the pull request is one family."""
+        return len(self.eligible_units) or 1
+
+    @property
+    def pr_error_bound(self) -> float:
+        """``min(1, U * alpha)``: the union bound over the units searched.
+
+        Conditional on the e-values being calibrated (:data:`E_VALUE_VALIDITY`).
+        It is not ``hard_cap * alpha``: the cap hides findings after the search,
+        and a hidden false claim is still a rejected null."""
+        return min(1.0, self.units_searched * self.alpha)
+
 
 @dataclass(frozen=True)
 class Suppressed:
@@ -89,6 +132,10 @@ class Selection:
     mean_e_value: float | None  # arithmetic mean over the eligible candidates
     # D-125: the bar actually applied to each cluster, by the representative's unit
     unit_thresholds: Mapping[str, float] = field(default_factory=dict)
+    # D-174: what the PR-level guarantee actually is, on every selection
+    units_searched: int = 1
+    pr_error_bound: float = 1.0
+    e_value_validity: str = E_VALUE_VALIDITY
 
 
 def _candidate_id(finding: CertifiedFinding) -> str:
@@ -147,4 +194,7 @@ def select_for_publication(
         family_threshold=threshold,
         mean_e_value=mean,
         unit_thresholds=dict(sorted(applied.items())),
+        units_searched=policy.units_searched,
+        pr_error_bound=policy.pr_error_bound,
+        e_value_validity=E_VALUE_VALIDITY,
     )

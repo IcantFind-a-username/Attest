@@ -1974,6 +1974,10 @@ def run_ci(
         # which is a level that has not yet earned an author's attention, and it
         # is free -- so it keeps being measured into the ledger and reaches no
         # author-visible surface at all (the arrangement D-137 gave the gate).
+        # D-174: that 0-of-79 is a `unhandled-exception.v1` number and does not
+        # carry over -- v2's premise (i) reads call expressions as written, so a
+        # `read(x)` rewritten to `self.read(x)` is now an added call. Nothing an
+        # author sees depends on it while this flag is True.
         propagation_inline = (
             []
             if PROPAGATION_SHADOW

@@ -14,6 +14,7 @@ from threading import Lock, Thread
 
 import pytest
 
+from attest.certification.intent import INTENT_POLICY_VERSION
 from attest.github.client import STATUS_MARKER, GitHubClient
 from attest.github.context import PullRequestContext
 from attest.github.presentation import (
@@ -1936,7 +1937,7 @@ def test_a_new_rejection_the_base_tests_attest_publishes_as_a_behavior_change(
     assert intent["witnesses"] == [["the buyback plan raises the floor", "tests/test_app.py"]]
     receipt = json.loads((bundle / "receipt.json").read_text(encoding="utf-8"))
     assert receipt["evidence_class"] == "behavior_change"
-    assert receipt["intent_policy_version"] == "attest.intent.v4.1"
+    assert receipt["intent_policy_version"] == INTENT_POLICY_VERSION == "attest.intent.v4.2"
     assert isinstance(verify_bundle(bundle), AcceptedReceipt)
 
     # the verifier re-judges the observation: a bundle whose every digest is

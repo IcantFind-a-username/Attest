@@ -13,16 +13,25 @@ one — every premise it states is a count over an abstract syntax tree:
 **No model, no execution, no network, no cost.** Reading files and `ast` is the
 whole of it, which is why this level can run on every pull request.
 
-What it refuses to say is as important as what it says. A call graph built from
-names alone is an over-approximation, so this module **abstains on every
-ambiguity** rather than narrowing a claim it cannot support:
+What it refuses to say is as important as what it says. A call graph is an
+over-approximation, so this module **abstains on every ambiguity** rather than
+narrowing a claim it cannot support:
 
+- a *caller* is a call site that **resolves** to the changed function
+  (`attest.review.binding`, D-174), not one that writes its name. `import math;
+  math.sqrt(9)` is not a caller of this repository's `sqrt`, and every call the
+  binding layer cannot resolve -- through inheritance, a decorator, a variable,
+  a package re-export, or any bare name in a file with a star import -- is in no
+  caller list at all;
 - a changed function whose name is defined more than once in the repository is
-  dropped: `save` in two classes is two functions and a name cannot tell them
-  apart;
+  still dropped, although binding now makes that abstention redundant: it is the
+  condition D-145 was measured under and removing it is recall no measurement
+  has asked for;
 - a call site reached through a registry, a dispatch table, `getattr`, or any
   dynamic form is invisible here, so "no test reaches it" is stated as **no
-  test *names* it**, which is what was actually measured;
+  test *names* it**, which is what was actually measured -- and that half is
+  deliberately still a *name* question, because what a test writes is what a
+  reader can go and look for;
 - a repository that exceeds the file, byte or node caps yields nothing at all.
 
 It speaks only when there is something an author can act on, and since D-145
@@ -41,12 +50,20 @@ is author-visible and expected to be silent on ordinary traffic.
 from __future__ import annotations
 
 import ast
+import builtins
 from collections import defaultdict, deque
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-IMPACT_POLICY_VERSION = "attest.impact.caller-scope.v1"
+from attest.review.binding import BindingIndex, Reference, Target, dotted_name
+
+# v2 (D-174, 2026-09-08): a caller is the call site that **resolves** to the
+# changed function (`attest.review.binding`), not one that writes its name. A
+# v1 note counted `import math; math.sqrt(9)` as a caller of a project `sqrt`
+# and could not see `from mathlib import sqrt as root; root(v)` at all, so a
+# note under this version is not comparable to one under v1.
+IMPACT_POLICY_VERSION = "attest.impact.caller-scope.v2"
 CATEGORY = "impact"
 
 MAX_FILES = 5_000
@@ -142,6 +159,10 @@ class CallSite:
     line: int
     callee: str
     inside: str | None  # qualname of the enclosing function, None at module level
+    # the call expression exactly as the source spells it -- `sqrt`, `math.sqrt`,
+    # `self.save`. `callee` is its last segment and answers "does a test write
+    # this word?"; this is what `attest.review.binding` resolves to a definition.
+    dotted: str = ""
     # What the call passes, for the one question a static arity check may ask.
     # `unknown_arity` is set by `*args`, `**kwargs` or any keyword argument:
     # each of them can supply a parameter this level cannot see, so the check
@@ -205,13 +226,46 @@ class ImpactNote:
 
 @dataclass
 class CallGraph:
-    """Definitions and call sites of one tree, indexed by bare name."""
+    """Definitions and call sites of one tree.
+
+    Three indexes, and which one a question may use is the whole point:
+
+    - ``definitions`` and ``sites`` are keyed by **bare name**. A name is what a
+      reader writes, so these answer "what is written here", never "what does
+      this call".
+    - ``mentions`` is every occurrence of a name, call or not, and answers the
+      one question this level asks of it -- *does a test write this word?*
+    - ``bound`` is keyed by the :class:`~attest.review.binding.Target` a call
+      site **resolves** to. It is the only index a claim about a caller may use
+      (`callers_of`): an unresolved call site is in none of its buckets.
+    """
 
     definitions: dict[str, list[FunctionDef]] = field(default_factory=dict)
     sites: dict[str, list[CallSite]] = field(default_factory=dict)
     # every mention of a name -- calls, attribute reads, bare references. Used
     # only to answer "does a test name this?", never to claim a call.
     mentions: dict[str, list[CallSite]] = field(default_factory=dict)
+    # call sites that resolve to exactly one definition, by that definition
+    bound: dict[Target, list[CallSite]] = field(default_factory=dict)
+    binding: BindingIndex | None = None
+
+    def target_of(self, definition: FunctionDef) -> Target:
+        return Target(definition.path, definition.qualname)
+
+    def bound_sites(self, definition: FunctionDef) -> tuple[CallSite, ...]:
+        """Every call site that **resolves** to this definition."""
+        return tuple(self.bound.get(self.target_of(definition), ()))
+
+    def definition_at(self, target: Target | None) -> FunctionDef | None:
+        """The one definition a binding target names, or None."""
+        if target is None:
+            return None
+        found = [
+            definition
+            for definition in self.definitions.get(target.name, ())
+            if definition.path == target.path and definition.qualname == target.qualname
+        ]
+        return found[0] if len(found) == 1 else None
 
     def unique(self, name: str) -> FunctionDef | None:
         """The one definition of this name, or None when the name is ambiguous.
@@ -234,23 +288,118 @@ def is_test_path(relative: str) -> bool:
     )
 
 
-def _raised_types(node: ast.FunctionDef | ast.AsyncFunctionDef) -> frozenset[str]:
-    """The exception type names this function raises **in its own body**.
+CATCH_ALL = frozenset({"", "Exception", "BaseException"})
 
-    A nested `def` is its own function and its raises belong to it, so the walk
-    stops at one. A bare `raise` re-raises whatever is being handled and names
-    no new type, so it contributes `""` -- which compares equal across
-    revisions and therefore never counts as a raise the base did not have."""
-    found: set[str] = set()
-    stack: list[ast.AST] = list(ast.iter_child_nodes(node))
-    while stack:
-        current = stack.pop()
-        if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+
+def exception_caught(handlers: Iterable[str], raised: str) -> bool | None:
+    """Does one of ``handlers`` catch ``raised``? ``None`` when it cannot be said.
+
+    Three sources of truth, in order, and no fourth:
+
+    - a bare ``except:``, ``except Exception`` or ``except BaseException``
+      catches everything this level can raise, including a class the repository
+      defines itself;
+    - the same name, written the same way, catches it;
+    - `builtins` decides the rest, because the built-in exception hierarchy is a
+      fact about the interpreter and not about this repository:
+      ``except LookupError`` catches a ``KeyError``.
+
+    Anything else -- ``except ProjectError`` against a ``StorageError``, two
+    names Python does not know -- is **undecidable**, and undecidable is
+    ``None``. Callers must never read ``None`` as "not handled": a level that
+    guesses at a project's own class hierarchy is a level that publishes wrong
+    sentences about exception flow.
+    """
+    verdict: bool | None = False
+    for handler in handlers:
+        if handler in CATCH_ALL:
+            return True
+        if handler == raised:
+            return True
+        known = _builtin_exception(handler), _builtin_exception(raised)
+        if known[0] is None or known[1] is None:
+            verdict = None if verdict is False else verdict
             continue
+        if issubclass(known[1], known[0]):
+            return True
+    return verdict
+
+
+def _builtin_exception(name: str) -> type[BaseException] | None:
+    """The built-in exception class ``name`` spells, or None for anything else.
+
+    Only a bare name: ``mod.Error`` is a class this module cannot see, and a
+    built-in name rebound by the file under review is not this module's problem
+    -- shadowing `KeyError` is not something a review should have to model."""
+    if not name or "." in name:
+        return None
+    found = getattr(builtins, name, None)
+    return found if isinstance(found, type) and issubclass(found, BaseException) else None
+
+
+def _raised_types(node: ast.FunctionDef | ast.AsyncFunctionDef) -> frozenset[str]:
+    """The exception type names that can **escape** this function's own body.
+
+    Not every `raise` statement: a `raise` in the body of a `try` whose own
+    handler catches it never leaves the function, and a level that counted it
+    claimed an exception no caller can ever see. `exception_caught` decides
+    which, and an undecidable handler is read as catching -- the abstention is
+    silence, never a claim.
+
+    Scope is exact in the other direction too. A `try` guards its **body**: a
+    `raise` written in an `except` clause, an `else` or a `finally` is not
+    covered by the statement it sits in, and is covered by whatever encloses
+    that statement. A nested `def` is its own function and its raises belong to
+    it, so the walk stops at one. A bare `raise` re-raises whatever is being
+    handled and names no new type, so it contributes `""` -- which compares
+    equal across revisions and therefore never counts as a raise the base did
+    not have.
+    """
+    found: set[str] = set()
+
+    def walk(current: ast.AST, guards: tuple[tuple[str, ...], ...]) -> None:
+        if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            return
+        if isinstance(current, ast.Try | ast.TryStar):
+            handlers = tuple(
+                sorted({name for handler in current.handlers for name in handler_names(handler)})
+            )
+            for statement in current.body:
+                walk(statement, (*guards, handlers))
+            for handler in current.handlers:
+                for statement in handler.body:
+                    walk(statement, guards)
+            for statement in (*current.orelse, *current.finalbody):
+                walk(statement, guards)
+            return
         if isinstance(current, ast.Raise):
-            found.add(_raised_name(current))
-        stack.extend(ast.iter_child_nodes(current))
+            name = _raised_name(current)
+            if all(exception_caught(guard, name) is False for guard in guards):
+                found.add(name)
+            return
+        for child in ast.iter_child_nodes(current):
+            walk(child, guards)
+
+    for child in ast.iter_child_nodes(node):
+        walk(child, ())
     return frozenset(found)
+
+
+def handler_names(handler: ast.ExceptHandler) -> set[str]:
+    """Every type name one `except` clause names; `{""}` for a bare `except:`
+    and for a target this module cannot read, both of which catch everything."""
+    if handler.type is None:
+        return {""}
+    targets = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+    names: set[str] = set()
+    for target in targets:
+        if isinstance(target, ast.Name):
+            names.add(target.id)
+        elif isinstance(target, ast.Attribute):
+            names.add(target.attr)
+        else:
+            names.add("")
+    return names
 
 
 def _raised_name(node: ast.Raise) -> str:
@@ -328,6 +477,7 @@ class _Visitor(ast.NodeVisitor):
         callee = _callee_name(node.func)
         if callee is not None:
             site = self._here(node.lineno, callee)
+            written = dotted_name(node.func)
             positional = sum(1 for a in node.args if not isinstance(a, ast.Starred))
             unknown = any(isinstance(a, ast.Starred) for a in node.args) or bool(node.keywords)
             self.sites.append(
@@ -339,6 +489,7 @@ class _Visitor(ast.NodeVisitor):
                     positional=positional,
                     unknown_arity=unknown,
                     attribute_call=isinstance(node.func, ast.Attribute),
+                    dotted=written or "",
                 )
             )
         self.generic_visit(node)
@@ -394,6 +545,18 @@ def build_call_graph(sources: Mapping[str, str]) -> CallGraph:
     graph.definitions = dict(definitions)
     graph.sites = dict(sites)
     graph.mentions = dict(mentions)
+    graph.binding = BindingIndex.from_sources(sources)
+    bound: dict[Target, list[CallSite]] = defaultdict(list)
+    for name_sites in sites.values():
+        for site in name_sites:
+            if not site.dotted:
+                continue
+            target = graph.binding.resolve(
+                Reference(path=site.path, dotted=site.dotted, scope=site.inside)
+            )
+            if target is not None:
+                bound[target].append(site)
+    graph.bound = dict(bound)
     return graph
 
 
@@ -534,10 +697,17 @@ def _addressable_name(qualname: str) -> str:
 
 
 def callers_of(graph: CallGraph, changed: ChangedFunction) -> tuple[Caller, ...]:
-    """Every call site that names this function, outside its own definition."""
+    """Every call site that **resolves to** this function, outside its own body.
+
+    Resolution, not the written name: `import math; math.sqrt(9)` is a call of
+    the standard library however this repository spells its own `sqrt`, and
+    `from mathlib import sqrt as root; root(v)` is a call of it however little
+    the text says so. A call site the binding layer cannot resolve is in no
+    caller list at all -- an abstention, which is why this level's silence is
+    the expected outcome and its speech is rare."""
     definition = changed.definition
     out: list[Caller] = []
-    for site in graph.sites.get(definition.name, ()):
+    for site in graph.bound_sites(definition):
         if site.path == definition.path and definition.line <= site.line <= definition.end_line:
             continue  # recursion, or a call inside the function itself
         named, hops = _named_by_test(graph, site)

@@ -171,20 +171,50 @@ def test_a_sphinx_raises_field_counts_too() -> None:
     assert len(notes) == 1 and notes[0].exception == "TimeoutError"
 
 
-def test_an_ambiguous_callee_name_voids_rather_than_guesses() -> None:
-    """Two `validate` definitions are two functions, and this level cannot tell
-    a call of one from a call of the other."""
+def test_another_files_definition_of_the_same_name_does_not_mask_a_local_one() -> None:
+    """A second `validate` in another file is not ambiguity.
+
+    Before the binding layer this voided the hypothesis: two definitions of one
+    name were two functions and the level refused to choose. But `app.py`
+    imports neither of them and defines `validate` itself, so there is nothing
+    to choose between -- and on the 2026-09-06 population 43 of 198 changed
+    functions were refused exactly this way."""
     head = HEAD
-    other = 'def validate(x):\n    return x\n'
+    other = "def validate(x):\n    return x\n"
     graph = build_call_graph({"app.py": head, "other.py": other})
     changed = changed_functions(
         path="app.py", head_source=head, base_source=BASE, changed_lines=(3,)
     )
+    notes = notes_for_change(
+        graph,
+        changed,
+        head_sources={"app.py": head, "other.py": other},
+        base_sources={"app.py": BASE},
+    )
+
+    assert len(notes) == 1
+    assert notes[0].callee == "validate"
+    assert notes[0].exception == "LookupError"
+
+
+def test_a_star_import_voids_rather_than_guesses() -> None:
+    """Real ambiguity, which the binding layer still refuses: after
+    `from other import *` any bare name in this file may come from `other`, so
+    `validate` names two candidate definitions and no claim is possible."""
+    head = "from other import *\n" + HEAD
+    other = "def validate(x):\n    return x\n"
+    graph = build_call_graph({"app.py": head, "other.py": other})
+    changed = changed_functions(
+        path="app.py", head_source=head, base_source="from other import *\n" + BASE,
+        changed_lines=(4,),
+    )
 
     assert (
         notes_for_change(
-            graph, changed, head_sources={"app.py": head, "other.py": other},
-            base_sources={"app.py": BASE},
+            graph,
+            changed,
+            head_sources={"app.py": head, "other.py": other},
+            base_sources={"app.py": "from other import *\n" + BASE},
         )
         == ()
     )
@@ -232,3 +262,101 @@ def test_a_note_whose_line_the_diff_does_not_carry_is_dropped_not_posted() -> No
 
     assert propagation_comments([note], {"app.py": {note.line}})
     assert propagation_comments([note], {"app.py": {note.line + 500}}) == []
+
+
+# --- premise (ii): a raise that can actually escape (unhandled-exception.v2) ---
+
+
+def _callee(body: str) -> str:
+    """HEAD with `validate`'s body replaced, so premise (ii) is what varies."""
+    return HEAD.replace(
+        'def validate(path):\n    if not path:\n        raise LookupError("no such path")',
+        f"def validate(path):\n{body}",
+    )
+
+
+def test_a_raise_the_callee_catches_itself_is_not_a_raise() -> None:
+    """RED (A). `raise` inside a `try` whose own handler names the same type
+    never leaves the function, so nothing propagates to any caller. Reading
+    every `raise` statement in a body made this level claim an exception that
+    cannot exist."""
+    caught = _callee(
+        "    try:\n"
+        '        raise LookupError("no such path")\n'
+        "    except LookupError:\n"
+        "        return None\n"
+    )
+
+    assert _notes(caught, BASE) == ()
+
+
+def test_a_builtin_base_class_handler_catches_its_subclass() -> None:
+    """RED (B). `except LookupError` catches `KeyError`: the hierarchy is a fact
+    about the interpreter, not about this repository, and `builtins` has it."""
+    caught = _callee(
+        "    try:\n"
+        '        raise KeyError("no such path")\n'
+        "    except LookupError:\n"
+        "        return None\n"
+    )
+
+    assert _notes(caught, BASE) == ()
+
+
+def test_a_handler_of_another_type_does_not_catch_it() -> None:
+    """The retained positive: `except ValueError` is not a handler for
+    `KeyError`, and the note is still made."""
+    escaping = _callee(
+        "    try:\n"
+        '        raise KeyError("no such path")\n'
+        "    except ValueError:\n"
+        "        return None\n"
+    )
+    notes = _notes(escaping, BASE)
+
+    assert len(notes) == 1
+    assert notes[0].exception == "KeyError"
+
+
+def test_a_raise_inside_an_except_clause_is_not_covered_by_that_try() -> None:
+    """The retained positive that the naive fix would have broken: the `try`
+    guards its **body**. A `raise` in the handler, the `else` or the `finally`
+    escapes the statement it is written in."""
+    rethrowing = _callee(
+        "    try:\n"
+        "        return len(path)\n"
+        "    except TypeError:\n"
+        '        raise LookupError("no such path")\n'
+    )
+    notes = _notes(rethrowing, BASE)
+
+    assert len(notes) == 1
+    assert notes[0].exception == "LookupError"
+
+
+def test_two_names_the_interpreter_does_not_know_never_assert_unhandled() -> None:
+    """`except ProjectError` may or may not catch `StorageError`; nothing in the
+    tree says. Undecidable is not "unhandled", so the level stays quiet."""
+    unknown = _callee(
+        "    try:\n"
+        '        raise StorageError("no such path")\n'
+        "    except ProjectError:\n"
+        "        return None\n"
+    )
+
+    assert _notes(unknown, BASE) == ()
+
+
+def test_the_caller_side_reads_the_same_hierarchy() -> None:
+    """A caller whose `except LookupError` covers the `KeyError` reaching it is
+    a guarded caller, and premise (iii) fails."""
+    head = _callee('    if not path:\n        raise KeyError("no such path")').replace(
+        'def caller():\n    return load("x")',
+        "def caller():\n"
+        "    try:\n"
+        "        return load('x')\n"
+        "    except LookupError:\n"
+        "        return None",
+    )
+
+    assert _notes(head, BASE) == ()

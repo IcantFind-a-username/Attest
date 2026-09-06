@@ -55,7 +55,11 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
 ### 2.2 Not established
 
 - no defensible real-world precision, recall, or PR-level false-publication rate;
-- no proof that the current product wealth is an e-process;
+- not merely unproven but **measured false**: the S·T factor table is not a valid e-value.
+  Over 475 candidates of 276 control reviews its mean is 2.274 and its **minimum is 2.000**,
+  so it cannot fall below 1 at all (D-174,
+  [report](acceptance/2026-09-08-binding-and-bounds.md)). The PR-level bound is
+  `min(1, U * alpha)`, not `hard_cap * alpha`;
 - no current-code replication of the historical 0/296 null result at comparable size;
 - no semantic truth corpus hidden from the product;
 - no production security boundary for same-repository head code;
@@ -547,6 +551,11 @@ replayable evidence on the current code.
     ([report](acceptance/2026-09-05-gate-shadow.md)). Free measurement: **10.7% of 224 new-code
     candidates carry a call site outside the added lines**, which is the ceiling on what the
     level can ever publish. Executed observations so far: **0** (the same host fault).
+    **Corrected 2026-09-08 (D-174, [report](acceptance/2026-09-08-binding-and-bounds.md)):** that
+    10.7%, and every recorded `through_caller` grade since, counted call sites by the **name**
+    they were written with. Re-adjudicated under `attest.review.binding` the figure is **0.0%** —
+    all **26** witnesses across **445** candidates are name collisions — so the ceiling this
+    level has actually demonstrated is **zero**, and `G-NEWCODE-001`'s pilot progress is 0 of 445.
 
 ### Entry
 

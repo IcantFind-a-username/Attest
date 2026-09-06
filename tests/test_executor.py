@@ -2407,9 +2407,9 @@ def test_execute_differential_flaky_head_is_indeterminate(tmp_path: Path) -> Non
                 outcome="deferred",
                 reason=(
                     "intent: value change confirmed, intent unknown: the base tree does "
-                    "not specify the value this assertion pins -- no base test asserts "
-                    "it and no docstring or documentation writes it down "
-                    "(返回值变化已证实，意图未知)"
+                    "not specify the value this assertion pins about the symbol this "
+                    "change touched -- no base test asserts it and no docstring or "
+                    "documentation writes it down (返回值变化已证实，意图未知)"
                 ),
                 wealth=8.0,
                 channels=("S",),
