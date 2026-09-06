@@ -1918,3 +1918,30 @@ is active only when the owning architecture/acceptance document changes with it.
 - **The failure mode it replaces.** A run whose every note was dropped now posts the summary only, which already carries the notes in their own unanchored section, and exits 0.
 - **Reversal:** one `if` and four initialisers.
 - **Trace:** D-142, D-147, D-169, D-177, D-178.
+
+### D-181 — A caller that is itself a test is not a gate witness, and the gate stays in shadow
+
+- **Date/status/scope:** 2026-09-10 · active · **owner decision** (item 2 of the 2026-09-09 acceptance) · `docs/acceptance/evolution-gates.md` (`G-NEWCODE-001`); **no code change** — D-166's `through_test_caller` grade already implements it.
+- **The decision.** `through_test_caller` is **not** a publishing-grade witness. The exclusion stands, and the gate level continues to run **in shadow** (D-137) either way.
+- **The risk of the answer taken, stated rather than implied.** A function whose only pre-existing caller is a shared test helper can never earn a witness, so the gate stays silent on new code a test genuinely reaches. This is precisely why `G-NEWCODE-001`'s pilot progress is **0 of 445** and not 3 of 445: the three surviving witnesses are all test callers.
+- **The risk of the other answer.** Counting a test caller admits the change's **own new test** as the reachable input, so the gate would publish a crash the change itself provokes — the letter of the through-caller rule without its point.
+- **Cost:** $0.00. **Reversal:** delete the `through_test_caller` grade in `review/gate_level.py` and this paragraph in `G-NEWCODE-001`; the recorded grades then read as `through_caller` again.
+- **Trace:** D-137, D-166, D-174; `G-NEWCODE-001`.
+
+### D-182 — The publication rule does not change, and the replay that would have changed it is filed as a baseline
+
+- **Date/status/scope:** 2026-09-10 · active · **owner decision** (item 3 of the 2026-09-09 acceptance) · `docs/mainline.md` §5 decision A; **no code change**.
+- **The decision.** Publication stays **V ∧ intent ∧ priority score ≥ the per-unit family cap** (D-125). `V ∧ intent ∧ per-unit top 3` is **not implemented**.
+- **The measurement it declines, recorded as the baseline it is.** The free replay of 2026-09-09 (§0c: 104 ledgers, 528 `publication_policy` rows, 82 selections carrying a certified finding) says the alternative changes **17 of 82 selections** — **+25 published, −0** with the hard cap kept, 77 → 102. All 25 reproduced under V and passed intent and were held back only by `m_u/α`, at priority scores **2.0–3.0** against bars of **50–140**.
+- **What the baseline does not say, and this is why it is not implemented.** How many of the 25 are right. It counts what the bar suppresses; it adjudicates nothing. And because no suppressed score is within a factor of **17** of its bar, the alternative does not lower the threshold — it **removes** it and puts a rank in its place.
+- **Cost:** $0.00. **Reversal:** none needed; nothing changed. Implementing the alternative is a new owner decision, not a reversal of this one.
+- **Trace:** D-125, D-174; `G-CERT-004`, mainline §5 A.
+
+### D-183 — The one repository that reviews itself was the one place the shipped configuration never ran
+
+- **Date/status/scope:** 2026-09-10 · active · owner instruction 1 of this window · `.github/workflows/pull-request.yml`.
+- **The defect, and it is a documentation one that became a measurement one.** The workflow set `samples: "4"` under a comment reading *"The action's own default"*. The action's default is **`"5"`** (`action.yml`), and `ReviewConfig.k_samples` is 5 too. The comment was true of `budget-usd` and false of `samples`, and the effect was that **no run recorded anywhere in this repository's history used the K an outside repository gets** — which is what makes every empirical number here a K=4 number (2026-09-09 §3.7).
+- **Decision.** The override is deleted; `samples` takes the action's default. The comment now says which of the two keys is restated and which is inherited. **This restores the factory configuration; it changes no constant** — `action.yml`'s `"5"` and `ReviewConfig.k_samples = 5` are untouched, and so are `alpha`, the likelihood ratios and the cap.
+- **What it costs.** This repository's own reviews now buy five proposal samples instead of four, at the same `budget-usd: "1.00"`; the discovery share is 30% of that, so the output floor for five samples is $0.16 of the $0.30 available and the first unit that fits is about 42,000 characters (2026-09-09 §3.8).
+- **Reversal:** one line.
+- **Trace:** D-111, D-126, D-168; `action.yml`.

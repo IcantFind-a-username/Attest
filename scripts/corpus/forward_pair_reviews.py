@@ -86,7 +86,19 @@ def git(repo: Path, *args: str) -> str:
 def cmd_run(args: argparse.Namespace) -> int:
     pairs = distinct_pairs()
     env = dict(os.environ)
-    env["PYTHONPATH"] = str(ROOT / "src")
+    # `--code` pins the product code to a fixed checkout, as `heldout_run.py`
+    # already does: editing `src/` while a multi-hour run is in flight changes
+    # what later pairs are reviewed by, and the 2026-09-06c window lost a pass
+    # to exactly that.
+    source = Path(args.code) / "src" if args.code else ROOT / "src"
+    env["PYTHONPATH"] = str(source)
+    if args.code:
+        code_sha = subprocess.run(
+            ["git", "-C", args.code, "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        print(f"product code from {args.code} ({code_sha})", flush=True)
 
     done: set[str] = set()
     spent = 0.0
@@ -133,7 +145,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 "--base",
                 str(pair["base"]),
                 "--k",
-                "4",
+                str(args.k),
                 "--budget",
                 f"{args.budget:.2f}",
                 "--verification-timeout",
@@ -383,6 +395,11 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--cap", type=float, required=True, help="hard cumulative spend cap")
     r.add_argument("--log", required=True)
     r.add_argument("--verification-timeout", type=int, default=1200)
+    # K=4 is what every recorded run of this corpus used; the shipped default is
+    # 5 (`action.yml`), and the two are compared by running this driver twice
+    # into two logs.
+    r.add_argument("--k", type=int, default=4, help="proposal samples per unit")
+    r.add_argument("--code", default=None, help="fixed checkout whose attest code runs the pairs")
     r.set_defaults(func=cmd_run)
 
     t = sub.add_parser("table")

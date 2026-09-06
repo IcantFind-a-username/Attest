@@ -123,7 +123,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             "run",
             iid,
             "--k",
-            str(K),
+            str(args.k),
             "--verification-timeout",
             "900",
             "--results-suffix",
@@ -185,7 +185,7 @@ def cmd_table(args: argparse.Namespace) -> int:
         plan_units = max(
             (len(e.get("units") or []) for e in mine if e.get("kind") == "review_plan"), default=0
         )
-        boundary_hits = max(0, plan_units - len(samples) // K) if plan_units else 0
+        boundary_hits = max(0, plan_units - len(samples) // args.k) if plan_units else 0
         prompt = sum(
             int(s.get("input_tokens") or 0)
             + int(s.get("cache_creation_input_tokens") or 0)
@@ -303,6 +303,10 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run")
     run.add_argument("--code", default=None, help="fixed checkout whose attest code runs the cases")
     run.add_argument("--only", default=None, help="comma-separated instance ids to (re-)run")
+    # K=4 is what every recorded run of this slice used; the shipped default is
+    # 5 (`action.yml`). `table` takes it too, because the boundary-hit count
+    # divides the sample count by K.
+    run.add_argument("--k", type=int, default=K, help="proposal samples per unit")
     run.add_argument("--defects-only", action="store_true", help="skip the control cases")
     run.add_argument(
         "--cap",
@@ -324,6 +328,7 @@ def main(argv: list[str] | None = None) -> int:
     run.set_defaults(func=cmd_run)
     table = sub.add_parser("table")
     table.add_argument("--suffix", default=".heldout", help="results file suffix to tabulate")
+    table.add_argument("--k", type=int, default=K, help="the K the run being tabulated used")
     table.set_defaults(func=cmd_table)
     args = parser.parse_args(argv)
     return int(args.func(args))
