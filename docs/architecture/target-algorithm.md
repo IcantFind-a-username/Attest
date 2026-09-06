@@ -48,6 +48,15 @@ they are not e-values, and the product wealth is not an e-process. Current error
 therefore rests on factory arithmetic and the reliability of differential reproduction,
 not on a general sequential-validity theorem.
 
+**Measured 2026-09-08 (D-174, [report](../acceptance/2026-09-08-binding-and-bounds.md)).** That
+paragraph was written as an argument and is now a number: over 475 candidates of 276 control
+reviews the S·T wealth has mean **2.274** and a **minimum of 2.000** — a quantity whose support
+starts at 2 cannot have expectation ≤ 1 under any null. The publication policy therefore records
+`e_value_validity: "assumed-calibrated"` on every row, and the PR-level union bound it reports is
+`min(1, U * alpha)` over the change units searched. Nothing published rests on S·T alone: it tops
+out at 9 against a bar of 10 at the factory alpha, which is this section's first sentence,
+measured.
+
 ### 2.2 What `attest.core` currently is
 
 `src/attest/core` is a research/simulation engine for two or three binary judges. It

@@ -14,6 +14,48 @@ only published ref is a pilot tag, and the sections below say plainly which is w
 
 ### Behaviour a reader pointing a repository at `main` should know about
 
+- **A call site is now the definition the name *resolves to*, not whatever wrote the name**
+  (D-174, [report](docs/acceptance/2026-09-08-binding-and-bounds.md)). One shared layer,
+  `attest.review.binding`, answers this for the impact level, the propagation level, the gate
+  level's reachability witness and the intent discriminator. **Recall moves in both
+  directions.** Gained: an aliased import (`from mathlib import sqrt as root; root(v)`) is a
+  call site and was invisible before, and a second definition of one name in a file the caller
+  does not import is no longer read as ambiguity — a refusal that took 43 of 198 changed
+  functions on the last recorded population. Lost, and this is the point: `import math;
+  math.sqrt(9)` is no longer a call site of *your* `sqrt`. Re-counting the recorded gate
+  witnesses is what that costs — **all 26** `through_caller` observations across **445**
+  new-code candidates were name collisions, so the gate level's measured reachability on real
+  traffic is **0.0%** and not 5.8%. Anything the layer cannot resolve —
+  inheritance, decorators, a call through a variable, any bare name in a file with a star
+  import — is an abstention, so all four levels get quieter.
+- **An exception a function catches itself is no longer reported as escaping to your callers**
+  (`attest.propagation.unhandled-exception.v2`). `except LookupError` is now known to catch a
+  `KeyError`, because `builtins` says so; two class names Python does not know are
+  **undecidable** and never asserted to be unhandled. Recall cost: real propagations through a
+  project's own exception hierarchy are now abstentions.
+- **The green level no longer calls two different functions the same implementation.** A bare
+  call keeps its callee name, so `charge(...)` and `refund(...)` stop measuring 1.000
+  (`attest.structural.duplicate-implementation.v2`). Recall cost: a genuine copy in which one
+  call was also renamed now measures below the threshold.
+- **A base-tree specification must be about the symbol your change touched**
+  (`attest.intent.v4.2`). An `assert` counts only when its own scope names an anchored symbol, a
+  docstring only when it belongs to one or names it, a documentation paragraph only when that
+  paragraph names it; a change touching no function or class at all can have no specification
+  and is drawered saying so. Recall cost: a value-class receipt whose old value was pinned only
+  by an unrelated assertion elsewhere in the tree no longer publishes. Receipts already written
+  are replayed under the version they record.
+- **What the published `alpha` means across a whole pull request was overstated, and the
+  correction is on every row.** Per-unit Bonferroni controls `alpha` inside a change unit and
+  nowhere else; the pull-request union bound is `min(1, U * alpha)` over the units searched, not
+  `hard_cap * alpha` — the cap hides findings *after* the search. Measured on the real selector:
+  10 units at `alpha = 0.1` publish something in **65%** of pull requests, not 30%. And the
+  quantity being thresholded is **not a proven e-value**: over 475 candidates of 276 control
+  reviews its mean is **2.27** and its *minimum* is **2.0**, so it cannot fall below 1 at all.
+  Every `publication_policy` row now carries `units_searched`, `pr_error_bound` and
+  `e_value_validity: assumed-calibrated`. **No threshold, `alpha`, likelihood ratio, `K` or cap
+  changed**, and no published receipt is impeached — S·T tops out at 9 against a bar of 10 at
+  the factory alpha, so every publication this product has made rests on the differential
+  execution.
 - **A review now spends 30% of its budget on discovery, not 60%, and the first change unit is
   no longer exempt.** With the ranking and the per-unit cap below, this halved the spend on both
   recorded populations and kept every receipt (D-168,

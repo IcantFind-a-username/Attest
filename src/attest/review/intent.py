@@ -27,6 +27,7 @@ import json
 import os
 import re
 import tokenize
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -76,6 +77,7 @@ PROSE_DIRS = frozenset({"changelog", "changes", "news", "docs", "doc"})
 PROSE_NAMES = ("CHANGES", "CHANGELOG", "NEWS", "HISTORY", "RELEASE", "README")
 # the innermost frame pytest's longrepr attributes the failure to, when it is a
 # line of the generated reproduction: "<path>test_repro.py:<line>: <Type>"
+_PARAGRAPH = re.compile(r"\n[ \t]*\n")  # v4.2: a document is a sequence of statements
 _LONGREPR_FRAME = re.compile(r"^(?P<path>\S*test_repro\.py):(?P<line>\d+):", re.MULTILINE)
 SPEC_DIRS = frozenset({"tests", "test", "testing"})  # a .py here asserts, wherever named
 DATA_SUFFIXES = (".txt", ".json", ".yaml", ".yml", ".toml", ".csv")  # only inside witness dirs
@@ -412,17 +414,111 @@ def assertion_pinned_values(source: str) -> tuple[tuple[str, object], ...] | Non
 def docstring_texts(source: str) -> tuple[str, ...]:
     """Every module, class and function docstring of ``source``; () when unparsable.
     A docstring is where a Python file *writes down* what it returns."""
+    return tuple(text for _owner, text in owned_docstrings(source))
+
+
+def owned_docstrings(source: str) -> tuple[tuple[str, str], ...]:
+    """(owning def/class name, docstring) for every docstring of ``source``.
+
+    The owner is what v4.2 associates on: a function's docstring is a statement
+    about that function, and a module's (owner ``""``) is a statement about
+    nothing in particular until its text names something."""
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
         return ()
-    found: list[str] = []
+    found: list[tuple[str, str]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
             doc = ast.get_docstring(node, clean=False)
             if doc:
-                found.append(doc)
+                found.append((getattr(node, "name", ""), doc))
     return tuple(found)
+
+
+def names_symbol(text: str, symbols: Iterable[str]) -> bool:
+    """Does this prose write one of ``symbols`` as a word?
+
+    A name shorter than :data:`MIN_SYMBOL_CHARS` is not looked for at all: `f`
+    and `to` occur in ordinary English and matching them would make every
+    paragraph a specification of something."""
+    return any(
+        len(symbol) >= MIN_SYMBOL_CHARS
+        and re.search(rf"\b{re.escape(symbol)}\b", text) is not None
+        for symbol in symbols
+    )
+
+
+def _referenced_names(node: ast.AST, *, enter_scopes: bool) -> set[str]:
+    """Every name this scope writes: bare names, attribute names, import names.
+
+    ``enter_scopes`` is False for the module top level, whose scope is its own
+    statements and not the bodies of the functions it defines."""
+    found: set[str] = set()
+    stack: list[ast.AST] = list(ast.iter_child_nodes(node))
+    while stack:
+        current = stack.pop()
+        if not enter_scopes and isinstance(
+            current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+        ):
+            found.add(current.name)
+            continue
+        if isinstance(current, ast.Name):
+            found.add(current.id)
+        elif isinstance(current, ast.Attribute):
+            found.add(current.attr)
+        elif isinstance(current, ast.Import | ast.ImportFrom):
+            module = getattr(current, "module", None) or ""
+            found.update(part for part in module.split(".") if part)
+            for alias in current.names:
+                found.update(part for part in alias.name.split(".") if part)
+                if alias.asname:
+                    found.add(alias.asname)
+        elif isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            found.add(current.name)
+        stack.extend(ast.iter_child_nodes(current))
+    return found
+
+
+def associated_assertions(source: str, symbols: Sequence[str]) -> str | None:
+    """``source`` with every assertion that is *not* about ``symbols`` removed,
+    or None when it cannot be parsed.
+
+    v4.2's association rule for a Python file. An `assert` counts when the scope
+    it sits in -- the function that holds it, or the module top level -- writes
+    an anchored symbol as a name, an attribute or an import. That is what makes
+    the statement a statement *about* the code under test: ``assert
+    len("weekday") == 7`` pins 7 and is about the word "weekday".
+
+    Returned as source text rather than as values so that the pinning rules
+    (:func:`assertion_pinned_values` and its operand semantics) stay in exactly
+    one place; the filtered tree is unparsed and re-read.
+    """
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return None
+    if not symbols:
+        return ""
+    wanted = frozenset(symbols)
+    kept: list[ast.stmt] = []
+
+    def scan(node: ast.AST, scope: ast.AST, *, at_module: bool) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+                scan(child, child, at_module=False)
+                continue
+            if isinstance(child, ast.Assert):
+                names = _referenced_names(scope, enter_scopes=not at_module)
+                if names & wanted:
+                    kept.append(child)
+                continue
+            scan(child, scope, at_module=at_module)
+
+    scan(tree, tree, at_module=True)
+    if not kept:
+        return ""
+    return ast.unparse(ast.Module(body=list(kept), type_ignores=[]))
 
 
 def is_spec_file(relative: Path) -> bool:
@@ -442,16 +538,38 @@ def is_spec_file(relative: Path) -> bool:
     )
 
 
-def specified_by(relative: Path, text: str, pinned: tuple[tuple[str, object], ...]) -> set[str]:
-    """The ``repr`` of every pinned value this file specifies.
+def specified_by(
+    relative: Path,
+    text: str,
+    pinned: tuple[tuple[str, object], ...],
+    symbols: Sequence[str] = (),
+) -> set[str]:
+    """The ``repr`` of every pinned value this file specifies **about ``symbols``**.
 
     A Python file specifies a value by asserting it, or by quoting it in a
     docstring; a documentation file, by quoting it in its prose. Only string
     values can be quoted: a bare number in prose names nothing in particular.
+
+    v4.2 (D-174) adds the association, and it is what makes the sentence a
+    sentence about the code under test:
+
+    - an ``assert`` counts when its own scope -- the function holding it, or the
+      module top level -- writes an anchored symbol (:func:`associated_assertions`);
+    - a docstring counts when it **is** an anchored symbol's docstring, or names
+      one;
+    - a documentation file counts by **paragraph**: the blank-line-separated
+      block that quotes the value must also name the symbol, because a document
+      is a sequence of statements and not one statement.
+
+    With no anchored symbol there is nothing to associate to and nothing is
+    specified -- which is the answer, not a gap.
     """
     found: set[str] = set()
+    if not symbols:
+        return found
     if relative.suffix == ".py":
-        asserted = assertion_pinned_values(text)
+        associated = associated_assertions(text, symbols)
+        asserted = assertion_pinned_values(associated) if associated else None
         if asserted:
             keys = {(kind, repr(value)[:MAX_VALUE_CHARS]) for kind, value in asserted}
             found |= {
@@ -459,9 +577,15 @@ def specified_by(relative: Path, text: str, pinned: tuple[tuple[str, object], ..
                 for kind, value in pinned
                 if (kind, repr(value)[:MAX_VALUE_CHARS]) in keys
             }
-        prose: tuple[str, ...] = docstring_texts(text)
+        prose: tuple[str, ...] = tuple(
+            body
+            for owner, body in owned_docstrings(text)
+            if owner in set(symbols) or names_symbol(body, symbols)
+        )
     else:
-        prose = (text,)
+        prose = tuple(
+            block for block in _PARAGRAPH.split(text) if names_symbol(block, symbols)
+        )
     for _kind, value in pinned:
         if not isinstance(value, str) or len(value.strip()) < MIN_LITERAL_CHARS:
             continue
@@ -476,6 +600,7 @@ def find_specifications(
     head_tree: Path | None,
     pinned: tuple[tuple[str, object], ...],
     anchored: str,
+    symbols: Sequence[str] = (),
 ) -> tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]:
     """D-127: (the base tree's specification of each pinned value, the sites this
     change no longer specifies at head).
@@ -486,7 +611,7 @@ def find_specifications(
     tree nothing can be shown to stand, so every site found is reported as
     rewritten and the receipt goes to the drawer.
     """
-    if not pinned:
+    if not pinned or not symbols:
         return (), ()
     pending = {repr(value)[:MAX_VALUE_CHARS] for _kind, value in pinned}
     found: dict[str, str] = {}
@@ -522,7 +647,7 @@ def find_specifications(
                 body = path.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
-            for value in specified_by(relative, body, pinned) & pending:
+            for value in specified_by(relative, body, pinned, symbols) & pending:
                 found[value] = relative.as_posix()
                 pending.discard(value)
         if not pending:
@@ -539,6 +664,7 @@ def find_specifications(
                         Path(site),
                         head_path.read_text(encoding="utf-8", errors="replace"),
                         pinned,
+                        symbols,
                     )
             except OSError:
                 still = set()
@@ -1036,7 +1162,11 @@ def observe_intent(
         )
         specified, respecified = (
             find_specifications(
-                base_tree=base_tree, head_tree=head_tree, pinned=distinctive, anchored=path
+                base_tree=base_tree,
+                head_tree=head_tree,
+                pinned=distinctive,
+                anchored=path,
+                symbols=symbols,
             )
             if distinctive
             else ((), ())

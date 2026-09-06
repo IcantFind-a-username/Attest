@@ -449,6 +449,13 @@ def run_verification_stage(
                 unit: round(value, 6) for unit, value in sorted(selection.unit_thresholds.items())
             },
             "hard_cap": family.hard_cap,
+            # D-174: what the PR-level guarantee actually is. `hard_cap` bounds
+            # the display; `units_searched` is the number of families that were
+            # searched and `pr_error_bound = min(1, U*alpha)` the union over them,
+            # conditional on `e_value_validity`.
+            "units_searched": selection.units_searched,
+            "pr_error_bound": round(selection.pr_error_bound, 6),
+            "e_value_validity": selection.e_value_validity,
             "mean_e_value": (
                 None if selection.mean_e_value is None else round(selection.mean_e_value, 6)
             ),

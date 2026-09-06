@@ -114,6 +114,14 @@ So the gate level's **10.7% ceiling does not move** in this traffic. The registr
 exactly one finding in everything this project has recorded, and that finding is the one the
 owner already knows about.
 
+**Note added 2026-09-08 (D-174, [report](../acceptance/2026-09-08-binding-and-bounds.md)):** the
+10.7% this section compares against was a count of call sites matched by **name**. Under name
+binding it is **0.0%** — all 26 recorded `through_caller` witnesses across 445 candidates were
+collisions. The comparison in this section is therefore between a registry witness that buys one
+finding and a `through_caller` witness that has so far bought **none**, which strengthens the
+argument for §7 rather than weakening it, but the numbers above should be read as the name-match
+figures they are. The recommendation is unchanged.
+
 ## 6. Recommendation
 
 **Keep §7 as it is.** Not because the second class is unsound — §2's three-part witness is as

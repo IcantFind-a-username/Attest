@@ -31,7 +31,9 @@ from attest.review.impact import (
     MIN_FANOUT_CALLERS,
     MIN_FANOUT_FILES,
     build_call_graph,
+    callers_of,
     changed_functions,
+    exception_caught,
     notes_for_change,
     read_tree,
 )
@@ -238,7 +240,10 @@ def test_a_return_annotation_change_is_an_interface_change() -> None:
 def test_at_most_two_notes_reach_one_pull_request() -> None:
     base = "".join(f"def f{i}(a):\n    return a\n\n" for i in range(5))
     head = "".join(f"def f{i}(a, b):\n    return a\n\n" for i in range(5))
-    callers = "".join(f"def call{i}():\n    return f{i}(1, 2)\n\n" for i in range(5))
+    imports = "from lib import f0, f1, f2, f3, f4\n\n"
+    callers = imports + "".join(
+        f"def call{i}():\n    return f{i}(1, 2)\n\n" for i in range(5)
+    )
     graph = build_call_graph({"lib.py": head, "app.py": callers})
     changed = changed_functions(
         path="lib.py",
@@ -583,3 +588,124 @@ def test_a4_is_measured_and_enabled_at_the_thresholds_that_were_measured() -> No
     assert (MIN_FANOUT_CALLERS, MIN_FANOUT_FILES) == (3, 2)
     assert CONDITION_FANOUT in CONDITIONS
     assert CONDITION_FANOUT in ENABLED_CONDITIONS  # controls 2/68 = 2.9% <= 3%
+
+
+# --- the shared binding layer: a call site is the one the name resolves to ----
+
+BIND_BASE = "def sqrt(x):\n    return x\n"
+BIND_HEAD = "def sqrt(x, audit):\n    return x\n"
+
+
+def _bound_notes(sources: dict[str, str]):
+    graph = build_call_graph({"mathlib.py": BIND_HEAD, **sources})
+    changed = changed_functions(
+        path="mathlib.py",
+        head_source=BIND_HEAD,
+        base_source=BIND_BASE,
+        changed_lines={1, 2},
+    )
+    return notes_for_change(graph, changed, limit=10), graph
+
+
+def test_an_unrelated_module_attribute_of_the_same_name_is_not_a_call_site() -> None:
+    """`import math; math.sqrt(9)` is not a call of this project's `sqrt`.
+
+    The old index was keyed by the bare name the call was *written* with, so a
+    standard-library call became both a caller and -- because the project's
+    function had just gained a required parameter -- a decidable arity break.
+    That is a wrong sentence about someone else's code."""
+    notes, graph = _bound_notes(
+        {"area.py": "import math\n\n\ndef area(r):\n    return math.sqrt(r)\n"}
+    )
+
+    assert notes == ()
+    assert callers_of(graph, changed_functions(
+        path="mathlib.py",
+        head_source=BIND_HEAD,
+        base_source=BIND_BASE,
+        changed_lines={1, 2},
+    )[0]) == ()
+
+
+def test_an_aliased_import_is_a_call_site() -> None:
+    """`from mathlib import sqrt as root; root(v)` calls `sqrt`.
+
+    The old index could not see it: it stored the name as written, and nothing
+    ever wrote `sqrt`. This is the recall the binding layer buys."""
+    notes, _graph = _bound_notes(
+        {
+            "app.py": "from mathlib import sqrt as root\n\n\ndef go(v):\n    return root(v)\n",
+        }
+    )
+
+    assert len(notes) == 1
+    note = notes[0]
+    assert [caller.site.path for caller in note.callers] == ["app.py"]
+    assert note.condition == CONDITION_ARITY  # root(v) passes one, sqrt now takes two
+    assert [site.path for site in note.arity_breaks] == ["app.py"]
+
+
+def test_a_bound_alias_and_an_unrelated_module_attribute_in_one_tree() -> None:
+    """Both at once: the alias counts, the standard library does not."""
+    notes, _ = _bound_notes(
+        {
+            "app.py": "from mathlib import sqrt as root\n\n\ndef go(v):\n    return root(v)\n",
+            "area.py": "import math\n\n\ndef area(r):\n    return math.sqrt(r)\n",
+        }
+    )
+
+    assert len(notes) == 1
+    assert [caller.site.path for caller in notes[0].callers] == ["app.py"]
+
+
+# --- the exception hierarchy, three-valued (unhandled-exception.v2) -----------
+
+
+def test_exception_caught_is_three_valued() -> None:
+    """True, False and *undecidable*. The third is the one that matters: a
+    caller must never read `None` as "not handled"."""
+    assert exception_caught(["LookupError"], "KeyError") is True  # builtins knows
+    assert exception_caught([""], "AnythingAtAll") is True  # bare `except:`
+    assert exception_caught(["Exception"], "ProjectError") is True
+    assert exception_caught(["ProjectError"], "ProjectError") is True  # same name
+    assert exception_caught(["ValueError"], "KeyError") is False  # both builtin
+    assert exception_caught(["ProjectError"], "StorageError") is None  # neither known
+    assert exception_caught(["LookupError"], "StorageError") is None  # one known
+    assert exception_caught([], "KeyError") is False  # no handler at all
+    # one decidable miss and one undecidable handler is still undecidable
+    assert exception_caught(["ValueError", "ProjectError"], "KeyError") is None
+
+
+def test_a_raise_the_function_catches_itself_is_not_an_added_raise() -> None:
+    """a2 asks whether a caller now has to handle something new. A `raise` the
+    changed function catches in its own `try` is not something a caller sees."""
+    base = "def f(x):\n    return x\n"
+    head = (
+        "def f(x):\n"
+        "    try:\n"
+        "        raise KeyError(x)\n"
+        "    except LookupError:\n"
+        "        return None\n"
+    )
+    changed = changed_functions(
+        path="lib.py", head_source=head, base_source=base, changed_lines={2, 3, 4, 5}
+    )
+    assert changed[0].added_raise is False
+    assert changed[0].definition.raises == frozenset()
+
+
+def test_a_raise_in_an_except_clause_still_escapes() -> None:
+    """The `try` guards its body; a `raise` in the handler is not covered by it."""
+    base = "def f(x):\n    return x\n"
+    head = (
+        "def f(x):\n"
+        "    try:\n"
+        "        return len(x)\n"
+        "    except TypeError:\n"
+        "        raise KeyError(x)\n"
+    )
+    changed = changed_functions(
+        path="lib.py", head_source=head, base_source=base, changed_lines={2, 3, 4, 5}
+    )
+    assert changed[0].added_raise is True
+    assert changed[0].definition.raises == frozenset({"KeyError"})

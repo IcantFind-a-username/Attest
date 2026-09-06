@@ -95,7 +95,7 @@ def test_a_renamed_copy_is_found_with_both_coordinates_and_a_measure() -> None:
 
 
 def test_the_same_shape_doing_different_work_is_not_a_finding() -> None:
-    """Identifiers are erased; attribute and callee names are not. Two functions
+    """Identifiers are erased; attribute and callee names are kept. Two functions
     that merely rhyme structurally must not be published as a repetition."""
     units = _units({"a.py": ORIGINAL, "b.py": DIFFERENT_WORK})
 
@@ -181,3 +181,67 @@ def test_the_detector_is_order_invariant_and_deterministic() -> None:
 
     assert first == reversed_order
     assert first == find_duplicate_implementations(units, changed_files=changed)
+
+
+# --- a bare callee is part of what a body does (duplicate-implementation.v2) ---
+
+CHARGE = '''
+def apply_charge(account, amount):
+    """Move money onto the account."""
+    ledger = []
+    for step in range(3):
+        entry = charge(account, amount, step)
+        ledger.append(entry)
+    total = sum(item.value for item in ledger)
+    return total
+'''
+
+REFUND = '''
+def apply_refund(account, amount):
+    """Move money off the account."""
+    ledger = []
+    for step in range(3):
+        entry = refund(account, amount, step)
+        ledger.append(entry)
+    total = sum(item.value for item in ledger)
+    return total
+'''
+
+RENAMED_LOCALS = '''
+def apply_charge_again(wallet, sum_owed):
+    """A different sentence entirely."""
+    rows = []
+    for index in range(3):
+        record = charge(wallet, sum_owed, index)
+        rows.append(record)
+    grand = sum(row.value for row in rows)
+    return grand
+'''
+
+
+def test_two_bodies_that_call_different_functions_are_not_identical() -> None:
+    """RED. `charge(...)` and `refund(...)` are one call to two different
+    functions, and a body that charges is not a body that refunds. The module
+    docstring already claimed callee names were kept; only *attribute* callees
+    were, so a bare-name call was erased to `NAME` and the two normalised
+    identically -- a similarity of 1.000 between a charge and a refund."""
+    assert similarity(normalize_of(CHARGE), normalize_of(REFUND)) < 1.0
+
+
+def test_renaming_locals_still_leaves_a_copy_a_copy() -> None:
+    """The retained positive, and the reason `CALLEE:` is the only token added:
+    every identifier that is not a callee is still erased, so the same body with
+    every local renamed is still a perfect match."""
+    assert similarity(normalize_of(CHARGE), normalize_of(RENAMED_LOCALS)) == 1.0
+
+
+def test_the_evidence_sentence_says_what_the_measure_is() -> None:
+    units = _units({"billing/orders.py": ORIGINAL, "billing/invoices.py": RENAMED_COPY})
+    sentence = evidence_sentence(find_duplicate_implementations(
+        units, changed_files={"billing/invoices.py"}
+    )[0])
+
+    assert "token-sequence similarity" in sentence
+    assert "not semantic equivalence" in sentence
+    assert "identifiers and literal values erased" in sentence
+    assert "attribute and callee names kept" in sentence

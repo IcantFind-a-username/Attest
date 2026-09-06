@@ -61,14 +61,38 @@ reached an adjudicator that had not before, and it was drawered.
 
 ### Known limitations — the ones that would change your mind
 
+- **The wealth this product thresholds is not a proven e-value, and the pull-request `alpha` is
+  not what it looked like.** Over **475 candidates of 276 control reviews** on eight public
+  repositories, the S·T wealth has mean **2.27** and a *minimum of 2.0* — it cannot fall below 1
+  at all, because S prices only positive evidence. That is a structural fact about the factor
+  table, not a statistical one: the 475 are not independent draws and no sample size changes it. A valid e-value satisfies `E[X] <= 1` under
+  the null, so the `m_u / alpha` bar is a fixed likelihood-ratio bar with a calibration claim
+  attached, not a proven error rate; every row records it as `assumed-calibrated`. And
+  per-unit Bonferroni bounds `alpha` **inside a change unit only**: across a pull request the
+  bound is `min(1, U * alpha)` over the units searched, measured at **0.65** for ten units at
+  `alpha = 0.1`. Nothing here impeaches a published receipt — S·T tops out at 9 against a bar of
+  10 at the factory alpha, so every publication rests on the differential execution — but that is
+  a one-unit arithmetic margin rather than an invariant, and no number in this README should be
+  read as a pull-request-level error guarantee (D-174,
+  [report](docs/acceptance/2026-09-08-binding-and-bounds.md)).
+- **Every level now resolves a name before treating it as a call, and all of them got quieter.**
+  Inheritance, decorators, a call through a variable, a package re-export, and any bare name in
+  a file with a star import are abstentions. Re-counting what this changes: **all 26**
+  recorded `through_caller` gate witnesses, across **445** new-code candidates in four
+  populations, were name collisions — a function witnessed in a file that defines its own
+  function of that name. The gate level's measured reachability on real traffic is **0.0%**,
+  not 5.8%. Read the old numbers in those reports as name matches, not as reachability (D-174).
 - **The value class is conservative and it costs recall.** A change that alters a returned value,
   where the base tree does not say what that value should be, is refused with *value change
   confirmed, intent unknown*. On a held-out slice of **known defects** that clause cost **four
   publications**; on forward pairs it is right where it fires. Two populations, two answers
   (D-158).
-- **Reachability has a ceiling.** The gate level requires a call site outside the added lines and
-  a fully annotated signature; on real traffic **30 of 90** new-code candidates were admissible
-  at all, and a caller reached only through a registry looks unreachable.
+- **Reachability has a ceiling, and after D-174 the measured ceiling is zero.** The gate level
+  requires a call site outside the added lines and a fully annotated signature; on real traffic
+  **30 of 90** new-code candidates were admissible at all, and a caller reached only through a
+  registry looks unreachable. Since call sites are resolved rather than name-matched, **none of
+  the 445 recorded new-code candidates has produced a publishing-grade witness** — the level is
+  in shadow, has never spoken, and the reason it has never spoken is now known.
 - **Non-deterministic functions cannot be certified.** A reproduction must agree with itself
   three times on head and three on base; anything that does not is an abstention, not a finding.
 - **Yellow (b)'s null/Optional class is closed, and this is the reason it stayed open so long.**
@@ -80,7 +104,8 @@ reached an adjudicator that had not before, and it was drawered.
   been measured on code like yours either way (D-151, D-165).
 - **Yellow (b)'s second class, exception propagation, is a shadow.** Also 0 of 79 — but free, and
   its refusals say why: of 198 changed functions, 135 added no call at all and 43 called a name
-  defined more than once. It runs on every review and writes to the ledger; it reaches **no
+  defined more than once — a count taken **before** D-174, when a second definition anywhere in
+  the tree was read as ambiguity; under name binding most of those 43 are not ambiguous. It runs on every review and writes to the ledger; it reaches **no
   author-visible surface**, because a level that has never said anything has not yet earned a
   reader's attention (D-164, D-169).
 - **A review reads only what 30% of its budget buys, and verifies at most three candidates per
@@ -204,7 +229,11 @@ Important limits:
   state it, head must still state it, and no test, docstring, doc, changelog line or inline
   comment in the same diff may touch the anchored symbol (`attest.intent.v4`, D-132,
   2026-09-05) **in a recognisable form** — backticked, dot-qualified, or a long bare name
-  English does not supply (`attest.intent.v4.1`, D-134, 2026-09-05). On the whole corpus
+  English does not supply (`attest.intent.v4.1`, D-134, 2026-09-05), and the specification must
+  be **about the symbol the change touched** — an `assert` counts only when its own scope names
+  that symbol, a docstring only when it belongs to it or names it, a documentation paragraph
+  only when that paragraph names it, and a change touching no function or class can have no
+  specification at all (`attest.intent.v4.2`, D-174, 2026-09-08). On the whole corpus
   replay this class certifies **0 of 48** receipts under both: the recall cost is the
   decision, and it is large. **That 48 is a reversed corpus and therefore inflates the
   class** (D-135). The first number taken where time runs forwards is **0 certified of 1

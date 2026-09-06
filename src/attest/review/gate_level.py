@@ -37,6 +37,7 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 from attest.execution.controller import Controller, ExecutorAdapter
+from attest.review.binding import BindingIndex, Reference, Target, dotted_name
 from attest.review.candidates import StoredCandidate
 from attest.review.executor import (
     ExecutionOutcome,
@@ -238,31 +239,102 @@ def documents_parameter(
     return any(name and name in doc for name in names)
 
 
-def calls_in(source: str, symbol: str) -> list[tuple[int, str]]:
-    """(line, enclosing definition name) of every call to ``symbol`` -- bare or
-    attribute -- in this source."""
+@dataclass(frozen=True)
+class WrittenCall:
+    """One call of the searched name, with everything binding needs to judge it."""
+
+    line: int
+    caller: str  # innermost enclosing definition's plain name, "" at module level
+    scope: str | None  # its qualname, which is what a receiver or a local needs
+    dotted: str  # the call expression as written: `widen`, `lib.widen`, `self.widen`
+
+
+def calls_in(source: str, symbol: str) -> list[WrittenCall]:
+    """Every call whose **last written segment** is ``symbol``, with its scope.
+
+    This is a text-shaped search and it stays one: it finds candidates, and
+    `attest.review.binding` decides which of them actually reach the symbol."""
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
         return []
-    scopes: list[tuple[int, int, str]] = [
-        (node.lineno, node.end_lineno or node.lineno, node.name)
-        for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
-    ]
-    found: list[tuple[int, str]] = []
+    scopes: list[tuple[int, int, str, str]] = []
+
+    def collect(node: ast.AST, prefix: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+                qualname = f"{prefix}.{child.name}" if prefix else child.name
+                scopes.append(
+                    (child.lineno, child.end_lineno or child.lineno, child.name, qualname)
+                )
+                collect(child, qualname)
+            else:
+                collect(child, prefix)
+
+    collect(tree, "")
+    found: list[WrittenCall] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        func = node.func
-        named = (isinstance(func, ast.Name) and func.id == symbol) or (
-            isinstance(func, ast.Attribute) and func.attr == symbol
-        )
-        if not named:
+        written = dotted_name(node.func)
+        if written is None or written.rsplit(".", 1)[-1] != symbol:
             continue
-        enclosing = [name for start, end, name in scopes if start <= node.lineno <= end]
-        found.append((node.lineno, enclosing[-1] if enclosing else ""))
+        enclosing = [
+            (name, qualname)
+            for start, end, name, qualname in scopes
+            if start <= node.lineno <= end
+        ]
+        name, qualname = enclosing[-1] if enclosing else ("", "")
+        found.append(
+            WrittenCall(line=node.lineno, caller=name, scope=qualname or None, dotted=written)
+        )
     return found
+
+
+def enclosing_qualname(source: str, line: int) -> str:
+    """The dotted scope chain the line sits in, "" at module level or on a
+    source that does not parse. `enclosing_definition` answers with the node;
+    binding needs the name that node is reached by."""
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return ""
+    best = ""
+    best_start = -1
+
+    def walk(node: ast.AST, prefix: str) -> None:
+        nonlocal best, best_start
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+                qualname = f"{prefix}.{child.name}" if prefix else child.name
+                end = child.end_lineno or child.lineno
+                if child.lineno <= line <= end and child.lineno > best_start:
+                    best, best_start = qualname, child.lineno
+                walk(child, qualname)
+            else:
+                walk(child, prefix)
+
+    walk(tree, "")
+    return best
+
+
+@functools.lru_cache(maxsize=8)
+def _tree_paths(root: str, head_sha: str) -> tuple[str, ...]:
+    """Every Python file of one revision, for the binding layer's module search."""
+    listed = git(Path(root), "ls-tree", "-r", "--name-only", head_sha)
+    return tuple(line for line in listed.splitlines() if line.endswith(".py"))
+
+
+@functools.lru_cache(maxsize=8)
+def binding_index(root: str, head_sha: str) -> BindingIndex:
+    """One binding index per revision, reading blobs out of `git` on demand.
+
+    Cached because a review asks the same revision about many candidates, and
+    re-reading a package's `__init__` once per candidate is pure waste."""
+    repo = Path(root)
+    return BindingIndex(
+        _tree_paths(root, head_sha), lambda path: show(repo, head_sha, path) or None
+    )
 
 
 def find_call_sites(
@@ -271,27 +343,43 @@ def find_call_sites(
     symbol: str,
     *,
     anchored_path: str,
+    anchored_qualname: str = "",
     added: Mapping[str, set[int]],
 ) -> tuple[list[CallSite], bool]:
-    """(a): calls to ``symbol`` in the head tree at lines the diff did not add.
-    Returns the sites and whether the search was truncated."""
+    """(a): calls that **resolve to** ``symbol`` in the head tree, at lines the
+    diff did not add. Returns the sites and whether the search was truncated.
+
+    `git grep` finds the candidates and `attest.review.binding` decides them.
+    The distinction is the whole of this change: a second module that defines
+    its own `widen` and calls it used to grade a candidate `through_caller` --
+    the one grade allowed to publish -- on a call that never reaches the new
+    code. A call site the binding layer cannot resolve is not a witness; the
+    level abstains rather than counting a name."""
     # from the tree root, so the `*.py` pathspec means the whole tree and not
     # whatever subdirectory a caller happened to hand in
-    listed = git(toplevel(repo), "grep", "-l", "-w", "-e", symbol, head_sha, "--", "*.py")
+    root = toplevel(repo)
+    listed = git(root, "grep", "-l", "-w", "-e", symbol, head_sha, "--", "*.py")
     paths = [line.split(":", 1)[1] for line in listed.splitlines() if ":" in line]
     truncated = len(paths) > MAX_CALL_SITE_FILES
+    index = binding_index(str(root), head_sha)
+    target = Target(anchored_path, anchored_qualname or symbol)
     sites: list[CallSite] = []
     for path in sorted(paths)[:MAX_CALL_SITE_FILES]:
         source = show(repo, head_sha, path)
         if not source:
             continue
         added_here = added.get(path, set())
-        for line, caller in calls_in(source, symbol):
-            if line in added_here:
+        for call in calls_in(source, symbol):
+            if call.line in added_here:
                 continue  # §1: a call site the diff itself added is not a witness
-            if path == anchored_path and caller == symbol:
+            if path == anchored_path and call.caller == symbol:
                 continue  # recursion is not a caller
-            sites.append(CallSite(path=path, line=line, caller=caller))
+            bound = index.resolve(
+                Reference(path=path, dotted=call.dotted, scope=call.scope)
+            )
+            if bound != target:
+                continue  # it is not this symbol that runs underneath
+            sites.append(CallSite(path=path, line=call.line, caller=call.caller))
     return sites, truncated
 
 
@@ -316,6 +404,7 @@ def witness(
             "does not parse; nothing declares a domain",
         )
     symbol = definition.name
+    qualname = enclosing_qualname(head_source, origin_line)
     names, annotations = parameter_annotations(definition)
     # (b) is necessary, and an unannotated parameter abstains. This is stricter
     # than the design's "the parameter's annotation admits the input's type":
@@ -326,7 +415,14 @@ def witness(
         name for name, annotation in zip(names, annotations, strict=True) if not annotation
     ]
     documented = documents_parameter(definition, names)
-    sites, truncated = find_call_sites(repo, head_sha, symbol, anchored_path=path, added=added)
+    sites, truncated = find_call_sites(
+        repo,
+        head_sha,
+        symbol,
+        anchored_path=path,
+        anchored_qualname=qualname,
+        added=added,
+    )
     site = sites[0] if sites else None
     # The **grade** says how the reproduction got in and nothing else; the
     # **admissibility** says whether the tree licensed the domain at all. They
