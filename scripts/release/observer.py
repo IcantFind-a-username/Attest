@@ -177,6 +177,32 @@ def install_rules(auditctl: str) -> Step:
     return Step("install_rules", ok, f"uid={CONTAINER_UID} {','.join(WATCHED)}", "\n".join(output))
 
 
+def marker(uid: int = CONTAINER_UID) -> Step:
+    """A positive control for the rules themselves.
+
+    A process at the container's uid that makes a watched syscall (`execve`).
+    If the kernel does not record *this*, the rule set is not working and no
+    conclusion may be drawn about the container; if it records this and not the
+    container, the container is not running at the uid the rule filters on.
+    Without it a run of zero records means nothing at all, and the first two
+    runs of this observer are exactly that."""
+    setpriv = shutil.which("setpriv")
+    if setpriv is None:
+        return Step("marker", False, "setpriv is not installed", "")
+    done = _run(setpriv, f"--reuid={uid}", f"--regid={uid}", "--clear-groups", "/bin/true")
+    return Step(
+        "marker",
+        done.returncode == 0,
+        f"execve /bin/true as uid {uid}",
+        (done.stdout + done.stderr)[:300],
+    )
+
+
+def rules_now(auditctl: str) -> str:
+    done = _run(auditctl, "-l")
+    return (done.stdout + done.stderr).strip()[:1200]
+
+
 def remove_rules(auditctl: str) -> Step:
     done = _run(auditctl, "-D", "-k", AUDIT_KEY)
     return Step("remove_rules", done.returncode == 0, output=(done.stdout + done.stderr)[:400])
@@ -220,14 +246,17 @@ def cmd_arm(args: argparse.Namespace) -> int:
     if not found.feasible:
         print(found.blocked_by(), file=sys.stderr)
         return 3
-    step = install_rules(found.auditctl)
     mark = datetime.now().strftime("%H:%M:%S")
+    step = install_rules(found.auditctl)
+    control = marker()
     payload = {
         "schema_version": OBSERVER_SCHEMA_VERSION,
         "probe": asdict(found),
         "armed": step.ok,
         "since": mark,
         "step": asdict(step),
+        "marker": asdict(control),
+        "rules_after_arming": rules_now(found.auditctl),
     }
     if args.json:
         args.json.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
@@ -241,9 +270,21 @@ def cmd_collect(args: argparse.Namespace) -> int:
     if not found.feasible:
         print(found.blocked_by(), file=sys.stderr)
         return 3
+    rules_before = rules_now(found.auditctl)
+    unfiltered = _run(found.ausearch, "-k", AUDIT_KEY)
+    log = Path("/var/log/audit/audit.log")
     records, error = collect(found.ausearch, args.since)
     steps = [
         Step("collect", not error, f"{len(records)} kernel record(s)", error or ""),
+        Step(
+            "diagnostics",
+            True,
+            f"rules still loaded: {bool(rules_before and 'No rules' not in rules_before)}; "
+            f"audit.log {log.stat().st_size if log.is_file() else 'absent'} bytes; "
+            f"unfiltered ausearch rc={unfiltered.returncode}, "
+            f"{len(unfiltered.stdout.splitlines())} line(s)",
+            (rules_before + "\n" + (unfiltered.stdout + unfiltered.stderr)[:600])[:1400],
+        ),
         remove_rules(found.auditctl),
     ]
     claim: dict[str, object] = {}
