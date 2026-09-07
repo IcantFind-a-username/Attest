@@ -373,6 +373,107 @@ def test_current_precision_rejects_a_truncated_ledger(tmp_path: Path) -> None:
         led.surfaced_precision()
 
 
+# --- a note is not a receipt, in the delivery journal either (D-189) -------
+# Found by the 2026-09-11 held-out re-run: `pytest-dev__pytest-10356` could not
+# be reviewed at all. `run_review` raised `ValueError: delivery member does not
+# match its ci_final surface decision` before buying anything, because the
+# 2026-09-10 review of the same case posted a **yellow (a) note and no receipt**
+# and journalled the note as a delivery member -- `{"finding_id":
+# "src/_pytest/mark/structures.py:358", "placement": "impact"}`. `ci_final`
+# records candidate decisions and knows nothing about a coordinate, so the
+# reconciliation refused the row on the *next* review of that repository.
+#
+# The guard is right and stays: a coordinate must never reach `surfaced_ids`,
+# which is what the alpha auto-tighten's precision window reads (D-048). What
+# was wrong is that a note member was reconciled at all.
+
+
+def _note_member_ledger(tmp_path: Path) -> "Ledger":
+    """A repository whose last review posted one yellow (a) note and no receipt."""
+    led = Ledger(tmp_path)
+    led.record_ci_final(
+        task_id="notes",
+        decisions=[
+            {
+                "finding_id": "5e019fccef",
+                "action": "drawer",
+                "wealth_final": 3.0,
+                "placement": "drawer",
+            }
+        ],
+        spend_usd=0.0,
+    )
+    led.append(
+        {
+            "kind": "delivery_attempt_settlement",
+            "task_id": "notes",
+            "attempt_id": "note-attempt",
+            "outcome": "succeeded",
+        }
+    )
+    return led
+
+
+def test_a_note_member_does_not_make_the_next_review_of_that_repository_crash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    led = _note_member_ledger(tmp_path)
+    event = SimpleNamespace(
+        attempt_id="note-attempt",
+        outcome="succeeded",
+        members=(("src/_pytest/mark/structures.py:358", "impact"),),
+    )
+    monkeypatch.setattr(
+        "attest.review.ci.reconcile_delivery_rows",
+        lambda _entries, task_id: ((event,), ()) if task_id == "notes" else ((), ()),
+    )
+
+    # the review that reads this ledger must run, and the coordinate must not be
+    # counted as something an author was shown a receipt for
+    assert led.maybe_tighten_alpha(0.1, enabled=True) == (0.1, None)
+    assert list(led.surfaced_finding_ids()) == []
+
+
+def test_a_receipt_member_is_still_reconciled_against_its_ci_final_decision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other side: excluding notes must not stop the guard from refusing an
+    *inline* member the ci_final row never decided to surface."""
+    led = _note_member_ledger(tmp_path)
+    event = SimpleNamespace(
+        attempt_id="note-attempt",
+        outcome="succeeded",
+        members=(("5e019fccef", "inline"),),  # ci_final drawered it
+    )
+    monkeypatch.setattr(
+        "attest.review.ci.reconcile_delivery_rows",
+        lambda _entries, task_id: ((event,), ()) if task_id == "notes" else ((), ()),
+    )
+
+    with pytest.raises(ValueError, match="ci_final surface decision"):
+        led.maybe_tighten_alpha(0.1, enabled=True)
+
+
+def test_a_delivery_member_placement_nobody_defines_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A placement that is neither a receipt's nor a note's is a shape this
+    reader does not understand, and it refuses rather than guessing which."""
+    led = _note_member_ledger(tmp_path)
+    event = SimpleNamespace(
+        attempt_id="note-attempt",
+        outcome="succeeded",
+        members=(("whatever", "a-placement-from-the-future"),),
+    )
+    monkeypatch.setattr(
+        "attest.review.ci.reconcile_delivery_rows",
+        lambda _entries, task_id: ((event,), ()) if task_id == "notes" else ((), ()),
+    )
+
+    with pytest.raises(ValueError, match="delivery member placement"):
+        led.maybe_tighten_alpha(0.1, enabled=True)
+
+
 def test_ci_surface_order_is_anchored_to_successful_settlement(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
