@@ -10,7 +10,33 @@ live under [`docs/acceptance/`](docs/acceptance/). This file is the index, not t
 Versions follow [semantic versioning](https://semver.org/) once `v0.1.0` exists. Until then the
 only published ref is a pilot tag, and the sections below say plainly which is which.
 
-## Unreleased — since `v0.1.0-rc.1`
+## `v0.1.0-rc.2` — 2026-09-12
+
+Copy and denominators, not capability. **No constant moved**: `alpha`, the likelihood ratios,
+`k_samples`, the hard cap, `budget-usd` and the supported interpreter range 3.10–3.13 are the
+same as at `v0.1.0-rc.1`. Pre-release; a wheel and an sdist are attached to the tag's GitHub
+Release and nothing is published to PyPI or listed on the Marketplace (D-193).
+
+The work between rc.1 and rc.2 is listed under the next heading; what the tag itself added:
+
+- **An outside repository got a receipt.** `us-stock-helper` installed this ref with the
+  quickstart's defaults and received a receipt-backed `[red]` comment on an **owner-placed**
+  crash regression — head FAIL 3/3, base PASS 3/3, receipt `37e8cbfcabe1`, $0.0694
+  ([report](docs/acceptance/2026-09-12-external-receipt.md)). The defect was planted, so this
+  **measures no recall and no precision**; it establishes the install path.
+- **Known gap, found by that test.** The quickstart's workflow uploads `.attest/ledger.jsonl`
+  and a receipt's bundle lives in `.attest/evidence/…`, so the comment's own
+  `attest verify --bundle …` instruction has nothing to point at on a fresh runner. Change the
+  upload path to `.attest/` if you want the evidence to survive the run.
+- **The tag was cut twice, and it ships one version inconsistency.** The package version is
+  hand-written in *two* files. The first `v0.1.0-rc.2` built a wheel labelled `0.1.0rc1` and the
+  release workflow refused it, correctly; no release existed under that name, so it was
+  withdrawn and re-cut. The bump reached `pyproject.toml` and not `src/attest/__init__.py`, so
+  **at this ref `attest.__version__` reads `0.1.0rc1`** while the wheel's metadata reads
+  `0.1.0rc2`. Nothing in the product depends on that string; it is corrected after this tag, and
+  the tag is not moved because it is the ref that produced the external receipt (D-193).
+
+## Also in `v0.1.0-rc.2` — the work between rc.1 and rc.2
 
 ### The refusals reach the pull request, 2026-09-12
 
