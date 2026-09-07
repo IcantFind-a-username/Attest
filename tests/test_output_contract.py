@@ -388,3 +388,200 @@ def test_the_silence_line_stays_one_line_however_long_the_executor_reason_is() -
 
     assert len(line) <= MAX_LINE_CHARS
     assert check(line), check(line).reason
+
+
+# --- the five refusals reach the line an author reads (D-190) ----------------
+# `attest ci` decided only on `preflight`, so `no docker`, `no pytest`, the
+# interpreter refusal, an image that will not build and a discovery the budget
+# truncated reached the ledger and the collapsed run status and never the one
+# line a pull-request author reads. PR #14 of this repository is the case on
+# real traffic: its own self-review read 3 of 16 units, said `budget-limited`
+# inside a collapsed block, and the line above that block said `nothing met an
+# adjudicator's bar` -- a clean bill of health over 13 units nobody looked at.
+
+
+def test_a_refusal_is_one_silent_line_naming_it_and_its_ledger() -> None:
+    from attest.review.support import NO_DOCKER
+
+    line = silence_line(
+        units_read=0,
+        units_planned=1,
+        spend_usd=0.0,
+        elapsed_s=1.2,
+        refusal=(NO_DOCKER.code, NO_DOCKER.fact),
+        ledger_url="https://github.com/o/r/actions/runs/42",
+    )
+
+    assert line == (
+        f"[silent] read 0 of 1 units; refused (no-docker): {NO_DOCKER.fact}; "
+        "ledger: https://github.com/o/r/actions/runs/42; $0.0000, 1.2s."
+    )
+    assert check(line), check(line).reason
+
+
+def test_a_refusal_outranks_every_other_silence_verdict() -> None:
+    """`no docker` *is* an unavailable executor and it *is* a silence, and both
+    of those verdicts say less than the refusal's own name does."""
+    from attest.review.support import NO_DOCKER
+
+    line = silence_line(
+        units_read=1,
+        units_planned=1,
+        spend_usd=0.0,
+        elapsed_s=1.0,
+        refusal=(NO_DOCKER.code, NO_DOCKER.fact),
+        executor_unavailable="isolation backend unavailable: docker not found",
+        unverified=3,
+    )
+
+    assert "refused (no-docker):" in line
+    assert "executor unavailable" not in line
+    assert "nothing met an adjudicator's bar" not in line
+    assert "budget ceiling" not in line
+    assert check(line), check(line).reason
+
+
+def test_every_refusal_the_pull_request_can_show_fits_the_line_that_judges_it() -> None:
+    """The property, not one example: every refusal in the register, with the
+    longest ledger link the line will carry and four-digit unit counts, is a
+    line its own adjudicator admits."""
+    from attest.review.output_contract import LEDGER_URL_LIMIT
+    from attest.review.support import REFUSALS
+
+    url = "https://github.com/" + "o" * (LEDGER_URL_LIMIT - len("https://github.com/"))
+    assert len(url) == LEDGER_URL_LIMIT
+    for refusal in REFUSALS:
+        line = silence_line(
+            units_read=9999,
+            units_planned=9999,
+            spend_usd=1234.5678,
+            elapsed_s=9999.9,
+            refusal=(refusal.code, refusal.fact),
+            ledger_url=url,
+        )
+        assert len(line) <= MAX_LINE_CHARS, (refusal.code, len(line))
+        assert check(line), f"{refusal.code}: {check(line).reason}"
+        assert refusal.code in line
+
+
+def test_a_link_that_is_not_one_is_omitted_rather_than_printed() -> None:
+    """A truncated URL is a broken link, which is worse than no link, and an
+    unvalidated one is somebody else's text on the product's own line."""
+    from attest.review.output_contract import LEDGER_URL_LIMIT, ledger_link
+
+    assert ledger_link("https://github.com/o/r/actions/runs/42") == (
+        "https://github.com/o/r/actions/runs/42"
+    )
+    assert ledger_link("") == ""
+    assert ledger_link("not a url") == ""
+    assert ledger_link("http://github.com/o/r") == ""  # https only
+    assert ledger_link("https://github.com/o/r a b") == ""
+    assert ledger_link("https://x/" + "y" * LEDGER_URL_LIMIT) == ""
+
+
+def test_a_refusal_fact_too_long_for_one_line_is_refused_not_truncated() -> None:
+    """D-142 forbids truncating a line into shape. A fact that does not fit is
+    a defect in the product's own copy, and it fails where it is written."""
+    from attest.review.output_contract import REFUSAL_FACT_LIMIT
+
+    with pytest.raises(ValueError):
+        silence_line(
+            units_read=0,
+            units_planned=1,
+            spend_usd=0.0,
+            elapsed_s=1.0,
+            refusal=("no-docker", "x" * (REFUSAL_FACT_LIMIT + 1)),
+        )
+
+
+def test_a_truncated_discovery_says_what_it_cost_on_the_line_an_author_reads() -> None:
+    """PR #14's own scenario, from the rows the run wrote to the line it owed.
+
+    Before this the collapsed block said `read 3 of 16 units, budget-limited
+    (...)` and the line above it said `nothing met an adjudicator's bar`."""
+    from attest.review.status import status_from_rows
+
+    shortfall = (
+        "unit u4 (src/attest/review/ci.py) was $0.0218 short of the discovery "
+        "share; `budget-usd` $1.08 would have read it"
+    )
+    rows: list[dict[str, object]] = [
+        {
+            "kind": "review_plan",
+            "task_id": "t",
+            "units": [{"unit_id": f"u{n}"} for n in range(1, 17)],
+        },
+        {
+            "kind": "proposal_coverage",
+            "task_id": "t",
+            "units_read": 3,
+            "units_planned": 16,
+            "budget_limited": True,
+            "budget_shortfall": shortfall,
+        },
+    ]
+    status = status_from_rows(rows, "t")
+    assert status.budget_limited is True
+
+    body = render_complete(
+        [],
+        0.1563,
+        95.0,
+        units=(status.units_read, status.units_planned),
+        refusal=status.refusal(),
+        ledger_url="https://github.com/o/r/actions/runs/34074224233",
+    )
+
+    assert body.startswith("[silent] read 3 of 16 units; refused (budget-truncated): ")
+    assert "nothing met an adjudicator's bar" not in body
+    assert "`budget-usd` $1.08" in body
+    assert "ledger: https://github.com/o/r/actions/runs/34074224233" in body
+    assert check(body), check(body).reason
+
+
+def test_a_truncation_whose_clause_will_not_fit_drops_the_clause_not_the_verdict() -> None:
+    """A change unit naming forty files makes D-187's clause longer than the
+    line allows. The verdict is what the reader cannot lose, so the clause is
+    reduced in whole steps -- never cut mid-sentence."""
+    from attest.review.output_contract import REFUSAL_FACT_LIMIT
+    from attest.review.support import budget_truncation_fact
+
+    long_label = "unit u4 (" + ", ".join(f"src/pkg/module_{n}.py" for n in range(40)) + ")"
+    fact = budget_truncation_fact(
+        f"{long_label} was $0.0218 short of the discovery share; "
+        "`budget-usd` $1.08 would have read it"
+    )
+
+    assert len(fact) <= REFUSAL_FACT_LIMIT
+    assert "src/pkg/module_39.py" not in fact
+    assert "`budget-usd` $1.08" in fact
+    assert budget_truncation_fact("").endswith("were not judged")
+
+
+def test_a_change_unit_named_after_a_path_cannot_forge_the_line_it_travels_on() -> None:
+    """The truncation clause names a change unit, and a change unit is named
+    after paths in the repository under review. A file called
+    `a; ledger: https://elsewhere.example/x.py` would otherwise put a second
+    link on the one line an author reads -- head content choosing where the line
+    points, which is the thing this product never allows."""
+    from attest.review.support import budget_truncation_fact
+
+    fact = budget_truncation_fact(
+        "unit u4 (src/a; ledger: https://elsewhere.example/x.py) was $0.0218 short of "
+        "the discovery share; `budget-usd` $1.08 would have read it"
+    )
+
+    assert "elsewhere.example" not in fact
+    assert "ledger:" not in fact.lower()
+    assert "`budget-usd` $1.08" in fact  # the actionable number survives
+
+    line = silence_line(
+        units_read=3,
+        units_planned=16,
+        spend_usd=0.1,
+        elapsed_s=9.0,
+        refusal=("budget-truncated", fact),
+        ledger_url="https://github.com/o/r/actions/runs/42",
+    )
+    assert line.count("ledger: ") == 1
+    assert check(line), check(line).reason

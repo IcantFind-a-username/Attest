@@ -621,6 +621,12 @@ measured together.
   end from a packaged install; **an outside real trial on a repository this project does not
   own has still never happened**, and it is the one item on this list that nothing local can
   substitute for.
+  **Amended 2026-09-12 (D-190):** the failure-mode copy item was true of `attest review` and
+  false of `attest ci`. Seven refusals — the five the owner named plus the two decided from
+  the tree — now reach the pull-request comment as one `[silent]` contract line carrying the
+  refusal's name, one sentence of fact and a link to the run whose artifact holds the ledger;
+  before this an author met `DEFER: verification deferred: …`, or `nothing met an
+  adjudicator's bar` over units the budget never let the review read.
 
 ### Mandatory prerequisites
 

@@ -184,6 +184,9 @@ def render(
                     else budget_unverified(reasons)
                 ),
                 executor_unavailable=status.executor_unavailable,
+                # D-190: and a discovery the budget truncated says so here too,
+                # so the local line and the pull-request line make one claim
+                refusal=status.refusal(),
             )
         )
 

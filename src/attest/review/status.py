@@ -132,6 +132,21 @@ class RunStatus:
             out.append(f"reproduction {index}: {category} — {reason}")
         return out
 
+    def refusal(self) -> tuple[str, str] | None:
+        """The refusal these counters establish on their own, or None (D-190).
+
+        Only one: a discovery the budget truncated. Every other refusal is a
+        property of the tree or of the environment and is decided by
+        `support.refusal_from_reason`, which reads a reason rather than a count.
+        """
+        # imported here, not at module scope: `support` reads the container
+        # image module, and this one is imported by the executor path
+        from attest.review.support import BUDGET_TRUNCATED, budget_truncation_fact
+
+        if not self.budget_limited:
+            return None
+        return BUDGET_TRUNCATED.code, budget_truncation_fact(self.budget_shortfall)
+
     def render(self) -> str:
         return "\n".join(self.lines())
 

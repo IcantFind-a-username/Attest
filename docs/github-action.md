@@ -85,6 +85,18 @@ switch, and non-Python processes or other mechanisms may still reach the network
 Generated-test errors, collection failures, and timeouts defer the candidate. They do
 not count as a refutation and buy no verification evidence.
 
+## What a review says when it cannot look
+
+Seven situations end a review without a finding for a reason the product can name: the
+repository has no Python, a lock file will not parse, the runner has no docker, pytest could
+not be installed into the reproduction image, the project cannot run under a supported
+interpreter, the project's own manifests will not install, and the discovery share of
+`budget-usd` stopped the review before every change unit was read. Since D-190 each is one
+`[silent]` line on the pull request carrying the refusal's name, one sentence of fact and a
+link to the run whose artifact holds the ledger — never a key, a path, a traceback or the
+backend's own reason. The literal copy and the next step for each are in
+[`operations/failure-modes.md`](operations/failure-modes.md).
+
 Fork support requires a later two-workflow design: an unprivileged job may inspect the
 fork, while a separate `workflow_run` workflow handles privileged credentials and any
 trusted follow-up. Do not add fork secrets or execute fork head code in this action.

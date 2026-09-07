@@ -47,7 +47,7 @@ unsupported project is not a failed run (D-159).
 ## The silences, and which is which
 
 A wholly silent review prints exactly one line in a fixed shape, and the middle clause says
-why it was silent. All three are admitted by `output_contract.check`; before 2026-09-09 the
+why it was silent. All four are admitted by `output_contract.check`; before 2026-09-09 the
 second was not, so the product's own adjudicator refused a line the product emits.
 
 | verdict | line | what to do |
@@ -55,6 +55,29 @@ second was not, so the product's own adjudicator refused a line the product emit
 | everything was judged | `[silent] read 13 of 13 units; nothing met an adjudicator's bar; $0.0184, 2.5s.` | nothing. **This is an abstention, never a true negative** |
 | the budget stopped it | `[silent] read 1 of 13 units; the budget ceiling was reached; 4 candidate(s) were not verified; $1.0000, 61.2s.` | raise `budget-usd`; the 12 unread units were **not** reviewed |
 | the host could not run the executor | `[silent] read 3 of 3 units; executor unavailable: process containment unavailable for privileged POSIX user; 4 candidate(s) not verified; $0.0184, 2.5s.` | **nothing was judged.** Run the job unprivileged, or on a GitHub-hosted runner (D-177) |
+| a refusal, named | `[silent] read 0 of 1 units; refused (no-docker): docker is not available on this runner, and Attest runs head code only inside a container; nothing was verified; ledger: https://github.com/o/r/actions/runs/42; $0.0000, 1.2s.` | the row for that name in the table above; the link opens the run whose artifact holds the ledger (D-190) |
+
+### The refusals, on the pull request
+
+Until 2026-09-12 the refusals above were the **local** answer: `attest review` printed them
+and `attest ci` did not, so a pull-request author met `DEFER: verification deferred: …` or,
+for a truncated discovery, `nothing met an adjudicator's bar` over units nobody had read.
+Since D-190 every one of them is the `[silent]` line of the pull-request comment, in the
+fourth shape above.
+
+| name on the line | the situation, from the table above |
+|---|---|
+| `not-python` | the repository has no Python |
+| `unreadable-lock` | a lock file will not parse |
+| `no-docker` | no docker on the runner |
+| `no-pytest` | pytest could not be installed into the image |
+| `interpreter-out-of-range` | the project cannot run under a supported interpreter |
+| `image-build-failed` | the project's own manifests do not install on a slim image — the *operator* row for this is still `environment bootstrap failed …` with the build-log tail (D-175); an author gets the name and the link |
+| `budget-truncated` | the discovery share stopped the review before every change unit was read; the line carries the `budget-usd` that would have read the next one (D-187) |
+
+**What never appears on that line:** a key, a value from the environment, a traceback, or the
+backend's own reason. The sentence is fixed and chosen by the name; the reason keeps its
+place in the ledger and in the collapsed `Run status`.
 
 ## The provider
 
