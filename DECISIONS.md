@@ -1990,3 +1990,11 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Cost:** $0.00. **Reversal:** two fields on `BudgetExceeded` and one function; the two call sites return to `exc.reason`.
 - **Trace:** D-111, D-126, D-161, D-168, D-183; `docs/acceptance/2026-09-10-factory-k5.md` §3.
 
+### D-188 — The clean K=4 control arm is not re-run, and the attribution rests on what is already recorded
+
+- **Date/status/scope:** 2026-09-11 · active · **owner decision** (item 3 of the 2026-09-10 handoff) · **no code change**.
+- **The decision.** The 27-review sample is **not** re-run at K=4 on today's code. The 2026-09-10 report's caveat stands as written: its third column is *the shipped configuration as it stands today*, not *K=5, all else equal*.
+- **What carries the attribution instead.** D-168's free replay puts K=4 under today's schedule and loses no receipt (`receipts_lost: []`), so a receipt K=5 loses is K's; and the three control reviews of 2026-09-10 ($0.1321) show the held-out fault at K=4 **and** at pre-D-174 code, so it is neither K nor that window. Every row that moved has one of those two behind it.
+- **What is therefore not known, stated rather than implied.** No experiment separates K from the code for rows that did **not** move. The claim the record supports is the narrow one: at the shipped configuration the forward-pair corpus publishes three receipts, and not the same three.
+- **Cost:** $0.00, against roughly $2.86 measured (≈$27 at the per-review cap) for the arm declined. **Reversal:** none needed; the arm can be bought later at the same price.
+- **Trace:** D-168, D-174, D-183, D-184, D-185; `docs/acceptance/2026-09-10-factory-k5.md` §2.
