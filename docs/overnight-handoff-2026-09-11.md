@@ -69,6 +69,26 @@ survives a fresh checkout); it bit every corpus driver. Nothing published is imp
 
 Five unpassed gates, unchanged in count.
 
+## Gates
+
+```
+python -m pytest --cov=src/attest --cov-report=term-missing
+  2,189 passed in 1933.81s, exit 0
+  Required test coverage of 90.0% reached. Total coverage: 93.33%
+python -m ruff check .        All checks passed!
+python -m mypy src/attest     Success: no issues found in 94 source files
+git diff --check              clean
+```
+
+darwin / CPython 3.12.2 from `requirements-toolchain.lock`, no deselection, at `1c32f27`.
+**No constant moved**: `alpha`, the likelihood ratios, `k_samples`, the hard cap, `budget-usd`
+and the supported interpreter range 3.10–3.13 are all untouched.
+
+**The branch carries the two 2026-09-10 commits as well** (`b8d42f9`, `d361198`): that window's
+branch was pushed and never had a pull request, and this work builds directly on it — D-186
+repairs D-185, and the decision numbering continues from it. Merging this brings both windows to
+`main`.
+
 ## Owner items — three, each a yes/no with a default
 
 1. **Add supported-interpreter cases to the held-out corpus, so `G-RECALL-002` has a denominator
