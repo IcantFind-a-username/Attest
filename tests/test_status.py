@@ -249,3 +249,66 @@ def test_a_long_executor_reason_cannot_push_the_silence_line_past_the_contract()
 
     assert len(line) <= MAX_LINE_CHARS
     assert check(line), check(line).reason
+
+
+# --- the trade a truncation cost, on the path an author reads (D-187) ------
+# PR #14 of this repository is why this exists. Its own review read 3 of 16
+# units and the status said `read 3 of 16 units, budget-limited` and nothing
+# else -- on the very branch that recorded the owner's decision to *name* the
+# trade when the ceiling actually bites. The clause was in the local report's
+# notes and reached no author.
+
+
+def _coverage(**over: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "kind": "proposal_coverage",
+        "task_id": "t1",
+        "units_planned": 16,
+        "units_read": 3,
+        "budget_limited": True,
+    }
+    row.update(over)
+    return row
+
+
+def test_a_truncated_run_says_which_unit_and_what_would_have_read_it() -> None:
+    shortfall = (
+        "unit u4 (src/attest/review/executor.py) was $0.0218 short of the discovery "
+        "share; `budget-usd` $1.08 would have read it"
+    )
+    status = status_from_rows(_rows() + [_coverage(budget_shortfall=shortfall)], "t1")
+
+    line = status.render()
+    assert "read 3 of 16 units, budget-limited (" in line
+    assert "src/attest/review/executor.py" in line  # which unit
+    assert "$0.0218 short" in line  # how much
+    assert "$1.08 would have read it" in line  # and the input that closes it
+
+
+def test_a_run_the_ceiling_did_not_stop_carries_no_budget_clause() -> None:
+    """No standing declaration: a review that fit says nothing about money."""
+    status = status_from_rows(_rows(), "t1")
+
+    assert status.budget_shortfall == ""
+    assert "short of the discovery share" not in status.render()
+
+
+def test_a_truncation_without_a_clause_still_renders_the_old_line() -> None:
+    """A ledger written before D-187 carries no clause, and the status reads
+    exactly as it did then rather than printing an empty bracket."""
+    status = status_from_rows(_rows() + [_coverage()], "t1")
+
+    assert "read 3 of 16 units, budget-limited;" in status.render()
+    assert "()" not in status.render()
+
+
+def test_a_long_unit_label_cannot_push_the_status_line_past_what_is_read() -> None:
+    """The clause sits inside the first status line, which the silence contract
+    bounds. A unit label long enough to overrun it is truncated."""
+    from attest.review.status import BUDGET_SHORTFALL_LIMIT
+
+    status = status_from_rows(_rows() + [_coverage(budget_shortfall="x" * 4000)], "t1")
+
+    first_line = status.render().splitlines()[0]
+    assert first_line.count("x") == BUDGET_SHORTFALL_LIMIT
+    assert first_line.endswith(")") or "; candidates:" in first_line

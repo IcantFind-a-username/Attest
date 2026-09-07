@@ -376,6 +376,11 @@ def run_review(
                 "units_planned": proposal.units_planned,
                 "units_read": proposal.units_read,
                 "budget_limited": bool(proposal.omitted_units),
+                # D-187: `budget-limited` alone leaves the operator to subtract
+                # two dollar figures out of a log they cannot see. The clause
+                # travels in the row the status is computed from, so the
+                # pull-request status can say it too.
+                "budget_shortfall": proposal.budget_shortfall,
             }
         )
         if proposal.omitted_units:

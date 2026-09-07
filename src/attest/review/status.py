@@ -83,6 +83,10 @@ class RunStatus:
     published: int
     units_planned: int = 0  # change units the plan held, read or not
     budget_limited: bool = False  # the per-unit budget stopped the proposal
+    # D-187: which unit the ceiling stopped, how much short it was, and
+    # the `budget-usd` that would have read it. Empty on every run that
+    # fit -- there is no standing declaration.
+    budget_shortfall: str = ""
     failures: tuple[tuple[str, str], ...] = ()  # (category, bounded reason), attempt order
     counts: Mapping[str, int] = field(default_factory=dict)
     prompt_tokens: int = 0  # proposal prompt tokens: uncached + cache writes + cache reads
@@ -103,6 +107,8 @@ class RunStatus:
         read = f"read {self.units_read} of {planned} units"
         if self.budget_limited:
             read += ", budget-limited"
+            if self.budget_shortfall:
+                read += f" ({self.budget_shortfall[:BUDGET_SHORTFALL_LIMIT]})"
         out = [
             f"{read}; candidates: {self.candidates}; "
             f"eligible: {self.eligible}; reproductions attempted: {self.attempts}; "
@@ -145,6 +151,11 @@ REASON_LIMIT = 200
 # the executor reason travels into the silent line, which `output_contract`
 # caps at 400 characters; the rest of that line is about 110
 EXECUTOR_REASON_LIMIT = 200
+# D-187: the truncation clause sits inside the first status line, which the
+# silence contract bounds; it names one unit, one gap and one number, and a
+# unit label long enough to overrun this is truncated rather than allowed to
+# push the line past what an author reads.
+BUDGET_SHORTFALL_LIMIT = 160
 BOOTSTRAP_REASON_LIMIT = 1_400
 _BOOTSTRAP_MARKERS = ("environment bootstrap failed", "isolation backend unavailable")
 
@@ -167,6 +178,7 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
     units = 0
     planned = 0
     budget_limited = False
+    shortfall = ""
     for row in mine:
         if row.get("kind") == "review_plan":
             plan_units = row.get("units")
@@ -178,6 +190,8 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
             units = _as_int(row.get("units_read"))
             planned = _as_int(row.get("units_planned")) or units
             budget_limited = bool(row.get("budget_limited"))
+            raw_shortfall = row.get("budget_shortfall")
+            shortfall = raw_shortfall if isinstance(raw_shortfall, str) else ""
     candidates = {
         str(row.get("finding_id"))
         for row in mine
@@ -267,6 +281,7 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
         units_read=units,
         units_planned=planned,
         budget_limited=budget_limited,
+        budget_shortfall=shortfall,
         candidates=len(candidates),
         eligible=len(eligible),
         attempts=attempts,

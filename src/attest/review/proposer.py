@@ -375,6 +375,10 @@ class ProposalRun:
     omitted_units: list[str] = field(default_factory=list)  # typed, never silent
     units_planned: int = 0
     units_read: int = 0  # units the budget actually funded
+    # D-187: the one clause a truncated review owes its reader, short enough
+    # to sit in the pull-request status beside `budget-limited`. Empty on
+    # every run the ceiling did not stop.
+    budget_shortfall: str = ""
 
 
 def budget_shortfall_note(exc: BudgetExceeded) -> str:
@@ -392,6 +396,23 @@ def budget_shortfall_note(exc: BudgetExceeded) -> str:
     return (
         f"{exc.reason} -- ${exc.shortfall_usd:.4f} short; "
         f"`budget-usd` ${exc.budget_usd_needed:.2f} would have bought it"
+    )
+
+
+def budget_shortfall_clause(unit_label: str, exc: BudgetExceeded) -> str:
+    """The same trade, short enough for the status line an author reads.
+
+    `budget_shortfall_note` keeps the builder's whole reason, which belongs in
+    the local report and the ledger. This is what the pull-request status can
+    carry: the unit, the gap, and the input that closes it. PR #14 of this
+    repository is why it exists -- its own review read 3 of 16 units and said
+    `budget-limited` and nothing else, on the very branch that recorded D-187.
+    """
+    if exc.shortfall_usd is None or exc.budget_usd_needed is None:
+        return f"{unit_label} did not fit the discovery share"
+    return (
+        f"{unit_label} was ${exc.shortfall_usd:.4f} short of the discovery share; "
+        f"`budget-usd` ${exc.budget_usd_needed:.2f} would have read it"
     )
 
 
@@ -447,6 +468,7 @@ def propose_plan(
     observations: list[SampleObservation] = []
     successful = 0
     omitted: list[str] = []
+    shortfall = ""
     units_read = 0
     for index, unit in enumerate(plan.units):
         try:
@@ -465,10 +487,11 @@ def propose_plan(
         except BudgetExceeded as exc:
             if index == 0:
                 raise
-            omitted.append(
-                f"unit {unit.unit_id} ({', '.join(unit.files)}): "
-                f"budget: {budget_shortfall_note(exc)}"
-            )
+            label = f"unit {unit.unit_id} ({', '.join(unit.files)})"
+            shortfall = budget_shortfall_clause(label, exc)
+            omitted.append(f"{label}: budget: {budget_shortfall_note(exc)}")
+            # the clause travels with the run, so the pull-request status can
+            # say what the ceiling cost without quoting the builder's reason
             omitted.extend(
                 f"unit {later.unit_id} ({', '.join(later.files)}): not attempted after budget stop"
                 for later in plan.units[index + 1 :]
@@ -492,6 +515,7 @@ def propose_plan(
         omitted_units=omitted,
         units_planned=len(plan.units),
         units_read=units_read,
+        budget_shortfall=shortfall,
     )
 
 
