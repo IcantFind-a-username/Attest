@@ -188,6 +188,12 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   reason as its claim line and leaves `budget-limited` in the collapsed block. Two facts, one
   line: which of them an author needs first is a copy decision, not a defect, and it is written
   down here rather than guessed at.
+- **D-187's clause is cut mid-word in the collapsed status.** PR #17's own run rendered ``unit
+  85bb5390cb57dc5b (…) was $0.0436 short of the discovery share; `budget-usd` $1.15 would `` —
+  `BUDGET_SHORTFALL_LIMIT` is 160 characters and `RunStatus.lines` applies it as a slice, so the
+  sentence stops in the middle of the word that carries the advice. D-190's line-level version of
+  the same clause reduces in whole steps instead (`support.budget_truncation_fact`); the
+  collapsed block should do the same, or drop the clause rather than halve it.
 - **D-187's clause can advise the `budget-usd` that is already set.** PR #15's own run printed
   ``unit … was $0.0010 short of the discovery share; `budget-usd` $1.00 would have read it``
   with `budget-usd` already at $1.00: the needed figure is computed and then rounded to two

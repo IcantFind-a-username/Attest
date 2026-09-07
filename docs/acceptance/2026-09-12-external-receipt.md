@@ -142,6 +142,11 @@ this window instead:
   **2 of 7 units** and deferred with `DEFER: verification deferred: probe did not execute
   src/attest/review/ci.py on base …`. **None of the seven refusals fired on it**, which is the
   new code's first correct silence: an ordinary DEFER was not dressed up as a refusal;
+- **this repository's [PR #17](https://github.com/IcantFind-a-username/Attest/pull/17) — the one
+  carrying this report — rendered D-187's clause cut mid-word**: ``unit 85bb5390cb57dc5b (…) was
+  $0.0436 short of the discovery share; `budget-usd` $1.15 would ``. `BUDGET_SHORTFALL_LIMIT` is
+  applied as a slice, so the sentence stops inside the word that carries the advice. D-190's
+  line-level version of the same clause reduces in whole steps and cannot do this;
 - the same comment's collapsed block carried D-187's clause — ``unit … was $0.0010 short of the
   discovery share; `budget-usd` $1.00 would have read it`` — with `budget-usd` **already** at
   $1.00. The needed figure is rounded to two decimals, so a shortfall under a cent advises no
