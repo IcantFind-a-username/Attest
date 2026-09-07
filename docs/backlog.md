@@ -174,3 +174,12 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   a reason and an `actionless` category and nothing records either, so a green or yellow note
   dropped for format leaves no trace an operator could find — unlike the structural notes, which
   get a ledger row each. One `ledger.append` at the four gated builders would close it.
+- ~~**A project outside the reproduction interpreter range fails as a missing artifact**~~
+  (D-185, 2026-09-10). **Closed by D-186** (2026-09-11): a run that collected no test at all in
+  a tree whose own declaration lies outside 3.10–3.13 is a stated refusal. The range is
+  unchanged and the interpreter is still not pinned per project; those two remain open options
+  if a project inside the range ever meets the same wall.
+- **`attest ci` never consults `from_reason`** (D-186). The five refusals reach the local CLI's
+  `[silent]` line and the ledger reason, but the pull-request path decides only on `preflight`,
+  so an unsupported *environment* is reported to an author as an ordinary DEFER. Pre-existing
+  for `no docker` and `no pytest`; D-186 adds a third to the same gap.

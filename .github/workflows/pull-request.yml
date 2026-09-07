@@ -35,12 +35,18 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # The action's own default, stated here so the number this
-          # repository reviews itself under is visible in the workflow. Raised
-          # from 0.25 after the four-level table measured the binding
-          # constraint on real traffic to be the budget, not the adjudicators.
+          # `budget-usd` is the action's own default, restated here so the
+          # number this repository reviews itself under is visible in the
+          # workflow. It was raised from 0.25 after the four-level table
+          # measured the binding constraint on real traffic to be the budget,
+          # not the adjudicators.
+          #
+          # `samples` is NOT set: it takes the action's default of 5, which is
+          # what an outside repository gets. This workflow used to override it
+          # with 4 under a comment claiming 4 was the default -- so the one
+          # repository that reviews itself was the one place the shipped
+          # configuration never ran (D-183).
           budget-usd: "1.00"
-          samples: "4"
       - name: Upload attest ledger
         if: always()
         uses: actions/upload-artifact@v4

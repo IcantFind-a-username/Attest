@@ -742,6 +742,13 @@ against `attest.review.binding`, which resolves a call to the definition it can 
 | the 13 forward-pair fix commits (3) | 0 | 0 |
 | **cumulative (445)** | **26 (5.8%)** | **0 (0.0%)** |
 
+**Owner decision, 2026-09-10 (D-181): a caller that is itself a test is not a witness.** The
+`through_test_caller` exclusion stands and the gate level stays in **shadow** either way. Both
+risks are on the record: keeping the exclusion means the gate can never speak about new code
+whose only pre-existing caller is a shared test helper, and it is the whole reason this table
+reads 0 of 445 rather than 3 of 445; admitting test callers would let the change's **own new
+test** be the reachable input, so the gate would publish a crash the change itself provokes.
+
 The three `through_test_caller` observations stand; they are one symbol whose only caller is
 `tests/test_fusion.py`, and that grade never publishes. Examples of what was being counted:
 `src/corum/dependence.py::_validate_examples` witnessed in a file holding **its own**

@@ -61,6 +61,7 @@ from attest.review.proposer import (
     redacted_error,
     response_fragment,
 )
+from attest.review.support import interpreter_range_reason
 from attest.review.workdir import repro_root
 
 MAX_CONTEXT_LINES = 200
@@ -1118,6 +1119,24 @@ def _junit_counts(data: bytes) -> tuple[int, int]:
     return summary.failures, summary.errors
 
 
+def _nothing_collected_reason(tree: Path | None, evidence: str) -> str:
+    """The reason for a run that collected no test at all.
+
+    D-186. When the tree's own declaration puts it outside the supported
+    interpreter range, the reproduction ran a version the project never claimed
+    -- and the operator needs *that*, not this run's missing artifact, which
+    reads as a broken host (D-185). Both facts are kept: the refusal states the
+    cause and the evidence follows it, so the ledger still records what was
+    seen. Any other tree keeps the sentence it always had; a collection failure
+    inside the range is an ordinary scaffolding failure and D-114 asks the
+    generator again.
+    """
+    if tree is None:
+        return evidence
+    refusal = interpreter_range_reason(tree)
+    return evidence if refusal is None else f"{refusal} ({evidence})"
+
+
 def _deferred(
     reason: str,
     started: float,
@@ -1658,8 +1677,11 @@ def execute_repro(
     if collect_only:
         if exit_code != 0:
             return _deferred(
-                "pytest collection/import/syntax or infrastructure failure during "
-                f"collection (exit code {exit_code})",
+                _nothing_collected_reason(
+                    tree,
+                    "pytest collection/import/syntax or infrastructure failure during "
+                    f"collection (exit code {exit_code})",
+                ),
                 started,
                 exit_code=exit_code,
                 stdout=stdout,
@@ -1696,8 +1718,14 @@ def execute_repro(
             :MAX_JUNIT_CHARS
         ]
     except (ET.ParseError, TypeError, ValueError) as exc:
+        evidence = f"missing or malformed JUnit evidence: {type(exc).__name__}: {exc}"
+        # a *missing* artifact means pytest never reached its own report, so no
+        # test ran; a malformed one means it did write something, which is a
+        # different failure and keeps the sentence it always had
+        if junit_bytes is None:
+            evidence = _nothing_collected_reason(tree, evidence)
         return _deferred(
-            f"missing or malformed JUnit evidence: {type(exc).__name__}: {exc}",
+            evidence,
             started,
             exit_code=exit_code,
             stdout=stdout,

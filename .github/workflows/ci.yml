@@ -3,6 +3,15 @@ name: gates
 on:
   push:
     branches: [main]
+    # Actions minutes: this job is 45 minutes of runner at its ceiling, and a
+    # documentation commit cannot change what it measures. Prose is skipped;
+    # every path that carries behaviour (src, tests, scripts, action.yml, the
+    # lock, this file) still triggers it. `paths-ignore` is a *push* filter
+    # only, so the pull-request gate is unaffected and a branch merged to main
+    # has already been gated at its own head.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch:
 
 permissions:
@@ -35,6 +44,13 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          # the cache key is the pinned lock, so it changes only when the
+          # toolchain does. `cache-dependency-path` is required, not cosmetic:
+          # setup-python's default pip pattern is `**/requirements.txt`, which
+          # this repository does not have, and the step fails outright when
+          # nothing matches.
+          cache: pip
+          cache-dependency-path: requirements-toolchain.lock
 
       - name: Install the locked toolchain
         run: |

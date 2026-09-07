@@ -37,6 +37,9 @@ sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
 
 from driver_budget import DriverCap  # noqa: E402
 
+sys.path.insert(0, str(ROOT / "src"))
+from attest.certification.intent import INTENT_POLICY_VERSION  # noqa: E402
+
 CORPORA = ROOT / ".attest" / "corpora"
 RUNS = ROOT / "benchmarks" / "attest-v2" / "runs"
 PAIRS = RUNS / "2026-09-05-forward-pairs.json"
@@ -86,7 +89,19 @@ def git(repo: Path, *args: str) -> str:
 def cmd_run(args: argparse.Namespace) -> int:
     pairs = distinct_pairs()
     env = dict(os.environ)
-    env["PYTHONPATH"] = str(ROOT / "src")
+    # `--code` pins the product code to a fixed checkout, as `heldout_run.py`
+    # already does: editing `src/` while a multi-hour run is in flight changes
+    # what later pairs are reviewed by, and the 2026-09-06c window lost a pass
+    # to exactly that.
+    source = Path(args.code) / "src" if args.code else ROOT / "src"
+    env["PYTHONPATH"] = str(source)
+    if args.code:
+        code_sha = subprocess.run(
+            ["git", "-C", args.code, "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        print(f"product code from {args.code} ({code_sha})", flush=True)
 
     done: set[str] = set()
     spent = 0.0
@@ -133,7 +148,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 "--base",
                 str(pair["base"]),
                 "--k",
-                "4",
+                str(args.k),
                 "--budget",
                 f"{args.budget:.2f}",
                 "--verification-timeout",
@@ -178,6 +193,20 @@ SUMMARY = re.compile(
     r"(?P<candidates>\d+) candidate\(s\): (?P<verified>\d+) verified, "
     r"(?P<unverified>\d+) unverified, (?P<discarded>\d+) discarded"
 )
+# The local `attest review` closing line as it stands today. Neither of the two
+# patterns above matches it, so between the 2026-09-06 run and the 2026-09-10
+# one this table silently read `candidates 0, certified 0` for every pair while
+# the reviews themselves were fine -- a reporting defect, found by the K=5 run
+# (D-184). `eligible` and `attempted` are not in this line and stay unknown.
+LOCAL = re.compile(
+    r"read (?P<read>\d+)/(?P<total>\d+) units(?:, budget-limited)?, "
+    r"candidates (?P<candidates>\d+), drawer (?P<drawer>\d+)[^;]*; "
+    r"verified (?P<verified>\d+), discarded (?P<discarded>\d+)"
+)
+# D-142: a published finding is one contract line, and its level marker starts
+# it. Locally that is the only place publication is stated, because no ledger
+# row here carries the pair's head sha.
+PUBLISHED_LINE = re.compile(r"^\[red\] ", re.M)
 # A verification line is one of three things, and only the third is the product
 # answering about the code: the budget ran out before a reproduction was bought,
 # the host or the image could not run one, or the policy reached a verdict.
@@ -256,6 +285,7 @@ def cmd_table(args: argparse.Namespace) -> int:
         pair = pairs[head]
         status = STATUS.search(body)
         summary = SUMMARY.search(body)
+        local = LOCAL.search(body)
         verdicts = [
             {"finding": match.group("finding"), "reason": match.group("reason").strip()}
             for match in VERIFY.finditer(body)
@@ -275,7 +305,11 @@ def cmd_table(args: argparse.Namespace) -> int:
                 "candidates": int(
                     status.group("candidates")
                     if status
-                    else (summary.group("candidates") if summary else 0)
+                    else (
+                        summary.group("candidates")
+                        if summary
+                        else (local.group("candidates") if local else 0)
+                    )
                 ),
                 "eligible": int(status.group("eligible")) if status else None,
                 # without the status line the number of *attempts* is not
@@ -285,12 +319,21 @@ def cmd_table(args: argparse.Namespace) -> int:
                 "certified": int(
                     status.group("certified")
                     if status
-                    else (summary.group("verified") if summary else 0)
+                    else (
+                        summary.group("verified")
+                        if summary
+                        else (local.group("verified") if local else 0)
+                    )
                 ),
                 # published <= certified, and a review that certified nothing
                 # published nothing
-                "published": int(status.group("published")) if status else 0,
+                "published": (
+                    int(status.group("published"))
+                    if status
+                    else len(PUBLISHED_LINE.findall(body))
+                ),
                 "status_line": bool(status),
+                "local_line": bool(local),
                 "budget_refused": len(refused),
                 "infrastructure_blocked": len(blocked),
                 # D-146's before/after columns
@@ -318,7 +361,11 @@ def cmd_table(args: argparse.Namespace) -> int:
     payload = {
         "schema_version": "attest.forward-pair-reviews.v1",
         "generated": datetime.now(UTC).isoformat(timespec="seconds"),
-        "policy": "attest.intent.v4.1",
+        # Read from the product, not written down here: this string was a
+        # literal `attest.intent.v4.1` and stayed that way through D-174's move
+        # to v4.2, so a K=5 table generated today claimed a policy version the
+        # run did not use.
+        "policy": INTENT_POLICY_VERSION,
         "direction": "fwd",
         "n_distinct_pairs": len(pairs),
         "reviewed": len(reviewed),
@@ -383,6 +430,11 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--cap", type=float, required=True, help="hard cumulative spend cap")
     r.add_argument("--log", required=True)
     r.add_argument("--verification-timeout", type=int, default=1200)
+    # K=4 is what every recorded run of this corpus used; the shipped default is
+    # 5 (`action.yml`), and the two are compared by running this driver twice
+    # into two logs.
+    r.add_argument("--k", type=int, default=4, help="proposal samples per unit")
+    r.add_argument("--code", default=None, help="fixed checkout whose attest code runs the pairs")
     r.set_defaults(func=cmd_run)
 
     t = sub.add_parser("table")

@@ -12,6 +12,62 @@ only published ref is a pilot tag, and the sections below say plainly which is w
 
 ## Unreleased — since `v0.1.0-rc.1`
 
+### The interpreter refusal, and the recall number it lets us re-take, 2026-09-11 ([report](docs/acceptance/2026-09-11-heldout-after-d186.md))
+
+- **A project the reproduction interpreter cannot collect is now refused by name** (D-186,
+  repairing D-185). D-162's range is 3.10–3.13 and a project declaring less than that gets 3.12;
+  a 2019–2022 `pytest` installs there and then cannot collect, and used to surface as
+  `missing or malformed JUnit evidence: no JUnit artifact` — a sentence about a broken host. It
+  now reads *this project declares Python outside 3.10-3.13 and pytest collected no test at all
+  under the 3.12 Attest fell back to*. **The supported range does not move**: this adds a
+  refusal, it does not change what Attest can review. The rule needs two counted facts together
+  — nothing collected, **and** an interpreter the project never declared — so a project inside
+  the range that fails to collect keeps its ordinary DEFER.
+- **The crash-class held-out number can be re-taken, and it is smaller over a smaller
+  denominator.** 17 of 17 `no JUnit artifact` verdicts became the refusal and no other verdict
+  moved. **9 of the 16 cases are outside what the product can review** (7 interpreter, 2 image
+  build), so the eligible-and-supported denominator is **7** and **certified is 2**. Two of the
+  four receipts `G-RECALL-002`'s *4 of 16* was built on came from a `pytest` tree the product
+  can no longer run — that number was in part bought on a configuration it no longer ships.
+- **A budget truncation that really happens now says what it cost** (D-187). `budget-usd` stays
+  **$1.00** and the factory `samples` stays **5** — neither of the numbers that would buy the
+  `click` receipt back is moved. What changes is that a review whose discovery the ceiling cut
+  off names the unit, the shortfall, and the `budget-usd` that would have covered it — **in the
+  pull-request status, not only in the local report**, which is the amendment this branch's own
+  review forced: PR #14 read 3 of 16 units and said `budget-limited` and nothing else. Nothing is
+  said on runs that fit.
+- **A yellow or green note in the delivery journal no longer blocks the next review of that
+  repository** (D-189). A note member names a coordinate, `ci_final` records candidates, and the
+  reconciliation refused the row on the next read — so a second local review of a repository
+  where a note had spoken raised before it could buy anything. **Not reachable on the Action**,
+  whose checkout carries no ledger; it bit every corpus driver. Nothing published is impeached.
+- **The gates workflow skips prose-only pushes and caches pip.** No change to what it measures;
+  the pull-request gate is untouched.
+
+### The factory K, measured, 2026-09-10 ([report](docs/acceptance/2026-09-10-factory-k5.md))
+
+- **This repository stopped overriding the shipped `samples`** (D-183). `pull-request.yml` set
+  `samples: "4"` under a comment claiming 4 was the action's own default; it is **5**. The one
+  repository that reviews itself was the one place the shipped configuration never ran, which
+  is why every empirical number here was a K=4 number.
+- **At the factory K=5 the forward-pair corpus still publishes three receipts, and not the same
+  three.** `click cd4674a6de` — one of the three this corpus has ever published — **defers on
+  the discovery share before reading any code**: five samples at `budget-usd: "1.00"` project
+  $0.3218 against a $0.30 ceiling, a 7% overshoot. **If you review large first change units,
+  `budget-usd: "1.06"` or `samples: "4"` buys that finding back.** In the other direction
+  `packaging 527be81862` now certifies, which is **D-162's interpreter range** rather than K:
+  its image was built on Python 3.9 and would not build; it is built on 3.12 and does.
+- **An old `pytest` has been unreviewable since 2026-09-07, and nothing said so** (D-185, open).
+  D-162 set the reproduction range to 3.10–3.13 on the ground that a project that cannot
+  install on 3.10 is a bootstrap failure. A 2019–2022 `pytest` installs fine on 3.12 and then
+  cannot *collect* — `TypeError: required field "lineno" missing from alias` — and the review
+  reports `no JUnit artifact`, which reads as a broken host. **If your project's own package
+  supplies the test runner, or it cannot run under 3.10+, this affects you**; the repair is in
+  the backlog, not in this ref.
+- **Two owner decisions, no code**: a caller that is itself a test is not a gate witness and the
+  gate stays in shadow (D-181); the publication rule stays `V ∧ intent ∧ per-unit family cap`
+  and the replay of the alternative is filed as a baseline (D-182).
+
 ### The release-readiness acceptance, 2026-09-09 ([report](docs/acceptance/2026-09-09-release-readiness.md))
 
 - **A review with nothing left to say posted itself anyway** (D-180). Found by this repository's

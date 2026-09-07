@@ -1,0 +1,36 @@
+{
+ "armed": true,
+ "marker": {
+  "detail": "execve /bin/true as uid 65534",
+  "name": "marker",
+  "ok": true,
+  "output": ""
+ },
+ "probe": {
+  "audit_enabled": 1,
+  "audit_locked": false,
+  "audit_status": "enabled 1\nfailure 1\npid 6035\nrate_limit 0\nbacklog_limit 8192\nlost 0\nbacklog 0\nbacklog_wait_time 60000\nbacklog_wait_time_actual 0\nloginuid_immutable 0 unlocked",
+  "auditctl": "/usr/sbin/auditctl",
+  "ausearch": "/usr/sbin/ausearch",
+  "docker": "/usr/bin/docker",
+  "kernel": "6.17.0-1022-azure",
+  "platform": "Linux",
+  "root": true,
+  "steps": []
+ },
+ "rules_after_arming": "-a always,exit -F arch=b64 -S socket,connect,clone,execve,unlink,openat,unlinkat -F uid=65534 -F key=attest-observer\n-a always,exit -F arch=b32 -S unlink,execve,clone,openat,unlinkat,socket,connect -F uid=65534 -F key=attest-observer\n-a always,exit -F arch=b64 -S execve -F key=attest-observer-any",
+ "schema_version": "attest.external-observer.v1",
+ "since": "1788721816",
+ "step": {
+  "detail": "uid=65534 connect,socket,openat,execve,clone,unlink,unlinkat",
+  "name": "install_rules",
+  "ok": true,
+  "output": "[b64] rc=0 \n[b32] rc=0 "
+ },
+ "unfiltered_rule": {
+  "detail": "execve, no uid filter",
+  "name": "install_unfiltered_rule",
+  "ok": true,
+  "output": ""
+ }
+}

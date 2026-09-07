@@ -95,7 +95,12 @@ def cmd_review(args: argparse.Namespace) -> int:
     # same fixed line, and the exit code stays 0 -- an unsupported host is not
     # a failed review.
     environment = from_reason(review.deferred_reason or "")
-    if environment is None:
+    if environment is None and not review.published:
+        # one candidate's reason speaks for the whole review, so it may only do
+        # so when the review certified nothing. Every refusal in this branch is
+        # a property of the environment and therefore true of every candidate
+        # in it -- but D-186 adds one that a single candidate can reach, and a
+        # receipt must never be replaced by a sentence about the host.
         environment = next(
             (found for found in map(from_reason, review.verification_reasons.values()) if found),
             None,

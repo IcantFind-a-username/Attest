@@ -105,6 +105,32 @@ def _require_label_count(entry: Mapping[str, Any]) -> None:
             raise ValueError("alpha label_count must be an exact non-negative integer")
 
 
+# D-189: a delivery carries two kinds of member, and only one of them is a
+# claim about a candidate.
+#
+# A **receipt** member names a candidate and a placement `ci_final` decided, so
+# it is reconciled against that decision: a member the review never decided to
+# surface is a journal the product would be lying in.
+#
+# A **note** member names a *coordinate* at one of the levels below red -- a
+# green structural note, a yellow (a) impact note, a yellow (b) nullability
+# note. It has no receipt and no candidate, `ci_final` records nothing about
+# it, and there is therefore nothing to reconcile it against. Reconciling it
+# refused the row, which made the *next* review of that repository raise before
+# it could buy anything (measured on `pytest-dev__pytest-10356`, 2026-09-11).
+#
+# A note is also excluded from `delivered_by_attempt` rather than admitted to
+# it, and that is the load-bearing half: `delivered_by_attempt` is what becomes
+# `surfaced_ids`, which is the precision window the alpha auto-tighten reads
+# (D-048) and a denominator C-04 keeps manual and note evidence out of. A
+# coordinate must never enter it.
+#
+# Anything else fails closed, because a placement this reader does not know is
+# a shape it cannot classify either way.
+_RECEIPT_PLACEMENTS = frozenset({"inline", "overflow"})
+_NOTE_PLACEMENTS = frozenset({"structural", "impact", "nullability"})
+
+
 def _parse_ci_final_decisions(
     decisions: object, *, allow_legacy_placement: bool
 ) -> tuple[dict[str, Any], ...]:
@@ -277,15 +303,19 @@ def _surfaced_projection(
         else:
             expected_members = {}
         for event in publication_events:
+            receipts: list[str] = []
             for finding_id, placement in event.members:
+                if placement in _NOTE_PLACEMENTS:
+                    continue
+                if placement not in _RECEIPT_PLACEMENTS:
+                    raise ValueError("delivery member placement is neither a receipt nor a note")
                 if expected_members.get(finding_id) != placement:
                     raise ValueError(
                         "delivery member does not match its ci_final surface decision"
                     )
+                receipts.append(finding_id)
             if event.outcome == "succeeded":
-                delivered_by_attempt[(task_id, event.attempt_id)] = tuple(
-                    finding_id for finding_id, _placement in event.members
-                )
+                delivered_by_attempt[(task_id, event.attempt_id)] = tuple(receipts)
     surfaced_ids: list[str] = []
     first_surface: dict[str, int] = {}
     for index, entry in enumerate(entries):

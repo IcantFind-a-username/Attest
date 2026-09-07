@@ -31,6 +31,58 @@ def test_budget_defers_before_calling() -> None:
     assert "exceeds budget" in exc.value.reason
 
 
+# --- what a real truncation says (D-187) -----------------------------------
+# The 2026-09-10 K=5 run lost the `click` receipt to the discovery ceiling:
+# `projected total $0.3218 exceeds the discovery share $0.3000`. Both numbers
+# were printed and nothing told the operator that the gap was two cents, or
+# that raising one input would have bought the finding back. The owner kept
+# `budget-usd` at $1.00 and the factory `samples` at 5 and asked for the trade
+# to be *named* when the ceiling actually bites -- and only then.
+
+
+def test_a_truncation_names_the_gap_and_the_budget_that_would_have_covered_it() -> None:
+    from attest.review.budget import PROPOSAL_SHARE
+    from attest.review.proposer import budget_shortfall_note
+
+    b = Budget(limit_usd=1.00, model=DEFAULT_MODEL)
+    b.spent_usd = 0.28
+    with b.stage("discovery", PROPOSAL_SHARE), pytest.raises(BudgetExceeded) as caught:
+        b.reserve("proposal sample 4", 60000, 2000)
+
+    note = budget_shortfall_note(caught.value)
+    assert "$0.0400 short" in note
+    # $0.34 projected against a 30% share is $1.13 of budget, not $1.04: the
+    # ceiling is a share, so the shortfall and the budget that covers it are
+    # different numbers and quoting the first as the second is the mistake
+    # this line exists to avoid
+    assert "`budget-usd` $1.13 would have bought it" in note
+    assert caught.value.shortfall_usd == pytest.approx(0.04)
+    assert caught.value.budget_usd_needed == pytest.approx(0.34 / PROPOSAL_SHARE)
+
+
+def test_a_run_that_fits_says_nothing_about_the_budget() -> None:
+    """No standing declaration: the clause exists only on the raise, so a review
+    the ceiling never touched carries no budget sentence at all."""
+    from attest.review.budget import PROPOSAL_SHARE
+
+    b = Budget(limit_usd=1.00, model=DEFAULT_MODEL)
+    with b.stage("discovery", PROPOSAL_SHARE):
+        b.reserve("proposal sample 0", 3000, 2000)
+
+    assert b.calls == []  # a reservation is not a call, and nothing was said
+    assert b.reserved_usd > 0.0
+
+
+def test_a_shortfall_without_a_ceiling_keeps_the_bare_reason() -> None:
+    """An exception built by a caller rather than by the ceiling comparison has
+    no numbers to quote, and inventing them would be worse than silence."""
+    from attest.review.proposer import budget_shortfall_note
+
+    assert budget_shortfall_note(BudgetExceeded("driver stopped at the reservation")) == (
+        "driver stopped at the reservation"
+    )
+
+
 def test_budget_cancel_releases_reservation() -> None:
     b = Budget(limit_usd=0.25, model=DEFAULT_MODEL)
     r = b.reserve("s0", 3000, 2000)
@@ -319,6 +371,107 @@ def test_current_precision_rejects_a_truncated_ledger(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="truncated"):
         led.surfaced_precision()
+
+
+# --- a note is not a receipt, in the delivery journal either (D-189) -------
+# Found by the 2026-09-11 held-out re-run: `pytest-dev__pytest-10356` could not
+# be reviewed at all. `run_review` raised `ValueError: delivery member does not
+# match its ci_final surface decision` before buying anything, because the
+# 2026-09-10 review of the same case posted a **yellow (a) note and no receipt**
+# and journalled the note as a delivery member -- `{"finding_id":
+# "src/_pytest/mark/structures.py:358", "placement": "impact"}`. `ci_final`
+# records candidate decisions and knows nothing about a coordinate, so the
+# reconciliation refused the row on the *next* review of that repository.
+#
+# The guard is right and stays: a coordinate must never reach `surfaced_ids`,
+# which is what the alpha auto-tighten's precision window reads (D-048). What
+# was wrong is that a note member was reconciled at all.
+
+
+def _note_member_ledger(tmp_path: Path) -> "Ledger":
+    """A repository whose last review posted one yellow (a) note and no receipt."""
+    led = Ledger(tmp_path)
+    led.record_ci_final(
+        task_id="notes",
+        decisions=[
+            {
+                "finding_id": "5e019fccef",
+                "action": "drawer",
+                "wealth_final": 3.0,
+                "placement": "drawer",
+            }
+        ],
+        spend_usd=0.0,
+    )
+    led.append(
+        {
+            "kind": "delivery_attempt_settlement",
+            "task_id": "notes",
+            "attempt_id": "note-attempt",
+            "outcome": "succeeded",
+        }
+    )
+    return led
+
+
+def test_a_note_member_does_not_make_the_next_review_of_that_repository_crash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    led = _note_member_ledger(tmp_path)
+    event = SimpleNamespace(
+        attempt_id="note-attempt",
+        outcome="succeeded",
+        members=(("src/_pytest/mark/structures.py:358", "impact"),),
+    )
+    monkeypatch.setattr(
+        "attest.review.ci.reconcile_delivery_rows",
+        lambda _entries, task_id: ((event,), ()) if task_id == "notes" else ((), ()),
+    )
+
+    # the review that reads this ledger must run, and the coordinate must not be
+    # counted as something an author was shown a receipt for
+    assert led.maybe_tighten_alpha(0.1, enabled=True) == (0.1, None)
+    assert list(led.surfaced_finding_ids()) == []
+
+
+def test_a_receipt_member_is_still_reconciled_against_its_ci_final_decision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other side: excluding notes must not stop the guard from refusing an
+    *inline* member the ci_final row never decided to surface."""
+    led = _note_member_ledger(tmp_path)
+    event = SimpleNamespace(
+        attempt_id="note-attempt",
+        outcome="succeeded",
+        members=(("5e019fccef", "inline"),),  # ci_final drawered it
+    )
+    monkeypatch.setattr(
+        "attest.review.ci.reconcile_delivery_rows",
+        lambda _entries, task_id: ((event,), ()) if task_id == "notes" else ((), ()),
+    )
+
+    with pytest.raises(ValueError, match="ci_final surface decision"):
+        led.maybe_tighten_alpha(0.1, enabled=True)
+
+
+def test_a_delivery_member_placement_nobody_defines_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A placement that is neither a receipt's nor a note's is a shape this
+    reader does not understand, and it refuses rather than guessing which."""
+    led = _note_member_ledger(tmp_path)
+    event = SimpleNamespace(
+        attempt_id="note-attempt",
+        outcome="succeeded",
+        members=(("whatever", "a-placement-from-the-future"),),
+    )
+    monkeypatch.setattr(
+        "attest.review.ci.reconcile_delivery_rows",
+        lambda _entries, task_id: ((event,), ()) if task_id == "notes" else ((), ()),
+    )
+
+    with pytest.raises(ValueError, match="delivery member placement"):
+        led.maybe_tighten_alpha(0.1, enabled=True)
 
 
 def test_ci_surface_order_is_anchored_to_successful_settlement(

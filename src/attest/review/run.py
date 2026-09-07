@@ -27,7 +27,7 @@ from attest.review.history import (
 )
 from attest.review.ledger import REVIEW_AUTHORITY_RANKING, Ledger
 from attest.review.planner import package_block, plan_review
-from attest.review.proposer import Provider, propose_plan
+from attest.review.proposer import Provider, budget_shortfall_note, propose_plan
 from attest.review.status import RunStatus, status_from_rows
 from attest.review.support import provider_defer_reason
 from attest.review.tier0 import collect_signals, signals_near, unresolved_identifiers
@@ -376,6 +376,11 @@ def run_review(
                 "units_planned": proposal.units_planned,
                 "units_read": proposal.units_read,
                 "budget_limited": bool(proposal.omitted_units),
+                # D-187: `budget-limited` alone leaves the operator to subtract
+                # two dollar figures out of a log they cannot see. The clause
+                # travels in the row the status is computed from, so the
+                # pull-request status can say it too.
+                "budget_shortfall": proposal.budget_shortfall,
             }
         )
         if proposal.omitted_units:
@@ -544,7 +549,10 @@ def run_review(
                     for item in stage.suppressed
                 )
     except BudgetExceeded as exc:
-        deferred_reason = f"budget: {exc.reason}"
+        # D-187: a truncation that really happened says what it cost, and what
+        # would have covered it. The constants are unchanged; only the sentence
+        # is, and only on the runs where the ceiling actually bit.
+        deferred_reason = f"budget: {budget_shortfall_note(exc)}"
         ledger.append({"kind": "defer", "task_id": task_id, "reason": deferred_reason})
     except (OSError, RuntimeError) as exc:
         elapsed = clock() - started

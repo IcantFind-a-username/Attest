@@ -8,9 +8,9 @@ check, or a review that reads as "nothing found" are three wrong answers to
 **one fixed sentence naming the reason**, printed as the `[silent]` line, and the
 process exits **0**.
 
-Two of the four are decided from the tree before anything is bought
-(`preflight`), and two are decided by the backend and are recognised from the
-reason it gives (`from_reason`):
+Two of the five are decided from the tree before anything is bought
+(`preflight`), and three are decided by the backend or by a run and are
+recognised from the reason it gives (`from_reason`):
 
 - **not Python** and **an unparsable lock file** are properties of the tree.
 - **no docker** and **no pytest** are properties of the *environment*, and they
@@ -19,6 +19,10 @@ reason it gives (`from_reason`):
   writes the test it runs, so "this project does not use pytest" is not a
   refusal. What refuses is pytest failing in the image that was built, which is
   what the bootstrap reports.
+- **outside the interpreter range** is a property of the tree *and* of a run,
+  which is why it is not in `preflight`: a project declaring less than 3.10
+  often runs on 3.12 perfectly well, and only a reproduction that collected
+  nothing turns the declaration into a refusal (D-186).
 
 The check says *nothing* about whether a supported project will produce a
 finding. It only refuses to pretend.
@@ -32,7 +36,14 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from attest.execution.container_images import _SKIP, LOCK_MANIFESTS, MAX_DEPTH
+from attest.execution.container_images import (
+    _SKIP,
+    AVAILABLE_PYTHONS,
+    LOCK_MANIFESTS,
+    MAX_DEPTH,
+    PRIMARY_PYTHON,
+    project_python,
+)
 from attest.review.output_contract import SILENCE_MARKER
 
 SUPPORT_POLICY_VERSION = "attest.support.v1"
@@ -85,8 +96,22 @@ UNREADABLE_LOCK = Unsupported(
     "unsupported: this repository's dependency lock file cannot be parsed, so the "
     "reproduction environment cannot be built; nothing was read and nothing was spent.",
 )
+SUPPORTED_RANGE = f"{AVAILABLE_PYTHONS[-1]}-{AVAILABLE_PYTHONS[0]}"
+OUTSIDE_INTERPRETER_RANGE = Unsupported(
+    "interpreter-out-of-range",
+    f"unsupported: this project declares Python outside {SUPPORTED_RANGE} and pytest "
+    f"collected no test at all under the {PRIMARY_PYTHON} Attest fell back to, so the "
+    "reproduction never ran; nothing was verified -- Attest can review this repository "
+    f"once it runs on Python {AVAILABLE_PYTHONS[-1]} or newer.",
+)
 
-SUPPORT_CODES = (NOT_PYTHON.code, NO_PYTEST.code, NO_DOCKER.code, UNREADABLE_LOCK.code)
+SUPPORT_CODES = (
+    NOT_PYTHON.code,
+    NO_PYTEST.code,
+    NO_DOCKER.code,
+    UNREADABLE_LOCK.code,
+    OUTSIDE_INTERPRETER_RANGE.code,
+)
 
 
 def _walk(tree: Path) -> Iterator[tuple[Path, Path]]:
@@ -195,6 +220,59 @@ def failed_build_step(reason: str) -> str | None:
     return marked.group(1).strip() if marked else None
 
 
+# --- a project the chosen interpreter cannot collect (D-186) ---------------
+# D-162 narrowed the reproduction range to 3.10-3.13 and gave a project whose
+# own declaration falls outside it the primary, 3.12, on the ground that "a
+# project that cannot install on 3.10 is a bootstrap failure". A 2019-2022
+# `pytest` tree installs there perfectly well and then cannot collect -- its
+# assertion rewriter builds AST nodes 3.12 rejects -- so no bootstrap failure
+# fires, the run produces no JUnit artifact at all, and the operator is shown
+# `missing or malformed JUnit evidence`, which reads as a broken host (D-185).
+#
+# The refusal is decided by two facts, both of them counted rather than
+# guessed, and it needs both:
+#
+# 1. **no test was collected**: the run produced no JUnit artifact, or a
+#    collect-only run failed -- so nothing about the change was observed and
+#    there is no evidence for any verdict to rest on;
+# 2. **the interpreter was not the project's**: `project_python` fell back to
+#    the primary *because the tree's own declaration lies outside the range*,
+#    which is the one case where the reproduction runs a version the project
+#    never claimed to support.
+#
+# Measured on the 16 held-out cases (2026-09-11, docker only, $0.00): condition
+# 1 holds for exactly the 7 `pytest` trees that cannot be reviewed and for
+# **none of the 7 whose probe collects**, and every one of the 7 also satisfies
+# condition 2. The remaining two cases never get an image at all: they satisfy
+# condition 2 alone, fail earlier at the image build, and keep their existing
+# bootstrap sentence (D-175). Neither fact alone is the refusal: a project
+# inside the range that fails to collect has an ordinary scaffolding problem,
+# and a project outside it that collects fine is reviewed like any other.
+_OUT_OF_RANGE_DECLARATION = "declared range outside"
+INTERPRETER_RANGE_REASON = (
+    f"reproduction interpreter outside the project's declared range: pytest collected "
+    f"no test under python {PRIMARY_PYTHON}, and this project declares a range outside "
+    f"{SUPPORTED_RANGE}"
+)
+
+
+def interpreter_range_reason(tree: Path) -> str | None:
+    """The stated reason for a tree the reproduction interpreter cannot collect.
+
+    Answers only the *second* of the two conditions above -- whether the
+    interpreter under which nothing collected is one this project never
+    declared. The caller owns the first, because only the caller knows whether
+    a test was collected.
+    """
+    try:
+        _version, declaration = project_python(tree)
+    except OSError:
+        return None
+    if not declaration.startswith(_OUT_OF_RANGE_DECLARATION):
+        return None
+    return INTERPRETER_RANGE_REASON
+
+
 def from_reason(reason: str) -> Unsupported | None:
     """The fixed refusal behind a backend or bootstrap reason, if it is one.
 
@@ -209,6 +287,8 @@ def from_reason(reason: str) -> Unsupported | None:
     lowered = reason.lower()
     if "docker not found" in lowered or "docker is not installed" in lowered:
         return NO_DOCKER
+    if INTERPRETER_RANGE_REASON.lower() in lowered:
+        return OUTSIDE_INTERPRETER_RANGE
     if "environment bootstrap failed" not in lowered:
         return None
     step = failed_build_step(reason)

@@ -44,6 +44,14 @@ CHARS_PER_TOKEN = 3.0
 @dataclass
 class BudgetExceeded(Exception):
     reason: str
+    # D-187: what the truncation actually cost, for the caller that has to say
+    # so in one line. `shortfall_usd` is how much more the call needed than the
+    # ceiling in force; `budget_usd_needed` is the `budget-usd` at which the
+    # same call would have fitted, and both are None when the raise did not
+    # come from a ceiling comparison (a caller that constructs the exception
+    # itself, or an older ledger being replayed).
+    shortfall_usd: float | None = None
+    budget_usd_needed: float | None = None
 
 
 @dataclass
@@ -138,15 +146,23 @@ class Budget:
             projected = self.spent_usd + self.reserved_usd + est
             ceiling = self.stage_ceiling_usd
             if ceiling is not None and projected > ceiling:
+                share = ceiling / self.limit_usd if self.limit_usd else 0.0
                 raise BudgetExceeded(
                     f"call '{label}' estimated ${est:.4f}; projected total "
                     f"${projected:.4f} exceeds the {self.stage_label} share "
-                    f"${ceiling:.4f} of budget ${self.limit_usd:.2f}"
+                    f"${ceiling:.4f} of budget ${self.limit_usd:.2f}",
+                    shortfall_usd=projected - ceiling,
+                    # the stage ceiling is a share of the whole budget, so the
+                    # budget that would have covered this call is the projected
+                    # total divided by that share
+                    budget_usd_needed=(projected / share) if share else None,
                 )
             if projected > self.limit_usd:
                 raise BudgetExceeded(
                     f"call '{label}' estimated ${est:.4f}; projected total "
-                    f"${projected:.4f} exceeds budget ${self.limit_usd:.2f}"
+                    f"${projected:.4f} exceeds budget ${self.limit_usd:.2f}",
+                    shortfall_usd=projected - self.limit_usd,
+                    budget_usd_needed=projected,
                 )
             self.reserved_usd += est
         return est
