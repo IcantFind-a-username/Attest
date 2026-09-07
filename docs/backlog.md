@@ -222,9 +222,12 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   release workflow's tag/version step is the one check. `hatch-vcs` was not adopted: a
   `uses: owner/Attest@ref` checkout carries no `.git`, so a tag-derived version would need a
   fallback there and the fallback would be the wrong number in exactly the install that matters.
-- **`gates` does not run on pull requests.** `ci.yml` triggers on push to `main` and on
+- **DONE 2026-09-12.** `gates` does not run on pull requests. `ci.yml` triggers on push to `main` and on
   `workflow_dispatch`; the only check a pull request gets is the attest self-review. So the
   repository's own 2,206-test suite gates `main` *after* a merge rather than the change before
   it — which is how PR #16 merged with a version string its own packaging test refuses. Adding
   a `pull_request` trigger costs runner minutes on every push; a cheaper half is to run the
-  fast, non-container subset on pull requests and keep the full 45-minute job on `main`.
+  fast, non-container subset on pull requests and keep the full 45-minute job on `main`. **Done**: `ci.yml`
+  gains a `checks` job on `pull_request` -- ruff, mypy, `git diff --check`, the wheel build and
+  the suite without the container isolation matrix, the red-team matrix and the release drills;
+  `gates` keeps those on push to `main`, with the coverage floor.

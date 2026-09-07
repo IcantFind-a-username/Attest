@@ -31,6 +31,10 @@ Copy, on the two lines a truncated review prints. **No constant moved.**
 - **One version string.** `attest.__version__` reads the installed metadata instead of a second
   hand-written literal, so the `0.1.0rc1`/`0.1.0rc2` disagreement `v0.1.0-rc.2` shipped cannot
   recur; an uninstalled checkout reports `0+uninstalled` rather than a guess.
+- **A pull request is gated before the merge.** `ci.yml` runs a `checks` job on
+  `pull_request`: lint, types, whitespace, the wheel build and every test that needs neither a
+  docker daemon nor the release drills. The 45-minute `gates` job with the container matrix and
+  the coverage floor stays on push to `main`. PR #16 merged red because nothing ran before it.
 
 ## `v0.1.0-rc.2` — 2026-09-12
 

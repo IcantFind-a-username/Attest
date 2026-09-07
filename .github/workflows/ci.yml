@@ -12,6 +12,14 @@ on:
     paths-ignore:
       - "**.md"
       - "docs/**"
+  # The same behaviour paths, before the merge rather than after it: PR #16
+  # merged with a version string its own packaging test refuses, because the
+  # only check a pull request had was the attest self-review. The `checks` job
+  # below is what a pull request gets; `gates` stays a push-to-main job.
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch:
 
 permissions:
@@ -22,7 +30,61 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The pull-request half of the gate: lint, types, whitespace, packaging and
+  # every test that needs neither a docker daemon nor the release drills. What
+  # it leaves to `gates` on main is deliberate and small -- the container
+  # isolation matrix (`tests/execution/test_linux_isolation.py`, which pulls
+  # `python:3.9-slim`), the red-team matrix and the release drills -- because
+  # those are the minutes, and a pull request needs the answer before the merge
+  # more than it needs the last 5% of coverage. No coverage floor here: the
+  # floor is measured once, on main, with the container tests in the
+  # denominator.
+  checks:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-toolchain.lock
+
+      - name: Install the locked toolchain
+        run: |
+          python -m pip install -r requirements-toolchain.lock
+          python -m pip install --no-deps --no-build-isolation -e .
+          python -m pip check
+
+      - name: Ruff
+        run: python -m ruff check .
+
+      - name: Mypy
+        run: python -m mypy src/attest
+
+      - name: git diff --check
+        run: git diff --check
+
+      - name: Pytest, without the container and drill suites
+        run: |
+          python -m pytest -p no:cacheprovider \
+            --ignore=tests/execution/test_linux_isolation.py \
+            --ignore=tests/release/test_drill.py \
+            --ignore=tests/release/test_redteam_matrix.py
+
+      - name: Build the wheel and the sdist
+        run: |
+          python -m pip install build
+          python -m build --outdir dist
+
   gates:
+    if: github.event_name != 'pull_request'
     # An ordinary work-order gate runs one supported Python (AGENTS.md §13);
     # 3.12 is the toolchain's primary. The point of running here rather than on
     # a development host is `tests/execution/test_linux_isolation.py`: it needs a
