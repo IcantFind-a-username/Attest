@@ -302,13 +302,33 @@ def test_a_truncation_without_a_clause_still_renders_the_old_line() -> None:
     assert "()" not in status.render()
 
 
-def test_a_long_unit_label_cannot_push_the_status_line_past_what_is_read() -> None:
-    """The clause sits inside the first status line, which the silence contract
-    bounds. A unit label long enough to overrun it is truncated."""
+def test_a_long_unit_label_keeps_the_number_and_drops_the_label_not_half_a_word() -> None:
+    """PR #17's own run rendered ``… `budget-usd` $1.15 would `` -- the clause
+    was applied as a slice and stopped inside the word that carries the advice.
+    The clause reduces in whole steps, as the line above it already does: the
+    whole clause, else the `budget-usd` sentence alone, else nothing."""
     from attest.review.status import BUDGET_SHORTFALL_LIMIT
 
+    long_label = "unit u4 (" + ", ".join(f"src/pkg/module_{n}.py" for n in range(40)) + ")"
+    shortfall = (
+        f"{long_label} was $0.0436 short of the discovery share; "
+        "`budget-usd` $1.15 would have read it"
+    )
+    status = status_from_rows(_rows() + [_coverage(budget_shortfall=shortfall)], "t1")
+
+    first_line = status.render().splitlines()[0]
+    assert "budget-limited (`budget-usd` $1.15 would have read it);" in first_line
+    assert "module_39" not in first_line
+    assert "would );" not in first_line and "would ;" not in first_line
+    assert len(first_line) < BUDGET_SHORTFALL_LIMIT + 200
+
+
+def test_a_clause_with_no_actionable_number_is_dropped_rather_than_cut() -> None:
+    """A clause too long for the line and carrying no `budget-usd` sentence has
+    no whole step left to reduce to, so the bracket goes -- the line reads as it
+    did before D-187, never as a fragment."""
     status = status_from_rows(_rows() + [_coverage(budget_shortfall="x" * 4000)], "t1")
 
     first_line = status.render().splitlines()[0]
-    assert first_line.count("x") == BUDGET_SHORTFALL_LIMIT
-    assert first_line.endswith(")") or "; candidates:" in first_line
+    assert "x" not in first_line
+    assert "read 3 of 16 units, budget-limited;" in first_line

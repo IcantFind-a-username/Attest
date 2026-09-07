@@ -10,6 +10,7 @@ but it never carries the claim, file or line of an uncertified candidate.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
@@ -107,8 +108,9 @@ class RunStatus:
         read = f"read {self.units_read} of {planned} units"
         if self.budget_limited:
             read += ", budget-limited"
-            if self.budget_shortfall:
-                read += f" ({self.budget_shortfall[:BUDGET_SHORTFALL_LIMIT]})"
+            clause = bounded_budget_shortfall(self.budget_shortfall)
+            if clause:
+                read += f" ({clause})"
         out = [
             f"{read}; candidates: {self.candidates}; "
             f"eligible: {self.eligible}; reproductions attempted: {self.attempts}; "
@@ -168,9 +170,33 @@ REASON_LIMIT = 200
 EXECUTOR_REASON_LIMIT = 200
 # D-187: the truncation clause sits inside the first status line, which the
 # silence contract bounds; it names one unit, one gap and one number, and a
-# unit label long enough to overrun this is truncated rather than allowed to
-# push the line past what an author reads.
+# unit label long enough to overrun this is reduced in whole steps -- the
+# whole clause, else the `budget-usd` sentence alone, else nothing -- rather
+# than sliced: PR #17's own status rendered ``$1.15 would `` and stopped inside
+# the word that carries the advice.
 BUDGET_SHORTFALL_LIMIT = 160
+# the one sentence of the clause a reader can act on; `support` extracts the
+# same sentence for the line above this block, from this pattern
+BUDGET_USD_SENTENCE = re.compile(r"`budget-usd` \$\d+\.\d{2} would have read it")
+
+
+def bounded_budget_shortfall(clause: str, limit: int = BUDGET_SHORTFALL_LIMIT) -> str:
+    """The D-187 clause at the longest whole step that fits ``limit``.
+
+    Three forms, each a complete sentence: the whole clause; failing that the
+    `budget-usd` sentence alone, which is the number the reader acts on; and
+    failing that nothing, so the line reads as it did before the clause
+    existed. A slice is never one of them.
+    """
+    clause = " ".join(str(clause).split()) if clause else ""
+    if not clause:
+        return ""
+    if len(clause) <= limit:
+        return clause
+    found = BUDGET_USD_SENTENCE.search(clause)
+    if found and len(found.group(0)) <= limit:
+        return found.group(0)
+    return ""
 BOOTSTRAP_REASON_LIMIT = 1_400
 _BOOTSTRAP_MARKERS = ("environment bootstrap failed", "isolation backend unavailable")
 

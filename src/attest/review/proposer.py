@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
@@ -395,8 +396,21 @@ def budget_shortfall_note(exc: BudgetExceeded) -> str:
         return exc.reason
     return (
         f"{exc.reason} -- ${exc.shortfall_usd:.4f} short; "
-        f"`budget-usd` ${exc.budget_usd_needed:.2f} would have bought it"
+        f"`budget-usd` ${usd_that_covers(exc.budget_usd_needed):.2f} would have bought it"
     )
+
+
+def usd_that_covers(needed_usd: float) -> float:
+    """``needed_usd`` rounded **up** to the cent -- the figure the sentence quotes.
+
+    `budget-usd` is set in cents, and the exact figure that would have covered
+    a call is rarely on a cent boundary. Rounding it to the *nearest* cent
+    quoted the setting already in force when the gap was under half a cent
+    (PR #15's own run: ``$0.0010 short; `budget-usd` $1.00 would have read
+    it`` at $1.00), advising no change at all. The ceiling always covers the
+    gap; a figure already on a cent is left where it is.
+    """
+    return math.ceil(round(needed_usd * 100, 6)) / 100
 
 
 def budget_shortfall_clause(unit_label: str, exc: BudgetExceeded) -> str:
@@ -412,7 +426,7 @@ def budget_shortfall_clause(unit_label: str, exc: BudgetExceeded) -> str:
         return f"{unit_label} did not fit the discovery share"
     return (
         f"{unit_label} was ${exc.shortfall_usd:.4f} short of the discovery share; "
-        f"`budget-usd` ${exc.budget_usd_needed:.2f} would have read it"
+        f"`budget-usd` ${usd_that_covers(exc.budget_usd_needed):.2f} would have read it"
     )
 
 

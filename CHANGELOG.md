@@ -10,6 +10,19 @@ live under [`docs/acceptance/`](docs/acceptance/). This file is the index, not t
 Versions follow [semantic versioning](https://semver.org/) once `v0.1.0` exists. Until then the
 only published ref is a pilot tag, and the sections below say plainly which is which.
 
+## Unreleased — after `v0.1.0-rc.2`
+
+Copy, on the two lines a truncated review prints. **No constant moved.**
+
+- **D-187's clause no longer stops inside a word.** The collapsed run status applied its
+  160-character bound as a slice, and PR #17's own review rendered ``… `budget-usd` $1.15 would ``.
+  The clause now reduces in the same whole steps as the line above it: the whole clause, else the
+  `budget-usd` sentence alone, else nothing — never a fragment.
+- **The advised `budget-usd` always differs from the one in force.** The figure was rounded to
+  the nearest cent, so a shortfall under half a cent advised the setting that produced it
+  (PR #15: ``$0.0010 short; `budget-usd` $1.00 would have read it`` at $1.00). It is now rounded
+  up to the cent. Recall cost: none; the exact figure still sits in the ledger.
+
 ## `v0.1.0-rc.2` — 2026-09-12
 
 Copy and denominators, not capability. **No constant moved**: `alpha`, the likelihood ratios,

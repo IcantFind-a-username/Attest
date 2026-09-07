@@ -73,6 +73,27 @@ def test_a_run_that_fits_says_nothing_about_the_budget() -> None:
     assert b.reserved_usd > 0.0
 
 
+def test_a_shortfall_under_a_cent_still_advises_a_budget_that_would_have_read_it() -> None:
+    """PR #15's own run printed ``$0.0010 short …; `budget-usd` $1.00 would have
+    read it`` with `budget-usd` already at $1.00: the needed figure was rounded
+    to the nearest cent and landed on the number in force. The figure the
+    sentence quotes is rounded **up** to the cent, so it always covers the gap
+    and never repeats the setting that produced it."""
+    from attest.review.proposer import budget_shortfall_clause, budget_shortfall_note
+
+    exc = BudgetExceeded(
+        "call 'proposal sample 4' estimated $0.0100; projected total $0.3010 exceeds "
+        "the discovery share $0.3000 of budget $1.00",
+        shortfall_usd=0.0010,
+        budget_usd_needed=0.3010 / 0.3,  # 1.00333…, which `.2f` prints as $1.00
+    )
+    assert "`budget-usd` $1.01 would have read it" in budget_shortfall_clause("unit u4", exc)
+    assert "`budget-usd` $1.01 would have bought it" in budget_shortfall_note(exc)
+    # a figure already on a cent boundary is not pushed up a cent by float noise
+    exact = BudgetExceeded("r", shortfall_usd=0.04, budget_usd_needed=1.08)
+    assert "`budget-usd` $1.08 would have read it" in budget_shortfall_clause("unit u4", exact)
+
+
 def test_a_shortfall_without_a_ceiling_keeps_the_bare_reason() -> None:
     """An exception built by a caller rather than by the ceiling comparison has
     no numbers to quote, and inventing them would be worse than silence."""
