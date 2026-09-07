@@ -203,14 +203,14 @@ and its blocker has changed shape: it was *"the corpus cannot be re-measured"* a
 
 ```
 python -m pytest --cov=src/attest --cov-report=term-missing
-  2,189 passed in 1933.81s, exit 0
+  2,193 passed in 1944.28s, exit 0
   Required test coverage of 90.0% reached. Total coverage: 93.33%
 python -m ruff check .        All checks passed!
 python -m mypy src/attest     Success: no issues found in 94 source files
 git diff --check              clean
 ```
 
-darwin / CPython 3.12.2 from `requirements-toolchain.lock`, no deselection, at `1c32f27`.
+darwin / CPython 3.12.2 from `requirements-toolchain.lock`, no deselection, at `122abda`.
 
 Baseline `d361198` → `fix/d-185-collect-refusal`. **No constant moved**: `alpha`, the likelihood
 ratios, `k_samples`, the hard cap, `budget-usd` and the supported interpreter range 3.10–3.13
