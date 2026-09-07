@@ -24,6 +24,11 @@ on came from a `pytest` tree Attest can no longer run.**
 - **D-188** — the clean K=4 control arm is not re-run; the 2026-09-10 caveat stands as written.
 - **D-189** — found by this run, fixed here. See below.
 
+**D-187 was amended by this branch's own pull request.** The clause first went only into the
+review's notes, which the local report renders and the pull-request status does not — so PR #14's
+self-review read **3 of 16 units** and told its author `budget-limited` and nothing else, on the
+very branch that recorded the decision. A short form now sits inside that status line.
+
 ## What the re-measurement says
 
 | | K=4 (2026-09-06) | K=5 (2026-09-10) | **now** |
@@ -101,6 +106,6 @@ repairs D-185, and the decision numbering continues from it. Merging this brings
    refusal reach the ledger and the run status but never the one-line `[silent]` sentence an
    author reads. Pre-existing for the first two; D-186 makes it three. It is an author-visible
    output change and D-142's contract governs that line, so it was left out of a narrow fix.
-3. **Raise the development cap?** *Default: no, not yet.* $84.89 of $110 is spent, leaving
-   $25.11, and the two things that would consume it — `G-NULL-001` (≈$53) and the K=5 control
+3. **Raise the development cap?** *Default: no, not yet.* $85.05 of $110 is spent, leaving
+   $24.95, and the two things that would consume it — `G-NULL-001` (≈$53) and the K=5 control
    arm (≈$126) — do not fit either way. Nothing this window needs it.

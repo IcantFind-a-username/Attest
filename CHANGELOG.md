@@ -32,7 +32,9 @@ only published ref is a pilot tag, and the sections below say plainly which is w
 - **A budget truncation that really happens now says what it cost** (D-187). `budget-usd` stays
   **$1.00** and the factory `samples` stays **5** — neither of the numbers that would buy the
   `click` receipt back is moved. What changes is that a review whose discovery the ceiling cut
-  off names the unit, the shortfall, and the `budget-usd` that would have covered it. Nothing is
+  off names the unit, the shortfall, and the `budget-usd` that would have covered it — **in the
+  pull-request status, not only in the local report**, which is the amendment this branch's own
+  review forced: PR #14 read 3 of 16 units and said `budget-limited` and nothing else. Nothing is
   said on runs that fit.
 - **A yellow or green note in the delivery journal no longer blocks the next review of that
   repository** (D-189). A note member names a coordinate, `ci_final` records candidates, and the
