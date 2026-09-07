@@ -159,7 +159,9 @@ this window instead:
 | the external review, run `34122326871` | **$0.069390** |
 | reserved for this item | $3.00 → **$2.930610 released** |
 | this repository's own PR #15 self-review (the merge the owner asked for) | $0.345762 |
-| PR #16 self-review (the version bump) | see `DEVSPEND.md` |
+| PR #16 self-review (the version bump) | $0.007750 |
+| PR #17 self-reviews, two of them (this report's own merge) | $0.166450 |
+| **window total** | **$0.589352**; cumulative $85.64 of the $110 cap, leaving $24.36 |
 
 No adjustment to the regression was needed: the owner allowed two, and the first attempt
 published.
