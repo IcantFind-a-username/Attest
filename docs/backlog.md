@@ -179,14 +179,44 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   a tree whose own declaration lies outside 3.10–3.13 is a stated refusal. The range is
   unchanged and the interpreter is still not pinned per project; those two remain open options
   if a project inside the range ever meets the same wall.
-- **`attest ci` never consults `from_reason`** (D-186). The five refusals reach the local CLI's
-  `[silent]` line and the ledger reason, but the pull-request path decides only on `preflight`,
-  so an unsupported *environment* is reported to an author as an ordinary DEFER. Pre-existing
-  for `no docker` and `no pytest`; D-186 adds a third to the same gap.
-- **The package version is hand-written and nothing checks it until a tag is pushed.**
-  `pyproject.toml` carries `version = "0.1.0rc<n>"` by hand, and the only thing that compares it
-  to the tag is the release workflow's own agreement step — which runs *after* the tag exists,
-  so the first `v0.1.0-rc.2` had to be withdrawn and re-cut (D-193). Either derive the version
-  from the tag (`hatch-vcs`, which this project already teaches the image builder to recognise)
-  or add the same comparison to the `gates` workflow, where a mismatch costs a red check instead
-  of a withdrawn ref.
+- ~~**`attest ci` never consults `from_reason`**~~ (D-186). **Closed by D-190** (2026-09-12):
+  seven refusals now reach the pull-request comment as one `[silent]` contract line carrying the
+  refusal's name, one sentence of fact and a link to the run whose artifact holds the ledger.
+- **A review that both defers and was truncated names only the defer** (D-190, observed on this
+  repository's own PR #15). The truncation refusal is reached on the *completed* path — PR #14's
+  case, and the one the owner named — but a review whose verification defers keeps the defer
+  reason as its claim line and leaves `budget-limited` in the collapsed block. Two facts, one
+  line: which of them an author needs first is a copy decision, not a defect, and it is written
+  down here rather than guessed at.
+- **D-187's clause is cut mid-word in the collapsed status.** PR #17's own run rendered ``unit
+  85bb5390cb57dc5b (…) was $0.0436 short of the discovery share; `budget-usd` $1.15 would `` —
+  `BUDGET_SHORTFALL_LIMIT` is 160 characters and `RunStatus.lines` applies it as a slice, so the
+  sentence stops in the middle of the word that carries the advice. D-190's line-level version of
+  the same clause reduces in whole steps instead (`support.budget_truncation_fact`); the
+  collapsed block should do the same, or drop the clause rather than halve it.
+- **D-187's clause can advise the `budget-usd` that is already set.** PR #15's own run printed
+  ``unit … was $0.0010 short of the discovery share; `budget-usd` $1.00 would have read it``
+  with `budget-usd` already at $1.00: the needed figure is computed and then rounded to two
+  decimals, so a shortfall under a cent advises no change at all. One decimal place, or a
+  `max(needed, current + 0.01)`, would make the sentence actionable.
+- **The documented workflow retains the ledger and not the bundle** (2026-09-12 external
+  receipt). `examples/pull-request.yml` and the README quickstart upload `.attest/ledger.jsonl`;
+  a receipt's bundle is written to `.attest/evidence/<task>/<candidate>/` and is destroyed with
+  the runner. The comment tells an author to run `attest verify --bundle …` against evidence
+  their own installation did not keep. Changing the upload path to `.attest/` would close it;
+  whether a public repository should publish its evidence bundles as an artifact is an owner
+  decision, which is why this is a backlog line and not a fix.
+- **The package version is hand-written in two places, and nothing checks either until after a
+  merge.** `pyproject.toml` and `src/attest/__init__.py` each carry `0.1.0rc<n>` by hand.
+  `tests/release/test_packaging.py` binds them, and the release workflow binds `pyproject.toml`
+  to the tag — but the first check runs only in `gates` and the second only after a tag exists,
+  so cutting `v0.1.0-rc.2` cost one withdrawn ref *and* shipped a wheel whose metadata says
+  `0.1.0rc2` while `attest.__version__` says `0.1.0rc1` (D-193). Deriving the version from the
+  tag (`hatch-vcs`, which this project already teaches the image builder to recognise) removes
+  both copies and both checks.
+- **`gates` does not run on pull requests.** `ci.yml` triggers on push to `main` and on
+  `workflow_dispatch`; the only check a pull request gets is the attest self-review. So the
+  repository's own 2,206-test suite gates `main` *after* a merge rather than the change before
+  it — which is how PR #16 merged with a version string its own packaging test refuses. Adding
+  a `pull_request` trigger costs runner minutes on every push; a cheaper half is to run the
+  fast, non-container subset on pull requests and keep the full 45-minute job on `main`.

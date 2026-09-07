@@ -627,6 +627,17 @@ measured together.
   refusal's name, one sentence of fact and a link to the run whose artifact holds the ledger;
   before this an author met `DEFER: verification deferred: …`, or `nothing met an
   adjudicator's bar` over units the budget never let the review read.
+  **The receipt branch of the L-01 exit is taken (2026-09-12)**, and the item it closes is the
+  one the 2026-09-09 amendment called the one nothing local can substitute for. Installing
+  `@v0.1.0-rc.2` into `us-stock-helper` with the quickstart's defaults and opening a pull
+  request carrying an **owner-placed** crash regression produced a **receipt-backed `[red]`
+  comment** — head FAIL 3/3, base PASS 3/3, receipt `37e8cbfcabe1`, published 1 of 1, $0.0694
+  ([report](acceptance/2026-09-12-external-receipt.md)). The defect was planted, so this
+  **measures no recall and no precision**; what it establishes is the install path, the
+  container, the publication policy and the copy, end to end on a runner. It also found the
+  gap that keeps the item from being fully done: **the quickstart's workflow retains the ledger
+  and not the evidence bundle**, so the comment's own `attest verify --bundle …` instruction
+  has nothing to point at.
 
 ### Mandatory prerequisites
 
