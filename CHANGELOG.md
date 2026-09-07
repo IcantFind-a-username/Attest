@@ -28,6 +28,9 @@ Copy, on the two lines a truncated review prints. **No constant moved.**
   with has something to point at once the runner is gone (the gap the external receipt found).
   A bundle is the generated test, bounded run output from the credential-free container, and
   the receipt; it is as visible as the run's other artifacts.
+- **One version string.** `attest.__version__` reads the installed metadata instead of a second
+  hand-written literal, so the `0.1.0rc1`/`0.1.0rc2` disagreement `v0.1.0-rc.2` shipped cannot
+  recur; an uninstalled checkout reports `0+uninstalled` rather than a guess.
 
 ## `v0.1.0-rc.2` — 2026-09-12
 

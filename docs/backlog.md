@@ -210,14 +210,18 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   and `.attest/evidence/` — the two paths, not the whole directory. A bundle holds the generated
   test, bounded stdout/stderr of runs inside the credential-free container, and the receipt; an
   artifact is visible to whoever can read the run. Reversal: drop the second path.
-- **The package version is hand-written in two places, and nothing checks either until after a
-  merge.** `pyproject.toml` and `src/attest/__init__.py` each carry `0.1.0rc<n>` by hand.
+- **DONE 2026-09-12 (one of the two copies).** The package version is hand-written in two places, and nothing checks either until after a
+  merge. `pyproject.toml` and `src/attest/__init__.py` each carry `0.1.0rc<n>` by hand.
   `tests/release/test_packaging.py` binds them, and the release workflow binds `pyproject.toml`
   to the tag — but the first check runs only in `gates` and the second only after a tag exists,
   so cutting `v0.1.0-rc.2` cost one withdrawn ref *and* shipped a wheel whose metadata says
   `0.1.0rc2` while `attest.__version__` says `0.1.0rc1` (D-193). Deriving the version from the
   tag (`hatch-vcs`, which this project already teaches the image builder to recognise) removes
-  both copies and both checks.
+  both copies and both checks. **Done, the smaller half**: `attest.__version__` now reads the
+  installed distribution's metadata, so `pyproject.toml` is the one hand-written copy and the
+  release workflow's tag/version step is the one check. `hatch-vcs` was not adopted: a
+  `uses: owner/Attest@ref` checkout carries no `.git`, so a tag-derived version would need a
+  fallback there and the fallback would be the wrong number in exactly the install that matters.
 - **`gates` does not run on pull requests.** `ci.yml` triggers on push to `main` and on
   `workflow_dispatch`; the only check a pull request gets is the attest self-review. So the
   repository's own 2,206-test suite gates `main` *after* a merge rather than the change before
