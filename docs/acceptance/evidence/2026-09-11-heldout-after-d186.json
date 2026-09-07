@@ -1,0 +1,966 @@
+{
+ "what": "the 16 crash/exception held-out cases re-measured after D-186",
+ "date": "2026-09-11",
+ "configuration": {
+  "k_samples": 5,
+  "budget_usd": 1.0,
+  "backend": "linux-container-v1",
+  "code": "1fd5563 for pytest-dev__pytest-10356, 7a506db for the other 15",
+  "publication_surface": "none (local review; no GitHub client constructed)"
+ },
+ "columns": {
+  ".probe": "2026-09-06, K=4, attest.intent.v4.1, before D-168 -- the column G-RECALL-002's 4 of 16 comes from",
+  ".k5": "2026-09-10, K=5, attest.intent.v4.2 with D-174..D-180",
+  ".d186": "2026-09-11, K=5, the same plus D-186 and D-189"
+ },
+ "cases": {
+  "psf__requests-1724": {
+   ".probe": {
+    "task_id": "20260906-024719-5dd25170",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.0548725,
+    "deferred_reason": "verification deferred: probe deferred on base: reproduction attempted a network connection",
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "da45e4aaa9": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction attempted a network connection"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-034744-09f66a41",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.013748999999999999,
+    "deferred_reason": "verification deferred: isolation backend unavailable: environment bootstrap failed (python 3.12, roots ['.']): Dockerfile:6\n--------------------\n   4 |     COPY tree /attest/build\n   5 |     RUN pip install -r /attest/build/requirements.txt || echo \"attest: optional requirements ./requirements.txt failed\"\n   6 | >>> RUN pip install /attest/build\n   7 |     RUN rm -rf /attest/build\n   8 |     \n--------------------\nERROR: failed to solve: process \"/bin/sh -c pip install /attest/build\" did not complete successfully: exit code: 1\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/tn2of19y5dc29b40f8zluudga\n",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "da45e4aaa9": {
+      "outcome": "deferred",
+      "reason": "isolation backend unavailable: environment bootstrap failed (python 3.12, roots ['.']): Dockerfile:6\n--------------------\n   4 |     COPY tree /attest/build\n   5 |     RUN pip install -r /attest/build/requirements.txt || echo \"attest: optional requirements ./requirements.txt failed\"\n   6 | >>> RUN pip install /attest/build\n   7 |     RUN rm -rf /attest/build\n   8 |     \n--------------------\nERROR: failed to solve: process \"/bin/sh -c pip install /attest/build\" did not complete successfully: exit code: 1\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/tn2of19y5dc29b40f8zluudga\n"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-085443-e96efcba",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.0,
+    "deferred_reason": "verification deferred: isolation backend unavailable: environment bootstrap failed (python 3.12, roots ['.']): Dockerfile:6\n--------------------\n   4 |     COPY tree /attest/build\n   5 |     RUN pip install -r /attest/build/requirements.txt || echo \"attest: optional requirements ./requirements.txt failed\"\n   6 | >>> RUN pip install /attest/build\n   7 |     RUN rm -rf /attest/build\n   8 |     \n--------------------\nERROR: failed to solve: process \"/bin/sh -c pip install /attest/build\" did not complete successfully: exit code: 1\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/twktml6g4digaj3wyoho2ioc8\n",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "da45e4aaa9": {
+      "outcome": "deferred",
+      "reason": "isolation backend unavailable: environment bootstrap failed (python 3.12, roots ['.']): Dockerfile:6\n--------------------\n   4 |     COPY tree /attest/build\n   5 |     RUN pip install -r /attest/build/requirements.txt || echo \"attest: optional requirements ./requirements.txt failed\"\n   6 | >>> RUN pip install /attest/build\n   7 |     RUN rm -rf /attest/build\n   8 |     \n--------------------\nERROR: failed to solve: process \"/bin/sh -c pip install /attest/build\" did not complete successfully: exit code: 1\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/twktml6g4digaj3wyoho2ioc8\n"
+     }
+    }
+   }
+  },
+  "psf__requests-2317": {
+   ".probe": {
+    "task_id": "20260906-024803-b6612cdd",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.057614250000000006,
+    "deferred_reason": "verification deferred: probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact",
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "1a8691529e": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-034801-150a45c4",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.013854,
+    "deferred_reason": "verification deferred: isolation backend unavailable: environment bootstrap failed (python 3.12, roots ['.', 'docs']): Dockerfile:6\n--------------------\n   4 |     COPY tree /attest/build\n   5 |     RUN pip install -r /attest/build/requirements.txt || echo \"attest: optional requirements ./requirements.txt failed\"\n   6 | >>> RUN pip install /attest/build\n   7 |     RUN pip install -r /attest/build/docs/requirements.txt || echo \"attest: optional requirements docs/requirements.txt failed\"\n   8 |     RUN rm -rf /attest/build\n--------------------\nERROR: failed to solve: process \"/bin/sh -c pip install /attest/build\" did not complete successfully: exit code: 1\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/9gw572thz18lge7ze5uexjxwr\n",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "1a8691529e": {
+      "outcome": "deferred",
+      "reason": "isolation backend unavailable: environment bootstrap failed (python 3.12, roots ['.', 'docs']): Dockerfile:6\n--------------------\n   4 |     COPY tree /attest/build\n   5 |     RUN pip install -r /attest/build/requirements.txt || echo \"attest: optional requirements ./requirements.txt failed\"\n   6 | >>> RUN pip install /attest/build\n   7 |     RUN pip install -r /attest/build/docs/requirements.txt || echo \"attest: optional requirements docs/requirements.txt failed\"\n   8 |     RUN rm -rf /attest/build\n--------------------\nERROR: failed to solve: process \"/bin/sh -c pip install /attest/build\" did not complete successfully: exit code: 1\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/9gw572thz18lge7ze5uexjxwr\n"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-085450-3483bd33",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.0,
+    "deferred_reason": "verification deferred: isolation backend unavailable: environment bootstrap failed (python 3.12, roots ['.', 'docs']): Dockerfile:6\n--------------------\n   4 |     COPY tree /attest/build\n   5 |     RUN pip install -r /attest/build/requirements.txt || echo \"attest: optional requirements ./requirements.txt failed\"\n   6 | >>> RUN pip install /attest/build\n   7 |     RUN pip install -r /attest/build/docs/requirements.txt || echo \"attest: optional requirements docs/requirements.txt failed\"\n   8 |     RUN rm -rf /attest/build\n--------------------\nERROR: failed to solve: process \"/bin/sh -c pip install /attest/build\" did not complete successfully: exit code: 1\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/r4v5uudjjp6obomgd4w5xjwad\n",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "1a8691529e": {
+      "outcome": "deferred",
+      "reason": "isolation backend unavailable: environment bootstrap failed (python 3.12, roots ['.', 'docs']): Dockerfile:6\n--------------------\n   4 |     COPY tree /attest/build\n   5 |     RUN pip install -r /attest/build/requirements.txt || echo \"attest: optional requirements ./requirements.txt failed\"\n   6 | >>> RUN pip install /attest/build\n   7 |     RUN pip install -r /attest/build/docs/requirements.txt || echo \"attest: optional requirements docs/requirements.txt failed\"\n   8 |     RUN rm -rf /attest/build\n--------------------\nERROR: failed to solve: process \"/bin/sh -c pip install /attest/build\" did not complete successfully: exit code: 1\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/r4v5uudjjp6obomgd4w5xjwad\n"
+     }
+    }
+   }
+  },
+  "psf__requests-5414": {
+   ".probe": {
+    "task_id": "20260906-024819-218b0891",
+    "candidates": 1,
+    "surfaced": 1,
+    "spend_usd": 0.04090175000000001,
+    "deferred_reason": null,
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "b4a6e83afe": {
+      "outcome": "reproduced",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-034818-8d8cc5d4",
+    "candidates": 1,
+    "surfaced": 1,
+    "spend_usd": 0.05205675,
+    "deferred_reason": null,
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "520c57974d": {
+      "outcome": "reproduced",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-085454-83eb28dc",
+    "candidates": 1,
+    "surfaced": 1,
+    "spend_usd": 0.042772500000000005,
+    "deferred_reason": null,
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "520c57974d": {
+      "outcome": "reproduced",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+     }
+    }
+   }
+  },
+  "psf__requests-6028": {
+   ".probe": {
+    "task_id": "20260906-024838-b3117832",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.033932750000000005,
+    "deferred_reason": null,
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "31282c65f6": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-034836-4a91f6df",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.04088675,
+    "deferred_reason": null,
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "31282c65f6": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-085508-7367df5c",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.03186275,
+    "deferred_reason": null,
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "31282c65f6": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     }
+    }
+   }
+  },
+  "pylint-dev__pylint-4661": {
+   ".probe": {
+    "task_id": "20260906-025306-c32a111f",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.024785250000000005,
+    "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))",
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "af73ba1a44": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-034854-086ab8b7",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.03468425000000001,
+    "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "fb1c309a74": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-085519-72e1a1cf",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.024760250000000004,
+    "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "fb1c309a74": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))"
+     }
+    }
+   }
+  },
+  "pylint-dev__pylint-6528": {
+   ".probe": {
+    "task_id": "20260906-025319-5d8d0da3",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.0605845,
+    "deferred_reason": "verification deferred: probe observation is not stable on base: the merge base returned ['/attest/scratch/tmpy23fhk1k/keepme/good.py'], then the merge base returned ['/attest/scratch/tmp2nzzgcq9/keepme/good.py']",
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "e2c2de445f": {
+      "outcome": "deferred",
+      "reason": "probe observation is not stable on base: the merge base returned ['/attest/scratch/tmpy23fhk1k/keepme/good.py'], then the merge base returned ['/attest/scratch/tmp2nzzgcq9/keepme/good.py']"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-034916-47d14101",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.07478200000000002,
+    "deferred_reason": "verification deferred: probe observation is not stable on base: the merge base returned ['/attest/scratch/tmp8cnkmvr1/pkg'], then the merge base returned ['/attest/scratch/tmp7r23iih6/pkg']",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "e2c2de445f": {
+      "outcome": "deferred",
+      "reason": "probe observation is not stable on base: the merge base returned ['/attest/scratch/tmp8cnkmvr1/pkg'], then the merge base returned ['/attest/scratch/tmp7r23iih6/pkg']"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-085535-59c44faa",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.05717050000000001,
+    "deferred_reason": "verification deferred: probe observation is not stable on base: the merge base returned ['/attest/scratch/tmpt06fs32h/mypkg'], then the merge base returned ['/attest/scratch/tmp39y827a0/mypkg']",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "e2c2de445f": {
+      "outcome": "deferred",
+      "reason": "probe observation is not stable on base: the merge base returned ['/attest/scratch/tmpt06fs32h/mypkg'], then the merge base returned ['/attest/scratch/tmp39y827a0/mypkg']"
+     }
+    }
+   }
+  },
+  "pylint-dev__pylint-6903": {
+   ".probe": {
+    "task_id": "20260906-025352-0238f7b4",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.043480500000000005,
+    "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)",
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "3197bc0d8f": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-034956-d7f1f46b",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.0552805,
+    "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "3197bc0d8f": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-085609-94bc14de",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.043606500000000006,
+    "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "3197bc0d8f": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     }
+    }
+   }
+  },
+  "pytest-dev__pytest-10051": {
+   ".probe": {
+    "task_id": "20260906-025530-41b59002",
+    "candidates": 1,
+    "surfaced": 1,
+    "spend_usd": 0.05095500000000001,
+    "deferred_reason": null,
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "1af71a4893": {
+      "outcome": "reproduced",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-035034-4667a9f2",
+    "candidates": 2,
+    "surfaced": 0,
+    "spend_usd": 0.11493325,
+    "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5) (2 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "1af71a4893": {
+      "outcome": "deferred",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)"
+     },
+     "4fed00716a": {
+      "outcome": "deferred",
+      "reason": "unfaithful generated test: it references a symbol absent from head, so its head failure is a stale reference rather than a defect"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-085635-1af4e8a8",
+    "candidates": 2,
+    "surfaced": 0,
+    "spend_usd": 0.10525675000000001,
+    "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5) (2 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "1af71a4893": {
+      "outcome": "deferred",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)"
+     },
+     "4fed00716a": {
+      "outcome": "deferred",
+      "reason": "unfaithful generated test: it references a symbol absent from head, so its head failure is a stale reference rather than a defect"
+     }
+    }
+   }
+  },
+  "pytest-dev__pytest-10356": {
+   ".probe": {
+    "task_id": "20260906-025553-be9f6894",
+    "candidates": 3,
+    "surfaced": 0,
+    "spend_usd": 0.1682635,
+    "deferred_reason": "verification deferred: probe reported no observation on base (3 candidates)",
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "5e019fccef": {
+      "outcome": "deferred",
+      "reason": "probe reported no observation on base"
+     },
+     "0c15bcf57a": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     },
+     "e9223c7815": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-035125-30ddf780",
+    "candidates": 3,
+    "surfaced": 0,
+    "spend_usd": 0.18392225,
+    "deferred_reason": "verification deferred: probe reported no observation on base (3 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "5e019fccef": {
+      "outcome": "deferred",
+      "reason": "probe reported no observation on base"
+     },
+     "d3b25d8328": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     },
+     "e9223c7815": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-091007-34fb5265",
+    "candidates": 3,
+    "surfaced": 1,
+    "spend_usd": 0.17321775,
+    "deferred_reason": "verification deferred: probe reported no observation on base (2 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "5e019fccef": {
+      "outcome": "deferred",
+      "reason": "probe reported no observation on base"
+     },
+     "d3b25d8328": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     },
+     "e9223c7815": {
+      "outcome": "reproduced",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+     }
+    }
+   }
+  },
+  "pytest-dev__pytest-5787": {
+   ".probe": {
+    "task_id": "20260906-025734-a62356f9",
+    "candidates": 10,
+    "surfaced": 0,
+    "spend_usd": 0.36782625,
+    "deferred_reason": "verification deferred: probe observation did not survive re-execution: base produced it 3 times and then did not; the value is not deterministic (3 candidates)",
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "a9b75f94df": {
+      "outcome": "deferred",
+      "reason": "probe observation did not survive re-execution: base produced it 3 times and then did not; the value is not deterministic"
+     },
+     "1417fbca8e": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     },
+     "2b5a663e7a": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     },
+     "45500daa3c": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     },
+     "5e69418c42": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     },
+     "84ec472fc5": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     },
+     "94b30cb49f": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     },
+     "ea9d72ba11": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     },
+     "fc73e2e9a0": {
+      "outcome": "deferred",
+      "reason": "unfaithful generated test: it references a symbol absent from head, so its head failure is a stale reference rather than a defect"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-035216-7241192f",
+    "candidates": 11,
+    "surfaced": 0,
+    "spend_usd": 0.20332575000000003,
+    "deferred_reason": "verification deferred: probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact (3 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "a9b75f94df": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     },
+     "b4823ad9a3": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     },
+     "45500daa3c": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-085722-3a2c24bf",
+    "candidates": 11,
+    "surfaced": 0,
+    "spend_usd": 0.17891425000000002,
+    "deferred_reason": "verification deferred: probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact) (3 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "a9b75f94df": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     },
+     "b4823ad9a3": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     },
+     "45500daa3c": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     }
+    }
+   }
+  },
+  "pytest-dev__pytest-5840": {
+   ".probe": {
+    "task_id": "20260906-031753-f52d8312",
+    "candidates": 9,
+    "surfaced": 0,
+    "spend_usd": 0.4658505000000001,
+    "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s)) (5 candidates)",
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "1e7e3757a8": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))"
+     },
+     "545606c5d6": {
+      "outcome": "deferred",
+      "reason": "probe observation is not stable on base: the merge base returned ([<module 'conftest' from '/attest/scratch/tmp1ng6z9z1/real/conftest.py'>], [<module 'conftest' from '/attest/scratch/tmp1ng6z9z1/real/conftest.py'>], ['/attest/scratch/tmp1ng6z9z1/link/sub', '/attest/scratch/tmp1ng6z9z1/real/sub'],..."
+     },
+     "5975a5e845": {
+      "outcome": "deferred",
+      "reason": "probe observation is not stable on base: the merge base returned ([<module 'conftest' from '/attest/scratch/tmpfyuge3vz/real/conftest.py'>, <module 'conftest' from '/attest/scratch/tmpfyuge3vz/real/sub/conftest.py'>], <module 'conftest' from '/attest/scratch/tmpfyuge3vz/real/sub/conftest.py'>, {l..."
+     },
+     "5ea813f1bb": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))"
+     },
+     "81e24cbcff": {
+      "outcome": "deferred",
+      "reason": "probe observation is not stable on base: the merge base returned ['/attest/scratch/tmp8x119apj/linkdir/conftest.py'], then the merge base returned ['/attest/scratch/tmptdqskit0/linkdir/conftest.py']"
+     },
+     "d6afe20488": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     },
+     "d7c5859ff9": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     },
+     "e9c8fee0f3": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-035342-5d1fb457",
+    "candidates": 9,
+    "surfaced": 0,
+    "spend_usd": 0.2156925,
+    "deferred_reason": "verification deferred: probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact (3 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "1e7e3757a8": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     },
+     "545606c5d6": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     },
+     "5975a5e845": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-085816-8cdc1b57",
+    "candidates": 9,
+    "surfaced": 0,
+    "spend_usd": 0.1897085,
+    "deferred_reason": "verification deferred: probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact) (3 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "1e7e3757a8": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     },
+     "545606c5d6": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     },
+     "5975a5e845": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     }
+    }
+   }
+  },
+  "pytest-dev__pytest-6197": {
+   ".probe": {
+    "task_id": "20260906-030118-4b63880d",
+    "candidates": 5,
+    "surfaced": 1,
+    "spend_usd": 0.11215425,
+    "deferred_reason": "verification deferred: unfaithful generated test: it references a symbol absent from head, so its head failure is a stale reference rather than a defect",
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "a10e094aac": {
+      "outcome": "deferred",
+      "reason": "unfaithful generated test: it references a symbol absent from head, so its head failure is a stale reference rather than a defect"
+     },
+     "16694a06e5": {
+      "outcome": "reproduced",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-035449-4f13fced",
+    "candidates": 5,
+    "surfaced": 0,
+    "spend_usd": 0.15730425,
+    "deferred_reason": "verification deferred: probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact (2 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "a10e094aac": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     },
+     "16694a06e5": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-085909-59a8d427",
+    "candidates": 5,
+    "surfaced": 0,
+    "spend_usd": 0.13307475000000002,
+    "deferred_reason": "verification deferred: probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact) (2 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "a10e094aac": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     },
+     "16694a06e5": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     }
+    }
+   }
+  },
+  "pytest-dev__pytest-7205": {
+   ".probe": {
+    "task_id": "20260906-030226-3193fc21",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.028593000000000004,
+    "deferred_reason": null,
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "91584844d0": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-035629-dfbb1f9d",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.04762400000000001,
+    "deferred_reason": "verification deferred: probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "112415975d": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-090013-791bd146",
+    "candidates": 1,
+    "surfaced": 0,
+    "spend_usd": 0.0381775,
+    "deferred_reason": "verification deferred: probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "112415975d": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     }
+    }
+   }
+  },
+  "pytest-dev__pytest-7324": {
+   ".probe": {
+    "task_id": "20260906-030303-09e30135",
+    "candidates": 2,
+    "surfaced": 1,
+    "spend_usd": 0.0627285,
+    "deferred_reason": null,
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "78e76aebd9": {
+      "outcome": "reproduced",
+      "reason": "head FAIL 3/3, base PASS 3/3"
+     },
+     "ddc96effb9": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-035713-5d3e6e95",
+    "candidates": 2,
+    "surfaced": 0,
+    "spend_usd": 0.08516600000000002,
+    "deferred_reason": "verification deferred: probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact (2 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "78e76aebd9": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     },
+     "bf18db4fea": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-090038-4f6204ad",
+    "candidates": 2,
+    "surfaced": 0,
+    "spend_usd": 0.071772,
+    "deferred_reason": "verification deferred: probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact) (2 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "78e76aebd9": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     },
+     "bf18db4fea": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     }
+    }
+   }
+  },
+  "pytest-dev__pytest-7490": {
+   ".probe": {
+    "task_id": "20260906-030445-5ba8a5c6",
+    "candidates": 4,
+    "surfaced": 0,
+    "spend_usd": 0.16013100000000002,
+    "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe) (3 candidates)",
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "9f1bd37dc6": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     },
+     "b07d0535da": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     },
+     "247eaebd40": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     },
+     "efc39813f7": {
+      "outcome": "not_reproduced",
+      "reason": "pytest passed on head in 3/3 runs; base not executed"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-035758-e17be0ea",
+    "candidates": 5,
+    "surfaced": 0,
+    "spend_usd": 0.17269375000000003,
+    "deferred_reason": "verification deferred: probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact (3 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "9f1bd37dc6": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     },
+     "b07d0535da": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     },
+     "247eaebd40": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-090101-29492c12",
+    "candidates": 5,
+    "surfaced": 0,
+    "spend_usd": 0.14552975,
+    "deferred_reason": "verification deferred: probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact) (3 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "9f1bd37dc6": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     },
+     "b07d0535da": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     },
+     "247eaebd40": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     }
+    }
+   }
+  },
+  "pytest-dev__pytest-7571": {
+   ".probe": {
+    "task_id": "20260906-030617-d08d5b1b",
+    "candidates": 2,
+    "surfaced": 0,
+    "spend_usd": 0.1020245,
+    "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe) (2 candidates)",
+    "proposal_samples": 4,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "317dd21723": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     },
+     "10374f7b39": {
+      "outcome": "deferred",
+      "reason": "intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)"
+     }
+    }
+   },
+   ".k5": {
+    "task_id": "20260907-035956-7f1ee6ac",
+    "candidates": 3,
+    "surfaced": 0,
+    "spend_usd": 0.21808500000000003,
+    "deferred_reason": "verification deferred: probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact (3 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 4,
+    "verdicts": {
+     "317dd21723": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     },
+     "10374f7b39": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     },
+     "e657c9c898": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: missing or malformed JUnit evidence: ValueError: no JUnit artifact"
+     }
+    }
+   },
+   ".d186": {
+    "task_id": "20260907-090206-1e906f2c",
+    "candidates": 3,
+    "surfaced": 0,
+    "spend_usd": 0.19386350000000002,
+    "deferred_reason": "verification deferred: probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact) (3 candidates)",
+    "proposal_samples": 5,
+    "proposal_samples_replayed": 5,
+    "verdicts": {
+     "317dd21723": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     },
+     "10374f7b39": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     },
+     "e657c9c898": {
+      "outcome": "deferred",
+      "reason": "probe deferred on base: reproduction interpreter outside the project's declared range: pytest collected no test under python 3.12, and this project declares a range outside 3.10-3.13 (missing or malformed JUnit evidence: ValueError: no JUnit artifact)"
+     }
+    }
+   }
+  }
+ }
+}

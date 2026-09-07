@@ -241,13 +241,13 @@ def failed_build_step(reason: str) -> str | None:
 #    never claimed to support.
 #
 # Measured on the 16 held-out cases (2026-09-11, docker only, $0.00): condition
-# 1 holds for exactly the 7 `pytest` trees that cannot be reviewed and for none
-# of the 9 that reach a verdict, and every one of the 7 also satisfies
-# condition 2. The two `requests` trees that satisfy condition 2 alone fail
-# earlier, at the image build, and keep their existing bootstrap sentence
-# (D-175). Neither fact alone is the refusal: a project inside the range that
-# fails to collect has an ordinary scaffolding problem, and a project outside
-# it that collects fine is reviewed like any other.
+# 1 holds for exactly the 7 `pytest` trees that cannot be reviewed and for
+# **none of the 7 whose probe collects**, and every one of the 7 also satisfies
+# condition 2. The remaining two cases never get an image at all: they satisfy
+# condition 2 alone, fail earlier at the image build, and keep their existing
+# bootstrap sentence (D-175). Neither fact alone is the refusal: a project
+# inside the range that fails to collect has an ordinary scaffolding problem,
+# and a project outside it that collects fine is reviewed like any other.
 _OUT_OF_RANGE_DECLARATION = "declared range outside"
 INTERPRETER_RANGE_REASON = (
     f"reproduction interpreter outside the project's declared range: pytest collected "
