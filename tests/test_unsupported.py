@@ -25,6 +25,7 @@ from attest.review.support import (
     NO_DOCKER,
     NO_PYTEST,
     NOT_PYTHON,
+    OUTSIDE_INTERPRETER_RANGE,
     UNREADABLE_LOCK,
     from_reason,
     preflight,
@@ -133,7 +134,13 @@ def test_the_cli_prints_one_silent_line_and_exits_zero(
 
 
 def test_every_refusal_reads_as_one_silent_line_naming_its_cause() -> None:
-    for refusal in (NOT_PYTHON, NO_PYTEST, NO_DOCKER, UNREADABLE_LOCK):
+    for refusal in (
+        NOT_PYTHON,
+        NO_PYTEST,
+        NO_DOCKER,
+        UNREADABLE_LOCK,
+        OUTSIDE_INTERPRETER_RANGE,
+    ):
         assert refusal.line.startswith(SILENCE_MARKER)
         assert "\n" not in refusal.line
         assert refusal.line.startswith(f"{SILENCE_MARKER} unsupported: ")
@@ -360,3 +367,101 @@ def test_a_mixed_run_keeps_the_general_sentence() -> None:
     everything = [*transport, 'sample 1: all findings malformed; raw="..."']
 
     assert provider_defer_reason(transport, everything) == PROVIDER_SAMPLES_FAILED
+
+
+# --- a project the reproduction interpreter cannot collect (D-186) ----------
+# D-185, found by the 2026-09-10 K=5 run and repaired here. D-162 set the
+# reproduction range to 3.10-3.13 and gives a project declaring less than that
+# the primary, 3.12. A 2019-2022 `pytest` tree installs on 3.12 and then cannot
+# collect -- its assertion rewriter compiles AST nodes 3.12 rejects -- so there
+# is no bootstrap failure to catch, the run writes no JUnit artifact, and the
+# operator reads `missing or malformed JUnit evidence: ValueError: no JUnit
+# artifact`: a sentence about a broken host, for a project that is simply
+# outside the range.
+#
+# The container measurement behind this (2026-09-11, docker only, $0.00): on
+# the base tree of `pytest-dev__pytest-7324`, in the image the product builds
+# for it, one product-written probe ends
+#
+#   File ".../src/_pytest/assertion/rewrite.py", line 358, in _rewrite_test
+#     co = compile(tree, fn_, "exec", dont_inherit=True)
+#   TypeError: required field "lineno" missing from alias
+#
+# with exit code 1 and no artifact. The test below reproduces that *observable*
+# without docker: a tree declaring 3.8/3.9 whose collection dies before pytest
+# can write its report.
+_DIES_DURING_COLLECTION = "import os\n\nos._exit(2)\n\ndef test_repro():\n    assert True\n"
+
+
+def _tree_declaring_python(path: Path, *, classifiers: tuple[str, ...]) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    listed = ", ".join(f'"Programming Language :: Python :: {each}"' for each in classifiers)
+    (path / "pyproject.toml").write_text(
+        f'[project]\nname = "old"\nversion = "0"\nclassifiers = [{listed}]\n',
+        encoding="utf-8",
+    )
+    (path / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    return path
+
+
+def _collection_that_never_reports(tmp_path: Path, *, classifiers: tuple[str, ...]) -> str:
+    """The deferral reason for a run that collected nothing in such a tree."""
+    from attest.review.candidates import StoredCandidate
+    from attest.review.executor import ExecutorLimits, ReproSpec, execute_repro
+    from attest.review.schema import Finding
+
+    tree = _tree_declaring_python(tmp_path / "tree", classifiers=classifiers)
+    stored = StoredCandidate(
+        task_id="task-185",
+        finding=Finding(
+            claim="The boundary check accepts an invalid value.",
+            file="mod.py",
+            line=1,
+            failure_scenario="Passing -1 reaches the unsafe branch.",
+            falsification_plan="Call validate(-1) and assert that it is rejected.",
+        ),
+        wealth=8.0,
+        action="drawer",
+        alpha=0.1,
+    )
+    result = execute_repro(
+        tmp_path,
+        stored,
+        ReproSpec(_DIES_DURING_COLLECTION),
+        ExecutorLimits(),
+        tree=tree,
+        run_label="probe-1",
+    )
+    assert result.exit_code not in (0, 1), result.reason
+    return result.reason
+
+
+def test_a_project_outside_the_interpreter_range_is_told_so_not_shown_a_missing_artifact(
+    tmp_path: Path,
+) -> None:
+    """D-185's path, end to end: the reproduction runs an interpreter this
+    project never declared, collects nothing, and must say *that* rather than
+    report its own missing evidence as if the host were broken."""
+    reason = _collection_that_never_reports(tmp_path, classifiers=("3.8", "3.9"))
+
+    assert from_reason(reason) == OUTSIDE_INTERPRETER_RANGE
+    # the cause comes first and the evidence follows it in brackets: a reader
+    # that truncates, or matches on the head of the reason, sees the cause --
+    # and the ledger still records what was actually seen
+    assert reason.startswith("reproduction interpreter outside the project's declared range")
+    assert "no JUnit artifact" in reason
+    # what the operator reads says nothing about a missing artifact
+    assert "JUnit" not in OUTSIDE_INTERPRETER_RANGE.line
+
+
+def test_a_project_inside_the_range_that_will_not_collect_keeps_its_ordinary_defer(
+    tmp_path: Path,
+) -> None:
+    """The other side of the conjunction, and the reason it is a conjunction: a
+    tree the product *can* run is not refused for a collection failure. That is
+    a scaffolding problem about one generated test, D-114 asks the generator
+    again, and calling it "unsupported" would silence a whole review for it."""
+    reason = _collection_that_never_reports(tmp_path, classifiers=("3.11", "3.12"))
+
+    assert from_reason(reason) is None
+    assert "JUnit" in reason

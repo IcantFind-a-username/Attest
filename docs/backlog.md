@@ -174,11 +174,12 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   a reason and an `actionless` category and nothing records either, so a green or yellow note
   dropped for format leaves no trace an operator could find — unlike the structural notes, which
   get a ledger row each. One `ledger.append` at the four gated builders would close it.
-- **A project outside the reproduction interpreter range fails as a missing artifact** (D-185,
-  2026-09-10). D-162's range is 3.10–3.13 and a lower declared floor gets 3.12; a tree that
-  installs there and then cannot *collect* — an old `pytest`, whose assertion rewriter raises
-  `TypeError: required field "lineno" missing from alias` — produces
-  `no JUnit artifact` rather than a refusal. 7 of the 9 `pytest` cases of the held-out sample
-  are unreviewable and have been since 2026-09-07; nothing said so. The choice is between
-  widening the range, pinning the interpreter per project, and turning a collection-time
-  interpreter incompatibility into a stated refusal in D-159's register.
+- ~~**A project outside the reproduction interpreter range fails as a missing artifact**~~
+  (D-185, 2026-09-10). **Closed by D-186** (2026-09-11): a run that collected no test at all in
+  a tree whose own declaration lies outside 3.10–3.13 is a stated refusal. The range is
+  unchanged and the interpreter is still not pinned per project; those two remain open options
+  if a project inside the range ever meets the same wall.
+- **`attest ci` never consults `from_reason`** (D-186). The five refusals reach the local CLI's
+  `[silent]` line and the ledger reason, but the pull-request path decides only on `preflight`,
+  so an unsupported *environment* is reported to an author as an ordinary DEFER. Pre-existing
+  for `no docker` and `no pytest`; D-186 adds a third to the same gap.
