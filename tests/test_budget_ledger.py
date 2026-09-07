@@ -31,6 +31,58 @@ def test_budget_defers_before_calling() -> None:
     assert "exceeds budget" in exc.value.reason
 
 
+# --- what a real truncation says (D-187) -----------------------------------
+# The 2026-09-10 K=5 run lost the `click` receipt to the discovery ceiling:
+# `projected total $0.3218 exceeds the discovery share $0.3000`. Both numbers
+# were printed and nothing told the operator that the gap was two cents, or
+# that raising one input would have bought the finding back. The owner kept
+# `budget-usd` at $1.00 and the factory `samples` at 5 and asked for the trade
+# to be *named* when the ceiling actually bites -- and only then.
+
+
+def test_a_truncation_names_the_gap_and_the_budget_that_would_have_covered_it() -> None:
+    from attest.review.budget import PROPOSAL_SHARE
+    from attest.review.proposer import budget_shortfall_note
+
+    b = Budget(limit_usd=1.00, model=DEFAULT_MODEL)
+    b.spent_usd = 0.28
+    with b.stage("discovery", PROPOSAL_SHARE), pytest.raises(BudgetExceeded) as caught:
+        b.reserve("proposal sample 4", 60000, 2000)
+
+    note = budget_shortfall_note(caught.value)
+    assert "$0.0400 short" in note
+    # $0.34 projected against a 30% share is $1.13 of budget, not $1.04: the
+    # ceiling is a share, so the shortfall and the budget that covers it are
+    # different numbers and quoting the first as the second is the mistake
+    # this line exists to avoid
+    assert "`budget-usd` $1.13 would have bought it" in note
+    assert caught.value.shortfall_usd == pytest.approx(0.04)
+    assert caught.value.budget_usd_needed == pytest.approx(0.34 / PROPOSAL_SHARE)
+
+
+def test_a_run_that_fits_says_nothing_about_the_budget() -> None:
+    """No standing declaration: the clause exists only on the raise, so a review
+    the ceiling never touched carries no budget sentence at all."""
+    from attest.review.budget import PROPOSAL_SHARE
+
+    b = Budget(limit_usd=1.00, model=DEFAULT_MODEL)
+    with b.stage("discovery", PROPOSAL_SHARE):
+        b.reserve("proposal sample 0", 3000, 2000)
+
+    assert b.calls == []  # a reservation is not a call, and nothing was said
+    assert b.reserved_usd > 0.0
+
+
+def test_a_shortfall_without_a_ceiling_keeps_the_bare_reason() -> None:
+    """An exception built by a caller rather than by the ceiling comparison has
+    no numbers to quote, and inventing them would be worse than silence."""
+    from attest.review.proposer import budget_shortfall_note
+
+    assert budget_shortfall_note(BudgetExceeded("driver stopped at the reservation")) == (
+        "driver stopped at the reservation"
+    )
+
+
 def test_budget_cancel_releases_reservation() -> None:
     b = Budget(limit_usd=0.25, model=DEFAULT_MODEL)
     r = b.reserve("s0", 3000, 2000)

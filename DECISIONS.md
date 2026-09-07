@@ -1980,3 +1980,13 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Cost:** $0.00. **Reversal:** delete `OUTSIDE_INTERPRETER_RANGE`, `interpreter_range_reason` and `_nothing_collected_reason`; the two call sites return to their literals.
 - **Trace:** D-114, D-159, D-162, D-175, D-185; `G-RECALL-002`, `G-CORPUS-001`; [support matrix](docs/operations/support-matrix.md), [failure modes](docs/operations/failure-modes.md).
 
+### D-187 — `budget-usd` and the factory `samples` do not move, and a truncation that really happens says what it cost
+
+- **Date/status/scope:** 2026-09-11 · active · **owner decision** (item 2 of the 2026-09-10 handoff) · `src/attest/review/budget.py`, `review/proposer.py`, `review/run.py`; REDs `tests/test_budget_ledger.py::test_a_truncation_names_the_gap_and_the_budget_that_would_have_covered_it` and the two beside it.
+- **The decision.** `budget-usd` stays at **$1.00** and the factory `samples` stays at **5**. Neither of the two options that buy the `click` receipt back is taken. What changes is the third option from the handoff: when the discovery ceiling **actually** cuts a review off, the product **names the trade** — which unit, how much short, and the `budget-usd` that would have covered it.
+- **The line.** `… projected total $0.3400 exceeds the discovery share $0.3000 of budget $1.00 -- $0.0400 short; \`budget-usd\` $1.13 would have bought it`. The two numbers are different quantities and the arithmetic is the reason to compute rather than subtract: the ceiling is a **share**, so the budget that covers a $0.34 projection at 30% is $1.13, not $1.04.
+- **Said only when it happens.** There is no standing declaration on runs that fit. A notice every review carries is a notice nobody reads, and it would put a budget sentence on the silent line of reviews the ceiling never touched.
+- **What it does not claim.** That the suppressed finding was right. `click cd4674a6de` reproduced at K=4 and the ceiling is why it did not at K=5; whether raising the budget buys a *true* finding is not something a spend number can say.
+- **Cost:** $0.00. **Reversal:** two fields on `BudgetExceeded` and one function; the two call sites return to `exc.reason`.
+- **Trace:** D-111, D-126, D-161, D-168, D-183; `docs/acceptance/2026-09-10-factory-k5.md` §3.
+

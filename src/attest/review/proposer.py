@@ -377,6 +377,24 @@ class ProposalRun:
     units_read: int = 0  # units the budget actually funded
 
 
+def budget_shortfall_note(exc: BudgetExceeded) -> str:
+    """What a real truncation cost, in one clause, or the raw reason.
+
+    *Owner decision 2 of 2026-09-11 (D-187).* `budget-usd` stays at $1.00 and
+    the factory `samples` stays at 5; what changes is that a review whose
+    discovery the ceiling actually cut off **names the trade** instead of
+    leaving the operator to subtract two dollar figures. It is said only when a
+    truncation happened -- there is no standing declaration on runs that fit,
+    because a notice every review carries is a notice nobody reads.
+    """
+    if exc.shortfall_usd is None or exc.budget_usd_needed is None:
+        return exc.reason
+    return (
+        f"{exc.reason} -- ${exc.shortfall_usd:.4f} short; "
+        f"`budget-usd` ${exc.budget_usd_needed:.2f} would have bought it"
+    )
+
+
 CONTEXT_PREAMBLE = (
     "Repository context: read-only excerpts from outside the diff. A defect that "
     "manifests at a caller or test outside the diff is still reportable: anchor it at "
@@ -447,7 +465,10 @@ def propose_plan(
         except BudgetExceeded as exc:
             if index == 0:
                 raise
-            omitted.append(f"unit {unit.unit_id} ({', '.join(unit.files)}): budget: {exc.reason}")
+            omitted.append(
+                f"unit {unit.unit_id} ({', '.join(unit.files)}): "
+                f"budget: {budget_shortfall_note(exc)}"
+            )
             omitted.extend(
                 f"unit {later.unit_id} ({', '.join(later.files)}): not attempted after budget stop"
                 for later in plan.units[index + 1 :]
