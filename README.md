@@ -178,7 +178,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: attest-ledger-pr-${{ github.event.pull_request.number }}-run-${{ github.run_id }}
-          path: .attest/ledger.jsonl
+          path: |
+            .attest/ledger.jsonl
+            .attest/evidence/
           if-no-files-found: warn
 ```
 

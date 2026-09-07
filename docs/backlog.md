@@ -199,13 +199,17 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   with `budget-usd` already at $1.00: the needed figure is computed and then rounded to two
   decimals, so a shortfall under a cent advises no change at all. One decimal place, or a
   `max(needed, current + 0.01)`, would make the sentence actionable. **Fixed**: the quoted figure is rounded *up* to the cent (`proposer.usd_that_covers`), so it always covers the gap and never repeats the setting in force; the exact figure stays in the exception and the ledger; RED in `tests/test_budget_ledger.py`.
-- **The documented workflow retains the ledger and not the bundle** (2026-09-12 external
+- **DONE 2026-09-12.** The documented workflow retains the ledger and not the bundle (2026-09-12 external
   receipt). `examples/pull-request.yml` and the README quickstart upload `.attest/ledger.jsonl`;
   a receipt's bundle is written to `.attest/evidence/<task>/<candidate>/` and is destroyed with
   the runner. The comment tells an author to run `attest verify --bundle …` against evidence
   their own installation did not keep. Changing the upload path to `.attest/` would close it;
   whether a public repository should publish its evidence bundles as an artifact is an owner
-  decision, which is why this is a backlog line and not a fix.
+  decision, which is why this is a backlog line and not a fix. **Done**: the three quickstart workflows
+  (`examples/pull-request.yml`, the README, this repository's own) upload `.attest/ledger.jsonl`
+  and `.attest/evidence/` — the two paths, not the whole directory. A bundle holds the generated
+  test, bounded stdout/stderr of runs inside the credential-free container, and the receipt; an
+  artifact is visible to whoever can read the run. Reversal: drop the second path.
 - **The package version is hand-written in two places, and nothing checks either until after a
   merge.** `pyproject.toml` and `src/attest/__init__.py` each carry `0.1.0rc<n>` by hand.
   `tests/release/test_packaging.py` binds them, and the release workflow binds `pyproject.toml`

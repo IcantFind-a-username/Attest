@@ -12,7 +12,9 @@
 Use the composite action from a `pull_request` workflow. The included
 [`examples/pull-request.yml`](../examples/pull-request.yml) is a complete starting
 point: it grants only read access to contents and pull-request write access, cancels
-superseded runs for the same PR, and retains `.attest/ledger.jsonl` as evidence.
+superseded runs for the same PR, and retains `.attest/ledger.jsonl` and the receipts'
+evidence bundles under `.attest/evidence/` as the run's artifact — the bundle is what
+`attest verify --bundle … --require-seal` checks, so it has to outlive the runner.
 
 ```yaml
 - uses: IcantFind-a-username/Attest@v0.1.0-rc.1   # docs/operations/install-ref.md

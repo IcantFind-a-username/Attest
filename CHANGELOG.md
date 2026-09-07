@@ -22,6 +22,12 @@ Copy, on the two lines a truncated review prints. **No constant moved.**
   the nearest cent, so a shortfall under half a cent advised the setting that produced it
   (PR #15: ``$0.0010 short; `budget-usd` $1.00 would have read it`` at $1.00). It is now rounded
   up to the cent. Recall cost: none; the exact figure still sits in the ledger.
+- **The quickstart's artifact now keeps the evidence bundles.** `examples/pull-request.yml`,
+  the README and this repository's own workflow upload `.attest/evidence/` beside
+  `.attest/ledger.jsonl`, so the `attest verify --bundle … --require-seal` line a receipt ends
+  with has something to point at once the runner is gone (the gap the external receipt found).
+  A bundle is the generated test, bounded run output from the credential-free container, and
+  the receipt; it is as visible as the run's other artifacts.
 
 ## `v0.1.0-rc.2` — 2026-09-12
 
