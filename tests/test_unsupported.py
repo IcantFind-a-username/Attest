@@ -465,3 +465,37 @@ def test_a_project_inside_the_range_that_will_not_collect_keeps_its_ordinary_def
 
     assert from_reason(reason) is None
     assert "JUnit" in reason
+
+
+# --- what the pull-request line may name, beyond the tree's own refusals -----
+# D-190. `from_reason` deliberately leaves a project that will not install as an
+# ordinary DEFER (D-175), because the operator's next step there is the build
+# log and not a sentence about pytest. The author of a pull request does not get
+# a build log: they get one line, so that line owes the failure a *name*. The
+# register the line draws on is therefore wider than `from_reason`'s, and the
+# D-175 pin below is unchanged.
+
+
+def test_an_image_that_will_not_build_is_named_on_the_author_visible_line() -> None:
+    from attest.review.support import IMAGE_BUILD_FAILED, refusal_from_reason
+
+    assert from_reason(_TENACITY_BOOTSTRAP_TAIL) is None  # D-175's pin, unmoved
+    assert refusal_from_reason(_TENACITY_BOOTSTRAP_TAIL) == IMAGE_BUILD_FAILED
+    assert refusal_from_reason("isolation backend unavailable: docker not found") == NO_DOCKER
+    assert refusal_from_reason("verification deferred: head test failed") is None
+
+
+def test_every_refusal_the_line_can_name_carries_a_short_fact_and_a_code() -> None:
+    from attest.review.output_contract import REFUSAL_FACT_LIMIT
+    from attest.review.support import REFUSALS
+
+    codes = [refusal.code for refusal in REFUSALS]
+    assert len(codes) == len(set(codes)) == 7
+    facts = {refusal.fact for refusal in REFUSALS}
+    assert len(facts) == len(REFUSALS)  # no two refusals say the same thing
+    for refusal in REFUSALS:
+        assert refusal.fact
+        assert "\n" not in refusal.fact
+        assert len(refusal.fact) <= REFUSAL_FACT_LIMIT, (refusal.code, len(refusal.fact))
+        assert not refusal.fact.endswith("."), refusal.code  # the line ends the sentence
+        assert refusal.code.replace("-", "").isalnum()

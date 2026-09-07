@@ -104,6 +104,8 @@ def render_complete(
     unverified: int = 0,
     executor_unavailable: str = "",
     unsupported_executor: int = 0,
+    refusal: tuple[str, str] | None = None,
+    ledger_url: str = "",
 ) -> str:
     """Render only receipt-backed findings, in the caller's order; with
     ``evidence`` each finding is followed by its runnable test (item 7).
@@ -144,6 +146,9 @@ def render_complete(
             # silence names the reason instead of claiming a clean bill of health
             unverified=unsupported_executor if executor_unavailable else unverified,
             executor_unavailable=executor_unavailable,
+            # D-190: and a refusal names itself, above both of those
+            refusal=refusal,
+            ledger_url=ledger_url,
         )
     lines = ["Review complete."]
     if certified:

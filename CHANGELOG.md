@@ -12,6 +12,30 @@ only published ref is a pilot tag, and the sections below say plainly which is w
 
 ## Unreleased — since `v0.1.0-rc.1`
 
+### The refusals reach the pull request, 2026-09-12
+
+- **Seven situations that end a review without a finding now say so on the line an author
+  reads** (D-190). `attest ci` decided only on the two refusals a repository's *tree* can
+  establish, so `no docker`, `no pytest`, the interpreter range, an image that will not build
+  and a discovery the budget truncated reached the ledger and the collapsed run status and
+  never the line above them. An author met `DEFER: verification deferred: isolation backend
+  unavailable: …` — prose with no level marker, which the product's own adjudicator refuses —
+  or, worse, `nothing met an adjudicator's bar` over change units the budget never let the
+  review read.
+- **The shape.** `[silent] read 0 of 1 units; refused (no-docker): docker is not available on
+  this runner, and Attest runs head code only inside a container; nothing was verified; ledger:
+  https://…/actions/runs/42; $0.0000, 1.2s.` — the refusal's **name**, one fixed sentence of
+  **fact**, and a **link** to the run whose artifact holds the ledger. It is adjudicated by
+  `output_contract.check` like every other author-visible line, and a line that does not
+  conform is not published.
+- **What the line can never carry.** The published sentence is chosen by the refusal's *name*,
+  never taken from the backend's reason — a reason can quote a build log, a traceback, a runner
+  path or an environment assignment, and a regression test now drives all four through the whole
+  path and pins that none reaches the line. The reason keeps its place in the ledger and the
+  collapsed `Run status`.
+- **No recall changes.** Nothing about what is certified, published or suppressed moves: this
+  is the copy on a silence, and every silence it renames was already a silence.
+
 ### The interpreter refusal, and the recall number it lets us re-take, 2026-09-11 ([report](docs/acceptance/2026-09-11-heldout-after-d186.md))
 
 - **A project the reproduction interpreter cannot collect is now refused by name** (D-186,

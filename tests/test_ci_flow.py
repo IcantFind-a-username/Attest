@@ -2195,3 +2195,160 @@ def test_reproductions_are_bought_in_ranking_order(
         if claim not in first_reached:
             first_reached.append(claim)
     assert first_reached == [str(stronger["claim"]), str(weaker["claim"])]
+
+
+# --- the refusals an author reads on the pull request (D-190) ----------------
+
+
+def _markdown_repo(tmp_path: Path) -> tuple[Path, str, str]:
+    """A repository with no Python in it: `preflight`'s own refusal."""
+
+    def git(*args: str) -> str:
+        result = subprocess.run(
+            ["git", "-C", str(tmp_path), *args], check=True, capture_output=True, text=True
+        )
+        return result.stdout.strip()
+
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test")
+    (tmp_path / "README.md").write_text("# widgets\n", encoding="utf-8")
+    git("add", "README.md")
+    git("commit", "-m", "base")
+    base_sha = git("rev-parse", "HEAD")
+    (tmp_path / "README.md").write_text("# widgets\n\nnow with docs\n", encoding="utf-8")
+    git("add", "README.md")
+    git("commit", "-m", "docs")
+    return tmp_path, base_sha, git("rev-parse", "HEAD")
+
+
+def _claim_line(body: str) -> str:
+    from attest.review.output_contract import claim_of
+
+    return claim_of(body) or ""
+
+
+def test_a_refused_repository_tells_the_author_in_one_contract_line(
+    tmp_path: Path, github_server: RecordingGitHub, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tree-decided refusal, on the surface the author actually reads.
+
+    It reached the pull request as `DEFER: unsupported: …` -- a line with no
+    level marker, which the product's own adjudicator refuses."""
+    from attest.review.ci import run_ci
+    from attest.review.support import NOT_PYTHON
+
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo/widgets")
+    monkeypatch.setenv("GITHUB_RUN_ID", "34074224233")
+
+    repo, base_sha, head_sha = _markdown_repo(tmp_path)
+    provider = RecordingProvider(_finding_payload(), '{"test_body":"assert False"}')
+
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
+        provider,
+    )
+
+    assert provider.calls == []
+    assert result.deferred_reason is not None
+    claim = _claim_line(github_server.status_bodies[-1])
+    assert claim.startswith("[silent] read 0 of 0 units; refused (not-python): ")
+    assert NOT_PYTHON.fact in claim
+    assert "ledger: https://github.com/octo/widgets/actions/runs/34074224233" in claim
+    assert contract_check(claim), contract_check(claim).reason
+    assert "DEFER" not in claim
+
+
+def test_a_host_without_docker_tells_the_author_which_refusal_it_is(
+    planted_repo: tuple[Path, str, str],
+    github_server: RecordingGitHub,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The environment-decided refusal. `attest review` has said this since
+    D-159; `attest ci` said `DEFER: verification deferred: isolation backend
+    unavailable: …` and left the author to read a collapsed block for it."""
+    from attest.execution.backends import BackendSelection
+    from attest.execution.container_adapter import CONTAINER_PROFILE
+    from attest.review import verification as verification_module
+    from attest.review.ci import run_ci
+    from attest.review.support import NO_DOCKER
+
+    monkeypatch.setattr(
+        verification_module,
+        "select_backend",
+        lambda tree, *, production, remaining_s=None: BackendSelection(
+            None, CONTAINER_PROFILE, "isolation backend unavailable: docker not found"
+        ),
+    )
+    monkeypatch.delenv("GITHUB_SERVER_URL", raising=False)
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    monkeypatch.delenv("GITHUB_RUN_ID", raising=False)
+
+    repo, base_sha, head_sha = planted_repo
+    provider = RecordingProvider(_finding_payload(), '{"test_body":"assert False"}')
+
+    run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    claim = _claim_line(github_server.status_bodies[-1])
+    assert "refused (no-docker): " in claim
+    assert NO_DOCKER.fact in claim
+    assert contract_check(claim), contract_check(claim).reason
+    # no run to link to: the link is omitted, never invented
+    assert "ledger:" not in claim
+    # the collapsed run status is still there, and still carries the counts
+    assert "<summary>Run status</summary>" in github_server.status_bodies[-1]
+
+
+def test_a_refusal_line_carries_no_key_no_stack_and_no_host_detail(
+    planted_repo: tuple[Path, str, str],
+    github_server: RecordingGitHub,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The refusal is a fixed sentence, so a backend reason quoting a secret, a
+    traceback or the runner's own paths cannot travel into it."""
+    from attest.execution.backends import BackendSelection
+    from attest.execution.container_adapter import CONTAINER_PROFILE
+    from attest.review import verification as verification_module
+    from attest.review.ci import run_ci
+
+    leak = (
+        "isolation backend unavailable: docker not found; "
+        "ANTHROPIC_API_KEY=sk-ant-secret-value; "
+        'Traceback (most recent call last):\n  File "/home/runner/x.py", line 1'
+    )
+    monkeypatch.setattr(
+        verification_module,
+        "select_backend",
+        lambda tree, *, production, remaining_s=None: BackendSelection(
+            None, CONTAINER_PROFILE, leak
+        ),
+    )
+
+    repo, base_sha, head_sha = planted_repo
+    provider = RecordingProvider(_finding_payload(), '{"test_body":"assert False"}')
+
+    run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    claim = _claim_line(github_server.status_bodies[-1])
+    assert "refused (no-docker): " in claim
+    for forbidden in ("sk-ant-", "ANTHROPIC_API_KEY", "Traceback", "/home/runner"):
+        assert forbidden not in claim, forbidden
+    assert contract_check(claim), contract_check(claim).reason

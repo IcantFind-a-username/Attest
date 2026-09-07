@@ -222,7 +222,43 @@ def check(line: str) -> ContractVerdict:
     return ADMITTED
 
 
-# The three verdicts a silent review may reach, and nothing else. D-142 says a
+# --- the refusal verdict (D-190) -------------------------------------------
+# A refusal is the product saying *why it did not look*, and until D-190 it said
+# so only in the ledger and inside a collapsed block. On the line an author
+# reads it owes three things and no more: its own **name**, one sentence of
+# **fact**, and a **link** to the evidence — the run whose artifact holds the
+# ledger. Nothing else may travel: the reasons a backend gives can quote a build
+# log, a traceback or a runner path, so the line carries a fixed sentence chosen
+# by the name and never the reason itself.
+#
+# Both variable parts are bounded *before* assembly rather than after, because
+# D-142 forbids truncating a line into shape: a fact that does not fit is a
+# defect in the product's own copy and raises where it is written, and a link
+# that does not fit is dropped whole — a truncated URL is a broken link, which
+# is worse than none.
+REFUSAL_FACT_LIMIT = 180
+LEDGER_URL_LIMIT = 100
+REFUSAL_NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")
+# https only, and only the characters a URL is made of: the value arrives from
+# the runner's environment, and this line is published.
+_LEDGER_URL = re.compile(r"https://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+\Z")
+
+
+def ledger_link(url: str) -> str:
+    """The evidence link a refusal line may carry, or `""` when it cannot.
+
+    Omission is the failure mode on purpose. A link the reader cannot open, or
+    one assembled from something that is not a URL, is worse on an author's
+    screen than a line that simply does not have one."""
+    if type(url) is not str:
+        return ""
+    text = url.strip()
+    if not text or len(text) > LEDGER_URL_LIMIT or not _LEDGER_URL.fullmatch(text):
+        return ""
+    return text
+
+
+# The four verdicts a silent review may reach, and nothing else. D-142 says a
 # line that does not conform is not published, so this pattern has to admit
 # every line `silence_line` can produce -- it did not admit D-161's
 # budget-ceiling verdict, which meant the product's own adjudicator refused a
@@ -230,13 +266,15 @@ def check(line: str) -> ContractVerdict:
 _SILENCE_VERDICT = (
     r"(?:nothing met an adjudicator's bar"
     r"|the budget ceiling was reached; \d+ candidate\(s\) were not verified"
-    r"|executor unavailable: .+?; \d+ candidate\(s\) not verified)"
+    r"|executor unavailable: .+?; \d+ candidate\(s\) not verified"
+    r"|refused \(" + REFUSAL_NAME.pattern + r"\): .+?)"
 )
 _SILENCE_SHAPE = re.compile(
     "^"
     + re.escape(SILENCE_MARKER)
     + r" read \d+ of \d+ units; "
     + _SILENCE_VERDICT
+    + r"(?:; ledger: https://\S+)?"  # a refusal, and only a refusal, may point at one
     + r"; \$\d+\.\d{4}, \d+\.\d+s\.$"
 )
 
@@ -294,6 +332,8 @@ def silence_line(
     elapsed_s: float,
     unverified: int = 0,
     executor_unavailable: str = "",
+    refusal: tuple[str, str] | None = None,
+    ledger_url: str = "",
 ) -> str:
     """The one line a wholly silent review owes, in a fixed shape (D-142).
 
@@ -308,8 +348,38 @@ def silence_line(
     claims a clean bill of health for code nothing looked at. The reason and the
     number of candidates it stopped are what the operator can act on, so they
     come first and the budget count is not shown -- an executor that never ran
-    spent nothing on verification (D-177)."""
+    spent nothing on verification (D-177).
+
+    A **refusal** outranks all three (D-190). `no docker` *is* an unavailable
+    executor and a budget truncation *is* a silence, and in both cases the
+    refusal's own name says more than the verdict it displaces: it tells the
+    author which of the five things happened, and the link says where the
+    ledger for it is. The fact is the product's own fixed sentence, chosen by
+    the name -- never the backend's reason, which can quote a build log, a
+    traceback or a runner path."""
     planned = units_planned or units_read
+    if refusal is not None:
+        name, fact = refusal
+        fact = _one_line(fact)
+        if not REFUSAL_NAME.fullmatch(name) or not fact:
+            raise ValueError(f"not a refusal this line can carry: {name!r}")
+        if len(fact) > REFUSAL_FACT_LIMIT:
+            # D-142: a line is never truncated into shape, so copy that does not
+            # fit fails where it is written rather than on an author's screen
+            raise ValueError(
+                f"refusal {name!r} states {len(fact)} characters of fact, over the "
+                f"{REFUSAL_FACT_LIMIT} one line allows"
+            )
+        # the link belongs to the refusal and to nothing else: an ordinary
+        # silence has no evidence to point at, and adding one to every line
+        # would be a second change to copy this decision did not ask for
+        link = ledger_link(ledger_url)
+        return (
+            f"{SILENCE_MARKER} read {units_read} of {planned} units; "
+            f"refused ({name}): {fact}"
+            + (f"; ledger: {link}" if link else "")
+            + f"; ${spend_usd:.4f}, {elapsed_s:.1f}s."
+        )
     if executor_unavailable:
         verdict = (
             f"executor unavailable: {_one_line(executor_unavailable)}; "

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
 import subprocess
 import time
@@ -66,12 +67,18 @@ from attest.review.nullability import (
     prompt_for,
 )
 from attest.review.nullability import notes_for_change as nullability_notes_for_change
-from attest.review.output_contract import LEVEL_MARKERS, budget_unverified
+from attest.review.output_contract import (
+    LEVEL_MARKERS,
+    budget_unverified,
+    ledger_link,
+    silence_line,
+)
+from attest.review.output_contract import check as contract_check
 from attest.review.propagation import PROPAGATION_SHADOW, PropagationNote
 from attest.review.propagation import notes_for_change as propagation_for_change
 from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
-from attest.review.status import status_from_rows
+from attest.review.status import RunStatus, status_from_rows
 from attest.review.structural import (
     STRUCTURAL_NOTE_SCHEMA_VERSION,
     WORDING_MAX_TOKENS,
@@ -84,7 +91,7 @@ from attest.review.structural import (
     structural_fingerprint,
     structural_note,
 )
-from attest.review.support import preflight
+from attest.review.support import Unsupported, preflight, refusal_from_reason
 from attest.review.verification import CERTIFICATION_REPEATS, run_verification_stage
 
 DELIVERY_TRANSCRIPT_SCHEMA_VERSION = 1
@@ -1116,11 +1123,23 @@ def _post_deferred(
     elapsed_s: float = 0.0,
     inline: list[CertifiedFinding] | None = None,
     overflow: list[CertifiedFinding] | None = None,
+    refusal: Unsupported | None = None,
 ) -> str:
-    body = render_deferred(f"DEFER: {reason}")
-    if surfaced:
-        body = render_complete(surfaced, spend_usd, elapsed_s).replace("Review complete.", body, 1)
-    body = _with_run_status(ledger, task_id, body)
+    # D-190: a refusal is not a DEFER an author has to decode. It owns the whole
+    # comment -- one contract line naming it, then the same collapsed run status
+    # -- and it is only ever reached with nothing surfaced, because a receipt is
+    # never replaced by a sentence about the host.
+    if refusal is not None and not surfaced:
+        body = _refusal_body(
+            ledger, task_id, refusal, spend_usd=spend_usd, elapsed_s=elapsed_s
+        )
+    else:
+        body = render_deferred(f"DEFER: {reason}")
+        if surfaced:
+            body = render_complete(surfaced, spend_usd, elapsed_s).replace(
+                "Review complete.", body, 1
+            )
+        body = _with_run_status(ledger, task_id, body)
     members = tuple(
         (_candidate_id(finding), placement)
         for placement, findings in (
@@ -1156,6 +1175,78 @@ def _candidate_id(finding: CertifiedFinding) -> str:
     return finding.accepted_receipt.receipt.candidate_id
 
 
+# --- the five refusals, on the line an author reads (D-190) -----------------
+# `attest ci` decided only on `preflight`, so four of the five reached the
+# ledger and the collapsed run status and never the one line above it. What an
+# author saw was `DEFER: verification deferred: isolation backend unavailable:
+# …` -- prose with no level marker, which this product's own adjudicator
+# refuses -- or, for a truncated discovery, `nothing met an adjudicator's bar`
+# over units nobody read.
+
+
+def _run_url() -> str:
+    """The Actions run whose artifact holds this review's ledger, or `""`.
+
+    Assembled from the three variables GitHub sets in every job, and from
+    nothing else: no token, no key, no path, no host name. An environment that
+    does not carry them -- a local `attest ci`, a self-hosted shim -- yields no
+    link, and `ledger_link` refuses anything that is not a bounded https URL.
+    """
+    server = os.environ.get("GITHUB_SERVER_URL", "").strip() or "https://github.com"
+    repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    run_id = os.environ.get("GITHUB_RUN_ID", "").strip()
+    if not repository or not run_id:
+        return ""
+    return ledger_link(f"{server}/{repository}/actions/runs/{run_id}")
+
+
+def _refusal_body(
+    ledger: Ledger,
+    task_id: str | None,
+    refusal: Unsupported,
+    *,
+    spend_usd: float = 0.0,
+    elapsed_s: float = 0.0,
+) -> str:
+    """The comment a refusal publishes: one contract line, then the run status.
+
+    The line is adjudicated, and a line that does not conform is not published
+    (D-142). What replaces it is the same refusal **without its link** -- the
+    only part of the line whose length this function does not control, since a
+    fact over `REFUSAL_FACT_LIMIT` raises at assembly and every registered fact
+    is pinned under it. The substitute is deterministic, so a refusal is never
+    silenced by the length of a URL, and the substitution itself is recorded.
+    """
+    counts = _units_read(ledger, task_id) or (0, 0)
+    line = silence_line(
+        units_read=counts[0],
+        units_planned=counts[1],
+        spend_usd=spend_usd,
+        elapsed_s=elapsed_s,
+        refusal=(refusal.code, refusal.fact),
+        ledger_url=_run_url(),
+    )
+    verdict = contract_check(line)
+    if not verdict:
+        ledger.append(
+            {
+                "kind": "contract_refusal",
+                "task_id": task_id,
+                "channel": "silence_line",
+                "refusal": refusal.code,
+                "reason": verdict.reason,
+            }
+        )
+        line = silence_line(
+            units_read=counts[0],
+            units_planned=counts[1],
+            spend_usd=spend_usd,
+            elapsed_s=elapsed_s,
+            refusal=(refusal.code, refusal.fact),
+        )
+    return _with_run_status(ledger, task_id, line)
+
+
 def _units_read(ledger: Ledger, task_id: str | None) -> tuple[int, int] | None:
     """(units read, units planned) for the silence line (D-142). The same rows
     the collapsed run status reads; a ledger this cannot read means no counts,
@@ -1169,24 +1260,27 @@ def _units_read(ledger: Ledger, task_id: str | None) -> tuple[int, int] | None:
     return status.units_read, status.units_planned or status.units_read
 
 
-def _executor_unavailable(ledger: Ledger, task_id: str | None) -> tuple[str, int]:
-    """(reason, candidate count) when this host could not run the executor at
-    all, else ("", 0). Read from the same rows the run status reads.
+def _run_status(ledger: Ledger, task_id: str | None) -> RunStatus | None:
+    """The run status, read once (D-190).
 
-    **An unreadable ledger returns ("", 0), which reinstates `nothing met an
-    adjudicator's bar`** -- the sentence D-177 exists to prevent. That is not
-    "no claim": it is the wrong claim, and the 2026-09-09 review was right to
-    say so. What keeps it from being a live defect is that the same unreadable
-    ledger also yields no unit counts, so the line reads `read 0 of 0 units`,
-    which no reader takes for a clean bill of health. Naming it here rather than
-    claiming the fallback is safe."""
+    D-177 said "one read of the ledger, not two" and the final status comment
+    needed a third for the truncation refusal; this is where all three come
+    from, and `_executor_unavailable` is folded into it.
+
+    **An unreadable ledger yields None, and the executor sentence it would have
+    carried is then absent -- which reinstates `nothing met an adjudicator's
+    bar`**, the sentence D-177 exists to prevent. That is not "no claim": it is
+    the wrong claim, and the 2026-09-09 review was right to say so. What keeps
+    it from being a live defect is that the same unreadable ledger also yields
+    no unit counts, so the line reads `read 0 of 0 units`, which no reader takes
+    for a clean bill of health. Naming it here rather than claiming the fallback
+    is safe."""
     if task_id is None:
-        return "", 0
+        return None
     try:
-        status = status_from_rows(ledger.entries(), task_id)
+        return status_from_rows(ledger.entries(), task_id)
     except (OSError, RuntimeError, ValueError):
-        return "", 0
-    return status.executor_unavailable, status.unsupported_executor
+        return None
 
 
 def _with_run_status(ledger: Ledger, task_id: str | None, body: str) -> str:
@@ -1606,6 +1700,14 @@ def run_ci(
     # bootstrap traceback or an empty "nothing found".
     refusal = preflight(repo)
     if refusal is not None:
+        ledger.append(
+            {
+                "kind": "defer",
+                "task_id": task_id,
+                "reason": refusal.reason,
+                "refusal": refusal.code,
+            }
+        )
         reason = _post_deferred(
             context=context,
             client=client,
@@ -1613,6 +1715,7 @@ def run_ci(
             task_id=task_id,
             journal=journal,
             reason=refusal.reason,
+            refusal=refusal,
         )
         return _ci_run(
             repo=repo,
@@ -1797,6 +1900,8 @@ def run_ci(
     _record_comment(ledger, task_id, "candidate_count")
 
     if review.deferred_reason is not None:
+        # D-190: the same register `attest review` has printed since D-159, on
+        # the surface an author actually reads
         reason = _post_deferred(
             context=context,
             client=client,
@@ -1804,6 +1909,7 @@ def run_ci(
             task_id=task_id,
             journal=journal,
             reason=review.deferred_reason,
+            refusal=refusal_from_reason(review.deferred_reason),
         )
         return _ci_run(
             repo=repo,
@@ -2088,6 +2194,18 @@ def run_ci(
         reason = f"verification deferred: {verification_defers[0]}"
         if len(verification_defers) > 1:
             reason += f" ({len(verification_defers)} candidates)"
+        # D-190: one candidate's reason speaks for the whole review only when
+        # the review certified nothing -- the rule `attest review` already
+        # follows, and the reason a receipt can never be replaced by a sentence
+        # about the host.
+        deferred_refusal = next(
+            (
+                found
+                for found in map(refusal_from_reason, verification_defers)
+                if found is not None
+            ),
+            None,
+        )
         reason = _post_deferred(
             context=context,
             client=client,
@@ -2100,6 +2218,7 @@ def run_ci(
             elapsed_s=clock() - started,
             inline=inline_results,
             overflow=overflow_results,
+            refusal=deferred_refusal,
         )
         return _ci_run(
             repo=repo,
@@ -2115,7 +2234,14 @@ def run_ci(
     elapsed_s = clock() - started
     # D-177: one read of the ledger, not two -- the reason and the count come
     # from the same rows
-    blocked_reason, blocked_count = _executor_unavailable(ledger, task_id)
+    # D-190: and a review the discovery share cut short is not a clean bill of
+    # health over the units it never read. PR #14 of this repository read 3 of
+    # 16 units and said `budget-limited` inside the collapsed block, while the
+    # line above it said `nothing met an adjudicator's bar`.
+    status = _run_status(ledger, task_id)
+    blocked_reason = status.executor_unavailable if status is not None else ""
+    blocked_count = status.unsupported_executor if status is not None else 0
+    truncation = status.refusal() if status is not None else None
     complete_body = _with_run_status(
         ledger,
         task_id,
@@ -2125,7 +2251,11 @@ def run_ci(
             elapsed_s,
             finding_evidence,
             structural=green,
-            units=_units_read(ledger, task_id),
+            units=(
+                (status.units_read, status.units_planned or status.units_read)
+                if status is not None
+                else None
+            ),
             impact=yellow,
             nullability=nullability,
             propagation=[] if PROPAGATION_SHADOW else propagation,
@@ -2136,6 +2266,10 @@ def run_ci(
             # at all says that instead -- nothing was judged
             executor_unavailable=blocked_reason,
             unsupported_executor=blocked_count,
+            # D-190: and a discovery the budget truncated names itself, with the
+            # `budget-usd` that would have read the unit it stopped on
+            refusal=truncation,
+            ledger_url=_run_url(),
         ),
     )
     try:
