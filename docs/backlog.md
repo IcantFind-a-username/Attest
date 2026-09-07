@@ -183,3 +183,10 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   `[silent]` line and the ledger reason, but the pull-request path decides only on `preflight`,
   so an unsupported *environment* is reported to an author as an ordinary DEFER. Pre-existing
   for `no docker` and `no pytest`; D-186 adds a third to the same gap.
+- **The package version is hand-written and nothing checks it until a tag is pushed.**
+  `pyproject.toml` carries `version = "0.1.0rc<n>"` by hand, and the only thing that compares it
+  to the tag is the release workflow's own agreement step — which runs *after* the tag exists,
+  so the first `v0.1.0-rc.2` had to be withdrawn and re-cut (D-193). Either derive the version
+  from the tag (`hatch-vcs`, which this project already teaches the image builder to recognise)
+  or add the same comparison to the `gates` workflow, where a mismatch costs a red check instead
+  of a withdrawn ref.
