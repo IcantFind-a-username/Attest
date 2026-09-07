@@ -51,11 +51,12 @@ def test_a_truncation_names_the_gap_and_the_budget_that_would_have_covered_it() 
 
     note = budget_shortfall_note(caught.value)
     assert "$0.0400 short" in note
-    # $0.34 projected against a 30% share is $1.13 of budget, not $1.04: the
+    # $0.34 projected against a 30% share is $1.1333 of budget, not $1.04: the
     # ceiling is a share, so the shortfall and the budget that covers it are
     # different numbers and quoting the first as the second is the mistake
-    # this line exists to avoid
-    assert "`budget-usd` $1.13 would have bought it" in note
+    # this line exists to avoid. Quoted rounded *up*: $1.13 would leave a
+    # $0.339 share, still short of $0.34, so the sentence says $1.14
+    assert "`budget-usd` $1.14 would have bought it" in note
     assert caught.value.shortfall_usd == pytest.approx(0.04)
     assert caught.value.budget_usd_needed == pytest.approx(0.34 / PROPOSAL_SHARE)
 
