@@ -51,11 +51,12 @@ def test_a_truncation_names_the_gap_and_the_budget_that_would_have_covered_it() 
 
     note = budget_shortfall_note(caught.value)
     assert "$0.0400 short" in note
-    # $0.34 projected against a 30% share is $1.13 of budget, not $1.04: the
+    # $0.34 projected against a 30% share is $1.1333 of budget, not $1.04: the
     # ceiling is a share, so the shortfall and the budget that covers it are
     # different numbers and quoting the first as the second is the mistake
-    # this line exists to avoid
-    assert "`budget-usd` $1.13 would have bought it" in note
+    # this line exists to avoid. Quoted rounded *up*: $1.13 would leave a
+    # $0.339 share, still short of $0.34, so the sentence says $1.14
+    assert "`budget-usd` $1.14 would have bought it" in note
     assert caught.value.shortfall_usd == pytest.approx(0.04)
     assert caught.value.budget_usd_needed == pytest.approx(0.34 / PROPOSAL_SHARE)
 
@@ -71,6 +72,27 @@ def test_a_run_that_fits_says_nothing_about_the_budget() -> None:
 
     assert b.calls == []  # a reservation is not a call, and nothing was said
     assert b.reserved_usd > 0.0
+
+
+def test_a_shortfall_under_a_cent_still_advises_a_budget_that_would_have_read_it() -> None:
+    """PR #15's own run printed ``$0.0010 short …; `budget-usd` $1.00 would have
+    read it`` with `budget-usd` already at $1.00: the needed figure was rounded
+    to the nearest cent and landed on the number in force. The figure the
+    sentence quotes is rounded **up** to the cent, so it always covers the gap
+    and never repeats the setting that produced it."""
+    from attest.review.proposer import budget_shortfall_clause, budget_shortfall_note
+
+    exc = BudgetExceeded(
+        "call 'proposal sample 4' estimated $0.0100; projected total $0.3010 exceeds "
+        "the discovery share $0.3000 of budget $1.00",
+        shortfall_usd=0.0010,
+        budget_usd_needed=0.3010 / 0.3,  # 1.00333…, which `.2f` prints as $1.00
+    )
+    assert "`budget-usd` $1.01 would have read it" in budget_shortfall_clause("unit u4", exc)
+    assert "`budget-usd` $1.01 would have bought it" in budget_shortfall_note(exc)
+    # a figure already on a cent boundary is not pushed up a cent by float noise
+    exact = BudgetExceeded("r", shortfall_usd=0.04, budget_usd_needed=1.08)
+    assert "`budget-usd` $1.08 would have read it" in budget_shortfall_clause("unit u4", exact)
 
 
 def test_a_shortfall_without_a_ceiling_keeps_the_bare_reason() -> None:

@@ -188,35 +188,46 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   reason as its claim line and leaves `budget-limited` in the collapsed block. Two facts, one
   line: which of them an author needs first is a copy decision, not a defect, and it is written
   down here rather than guessed at.
-- **D-187's clause is cut mid-word in the collapsed status.** PR #17's own run rendered ``unit
+- **DONE 2026-09-12.** D-187's clause is cut mid-word in the collapsed status. PR #17's own run rendered ``unit
   85bb5390cb57dc5b (…) was $0.0436 short of the discovery share; `budget-usd` $1.15 would `` —
   `BUDGET_SHORTFALL_LIMIT` is 160 characters and `RunStatus.lines` applies it as a slice, so the
   sentence stops in the middle of the word that carries the advice. D-190's line-level version of
   the same clause reduces in whole steps instead (`support.budget_truncation_fact`); the
-  collapsed block should do the same, or drop the clause rather than halve it.
-- **D-187's clause can advise the `budget-usd` that is already set.** PR #15's own run printed
+  collapsed block should do the same, or drop the clause rather than halve it. **Fixed**: `status.bounded_budget_shortfall` reduces in the same three whole steps (clause, sentence, nothing), and `support` extracts the sentence from the one shared pattern; RED in `tests/test_status.py`.
+- **DONE 2026-09-12.** D-187's clause can advise the `budget-usd` that is already set. PR #15's own run printed
   ``unit … was $0.0010 short of the discovery share; `budget-usd` $1.00 would have read it``
   with `budget-usd` already at $1.00: the needed figure is computed and then rounded to two
   decimals, so a shortfall under a cent advises no change at all. One decimal place, or a
-  `max(needed, current + 0.01)`, would make the sentence actionable.
-- **The documented workflow retains the ledger and not the bundle** (2026-09-12 external
+  `max(needed, current + 0.01)`, would make the sentence actionable. **Fixed**: the quoted figure is rounded *up* to the cent (`proposer.usd_that_covers`), so it always covers the gap and never repeats the setting in force; the exact figure stays in the exception and the ledger; RED in `tests/test_budget_ledger.py`.
+- **DONE 2026-09-12.** The documented workflow retains the ledger and not the bundle (2026-09-12 external
   receipt). `examples/pull-request.yml` and the README quickstart upload `.attest/ledger.jsonl`;
   a receipt's bundle is written to `.attest/evidence/<task>/<candidate>/` and is destroyed with
   the runner. The comment tells an author to run `attest verify --bundle …` against evidence
   their own installation did not keep. Changing the upload path to `.attest/` would close it;
   whether a public repository should publish its evidence bundles as an artifact is an owner
-  decision, which is why this is a backlog line and not a fix.
-- **The package version is hand-written in two places, and nothing checks either until after a
-  merge.** `pyproject.toml` and `src/attest/__init__.py` each carry `0.1.0rc<n>` by hand.
+  decision, which is why this is a backlog line and not a fix. **Done**: the three quickstart workflows
+  (`examples/pull-request.yml`, the README, this repository's own) upload `.attest/ledger.jsonl`
+  and `.attest/evidence/` — the two paths, not the whole directory. A bundle holds the generated
+  test, bounded stdout/stderr of runs inside the credential-free container, and the receipt; an
+  artifact is visible to whoever can read the run. Reversal: drop the second path.
+- **DONE 2026-09-12 (one of the two copies).** The package version is hand-written in two places, and nothing checks either until after a
+  merge. `pyproject.toml` and `src/attest/__init__.py` each carry `0.1.0rc<n>` by hand.
   `tests/release/test_packaging.py` binds them, and the release workflow binds `pyproject.toml`
   to the tag — but the first check runs only in `gates` and the second only after a tag exists,
   so cutting `v0.1.0-rc.2` cost one withdrawn ref *and* shipped a wheel whose metadata says
   `0.1.0rc2` while `attest.__version__` says `0.1.0rc1` (D-193). Deriving the version from the
   tag (`hatch-vcs`, which this project already teaches the image builder to recognise) removes
-  both copies and both checks.
-- **`gates` does not run on pull requests.** `ci.yml` triggers on push to `main` and on
+  both copies and both checks. **Done, the smaller half**: `attest.__version__` now reads the
+  installed distribution's metadata, so `pyproject.toml` is the one hand-written copy and the
+  release workflow's tag/version step is the one check. `hatch-vcs` was not adopted: a
+  `uses: owner/Attest@ref` checkout carries no `.git`, so a tag-derived version would need a
+  fallback there and the fallback would be the wrong number in exactly the install that matters.
+- **DONE 2026-09-12.** `gates` does not run on pull requests. `ci.yml` triggers on push to `main` and on
   `workflow_dispatch`; the only check a pull request gets is the attest self-review. So the
   repository's own 2,206-test suite gates `main` *after* a merge rather than the change before
   it — which is how PR #16 merged with a version string its own packaging test refuses. Adding
   a `pull_request` trigger costs runner minutes on every push; a cheaper half is to run the
-  fast, non-container subset on pull requests and keep the full 45-minute job on `main`.
+  fast, non-container subset on pull requests and keep the full 45-minute job on `main`. **Done**: `ci.yml`
+  gains a `checks` job on `pull_request` -- ruff, mypy, `git diff --check`, the wheel build and
+  the suite without the container isolation matrix, the red-team matrix and the release drills;
+  `gates` keeps those on push to `main`, with the coverage floor.

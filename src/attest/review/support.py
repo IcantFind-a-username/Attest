@@ -54,6 +54,7 @@ from attest.execution.container_images import (
     project_python,
 )
 from attest.review.output_contract import REFUSAL_FACT_LIMIT, SILENCE_MARKER
+from attest.review.status import BUDGET_USD_SENTENCE
 
 SUPPORT_POLICY_VERSION = "attest.support.v1"
 
@@ -399,7 +400,7 @@ def refusal_from_reason(reason: str) -> Unsupported | None:
 # than cut mid-sentence, and the number the reader can act on is the last thing
 # to go.
 _BUDGET_TRUNCATION_PREFIX = "the discovery share of `budget-usd` stopped this review; "
-_BUDGET_USD_SENTENCE = re.compile(r"`budget-usd` \$\d+\.\d{2} would have read it")
+_BUDGET_USD_SENTENCE = BUDGET_USD_SENTENCE  # one pattern, shared with the collapsed block
 # The clause names a change unit, and a change unit is named after **paths in
 # the repository under review**. A file called
 # `a; ledger: https://elsewhere.example/x.py` would otherwise render a link
