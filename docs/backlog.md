@@ -210,6 +210,31 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   and `.attest/evidence/` — the two paths, not the whole directory. A bundle holds the generated
   test, bounded stdout/stderr of runs inside the credential-free container, and the receipt; an
   artifact is visible to whoever can read the run. Reversal: drop the second path.
+- **The process guard refuses the probe on the merge base, where there is no untrusted code**
+  (2026-09-12, D-198). **17 of 56** verification attempts on the rebuilt held-out corpus ended in
+  `reproduction attempted to create a child process` (12) or `… a thread` (5) — `seaborn`,
+  `sphinx` and others spawn one during an ordinary import. The containment exists to stop *head*
+  code doing it; on the **base** revision the code is the one the defect was fixed in, and there
+  is nothing to contain. Tied with the collect failure as the single largest loss of receipts.
+  Relaxing a guard is a safety decision and belongs to the owner, which is why this is a line
+  here and not a change.
+- **The generated probe fails to collect on trees whose stub collects fine** (2026-09-12, D-198).
+  The other **17 of 56**: `pytest collection/import/syntax or infrastructure failure (exit code 2)`
+  on base. The free probe proved a stub collects in every one of those 39 trees before a dollar
+  was spent, so this is the *generated* probe importing something the tree cannot import in that
+  shape — D-114's territory, and now the largest loss with the guard.
+- **A paid corpus driver has no per-case wall-clock limit** (2026-09-12). `sympy__sympy-23262`
+  took **18m 47s** against a 20–135 s norm for the other 34 cases; a stack sample showed two
+  worker threads contending for the GIL inside a list comprehension while a third waited on the
+  provider. Nothing was wrong — the tree is large — but a case slower than this one stalls a run
+  instead of failing it, and `heldout_v2.py run` would wait for it indefinitely.
+- **`checks` is 18 minutes, and 17 of them are pytest** (2026-09-12, [PR #18]
+  (https://github.com/IcantFind-a-username/Attest/pull/18)). The job was added as "a cheaper half"
+  of a 45-minute gate; the container isolation matrix, the red-team matrix and the release drills
+  are not where those minutes go — the ordinary suite is. `timeout-minutes` is 30, leaving 12
+  minutes of headroom for a suite that keeps growing. Splitting the suite by duration, or running
+  it with `-n auto`, would buy more than excluding three files did.
+
 - **`tests/release/test_packaging.py` now reads the installed distribution, and its own docstring
   says it does not** (2026-09-12, observed while running the gates for [PR #18]
   (https://github.com/IcantFind-a-username/Attest/pull/18)). The module says its tests *"read
