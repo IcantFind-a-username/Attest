@@ -210,6 +210,18 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   and `.attest/evidence/` — the two paths, not the whole directory. A bundle holds the generated
   test, bounded stdout/stderr of runs inside the credential-free container, and the receipt; an
   artifact is visible to whoever can read the run. Reversal: drop the second path.
+- **`tests/release/test_packaging.py` now reads the installed distribution, and its own docstring
+  says it does not** (2026-09-12, observed while running the gates for [PR #18]
+  (https://github.com/IcantFind-a-username/Attest/pull/18)). The module says its tests *"read
+  `pyproject.toml`, not the installed distribution, so they hold in a source checkout that was
+  never built."* Since `attest.__version__` reads the metadata, the version test compares
+  `pyproject.toml` against the **installed** distribution: it fails on a stale editable install
+  — it did here, `0.0.1` against `0.1.0rc2`, until the checkout was reinstalled as CI does on
+  every run — and would fail in a checkout that was never installed, where `__version__` reads
+  `0+uninstalled`. The check is arguably the better one (a stale install is what actually
+  shipped the wrong number); the sentence above it is now false. Fix the docstring, or skip the
+  version test when the distribution is not installed from this tree.
+
 - **DONE 2026-09-12 (one of the two copies).** The package version is hand-written in two places, and nothing checks either until after a
   merge. `pyproject.toml` and `src/attest/__init__.py` each carry `0.1.0rc<n>` by hand.
   `tests/release/test_packaging.py` binds them, and the release workflow binds `pyproject.toml`

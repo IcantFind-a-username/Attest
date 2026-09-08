@@ -589,7 +589,8 @@ measured together.
 
 ### Work orders
 
-- [~] **L-01 — release candidate.** Stable install ref (**`v0.1.0-rc.1`** since 2026-09-07;
+- [~] **L-01 — release candidate.** Stable install ref (**`v0.1.0-rc.2`** since 2026-09-12,
+  `v0.1.0-rc.1` since 2026-09-07;
   `v0.1.0-pilot.1` is the oldest ref a pilot may roll back to —
   [`operations/install-ref.md`](operations/install-ref.md) is the single source), minimal
   quickstart, base-owned policy docs, executor support matrix, privacy/retention policy,
@@ -638,6 +639,11 @@ measured together.
   gap that keeps the item from being fully done: **the quickstart's workflow retains the ledger
   and not the evidence bundle**, so the comment's own `attest verify --bundle …` instruction
   has nothing to point at.
+  **That gap is closed (2026-09-12, D-194):** `examples/pull-request.yml`, the README quickstart
+  and this repository's own workflow upload `.attest/evidence/` beside `.attest/ledger.jsonl`,
+  so the bundle a receipt names outlives the runner. The owner decision the backlog had reserved
+  — whether a public repository should publish its evidence bundles — is answered *yes*: a bundle
+  is the generated test, bounded output from a credential-free container, and the receipt.
 
 ### Mandatory prerequisites
 
