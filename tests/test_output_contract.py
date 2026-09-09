@@ -585,3 +585,71 @@ def test_a_change_unit_named_after_a_path_cannot_forge_the_line_it_travels_on() 
     )
     assert line.count("ledger: ") == 1
     assert check(line), check(line).reason
+
+
+def test_an_ordinary_deferral_reaches_the_line_an_author_reads() -> None:
+    """The one required RED for D-201.
+
+    D-190 put the five *refusals* on the contract line and left an ordinary
+    verification deferral rendering as bare prose -- `DEFER: verification
+    deferred: probe reported no observation on base (3 candidates)`. That line
+    carries no level marker, no coordinate and no count of units read, so the
+    product's own adjudicator refuses it; six of the eleven self-reviews since
+    D-174 published exactly that.
+
+    A deferral now takes the same shape a refusal does, and the class name is
+    what an author can act on."""
+    line = silence_line(
+        units_read=2,
+        units_planned=7,
+        spend_usd=0.3112,
+        elapsed_s=41.8,
+        deferral=("probe-no-observation", "the probe recorded no observation on the merge base, "
+                  "so no difference between the two revisions could be measured; nothing was "
+                  "verified"),
+        ledger_url="https://github.com/o/r/actions/runs/42",
+    )
+
+    assert line.startswith("[silent] read 2 of 7 units; deferred (probe-no-observation): ")
+    assert "ledger: https://github.com/o/r/actions/runs/42" in line
+    assert line.endswith("; $0.3112, 41.8s.")
+    assert check(line), line
+
+
+def test_a_deferral_line_carries_no_traceback_no_path_and_no_key() -> None:
+    """A DEFER reason can quote a traceback, a runner path or a build log, so
+    the published sentence is the register's own fixed fact chosen by the class
+    name -- never the reason. The reason keeps its place in the collapsed run
+    status."""
+    from attest.review.support import deferral_from_reason
+
+    hostile = (
+        "verification deferred: probe deferred on base: ANTHROPIC_API_KEY=sk-ant-secret "
+        "Traceback (most recent call last): File \"/home/runner/work/x.py\" (3 candidates)"
+    )
+    found = deferral_from_reason(hostile)
+    assert found is not None
+    line = silence_line(
+        units_read=1, units_planned=1, spend_usd=0.0, elapsed_s=0.1,
+        deferral=(found.code, found.fact),
+    )
+
+    for leaked in ("sk-ant-secret", "Traceback", "/home/runner"):
+        assert leaked not in line, leaked
+    assert check(line), line
+
+
+def test_every_registered_deferral_fact_fits_the_one_line_it_is_written_for() -> None:
+    """Same pin the refusal register carries: copy that does not fit fails where
+    it is written, not on an author's screen."""
+    from attest.review.output_contract import REFUSAL_FACT_LIMIT
+    from attest.review.support import DEFERRAL_REGISTER
+
+    for deferral in DEFERRAL_REGISTER:
+        assert len(deferral.fact) <= REFUSAL_FACT_LIMIT, deferral.code
+        assert not deferral.fact.endswith("."), deferral.code
+        line = silence_line(
+            units_read=0, units_planned=1, spend_usd=0.0, elapsed_s=0.0,
+            deferral=(deferral.code, deferral.fact),
+        )
+        assert check(line), deferral.code

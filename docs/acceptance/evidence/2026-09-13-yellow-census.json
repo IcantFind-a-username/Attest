@@ -1,0 +1,253 @@
+{
+ "repository": "IcantFind-a-username/Attest",
+ "from_pull_request": 12,
+ "pull_requests": [
+  {
+   "pr": 12,
+   "title": "fix(d-174): a call site is what the name resolves to, and two statistics were wr",
+   "state": "MERGED",
+   "green": 2,
+   "yellow_a": 1,
+   "yellow_b": 0,
+   "yellow_prop": 0,
+   "red": 0,
+   "silent": 0,
+   "unmarked_defer": 0,
+   "lines": [
+    {
+     "level": "green",
+     "class": "green",
+     "marker": "",
+     "text": "Structural (no defect claimed): src/attest/benchmark/measurement.py:1763-1769 `_exact_number` and src/attest/review/ci.py:1074-1080 `_delivery_number` normalise to token sequences of 51 and 49 tokens whose token-sequence similarity is 0.960 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept."
+    },
+    {
+     "level": "green",
+     "class": "green",
+     "marker": "",
+     "text": "Structural (no defect claimed): src/attest/review/ci.py:1074-1080 `_delivery_number` and src/attest/review/ledger.py:93-98 `_require_finite_nonnegative` normalise to token sequences of 49 and 49 tokens whose token-sequence similarity is 0.959 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept."
+    },
+    {
+     "level": "yellow",
+     "class": "yellow_a",
+     "marker": "",
+     "text": "src/attest/review/gate_level.py:252 — `calls_in` changed; 3 call site(s) in 2 file(s) name it and no test names it — scripts/corpus/binding_recount.py:102"
+    }
+   ]
+  },
+  {
+   "pr": 13,
+   "title": "docs: the release-readiness acceptance, and the four fixes it forced",
+   "state": "MERGED",
+   "green": 2,
+   "yellow_a": 0,
+   "yellow_b": 0,
+   "yellow_prop": 0,
+   "red": 0,
+   "silent": 0,
+   "unmarked_defer": 0,
+   "lines": [
+    {
+     "level": "green",
+     "class": "green",
+     "marker": "",
+     "text": "Structural (no defect claimed): src/attest/benchmark/measurement.py:1763-1769 `_exact_number` and src/attest/review/ci.py:1074-1080 `_delivery_number` normalise to token sequences of 51 and 49 tokens whose token-sequence similarity is 0.960 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept."
+    },
+    {
+     "level": "green",
+     "class": "green",
+     "marker": "",
+     "text": "Structural (no defect claimed): src/attest/review/ci.py:1074-1080 `_delivery_number` and src/attest/review/ledger.py:93-98 `_require_finite_nonnegative` normalise to token sequences of 49 and 49 tokens whose token-sequence similarity is 0.959 (threshold 0.92), not semantic equivalence; identifiers and literal values erased, attribute and callee names kept."
+    }
+   ]
+  },
+  {
+   "pr": 14,
+   "title": "fix(d-186): a project outside the interpreter range is refused by name, and the ",
+   "state": "MERGED",
+   "green": 0,
+   "yellow_a": 0,
+   "yellow_b": 0,
+   "yellow_prop": 0,
+   "red": 0,
+   "silent": 0,
+   "unmarked_defer": 1,
+   "lines": [
+    {
+     "level": "(none)",
+     "class": "unmarked_defer",
+     "marker": "status",
+     "text": "DEFER: verification deferred: probe did not execute src/attest/review/support.py on base, so it recorded the behaviour of something other than the code under review (3 candidates)"
+    }
+   ]
+  },
+  {
+   "pr": 15,
+   "title": "feat(d-190): the five refusals reach the line a pull-request author reads",
+   "state": "MERGED",
+   "green": 0,
+   "yellow_a": 0,
+   "yellow_b": 0,
+   "yellow_prop": 0,
+   "red": 0,
+   "silent": 0,
+   "unmarked_defer": 1,
+   "lines": [
+    {
+     "level": "(none)",
+     "class": "unmarked_defer",
+     "marker": "status",
+     "text": "DEFER: verification deferred: probe did not execute src/attest/review/ci.py on base, so it recorded the behaviour of something other than the code under review (3 candidates)"
+    }
+   ]
+  },
+  {
+   "pr": 16,
+   "title": "chore: the package version names the ref it is built at",
+   "state": "MERGED",
+   "green": 0,
+   "yellow_a": 0,
+   "yellow_b": 0,
+   "yellow_prop": 0,
+   "red": 0,
+   "silent": 1,
+   "unmarked_defer": 0,
+   "lines": [
+    {
+     "level": "silent",
+     "class": "silent",
+     "marker": "",
+     "text": "read 1 of 1 units; nothing met an adjudicator's bar; $0.0077, 6.3s."
+    }
+   ]
+  },
+  {
+   "pr": 17,
+   "title": "docs: the receipt branch is taken, on a repository this project does not develop",
+   "state": "MERGED",
+   "green": 0,
+   "yellow_a": 0,
+   "yellow_b": 0,
+   "yellow_prop": 0,
+   "red": 0,
+   "silent": 1,
+   "unmarked_defer": 0,
+   "lines": [
+    {
+     "level": "silent",
+     "class": "silent",
+     "marker": "",
+     "text": "read 2 of 4 units; refused (budget-truncated): the discovery share of `budget-usd` stopped this review; `budget-usd` $1.05 would have read it; ledger: https://github.com/IcantFind-a-username/Attest/actions/runs/34124330559; $0.0437, 15.7s."
+    }
+   ]
+  },
+  {
+   "pr": 18,
+   "title": "fix: the truncation clause, the retained bundle, one version string, and a pull-",
+   "state": "MERGED",
+   "green": 0,
+   "yellow_a": 0,
+   "yellow_b": 0,
+   "yellow_prop": 0,
+   "red": 0,
+   "silent": 0,
+   "unmarked_defer": 1,
+   "lines": [
+    {
+     "level": "(none)",
+     "class": "unmarked_defer",
+     "marker": "status",
+     "text": "DEFER: verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s)) (2 candidates)"
+    }
+   ]
+  },
+  {
+   "pr": 19,
+   "title": "The score bar is removed: a reproduced receipt publishes under the cap alone",
+   "state": "MERGED",
+   "green": 0,
+   "yellow_a": 0,
+   "yellow_b": 0,
+   "yellow_prop": 0,
+   "red": 0,
+   "silent": 1,
+   "unmarked_defer": 0,
+   "lines": [
+    {
+     "level": "silent",
+     "class": "silent",
+     "marker": "",
+     "text": "read 1 of 17 units; refused (budget-truncated): the discovery share of `budget-usd` stopped this review; `budget-usd` $1.06 would have read it; ledger: https://github.com/IcantFind-a-username/Attest/actions/runs/34389923715; $0.1259, 52.5s."
+    }
+   ]
+  },
+  {
+   "pr": 20,
+   "title": "E-04 stratum v3: the shadow unit is a pull request, and 29 of them say nothing y",
+   "state": "MERGED",
+   "green": 0,
+   "yellow_a": 0,
+   "yellow_b": 0,
+   "yellow_prop": 0,
+   "red": 0,
+   "silent": 0,
+   "unmarked_defer": 1,
+   "lines": [
+    {
+     "level": "(none)",
+     "class": "unmarked_defer",
+     "marker": "status",
+     "text": "DEFER: verification deferred: probe reported no observation on base (3 candidates)"
+    }
+   ]
+  },
+  {
+   "pr": 21,
+   "title": "A population repository the runner cannot clone is skipped by name, not a crash",
+   "state": "MERGED",
+   "green": 0,
+   "yellow_a": 0,
+   "yellow_b": 0,
+   "yellow_prop": 0,
+   "red": 0,
+   "silent": 0,
+   "unmarked_defer": 1,
+   "lines": [
+    {
+     "level": "(none)",
+     "class": "unmarked_defer",
+     "marker": "status",
+     "text": "DEFER: verification deferred: probe reported no observation on base (3 candidates)"
+    }
+   ]
+  },
+  {
+   "pr": 22,
+   "title": "G-SEC-002: the four attack classes the matrix never dispatched",
+   "state": "MERGED",
+   "green": 0,
+   "yellow_a": 0,
+   "yellow_b": 0,
+   "yellow_prop": 0,
+   "red": 0,
+   "silent": 0,
+   "unmarked_defer": 1,
+   "lines": [
+    {
+     "level": "(none)",
+     "class": "unmarked_defer",
+     "marker": "status",
+     "text": "DEFER: verification deferred: head run 1/3 deferred: reproduction attempted to create a child process (2 candidates)"
+    }
+   ]
+  }
+ ],
+ "totals": {
+  "green": 4,
+  "yellow_a": 1,
+  "yellow_b": 0,
+  "yellow_prop": 0,
+  "red": 0,
+  "silent": 3,
+  "unmarked_defer": 6
+ }
+}

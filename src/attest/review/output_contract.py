@@ -258,7 +258,7 @@ def ledger_link(url: str) -> str:
     return text
 
 
-# The four verdicts a silent review may reach, and nothing else. D-142 says a
+# The five verdicts a silent review may reach, and nothing else. D-142 says a
 # line that does not conform is not published, so this pattern has to admit
 # every line `silence_line` can produce -- it did not admit D-161's
 # budget-ceiling verdict, which meant the product's own adjudicator refused a
@@ -267,14 +267,21 @@ _SILENCE_VERDICT = (
     r"(?:nothing met an adjudicator's bar"
     r"|the budget ceiling was reached; \d+ candidate\(s\) were not verified"
     r"|executor unavailable: .+?; \d+ candidate\(s\) not verified"
-    r"|refused \(" + REFUSAL_NAME.pattern + r"\): .+?)"
+    r"|refused \(" + REFUSAL_NAME.pattern + r"\): .+?"
+    # D-201: an ordinary verification deferral, in the same shape a refusal
+    # takes. Before it, this line was bare `DEFER: ...` prose that the
+    # adjudicator below refuses -- and published anyway, because nothing
+    # adjudicated it.
+    r"|deferred \(" + REFUSAL_NAME.pattern + r"\): .+?)"
 )
 _SILENCE_SHAPE = re.compile(
     "^"
     + re.escape(SILENCE_MARKER)
     + r" read \d+ of \d+ units; "
     + _SILENCE_VERDICT
-    + r"(?:; ledger: https://\S+)?"  # a refusal, and only a refusal, may point at one
+    # a refusal and a deferral may point at the run whose artifact holds the
+    # ledger; an ordinary silence has nothing to point at (D-190, D-201)
+    + r"(?:; ledger: https://\S+)?"
     + r"; \$\d+\.\d{4}, \d+\.\d+s\.$"
 )
 
@@ -333,6 +340,7 @@ def silence_line(
     unverified: int = 0,
     executor_unavailable: str = "",
     refusal: tuple[str, str] | None = None,
+    deferral: tuple[str, str] | None = None,
     ledger_url: str = "",
 ) -> str:
     """The one line a wholly silent review owes, in a fixed shape (D-142).
@@ -358,16 +366,19 @@ def silence_line(
     the name -- never the backend's reason, which can quote a build log, a
     traceback or a runner path."""
     planned = units_planned or units_read
-    if refusal is not None:
-        name, fact = refusal
+    if refusal is not None or deferral is not None:
+        # a refusal outranks a deferral: `no docker` is why verification never
+        # started, and the author is owed the name that says more
+        word = "refused" if refusal is not None else "deferred"
+        name, fact = refusal if refusal is not None else deferral  # type: ignore[misc]
         fact = _one_line(fact)
         if not REFUSAL_NAME.fullmatch(name) or not fact:
-            raise ValueError(f"not a refusal this line can carry: {name!r}")
+            raise ValueError(f"not a {word[:-1]} this line can carry: {name!r}")
         if len(fact) > REFUSAL_FACT_LIMIT:
             # D-142: a line is never truncated into shape, so copy that does not
             # fit fails where it is written rather than on an author's screen
             raise ValueError(
-                f"refusal {name!r} states {len(fact)} characters of fact, over the "
+                f"{word[:-1]} {name!r} states {len(fact)} characters of fact, over the "
                 f"{REFUSAL_FACT_LIMIT} one line allows"
             )
         # the link belongs to the refusal and to nothing else: an ordinary
@@ -376,7 +387,7 @@ def silence_line(
         link = ledger_link(ledger_url)
         return (
             f"{SILENCE_MARKER} read {units_read} of {planned} units; "
-            f"refused ({name}): {fact}"
+            f"{word} ({name}): {fact}"
             + (f"; ledger: {link}" if link else "")
             + f"; ${spend_usd:.4f}, {elapsed_s:.1f}s."
         )

@@ -216,3 +216,81 @@ observation of any kind.**
 and **blast radius**: the observation gap, the per-interpreter audit, the no-Docker fallback
 having no OS boundary at all, and no third-party penetration test. The external observer's real
 coverage is written there in those words.
+
+---
+
+## Phase 2b — the E-04 re-take, on the platform the product ships to
+
+**$2.761259** over two dispatches ·
+[report §R](acceptance/2026-09-13-e04-shadow-v3.md)
+
+| | local host | **the runner** |
+|---|---|---|
+| units | 29 | **28** (`OneTapVocal` private, **skipped by name**) |
+| candidates · eligible · **attempted** | 223 · 33 · 24 | 191 · 19 · **13** |
+| **bootstrap failures** | **24 of 24** | **0** |
+| certified · **published** | 0 · 0 *(vacuous)* | 0 · **0** |
+
+**Zero false publications over 28 real pull requests with a working executor, under D-199's
+rule.** Thirteen reproductions actually ran in `linux-container-v1`; their outcomes are
+adjudications — 4 collection failures, 3 unfaithful tests, 6 other — not a closed door. That is
+the substance of mainline condition 5.
+
+`G-SHADOW-001` **stays FAIL**: all-silence is a utility failure by its own text, and the scale
+and prospectivity reasons are structural. Nothing certified, so **precision is undefined** and
+this measures no recall either.
+
+The first dispatch died after 4 units on the private repository the workflow skips and the
+driver did not — [PR #21](https://github.com/IcantFind-a-username/Attest/pull/21), the same
+family as D-177 and D-190: a missing input is a stated refusal, not a crash.
+
+---
+
+## Phase 4 — the yellow census, the control rate, and a line that was not a line
+
+Branch `feature/yellow-census` · report:
+[every yellow and green line](acceptance/2026-09-13-yellow.md) · decisions
+[D-201](../DECISIONS.md), [D-202](../DECISIONS.md) · **$0.00**
+
+### The one sentence
+
+**Yellow (a) speaks about 1 in 68 commits nobody had to fix and what it says there is true; and
+while counting the lines the product has shown its own authors, six of the eleven turned out not
+to be lines at all.**
+
+### 1. The census, eleven self-reviews since D-174
+
+| green | yellow (a) | yellow (b) | propagation | red | `[silent]` | **unmarked `DEFER:`** |
+|---|---|---|---|---|---|---|
+| 4 | **1** | 0 | 0 | **0** | 3 | **6** |
+
+Yellow (a) spoke on **1 of 11 pull requests (9.1%)**, once, truly, and not actionably. A counting
+correction is inside the report: the first pass said two notes and they are **one note read
+twice**, because a note reaches an author as an inline comment *and* in the summary.
+
+### 2. The controls, deterministic, no model call
+
+| level | population | triggered | rate | Wilson 95% |
+|---|---|---|---|---|
+| **yellow (a)** | **68 controls** | **1** | **1.47%** | **[0.26%, 7.87%]** |
+| yellow (a) | 11 forward pairs | 0 | 0.00% | [0.00%, 25.88%] |
+| yellow (b), propagation | 68 controls | 0 | 0.00% | [0.00%, 5.35%] |
+| yellow (b), null/Optional | — | closed by D-169, reaches no surface | — | — |
+
+**The control count is 1, not 0.** It is a true statement (`9 call sites in 2 files and no test
+names this function`) and the only way to silence it is to raise a4's threshold — a loosening,
+which your rule for this phase forbids. It stands as a known limitation, in the README, with its
+interval.
+
+**Why the number moved from 2 of 68.** `482b6a5` — D-174's *"a call site is what the name
+resolves to"* — **is not an ancestor of the commit that recorded the 2026-09-08 evidence**. That
+number was taken before the fix. This is the first measurement of yellow (a) after D-174, and the
+backlog's standing a4 concern now has a margin of two events instead of one.
+
+### 3. Condition 7 did not hold, and now does
+
+Six of the eleven published `DEFER: verification deferred: … (3 candidates)` — no level marker,
+no coordinate, no unit count — including **this task's own #20, #21 and #22**. The product's own
+adjudicator refuses that line; it was published anyway because nothing adjudicated it. Fixed as
+**D-201** in the shape you chose: a fifth silence verdict, same register, four classes, and the
+published sentence is the register's own so no traceback, runner path or key can reach it.

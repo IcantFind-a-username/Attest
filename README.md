@@ -111,6 +111,16 @@ reached an adjudicator that had not before, and it was drawered.
   speaking on 3 cases nobody has adjudicated. Until it is decided the level stays in shadow.
 - **Non-deterministic functions cannot be certified.** A reproduction must agree with itself
   three times on head and three on base; anything that does not is an abstention, not a finding.
+- **Yellow (a) speaks about 1 in 68 commits nobody had to fix, and what it says there is true.**
+  Measured deterministically on the 68 null controls, no model call: **1 of 68 — 1.47%, Wilson
+  95% [0.26%, 7.87%]** — and **0 of 11** defect-introducing forward pairs. On this repository's
+  own eleven pull requests since D-174 it spoke **once (1 of 11, 9.1%)**, and that note was true
+  and not actionable. So the level has a demonstrated **low noise floor and nothing else**: it
+  claims no defect by construction, and **it has never been shown to find one**. The single
+  control note is `9 call sites in 2 files and no test names this function`, which is a true
+  statement; the only way to silence it is to raise the threshold, which would be a loosening of
+  the level rather than a fix, so it stands (D-202,
+  [report](docs/acceptance/2026-09-13-yellow.md)).
 - **Yellow (b)'s null/Optional class is closed, and this is the reason it stayed open so long.**
   0 of 79 units under two rule versions, 28 hypotheses proposed, 0 surviving all three premises,
   and one model call paid on every review to keep the option alive. It is now **off** (D-169):
@@ -118,7 +128,8 @@ reached an adjudicator that had not before, and it was drawered.
   turning it on is the one that has never been tested — the corpus that defeated it carries no
   type annotations and many repositories do — so if your code is annotated, this class has not
   been measured on code like yours either way (D-151, D-165).
-- **Yellow (b)'s second class, exception propagation, is a shadow.** Also 0 of 79 — but free, and
+- **Yellow (b)'s second class, exception propagation, is a shadow.** Also 0 of 79, re-measured
+  2026-09-13 at **0 of 68 controls, Wilson 95% [0.00%, 5.35%]** — but free, and
   its refusals say why: of 198 changed functions, 135 added no call at all and 43 called a name
   defined more than once — a count taken **before** D-174, when a second definition anywhere in
   the tree was read as ambiguity; under name binding most of those 43 are not ambiguous. It runs on every review and writes to the ledger; it reaches **no
