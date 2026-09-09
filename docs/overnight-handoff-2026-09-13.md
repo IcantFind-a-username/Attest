@@ -169,3 +169,50 @@ head itself and the diff is empty: **nine units reviewed nothing for $0.19**. Ca
 unit produced a non-empty review, protocol re-frozen against the API's own `base.sha`, those
 trials discarded rather than counted, and the dollar recorded in `DEVSPEND.md` as spend that
 bought nothing.
+
+---
+
+## Phase 3 — the red-team matrix, thirteen of thirteen
+
+Branch `feature/redteam-thirteen` · report:
+[the matrix](acceptance/2026-09-13-redteam-thirteen.md) · decision
+[D-200](../DECISIONS.md) · **$0.00** — the matrix calls no model
+
+### The one sentence
+
+**All thirteen preregistered attack classes are now dispatched for real on the production
+backend and every one is marked, never certified — and the two new fixtures that were built to
+ask whether the *kernel* refuses were both refused by the *product's own guard*, which is the
+gate's open half restated in sharper form.**
+
+### 1. The four classes, and what each was missing
+
+| class | what the old matrix lacked |
+|---|---|
+| **`/proc`** | the `keyfile` fixture opened `/proc/1/environ` for **one canary string** — a secret test that happens to touch `/proc`, asking nothing about `/proc` itself |
+| **home / git** | nothing at all: no `.gitconfig`, no `.git-credentials`, no ssh key, no `gh` token, no check that the reviewed tree's `.git` is absent |
+| **native syscall** | nothing dispatched below Python. `socket`, `dns` and `processes` all go through the interpreter, so all three are consistent with a hook refusing and the kernel doing nothing |
+| **namespace** | nothing |
+
+### 2. Result
+
+**PASS — 13 attack fixtures, 13 actually dispatched, 1 positive control** (run `34408444454`
+at `9657f40`, `Linux x86_64`, docker 28.0.4, `linux-container-v1`). Nothing skipped, nothing
+`xfail`ed, no assertion relaxed. **Nothing needed fixing**, so no isolation change was made —
+the owner's rule that a fix must be a tightening of the isolation layer never came into play.
+
+### 3. The half that stays open, and it is sharper now
+
+`native` and `namespace` were both refused with `reproduction attempted to create a child
+process` — **the product's own containment guard**, at the first repeat. Correct refusals,
+correctly marked. But those two fixtures exist to ask whether the **kernel** refuses, and the
+run does not say. The one external observation on file watches seven syscalls and attests
+**network egress and process creation only**; **eleven of thirteen classes have no external
+observation of any kind.**
+
+### 4. Where an operator reads it
+
+`SECURITY.md` gains **Known unmitigated**, four numbered items each with **attack preconditions**
+and **blast radius**: the observation gap, the per-interpreter audit, the no-Docker fallback
+having no OS boundary at all, and no third-party penetration test. The external observer's real
+coverage is written there in those words.
