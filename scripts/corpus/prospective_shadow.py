@@ -3,6 +3,9 @@
   freeze    write the study's freeze digest (protocol + preregistration + authorization)
   select    record every commit pushed to a population repository after the freeze, with
             its stratum and the silent-audit draw, BEFORE any outcome (sample.jsonl)
+  select-prs  the same, but the unit is a PULL REQUEST (stratum v3): head =
+            refs/pull/N/head, base = merge-base(head, the pull request's base branch),
+            which is the pair the shipped Action reviews
   run       one shadow review per sampled unit not yet run: head = the commit, base = its
             parent, the local review path (no GitHub client exists), K and per-PR budget
             from the preregistration, results to trials.jsonl; stops at the cost cap
@@ -49,7 +52,126 @@ def _study(args: argparse.Namespace) -> Path:
 
 
 def _clone_name(repository: str) -> str:
-    return repository.split("/")[-1].lower()
+    # a repository name may begin with "-" (the owner has one); a leading dash is
+    # not a legal argument prefix and the clone drops it
+    return repository.split("/")[-1].lower().lstrip("-")
+
+
+# Declared in the v3 protocol before any unit ran: a drill carries a planted
+# defect, so a publication on it is a true positive and it may not sit in the
+# false-publication denominator. Matched case-insensitively on the title.
+DRILL_MARKERS = ("throwaway", "do not merge")
+
+
+def _drill(title: str) -> bool:
+    lowered = title.lower()
+    return any(marker in lowered for marker in DRILL_MARKERS)
+
+
+def cmd_select_prs(args: argparse.Namespace) -> int:
+    """Stratum v3: one unit per pull request, resolved in the clone.
+
+    `gh` lists the pull requests; the shas are resolved locally against
+    `refs/pull/N/head`, which survives a deleted branch, so a merged pull
+    request is reviewable exactly as it was opened."""
+    study = _study(args)
+    raw = json.loads((study / "preregistration.json").read_text(encoding="utf-8"))
+    target = int(raw.get("target_units", 0))
+    per_repo: dict[str, list[prospective.TrafficUnit]] = {}
+    excluded: list[dict[str, str]] = []
+    for repository in raw["population"]:
+        repo = CORPORA / _clone_name(repository)
+        if not repo.is_dir():
+            print(f"skip {repository}: no clone at {repo}", file=sys.stderr)
+            continue
+        listed = subprocess.run(
+            ["gh", "pr", "list", "--repo", repository, "--state", "all", "--limit", "100",
+             "--json", "number,title,createdAt,baseRefName,changedFiles,state"],
+            capture_output=True, text=True, check=False,
+        )
+        if listed.returncode != 0:
+            print(f"skip {repository}: {listed.stderr.strip()[:120]}", file=sys.stderr)
+            continue
+        pulls = sorted(json.loads(listed.stdout or "[]"),
+                       key=lambda item: str(item["createdAt"]), reverse=True)
+        if not pulls:
+            continue
+        subprocess.run(
+            [
+                "git", "-C", str(repo), "fetch", "-q", "origin",
+                "+refs/pull/*/head:refs/remotes/origin/pr/*",
+                "+refs/heads/*:refs/remotes/origin/*",
+            ],
+            check=False,
+        )
+        for pull in pulls:
+            number = int(pull["number"])
+            title = str(pull["title"])
+            if _drill(title):
+                excluded.append({"unit_id": f"{repository}#{number}", "title": title,
+                                 "reason": "drill: the title declares a planted defect"})
+                continue
+            # The base is the sha the pull request was opened against, taken
+            # from the API, **not** `merge-base(head, the base branch today)`.
+            # For a merged pull request the base branch already contains the
+            # head, so that merge-base is the head itself and the diff is empty
+            # -- which is how this driver's first draft reviewed nine units of
+            # nothing. `base.sha` is the field the shipped Action resolves.
+            api = subprocess.run(
+                ["gh", "api", f"repos/{repository}/pulls/{number}",
+                 "--jq", "[.base.sha, .head.sha] | @tsv"],
+                capture_output=True, text=True, check=False,
+            )
+            if api.returncode != 0 or not api.stdout.strip():
+                print(f"skip {repository}#{number}: {api.stderr.strip()[:100]}", file=sys.stderr)
+                continue
+            base_sha, head_sha = api.stdout.strip().split("\t")
+            try:
+                head = _git(repo, "rev-parse", f"refs/remotes/origin/pr/{number}")
+                if head != head_sha:
+                    # the pull request was force-pushed after the ref was cached;
+                    # the API's head is the authority
+                    head = _git(repo, "rev-parse", head_sha)
+                base = _git(repo, "merge-base", head, base_sha)
+            except subprocess.CalledProcessError as exc:
+                print(f"skip {repository}#{number}: {exc}", file=sys.stderr)
+                continue
+            if base == head:
+                print(f"skip {repository}#{number}: empty diff at its own base", file=sys.stderr)
+                continue
+            per_repo.setdefault(repository, []).append(
+                prospective.TrafficUnit(
+                    unit_id=f"{repository}#{number}",
+                    repository=repository,
+                    head_sha=head,
+                    base_sha=base,
+                    subject=title[:120],
+                    stratum=prospective.classify_subject(title),
+                    changed_files=int(pull.get("changedFiles") or 0),
+                    pushed_at=str(pull["createdAt"]),
+                )
+            )
+    # newest first within a repository, round-robin across repositories in name
+    # order, so a cost cap removes units evenly rather than by alphabet
+    units: list[prospective.TrafficUnit] = []
+    index = 0
+    limit = target or sum(len(group) for group in per_repo.values())
+    while len(units) < limit and any(index < len(g) for g in per_repo.values()):
+        for name in sorted(per_repo):
+            if len(units) >= limit:
+                break
+            group = per_repo[name]
+            if index < len(group):
+                units.append(group[index])
+        index += 1
+    rows = prospective.record_sample(study, units, recorded_at=datetime.now(UTC).isoformat())
+    (study / "excluded.json").write_text(
+        json.dumps({"rule": raw["exclusion_declared_before_any_run"], "units": excluded},
+                   indent=2, ensure_ascii=False) + "\n"
+    )
+    print(f"{len(units)} pull requests selected, {len(rows)} newly recorded; "
+          f"{len(excluded)} excluded as drills -> {study / 'sample.jsonl'}")
+    return 0
 
 
 def cmd_select(args: argparse.Namespace) -> int:
@@ -148,7 +270,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     pending = [row for row in samples if row["unit_id"] not in done]
     if args.limit:
         pending = pending[: args.limit]
-    reserve = len(pending) * preregistration.per_pr_budget_usd
+    # The reservation basis is the owner's ceiling for the item when one is
+    # given, and the driver's own cumulative cap enforces it; otherwise it is
+    # every pending unit's per-review maximum (D-172).
+    reserve = args.reserve or len(pending) * preregistration.per_pr_budget_usd
     preflight = prospective.preflight_prospective(
         study,
         devspend_path=ROOT / "DEVSPEND.md",
@@ -184,10 +309,20 @@ def cmd_run(args: argparse.Namespace) -> int:
             verify=True,
             verification_timeout_s=900.0,
         )
-        ledger_rows = [
-            json.loads(line)
-            for line in (repo / ".attest" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
-        ]
+        # A review refused before it buys anything writes no ledger at all -- a
+        # project outside the supported interpreter range, or one with no pytest
+        # (D-185, D-186, D-190). That is a recordable outcome, not a crash: the
+        # trial is written from the review's own refusal reason with no rows.
+        ledger_path = repo / ".attest" / "ledger.jsonl"
+        ledger_rows = (
+            [
+                json.loads(line)
+                for line in ledger_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            if ledger_path.exists()
+            else []
+        )
         trial = prospective.trial_from_ledger(
             ledger_rows,
             unit_id=str(row["unit_id"]),
@@ -227,9 +362,13 @@ def main(argv: list[str] | None = None) -> int:
     select = sub.add_parser("select")
     select.add_argument("--no-fetch", action="store_true")
     select.set_defaults(func=cmd_select)
+    select_prs = sub.add_parser("select-prs")
+    select_prs.set_defaults(func=cmd_select_prs)
     run = sub.add_parser("run")
     run.add_argument("--allow-paid-api", action="store_true")
     run.add_argument("--limit", type=int, default=0)
+    run.add_argument("--reserve", type=float, default=0.0,
+                     help="the owner's reservation for this item; the study's cost cap enforces it")
     run.set_defaults(func=cmd_run)
     sub.add_parser("report").set_defaults(func=cmd_report)
     args = parser.parse_args(argv)

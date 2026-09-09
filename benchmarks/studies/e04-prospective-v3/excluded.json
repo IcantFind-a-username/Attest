@@ -1,0 +1,30 @@
+{
+  "rule": "a pull request whose title contains THROWAWAY, DO NOT MERGE or Throwaway is one of this project's own drills and carries a deliberately planted defect. Such units are recorded with their reason and are excluded from the false-publication denominator, because a publication on a planted defect is a true positive by construction. Nothing else is excluded, and no unit is excluded after its outcome is known.",
+  "units": [
+    {
+      "unit_id": "IcantFind-a-username/Attest#11",
+      "title": "Throwaway: four levels in one comment (do not merge)",
+      "reason": "drill: the title declares a planted defect"
+    },
+    {
+      "unit_id": "IcantFind-a-username/Attest#9",
+      "title": "Throwaway: one real comment from the green channel (D-133, owner instruction 4c)",
+      "reason": "drill: the title declares a planted defect"
+    },
+    {
+      "unit_id": "IcantFind-a-username/Attest#8",
+      "title": "throwaway: first GitHub-hosted runner check of the action",
+      "reason": "drill: the title declares a planted defect"
+    },
+    {
+      "unit_id": "IcantFind-a-username/us-stock-helper#5",
+      "title": "DO NOT MERGE: owner-placed crash regression in ema_series (Attest receipt drill)",
+      "reason": "drill: the title declares a planted defect"
+    },
+    {
+      "unit_id": "IcantFind-a-username/us-stock-helper#4",
+      "title": "[THROWAWAY — do not merge] planted SMA regression, Attest Action drill",
+      "reason": "drill: the title declares a planted defect"
+    }
+  ]
+}

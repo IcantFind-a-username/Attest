@@ -695,6 +695,24 @@ after ≥30 adjudicated findings a precision lower bound <80% pending root-cause
 **Permitted claim:** prospective shadow result on the authorized population, not general
 production performance.
 
+**Read 2026-09-13 (stratum v3): FAIL, and two of the three reasons are structural.** The frozen
+pull-request sample of `benchmarks/studies/e04-prospective-v3` — 29 pull requests across the six
+Python-primary repositories under the owner's account, five drills excluded by title before any
+unit ran — produced **223 candidates, 33 eligible, 24 reproduction attempts, 0 certified and 0
+published**, and **all 24 attempts died at `environment bootstrap failed`** because buildkit on
+the developer host hangs resolving registry metadata. A run in which nothing could be published
+is not evidence that nothing wrong was published (D-177), and this gate's own pass conditions
+call all-silence a utility failure regardless of precision.
+
+The other two reasons no re-run fixes. **Scale:** the design asks for ≥500 pull requests across
+≥30 repositories, ≥100 adjudicated shadow findings and ≥200 adjudicated silent units; the owner's
+entire account holds **29** reviewable pull requests across **6** supported repositories, so
+**this gate cannot be passed by this account's traffic at any budget**. **Prospectivity:** one
+unit of the 29 is genuinely prospective. What the population *can* establish is mainline §1
+condition 5 — one prospective run with no false publication — which is a weaker and separately
+recorded claim. The re-take runs the same frozen sample on the declared CI platform through
+`.github/workflows/e04-shadow.yml` ([report](2026-09-13-e04-shadow-v3.md)).
+
 ### G-NEWCODE-001 — New-code evidence-contract decision readiness
 
 **Applies to:** N-01 and any proposal to create a certifiable new-code evidence class.

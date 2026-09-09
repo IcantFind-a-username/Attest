@@ -1,0 +1,43 @@
+{
+  "study_id": "attest.e04-prospective.v3",
+  "freeze_at": "2026-09-09T18:44:00+00:00",
+  "prospective": false,
+  "prospective_note": "the unit is a PULL REQUEST, and every pull request in this population except IcantFind-a-username/Attest#19 existed before this protocol was frozen. This stratum is therefore a shadow over the owner's most recent pull-request traffic, not a prospective run, and no claim from it may say otherwise. Exactly one unit is genuinely prospective -- Attest#19, opened by the task that froze this protocol -- and it is reported apart from the rest rather than averaged into them.",
+  "population": [
+    "IcantFind-a-username/-SC6122-Group5-Credit-Default",
+    "IcantFind-a-username/Attest",
+    "IcantFind-a-username/Corum",
+    "IcantFind-a-username/IcantFind-a-username",
+    "IcantFind-a-username/OneTapVocal",
+    "IcantFind-a-username/us-stock-helper"
+  ],
+  "unit": "one pull request; head = the pull request's head commit and base = merge-base(head, the `base.sha` the pull request was opened against, from the GitHub API). This is the pair the shipped Action reviews. It is NOT merge-base(head, the base branch as it stands today): for a merged pull request the base branch already contains the head, so that merge-base is the head itself and the diff is empty.",
+  "target_units": 34,
+  "order": "newest first within a repository by creation time, round-robin across repositories in name order, so a repository with few pull requests costs only its own share and a cost cap removes units evenly",
+  "exclusion_declared_before_any_run": "a pull request whose title contains THROWAWAY, DO NOT MERGE or Throwaway is one of this project's own drills and carries a deliberately planted defect. Such units are recorded with their reason and are excluded from the false-publication denominator, because a publication on a planted defect is a true positive by construction. Nothing else is excluded, and no unit is excluded after its outcome is known.",
+  "strata": [
+    "docs",
+    "refactor",
+    "feature",
+    "fix",
+    "other"
+  ],
+  "per_pr_budget_usd": 1.0,
+  "k_samples": 5,
+  "context_strategy": "r01 (default)",
+  "proposal_bound_tokens": 3200,
+  "executor_profile": "linux-container-v1",
+  "silent_audit_inclusion_probability": 1.0,
+  "silent_audit_seed": 20260913,
+  "cost_cap_usd": 6.0,
+  "safety_stop_wrong_findings": 1,
+  "minimum_adjudicated_findings": 100,
+  "minimum_confirmed_opportunities": 100,
+  "truth": "product-blind adjudication into adjudication.jsonl (unit_id, finding_id or empty, label defect|not_defect|unresolved, reviewer, evidence); unknown truth stays unresolved",
+  "retries": "none; a unit that cannot run is recorded with its DEFER or refusal reason",
+  "exclusions": "none after recording",
+  "silence_reporting": "every silent unit records units_read and units_total; a silence over a partly-read pull request covers only what was read",
+  "code": "the window tip including D-199, which removed the m_u/alpha score bar. This is the first population of any size reviewed under that rule, and it is the reason the run is worth its money.",
+  "freeze_at_note": "the host clock; this repository's documents date the window 2026-09-13 by their own convention and the two are not the same clock. Every timestamp checked by the preflight is the host's.",
+  "construction_erratum": "2026-09-09T18:52Z, before any unit produced a non-empty review. The driver's first draft used the base branch as it stands today and reviewed nine units of empty diff for $0.19, which bought nothing and is recorded in DEVSPEND.md as spend that bought nothing. The protocol was re-frozen with the corrected unit definition and every trial discarded; no unit was added, removed or re-ordered, and no outcome influenced the correction -- the defect is that `git diff base..head` was empty, which is visible without looking at any result."
+}
