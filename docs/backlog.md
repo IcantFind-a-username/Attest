@@ -22,6 +22,21 @@ rather than deleted — a backlog whose closed items vanish cannot be audited.
 
 <!-- entries below, newest first -->
 
+- **[P1] 2026-09-13 (D-197, D-199): the `T` channel has never fired, in any recorded review.**
+  Across all **2,589** `review` ledger rows in this repository `channels_bought` is `("S",)` and
+  nothing else — not under the corpus drivers, which pass `tier0_commands=[]`, and not on shipped
+  traffic: the 2026-09-12 external receipt ran from `@v0.1.0-rc.2` with the quickstart's defaults
+  and therefore `tier0_commands = ["ruff"]`, and still recorded `channels_bought: ["S"]`. So the
+  whole dynamic range of a certified finding's priority score is the four values of the S vote
+  schedule (40.00, 52.78, 58.97, 60.00), and `T_CAP = 3.0` has contributed nothing to any ranking
+  the product has ever done. Now that D-199 has removed the score bar this costs no publication —
+  the score only orders findings under the cap — but it means **one of the three evidence channels
+  is dead code on every path that has been measured**, and nobody has established whether that is
+  a configuration defect (tier-0 commands never reaching the channel), a pricing defect (ruff
+  producing no signal the channel prices), or a design conclusion (tier-0 has nothing to add).
+  Free to diagnose: one run with `tier0_commands=["ruff"]` on a tree ruff actually complains
+  about, and a read of where `channels_bought` is assembled.
+
 - **[P2] 2026-09-08: `evaluate_project` reconstructs a `ReviewConfig` field by field, and will
   silently drop the next policy key too.** `src/attest/benchmark/api.py` lists eight of the
   fourteen fields; `context_strategy`, `generation_model`, `gate_shadow`, `repro_concurrency`
@@ -210,6 +225,43 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   and `.attest/evidence/` — the two paths, not the whole directory. A bundle holds the generated
   test, bounded stdout/stderr of runs inside the credential-free container, and the receipt; an
   artifact is visible to whoever can read the run. Reversal: drop the second path.
+- **The process guard refuses the probe on the merge base, where there is no untrusted code**
+  (2026-09-12, D-198). **17 of 56** verification attempts on the rebuilt held-out corpus ended in
+  `reproduction attempted to create a child process` (12) or `… a thread` (5) — `seaborn`,
+  `sphinx` and others spawn one during an ordinary import. The containment exists to stop *head*
+  code doing it; on the **base** revision the code is the one the defect was fixed in, and there
+  is nothing to contain. Tied with the collect failure as the single largest loss of receipts.
+  Relaxing a guard is a safety decision and belongs to the owner, which is why this is a line
+  here and not a change.
+- **The generated probe fails to collect on trees whose stub collects fine** (2026-09-12, D-198).
+  The other **17 of 56**: `pytest collection/import/syntax or infrastructure failure (exit code 2)`
+  on base. The free probe proved a stub collects in every one of those 39 trees before a dollar
+  was spent, so this is the *generated* probe importing something the tree cannot import in that
+  shape — D-114's territory, and now the largest loss with the guard.
+- **A paid corpus driver has no per-case wall-clock limit** (2026-09-12). `sympy__sympy-23262`
+  took **18m 47s** against a 20–135 s norm for the other 34 cases; a stack sample showed two
+  worker threads contending for the GIL inside a list comprehension while a third waited on the
+  provider. Nothing was wrong — the tree is large — but a case slower than this one stalls a run
+  instead of failing it, and `heldout_v2.py run` would wait for it indefinitely.
+- **`checks` is 18 minutes, and 17 of them are pytest** (2026-09-12, [PR #18]
+  (https://github.com/IcantFind-a-username/Attest/pull/18)). The job was added as "a cheaper half"
+  of a 45-minute gate; the container isolation matrix, the red-team matrix and the release drills
+  are not where those minutes go — the ordinary suite is. `timeout-minutes` is 30, leaving 12
+  minutes of headroom for a suite that keeps growing. Splitting the suite by duration, or running
+  it with `-n auto`, would buy more than excluding three files did.
+
+- **`tests/release/test_packaging.py` now reads the installed distribution, and its own docstring
+  says it does not** (2026-09-12, observed while running the gates for [PR #18]
+  (https://github.com/IcantFind-a-username/Attest/pull/18)). The module says its tests *"read
+  `pyproject.toml`, not the installed distribution, so they hold in a source checkout that was
+  never built."* Since `attest.__version__` reads the metadata, the version test compares
+  `pyproject.toml` against the **installed** distribution: it fails on a stale editable install
+  — it did here, `0.0.1` against `0.1.0rc2`, until the checkout was reinstalled as CI does on
+  every run — and would fail in a checkout that was never installed, where `__version__` reads
+  `0+uninstalled`. The check is arguably the better one (a stale install is what actually
+  shipped the wrong number); the sentence above it is now false. Fix the docstring, or skip the
+  version test when the distribution is not installed from this tree.
+
 - **DONE 2026-09-12 (one of the two copies).** The package version is hand-written in two places, and nothing checks either until after a
   merge. `pyproject.toml` and `src/attest/__init__.py` each carry `0.1.0rc<n>` by hand.
   `tests/release/test_packaging.py` binds them, and the release workflow binds `pyproject.toml`

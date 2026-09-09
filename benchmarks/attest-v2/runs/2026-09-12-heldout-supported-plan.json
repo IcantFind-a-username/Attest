@@ -1,0 +1,402 @@
+{
+  "schema_version": "attest.heldout-supported.v1",
+  "decision": "D-191",
+  "slice": "held_out",
+  "split": "benchmarks/attest-v2/splits/swebench-verified-v1.json",
+  "rule": "held-out instances whose own manifests at base_commit select an interpreter inside 3.10-3.13 (project_python), and whose base tree both builds the product's image and collects at least one test in it; decided by a free docker-only probe before any paid run",
+  "order": "round robin over repositories, each repository's cases by instance id; fixed before the run so a cumulative cap that stops the run early removes cases evenly rather than removing whole repositories",
+  "k": 5,
+  "budget_usd": 1.0,
+  "cases": [
+    {
+      "instance_id": "mwaskom__seaborn-3069",
+      "repo": "mwaskom/seaborn",
+      "upstream_base_commit": "54cab15bdacfaa05a88fbc5502a5b322d99f148e",
+      "case_base_sha": "2a75143eb7c91958d16e4a11a22ae7c06db93d7d",
+      "case_head_sha": "e68cfcc9d7494e33ec14577e536fe391b3916e7b",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10; declared floor >= 3.7",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pallets__flask-5014",
+      "repo": "pallets/flask",
+      "upstream_base_commit": "7ee9ceb71e868944a46e1ff00b506772a53a4f1d",
+      "case_base_sha": "459a1518463f7782ca3b3757c75031a20ad183fc",
+      "case_head_sha": "0d67ac8614413a20fbc15a66cd55685a2377a28e",
+      "project_python": "3.13",
+      "project_python_reason": "declared floor >= 3.7",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "repo": "psf/requests",
+      "upstream_base_commit": "39d0fdd9096f7dceccbc8f82e1eda7dd64717a8e",
+      "case_base_sha": "cb7986e96ba812d83d548a57c2638adfc2656b48",
+      "case_head_sha": "7859f4f525c4eb14e703ef31a912e2b454d1c533",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pydata__xarray-4687",
+      "repo": "pydata/xarray",
+      "upstream_base_commit": "d3b6aa6d8b997df115a53c001d00222a0f92f63a",
+      "case_base_sha": "7cb67bad41eef53419b4b527ce231781fe40e8c2",
+      "case_head_sha": "c511aa6b5e067c5e85d4c917e3960ca293ae8f79",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pylint-dev__pylint-4661",
+      "repo": "pylint-dev/pylint",
+      "upstream_base_commit": "1d1619ef913b99b06647d2030bddff4800abdf63",
+      "case_base_sha": "1f7665b48d793e78e46f8dc3dacb8e1c2ead3eb9",
+      "case_head_sha": "b59e8bca08b268eb30707007522b121bc9130942",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10051",
+      "repo": "pytest-dev/pytest",
+      "upstream_base_commit": "aa55975c7d3f6c9f6d7f68accc41bb7cadf0eb9a",
+      "case_base_sha": "d9207e13c0f71f6685209948465877ec8c96c1a7",
+      "case_head_sha": "dd414d15731546fb0ce23ec3ee0f15c53436a7f8",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10435",
+      "repo": "sphinx-doc/sphinx",
+      "upstream_base_commit": "f1061c012e214f16fd8790dec3c283d787e3daa8",
+      "case_base_sha": "0835bb3bb19c379c6760fd152ac487274a4ca867",
+      "case_head_sha": "6fbc43bc571f8eca00e5ac039d309310c063d4ca",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sympy__sympy-22914",
+      "repo": "sympy/sympy",
+      "upstream_base_commit": "c4e836cdf73fc6aa7bab6a86719a0f08861ffb1d",
+      "case_base_sha": "d4b98d6ddc95542a8802424a926887f4d2361f26",
+      "case_head_sha": "85b1eafaf07060f5d3cf9eeb0af818205626254a",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "mwaskom__seaborn-3187",
+      "repo": "mwaskom/seaborn",
+      "upstream_base_commit": "22cdfb0c93f8ec78492d87edb810f10cb7f57a31",
+      "case_base_sha": "138dc47e8b9923cc2884664a2f6da2a4d0f219c3",
+      "case_head_sha": "f631fab6d3533c9c795b67fbc79d6b15298d2e84",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10; declared floor >= 3.7",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "psf__requests-6028",
+      "repo": "psf/requests",
+      "upstream_base_commit": "0192aac24123735b3eaf9b08df46429bb770c283",
+      "case_base_sha": "e175457fd33c7572dd8fcf1853c33e4811b621a1",
+      "case_head_sha": "d82a1f862f92a204466eb8363e80e76bc0b629ee",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pydata__xarray-6461",
+      "repo": "pydata/xarray",
+      "upstream_base_commit": "851dadeb0338403e5021c3fbe80cbc9127ee672d",
+      "case_base_sha": "f9243fedc0f45f6151411960ffb4d7bded1c3552",
+      "case_head_sha": "4d82e1f297f83655761a4e8113efab411f7bb7f2",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pylint-dev__pylint-6528",
+      "repo": "pylint-dev/pylint",
+      "upstream_base_commit": "273a8b25620467c1e5686aa8d2a1dbb8c02c78d0",
+      "case_base_sha": "6b5874952bf4485462e2deada680d853ea973f0e",
+      "case_head_sha": "ea313a73e4d1abbc956810455e0e585cbe7413a3",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10356",
+      "repo": "pytest-dev/pytest",
+      "upstream_base_commit": "3c1534944cbd34e8a41bc9e76818018fadefc9a1",
+      "case_base_sha": "09944cd6f9ced18d270c4445fdff2d53f26cb65c",
+      "case_head_sha": "50966c4fa7f3b0227f0b720872acb22acf3325f1",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10449",
+      "repo": "sphinx-doc/sphinx",
+      "upstream_base_commit": "36367765fe780f962bba861bf368a765380bbc68",
+      "case_base_sha": "e06d235a9ecc43e7b1495a82ab1dfb3e8da6b02d",
+      "case_head_sha": "e5322f64bac949515f536c5dedfa4f989fafe28c",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sympy__sympy-23262",
+      "repo": "sympy/sympy",
+      "upstream_base_commit": "fdc707f73a65a429935c01532cd3970d3355eab6",
+      "case_base_sha": "a7cdecd24397adcf69abdf61d446657b239127cf",
+      "case_head_sha": "95de705eb801e86d6a9377b55d7ff6a746f85cfd",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pydata__xarray-6599",
+      "repo": "pydata/xarray",
+      "upstream_base_commit": "6bb2b855498b5c68d7cca8cceb710365d58e6048",
+      "case_base_sha": "f7036c2dbbcd0410bc43e1a3ea43c240bcdb399c",
+      "case_head_sha": "d38a9cfdab0d812f89944c913fa0dc6f4e0e39f4",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pylint-dev__pylint-6903",
+      "repo": "pylint-dev/pylint",
+      "upstream_base_commit": "ca80f03a43bc39e4cc2c67dc99817b3c9f13b8a6",
+      "case_base_sha": "6acea30af5e27d991da115af7578e769a4ddd0f3",
+      "case_head_sha": "50eadcaf95880e4c0ceee0eff370087579eeccd2",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10466",
+      "repo": "sphinx-doc/sphinx",
+      "upstream_base_commit": "cab2d93076d0cca7c53fac885f927dde3e2a5fec",
+      "case_base_sha": "41188710633e794620dc2759efea1a158c3de1ba",
+      "case_head_sha": "cd03a85acee998a92487a2ef267524be8a94fc40",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sympy__sympy-23413",
+      "repo": "sympy/sympy",
+      "upstream_base_commit": "10de1a18a0efac0b19b611e40c928250dda688bf",
+      "case_base_sha": "41994d38bc82009d87fbc14a7b2fe98c7948da9a",
+      "case_head_sha": "d3d7b80c233a4a5fb2b1e13c4a3e09887275e111",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pydata__xarray-6721",
+      "repo": "pydata/xarray",
+      "upstream_base_commit": "cc183652bf6e1273e985e1c4b3cba79c896c1193",
+      "case_base_sha": "a528e63a5adbab655bf50f8c02c60ffd87ccfdcf",
+      "case_head_sha": "55d77b55243ea19b39b7eac181e1c2e5dad707c7",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pylint-dev__pylint-7080",
+      "repo": "pylint-dev/pylint",
+      "upstream_base_commit": "3c5eca2ded3dd2b59ebaf23eb289453b5d2930f0",
+      "case_base_sha": "7f564032452478ebf24bb0ce0fcb93e4639191b6",
+      "case_head_sha": "ee3be60c53465ad8ba4641604c947f6d1d9663b0",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10614",
+      "repo": "sphinx-doc/sphinx",
+      "upstream_base_commit": "ac2b7599d212af7d04649959ce6926c63c3133fa",
+      "case_base_sha": "cb53cb728b0f4800dc0d68ad5efd2c3f7d8acc17",
+      "case_head_sha": "3595662799ec40360340a24940d229529660b930",
+      "project_python": "3.12",
+      "project_python_reason": "classifiers up to 3.12; declared floor >= 3.9",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sympy__sympy-23534",
+      "repo": "sympy/sympy",
+      "upstream_base_commit": "832c24fec1046eaa544a4cab4c69e3af3e651759",
+      "case_base_sha": "6bff7d4db4a594daa320801a99773ed9f9a1f27b",
+      "case_head_sha": "c70096d0a02111dbfdc666b14610f214f2bc03be",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pydata__xarray-6744",
+      "repo": "pydata/xarray",
+      "upstream_base_commit": "7cc6cc991e586a6158bb656b8001234ccda25407",
+      "case_base_sha": "6ad8bb7e9d7ce046eeadee192b8ae82c2671dce6",
+      "case_head_sha": "951e97011d8040f99d5b88ed91f35a05c8a2cc68",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pylint-dev__pylint-7277",
+      "repo": "pylint-dev/pylint",
+      "upstream_base_commit": "684a1d6aa0a6791e20078bc524f97c8906332390",
+      "case_base_sha": "3e03e5c5be0082e369f11df388d4698df0bba7b7",
+      "case_head_sha": "7f098f94caf881a5c2eeeec7bea05abff90f6665",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10; declared floor >= 3.7",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-11445",
+      "repo": "sphinx-doc/sphinx",
+      "upstream_base_commit": "71db08c05197545944949d5aa76cd340e7143627",
+      "case_base_sha": "442432e3135407bc28821ed4d998cfc28b714647",
+      "case_head_sha": "33e9908f7dd59e09ba038a8fd42cd787e940004a",
+      "project_python": "3.11",
+      "project_python_reason": "classifiers up to 3.11; declared floor >= 3.8",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sympy__sympy-23824",
+      "repo": "sympy/sympy",
+      "upstream_base_commit": "39de9a2698ad4bb90681c0fdb70b30a78233145f",
+      "case_base_sha": "664a4b19dfb50a20ca9c483f481bfe8d92055a65",
+      "case_head_sha": "c119e556bec23479a84f6761345aef7323616f0b",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pydata__xarray-6938",
+      "repo": "pydata/xarray",
+      "upstream_base_commit": "c4e40d991c28be51de9ac560ce895ac7f9b14924",
+      "case_base_sha": "3b18beb223fcdecb494a2c1d804a5a5091c44daa",
+      "case_head_sha": "8573101fe3a32ebf6cf0e86a19b405dd94df3903",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pylint-dev__pylint-8898",
+      "repo": "pylint-dev/pylint",
+      "upstream_base_commit": "1f8c4d9eb185c16a2c1d881c054f015e1c2eb334",
+      "case_base_sha": "44a7abdb24e98d76295c90a8ebf83fa7ba021cef",
+      "case_head_sha": "229570bc72191b935014a3cb9e1cf5082aad1783",
+      "project_python": "3.12",
+      "project_python_reason": "classifiers up to 3.12; declared floor >= 3.8",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-11510",
+      "repo": "sphinx-doc/sphinx",
+      "upstream_base_commit": "6cb783c0024a873722952a67ebb9f41771c8eb6d",
+      "case_base_sha": "2d61a78ed1217f12399ded3b021094b58fb788e1",
+      "case_head_sha": "cea958e3dab5a0e45c5d58e5a02bdde6b1e75520",
+      "project_python": "3.12",
+      "project_python_reason": "classifiers up to 3.12; declared floor >= 3.9",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sympy__sympy-23950",
+      "repo": "sympy/sympy",
+      "upstream_base_commit": "88664e6e0b781d0a8b5347896af74b555e92891e",
+      "case_base_sha": "f57066f8d2f3f73a1844f5452782f659d1d70827",
+      "case_head_sha": "ce57fac11c5beb8023a8e9fb87b0fac614e2e4e8",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pydata__xarray-6992",
+      "repo": "pydata/xarray",
+      "upstream_base_commit": "45c0a114e2b7b27b83c9618bc05b36afac82183c",
+      "case_base_sha": "e7af0f7d158ffae153d2dc80b78f7fded8da0404",
+      "case_head_sha": "a3be78f815c65cb6a4205dc0f873f11e2aee51a4",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9711",
+      "repo": "sphinx-doc/sphinx",
+      "upstream_base_commit": "81a4fd973d4cfcb25d01a7b0be62cdb28f82406d",
+      "case_base_sha": "d35496c7e06bb714f9bcda1174efb50623fe2076",
+      "case_head_sha": "c30e96e712fbb95d512633a5f1376f8861e654ae",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sympy__sympy-24213",
+      "repo": "sympy/sympy",
+      "upstream_base_commit": "e8c22f6eac7314be8d92590bfff92ced79ee03e2",
+      "case_base_sha": "10465e5138f9ec315a9fcb165cc17210f062c8b4",
+      "case_head_sha": "3e7bdfad0beed6fb2e37d547af5ffad317011b13",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pydata__xarray-7229",
+      "repo": "pydata/xarray",
+      "upstream_base_commit": "3aa75c8d00a4a2d4acf10d80f76b937cadb666b7",
+      "case_base_sha": "e335b27bdd125629a9503eb669ae715090affcf8",
+      "case_head_sha": "c97b2245925ed34584dfd81ebd2446fd4f4a90ad",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sympy__sympy-24443",
+      "repo": "sympy/sympy",
+      "upstream_base_commit": "809c53c077485ca48a206cee78340389cb83b7f1",
+      "case_base_sha": "e659e12d097c20d5ff141d924cf9cbb1e2a50bdd",
+      "case_head_sha": "0ef4b759be469f57c7c7dc71dc0c2445da930a04",
+      "project_python": "3.11",
+      "project_python_reason": "classifiers up to 3.11",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "pydata__xarray-7393",
+      "repo": "pydata/xarray",
+      "upstream_base_commit": "41fef6f1352be994cd90056d47440fe9aa4c068f",
+      "case_base_sha": "06a9fe2eeab798aa11fb360052de61f02053b86d",
+      "case_head_sha": "25438827529dd05d6318f75b99d6b0be468a5951",
+      "project_python": "3.10",
+      "project_python_reason": "classifiers up to 3.10",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sympy__sympy-24539",
+      "repo": "sympy/sympy",
+      "upstream_base_commit": "193e3825645d93c73e31cdceb6d742cc6919624d",
+      "case_base_sha": "e47971942637fdbc6bc578d10daae73a6f539311",
+      "case_head_sha": "f714f797a27570f23cd1ff67fd50297a309213af",
+      "project_python": "3.11",
+      "project_python_reason": "classifiers up to 3.11",
+      "collected_on_base": 1
+    },
+    {
+      "instance_id": "sympy__sympy-24562",
+      "repo": "sympy/sympy",
+      "upstream_base_commit": "b1cb676cf92dd1a48365b731979833375b188bf2",
+      "case_base_sha": "2e928f4179a86761d298491ee5dd28774e15eaab",
+      "case_head_sha": "ba762bcf0e35e06b63b7dc564fbe5ff6bea13f2b",
+      "project_python": "3.11",
+      "project_python_reason": "classifiers up to 3.11",
+      "collected_on_base": 1
+    }
+  ]
+}

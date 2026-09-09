@@ -410,9 +410,11 @@ def run_verification_stage(
                 ledger=ledger,
             )
 
-    # C-05 (INV-FAMILY-001): same-defect certified findings count once, a
-    # finding publishes only at e-value >= m/alpha for the m eligible candidates
-    # in this PR, and at most the hard cap is author-visible anywhere
+    # C-05 (INV-FAMILY-001): same-defect certified findings count once and at
+    # most the hard cap is author-visible anywhere. D-199 (2026-09-13) removed
+    # the third gate: a certified finding -- accepted receipt, reproduction
+    # reproduced -- is no longer thresholded at `m_u/alpha`. The bar is still
+    # computed and recorded, and `score_bar_applied` says it was not applied.
     eligible = [candidate for candidate in candidates if candidate.eligibility == "regression"]
     eligible_ids = [candidate.finding.finding_id for candidate in eligible]
     # D-125: the family is the change unit the candidate is anchored in, so the
@@ -440,9 +442,12 @@ def run_verification_stage(
             "method": PUBLICATION_METHOD,
             "alpha": review.alpha,
             "eligible_count": family.eligible_count,
-            # D-125: `family_threshold` remains the PR-wide bar, reported and no
-            # longer applied; `unit_thresholds` is what each cluster was judged by
+            # D-125: `family_threshold` is the PR-wide bar; `unit_thresholds` is
+            # the per-unit bar that replaced it. Since D-199 neither is applied.
             "family_threshold": round(selection.family_threshold, 6),
+            # D-199: false since v4. The two threshold fields are a record of
+            # what the old rule would have done, not of what this run applied.
+            "score_bar_applied": selection.score_bar_applied,
             "unit_policy_version": family.unit_policy_version,
             "eligible_units": dict(sorted(units.items())),
             "unit_thresholds": {

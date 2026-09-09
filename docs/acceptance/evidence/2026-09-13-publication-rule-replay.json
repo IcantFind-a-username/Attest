@@ -1,0 +1,591 @@
+{
+ "produced_by": "scripts/acceptance/publication_rule_replay.py",
+ "new_rule": "attest.publication-policy.v4",
+ "ledgers_with_publication_rows": 129,
+ "publication_policy_rows": 609,
+ "rows_with_a_certified_set": 91,
+ "comparable": 90,
+ "unreplayable": [
+  {
+   "task_id": "20260907-123203-4561687e",
+   "unreplayable": true,
+   "why": "inputs missing for ['34a9299741']",
+   "intent_today": {},
+   "ledger": "docs/acceptance/evidence/2026-09-12-us-stock-helper-pr5-ledger.jsonl",
+   "run": "2026-09-05-forward-pairs",
+   "group": "defect",
+   "case": "attest",
+   "note": "forward pair"
+  }
+ ],
+ "replay_disagrees": [],
+ "added_by_group": {
+  "defect": 11,
+  "neither": 12,
+  "control": 2
+ },
+ "removed_by_group": {
+  "defect": 0,
+  "neither": 0,
+  "control": 0
+ },
+ "added_by_group_intent_current": {
+  "defect": 1,
+  "neither": 5
+ },
+ "intent_today_split": {
+  "drawered": 17,
+  "certifies": 6,
+  "unknown": 2
+ },
+ "changed": [
+  {
+   "task_id": "20260903-193709-f014bd70",
+   "schema_version": "attest.publication-policy.v1",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 7,
+   "certified": [
+    "058f573208",
+    "103aa42a3c",
+    "6cce86432e",
+    "a47e7a8fa9",
+    "db100c9818"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "103aa42a3c",
+    "a47e7a8fa9",
+    "db100c9818"
+   ],
+   "added": [
+    "103aa42a3c",
+    "a47e7a8fa9",
+    "db100c9818"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "103aa42a3c": "drawered",
+    "a47e7a8fa9": "certifies",
+    "db100c9818": "drawered"
+   },
+   "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+   "run": "real-traffic",
+   "group": "defect",
+   "case": "d05",
+   "note": "fix: every way the environment bootstrap fails is typed, and the image"
+  },
+  {
+   "task_id": "20260904-004116-2cadd8db",
+   "schema_version": "attest.publication-policy.v1",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 8,
+   "certified": [
+    "8f3851fe4b"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "8f3851fe4b"
+   ],
+   "added": [
+    "8f3851fe4b"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "8f3851fe4b": "drawered"
+   },
+   "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+   "run": "real-traffic",
+   "group": "defect",
+   "case": "d02",
+   "note": "fix(review): the discovery share bounds breadth, not the first unit"
+  },
+  {
+   "task_id": "20260904-004449-4e7f19c6",
+   "schema_version": "attest.publication-policy.v1",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 14,
+   "certified": [
+    "b89a422892",
+    "d2c15a3f07",
+    "dad85d4e84"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "b89a422892",
+    "d2c15a3f07",
+    "dad85d4e84"
+   ],
+   "added": [
+    "b89a422892",
+    "d2c15a3f07",
+    "dad85d4e84"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "b89a422892": "drawered",
+    "d2c15a3f07": "drawered",
+    "dad85d4e84": "drawered"
+   },
+   "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+   "run": "real-traffic",
+   "group": "defect",
+   "case": "d03",
+   "note": "fix(execution): cap an image build at the verification budget, reuse b"
+  },
+  {
+   "task_id": "20260904-040004-18b67397",
+   "schema_version": "attest.publication-policy.v2",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 7,
+   "certified": [
+    "1cf3efe423",
+    "683c292257",
+    "8193742fef",
+    "bb40cb1629"
+   ],
+   "recorded_published": [
+    "8193742fef"
+   ],
+   "record_replay": [
+    "8193742fef"
+   ],
+   "reproduces_record": true,
+   "new_published": [
+    "1cf3efe423",
+    "8193742fef",
+    "bb40cb1629"
+   ],
+   "added": [
+    "1cf3efe423",
+    "bb40cb1629"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "1cf3efe423": "drawered",
+    "bb40cb1629": "certifies"
+   },
+   "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+   "run": "e04-shadow-v2",
+   "group": "neither",
+   "case": "IcantFind-a-username/Attest@34affaf",
+   "note": "stratum fix: fix: every way the environment bootstrap fails is typed"
+  },
+  {
+   "task_id": "20260904-040545-c9785a66",
+   "schema_version": "attest.publication-policy.v2",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 7,
+   "certified": [
+    "0ab1e8313a",
+    "0e910940fa",
+    "5576277bdb",
+    "99e457d77f"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "0ab1e8313a"
+   ],
+   "added": [
+    "0ab1e8313a"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "0ab1e8313a": "drawered"
+   },
+   "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+   "run": "e04-shadow-v2",
+   "group": "neither",
+   "case": "IcantFind-a-username/Attest@9df938f",
+   "note": "stratum fix: fix: an image build that times out is a typed bootstrap"
+  },
+  {
+   "task_id": "20260906-024251-d6495f25",
+   "schema_version": "attest.publication-policy.v2",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 24,
+   "certified": [
+    "0561204f7d",
+    "14b3a1e026"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "0561204f7d"
+   ],
+   "added": [
+    "0561204f7d"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "0561204f7d": "certifies"
+   },
+   "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+   "run": "four-levels",
+   "group": "neither",
+   "case": "attest@eede421",
+   "note": "2026-09-06-four-levels-plan-attest"
+  },
+  {
+   "task_id": "20260906-045706-d6495f25",
+   "schema_version": "attest.publication-policy.v2",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 24,
+   "certified": [
+    "14b3a1e026",
+    "25d170ba38",
+    "5f4497390b"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "14b3a1e026"
+   ],
+   "added": [
+    "14b3a1e026"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "14b3a1e026": "certifies"
+   },
+   "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+   "run": "four-levels",
+   "group": "neither",
+   "case": "attest@eede421",
+   "note": "2026-09-06-four-levels-plan-attest"
+  },
+  {
+   "task_id": "20260906-051043-1b830447",
+   "schema_version": "attest.publication-policy.v2",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 20,
+   "certified": [
+    "250c5e3d67"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "250c5e3d67"
+   ],
+   "added": [
+    "250c5e3d67"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "250c5e3d67": "certifies"
+   },
+   "ledger": ".attest/corpora/attest/.attest/ledger.jsonl",
+   "run": "four-levels",
+   "group": "neither",
+   "case": "attest@c88f67e",
+   "note": "2026-09-06-four-levels-plan-attest"
+  },
+  {
+   "task_id": "20260903-011606-ab8fcc37",
+   "schema_version": "attest.publication-policy.v1",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 6,
+   "certified": [
+    "52403c1e42",
+    "9ed6a71d7b",
+    "f118070241"
+   ],
+   "recorded_published": [
+    "9ed6a71d7b"
+   ],
+   "record_replay": [
+    "9ed6a71d7b"
+   ],
+   "reproduces_record": true,
+   "new_published": [
+    "9ed6a71d7b",
+    "f118070241"
+   ],
+   "added": [
+    "f118070241"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "f118070241": "unknown"
+   },
+   "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+   "run": "ush-trials",
+   "group": "defect",
+   "case": "trial-b",
+   "note": "planted revert of a real fix"
+  },
+  {
+   "task_id": "20260903-193354-4c8189d3",
+   "schema_version": "attest.publication-policy.v1",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 8,
+   "certified": [
+    "c5b90ad887"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "c5b90ad887"
+   ],
+   "added": [
+    "c5b90ad887"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "c5b90ad887": "drawered"
+   },
+   "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+   "run": "real-traffic",
+   "group": "defect",
+   "case": "d13",
+   "note": "fix: remember what each feed already published across restarts"
+  },
+  {
+   "task_id": "20260903-193901-ee27b253",
+   "schema_version": "attest.publication-policy.v1",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 10,
+   "certified": [
+    "1d0af73c3e"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "1d0af73c3e"
+   ],
+   "added": [
+    "1d0af73c3e"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "1d0af73c3e": "drawered"
+   },
+   "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+   "run": "real-traffic",
+   "group": "control",
+   "case": "c02",
+   "note": "test: verify sectioned snapshots across live watchlist"
+  },
+  {
+   "task_id": "20260903-194031-f10f0463",
+   "schema_version": "attest.publication-policy.v1",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 5,
+   "certified": [
+    "33aa333ec0"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "33aa333ec0"
+   ],
+   "added": [
+    "33aa333ec0"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "33aa333ec0": "drawered"
+   },
+   "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+   "run": "real-traffic",
+   "group": "control",
+   "case": "c04",
+   "note": "test: assert the copy the product actually ships"
+  },
+  {
+   "task_id": "20260904-005029-9b14404e",
+   "schema_version": "attest.publication-policy.v1",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 9,
+   "certified": [
+    "3bba2f62e6"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "3bba2f62e6"
+   ],
+   "added": [
+    "3bba2f62e6"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "3bba2f62e6": "drawered"
+   },
+   "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+   "run": "real-traffic",
+   "group": "defect",
+   "case": "d16",
+   "note": "fix: only in-force confirmed patterns vote in the score"
+  },
+  {
+   "task_id": "20260904-032523-0a07b6d6",
+   "schema_version": "attest.publication-policy.v2",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 12,
+   "certified": [
+    "240836f2e0"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "240836f2e0"
+   ],
+   "added": [
+    "240836f2e0"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "240836f2e0": "drawered"
+   },
+   "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+   "run": "e04-shadow-v2",
+   "group": "neither",
+   "case": "IcantFind-a-username/us-stock-helper@d7be758",
+   "note": "stratum fix: fix: keep resolved pattern episodes immutable under rep"
+  },
+  {
+   "task_id": "20260904-033730-0a07b6d6",
+   "schema_version": "attest.publication-policy.v2",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 12,
+   "certified": [
+    "240836f2e0",
+    "2c982b3cf3",
+    "3a3b414a24",
+    "67dae52f8e"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "240836f2e0",
+    "2c982b3cf3",
+    "3a3b414a24"
+   ],
+   "added": [
+    "240836f2e0",
+    "2c982b3cf3",
+    "3a3b414a24"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "240836f2e0": "drawered",
+    "2c982b3cf3": "drawered",
+    "3a3b414a24": "drawered"
+   },
+   "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+   "run": "e04-shadow-v2",
+   "group": "neither",
+   "case": "IcantFind-a-username/us-stock-helper@d7be758",
+   "note": "stratum fix: fix: keep resolved pattern episodes immutable under rep"
+  },
+  {
+   "task_id": "20260904-034615-e10d6055",
+   "schema_version": "attest.publication-policy.v2",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 15,
+   "certified": [
+    "27dd3692d7",
+    "33243bfa2e"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "27dd3692d7",
+    "33243bfa2e"
+   ],
+   "added": [
+    "27dd3692d7",
+    "33243bfa2e"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "27dd3692d7": "certifies",
+    "33243bfa2e": "drawered"
+   },
+   "ledger": ".attest/corpora/us-stock-helper/.attest/ledger.jsonl",
+   "run": "e04-shadow-v2",
+   "group": "neither",
+   "case": "IcantFind-a-username/us-stock-helper@d921058",
+   "note": "stratum fix: fix: retry market-brief universe failures instead of fr"
+  },
+  {
+   "task_id": "20260903-170105-9b14404e",
+   "schema_version": "attest.publication-policy.v1",
+   "alpha": 0.1,
+   "hard_cap": 3,
+   "eligible_count": 9,
+   "certified": [
+    "58a3076775"
+   ],
+   "recorded_published": [],
+   "record_replay": [],
+   "reproduces_record": true,
+   "new_published": [
+    "58a3076775"
+   ],
+   "added": [
+    "58a3076775"
+   ],
+   "removed": [],
+   "unreplayable": false,
+   "intent_today": {
+    "58a3076775": "unknown"
+   },
+   "ledger": ".attest/pilot-d116/head/.attest/ledger.jsonl",
+   "run": "real-traffic",
+   "group": "defect",
+   "case": "d16",
+   "note": "fix: only in-force confirmed patterns vote in the score"
+  }
+ ]
+}

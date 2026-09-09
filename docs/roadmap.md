@@ -489,6 +489,17 @@ replayable evidence on the current code.
 - [ ] **E-02 — hidden semantic corpus.** Execute blind semantic truth, control, precision,
   and eligible-detection protocols in `G-MEASURE-004`, `G-CORPUS-001`, and
   `G-RECALL-002`.
+  - **`G-RECALL-002` HAS A NUMBER AGAIN, AND IT FAILS, 2026-09-12 (D-195, D-198).** D-186 had cut
+    the crash-class denominator to 7; the held-out slice is rebuilt from the **same split** with
+    instances whose own manifests select an interpreter inside 3.10–3.13, evaluability decided by
+    a **free docker-only probe** before any spend — 39 cases over eight repositories, 39 of 39
+    probed evaluable ([report](acceptance/2026-09-12-heldout-supported.md)). 35 run at the factory
+    configuration for $4.1384: **crash-class recall 2 of 28 — 7.1%, Wilson 95% [2.0%, 22.6%]**
+    against a ≥70% bar, **0 refusals**, 7 value-class cases excluded under D-158. **Both receipts
+    come from the seven cases the old denominator already held**; the 21 new crash-class cases
+    certified none. The loss is mechanical, not adjudicative: 17 of 56 attempts are a generated
+    probe that will not collect and 17 are the process guard refusing the probe **on the merge
+    base**.
 - [ ] **E-03 — heterogeneous stability.** Execute the nontrivial repeated-case design in
   `G-STAB-001`; repeats remain operational only.
 - **THE FIRST FORWARD-PAIR RECALL NUMBER, 2026-09-05d (D-140).** All 11 distinct forward pairs
@@ -589,7 +600,8 @@ measured together.
 
 ### Work orders
 
-- [~] **L-01 — release candidate.** Stable install ref (**`v0.1.0-rc.1`** since 2026-09-07;
+- [~] **L-01 — release candidate.** Stable install ref (**`v0.1.0-rc.2`** since 2026-09-12,
+  `v0.1.0-rc.1` since 2026-09-07;
   `v0.1.0-pilot.1` is the oldest ref a pilot may roll back to —
   [`operations/install-ref.md`](operations/install-ref.md) is the single source), minimal
   quickstart, base-owned policy docs, executor support matrix, privacy/retention policy,
@@ -638,6 +650,11 @@ measured together.
   gap that keeps the item from being fully done: **the quickstart's workflow retains the ledger
   and not the evidence bundle**, so the comment's own `attest verify --bundle …` instruction
   has nothing to point at.
+  **That gap is closed (2026-09-12, D-194):** `examples/pull-request.yml`, the README quickstart
+  and this repository's own workflow upload `.attest/evidence/` beside `.attest/ledger.jsonl`,
+  so the bundle a receipt names outlives the runner. The owner decision the backlog had reserved
+  — whether a public repository should publish its evidence bundles — is answered *yes*: a bundle
+  is the generated test, bounded output from a credential-free container, and the receipt.
 
 ### Mandatory prerequisites
 

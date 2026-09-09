@@ -30,6 +30,7 @@ from attest.certification.types import (
     FindingAnchor,
 )
 
+V3 = "attest.publication-policy.v3"  # the last version that applied the score bar
 UNITS = 10
 ALPHA = 0.1
 E_UNDER_NULL = 10.0  # exactly the per-unit bar at m_u = 1
@@ -66,6 +67,7 @@ def test_the_pull_request_error_rate_is_the_union_over_units_not_the_cap(
         eligible_count=UNITS,
         hard_cap=3,
         eligible_units=dict.fromkeys(paths, 1),
+        schema_version=V3,
     )
     rng = random.Random(20260908)
     wrong = 0
@@ -96,6 +98,7 @@ def test_the_selection_reports_the_bound_it_actually_offers(
         eligible_count=UNITS,
         hard_cap=3,
         eligible_units=dict.fromkeys(paths, 1),
+        schema_version=V3,
     )
     selection = select_for_publication(
         [ScoredFinding(finding, 12.0) for finding in findings],
@@ -121,6 +124,7 @@ def test_a_smaller_pull_request_gets_a_smaller_bound(
         eligible_count=2,
         hard_cap=3,
         eligible_units={"src/u0.py": 1, "src/u1.py": 1},
+        schema_version=V3,
     )
     selection = select_for_publication(
         [ScoredFinding(finding, 12.0) for finding in findings], policy, [12.0, 12.0]
@@ -128,3 +132,19 @@ def test_a_smaller_pull_request_gets_a_smaller_bound(
 
     assert selection.units_searched == 2
     assert selection.pr_error_bound == 0.2
+
+    # D-199: with no bar there is no rejection rule for a union bound to be
+    # taken over, and the selection says so instead of quoting a stale number.
+    without_bar = select_for_publication(
+        [ScoredFinding(finding, 12.0) for finding in findings],
+        FamilyPolicy(
+            alpha=ALPHA,
+            eligible_count=2,
+            hard_cap=3,
+            eligible_units={"src/u0.py": 1, "src/u1.py": 1},
+        ),
+        [12.0, 12.0],
+    )
+    assert without_bar.score_bar_applied is False
+    assert without_bar.pr_error_bound == 1.0
+    assert without_bar.e_value_validity == "not-applied"

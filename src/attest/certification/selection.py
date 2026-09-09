@@ -66,7 +66,9 @@ from .types import CertifiedFinding
 from .units import CHANGE_UNIT_POLICY_VERSION, change_unit
 
 # v3 (D-174) adds `units_searched`, `pr_error_bound` and `e_value_validity`.
-PUBLICATION_POLICY_SCHEMA_VERSION = "attest.publication-policy.v3"
+# v4 (D-199) stops *applying* the `m_u/alpha` score bar; it still computes and
+# records it. See `score_bar_applies` for what a version means when replayed.
+PUBLICATION_POLICY_SCHEMA_VERSION = "attest.publication-policy.v4"
 # The recorded method name. Kept verbatim: it is a ledger value read by every
 # historical row and by `attest stats`. Read it as "Bonferroni over the
 # per-unit family", which is what the arithmetic is (D-174, 2026-09-09).
@@ -83,6 +85,34 @@ REASON_BEYOND_CAP = "beyond the hard author-visible cap"
 # is conditional on an assumption that has been measured false in that direction,
 # and says so.
 E_VALUE_VALIDITY = "assumed-calibrated"
+# D-199: under v4 the score is not thresholded at all, so the word "calibrated"
+# has nothing to qualify. A selection that applied no bar records this instead,
+# and reports `pr_error_bound = 1.0` -- no bound is claimed, rather than a bound
+# computed from a rule that is not in force.
+E_VALUE_NOT_APPLIED = "not-applied"
+
+# D-199 (owner decision, 2026-09-13): the schema versions whose rule *applied*
+# the `m_u/alpha` score bar. A recorded `publication_policy` row replays under
+# the rule its own `schema_version` names, so history reproduces itself and the
+# new rule changes the product rather than the record.
+SCORE_BAR_VERSIONS = frozenset(
+    {
+        "attest.publication-policy.v1",
+        "attest.publication-policy.v2",
+        "attest.publication-policy.v3",
+    }
+)
+
+
+def score_bar_applies(schema_version: str) -> bool:
+    """Did the publication rule of ``schema_version`` threshold the score?
+
+    An unknown version fails **closed** -- it applies the bar -- because
+    applying a bar can only withhold a claim, never manufacture one.
+    """
+    if schema_version in SCORE_BAR_VERSIONS:
+        return True
+    return schema_version != PUBLICATION_POLICY_SCHEMA_VERSION
 
 
 class CertifiedSelection(Protocol):
@@ -111,6 +141,13 @@ class FamilyPolicy:
     hard_cap: int = DEFAULT_HARD_CAP
     eligible_units: Mapping[str, int] = field(default_factory=dict)
     unit_policy_version: str = CHANGE_UNIT_POLICY_VERSION
+    # D-199: which publication rule to apply. Production always leaves this at
+    # the current version; a replay of a historical row sets the row's own.
+    schema_version: str = PUBLICATION_POLICY_SCHEMA_VERSION
+
+    @property
+    def score_bar_applied(self) -> bool:
+        return score_bar_applies(self.schema_version)
 
     def threshold_for(self, unit: str) -> float:
         """The bar a finding in ``unit`` must clear. A unit the eligible map does
@@ -139,7 +176,12 @@ class FamilyPolicy:
         Conditional on the priority scores being calibrated
         (:data:`E_VALUE_VALIDITY`), which D-174 measured they are not. It is not
         ``hard_cap * alpha``: the cap hides findings after the search, and a
-        hidden false claim is still a rejected null."""
+        hidden false claim is still a rejected null.
+
+        **Under v4 (D-199) there is no bar**, so there is no rejection rule for
+        a union bound to be taken over and the honest value is ``1.0``."""
+        if not self.score_bar_applied:
+            return 1.0
         return min(1.0, self.units_searched * self.alpha)
 
 
@@ -162,6 +204,8 @@ class Selection:
     units_searched: int = 1
     pr_error_bound: float = 1.0
     e_value_validity: str = E_VALUE_VALIDITY
+    # D-199: whether the reported `unit_thresholds` were applied or only recorded
+    score_bar_applied: bool = True
 
 
 def _candidate_id(finding: CertifiedFinding) -> str:
@@ -186,6 +230,7 @@ def select_for_publication(
     if not 0 < policy.alpha < 1 or policy.hard_cap < 0:
         raise ValueError("family policy requires 0 < alpha < 1 and a non-negative cap")
     by_id = {_candidate_id(item.finding): item for item in scored}
+    bar_applied = policy.score_bar_applied
     threshold = policy.pr_family_threshold
     clusters = publication_clusters([item.finding for item in scored])
     representatives: list[ScoredFinding] = []
@@ -201,7 +246,7 @@ def select_for_publication(
         unit = finding_unit(representative.finding)
         unit_threshold = policy.threshold_for(unit)
         applied[unit] = unit_threshold
-        if representative.e_value >= unit_threshold:
+        if not bar_applied or representative.e_value >= unit_threshold:
             representatives.append(representative)
             suppressed.extend(Suppressed(item.finding, REASON_SAME_DEFECT) for item in others)
         else:
@@ -224,5 +269,6 @@ def select_for_publication(
         unit_thresholds=dict(sorted(applied.items())),
         units_searched=policy.units_searched,
         pr_error_bound=policy.pr_error_bound,
-        e_value_validity=E_VALUE_VALIDITY,
+        e_value_validity=E_VALUE_VALIDITY if bar_applied else E_VALUE_NOT_APPLIED,
+        score_bar_applied=bar_applied,
     )

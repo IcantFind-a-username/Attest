@@ -232,4 +232,23 @@ and $0.270322 (the two PR #13 self-reviews). **Cumulative: $83.46 of the $110 ca
 
 **Window total for 2026-09-12: $0.589352** — $0.345762 (PR #15), $0.007750 (PR #16), $0.069390 (the external receipt test) and $0.166450 (PR #17). **Cumulative: $85.64 of the $110 cap**, leaving **$24.36**. The cap does not move (D-192).
 
+| 2026-09-12b | **the D-191 held-out corpus rebuild (owner instruction 2 of this window)** — new SWE-bench Verified cases drawn from the **same held-out slice** (never the dev slice, never a re-split), kept only when the project's own manifests at `base_commit` select an interpreter inside the supported 3.10-3.13 and a **free docker-only probe** shows the base tree both builds the product's image and collects a test in it. Factory configuration: `--k 5`, `--budget 1.00`, containers, **local review only — no GitHub client is constructed, so no publication surface exists**. Reservation basis is the owner's ceiling for the item, **$5.00**, and the driver's hard cumulative `--cap` is the same number, reserving each case's $1.00 maximum before it starts (D-172). The measured basis: the 2026-09-11 re-run cost $1.4297 for 16 cases with discovery replayed from cache, and the 2026-09-10 K=5 arm $1.6840 for the same 16; a fresh corpus buys its own discovery, so the rate is expected higher per case and the cap, not the estimate, is what binds. **Stop rule set by the owner: stop immediately at $5.00** | $5.00 | **$4.138447**; $0.861553 released. **35 of 39 cases run** — the cap refused the 36th by name (`unit sympy__sympy-24443: skipped: cumulative cap: $4.1384 spent, reserving $1.0000 for this unit would project $5.1384 past the $5.00 cap`), and the four unattempted cases are listed in the report rather than dropped. Largest single review **$0.4613** (`pydata__xarray-6992`); mean $0.118. **Crash-class recall 2 of 28 (7.1%, Wilson 95% [2.0%, 22.6%])**, 0 refusals, 7 value-class cases excluded per D-158 — and **both receipts come from the seven cases the old denominator already held**, so the 21 new crash-class cases certified nothing ([report](docs/acceptance/2026-09-12-heldout-supported.md)) |
+
+
+| 2026-09-12b | **the self-review [PR #18](https://github.com/IcantFind-a-username/Attest/pull/18) bought** (owner instruction 0 of this window: merge the other window's five commits). This repository reviews its own pull requests, so opening one buys a review; `budget-usd` $1.00 and the shipped `samples` 5. It read 1 of 2 units, deferred on two collection failures and published nothing — and it is the **first sighting of D-187's repaired clause on real traffic**: ``read 1 of 2 units, budget-limited (`budget-usd` $1.04 would have read it)``, the label dropped in one whole step rather than sliced mid-word. Not a study: the spend is the cost of the merge the owner asked for | — | **$0.187612** (run `34264752085`, check green) |
+
+| 2026-09-12b | **the named lag of the previous window, settled here.** The 2026-09-12 ledger recorded that the self-review of the last push to `feature/external-receipt-rc2` was not in its figures and was carried forward, predicting "about $0.08". Measured from that run's own artifact: **$0.043662** (run `34124330559`) | — | **$0.043662** |
+
+**Window total for 2026-09-12b: $4.369721** — $4.138447 (the corpus rebuild), $0.187612 (the PR #18 self-review) and $0.043662 (the previous window's carried lag). The ledger census, the readiness re-read and every document in this window cost **$0.00**. **Cumulative: $90.01 of the $110 cap**, leaving **$19.99**. The cap does not move (D-192).
+
 **One named lag.** This repository reviews its own pull requests, so the commit that records a self-review's cost triggers another one. The regress is bounded rather than chased: the self-review of *this* commit — the last push to `feature/external-receipt-rc2` — is not in the figures above and is carried into the next window's ledger. At the rate measured here that is about $0.08, and it is stated rather than absorbed silently.
+
+## Window 2026-09-13 — six phases to `v0.1.0`
+
+**Owner cap for the whole task: $12.00**, against the unchanged **$110** cumulative cap (D-192)
+and **$90.01 settled before this window**, leaving $19.99. Phase reservations are posted here
+before the first call of each phase and settled after it, per phase.
+
+| phase | item | reserved | settled |
+|---|---|---|---|
+| 1 | the publication rule — a ledger census, a rule change and a replay over data already on disk; **no model is constructed anywhere in this phase** | $0.00 | **$0.000000** |

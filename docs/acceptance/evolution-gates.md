@@ -352,6 +352,29 @@ The unit definition lives alone in `attest/certification/units.py` behind
 applied, so a row says which rule produced it. Permutation and tie determinism are unchanged and
 are re-checked over the unit partition itself.
 
+**Amended 2026-09-13 (D-199), and this one removes a gate rather than correcting it.** The
+`m_u/alpha` score bar is **no longer applied**. A finding whose certification is accepted and
+whose verification is reproduced publishes subject to two rules only: same-defect clustering,
+and the hard author-visible cap of three, taken in score order. `alpha`, every likelihood ratio,
+`K` and the cap did **not** move; the bar is still computed and still recorded, and every row
+carries `score_bar_applied: false` beside `unit_thresholds` so a reader can see what the old
+rule would have done. `PUBLICATION_POLICY_SCHEMA_VERSION` is `attest.publication-policy.v4`, and
+a recorded row replays under the rule its own version names (`score_bar_applies`); an unknown
+version fails **closed**.
+
+**What this gate no longer asserts.** `pr_error_bound` is `1.0` and `e_value_validity` is
+`not-applied` under v4: with no threshold there is no rejection rule for a union bound to be
+taken over, so the per-unit multiplicity cap of the two paragraphs above is **given up**, not
+weakened. What remains is the receipt itself. The reason the bar went is arithmetic and is in
+`docs/mainline.md` §5 A: `T` has never fired in 2,589 recorded reviews, so a certified finding's
+reachable ceiling was `S_CAP x V_CAP = 60` against a bar of `10*m_u`, and a change unit with
+seven or more eligible candidates could not publish a receipt at all.
+
+**The pass condition is otherwise unchanged**, and one clause of it is now load-bearing on its
+own: *author-visible inline plus summary findings never exceed three*. Before D-199 the cap had
+suppressed **0 of 574** recorded rows; the replay of the new rule has it binding for the first
+time ([report](2026-09-13-publication-rule.md)).
+
 ## 8. Semantic receipt gates
 
 ### G-SEM-001 — Exact execution identity
