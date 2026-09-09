@@ -286,12 +286,28 @@ def cmd_run(args: argparse.Namespace) -> int:
         float(row.get("spend_usd", 0.0))
         for row in prospective._read_jsonl(study / prospective.TRIALS_FILE)
     )
+    skipped: list[str] = []
     for row in pending:
         if spent >= preregistration.cost_cap_usd:
             print(f"cost cap {preregistration.cost_cap_usd} reached; stopping", flush=True)
             break
         repo = CORPORA / _clone_name(str(row["repository"]))
-        _git(repo, "checkout", "-q", "--detach", str(row["head_sha"]))
+        # A population repository this host cannot clone -- a private one on a
+        # runner whose token does not reach it -- is **skipped by name**, not a
+        # crash that ends the run. The unit stays in the sample and its absence
+        # is reported; it is never quietly dropped from the denominator.
+        if not (repo / ".git").is_dir():
+            print(json.dumps({"unit_id": str(row["unit_id"]), "skipped": "no clone",
+                              "repository": str(row["repository"])}), flush=True)
+            skipped.append(str(row["unit_id"]))
+            continue
+        try:
+            _git(repo, "checkout", "-q", "--detach", str(row["head_sha"]))
+        except subprocess.CalledProcessError as exc:
+            print(json.dumps({"unit_id": str(row["unit_id"]), "skipped": "checkout failed",
+                              "detail": str(exc)[:200]}), flush=True)
+            skipped.append(str(row["unit_id"]))
+            continue
         config = load_config(repo)
         config = config.__class__(
             **{
@@ -338,6 +354,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         prospective.record_trial(study, trial)
         spent += trial.spend_usd
         print(json.dumps(trial.to_json_dict(), ensure_ascii=False), flush=True)
+    if skipped:
+        print(json.dumps({"skipped_units": skipped}), flush=True)
     return 0
 
 
