@@ -471,6 +471,25 @@ isolated canary CI environment with no real secret.
 **Fail/stop:** any canary read, host-network egress, persistent process, writable host path,
 or forgeable result is P0. Do not compensate with Python hooks or documentation warnings.
 
+**Read 2026-09-13: the fixture-coverage half is met; the observation half is not.** All
+**thirteen** preregistered classes — secret, `/proc`, home/git, filesystem, raw-network,
+DNS/IPv6, native syscall, fork/thread bomb, exec, daemon, resource, namespace and result-spoof —
+are dispatched for real on `linux-container-v1` and every one is **marked, never certified**,
+with the positive control certifying in the same backend in the same run
+([matrix](2026-09-13-redteam-thirteen.md), `Linux x86_64`, docker 28.0.4). The four added on
+that date are `proc`, `homegit`, `native` and `namespace`; the nine before them are unchanged.
+Nothing is skipped and nothing is `xfail`ed.
+
+**The sandbox-external observation remains INSUFFICIENT, and two of the new rows sharpen why.**
+`native` and `namespace` were both refused with the reason *"reproduction attempted to create a
+child process"* — the product's **own** containment guard, raised at the first repeat. That is a
+genuine refusal and the rows are correctly marked, but those two fixtures exist to ask whether
+the **kernel** refuses, and the answer is still unrecorded. The one external observation on file
+watches seven syscalls and attests network egress and process creation only
+([report](2026-09-08-external-observer.md)). Eleven of the thirteen classes have no external
+observation of any kind. **This gate stays open on that item**, and `SECURITY.md`'s *Known
+unmitigated* section carries the preconditions and blast radius for an operator to price.
+
 ### G-SEC-003 — Controlled subprocess profiles
 
 **Applies to:** X-03.

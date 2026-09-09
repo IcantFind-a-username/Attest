@@ -45,14 +45,17 @@ jobs:
 
       # The canary is a fixture value, not a credential: it is planted in the
       # controller's environment so the matrix can prove the job never sees it.
-      # 4.1: nine attack classes plus the positive control. The matrix is
+      # 4.1: thirteen attack classes plus the positive control -- the nine of
+      # 2026-09-03 plus /proc, home/git, native syscall and namespace, added
+      # 2026-09-13 to close the four `G-SEC-002` names and the matrix did not
+      # dispatch. The matrix is
       # written into `docs/acceptance/` so the result travels with the
       # repository rather than expiring with the workflow artifact.
       - name: Red-team matrix on linux-container-v1
         run: |
           mkdir -p docs/acceptance
           python scripts/release/redteam.py --record redteam.md
-          cp redteam.md "docs/acceptance/$(date -u +%Y-%m-%d)-redteam-nine.md"
+          cp redteam.md "docs/acceptance/$(date -u +%Y-%m-%d)-redteam-thirteen.md"
 
       - name: The matrix
         if: always()

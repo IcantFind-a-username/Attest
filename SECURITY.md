@@ -71,7 +71,11 @@ Where these are exercised today:
 | a privileged host **refuses to run** rather than running unprotected | `tests/test_executor.py::test_execute_privileged_posix_user_defers_before_running_generated_code`, `::test_execute_linux_privilege_state_fails_closed_before_generated_code` |
 | credentials are dropped from the verification subprocess and redacted from the ledger | `tests/test_executor.py::test_verification_subprocess_drops_credentials_and_redacts_ledger` |
 | a provider error carrying a key is redacted before it reaches a comment | `tests/test_proposer.py::test_response_fragment_is_bounded_and_redacts_known_credentials` |
-| network, filesystem escape, symlink escape, process exhaustion, result forgery, bundle tampering | `scripts/release/redteam.py` — nine classes plus a positive control, run on a GitHub-hosted runner ([latest result](docs/acceptance/2026-09-07-redteam-nine.md)) |
+| the host's `/proc` — pid table, `/proc/1/cgroup`, `/proc/kcore`, `core_pattern`, the host mount table | red-team fixture `proc` |
+| the operator's home, git identity, ssh keys, `gh` token, and the reviewed tree's own `.git` | red-team fixture `homegit` |
+| libc `socket()`, `connect()`, `fork()`, `mount()`, `ptrace()` through `ctypes`, under the Python audit hooks | red-team fixture `native` |
+| `unshare(CLONE_NEWUSER\|CLONE_NEWNS)`, a read-write remount of `/`, `setns()` on `/proc/1/ns` | red-team fixture `namespace` |
+| network, filesystem escape, symlink escape, process exhaustion, result forgery, bundle tampering | `scripts/release/redteam.py` — **thirteen classes** plus a positive control, run on a GitHub-hosted runner ([latest result](docs/acceptance/2026-09-13-redteam-thirteen.md)) |
 
 ## What is out of scope
 
@@ -90,18 +94,60 @@ Where these are exercised today:
   review; a pull request that makes a review cost more than it is worth is a cost problem,
   and the ceiling is the answer to it.
 
+## Known unmitigated, and what the matrix does not settle
+
+**Every one of `G-SEC-002`'s thirteen preregistered attack classes is now dispatched for real
+on the production backend and marked, never certified, with the positive control certifying in
+the same run** ([matrix](docs/acceptance/2026-09-13-redteam-thirteen.md), 2026-09-13,
+`Linux x86_64`, docker 28.0.4). Nothing in the matrix is skipped or `xfail`ed. What follows is
+what that does **not** buy, stated so an operator can price the risk rather than infer it.
+
+### 1. The observation gap — which boundary refused is unknown for eleven of thirteen classes
+
+**Attack preconditions:** none; this is a limit of the evidence, not an exploit.
+**Blast radius:** if a refusal that the matrix attributes to the container were in fact a
+Python audit hook, then head code that avoids the interpreter — a C extension, a `ctypes` call,
+an `exec` of a native binary — would not meet it.
+
+An external kernel observer has run **once**, and it watched **seven syscalls**: it recorded
+945 audit records at the container's uid with **0 `socket`, 0 `connect` and 0 `clone`**
+([report](docs/acceptance/2026-09-08-external-observer.md)). So *network egress* and *process
+creation* are attested from outside the product. **Everything else is not**: filesystem escape,
+symlink escape, `/proc` reads, home and git reads, `mount`, `ptrace`, `unshare`, `setns`, and
+the whole result-forgery pair are observed from **inside** — the fixture's own return value,
+the reason the run recorded, and whether a file appeared on the host.
+
+The `native` and `namespace` fixtures make this concrete rather than theoretical. Both were
+refused, and the recorded reason for both is **`reproduction attempted to create a child
+process` — the product's own containment guard**, raised at the first repeat. That is a real
+refusal and the rows are correctly marked. It is *not* evidence that the kernel would have
+refused, which is the question those two fixtures were written to ask.
+
+**This condition of `G-SEC-002` is open and no number of internal passes closes it.**
+
+### 2. The audit is per-interpreter, not per-caller
+
+**Attack preconditions:** the ability to influence what the trusted runner bootstrap executes.
+**Blast radius:** a child process created by trusted bootstrap sets the same marker reviewed
+code would, so a marker is evidence that *something* in the reproduction interpreter forked —
+not that the reviewed code did. Two retained Black replays first tripped it on Python 3.8's
+`platform.uname()` invoking `uname -p`, before the generated test ran at all.
+
+### 3. Nothing outside the container has an OS boundary at all
+
+**Attack preconditions:** running `attest review` locally without Docker.
+**Blast radius:** total, within the operator's own account. The fallback adapter has
+**language guards only**, it says so in the ledger and in the run status, and it is out of
+scope above. **The OS boundary is the container; without it there is no boundary.**
+
+### 4. No third-party penetration test has been performed.
+
 ## What is *not* claimed
 
 Read this before relying on the boundary.
-
-- **The isolation evidence is observed from inside the product.** Every red-team row records
-  the fixture's own return value, the reason the run recorded, and whether a file appeared on
-  the host. `G-SEC-002` also asks for a **sandbox-external** observer proving the kernel
-  denied the attempt. One such observation exists, on one run
-  ([report](docs/acceptance/2026-09-08-external-observer.md)); the matrix has not been run
-  under it. **That condition of the gate is open**, and no number of internal passes closes it.
 - **Language-level process and network guards are best-effort containment, not a boundary.**
   The OS boundary is the container. Without it there is no boundary.
-- **The process audit covers the whole reproduction interpreter**, so trusted bootstrap can
-  set the same child-process marker reviewed code would.
+- **A pass on this platform is not a pass on another.** Every row of the matrix was produced on
+  `ubuntu-latest` with docker 28.0.4. The declared platform is the only one claimed
+  ([support matrix](docs/operations/support-matrix.md)).
 - **No penetration test by a third party has been performed.**
