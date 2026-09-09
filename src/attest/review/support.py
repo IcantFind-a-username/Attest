@@ -393,6 +393,75 @@ def refusal_from_reason(reason: str) -> Unsupported | None:
     return None
 
 
+# --- the deferral register (D-201) ------------------------------------------
+#
+# D-190 put the five *refusals* on the line an author reads and left an ordinary
+# verification deferral rendering as bare prose. Six of the eleven self-reviews
+# since D-174 published exactly that: `DEFER: verification deferred: probe
+# reported no observation on base (3 candidates)` -- no level marker, no
+# coordinate, no count of units read, and the product's own adjudicator refuses
+# it. These are the classes an author can act on, and, exactly as with a
+# refusal, **the published sentence is the register's own**: a DEFER reason can
+# quote a traceback, a runner path or a build log, and none of that reaches the
+# line. The reason keeps its place in the ledger and in the collapsed block.
+
+PROBE_NO_OBSERVATION = Unsupported(
+    "probe-no-observation",
+    "deferred: the probe recorded no observation on the merge base, so no difference "
+    "between the two revisions could be measured; nothing was verified.",
+    "the probe recorded no observation on the merge base, so no difference between the "
+    "two revisions could be measured; nothing was verified",
+)
+PROBE_NOT_ANCHORED = Unsupported(
+    "probe-not-anchored",
+    "deferred: the probe did not execute the anchored file on the merge base, so it "
+    "measured the behaviour of something other than the code under review; nothing was "
+    "verified.",
+    "the probe did not execute the anchored file on the merge base, so it measured "
+    "something other than the code under review; nothing was verified",
+)
+PROBE_BASE_COLLECTION = Unsupported(
+    "probe-base-collection",
+    "deferred: pytest could not collect the probe on the merge base, so the base side of "
+    "the differential never ran; nothing was verified.",
+    "pytest could not collect the probe on the merge base, so the base side of the "
+    "differential never ran; nothing was verified",
+)
+VERIFICATION_DEFERRED = Unsupported(
+    "verification-deferred",
+    "deferred: verification did not complete for any candidate; nothing was verified.",
+    "verification did not complete for any candidate; nothing was verified",
+)
+
+DEFERRAL_REGISTER = (
+    PROBE_NO_OBSERVATION,
+    PROBE_NOT_ANCHORED,
+    PROBE_BASE_COLLECTION,
+    VERIFICATION_DEFERRED,
+)
+
+
+def deferral_from_reason(reason: str) -> Unsupported | None:
+    """The deferral class an author's one line may name, or None.
+
+    A refusal outranks every class here -- `refusal_from_reason` is asked first
+    by the caller -- and this answers only for a reason that is a real DEFER.
+    Nothing below reads the reason for anything but its class.
+    """
+    if type(reason) is not str or not reason:
+        return None
+    lowered = reason.lower()
+    if "verification deferred" not in lowered and "verification did not" not in lowered:
+        return None
+    if "no observation" in lowered:
+        return PROBE_NO_OBSERVATION
+    if "did not execute" in lowered:
+        return PROBE_NOT_ANCHORED
+    if "collection" in lowered or "collect" in lowered:
+        return PROBE_BASE_COLLECTION
+    return VERIFICATION_DEFERRED
+
+
 # D-187 gave the truncation clause its short form for the collapsed run status;
 # D-190 puts it on the line above that block. Which unit and how much short are
 # a change unit's own label, and a unit naming forty files makes the clause

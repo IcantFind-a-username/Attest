@@ -91,7 +91,12 @@ from attest.review.structural import (
     structural_fingerprint,
     structural_note,
 )
-from attest.review.support import Unsupported, preflight, refusal_from_reason
+from attest.review.support import (
+    Unsupported,
+    deferral_from_reason,
+    preflight,
+    refusal_from_reason,
+)
 from attest.review.verification import CERTIFICATION_REPEATS, run_verification_stage
 
 DELIVERY_TRANSCRIPT_SCHEMA_VERSION = 1
@@ -1129,9 +1134,18 @@ def _post_deferred(
     # comment -- one contract line naming it, then the same collapsed run status
     # -- and it is only ever reached with nothing surfaced, because a receipt is
     # never replaced by a sentence about the host.
+    # D-201: and an ordinary deferral is not one either. The same shape, the
+    # same register, the class name in place of the refusal name -- a refusal
+    # outranks it, because `no docker` says more than `verification deferred`.
+    deferral = deferral_from_reason(reason) if refusal is None else None
     if refusal is not None and not surfaced:
         body = _refusal_body(
             ledger, task_id, refusal, spend_usd=spend_usd, elapsed_s=elapsed_s
+        )
+    elif deferral is not None and not surfaced:
+        body = _refusal_body(
+            ledger, task_id, deferral, spend_usd=spend_usd, elapsed_s=elapsed_s,
+            word="deferred",
         )
     else:
         body = render_deferred(f"DEFER: {reason}")
@@ -1207,6 +1221,7 @@ def _refusal_body(
     *,
     spend_usd: float = 0.0,
     elapsed_s: float = 0.0,
+    word: str = "refused",
 ) -> str:
     """The comment a refusal publishes: one contract line, then the run status.
 
@@ -1223,7 +1238,8 @@ def _refusal_body(
         units_planned=counts[1],
         spend_usd=spend_usd,
         elapsed_s=elapsed_s,
-        refusal=(refusal.code, refusal.fact),
+        refusal=(refusal.code, refusal.fact) if word == "refused" else None,
+        deferral=(refusal.code, refusal.fact) if word == "deferred" else None,
         ledger_url=_run_url(),
     )
     verdict = contract_check(line)

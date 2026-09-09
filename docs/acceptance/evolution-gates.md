@@ -729,8 +729,13 @@ entire account holds **29** reviewable pull requests across **6** supported repo
 **this gate cannot be passed by this account's traffic at any budget**. **Prospectivity:** one
 unit of the 29 is genuinely prospective. What the population *can* establish is mainline §1
 condition 5 — one prospective run with no false publication — which is a weaker and separately
-recorded claim. The re-take runs the same frozen sample on the declared CI platform through
-`.github/workflows/e04-shadow.yml` ([report](2026-09-13-e04-shadow-v3.md)).
+recorded claim. The re-take ran the same frozen sample on the declared CI platform through
+`.github/workflows/e04-shadow.yml`, and it changes the first reason without touching the other
+two: **28 units, 191 candidates, 19 eligible, 13 reproductions that actually executed, 0
+bootstrap failures, 0 certified and 0 published** for $2.4830. So there are **no false
+publications over 28 real pull requests with a working executor under D-199's rule** — the
+substance of mainline §1 condition 5 — while this gate still fails on all-silence, on scale and
+on prospectivity ([report](2026-09-13-e04-shadow-v3.md)).
 
 ### G-NEWCODE-001 — New-code evidence-contract decision readiness
 
