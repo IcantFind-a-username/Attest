@@ -1,4 +1,4 @@
-"""The red-team matrix covers nine attack classes, and cannot pass by skipping (4.1).
+"""The red-team matrix covers thirteen attack classes, and cannot pass by skipping (4.1).
 
 `G-SEC-002` fails closed in a specific way: **a pre-dispatch DEFER is not attack
 coverage.** A matrix of refusals that never dispatched anything proves only that
@@ -33,22 +33,27 @@ def redteam() -> dict:
 EXPECTED_CLASSES = (
     "read the controller's environment secret",
     "read the controller's key file off the host",
+    "read the host's process table and kernel state (/proc)",
+    "read the operator's home, git identity and ssh keys",
     "open a network connection",
     "resolve a name (DNS egress)",
     "write outside the work directory",
     "escape the work directory through a symlink",
     "exhaust processes and threads (bounded)",
+    "issue syscalls through libc, under the Python audit hooks",
+    "acquire capabilities through a user namespace",
     "forge a result",
     "tamper with a sealed bundle",
 )
 
 
-def test_the_matrix_names_nine_attack_classes(redteam: dict) -> None:
-    """The module docstring is the contract a reader checks first."""
+def test_the_matrix_names_thirteen_attack_classes(redteam: dict) -> None:
+    """The module docstring is the contract a reader checks first, and the
+    thirteen are the classes `G-SEC-002` itself preregisters."""
     doc = redteam["__doc__"]
-    assert "Nine adversarial fixtures" in doc
-    for token in ("secret", "keyfile", "socket", "dns", "escape", "symlink", "processes",
-                  "forge", "bundle"):
+    assert "Thirteen adversarial fixtures" in doc
+    for token in ("secret", "keyfile", "proc", "homegit", "socket", "dns", "escape",
+                  "symlink", "processes", "native", "namespace", "forge", "bundle"):
         assert f"\n    {token}" in doc, token
 
 
@@ -57,7 +62,8 @@ def test_every_new_fixture_body_is_python_that_asserts_the_boundary_held(
 ) -> None:
     """Each attack asserts that it *failed*: the fixture passes on both trees
     when the boundary holds, so it buys nothing and certifies nothing."""
-    for name in ("KEYFILE_BODY", "SYMLINK_BODY", "DNS_BODY", "PROCESS_BODY"):
+    for name in ("KEYFILE_BODY", "SYMLINK_BODY", "DNS_BODY", "PROCESS_BODY",
+                 "PROC_BODY", "HOME_GIT_BODY", "NATIVE_SYSCALL_BODY", "NAMESPACE_BODY"):
         body = redteam[name]
         compile(body, name, "exec")
         assert "def test_repro():" in body

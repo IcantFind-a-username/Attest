@@ -1,17 +1,30 @@
 """G-SEC-002 red-team matrix on the production isolation backend.
 
-Nine adversarial fixtures, each dispatched for real against `linux-container-v1`
-and each required to be **marked, never certified**:
+Thirteen adversarial fixtures, each dispatched for real against
+`linux-container-v1` and each required to be **marked, never certified**:
 
     secret        head code reads a canary from the controller's environment
     keyfile       head code reads the controller's key file off the host
+    proc          head code reads the host's process table and kernel state
+    homegit       head code reads the operator's home, git identity and ssh keys
     socket        head code opens a network connection
     dns           head code resolves a name (egress that is not a TCP connect)
     escape        head code writes outside its work directory
     symlink       head code writes through a symlink that points out of it
     processes     head code exhausts processes and threads, bounded
+    native        head code issues syscalls through libc, under the Python hooks
+    namespace     head code unshares a user namespace and tries to use it
     forge         an executor returns a result bound to another request's nonce
     bundle        a sealed evidence bundle is edited after the fact
+
+`proc`, `homegit`, `native` and `namespace` were added on 2026-09-13 to close the
+four classes `G-SEC-002` names that the nine-fixture matrix did not dispatch.
+**`native` is the one that matters most**: every process/network guard the product
+installs above the container is a Python audit hook, and `AGENTS.md` §4 says in its
+own words that those are "best-effort containment, not a security boundary". A
+fixture that calls `socket(2)` and `fork(2)` through `ctypes` goes under them and
+asks the kernel instead, which is the only way to tell which of the two actually
+refused.
 
 A positive control -- an ordinary regression -- must certify in the same backend
 in the same run, or a matrix of refusals proves only that nothing works.
@@ -185,6 +198,166 @@ PROCESS_BODY = (
     "            break\n"
     "        threaded += 1\n"
     "    assert forked == 0 and threaded == 0, (forked, threaded)\n"
+)
+
+PROC_BODY = (
+    "import os\n"
+    "import glob\n\n"
+    "def test_repro():\n"
+    "    leaks = []\n"
+    "    # 1. another process's command line: in a correct pid namespace the\n"
+    "    #    only pids visible are this container's own\n"
+    "    pids = sorted(\n"
+    "        int(p.rsplit('/', 1)[-1])\n"
+    "        for p in glob.glob('/proc/[0-9]*')\n"
+    "    )\n"
+    "    if len(pids) > 32:\n"
+    "        leaks.append(('pid-table', len(pids)))\n"
+    "    # 2. the host's own init, by its cgroup line\n"
+    "    try:\n"
+    "        with open('/proc/1/cgroup', 'r') as handle:\n"
+    "            cgroup = handle.read()\n"
+    "        if 'docker' not in cgroup and 'containerd' not in cgroup and cgroup.strip():\n"
+    "            leaks.append(('host-init-cgroup', cgroup[:60]))\n"
+    "    except OSError:\n"
+    "        pass\n"
+    "    # 3. physical memory\n"
+    "    try:\n"
+    "        with open('/proc/kcore', 'rb') as handle:\n"
+    "            handle.read(16)\n"
+    "        leaks.append(('kcore', 'readable'))\n"
+    "    except OSError:\n"
+    "        pass\n"
+    "    # 4. a kernel tunable that must not be writable\n"
+    "    try:\n"
+    "        with open('/proc/sys/kernel/core_pattern', 'w') as handle:\n"
+    "            handle.write('|/bin/false')\n"
+    "        leaks.append(('core_pattern', 'writable'))\n"
+    "    except OSError:\n"
+    "        pass\n"
+    "    # 5. the host mount table\n"
+    "    try:\n"
+    "        with open('/proc/self/mountinfo', 'r') as handle:\n"
+    "            mounts = handle.read()\n"
+    "        if '/var/lib/docker' in mounts or '/Users' in mounts:\n"
+    "            leaks.append(('host-mounts', 'visible'))\n"
+    "    except OSError:\n"
+    "        pass\n"
+    "    assert leaks == [], leaks\n"
+)
+
+# ------------------------------------------------------------- home / git
+# The controller runs as a real user with a real home: a git identity, a GitHub
+# CLI token, ssh keys, and the checkout the review is *about*. None of it may be
+# reachable. The existing `keyfile` fixture looks for one canary in six paths;
+# this one asks whether the home directory and the host git tree exist at all.
+HOME_GIT_BODY = (
+    "import os\n\n"
+    "PATHS = (\n"
+    "    '/root/.gitconfig',\n"
+    "    '/root/.git-credentials',\n"
+    "    '/root/.ssh/id_rsa',\n"
+    "    '/root/.ssh/id_ed25519',\n"
+    "    '/root/.config/gh/hosts.yml',\n"
+    "    '/home/runner/.gitconfig',\n"
+    "    '/home/runner/.git-credentials',\n"
+    "    '/home/runner/.ssh/id_rsa',\n"
+    "    '/home/runner/.config/gh/hosts.yml',\n"
+    "    '/home/runner/work/Attest/Attest/.git/config',\n"
+    "    '/github/home/.gitconfig',\n"
+    "    os.path.expanduser('~/.gitconfig'),\n"
+    "    os.path.expanduser('~/.git-credentials'),\n"
+    ")\n\n"
+    "def test_repro():\n"
+    "    reachable = []\n"
+    "    for path in PATHS:\n"
+    "        try:\n"
+    "            with open(path, 'rb') as handle:\n"
+    "                handle.read(1)\n"
+    "        except OSError:\n"
+    "            continue\n"
+    "        reachable.append(path)\n"
+    "    # the .git directory of the tree under review is not shipped into the\n"
+    "    # container either: a review reads a materialised tree, not a checkout\n"
+    "    for root in ('/attest/tree/.git', '/attest/.git'):\n"
+    "        if os.path.isdir(root):\n"
+    "            reachable.append(root)\n"
+    "    assert reachable == [], reachable\n"
+)
+
+# --------------------------------------------------------- native syscall
+# Every guard the product installs above the container is a Python-level hook,
+# and AGENTS.md §4 says so: "current language-level process/network guards are
+# best-effort containment, not a security boundary". This fixture goes under
+# them with ctypes and asks the kernel directly. If the container is the
+# boundary, the kernel refuses; if the Python hook was the boundary, it does not.
+NATIVE_SYSCALL_BODY = (
+    "import ctypes\n"
+    "import ctypes.util\n"
+    "import os\n\n"
+    "AF_INET = 2\n"
+    "SOCK_STREAM = 1\n\n"
+    "def test_repro():\n"
+    "    escaped = []\n"
+    "    libc = ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)\n"
+    "    # 1. a socket straight from libc, under the Python audit hook\n"
+    "    fd = libc.socket(AF_INET, SOCK_STREAM, 0)\n"
+    "    if fd >= 0:\n"
+    "        addr = (ctypes.c_ubyte * 16)(0, AF_INET, 0, 53, 1, 1, 1, 1)\n"
+    "        rc = libc.connect(fd, ctypes.byref(addr), 16)\n"
+    "        os.close(fd)\n"
+    "        if rc == 0:\n"
+    "            escaped.append('libc-connect')\n"
+    "    # 2. a child process straight from libc\n"
+    "    pid = libc.fork()\n"
+    "    if pid == 0:\n"
+    "        os._exit(0)\n"
+    "    if pid > 0:\n"
+    "        os.waitpid(pid, 0)\n"
+    "        escaped.append('libc-fork')\n"
+    "    # 3. mount, which needs CAP_SYS_ADMIN and must not be held\n"
+    "    if libc.mount(b'tmpfs', b'/mnt', b'tmpfs', 0, None) == 0:\n"
+    "        escaped.append('libc-mount')\n"
+    "    # 4. ptrace of pid 1, which needs CAP_SYS_PTRACE\n"
+    "    if libc.ptrace(16, 1, 0, 0) == 0:\n"
+    "        escaped.append('libc-ptrace')\n"
+    "    assert escaped == [], escaped\n"
+)
+
+# ------------------------------------------------------------- namespace
+# The escape a container profile exists to prevent: acquire capabilities by
+# entering a new user namespace, then use them to remount the root read-write
+# or to join the host's namespaces through /proc/1/ns.
+NAMESPACE_BODY = (
+    "import ctypes\n"
+    "import ctypes.util\n"
+    "import os\n\n"
+    "CLONE_NEWUSER = 0x10000000\n"
+    "CLONE_NEWNS = 0x00020000\n"
+    "CLONE_NEWNET = 0x40000000\n"
+    "MS_REMOUNT = 32\n\n"
+    "def test_repro():\n"
+    "    escaped = []\n"
+    "    libc = ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)\n"
+    "    # 1. a new user namespace hands out a full capability set inside it\n"
+    "    if libc.unshare(CLONE_NEWUSER | CLONE_NEWNS) == 0:\n"
+    "        escaped.append('unshare-user-mount')\n"
+    "        # and with it, the root filesystem read-only flag\n"
+    "        if libc.mount(None, b'/', None, MS_REMOUNT, None) == 0:\n"
+    "            escaped.append('remount-root-rw')\n"
+    "    if libc.unshare(CLONE_NEWNET) == 0:\n"
+    "        escaped.append('unshare-net')\n"
+    "    # 2. joining the host's namespaces through pid 1\n"
+    "    for kind in ('net', 'mnt', 'pid'):\n"
+    "        try:\n"
+    "            fd = os.open('/proc/1/ns/' + kind, os.O_RDONLY)\n"
+    "        except OSError:\n"
+    "            continue\n"
+    "        rc = libc.setns(fd, 0)\n"
+    "        os.close(fd)\n"
+    "        if rc == 0:\n"
+    "            escaped.append('setns-' + kind)\n"
+    "    assert escaped == [], escaped\n"
 )
 
 REGRESSION_BODY = "import mod\n\ndef test_repro():\n    assert mod.add(2, 2) == 4"
@@ -583,6 +756,78 @@ def matrix(root: Path) -> list[Row]:
             detail=processes.reason or "the boundary refused before the fixture could assert",
             marked=processes.outcome is not ExecutionOutcome.REPRODUCED,
             certified=processes.outcome is ExecutionOutcome.REPRODUCED,
+        )
+    )
+
+    proc = _run(repo, "proc", PROC_BODY, adapter, base, head)
+    rows.append(
+        Row(
+            fixture="read the host's process table and kernel state (/proc)",
+            attempt=(
+                f"ran {len(proc.head_runs) or 1} head repeat(s) and probed the pid table, "
+                "/proc/1/cgroup, /proc/kcore, /proc/sys/kernel/core_pattern and the mount table"
+            ),
+            outcome=proc.outcome.value,
+            detail=proc.reason or "every probe was refused inside the container",
+            marked=(
+                proc.outcome is not ExecutionOutcome.REPRODUCED
+                and proc.evidence_class is not EvidenceClass.REGRESSION_REPRODUCED
+            ),
+            certified=proc.outcome is ExecutionOutcome.REPRODUCED,
+        )
+    )
+
+    homegit = _run(repo, "homegit", HOME_GIT_BODY, adapter, base, head)
+    rows.append(
+        Row(
+            fixture="read the operator's home, git identity and ssh keys",
+            attempt=(
+                f"ran {len(homegit.head_runs) or 1} head repeat(s) and opened thirteen home "
+                "paths plus the reviewed tree's own .git directory"
+            ),
+            outcome=homegit.outcome.value,
+            detail=homegit.reason or "no home path is reachable inside the container",
+            marked=(
+                homegit.outcome is not ExecutionOutcome.REPRODUCED
+                and homegit.evidence_class is not EvidenceClass.REGRESSION_REPRODUCED
+            ),
+            certified=homegit.outcome is ExecutionOutcome.REPRODUCED,
+        )
+    )
+
+    native = _run(repo, "native", NATIVE_SYSCALL_BODY, adapter, base, head)
+    rows.append(
+        Row(
+            fixture="issue syscalls through libc, under the Python audit hooks",
+            attempt=(
+                f"ran {len(native.head_runs) or 1} head repeat(s) and called libc socket(), "
+                "connect(), fork(), mount() and ptrace() directly"
+            ),
+            outcome=native.outcome.value,
+            detail=native.reason or "the kernel refused every native call",
+            marked=(
+                native.outcome is not ExecutionOutcome.REPRODUCED
+                and native.evidence_class is not EvidenceClass.REGRESSION_REPRODUCED
+            ),
+            certified=native.outcome is ExecutionOutcome.REPRODUCED,
+        )
+    )
+
+    namespace = _run(repo, "namespace", NAMESPACE_BODY, adapter, base, head)
+    rows.append(
+        Row(
+            fixture="acquire capabilities through a user namespace",
+            attempt=(
+                f"ran {len(namespace.head_runs) or 1} head repeat(s) and called unshare("
+                "CLONE_NEWUSER|CLONE_NEWNS), remounted /, and setns() on /proc/1/ns"
+            ),
+            outcome=namespace.outcome.value,
+            detail=namespace.reason or "unshare and setns were both refused",
+            marked=(
+                namespace.outcome is not ExecutionOutcome.REPRODUCED
+                and namespace.evidence_class is not EvidenceClass.REGRESSION_REPRODUCED
+            ),
+            certified=namespace.outcome is ExecutionOutcome.REPRODUCED,
         )
     )
 
