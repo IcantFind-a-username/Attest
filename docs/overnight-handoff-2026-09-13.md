@@ -287,10 +287,20 @@ resolves to"* — **is not an ancestor of the commit that recorded the 2026-09-0
 number was taken before the fix. This is the first measurement of yellow (a) after D-174, and the
 backlog's standing a4 concern now has a margin of two events instead of one.
 
-### 3. Condition 7 did not hold, and now does
+### 3. Condition 7 did not hold, and still does not — but for one reason instead of two
 
 Six of the eleven published `DEFER: verification deferred: … (3 candidates)` — no level marker,
 no coordinate, no unit count — including **this task's own #20, #21 and #22**. The product's own
 adjudicator refuses that line; it was published anyway because nothing adjudicated it. Fixed as
 **D-201** in the shape you chose: a fifth silence verdict, same register, four classes, and the
 published sentence is the register's own so no traceback, runner path or key can reach it.
+
+**And the pull request that fixed it found the next one.** Its own self-review published two
+well-formed green lines under a header the contract forbids outright — `Review complete.` /
+`No finding was verified by a reproduction; abstained.` Condition 7 says *"no preamble"*. That
+text comes from `render_complete`, it pre-dates D-142, and **the summary body has never been
+adjudicated at all** — only the lines inside it. **I did not fix it**: this surface's copy is
+yours, taken four times, D-201 was one narrowly-scoped change you approved, and rewriting the
+summary header is a second and larger one nobody asked for. **Condition 7 is `FAIL` in the
+release checklist**, with one gap closed and one open, and it is item 1 of the three at the end
+of this handoff.
