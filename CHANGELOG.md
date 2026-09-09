@@ -12,7 +12,28 @@ only published ref is a pilot tag, and the sections below say plainly which is w
 
 ## Unreleased — after `v0.1.0-rc.2`
 
-Copy, on the two lines a truncated review prints. **No constant moved.**
+**The publication rule changed, and it is the largest behaviour change in this file.** Copy, on
+the two lines a truncated review prints. **No constant moved.**
+
+- **A reproduced receipt is no longer thresholded on its score (D-199).** Until now a certified
+  finding also had to clear `m_u/α` — the eligible-candidate count of its own changed file, over
+  a configuration constant of 0.1. It no longer does: an accepted certification with a
+  reproduction that fails on head and passes on base publishes subject to same-defect clustering
+  and the hard cap of three, in score order. **What this buys:** a replay over every recorded
+  ledger publishes **25 findings that were certified and hidden, and withdraws none**, across 17
+  of 90 reproducing selections. **What it costs in trust:** the per-unit multiplicity cap, and
+  with it the `pr_error_bound` figure D-174 added — a `publication_policy` row now records
+  `pr_error_bound: 1.0` and `e_value_validity: "not-applied"`, because with no threshold there is
+  no rejection rule for a union bound to be taken over. **The product now offers the receipt and
+  nothing statistical.** `alpha`, every likelihood ratio, `k_samples` and the cap of three did not
+  move. The bar is still computed and recorded beside `score_bar_applied: false`, so any row says
+  what the old rule would have done, and a row written under an older schema version still
+  replays under that version's rule.
+- **Why it went, and it is arithmetic.** The `T` channel has never fired in any of the 2,589
+  reviews this repository has recorded, so a certified finding's reachable score was
+  `S_CAP × V_CAP = 60` against a bar of `10·m_u` — meaning **a changed file with seven or more
+  eligible candidates could not publish a receipt at all**, whatever the evidence showed. 29 of
+  the 35 hidden receipts were behind a bar above 60.
 
 - **D-187's clause no longer stops inside a word.** The collapsed run status applied its
   160-character bound as a slice, and PR #17's own review rendered ``… `budget-usd` $1.15 would ``.

@@ -22,6 +22,21 @@ rather than deleted — a backlog whose closed items vanish cannot be audited.
 
 <!-- entries below, newest first -->
 
+- **[P1] 2026-09-13 (D-197, D-199): the `T` channel has never fired, in any recorded review.**
+  Across all **2,589** `review` ledger rows in this repository `channels_bought` is `("S",)` and
+  nothing else — not under the corpus drivers, which pass `tier0_commands=[]`, and not on shipped
+  traffic: the 2026-09-12 external receipt ran from `@v0.1.0-rc.2` with the quickstart's defaults
+  and therefore `tier0_commands = ["ruff"]`, and still recorded `channels_bought: ["S"]`. So the
+  whole dynamic range of a certified finding's priority score is the four values of the S vote
+  schedule (40.00, 52.78, 58.97, 60.00), and `T_CAP = 3.0` has contributed nothing to any ranking
+  the product has ever done. Now that D-199 has removed the score bar this costs no publication —
+  the score only orders findings under the cap — but it means **one of the three evidence channels
+  is dead code on every path that has been measured**, and nobody has established whether that is
+  a configuration defect (tier-0 commands never reaching the channel), a pricing defect (ruff
+  producing no signal the channel prices), or a design conclusion (tier-0 has nothing to add).
+  Free to diagnose: one run with `tier0_commands=["ruff"]` on a tree ruff actually complains
+  about, and a read of where `channels_bought` is assembled.
+
 - **[P2] 2026-09-08: `evaluate_project` reconstructs a `ReviewConfig` field by field, and will
   silently drop the next policy key too.** `src/attest/benchmark/api.py` lists eight of the
   fourteen fields; `context_strategy`, `generation_model`, `gate_shadow`, `repro_concurrency`

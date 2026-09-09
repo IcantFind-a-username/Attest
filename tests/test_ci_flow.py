@@ -1695,30 +1695,28 @@ def test_pr_family_policy_caps_publication_and_counts_a_defect_once(
     assert policy["unit_policy_version"] == "attest.change-unit.file.v1"
     assert policy["eligible_units"] == {"app.py": 2, "util.py": 5}
     assert policy["unit_thresholds"] == {"app.py": 20.0, "util.py": 50.0}
-    # ... but publication is family-controlled: one defect, once, above m_u/alpha
-    assert result.surfaced_count == 1
+    # D-199: the score bar is recorded and no longer applied, so what controls
+    # publication is the same-defect cluster and the hard cap. Seven certified
+    # findings, two defects: both speak, and neither speaks twice.
+    assert policy["score_bar_applied"] is False
+    assert result.surfaced_count == 2
     comments = github_server.review_bodies[0]["comments"]
-    assert isinstance(comments, list) and len(comments) == 1
-    body = str(comments[0]["body"])
+    assert isinstance(comments, list) and len(comments) == 2
+    bodies = " ".join(str(comment["body"]) for comment in comments)
     # equal e-values: the deterministic tie-break on candidate id picks one of the two
-    assert ("Empty batches crash" in body) != ("Vacant windows" in body)
+    assert ("Empty batches crash" in bodies) != ("Vacant windows" in bodies)
     final = next(row for row in rows if row["kind"] == "ci_final")
     published = [d for d in final["decisions"] if d["placement"] in {"inline", "overflow"}]
-    assert len(published) == 1
-    assert all(d["wealth_final"] >= 20.0 for d in published)
+    assert len(published) == 2
+    # the `util.py` unit publishes at a score its own bar of 50 refused
+    assert min(d["wealth_final"] for d in published) < 50.0
     suppressed = {s["finding_id"]: s["reason"] for s in policy["suppressed"]}
-    # the whole `util.py` unit is below its own bar of 50; the second `app.py`
-    # candidate is the same defect as the one that published
-    assert sorted(suppressed.values()) == [
-        "below family threshold",
-        "below family threshold",
-        "below family threshold",
-        "below family threshold",
-        "below family threshold",
-        "same defect as a published finding",
-    ]
+    # every remaining suppression is a duplicate of a defect that did publish;
+    # "below family threshold" is no longer a reason this product can produce
+    assert set(suppressed.values()) == {"same defect as a published finding"}
+    assert len(suppressed) == 5
     sticky = github_server.status_bodies[-1]
-    assert ("Empty batches crash" in sticky) != ("Vacant windows" in sticky)
+    assert ("Empty batches crash" in sticky) or ("Vacant windows" in sticky)
     assert "Missing measurements" not in sticky
 
 

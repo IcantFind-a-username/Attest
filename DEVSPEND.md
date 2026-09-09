@@ -242,3 +242,13 @@ and $0.270322 (the two PR #13 self-reviews). **Cumulative: $83.46 of the $110 ca
 **Window total for 2026-09-12b: $4.369721** — $4.138447 (the corpus rebuild), $0.187612 (the PR #18 self-review) and $0.043662 (the previous window's carried lag). The ledger census, the readiness re-read and every document in this window cost **$0.00**. **Cumulative: $90.01 of the $110 cap**, leaving **$19.99**. The cap does not move (D-192).
 
 **One named lag.** This repository reviews its own pull requests, so the commit that records a self-review's cost triggers another one. The regress is bounded rather than chased: the self-review of *this* commit — the last push to `feature/external-receipt-rc2` — is not in the figures above and is carried into the next window's ledger. At the rate measured here that is about $0.08, and it is stated rather than absorbed silently.
+
+## Window 2026-09-13 — six phases to `v0.1.0`
+
+**Owner cap for the whole task: $12.00**, against the unchanged **$110** cumulative cap (D-192)
+and **$90.01 settled before this window**, leaving $19.99. Phase reservations are posted here
+before the first call of each phase and settled after it, per phase.
+
+| phase | item | reserved | settled |
+|---|---|---|---|
+| 1 | the publication rule — a ledger census, a rule change and a replay over data already on disk; **no model is constructed anywhere in this phase** | $0.00 | **$0.000000** |
