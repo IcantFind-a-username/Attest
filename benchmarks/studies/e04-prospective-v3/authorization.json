@@ -1,0 +1,14 @@
+{
+  "authorized_by": "owner, docs/mainline.md §3 (any repository under the owner's GitHub account may be cloned and used as a shadow population without asking); phase 2 of the 2026-09-13 instruction",
+  "granted_at": "2026-09-09T18:39:00+00:00",
+  "population": [
+    "IcantFind-a-username/-SC6122-Group5-Credit-Default",
+    "IcantFind-a-username/Attest",
+    "IcantFind-a-username/Corum",
+    "IcantFind-a-username/IcantFind-a-username",
+    "IcantFind-a-username/OneTapVocal",
+    "IcantFind-a-username/us-stock-helper"
+  ],
+  "scope": "shadow only: the local review path, no GitHub client is constructed, no remote comment is written and no author-visible output is produced anywhere; the study bundle carries counts and ids only",
+  "budget": "owner cap for this phase is $6.00, posted in DEVSPEND.md before the first call; the driver holds the same number as a hard cumulative cap"
+}

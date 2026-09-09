@@ -80,7 +80,92 @@ replay rule exercising itself rather than a weakened assertion.
 
 | | |
 |---|---|
-| full local suite | see the pull request's `checks` run |
+| `checks` on the pull request | **2,179 passed, 10 skipped**, 17m58s — success |
+| `gates` on `main` after the merge | **2,201 passed, 10 skipped**, 20m58s; **coverage 93.39%** against the 90% kernel floor — success (run `34391843795`) |
+| the `attest` self-review on the pull request | pass, 1m26s |
 | `ruff` · `mypy` · `git diff --check` | clean |
-| focused | `tests/certification` + `tests/test_ci_flow.py` green |
-| paid | **$0.00** |
+| paid | **$0.125900** — the self-review the pull request buys, which is also **the first review ever run under D-199's rule**. It read 1 of 17 units, stopped on the discovery share, and published nothing |
+
+Merged at `18:54:14Z`; `main` is green.
+
+---
+
+## Phase 2 — E-04 prospective shadow
+
+Branch `feature/e04-shadow-v3` · report:
+[29 pull requests, 0 published, and a zero that means nothing yet](acceptance/2026-09-13-e04-shadow-v3.md) ·
+study `benchmarks/studies/e04-prospective-v3` · **$1.793201 of $6.00 reserved**
+
+### The one sentence
+
+**Twenty-nine pull requests ran and none published — but all 24 reproduction attempts died at
+`environment bootstrap failed`, so no publication was ever reachable, and a zero over a closed
+path is not a safety result.**
+
+### 1. The population, and the estimate that sized it
+
+29 pull requests across the six repositories under the owner's account that are Python-primary
+and have at least one pull request; `Sovereign-Founder-OS` (Rust, 64 pull requests) excluded for
+language and named. **Five drills excluded before any unit ran**, by a title rule written into
+the protocol — a publication on a planted defect is a true positive and may not sit in a
+false-publication denominator.
+
+Estimate at the last measured rate ($0.118/case on the 2026-09-12b corpus rebuild; $0.0078–$0.35
+on this repository's own self-reviews): 29 × ~$0.12 ≈ **$3.5**, comfortably inside $6.
+**Measured: $1.793201**, mean $0.062, largest single review $0.1696. The cap was never
+approached and **$4.206799 was released**.
+
+### 2. Result
+
+| | |
+|---|---|
+| units | **29 of 29** |
+| candidates · eligible · attempted | 223 · 33 · 24 |
+| certified | **0** |
+| **published** | **0** |
+| budget-limited units | 11 (179 of 298 change units read) |
+
+One line per pull request is in the report's §2.
+
+### 3. Why the zero is vacuous, diagnosed rather than assumed
+
+Every one of the 24 attempts: `environment bootstrap failed … the image build timed out after
+~897 s`. Four observations pin it on the host:
+
+1. `docker run python:3.13-slim` works and reaches PyPI with a `200` — container networking is fine;
+2. `ensure_image` with an hour's headroom still fails at the builder's own 1800 s ceiling;
+3. a two-line Dockerfile whose base image is **already local** hangs >90 s at
+   `#2 [internal] load metadata for docker.io/library/python:3.13-slim`;
+4. the build cache holds **77.8 kB** — the failed builds cached essentially nothing.
+
+**Buildkit cannot resolve registry metadata on this host.** The same build takes **27.9 s** on a
+GitHub runner, measured on this project's own external receipt. The product did nothing wrong:
+all 24 are recorded DEFERs naming their reason.
+
+### 4. `G-SHADOW-001`: FAIL, and two of three reasons are structural
+
+1. **all-silence** — the gate's own text calls it a utility failure regardless of precision;
+2. **scale** — the design asks ≥500 pull requests across ≥30 repositories, ≥100 adjudicated
+   findings, ≥200 adjudicated silences. The owner's whole account holds **29** reviewable pull
+   requests across **6** supported repositories. **No budget fixes this**;
+3. **prospectivity** — 1 unit of 29 is genuinely prospective (`Attest#19`).
+
+What the population *can* establish is mainline §1 condition 5 — one prospective run, no false
+publication — and that still needs a working executor.
+
+### 5. The re-take
+
+`.github/workflows/e04-shadow.yml` (`workflow_dispatch`) runs **the same frozen sample** on
+`ubuntu-latest`. Nothing about the study changes; the local review path still constructs no
+GitHub client, so no comment can reach any repository. `OneTapVocal` is private and
+`GITHUB_TOKEN` cannot clone it, so the runner reports it **skipped by name** rather than dropping
+it. The local trials are kept as `trials-local-host.jsonl` so both columns stay readable.
+
+### 6. One thing that cost money and bought nothing
+
+The driver's first draft resolved a pull request's base as `merge-base(head, the base branch
+today)`. For a **merged** pull request the base branch already contains the head, so that is the
+head itself and the diff is empty: **nine units reviewed nothing for $0.19**. Caught before any
+unit produced a non-empty review, protocol re-frozen against the API's own `base.sha`, those
+trials discarded rather than counted, and the dollar recorded in `DEVSPEND.md` as spend that
+bought nothing.
