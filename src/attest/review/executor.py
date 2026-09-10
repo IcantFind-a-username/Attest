@@ -69,6 +69,8 @@ from attest.review.proposer import (
     response_fragment,
 )
 from attest.review.support import interpreter_range_reason
+from attest.review.value_note import note_from
+from attest.review.value_note import render as render_value_note
 from attest.review.workdir import repro_root
 
 MAX_CONTEXT_LINES = 200
@@ -3129,6 +3131,36 @@ def verify_candidate(
                 "head_detail": execution.probe.head_detail,
             }
         )
+    # D-218, shadow: what the two revisions did on a differential the intent
+    # clause drawered for unreadable intent. It is written to the ledger and to
+    # nowhere else -- `ci.py` does not import this module and nothing posts the
+    # line it renders. Whether an author ever sees it is an owner decision.
+    if execution.intent is not None and execution.probe is not None:
+        note = note_from(
+            intent=execution.intent,
+            expression=execution.probe.expression,
+            base_kind=execution.probe.kind,
+            base_detail=execution.probe.detail,
+            head_kind=execution.probe.head_kind,
+            head_detail=execution.probe.head_detail,
+            head_runs=len(execution.head_runs),
+            base_runs=len(execution.base_runs),
+            reason=execution.reason,
+            candidate_id=candidate.finding.finding_id,
+            anchor_line=candidate.finding.line,
+        )
+        if note is not None:
+            journal.append(
+                {
+                    "kind": "value_observation_note",
+                    "schema_version": "attest.value-observation-note.v1",
+                    "task_id": candidate.task_id,
+                    "finding_id": candidate.finding.finding_id,
+                    "note_id": note.note_id(),
+                    "rendered": render_value_note(note),
+                    **asdict(note),
+                }
+            )
     # D-124: the differential may have regenerated the test (D-114); the spec
     # that produced the recorded runs is the only one a receipt is about
     executed = execution.executed_spec or spec

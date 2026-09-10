@@ -62,7 +62,12 @@ EVIDENCE_TOKEN = re.compile(
     r"(?:receipt\s+[0-9a-f]{8,})"
     r"|(?:bundle\s+\S+)"
     r"|(?:https?://\S+)"
-    r"|(?:\S+::\w+)",  # a pytest node id
+    r"|(?:\S+::\w+)"  # a pytest node id
+    # D-218: a shadow-level note's evidence is the ledger row it was written
+    # from. A drawered differential has no receipt -- that is what drawered
+    # means -- so a line that ended in one would be naming something that does
+    # not exist; the note's digest is a thing an operator finds by grep.
+    r"|(?:note\s+[0-9a-f]{8,})",
     re.IGNORECASE,
 )
 
