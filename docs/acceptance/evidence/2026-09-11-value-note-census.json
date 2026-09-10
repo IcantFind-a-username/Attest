@@ -1,0 +1,729 @@
+{
+  "arms": {
+    "attest": {
+      "description": "this repository's own reviews",
+      "ledgers": 1,
+      "notes": 2,
+      "renderable": 1,
+      "units_with_a_note": 1,
+      "verification_rows": 305
+    },
+    "corum": {
+      "description": "a third-party clone, real history",
+      "ledgers": 1,
+      "notes": 0,
+      "renderable": 0,
+      "units_with_a_note": 0,
+      "verification_rows": 22
+    },
+    "held-out control": {
+      "description": "a SWE-bench case with no defect: docs-only or test-only",
+      "ledgers": 48,
+      "notes": 0,
+      "renderable": 0,
+      "units_with_a_note": 0,
+      "verification_rows": 17
+    },
+    "held-out defect": {
+      "description": "a SWE-bench case carrying a reverted gold patch",
+      "ledgers": 62,
+      "notes": 29,
+      "renderable": 14,
+      "units_with_a_note": 19,
+      "verification_rows": 391
+    },
+    "icantfind-a-username": {
+      "description": "",
+      "ledgers": 1,
+      "notes": 0,
+      "renderable": 0,
+      "units_with_a_note": 0,
+      "verification_rows": 0
+    },
+    "null control": {
+      "description": "the G-NULL-001a populations, public clones with no known defect",
+      "ledgers": 8,
+      "notes": 4,
+      "renderable": 3,
+      "units_with_a_note": 3,
+      "verification_rows": 399
+    },
+    "onetapvocal": {
+      "description": "",
+      "ledgers": 1,
+      "notes": 0,
+      "renderable": 0,
+      "units_with_a_note": 0,
+      "verification_rows": 0
+    },
+    "sc6122-group5-credit-default": {
+      "description": "",
+      "ledgers": 1,
+      "notes": 0,
+      "renderable": 0,
+      "units_with_a_note": 0,
+      "verification_rows": 0
+    },
+    "us-stock-helper": {
+      "description": "the owner's own repository, real history",
+      "ledgers": 1,
+      "notes": 0,
+      "renderable": 0,
+      "units_with_a_note": 0,
+      "verification_rows": 342
+    }
+  },
+  "rows": [
+    {
+      "arm": "attest",
+      "base_detail": "",
+      "base_kind": "",
+      "expression": "",
+      "finding_id": "fe054a5bea",
+      "head_detail": "",
+      "ledger": "attest/.attest/ledger.jsonl",
+      "line": 0,
+      "path": "src/attest/execution/container_images.py",
+      "pinned_values": [],
+      "policy_version": "attest.intent.v2",
+      "reason": "intent: behavior change confirmed, intent unknown: head raises BootstrapFailed from a raise statement on a changed line; no rejected input could be identified from the test's literals (\u884c\u4e3a\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "attest/.attest",
+      "value_specified": []
+    },
+    {
+      "arm": "attest",
+      "base_detail": "(None, None)",
+      "base_kind": "value",
+      "expression": "(mod.STATUS.search(line) and mod.STATUS.search(line).groupdict(), mod.STATUS.search('run status: read 5 of 10 units, budget-limited ; candidates: 2; eligible: 2; reproductions attempted: 1; certified: 1; published: 1'))",
+      "finding_id": "3833b873a9",
+      "head_detail": "({'read': '5'...', ...}, None)",
+      "ledger": "attest/.attest/ledger.jsonl",
+      "line": 14,
+      "path": "scripts/corpus/forward_pair_reviews.py",
+      "pinned_values": [
+        "None"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+      "unit": "attest/.attest",
+      "value_specified": []
+    },
+    {
+      "arm": "null control",
+      "base_detail": "UsageError",
+      "base_kind": "exception",
+      "expression": "group.resolve_command(ctx, [\"instal\", \"--flag\"])",
+      "finding_id": "6377855624",
+      "head_detail": "'NoSuchCommand'",
+      "ledger": "gnull/click/.attest/ledger.jsonl",
+      "line": 0,
+      "path": "src/click/core.py",
+      "pinned_values": [],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: behavior change confirmed, intent unknown: head raises NoSuchCommand from a raise statement on a changed line; the rejected input is not in the base tree's tests, fixtures or documentation (\u884c\u4e3a",
+      "unit": "gnull/click",
+      "value_specified": []
+    },
+    {
+      "arm": "null control",
+      "base_detail": "UsageError",
+      "base_kind": "exception",
+      "expression": "group.resolve_command(ctx, [\"instal\", \"--flag\"])",
+      "finding_id": "6377855624",
+      "head_detail": "'NoSuchCommand'",
+      "ledger": "gnull/click/.attest/ledger.jsonl",
+      "line": 0,
+      "path": "src/click/core.py",
+      "pinned_values": [],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: behavior change confirmed, intent unknown: head raises NoSuchCommand from a raise statement on a changed line; the rejected input is not in the base tree's tests, fixtures or documentation (\u884c\u4e3a",
+      "unit": "gnull/click",
+      "value_specified": []
+    },
+    {
+      "arm": "null control",
+      "base_detail": "AttributeError",
+      "base_kind": "exception",
+      "expression": "mod.coerce_str(\"str\", b\"abc\")",
+      "finding_id": "bf96d32ed3",
+      "head_detail": "None",
+      "ledger": "gnull/itsdangerous/.attest/ledger.jsonl",
+      "line": 16,
+      "path": "tests/test_itsdangerous/test_serializer.py",
+      "pinned_values": [
+        "'AttributeError'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "gnull/itsdangerous",
+      "value_specified": []
+    },
+    {
+      "arm": "null control",
+      "base_detail": "",
+      "base_kind": "",
+      "expression": "",
+      "finding_id": "d394a073e6",
+      "head_detail": "",
+      "ledger": "gnull/more-itertools/.attest/ledger.jsonl",
+      "line": 15,
+      "path": "more_itertools/more.py",
+      "pinned_values": [
+        "1"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+      "unit": "gnull/more-itertools",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "{}",
+      "base_kind": "value",
+      "expression": "dict(prepared.headers)",
+      "finding_id": "f9d26dc62d",
+      "head_detail": "",
+      "ledger": "swebench/cases/psf__requests-1142/repo/.attest/ledger.jsonl",
+      "line": 10,
+      "path": "requests/models.py",
+      "pinned_values": [],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "psf__requests-1142",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "{}",
+      "base_kind": "value",
+      "expression": "dict(prepared.headers)",
+      "finding_id": "f9d26dc62d",
+      "head_detail": "",
+      "ledger": "swebench/cases/psf__requests-1142/repo/.attest/ledger.jsonl",
+      "line": 10,
+      "path": "requests/models.py",
+      "pinned_values": [],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "psf__requests-1142",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "{'A': '1'}",
+      "base_kind": "value",
+      "expression": "dict(merge_setting(request_setting, session_setting))",
+      "finding_id": "d4503dddb0",
+      "head_detail": "",
+      "ledger": "swebench/cases/psf__requests-1921/repo/.attest/ledger.jsonl",
+      "line": 10,
+      "path": "requests/sessions.py",
+      "pinned_values": [
+        "'1'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "psf__requests-1921",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "{'A': '1'}",
+      "base_kind": "value",
+      "expression": "dict(merge_setting(request_setting, session_setting))",
+      "finding_id": "d4503dddb0",
+      "head_detail": "",
+      "ledger": "swebench/cases/psf__requests-1921/repo/.attest/ledger.jsonl",
+      "line": 10,
+      "path": "requests/sessions.py",
+      "pinned_values": [
+        "'1'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "psf__requests-1921",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "['Foo']",
+      "base_kind": "value",
+      "expression": "diagram.class_names(nodes)",
+      "finding_id": "78d0a5b14f",
+      "head_detail": "[]",
+      "ledger": "swebench/cases/pylint-dev__pylint-4551/repo/.attest/ledger.jsonl",
+      "line": 23,
+      "path": "pylint/pyreverse/diagrams.py",
+      "pinned_values": [
+        "'Foo'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "pylint-dev__pylint-4551",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "{'label': '{A|\\\\l|foo(x: int): str\\\\l}', 'shape': 'record'}",
+      "base_kind": "value",
+      "expression": "writer.get_values(obj)",
+      "finding_id": "8af914f182",
+      "head_detail": "{'label': '{A...pe': 'record'}",
+      "ledger": "swebench/cases/pylint-dev__pylint-4551/repo/.attest/ledger.jsonl",
+      "line": 25,
+      "path": "pylint/pyreverse/writer.py",
+      "pinned_values": [
+        "'record'",
+        "'{A|\\\\l|foo(x: int): str\\\\l}'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "pylint-dev__pylint-4551",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "{'label': '{Foo|\\\\l|foo(x: int, y: str): str\\\\l}', 'shape': 'record'}",
+      "base_kind": "value",
+      "expression": "writer.get_values(obj)",
+      "finding_id": "9656d686cf",
+      "head_detail": "{'label': '{F...pe': 'record'}",
+      "ledger": "swebench/cases/pylint-dev__pylint-4551/repo/.attest/ledger.jsonl",
+      "line": 35,
+      "path": "pylint/pyreverse/writer.py",
+      "pinned_values": [
+        "'record'",
+        "'{Foo|\\\\l|foo(x: int, y: str): str\\\\l}'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "pylint-dev__pylint-4551",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "(None, ['os'])",
+      "base_kind": "value",
+      "expression": "(checker._store_type_annotation_node(annotation), list(checker._type_annotation_names))",
+      "finding_id": "a3c6946d1d",
+      "head_detail": "(None, [])",
+      "ledger": "swebench/cases/pylint-dev__pylint-4604/repo/.attest/ledger.jsonl",
+      "line": 13,
+      "path": "pylint/checkers/variables.py",
+      "pinned_values": [
+        "None",
+        "'os'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "pylint-dev__pylint-4604",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "True",
+      "base_kind": "value",
+      "expression": "_is_ignored_file(element, ignore_list, ignore_list_re, ignore_list_paths_re)",
+      "finding_id": "c10ceaa5ec",
+      "head_detail": "",
+      "ledger": "swebench/cases/pylint-dev__pylint-7080/repo/.attest/ledger.jsonl",
+      "line": 13,
+      "path": "pylint/lint/expand_modules.py",
+      "pinned_values": [
+        "True"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+      "unit": "pylint-dev__pylint-7080",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "True",
+      "base_kind": "value",
+      "expression": "_is_ignored_file(element, ignore_list, ignore_list_re, ignore_list_paths_re)",
+      "finding_id": "c10ceaa5ec",
+      "head_detail": "",
+      "ledger": "swebench/cases/pylint-dev__pylint-7080/repo/.attest/ledger.jsonl",
+      "line": 13,
+      "path": "pylint/lint/expand_modules.py",
+      "pinned_values": [
+        "True"
+      ],
+      "policy_version": "attest.intent.v4.2",
+      "reason": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+      "unit": "pylint-dev__pylint-7080",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "['/some/unrelated/script/dir', '/usr/lib/python3/site-packages']",
+      "base_kind": "value",
+      "expression": "_probe()",
+      "finding_id": "fa29dedeb3",
+      "head_detail": "['/some/other/path']",
+      "ledger": "swebench/cases/pylint-dev__pylint-7277/repo/.attest/ledger.jsonl",
+      "line": 14,
+      "path": "pylint/__init__.py",
+      "pinned_values": [
+        "'/some/other/path'",
+        "'/usr/lib/python3/dist-packages/some_console_script_dir'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "pylint-dev__pylint-7277",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "['/some/unrelated/script/dir', '/usr/lib/python3/site-packages']",
+      "base_kind": "value",
+      "expression": "_probe()",
+      "finding_id": "fa29dedeb3",
+      "head_detail": "['/usr/lib/py...ite-packages']",
+      "ledger": "swebench/cases/pylint-dev__pylint-7277/repo/.attest/ledger.jsonl",
+      "line": 22,
+      "path": "pylint/__init__.py",
+      "pinned_values": [
+        "'/some/unrelated/script/dir'",
+        "'/usr/lib/python3/site-packages'"
+      ],
+      "policy_version": "attest.intent.v4.2",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "unit": "pylint-dev__pylint-7277",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "[re.compile('\\\\d{1,2}'), re.compile('foo')]",
+      "base_kind": "value",
+      "expression": "_regexp_csv_transfomer(value)",
+      "finding_id": "83a0d64eb9",
+      "head_detail": "['\\\\d{1', '2}', 'foo']",
+      "ledger": "swebench/cases/pylint-dev__pylint-8898/repo/.attest/ledger.jsonl",
+      "line": 9,
+      "path": "pylint/config/argument.py",
+      "pinned_values": [
+        "'\\\\d{1,2}'",
+        "'foo'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "pylint-dev__pylint-8898",
+      "value_specified": [
+        [
+          "'foo'",
+          "doc/user_guide/configuration/all-options.rst"
+        ]
+      ]
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "[re.compile('\\\\d{1,2}'), re.compile('foo')]",
+      "base_kind": "value",
+      "expression": "_regexp_csv_transfomer(value)",
+      "finding_id": "83a0d64eb9",
+      "head_detail": "",
+      "ledger": "swebench/cases/pylint-dev__pylint-8898/repo/.attest/ledger.jsonl",
+      "line": 9,
+      "path": "pylint/config/argument.py",
+      "pinned_values": [
+        "\"[re.compile('\\\\\\\\d{1,2}'), re.compile('foo')]\""
+      ],
+      "policy_version": "attest.intent.v4.2",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "unit": "pylint-dev__pylint-8898",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "([<LogRecord: test, 30, path.py, 1, \"hello\">], [], False, 1, 0, False, 'hello\\n', '')",
+      "base_kind": "value",
+      "expression": "(records_ref, handler.records, records_ref is handler.records, len(records_ref), len(handler.records), stream_ref is handler.stream, stream_ref.getvalue(), handler.stream.getvalue())",
+      "finding_id": "1af71a4893",
+      "head_detail": "",
+      "ledger": "swebench/cases/pytest-dev__pytest-10051/repo/.attest/ledger.jsonl",
+      "line": 23,
+      "path": "src/_pytest/logging.py",
+      "pinned_values": [
+        "None",
+        "False",
+        "True",
+        "0",
+        "'hello\\n'"
+      ],
+      "policy_version": "attest.intent.v4.2",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "unit": "pytest-dev__pytest-10051",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "([<LogRecord: test, 30, path.py, 1, \"hello\">], [], False, 1, 0, False, 'hello\\n', '')",
+      "base_kind": "value",
+      "expression": "(records_ref, handler.records, records_ref is handler.records, len(records_ref), len(handler.records), stream_ref is handler.stream, stream_ref.getvalue(), handler.stream.getvalue())",
+      "finding_id": "1af71a4893",
+      "head_detail": "",
+      "ledger": "swebench/cases/pytest-dev__pytest-10051/repo/.attest/ledger.jsonl",
+      "line": 24,
+      "path": "src/_pytest/logging.py",
+      "pinned_values": [
+        "False",
+        "True",
+        "0",
+        "'hello\\n'"
+      ],
+      "policy_version": "attest.intent.v4.2",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "unit": "pytest-dev__pytest-10051",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "'w'",
+      "base_kind": "value",
+      "expression": "ef.mode",
+      "finding_id": "557f1bac47",
+      "head_detail": "'wb'",
+      "ledger": "swebench/cases/pytest-dev__pytest-5262/repo/.attest/ledger.jsonl",
+      "line": 12,
+      "path": "src/_pytest/capture.py",
+      "pinned_values": [
+        "'w'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "pytest-dev__pytest-5262",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "0",
+      "base_kind": "value",
+      "expression": "num_mock_patch_args(f)",
+      "finding_id": "625d85914c",
+      "head_detail": "",
+      "ledger": "swebench/cases/pytest-dev__pytest-5631/repo/.attest/ledger.jsonl",
+      "line": 20,
+      "path": "src/_pytest/compat.py",
+      "pinned_values": [
+        "0"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+      "unit": "pytest-dev__pytest-5631",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "0",
+      "base_kind": "value",
+      "expression": "num_mock_patch_args(function)",
+      "finding_id": "ea06af0bfe",
+      "head_detail": "",
+      "ledger": "swebench/cases/pytest-dev__pytest-5631/repo/.attest/ledger.jsonl",
+      "line": 25,
+      "path": "src/_pytest/compat.py",
+      "pinned_values": [
+        "0"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+      "unit": "pytest-dev__pytest-5631",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "('/tmp/test_mod.py', 42, 'Skipped: raw')",
+      "base_kind": "value",
+      "expression": "drive()",
+      "finding_id": "91ead688bc",
+      "head_detail": "('/pytest/int...Skipped: raw')",
+      "ledger": "swebench/cases/pytest-dev__pytest-7432/repo/.attest/ledger.jsonl",
+      "line": 54,
+      "path": "src/_pytest/skipping.py",
+      "pinned_values": [
+        "42",
+        "'/tmp/test_mod.py'",
+        "'Skipped: raw'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "pytest-dev__pytest-7432",
+      "value_specified": [
+        [
+          "42",
+          "doc/en/example/assertion/test_setup_flow_example.py"
+        ]
+      ]
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "('line1\\r\\nline2\\rline3\\n', \"'line1\\\\r\\\\nline2\\\\rline3\\\\n'\", True, True)",
+      "base_kind": "value",
+      "expression": "(snapped, repr(snapped), \"\\r\\n\" in snapped, \"\\r\" in snapped)",
+      "finding_id": "47c2df6a54",
+      "head_detail": "",
+      "ledger": "swebench/cases/pytest-dev__pytest-7521/repo/.attest/ledger.jsonl",
+      "line": 14,
+      "path": "src/_pytest/capture.py",
+      "pinned_values": [
+        "True",
+        "\"'line1\\\\r\\\\nline2\\\\rline3\\\\n'\"",
+        "'line1\\r\\nline2\\rline3\\n'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "pytest-dev__pytest-7521",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "['symdir', 'test_top.py', 'symdir/test_inside.py']",
+      "base_kind": "value",
+      "expression": "[os.path.relpath(e.path, str(root)) for e in visit(str(root), lambda entry: True)]",
+      "finding_id": "dbec2a6f17",
+      "head_detail": "['symdir', 'test_top.py']",
+      "ledger": "swebench/cases/pytest-dev__pytest-7982/repo/.attest/ledger.jsonl",
+      "line": 19,
+      "path": "src/_pytest/pathlib.py",
+      "pinned_values": [
+        "'symdir'",
+        "'symdir/test_inside.py'",
+        "'test_top.py'"
+      ],
+      "policy_version": "attest.intent.v4.1",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "unit": "pytest-dev__pytest-7982",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "[('hello', [('a.rst', 2), ('b.rst', 10)], 3)]",
+      "base_kind": "value",
+      "expression": "[ (m.text, m.locations, len(m.uuids)) for m in catalog ]",
+      "finding_id": "7fceb93031",
+      "head_detail": "[('hello', [(...rst', 2)], 3)]",
+      "ledger": "swebench/cases/sphinx-doc__sphinx-10466/repo/.attest/ledger.jsonl",
+      "line": 12,
+      "path": "sphinx/builders/gettext.py",
+      "pinned_values": [
+        "10",
+        "2",
+        "3",
+        "'a.rst'",
+        "'b.rst'",
+        "'hello'"
+      ],
+      "policy_version": "attest.intent.v4.2",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "unit": "sphinx-doc__sphinx-10466",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "'(x,)'",
+      "base_kind": "value",
+      "expression": "_recursive_to_string(str, (x,))",
+      "finding_id": "bb1bd857a4",
+      "head_detail": "'(x)'",
+      "ledger": "swebench/cases/sympy__sympy-23262/repo/.attest/ledger.jsonl",
+      "line": 10,
+      "path": "sympy/utilities/lambdify.py",
+      "pinned_values": [
+        "'(x,)'"
+      ],
+      "policy_version": "attest.intent.v4.2",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "unit": "sympy__sympy-23262",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "'(x, y,)'",
+      "base_kind": "value",
+      "expression": "_recursive_to_string(str, (x, y))",
+      "finding_id": "e3368b473e",
+      "head_detail": "'(x, y)'",
+      "ledger": "swebench/cases/sympy__sympy-23262/repo/.attest/ledger.jsonl",
+      "line": 9,
+      "path": "sympy/utilities/lambdify.py",
+      "pinned_values": [
+        "'(x, y,)'"
+      ],
+      "policy_version": "attest.intent.v4.2",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "unit": "sympy__sympy-23262",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "[<class 'sympy.core.function.UndefinedFunction'>, <class 'sympy.core.function.UndefinedFunction'>]",
+      "base_kind": "value",
+      "expression": "[type(s) for s in symbols(names, cls=Function)]",
+      "finding_id": "468eec60a6",
+      "head_detail": "",
+      "ledger": "swebench/cases/sympy__sympy-23534/repo/.attest/ledger.jsonl",
+      "line": 10,
+      "path": "sympy/core/symbol.py",
+      "pinned_values": [
+        "\"[<class 'sympy.core.function.UndefinedFunction'>, <class 'sympy.core.function.UndefinedFunction'>]\""
+      ],
+      "policy_version": "attest.intent.v4.2",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "unit": "sympy__sympy-23534",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "4*GammaMatrix(i0)*GammaMatrix(i1)*GammaMatrix(i3)",
+      "base_kind": "value",
+      "expression": "kahane_simplify(t)",
+      "finding_id": "86fecc142f",
+      "head_detail": "'4*GammaMatri...mmaMatrix(i3)'",
+      "ledger": "swebench/cases/sympy__sympy-23824/repo/.attest/ledger.jsonl",
+      "line": 11,
+      "path": "sympy/physics/hep/gamma_matrices.py",
+      "pinned_values": [
+        "'4*GammaMatrix(i0)*GammaMatrix(i1)*GammaMatrix(i3)'"
+      ],
+      "policy_version": "attest.intent.v4.2",
+      "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "unit": "sympy__sympy-23824",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "Interval(0, 1)",
+      "base_kind": "value",
+      "expression": "c.as_set()",
+      "finding_id": "6d25a6c312",
+      "head_detail": "",
+      "ledger": "swebench/cases/sympy__sympy-23950/repo/.attest/ledger.jsonl",
+      "line": 0,
+      "path": "sympy/sets/contains.py",
+      "pinned_values": [],
+      "policy_version": "attest.intent.v4.2",
+      "reason": "intent: behavior change confirmed, intent unknown: head raises NotImplementedError from a raise statement on a changed line; no rejected input could be identified from the test's literals (\u884c\u4e3a\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a",
+      "unit": "sympy__sympy-23950",
+      "value_specified": []
+    },
+    {
+      "arm": "held-out defect",
+      "base_detail": "(2000, Dimension(length**2*mass/time**2))",
+      "base_kind": "value",
+      "expression": "SI._collect_factor_and_dimension(expr)",
+      "finding_id": "ecb13ff7e3",
+      "head_detail": "",
+      "ledger": "swebench/cases/sympy__sympy-24213/repo/.attest/ledger.jsonl",
+      "line": 0,
+      "path": "sympy/physics/units/unitsystem.py",
+      "pinned_values": [],
+      "policy_version": "attest.intent.v4.2",
+      "reason": "intent: behavior change confirmed, intent unknown: head raises ValueError from a raise statement on a changed line; the rejected input is not in the base tree's tests, fixtures or documentation (\u884c\u4e3a\u53d8\u5316\u5df2",
+      "unit": "sympy__sympy-24213",
+      "value_specified": []
+    }
+  ],
+  "schema_version": "attest.value-note-census.v1"
+}

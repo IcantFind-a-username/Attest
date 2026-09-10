@@ -850,6 +850,7 @@ class Ledger:
         evidence_class: str | None = None,
         run_evidence: list[dict[str, object]] | None = None,
         intent: dict[str, object] | None = None,
+        contained_attempts: list[str] | None = None,
     ) -> None:
         entry: dict[str, Any] = {
             "kind": "verification",
@@ -872,6 +873,9 @@ class Ledger:
             "evidence_class": evidence_class,
             "run_evidence": run_evidence,
             "intent": intent,  # D-102: the intent observation, when one was made
+            # D-217: creations the kernel refused in a run that then completed
+            # normally. Absent under the product's setting, which voids instead.
+            "contained_attempts": contained_attempts,
         }
         entry.update(
             {name: value for name, value in differential_fields.items() if value is not None}

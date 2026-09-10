@@ -3436,3 +3436,138 @@ def test_the_reproduction_generator_runs_on_its_own_model_and_is_priced_there(
     assert budget.calls[-1]["model"] == GENERATION_MODEL
     assert budget.spent_usd == pytest.approx(float(prices[GENERATION_MODEL]["input_per_mtok"]))
     assert budget.spent_usd != pytest.approx(float(prices[DEFAULT_MODEL]["input_per_mtok"]))
+
+
+# --- D-217: a creation the kernel refused is not a failed run --------------
+#
+# 18 of 67 verification attempts in the 2026-09-10 held-out run died here, and
+# six of them on one shape: `sphinx/__init__.py` calls `git show` at import
+# inside `try/except Exception`. The guard marked the attempt, RLIMIT_NPROC
+# refused the fork, Sphinx swallowed the error, the import completed, the probe
+# ran and recorded -- and the executor then discarded the recording it had.
+
+# the shape, verbatim in structure: a subprocess at import, inside try/except,
+# and a test that then runs perfectly well
+CONTAINED_SPAWN_BODY = (
+    "import subprocess\n"
+    "import sys\n"
+    "try:\n"
+    "    subprocess.run([sys.executable, '-c', 'pass'], capture_output=True)\n"
+    "except Exception:  # noqa: BLE001 - the package under review does exactly this\n"
+    "    pass\n"
+    "\n"
+    "\n"
+    "def test_repro():\n"
+    "    assert True\n"
+)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="kernel process containment is POSIX-only")
+def test_a_contained_process_attempt_still_voids_the_run_by_default(tmp_path: Path) -> None:
+    """The product's setting does not move. This is the half of D-217 that has
+    to keep failing, and it is asserted before the other half is asserted."""
+
+    result = execute_repro(
+        tmp_path,
+        candidate(file="mod.py", line=1),
+        ReproSpec(CONTAINED_SPAWN_BODY),
+        ExecutorLimits(),
+    )
+
+    assert result.outcome is ExecutionOutcome.DEFERRED
+    assert result.reason == "reproduction attempted to create a child process"
+    assert result.contained_attempts == ()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="kernel process containment is POSIX-only")
+def test_a_contained_process_attempt_is_recorded_rather_than_fatal_when_configured(
+    tmp_path: Path,
+) -> None:
+    """The sphinx shape, and the whole of what the switch buys: the isolation
+    was not breached -- the kernel refused the fork and nothing ran -- so the
+    run is read like any other run, and what it reached for is disclosed."""
+
+    result = execute_repro(
+        tmp_path,
+        candidate(file="mod.py", line=1),
+        ReproSpec(CONTAINED_SPAWN_BODY),
+        ExecutorLimits(),
+        contained_attempt_voids=False,
+    )
+
+    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert result.reason == "pytest passed"
+    assert len(result.contained_attempts) == 1
+    assert "subprocess" in result.contained_attempts[0].lower()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="kernel process containment is POSIX-only")
+def test_the_relaxation_never_reaches_an_escape_class(tmp_path: Path) -> None:
+    """`process-replacement-attempted`, `network-attempted` and
+    `write-attempted` are not attempts the kernel refused on the way to a normal
+    exit -- they are the boundary itself being reached for -- and the switch does
+    not touch them. Asserted with the switch OFF, which is the only setting under
+    which the assertion could fail."""
+
+    replacement = execute_repro(
+        tmp_path,
+        candidate(file="mod.py", line=1),
+        ReproSpec(
+            "import os\n"
+            "import sys\n"
+            "def test_repro():\n"
+            "    try:\n"
+            "        os.execv(sys.executable, [sys.executable, '-c', 'pass'])\n"
+            "    except Exception:  # noqa: BLE001\n"
+            "        pass\n"
+            "    assert True\n"
+        ),
+        ExecutorLimits(),
+        contained_attempt_voids=False,
+    )
+    network = execute_repro(
+        tmp_path,
+        candidate(file="mod.py", line=1),
+        ReproSpec(
+            "import socket\n"
+            "def test_repro():\n"
+            "    try:\n"
+            "        socket.create_connection(('127.0.0.1', 9), timeout=0.1)\n"
+            "    except Exception:  # noqa: BLE001\n"
+            "        pass\n"
+            "    assert True\n"
+        ),
+        ExecutorLimits(),
+        contained_attempt_voids=False,
+    )
+
+    escape = execute_repro(
+        tmp_path,
+        candidate(file="mod.py", line=1),
+        ReproSpec(
+            "from pathlib import Path\n"
+            "def test_repro():\n"
+            "    try:\n"
+            # the filesystem root: outside the writable set on every platform,
+            # and unwritable anyway, so the guard records the attempt and the
+            # attempt itself cannot leave anything behind. `/tmp` is **not** a
+            # substitute -- the executor puts a writable scratch area there on
+            # Linux, so this test passed on macOS and failed on the runner.
+            "        Path('/attest-escape-probe-must-not-exist').write_text('x')\n"
+            "    except Exception:  # noqa: BLE001\n"
+            "        pass\n"
+            "    assert True\n"
+        ),
+        ExecutorLimits(),
+        contained_attempt_voids=False,
+    )
+
+    assert replacement.outcome is ExecutionOutcome.DEFERRED
+    assert "replace the pytest process" in replacement.reason
+    assert network.outcome is ExecutionOutcome.DEFERRED
+    assert "network connection" in network.reason
+    assert escape.outcome is ExecutionOutcome.DEFERRED
+    assert "outside its work directory" in escape.reason
+    assert replacement.contained_attempts == ()
+    assert network.contained_attempts == ()
+    assert escape.contained_attempts == ()

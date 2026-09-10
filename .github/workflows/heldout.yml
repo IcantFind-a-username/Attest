@@ -55,6 +55,15 @@ on:
         description: Restrict to these instance ids, comma-separated (empty = the whole plan).
         type: string
         default: ""
+      contained_attempt_voids:
+        description: >-
+          D-217. True (the product's setting) voids an observation whose run
+          attempted to create a process or a thread, even though the kernel
+          refused it. False records the refused attempt and reads the run --
+          18 of 67 verification attempts in the 2026-09-10 run died there, on
+          a `git show` inside a `try/except` at import.
+        type: boolean
+        default: true
       rebuild_probe:
         description: >-
           Re-derive the population with the free screen and probe stages instead
@@ -69,7 +78,14 @@ permissions:
 jobs:
   heldout:
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    # D-216 buys up to three probes per candidate where it bought one, and one
+    # screening run for each: the recording phase roughly doubles in container
+    # time on the cases that never differ, which is most of this corpus. The
+    # 2026-09-10 run took 2h58m of the 330 this used to hold. Raised so that a
+    # paid run cannot be lost to the ceiling after spending the money; the
+    # per-candidate 900 s deadline and the driver's cumulative cap are what
+    # actually bound it.
+    timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
 
@@ -294,6 +310,7 @@ jobs:
             --budget "${{ inputs.budget_usd }}" \
             --cap "${{ inputs.cap_usd }}" \
             --only "${{ inputs.only }}" \
+            --contained-attempt-voids "${{ inputs.contained_attempt_voids }}" \
             2>&1 | tee heldout-run.log
 
       - name: Disk after run

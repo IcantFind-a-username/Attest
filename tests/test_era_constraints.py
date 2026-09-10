@@ -223,3 +223,34 @@ def test_the_environment_knob_is_unset_by_default_and_reads_a_file(
     # a corpus knob must not be able to fail an image build that would work
     monkeypatch.setenv(ERA_CONSTRAINT_ENV, str(tmp_path / "absent.txt"))
     assert era_constraints() is None
+
+
+def test_an_unreachable_index_cannot_stall_a_build_stage(tmp_path: Path) -> None:
+    """The corpus builds 39 cases in a job with a 330-minute ceiling and calls
+    this once per case. At the 60 s per request the first draft used, a PyPI
+    outage would have spent six hours here and taken the paid run with it. Not
+    pinned rather than waited for: a case with no pins runs exactly as it did
+    before this tool existed."""
+    import era_constraints
+
+    tree = tmp_path / "tree"
+    tree.mkdir()
+    (tree / "setup.py").write_text(
+        "from setuptools import setup\nsetup(install_requires=['a', 'b', 'c'])\n",
+        encoding="utf-8",
+    )
+    asked: list[str] = []
+
+    def slow(name: str) -> dict | None:
+        asked.append(name)
+        return None
+
+    era_constraints.TOTAL_BUDGET_S = 0.0
+    try:
+        text, unresolved = constraints_for(tree, CUTOFF, fetch=slow)
+    finally:
+        era_constraints.TOTAL_BUDGET_S = 180.0
+
+    assert asked == []  # the budget was spent before the first request
+    assert unresolved == ["a", "b", "c"]
+    assert "a<=" not in text

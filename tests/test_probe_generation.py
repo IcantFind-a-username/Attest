@@ -831,3 +831,42 @@ def test_a_screening_run_that_died_says_why_in_the_search_s_own_reason() -> None
     assert isinstance(outcome, _Recording)
     assert "attempted a network connection" in outcome.reason
     assert "3 probes tried" in outcome.reason
+
+
+def test_a_drawered_value_change_writes_its_note_to_the_ledger(tmp_path: Path) -> None:
+    """D-218, end to end on the local review path. base raises where head
+    returns, no base test states the type name, so v4.2 drawers it -- and the
+    fact that drawer throws away is written down instead of lost."""
+    from attest.review.output_contract import check
+
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_RAISES, HEAD_GUARDS)
+
+    run = verify(
+        repo, base_sha, head_sha, ProbeProvider(MEAN_PROBE), candidate=stored(line=2)
+    )
+
+    assert "value change confirmed, intent unknown" in run.execution.reason
+    row = next(
+        r for r in Ledger(repo).entries() if r["kind"] == "value_observation_note"
+    )
+    assert row["schema_version"] == "attest.value-observation-note.v1"
+    assert row["expression"] == "mod.mean([])"
+    assert (row["base_kind"], row["base_detail"]) == ("exception", "ZeroDivisionError")
+    assert (row["head_kind"], row["head_detail"]) == ("value", "0.0")
+    assert row["head_runs"] == 3 and row["base_runs"] == 3
+    assert row["specified_by"] == []  # nothing in the tree pins it
+    assert check(row["rendered"]).admitted
+    assert "the merge base raised ZeroDivisionError and head returns 0.0" in row["rendered"]
+    # and nothing was published: the row is the only place it exists
+    assert not any(r["kind"] == "github_comment" for r in Ledger(repo).entries())
+
+
+def test_a_certified_differential_writes_no_note(tmp_path: Path) -> None:
+    """The note is about the drawer. A receipt says the thing outright and a
+    second, quieter claim beside it would be noise."""
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_MODULE, HEAD_WRONG_VALUE)
+
+    run = verify(repo, base_sha, head_sha, ProbeProvider(PROBE))
+
+    assert run.execution.outcome is ExecutionOutcome.REPRODUCED
+    assert not [r for r in Ledger(repo).entries() if r["kind"] == "value_observation_note"]
