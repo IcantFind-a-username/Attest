@@ -409,3 +409,46 @@ verified; ledger: https://…/runs/34422433277; $0.3126, 107.2s.
 
 Marker, units read, named class, the register's own sentence, the ledger link, spend and elapsed
 — with no preamble above it.
+
+---
+
+## Phase 6 — the release checklist and the tag
+
+Branch `feature/v010-release` · checklist:
+[the `v0.1.0` release checklist](acceptance/2026-09-13-v0.1.0-release.md) · announcement draft:
+[not published](announcement-draft.md)
+
+### The verdict
+
+**Every checklist item passes.** One mainline condition — 4, recall — **fails on its own gate and
+is recorded as failing**; by your decision at the start of this window `G-RECALL-002`'s 70% is a
+post-release target that does not block `v0.1.0`. It is written as a fail that does not block,
+**not** as a pass, and **the gate was not restated at a number the evidence happens to meet**.
+
+### Mainline's seven conditions: six hold, and three of them closed here
+
+| # | 2026-09-12 | now |
+|---|---|---|
+| 3 — head code cannot read secrets, reach the network, forge a result | **FAILS**, 9 of 13 classes | **holds** — 13 of 13 dispatched and marked (D-200) |
+| 4 — a non-trivial share of eligible defects certified | **FAILS** | **FAILS, and does not block** — 7.1% [2.0%, 22.6%] |
+| 5 — one prospective run, no false publication | **FAILS**, never ran | **holds** — 28 units, 13 real executions, 0 published (D-205) |
+| 7 — every author-visible line obeys the contract | holds *(wrongly)* | **holds** — it did not; 6 of 11 reviews published bare `DEFER:` prose and **every** review with a note carried a preamble. D-201, D-204 |
+
+### The checklist
+
+| item | verdict |
+|---|---|
+| readiness conditions, FAILs clearly marked | **PASS** |
+| `G-SHADOW-001` | **PASS**, with all-silence / no-recall / one-prospective-unit in the gate's own text |
+| new publication rule replay, control-side false publications | **PASS — +0** |
+| red team, 13 classes | **PASS — 13 of 13**; the observation gap in `SECURITY.md` |
+| yellow control rate and interval in the README | **PASS** |
+| `gates` green on `main`, `checks` green on the last PR | **PASS** |
+| every reference at `@v0.1.0` | **PASS** — 5 copies; 3 historical `rc.2`/`pilot.1` mentions kept deliberately |
+| no key value; no vendor name in this task's commits | **PASS** — 0 of 14; and §6 says plainly that 249 historical commits do carry one |
+
+### What the release is not, in the checklist's own words
+
+Not accurate (7.1%, upper bound 22.6%). Not proven useful (the prospective run published
+nothing). Not measured at the shipped K (every control number is K=4). Not externally observed
+for 11 of 13 attack classes. Not on the Marketplace and not on PyPI.
