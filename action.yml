@@ -1,5 +1,8 @@
 name: attest pull request review
 description: Run evidence-first pull-request review with bounded verification.
+branding:
+  icon: check-circle
+  color: green
 inputs:
   github-token:
     description: Token allowed to update pull-request review comments.
