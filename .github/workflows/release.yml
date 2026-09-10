@@ -74,14 +74,28 @@ jobs:
 
       # Only a tag attaches. A `workflow_dispatch` dry run stops above, with the
       # distributions kept as a workflow artifact so the run can be inspected.
+      #
+      # **The tag's own name decides whether the release is a pre-release.** A
+      # tag carrying a pre-release segment -- `v0.1.0-rc.2`, `v0.1.0-pilot.1` --
+      # is marked one; a bare `vX.Y.Z` is not. Until 2026-09-13 every release
+      # was `--prerelease` unconditionally, which would have shipped `v0.1.0`
+      # as a pre-release however the checklist read.
       - name: Attach the distributions to the GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -eu
+          case "${GITHUB_REF_NAME}" in
+            *-*) kind="--prerelease"
+                 notes="Internal trial build. Not published to PyPI." ;;
+            *)   kind="--latest"
+                 notes="Release build. Not published to PyPI and not listed on the GitHub Marketplace; install from this tag. Read the README's limitations before relying on it." ;;
+          esac
+          echo "ref=${GITHUB_REF_NAME} kind=${kind}"
           gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 \
             || gh release create "${GITHUB_REF_NAME}" \
                  --title "${GITHUB_REF_NAME}" \
-                 --notes "Internal trial build. Not published to PyPI." \
-                 --prerelease
+                 --notes "${notes}" \
+                 ${kind}
           gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
