@@ -21,10 +21,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 from collections import Counter
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from heldout_v2 import wilson  # noqa: E402 - the one definition, per green on PR #31
 
 # The loss categories the 2026-09-12 report uses, longest-prefix first so
 # "child process" is never swallowed by a broader phrase.
@@ -57,16 +60,6 @@ def classify(row: dict) -> str:
         if marker.lower() in reason:
             return name
     return f"other: {reason[:50]}"
-
-
-def wilson(successes: int, trials: int, z: float = 1.959963985) -> tuple[float, float]:
-    if trials == 0:
-        return (0.0, 1.0)
-    p = successes / trials
-    denominator = 1 + z * z / trials
-    centre = (p + z * z / (2 * trials)) / denominator
-    half = z * math.sqrt(p * (1 - p) / trials + z * z / (4 * trials * trials)) / denominator
-    return (max(0.0, centre - half), min(1.0, centre + half))
 
 
 def load_old(path: Path) -> dict[str, dict]:
