@@ -635,6 +635,17 @@ def self_anchors(limit: int) -> list[Anchor]:
         capture_output=True,
         text=True,
     ).stdout.split()
+    if len(log) < 2:
+        # A shallow clone has no parent to diff against, so every commit yields
+        # nothing and the arm reports zero anchors -- indistinguishable, in the
+        # printed table, from "nothing here is derivable". Say which it is.
+        print(
+            "REFUSED: this checkout has no history to read "
+            f"({len(log)} commit(s) touching src/attest). "
+            "The changed-function arm needs `fetch-depth: 0`; measured nothing.",
+            file=sys.stderr,
+        )
+        return []
     anchors: list[Anchor] = []
     seen: set[tuple[str, str | None]] = set()
     for sha in log:

@@ -39,7 +39,15 @@ jobs:
     # the clone and the build.
     timeout-minutes: 180
     steps:
+      # Full history, not the default shallow clone. The control's changed-
+      # function arm reads `git log -40` and diffs each commit against its
+      # parent; at depth 1 there is no parent, `git diff` fails on every commit
+      # and the arm reports zero anchors -- which reads exactly like "nothing is
+      # derivable" and is in fact "nothing was measured". It did that on run
+      # 34505755646.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
