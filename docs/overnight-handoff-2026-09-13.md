@@ -452,3 +452,10 @@ post-release target that does not block `v0.1.0`. It is written as a fail that d
 Not accurate (7.1%, upper bound 22.6%). Not proven useful (the prospective run published
 nothing). Not measured at the shipped K (every control number is K=4). Not externally observed
 for 11 of 13 attack classes. Not on the Marketplace and not on PyPI.
+
+### The tag
+
+**`v0.1.0`, annotated, at `289d74f`.** `gates` on that commit: **2,206 passed, 10 skipped,
+coverage 93.39%**. Release workflow success; `tag=0.1.0 built=0.1.0`, *"tag and wheel agree"*;
+`attest-0.1.0-py3-none-any.whl` and `attest-0.1.0.tar.gz` attached; **`prerelease: false`** and
+the *latest release* API returns `v0.1.0`. **Nothing on PyPI, nothing on the Marketplace.**
