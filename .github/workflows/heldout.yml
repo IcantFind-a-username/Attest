@@ -78,7 +78,14 @@ permissions:
 jobs:
   heldout:
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    # D-216 buys up to three probes per candidate where it bought one, and one
+    # screening run for each: the recording phase roughly doubles in container
+    # time on the cases that never differ, which is most of this corpus. The
+    # 2026-09-10 run took 2h58m of the 330 this used to hold. Raised so that a
+    # paid run cannot be lost to the ceiling after spending the money; the
+    # per-candidate 900 s deadline and the driver's cumulative cap are what
+    # actually bound it.
+    timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
 
