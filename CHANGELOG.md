@@ -459,8 +459,8 @@ Everything below predates `v0.1.0-rc.1` and is kept for provenance.
 
 Head code still runs in a best-effort same-runner boundary, not an OS isolation boundary; the
 new-code class abstains by design; and a silence is an abstention, never a true negative. The
-[README's limits section](README.md#current-status) is the full list and it is longer than this
-one.
+[evidence file's limits section](docs/evidence.md#current-status) is the full list and it is
+longer than this one.
 
 ## `v0.1.0-pilot.1` — 2026-09-03
 

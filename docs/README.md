@@ -34,6 +34,11 @@ match the bug.
 - [`contributing.md`](contributing.md) is the one page for **someone changing attest**: the
   local CLI, the development setup, the spend ledger, the decision records and the gates. The
   README is for someone *installing* it and links here for everything else.
+- [`evidence.md`](evidence.md) is the long form of the README's numbers: what each level has
+  actually said, the limitations that would change your mind, and the whole measurement table
+  with the budget and the models each row ran under. The README keeps the headline figures with
+  their intervals and links here; **this file owns no threshold and no status** — a gate is
+  `acceptance/evolution-gates.md`'s and a phase is `roadmap.md`'s.
 - [`github-action.md`](github-action.md) documents how the current prototype Action behaves
   and its current safety limitations. It is non-normative: target architecture and release
   gates override its implementation-era usage instructions.

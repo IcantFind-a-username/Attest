@@ -26,7 +26,9 @@ report has not been seen and say so publicly — that is a better outcome than s
 | version | supported |
 |---|---|
 | `main` | yes — fixes land here first |
-| `v0.1.0-rc.1` | yes, as an **internal trial ref**. It is not a public release and nothing is published to PyPI |
+| `v0.1.0` | yes. The tag an installation pins, and the ref a fix is cut against |
+| `v0.1.0-rc.2` | no. A release candidate superseded by `v0.1.0`; pin the release instead |
+| `v0.1.0-rc.1` | no. A release candidate superseded by `v0.1.0`; it was never a public release and nothing was published to PyPI |
 | `v0.1.0-pilot.1` | no. Kept only as the oldest ref a pilot may roll back to |
 | anything else | no |
 
