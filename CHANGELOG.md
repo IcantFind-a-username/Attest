@@ -9,6 +9,13 @@ live under [`docs/acceptance/`](docs/acceptance/). This file is the index, not t
 
 Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
+## Unreleased
+
+- **`checks` runs on every pull request, documentation-only ones included.** The
+  `pull_request` trigger drops its `paths-ignore` so `checks` can be a required status check
+  under the branch ruleset without stranding a docs pull request behind a run that never
+  starts. The push-to-`main` `gates` job keeps its prose filter. No behaviour change.
+
 ## `v0.1.0` — 2026-09-13
 
 **The first ref meant for an outside repository to install.** One behaviour change, one surface

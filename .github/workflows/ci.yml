@@ -12,14 +12,14 @@ on:
     paths-ignore:
       - "**.md"
       - "docs/**"
-  # The same behaviour paths, before the merge rather than after it: PR #16
-  # merged with a version string its own packaging test refuses, because the
-  # only check a pull request had was the attest self-review. The `checks` job
-  # below is what a pull request gets; `gates` stays a push-to-main job.
+  # Before the merge rather than after it: PR #16 merged with a version string
+  # its own packaging test refuses, because the only check a pull request had
+  # was the attest self-review. The `checks` job below is what a pull request
+  # gets; `gates` stays a push-to-main job. No `paths-ignore` here, on purpose:
+  # `checks` is a required status check under the branch ruleset, and a
+  # required check that a documentation-only pull request never triggers would
+  # leave that pull request waiting for a run that will not come.
   pull_request:
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
   workflow_dispatch:
 
 permissions:
