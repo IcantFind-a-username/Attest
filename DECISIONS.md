@@ -2168,6 +2168,18 @@ is active only when the owning architecture/acceptance document changes with it.
 - **What is not claimed.** No recall number. This changes which probes are tried, and whether that moves **2 of 28** is a paid measurement on the held-out corpus that has not been run.
 - **Trace:** D-114, D-146, D-158, D-174 (the binding layer this rests on), D-186, D-198; `docs/acceptance/2026-09-12-heldout-supported.md`.
 
+### D-209 — A note the pull request already carries is not posted again
+
+- **Date/status/scope:** 2026-09-10 · active · **owner decision** (asked and answered 2026-09-10) · `src/attest/github/client.py`, `src/attest/review/ci.py`; RED `tests/test_ci_flow.py::test_a_note_the_pull_request_already_carries_is_not_posted_twice`.
+- **The defect, observed on this repository's own traffic.** [PR #31](https://github.com/IcantFind-a-username/Attest/pull/31) received the identical green note **twice**, as two review threads four minutes apart (`10:25:24`, `10:29:05`), carrying the same marker `<!-- attest:structural:scripts/corpus/heldout_compare.py:62|scripts/corpus/heldout_v2.py:494 -->`. The second copy had also lost the model's `<details>` block, so the two posts of one finding were not even identical.
+- **Why D-160 did not stop it.** D-160 is exactly this rule — *"a pair this repository has already been told about, whose two spans are both unchanged since, is not news"* — and it is implemented against `reported_fingerprints(Ledger(repo).entries())`. **A CI run is a fresh checkout on a fresh runner**, and `pull-request.yml` uploads `.attest/ledger.jsonl` as an artifact without ever restoring it, so that ledger is empty on every run. D-160 has therefore **never fired on the GitHub Action** — the one integration the product supports (§1.2). It worked only where the ledger persists, which is a development host.
+- **The decision.** In CI the durable record is the pull request itself, so the markers it already carries are what *"already told"* means. Before an inline review is assembled, `client.posted_review_markers` lists the pull request's existing review comments and every green, yellow (a) and nullability comment whose marker is already there is dropped. The marker is the identity D-133, D-145 and D-151 already gave these notes; nothing new is invented to identify them.
+- **Three properties it keeps.** **Red is never dropped** — the receipt-bearing comments are not filtered at all, and a suppressed note is a courtesy note with no receipt behind it. **It fails open** — a listing that errors returns the empty set and every note is posted, because a duplicate is a smaller harm than a lost finding. **The run is still a run** — the ledger's `structural_note` row and the summary section are unchanged, so what was suppressed is the second *delivery*, not the observation.
+- **What it does not do.** It does not deduplicate across pull requests, and it does not suppress a note whose spans have moved: a changed span is a different marker and speaks again, which is D-160's own rule.
+- **Cost:** one read-only API call per review with an inline review to post. $0.00 in model spend.
+- **Reversal:** drop the `unsaid` filter in `ci.py`; every note is posted on every push again.
+- **Trace:** D-133, D-142, D-145, D-151, D-160, D-190; mainline §1 condition 7, §1.2.
+
 ### D-208 — `G-RECALL-002` is measurable on a runner, and the population is restored rather than re-selected
 
 - **Date/status/scope:** 2026-09-10 · active · agent decision under `AGENTS.md` §11 · `.github/workflows/heldout.yml`; no product code, no constant.

@@ -1015,6 +1015,19 @@ def _delivery_members(value: object, *, allow_empty: bool = False) -> tuple[tupl
     return tuple(members)
 
 
+def _marker_kind(comment: Mapping[str, object]) -> str:
+    """Which marker family a rendered inline comment's first line carries."""
+    first = str(comment["body"]).splitlines()[0]
+    for kind, pattern in (
+        ("structural", _INLINE_STRUCTURAL_MARKER_RE),
+        ("impact", _INLINE_IMPACT_MARKER_RE),
+        ("nullability", _INLINE_NULLABILITY_MARKER_RE),
+    ):
+        if pattern.fullmatch(first):
+            return kind
+    raise ValueError("rendered comment carries no marker")
+
+
 def _marker_id(comment: Mapping[str, object]) -> str:
     """The identity a rendered inline comment carries in its own first line."""
     first = str(comment["body"]).splitlines()[0]
@@ -2139,6 +2152,31 @@ def run_ci(
                 : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments) - len(null_comments))
             ]
         )
+        # D-160 on the path the product ships. That rule -- a pair this
+        # repository has already been told about is not news -- reads the
+        # ledger, and a CI run is a fresh checkout on a fresh runner whose
+        # ledger is always empty, so it never fired on the Action. Observed on
+        # this repository's own PR #31: the identical green note, marker for
+        # marker, as two review threads four minutes apart. In CI the durable
+        # record is the pull request, so the markers it already carries are what
+        # "already told" means. **Red is never dropped** (the receipt-bearing
+        # comments are not filtered), and the read fails open: a listing that
+        # errors returns nothing and every note is posted.
+        already_posted = client.posted_review_markers(context.repository, context.number)
+
+        def unsaid(comments: list[dict[str, object]]) -> list[dict[str, object]]:
+            if not already_posted:
+                return comments
+            return [
+                comment
+                for comment in comments
+                if f"<!-- attest:{_marker_kind(comment)}:{_marker_id(comment)} -->"
+                not in already_posted
+            ]
+
+        green_comments = unsaid(green_comments)
+        yellow_comments = unsaid(yellow_comments)
+        null_comments = unsaid(null_comments)
         review_comments = [
             *inline_comments(inline_results, finding_evidence),
             *green_comments,
