@@ -13,7 +13,7 @@ import subprocess
 import sys
 import time
 import xml.etree.ElementTree as ET
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from contextlib import suppress
 from dataclasses import asdict, dataclass, replace
 from enum import Enum
@@ -79,6 +79,13 @@ MAX_REPRO_ATTEMPTS = 2
 COLLECTION_REGENERATIONS = 1
 # D-146: how many probes one candidate may buy before the recording is given up
 MAX_PROBE_ATTEMPTS = 2
+# D-216: how many probes the **search** may buy for one candidate. D-206 gave
+# the derived probes a screen-and-eliminate loop; the model probe had exactly
+# one candidate and stopped, so a first guess that missed the changed code ended
+# the candidate. Three is an implementation constant and reversible -- it is not
+# a threshold, a likelihood ratio, a sample count or a publication cap, and
+# every probe it buys is still bounded by `budget-usd`.
+MAX_MODEL_PROBES = 3
 # D-146: how many times the probe is executed on base before its observation is
 # trusted. **Three**, raised from two by D-148 after a real case slipped through:
 # `more-itertools.random_product` returns one of four tuples uniformly, so two
@@ -406,6 +413,14 @@ class ProbeObservation:
     # Derived probes tried before this one and put aside: they recorded nothing,
     # or head produced the same observation as base so no differential exists.
     screened: int = 0
+    # D-216: which probe of the search this was, and what the feedback that
+    # produced it said. 1 and "" mean nothing preceded it.
+    attempt_index: int = 1
+    feedback_kind: str = ""
+    # What the **head** revision did with the same call, from the screening run.
+    # Empty when the probe was never screened on head.
+    head_kind: str = ""
+    head_detail: str = ""
 
 
 @dataclass(frozen=True)
@@ -955,6 +970,7 @@ def generate_probe(
     base_ref: str | None = None,
     shared_system: str = "",
     model: str = "",
+    feedback: str = "",
 ) -> ProbeSpec:
     """One probe: what to call, never what it should do (D-146).
 
@@ -962,9 +978,16 @@ def generate_probe(
     settle each, cancel the rest -- because the budget must know the worst case
     before the first call. What differs is the question and the size of the
     answer: a probe is three short fields, so it reserves a fifth of the output
-    tokens a whole test file does."""
+    tokens a whole test file does.
+
+    ``feedback`` (D-216) is what the **previous** probe for this candidate did:
+    which lines of the anchored file it executed, which lines the diff changed,
+    and what the two revisions produced. It is appended after the cacheable
+    prompt, so the shared prefix stays the shared prefix and the second question
+    costs the same cached tokens as the first."""
     model = effective_model(provider, model)
-    prompt = _generation_prompt(repo, candidate, base_ref)
+    shared = _generation_prompt(repo, candidate, base_ref)
+    prompt = f"{shared}\n\n{feedback}" if feedback else shared
     labels = [
         f"probe-{candidate.finding.finding_id}-attempt-{attempt}"
         for attempt in range(1, MAX_PROBE_ATTEMPTS + 1)
@@ -995,7 +1018,7 @@ def generate_probe(
                 cast(dict[str, Any], PROBE_SCHEMA),
                 PROBE_MAX_OUTPUT_TOKENS,
                 timeout_s=timeout_s,
-                shared_prefix=prompt,
+                shared_prefix=shared,
                 shared_system=shared_system,
                 model=model,
             )
@@ -1877,6 +1900,11 @@ class _Recording:
     reason: str
     attempts: int
     exhausted_deadline: bool = False
+    # D-216: a search that ends without a differential is not in general an
+    # unfaithful test. "Every probe I bought missed the change" is UNBOUND and
+    # "every probe I bought saw both revisions agree" is NOT_REPRODUCED; only a
+    # recording that could not be made is what UNFAITHFUL was ever about.
+    evidence_class: EvidenceClass = EvidenceClass.UNFAITHFUL
 
 
 def _record_on_base(
@@ -1963,6 +1991,33 @@ def _record_on_base(
 
 
 @dataclass(frozen=True)
+class _Screen:
+    """One run of a probe on head: what it did, and what it touched (D-216).
+
+    D-206's screen answered one bit -- *does head produce base's observation?*
+    -- and threw the run away. The run also knows **which lines of the anchored
+    file it executed**, which is the difference between a probe that missed the
+    change and a probe that found no change, and that is the thing worth telling
+    the next probe."""
+
+    observation: Observation | None
+    executed_lines: tuple[int, ...]
+    deferred: bool
+    # why the screening run was deferred, when it was. The release drill for a
+    # malicious same-repository change is what this is for: it demands that the
+    # run's own reason **name what head code reached for**, and a search that
+    # reported only counts would have hidden `attempted a network connection`
+    # behind "could not be executed on the head revision".
+    reason: str = ""
+
+    def differs_from(self, base: Observation) -> bool:
+        return self.observation is not None and self.observation != base
+
+    def reached(self, changed: Collection[int]) -> bool:
+        return bool(set(self.executed_lines) & set(changed))
+
+
+@dataclass(frozen=True)
 class _Chosen:
     """The probe the differential will be built from, and what it cost to find."""
 
@@ -1972,18 +2027,98 @@ class _Chosen:
     origin: str
     attempts: int
     screened: int
+    # D-216: which of the search's probes this was, and what the feedback that
+    # produced it said. `attempt_index` is 1 for a derived probe and for the
+    # first model probe; `feedback_kind` is "" when nothing preceded it.
+    attempt_index: int = 1
+    feedback_kind: str = ""
+    head_observation: Observation | None = None
+
+
+def _changed_definitions(source: str, changed: Collection[int]) -> list[str]:
+    """`name:line` for every def/class of `source` whose body a changed line is
+    inside. What the next probe needs is a name it can call, not a line number."""
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return []
+    lines = set(changed)
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            continue
+        last = getattr(node, "end_lineno", node.lineno) or node.lineno
+        if any(node.lineno <= line <= last for line in lines):
+            found.append(f"{node.name}:{node.lineno}")
+    return found
+
+
+def _probe_feedback(
+    *,
+    kind: str,
+    spec: ProbeSpec,
+    base: Observation | None,
+    screen: _Screen | None,
+    changed: Collection[int],
+    definitions: Sequence[str],
+    anchored: str,
+) -> str:
+    """What the last probe did, in the words the next one needs (D-216).
+
+    Facts only, and only facts this process measured: the expression that ran,
+    the lines it executed, the lines the diff changed, and what each revision
+    produced. No instruction about what the answer should be -- the model still
+    chooses the call and the merge base still decides what it does.
+    """
+    where = ", ".join(definitions) or "(none inside a def or class)"
+    changed_text = ", ".join(str(line) for line in sorted(set(changed))[:20]) or "(none)"
+    header = (
+        f"A previous probe for this candidate has already been executed. It called:\n"
+        f"    {spec.expression}\n"
+        f"The diff changes these lines of {anchored}: {changed_text}\n"
+        f"Those lines are inside: {where}\n"
+    )
+    if kind == "did-not-reach":
+        executed = (
+            ", ".join(str(line) for line in (screen.executed_lines if screen else ())[:20])
+            or "(none)"
+        )
+        return header + (
+            f"That call executed these lines of {anchored}: {executed} -- none of them is a "
+            "changed line, so the probe measured code the diff did not touch. Choose a call "
+            "that enters one of the changed definitions above."
+        )
+    if kind == "no-difference":
+        seen = base.sentence() if base is not None else "the same thing on both revisions"
+        return header + (
+            f"That call reached the changed lines and {seen}; the head revision produced the "
+            "identical observation, so there is no difference to record. Choose a different "
+            "input to the same changed code -- an edge the change is about."
+        )
+    if kind == "head-deferred":
+        return header + (
+            "That call recorded on the merge base but could not be executed on the head "
+            "revision at all. Choose a call that both revisions can run."
+        )
+    return header + (
+        f"That call recorded nothing usable on the merge base: {screen and ''}"
+        "it did not reach the anchored file, or its observation was not stable. Choose a "
+        "different call into the changed code."
+    )
 
 
 def _choose_probe(
     *,
     derived: Sequence[DerivedProbe],
     model_probe: ProbeSpec | None,
-    reprobe: Callable[[], ProbeSpec] | None,
-    record: Callable[[ProbeSpec, Callable[[], ProbeSpec] | None], _Recording],
-    differs_on_head: Callable[[ProbeSpec, Observation], bool | None],
+    reprobe: Callable[[str], ProbeSpec] | None,
+    record: Callable[[ProbeSpec], _Recording],
+    screen_on_head: Callable[[ProbeSpec], _Screen | None],
     anchored: str,
+    changed_lines: Collection[int] = (),
+    head_source: str = "",
 ) -> _Chosen | _Recording:
-    """Try the free probes first, then the one the model was paid for (D-206).
+    """Try the free probes first, then **search** with the paid one (D-206, D-216).
 
     A derived probe is a call the repository's own tests already make, so it
     costs no model call -- but it is also a call the tests make *because it
@@ -1993,31 +2128,41 @@ def _choose_probe(
     probe is tried. Only a probe whose head observation differs is worth the
     full protocol, and only when none of them differs is the model asked.
 
+    **The model probe now gets the same loop, and feedback with it.** Until
+    D-216 it got one candidate and stopped: a first guess that entered the wrong
+    function ended the candidate, and the run reported *the reproduction passed
+    on head* with no way to tell that from a real silence. Each attempt is
+    screened on head before the 3x3 differential is bought, and each attempt
+    after the first is told what the last one executed and what both revisions
+    produced. At most ``MAX_MODEL_PROBES``.
+
     Screening is an ordering decision and never an adjudication: the chosen
     probe still runs the whole 3x3 differential afterwards, and that is what
     certifies. A screening run that defers screens the probe out rather than
     deciding anything about the diff.
     """
+    definitions = _changed_definitions(head_source, changed_lines)
+    deadline_recording = lambda spec: _Recording(  # noqa: E731 - one shape, three call sites
+        probe=spec,
+        observation=None,
+        reason=DEADLINE_REASON,
+        attempts=1,
+        exhausted_deadline=True,
+    )
     screened = 0
     last: _Recording | None = None
     for candidate in derived:
-        recorded = record(candidate.spec, None)
+        recorded = record(candidate.spec)
         if recorded.exhausted_deadline:
             return recorded
         last = recorded
         if recorded.observation is None:
             screened += 1
             continue
-        differs = differs_on_head(candidate.spec, recorded.observation)
-        if differs is None:
-            return _Recording(
-                probe=candidate.spec,
-                observation=None,
-                reason=DEADLINE_REASON,
-                attempts=1,
-                exhausted_deadline=True,
-            )
-        if differs:
+        screen = screen_on_head(candidate.spec)
+        if screen is None:
+            return deadline_recording(candidate.spec)
+        if screen.differs_from(recorded.observation):
             return _Chosen(
                 probe=candidate.spec,
                 observation=recorded.observation,
@@ -2025,47 +2170,123 @@ def _choose_probe(
                 origin=candidate.origin,
                 attempts=1,
                 screened=screened,
+                head_observation=screen.observation,
             )
         screened += 1
-    if model_probe is None:
-        if reprobe is None:
-            reason = (
-                f"{screened} derived probe(s) screened out and no model probe was available"
-                if screened
-                else "no probe was available"
+
+    if reprobe is None and model_probe is None:
+        reason = (
+            f"{screened} derived probe(s) screened out and no model probe was available"
+            if screened
+            else "no probe was available"
+        )
+        return _Recording(
+            probe=last.probe if last is not None else ProbeSpec("", "", ""),
+            observation=None,
+            reason=reason if last is None else f"{last.reason}; {reason}",
+            attempts=0,
+        )
+
+    # --- the search (D-216) -------------------------------------------------
+    feedback_kind = ""
+    tried: list[str] = []          # one kind per probe the search bought
+    notes: list[str] = []          # the recorder's own words, when it recorded nothing
+    spec = model_probe
+    previous = ProbeSpec("", "", "")
+    previous_base: Observation | None = None
+    previous_screen: _Screen | None = None
+    for attempt in range(1, MAX_MODEL_PROBES + 1):
+        if spec is None:
+            if reprobe is None:
+                break
+            try:
+                spec = reprobe(
+                    _probe_feedback(
+                        kind=feedback_kind,
+                        spec=previous,
+                        base=previous_base,
+                        screen=previous_screen,
+                        changed=changed_lines,
+                        definitions=definitions,
+                        anchored=anchored,
+                    )
+                    if feedback_kind
+                    else ""
+                )
+            except Exception as exc:  # noqa: BLE001 - budget/deadline/provider
+                prefix = f"after {attempt - 1} probe(s), " if attempt > 1 else ""
+                return _Recording(
+                    probe=ProbeSpec("", "", ""),
+                    observation=None,
+                    reason=f"{prefix}probe generation failed: "
+                    f"{type(exc).__name__}: {redacted_error(exc)}",
+                    attempts=attempt - 1,
+                )
+        recorded = record(spec)
+        if recorded.exhausted_deadline:
+            return recorded
+        previous = spec
+        previous_base = recorded.observation
+        previous_screen = None
+        if recorded.observation is None:
+            feedback_kind = "unrecorded"
+            tried.append(feedback_kind)
+            notes.append(recorded.reason)
+            spec = None
+            continue
+        screen = screen_on_head(spec)
+        if screen is None:
+            return deadline_recording(spec)
+        previous_screen = screen
+        if screen.differs_from(recorded.observation):
+            return _Chosen(
+                probe=spec,
+                observation=recorded.observation,
+                source="model",
+                origin="",
+                attempts=attempt,
+                screened=screened,
+                attempt_index=attempt,
+                feedback_kind=feedback_kind,
+                head_observation=screen.observation,
             )
-            return _Recording(
-                probe=last.probe if last is not None else ProbeSpec("", "", ""),
-                observation=None,
-                reason=reason if last is None else f"{last.reason}; {reason}",
-                attempts=0,
-            )
-        # the free probes are spent: now the model is bought, and only now
-        try:
-            model_probe = reprobe()
-        except Exception as exc:  # noqa: BLE001 - budget/deadline/provider
-            return _Recording(
-                probe=ProbeSpec("", "", ""),
-                observation=None,
-                reason=f"{screened} derived probe(s) screened out; probe generation "
-                f"failed: {type(exc).__name__}: {redacted_error(exc)}",
-                attempts=0,
-            )
-    recorded = record(model_probe, reprobe)
-    if recorded.observation is None:
-        if screened and not recorded.exhausted_deadline:
-            recorded = replace(
-                recorded,
-                reason=f"{recorded.reason} ({screened} derived probe(s) screened out first)",
-            )
-        return recorded
-    return _Chosen(
-        probe=recorded.probe,
-        observation=recorded.observation,
-        source="model",
-        origin="",
-        attempts=recorded.attempts,
-        screened=screened,
+        if screen.deferred:
+            feedback_kind = "head-deferred"
+            if screen.reason:
+                notes.append(f"on the head revision: {screen.reason}")
+        elif changed_lines and not screen.reached(changed_lines):
+            feedback_kind = "did-not-reach"
+        else:
+            feedback_kind = "no-difference"
+        tried.append(feedback_kind)
+        spec = None
+
+    # D-091: this sentence reaches the author's status body. It is **counts**,
+    # never the model's expressions and never a coordinate: what each probe
+    # called is in the ledger's recording runs, where an operator reads it.
+    bought = len(tried)
+    outcomes = {
+        "did-not-reach": "did not reach the changed lines",
+        "no-difference": "reached the changed lines and observed no difference",
+        "head-deferred": "could not be executed on the head revision",
+        "unrecorded": "recorded nothing usable on the merge base",
+    }
+    tally = "; ".join(
+        f"{tried.count(kind)} {sentence}" for kind, sentence in outcomes.items() if kind in tried
+    )
+    kinds = {"did-not-reach": EvidenceClass.UNBOUND, "no-difference": EvidenceClass.NOT_REPRODUCED}
+    prefix = f"{screened} derived probe(s) screened out first; " if screened else ""
+    reason = f"{prefix}{bought} probes tried and none produced a differential: {tally}"
+    if notes:
+        # the recorder's own sentence for the probes that recorded nothing at
+        # all, deduplicated: three identical refusals are one fact
+        reason += " -- " + "; ".join(dict.fromkeys(notes))
+    return _Recording(
+        probe=previous if bought else ProbeSpec("", "", ""),
+        observation=None,
+        reason=reason,
+        attempts=bought,
+        evidence_class=kinds.get(feedback_kind, EvidenceClass.UNFAITHFUL),
     )
 
 
@@ -2100,7 +2321,7 @@ def execute_differential(
     adapter: ExecutorAdapter | None = None,
     regenerate: Callable[[], ReproSpec] | None = None,
     probe: ProbeSpec | None = None,
-    reprobe: Callable[[], ProbeSpec] | None = None,
+    reprobe: Callable[[str], ProbeSpec] | None = None,
     derived: Sequence[DerivedProbe] = (),
 ) -> DifferentialExecution:
     """Run the same reproduction repeatedly against detached head/base
@@ -2236,23 +2457,26 @@ def execute_differential(
                     recordings.append(RecordingRun("probe", index, result))
                 return result
 
-            def record(
-                chosen: ProbeSpec, again: Callable[[], ProbeSpec] | None
-            ) -> _Recording:
+            def record(chosen: ProbeSpec) -> _Recording:
+                # the search owns the retries now (D-216), so the recorder is
+                # never handed a way to buy a probe of its own: one probe in,
+                # one verdict out, and the loop above decides what follows
                 return _record_on_base(
                     probe=chosen,
-                    reprobe=again,
+                    reprobe=None,
                     run=run_probe,
                     anchored=candidate.finding.file,
                 )
 
-            def differs_on_head(chosen: ProbeSpec, observed: Observation) -> bool | None:
-                """One screening run of the probe on head: does it do the same thing?
+            def screen_on_head(chosen: ProbeSpec) -> _Screen | None:
+                """One screening run of the probe on head: what does it do there?
 
                 The probe body, not the replay, so this asks the recorder's own
                 question of the other revision. `None` means the deadline is
-                spent; `False` means head produced base's observation and there
-                is no differential here to buy."""
+                spent. D-216 keeps the run's `executed_lines` as well as its
+                observation, because *missed the change* and *found no change*
+                are different answers and only the first is worth another probe.
+                """
                 nonlocal spec
                 spec = ReproSpec(test_body=probe_test_body(chosen))
                 result = run_once("head", 0, trees_dir / "head")
@@ -2261,24 +2485,46 @@ def execute_differential(
                 screened_so_far = sum(1 for run in recordings if run.phase == "screen")
                 recordings.append(RecordingRun("screen", screened_so_far + 1, result))
                 if result.outcome is ExecutionOutcome.DEFERRED:
-                    return False
-                seen = parse_observation(
-                    result.stdout, result.stderr, result.failure_message, result.failure_detail
+                    return _Screen(
+                        observation=None,
+                        executed_lines=(),
+                        deferred=True,
+                        reason=result.reason,
+                    )
+                return _Screen(
+                    observation=parse_observation(
+                        result.stdout,
+                        result.stderr,
+                        result.failure_message,
+                        result.failure_detail,
+                    ),
+                    executed_lines=result.executed_lines,
+                    deferred=False,
                 )
-                return seen is not None and seen != observed
 
+            changed_for_probe = _changed_lines(
+                repo_root, base_sha, head_sha, candidate.finding.file
+            )
+            try:
+                head_text = (trees_dir / "head" / candidate.finding.file).read_text(
+                    encoding="utf-8", errors="replace"
+                )
+            except OSError:
+                head_text = ""
             outcome = _choose_probe(
                 derived=derived,
                 model_probe=probe,
                 reprobe=reprobe,
                 record=record,
-                differs_on_head=differs_on_head,
+                screen_on_head=screen_on_head,
                 anchored=candidate.finding.file,
+                changed_lines=changed_for_probe,
+                head_source=head_text,
             )
             if isinstance(outcome, _Recording):
                 if outcome.exhausted_deadline:
                     return deferred(DEADLINE_REASON)
-                return deferred(outcome.reason, EvidenceClass.UNFAITHFUL)
+                return deferred(outcome.reason, outcome.evidence_class)
             spec = ReproSpec(
                 test_body=replay_test_body(outcome.probe, outcome.observation)
             )
@@ -2293,6 +2539,13 @@ def execute_differential(
                     source=outcome.source,
                     origin=outcome.origin,
                     screened=outcome.screened,
+                    attempt_index=outcome.attempt_index,
+                    feedback_kind=outcome.feedback_kind,
+                    head_kind="" if outcome.head_observation is None
+                    else outcome.head_observation.kind,
+                    head_detail=""
+                    if outcome.head_observation is None
+                    else outcome.head_observation.detail[:MAX_REASON_CHARS],
                 )
             )
 
@@ -2353,9 +2606,38 @@ def execute_differential(
                 )
         head_failures = sum(1 for run in head_runs if run.outcome is ExecutionOutcome.REPRODUCED)
         if head_failures == 0:
+            # D-215. "It passed on head" is two different facts and this branch
+            # could not tell them apart, which made the largest answered
+            # category of the 2026-09-10 held-out run unreadable: six cases
+            # ended here and nobody could say whether the probe had touched the
+            # change at all. Either it reached the changed lines and both
+            # revisions did the same thing -- a real silence *about the diff* --
+            # or it never reached them, and the run says nothing about the
+            # change whatsoever. The second has a repair (ask for another
+            # probe); the first does not.
+            reach = _reach_on_head(
+                repo_root,
+                base_sha=base_sha,
+                head_sha=head_sha,
+                path=candidate.finding.file,
+                runs=head_runs,
+            )
+            bindings.append(reach)
+            noun = "probe" if probes else "the reproduction"
+            # D-091: this sentence reaches the author's status body, so it
+            # names no path and no line. The coordinates are in the binding
+            # observation, which the ledger and the bundle carry.
+            if binding_verdict(reach) is not None:
+                return finish(
+                    ExecutionOutcome.NOT_REPRODUCED,
+                    f"{noun} did not reach the changed lines "
+                    f"({repeats}/{repeats} runs passed on head; base not executed)",
+                    EvidenceClass.UNBOUND,
+                )
             return finish(
                 ExecutionOutcome.NOT_REPRODUCED,
-                f"pytest passed on head in {repeats}/{repeats} runs; base not executed",
+                f"{noun} reached the changed lines and observed no difference "
+                f"({repeats}/{repeats} runs passed on head; base not executed)",
                 EvidenceClass.NOT_REPRODUCED,
             )
         if head_failures < repeats:
@@ -2421,17 +2703,14 @@ def execute_differential(
         if not head_symbol_is_present:
             return deferred(STALE_REFERENCE_REASON, EvidenceClass.UNFAITHFUL)
         # V-02: the failing head runs must have executed the changed code
-        changed = _changed_lines(repo_root, base_sha, head_sha, candidate.finding.file)
-        executed_on_every_head_run = set(changed)
-        for run in head_runs:
-            executed_on_every_head_run &= set(run.executed_lines)
-        binding = BindingObservation(
-            policy_version=BINDING_POLICY_VERSION,
+        binding = _reach_on_head(
+            repo_root,
+            base_sha=base_sha,
+            head_sha=head_sha,
             path=candidate.finding.file,
-            changed_lines=changed,
-            executed_changed_lines=tuple(sorted(executed_on_every_head_run)),
-            head_runs_observed=len(head_runs),
+            runs=head_runs,
         )
+        changed = binding.changed_lines
         bindings.append(binding)
         verdict = binding_verdict(binding)
         if verdict is not None:
@@ -2501,6 +2780,33 @@ def execute_differential(
         shutil.rmtree(trees_dir, ignore_errors=True)
         with suppress(OSError, subprocess.SubprocessError):
             _git(repo_root, "worktree", "prune")
+
+
+def _reach_on_head(
+    repo_root: Path,
+    *,
+    base_sha: str,
+    head_sha: str,
+    path: str,
+    runs: list[ExecutionResult],
+) -> BindingObservation:
+    """Which changed lines of `path` every one of `runs` executed (D-215).
+
+    The same intersection V-02 takes over the *failing* head runs, taken here
+    over passing ones: whether the reproduction touched the change at all is a
+    question worth answering whichever way the run came out.
+    """
+    changed = _changed_lines(repo_root, base_sha, head_sha, path)
+    executed = set(changed)
+    for run in runs:
+        executed &= set(run.executed_lines)
+    return BindingObservation(
+        policy_version=BINDING_POLICY_VERSION,
+        path=path,
+        changed_lines=changed,
+        executed_changed_lines=tuple(sorted(executed)),
+        head_runs_observed=len(runs),
+    )
 
 
 def _execution_evidence(result: ExecutionResult) -> str:
@@ -2664,7 +2970,7 @@ def verify_candidate(
                 model=generation_model,
             )
 
-        def choose_probe() -> ProbeSpec:
+        def choose_probe(feedback: str = "") -> ProbeSpec:
             return generate_probe(
                 repo,
                 candidate,
@@ -2674,6 +2980,7 @@ def verify_candidate(
                 base_ref=resolved_base,
                 shared_system=shared_system,
                 model=generation_model,
+                feedback=feedback,
             )
 
         free: tuple[DerivedProbe, ...] = ()
@@ -2735,7 +3042,7 @@ def verify_candidate(
         journal.append(
             {
                 "kind": "probe_observation",
-                "schema_version": "attest.probe-observation.v2",
+                "schema_version": "attest.probe-observation.v3",
                 "task_id": candidate.task_id,
                 "finding_id": candidate.finding.finding_id,
                 # spelled out rather than splatted: the observation has a `kind`
@@ -2751,6 +3058,11 @@ def verify_candidate(
                 "source": execution.probe.source,
                 "origin": execution.probe.origin,
                 "screened": execution.probe.screened,
+                # D-216: what the search cost and what steered it
+                "attempt_index": execution.probe.attempt_index,
+                "feedback_kind": execution.probe.feedback_kind,
+                "head_kind": execution.probe.head_kind,
+                "head_detail": execution.probe.head_detail,
             }
         )
     # D-124: the differential may have regenerated the test (D-114); the spec
