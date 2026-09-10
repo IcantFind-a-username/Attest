@@ -16,9 +16,12 @@ and it decides eligibility **before** anything is bought.
            bought.
   probe    free, docker only, no model call. Build the case, build the image the
            product itself would build for the *base* tree, and run a
-           collect-only inside it under the product's own isolation flags. A
-           case is **evaluable** when the image builds and pytest collects at
-           least one test: those are the two facts D-186's conjunction turns on.
+           collect-only inside it under the product's own isolation flags. The
+           collected file imports every top-level package the tree defines
+           (D-213), so a project that will not import under the dependencies the
+           image resolved is refused here rather than three paid container runs
+           later. A case is **evaluable** when the image builds, the project
+           imports and pytest collects at least one test.
   plan     write the corpus file from the probe results, recording each
            instance's commit.
   run      paid. One factory review per planned case (`--k 5 --budget 1.00`).
@@ -179,6 +182,67 @@ def _build_case(instance_id: str) -> Path:
     return case
 
 
+# --- the evaluability stub (D-213) -----------------------------------------
+# The stub `probe` collects inside the base image. It used to be `assert True`,
+# which asked only whether pytest collects; a tree whose own package will not
+# import under the dependencies the image resolved passed that and was planned,
+# bought, and lost three container runs later as `probe deferred on base`. It
+# imports the project now, so that failure is a free refusal in this stage.
+
+_STUB_SKIP_ROOTS = ("tests", "test", "testing")
+
+
+def stub_packages(tree: Path) -> list[str]:
+    """Top-level packages importable from the tree's own import roots.
+
+    Directories with an ``__init__.py`` only: a bare module at the tree root is
+    `setup.py` or `conftest.py` as often as it is the project, and a directory
+    without one (`doc/`, `ci/`) is not importable at all. The tree's test roots
+    are skipped -- the reproduction runs outside the test tree, and a test
+    package that will not import says nothing about whether the project will.
+    """
+    from attest.review.executor import project_roots
+
+    names: set[str] = set()
+    for root in project_roots(tree):
+        relative = root.replace("{tree}", "").lstrip("/")
+        if relative.split("/")[-1] in _STUB_SKIP_ROOTS:
+            continue
+        directory = tree / relative if relative else tree
+        if not directory.is_dir():
+            continue
+        for entry in sorted(directory.iterdir()):
+            if entry.name.startswith((".", "_")) or entry.name in _STUB_SKIP_ROOTS:
+                continue
+            if entry.is_dir() and (entry / "__init__.py").is_file():
+                names.add(entry.name)
+    return sorted(names)
+
+
+def probe_stub_source(tree: Path) -> str:
+    """The stub written into the run directory, for this tree.
+
+    A tree that defines no importable package gets the old stub and **says so**
+    in its own source: an evaluable verdict that rests on an import check which
+    imported nothing must not read like one that did (D-177).
+    """
+    packages = stub_packages(tree)
+    if not packages:
+        return (
+            "# no top-level package was found in this tree, so this stub imports\n"
+            "# nothing and answers only whether pytest collects here\n"
+            "def test_attest_probe() -> None:\n"
+            "    assert True\n"
+        )
+    imports = "".join(f"import {name}\n" for name in packages)
+    return (
+        f"{imports}\n"
+        "\n"
+        "def test_attest_probe() -> None:\n"
+        f"    assert {tuple(packages)!r}\n"
+    )
+
+
 def _probe_one(instance_id: str, timeout_s: float) -> dict:
     """Build the product's own image for the base tree and collect in it.
 
@@ -246,11 +310,16 @@ def _probe_one(instance_id: str, timeout_s: float) -> dict:
         # under the chosen interpreter collects nothing here, before any model
         # is called -- and it is *not* the project's whole suite, which the
         # product never collects.
+        #
+        # D-213: the stub imports the tree's own packages, so this stage also
+        # answers *will the project import in this image*, which is what the
+        # `assert True` stub was blind to and what nine of the 2026-09-10 run's
+        # cases actually died of.
         run_dir = tree / RUN_DIR_NAME
         run_dir.mkdir(exist_ok=True)
-        (run_dir / "test_repro.py").write_text(
-            "def test_attest_probe() -> None:\n    assert True\n", encoding="utf-8"
-        )
+        packages = stub_packages(tree)
+        record["stub_packages"] = packages
+        (run_dir / "test_repro.py").write_text(probe_stub_source(tree), encoding="utf-8")
         collect = subprocess.run(
             [
                 "docker",

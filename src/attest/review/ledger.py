@@ -51,6 +51,11 @@ _DELIVERY_KINDS = {
 # wealth ranks candidates and never speaks. Rows without the field predate the
 # marker and keep the legacy terminal-report semantics they were written under.
 REVIEW_AUTHORITY_RANKING = "ranking"
+# D-213. The `verification` row carried no version at all; that unversioned
+# shape is v1 and every ledger already on disk holds it. v2 is the same row plus
+# the recording phase's runs in `run_evidence`, which is what makes a
+# `probe deferred on base` readable without re-running the case.
+VERIFICATION_SCHEMA_VERSION = "attest.verification.v2"
 SELF_REPORT_NAMESPACE = "self_reported"
 LEGACY_SELF_REPORT_NAMESPACE = "legacy_self_reported_unknown"
 
@@ -848,6 +853,7 @@ class Ledger:
     ) -> None:
         entry: dict[str, Any] = {
             "kind": "verification",
+            "schema_version": VERIFICATION_SCHEMA_VERSION,
             "task_id": task_id,
             "finding_id": finding_id,
             "outcome": outcome,
