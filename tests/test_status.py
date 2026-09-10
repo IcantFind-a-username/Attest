@@ -332,3 +332,27 @@ def test_a_clause_with_no_actionable_number_is_dropped_rather_than_cut() -> None
     first_line = status.render().splitlines()[0]
     assert "x" not in first_line
     assert "read 3 of 16 units, budget-limited;" in first_line
+
+
+def test_the_two_halves_of_a_silence_have_their_own_categories() -> None:
+    """D-215. The run status counted both under one category, so an operator
+    could not tell a probe that missed the change from a change that was not
+    there. They are the largest answered category of the 2026-09-10 held-out
+    run and they had no name between them."""
+    assert (
+        categorise_failure("probe did not reach the changed lines (3/3 runs passed on head)")
+        == "probe did not reach the change"
+    )
+    assert (
+        categorise_failure(
+            "the reproduction reached the changed lines and observed no difference "
+            "(3/3 runs passed on head; base not executed)"
+        )
+        == "no difference at the change"
+    )
+    # and neither of them is swallowed by the binding category, which is about
+    # a *failing* head run that missed the change
+    assert (
+        categorise_failure("binding: the reproduction exercises none of the changed lines of a.py")
+        == "changed lines not executed"
+    )

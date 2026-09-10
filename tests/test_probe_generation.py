@@ -165,6 +165,7 @@ def verify(repo: Path, base_sha: str, head_sha: str, provider: ProbeProvider, **
     # the model path is what these tests measure; the free path derived from
     # the repository's own tests has its own section below
     kwargs.setdefault("derive_probes", False)
+    kwargs.setdefault("probe_generation", True)
     return verify_candidate(
         repo,
         candidate,
@@ -174,7 +175,6 @@ def verify(repo: Path, base_sha: str, head_sha: str, provider: ProbeProvider, **
         ExecutorLimits(wall_timeout_s=90),
         base_sha=base_sha,
         head_sha=head_sha,
-        probe_generation=True,
         **kwargs,
     )
 
@@ -207,14 +207,28 @@ def test_a_value_recorded_on_base_and_different_on_head_is_a_differential(
 
 
 def test_the_same_value_on_both_revisions_is_silence(tmp_path: Path) -> None:
+    """D-216 moved where this silence is decided, not whether it is one.
+
+    The screening run on head answers it now, before the 3x3 differential is
+    bought: head produces base's observation, so there is nothing to buy and the
+    search asks for another probe. The provider here answers with the same probe
+    every time, so all `MAX_MODEL_PROBES` see the same thing and the run ends
+    saying so -- with the changed lines reached, which is the half of the old
+    sentence that was missing."""
+    from attest.review.executor import MAX_MODEL_PROBES
+
     repo, base_sha, head_sha = two_revisions(tmp_path, BASE_MODULE, HEAD_SAME_VALUE)
 
     run = verify(repo, base_sha, head_sha, ProbeProvider(PROBE))
 
-    assert run.execution.outcome is ExecutionOutcome.NOT_REPRODUCED
-    assert run.execution.reason == "pytest passed on head in 3/3 runs; base not executed"
+    assert run.execution.outcome is ExecutionOutcome.DEFERRED
+    assert f"{MAX_MODEL_PROBES} probes tried" in run.execution.reason
+    assert "reached the changed lines and observed no difference" in run.execution.reason
+    assert run.execution.evidence_class is EvidenceClass.NOT_REPRODUCED
     assert run.execution.base_runs == ()
-    assert run.execution.probe is not None  # the recording still happened
+    # the recordings still happened, and they are in the ledger
+    row = next(r for r in Ledger(repo).entries() if r["kind"] == "verification")
+    assert [e["side"] for e in row["run_evidence"]].count("screen") == MAX_MODEL_PROBES
 
 
 def test_an_exception_on_base_is_recorded_as_the_expectation(tmp_path: Path) -> None:
@@ -515,23 +529,26 @@ def test_a_boundary_variant_certifies_a_crash_the_repository_tests_never_try(
     assert observed.screened >= 1
 
 
-def test_when_every_derived_probe_is_screened_out_the_model_is_asked_once(
+def test_the_model_is_asked_only_after_every_free_probe_is_screened_out(
     tmp_path: Path,
 ) -> None:
+    """D-206's ordering, unchanged by D-216: the free probes are spent first and
+    the model is not bought until they are. What D-216 changes is what happens
+    *after* the first paid probe fails to differ -- it is asked again, up to
+    `MAX_MODEL_PROBES`, which is the whole search."""
+    from attest.review.executor import MAX_MODEL_PROBES
+
     repo, base_sha, head_sha = two_revisions(tmp_path, BASE_MODULE, HEAD_SAME_VALUE)
     provider = ProbeProvider(PROBE)
 
     run = verify(repo, base_sha, head_sha, provider, derive_probes=True)
 
-    assert run.execution.outcome is ExecutionOutcome.NOT_REPRODUCED
-    assert len(provider.systems) == 1  # bought after the free probes, not before
-    observed = run.execution.probe
-    assert observed is not None
-    assert observed.source == "model" and observed.expression == "mod.total(items)"
-    # the free probes were tried and put aside first, and the count says so;
-    # the reason belongs to the verdict, which is the ordinary silence
-    assert observed.screened >= 1
-    assert run.execution.reason == "pytest passed on head in 3/3 runs; base not executed"
+    assert run.execution.outcome is ExecutionOutcome.DEFERRED
+    assert len(provider.systems) == MAX_MODEL_PROBES
+    # the free probes were tried and put aside before the first paid one, and
+    # the reason says so as well as saying how many paid probes followed
+    assert "derived probe(s) screened out first" in run.execution.reason
+    assert f"{MAX_MODEL_PROBES} probes tried" in run.execution.reason
 
 
 # --- D-213: a recording that dies on base leaves its output behind ----------
@@ -574,3 +591,208 @@ def test_a_probe_that_defers_on_base_writes_its_output_to_the_ledger(
     # the cause is readable without re-running anything
     streams = recordings[0]["stdout_tail"] + recordings[0]["stderr_tail"]
     assert "a_module_that_does_not_exist" in streams
+
+
+# --- D-215: which silence, and D-216: asking again --------------------------
+#
+# Six of the thirteen 2026-09-10 held-out cases that executed a probe at all
+# ended as *the reproduction passed on head*, and nobody could say whether the
+# probe had touched the change. That sentence is two different facts with two
+# different repairs, and only one of them has one.
+
+# base guards the empty list, head does not: the changed lines are inside
+# `first`, and a probe that calls `total` never enters them.
+TWO_FUNCTION_BASE = (
+    "def total(items):\n"
+    "    return sum(items)\n"
+    "\n"
+    "\n"
+    "def first(items):\n"
+    "    if not items:\n"
+    "        return None\n"
+    "    return items[0]\n"
+)
+TWO_FUNCTION_HEAD = (
+    "def total(items):\n"
+    "    return sum(items)\n"
+    "\n"
+    "\n"
+    "def first(items):\n"
+    "    return items[0]\n"
+)
+TWO_FUNCTION_TESTS = (
+    "import mod\n\n\ndef test_first():\n    assert mod.first([1, 2, 3]) == 1\n"
+)
+# a reproduction that passes on head and never enters the changed function
+MISSES_THE_CHANGE_TEST = {
+    "test_body": "import mod\n\n\ndef test_repro():\n    assert mod.total([1, 2, 3]) == 6\n"
+}
+# and one that passes on head having executed the changed lines
+REACHES_THE_CHANGE_TEST = {
+    "test_body": "import mod\n\n\ndef test_repro():\n    assert mod.first([1, 2]) == 1\n"
+}
+
+
+def test_a_reproduction_that_never_touched_the_change_says_so(tmp_path: Path) -> None:
+    """D-215's first RED. `did not reach` and `no difference` had one sentence
+    between them, and they are not the same claim about the diff."""
+    repo, base_sha, head_sha = two_revisions(
+        tmp_path, TWO_FUNCTION_BASE, TWO_FUNCTION_HEAD, TWO_FUNCTION_TESTS
+    )
+
+    run = verify(
+        repo,
+        base_sha,
+        head_sha,
+        ProbeProvider(MISSES_THE_CHANGE_TEST),
+        candidate=stored(line=6),
+        probe_generation=False,
+    )
+
+    assert run.execution.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert "did not reach the changed lines" in run.execution.reason
+    assert run.execution.evidence_class is EvidenceClass.UNBOUND
+
+
+def test_a_reproduction_that_touched_the_change_and_saw_nothing_says_that_instead(
+    tmp_path: Path,
+) -> None:
+    """D-215's second RED, and the one that must not be swept into the first:
+    here the run really is a silence *about the diff*, and no further probe
+    would change that."""
+    repo, base_sha, head_sha = two_revisions(
+        tmp_path, TWO_FUNCTION_BASE, TWO_FUNCTION_HEAD, TWO_FUNCTION_TESTS
+    )
+
+    run = verify(
+        repo,
+        base_sha,
+        head_sha,
+        ProbeProvider(REACHES_THE_CHANGE_TEST),
+        candidate=stored(line=6),
+        probe_generation=False,
+    )
+
+    assert run.execution.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert "reached the changed lines and observed no difference" in run.execution.reason
+    assert run.execution.evidence_class is EvidenceClass.NOT_REPRODUCED
+
+
+# D-216: one probe per candidate was the product until now. These three drive
+# the search: the feedback reaches the second probe, the second probe finds what
+# the first could not, and a search that gives up says what it bought.
+
+MISSES_THE_CHANGE = {
+    "imports": "import mod",
+    "setup": "items = [1, 2, 3]",
+    "expression": "mod.total(items)",
+}
+REACHES_THE_CHANGE = {"imports": "import mod", "setup": "", "expression": "mod.first([])"}
+
+
+class PromptRecorder(ProbeProvider):
+    """A `ProbeProvider` that keeps the user prompt of every call it answered."""
+
+    def __init__(self, *payloads: dict[str, str]) -> None:
+        super().__init__(*payloads)
+        self.prompts: list[str] = []
+
+    def sample(
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        max_tokens: int,
+        *,
+        timeout_s: float | None = None,
+    ) -> ProviderResult:
+        self.prompts.append(prompt)
+        return super().sample(system, prompt, schema, max_tokens, timeout_s=timeout_s)
+
+
+def test_what_the_last_probe_did_is_handed_to_the_next_one(tmp_path: Path) -> None:
+    """D-216's first RED. Without this the loop is three independent guesses
+    rather than a search, and three guesses at the same prompt are one guess."""
+    repo, base_sha, head_sha = two_revisions(
+        tmp_path, TWO_FUNCTION_BASE, TWO_FUNCTION_HEAD, TWO_FUNCTION_TESTS
+    )
+    provider = PromptRecorder(MISSES_THE_CHANGE, REACHES_THE_CHANGE)
+
+    verify(repo, base_sha, head_sha, provider, candidate=stored(line=6))
+
+    assert len(provider.prompts) >= 2
+    feedback = provider.prompts[1]
+    assert "mod.total(items)" in feedback  # what the last probe called
+    assert "none of them is a changed line" in feedback
+    assert "first:" in feedback  # the definition the diff changed, by name
+
+
+def test_the_second_probe_certifies_what_the_first_could_not_see(
+    tmp_path: Path,
+) -> None:
+    """D-216's second RED, and the whole point of the change: this differential
+    was unreachable when a candidate got one probe."""
+    repo, base_sha, head_sha = two_revisions(
+        tmp_path, TWO_FUNCTION_BASE, TWO_FUNCTION_HEAD, TWO_FUNCTION_TESTS
+    )
+    provider = PromptRecorder(MISSES_THE_CHANGE, REACHES_THE_CHANGE)
+
+    run = verify(repo, base_sha, head_sha, provider, candidate=stored(line=6))
+
+    assert run.execution.outcome is ExecutionOutcome.REPRODUCED
+    assert run.execution.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    observed = run.execution.probe
+    assert observed is not None
+    assert observed.expression == "mod.first([])"
+    row = next(r for r in Ledger(repo).entries() if r["kind"] == "probe_observation")
+    assert row["schema_version"] == "attest.probe-observation.v3"
+    assert row["attempt_index"] == 2
+    assert row["feedback_kind"] == "did-not-reach"
+    # the head side of the screening run is recorded too: it is what a value
+    # note would have to state, and it was nowhere before
+    assert row["head_kind"] == "exception"
+
+
+def test_a_search_that_gives_up_says_what_it_bought(tmp_path: Path) -> None:
+    """D-216's third RED. `MAX_MODEL_PROBES` probes that all miss is a different
+    report from one probe that missed, and the reader pays for the difference."""
+    from attest.review.executor import MAX_MODEL_PROBES
+
+    repo, base_sha, head_sha = two_revisions(
+        tmp_path, TWO_FUNCTION_BASE, TWO_FUNCTION_HEAD, TWO_FUNCTION_TESTS
+    )
+    provider = PromptRecorder(MISSES_THE_CHANGE)
+
+    run = verify(repo, base_sha, head_sha, provider, candidate=stored(line=6))
+
+    assert run.execution.outcome is ExecutionOutcome.DEFERRED
+    assert len(provider.prompts) == MAX_MODEL_PROBES
+    assert f"{MAX_MODEL_PROBES} probes tried" in run.execution.reason
+    assert "did not reach the changed lines" in run.execution.reason
+    assert run.execution.evidence_class is EvidenceClass.UNBOUND
+
+
+def test_neither_half_of_the_silence_names_a_coordinate(tmp_path: Path) -> None:
+    """D-091 holds through D-215 and D-216: an uncertified candidate's file must
+    not reach the author, and every reason in this module ends up in the status
+    body of a silent run. The first draft of D-215 put the anchored path in it
+    and `tests/test_ci_flow.py` caught it."""
+    repo, base_sha, head_sha = two_revisions(
+        tmp_path, TWO_FUNCTION_BASE, TWO_FUNCTION_HEAD, TWO_FUNCTION_TESTS
+    )
+
+    missed = verify(
+        repo,
+        base_sha,
+        head_sha,
+        ProbeProvider(MISSES_THE_CHANGE_TEST),
+        candidate=stored(line=6),
+        probe_generation=False,
+    )
+    searched = verify(
+        repo, base_sha, head_sha, PromptRecorder(MISSES_THE_CHANGE), candidate=stored(line=6)
+    )
+
+    for reason in (missed.execution.reason, searched.execution.reason):
+        assert "mod.py" not in reason
+        assert "mod.total" not in reason  # nor the model's own expression

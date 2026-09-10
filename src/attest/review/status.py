@@ -26,6 +26,11 @@ FAILURE_CATEGORIES = (
     "environment or import failure",
     "timeout",
     "changed lines not executed",
+    # D-215: a reproduction that never touched the change is a different fact
+    # from one that touched it and saw both revisions agree, and the run status
+    # reported them as one silence
+    "probe did not reach the change",
+    "no difference at the change",
     "collection failure",
     "other",
 )
@@ -38,6 +43,10 @@ def _as_int(value: object) -> int:
 def categorise_failure(reason: str) -> str:
     """The category of one reproduction failure, from its recorded reason."""
     text = reason.lower()
+    if "did not reach the changed lines" in text:
+        return "probe did not reach the change"
+    if "reached the changed lines and observed no difference" in text:
+        return "no difference at the change"
     if "intent unknown" in text:
         # D-102: head rejects an input the base accepted, and the base tree
         # does not attest that input as legitimate

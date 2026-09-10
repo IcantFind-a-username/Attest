@@ -72,6 +72,11 @@ DRAWER_REASON_PREFIXES = (
     ("intent: value change confirmed", "value-change-intent-unknown"),
     ("intent: constant change confirmed", "constant-change-intent-unknown"),
     ("intent:", "intent-other"),
+    # D-215: the two halves of what used to be one "it passed on head"
+    ("probe did not reach the changed lines", "probe-did-not-reach"),
+    ("probe reached the changed lines", "probe-no-difference"),
+    ("the reproduction did not reach the changed lines", "probe-did-not-reach"),
+    ("the reproduction reached the changed lines", "probe-no-difference"),
     ("probe deferred", "probe-deferred"),
     ("probe refused", "probe-refused"),
     ("probe reported no observation", "probe-no-observation"),

@@ -1341,14 +1341,18 @@ def test_execute_reports_network_unblocked_when_process_never_starts(tmp_path: P
             "regression_reproduced",
         ),
         (
+            # D-215: a reproduction that asserts nothing about the tree does not
+            # reach the changed lines either, and the run now says which of the
+            # two silences it is. The gate arithmetic is untouched.
             "def test_repro():\n    assert True",
             "not_reproduced",
-            "pytest passed on head in 3/3 runs; base not executed",
+            "the reproduction did not reach the changed lines "
+            "(3/3 runs passed on head; base not executed)",
             4.0,
             "reproduction failed",
             ["not_reproduced"] * 3,
             [],
-            "not_reproduced",
+            "unbound",
         ),
     ],
 )
