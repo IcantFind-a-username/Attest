@@ -356,6 +356,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         tier0_commands=[],
         context_strategy=args.context_strategy,
         model=args.model,
+        # D-217: the product's setting unless the driver is told otherwise
+        contained_attempt_voids=args.contained_attempt_voids,
     )
     github = Loopback()
     try:
@@ -527,6 +529,17 @@ def main(argv: list[str] | None = None) -> int:
         "--results-suffix",
         default="",
         help="suffix for the results file so both arms keep their summaries",
+    )
+    r.add_argument(
+        "--contained-attempt-voids",
+        dest="contained_attempt_voids",
+        default=True,
+        type=lambda value: value.strip().lower() not in {"false", "0", "no"},
+        help=(
+            "D-217. True (the product's setting) voids an observation whose run "
+            "attempted to create a process or a thread, even though the kernel "
+            "refused it. False records the refused attempt and reads the run."
+        ),
     )
     r.set_defaults(func=cmd_run)
     t = sub.add_parser("table")

@@ -96,6 +96,12 @@ def run_record(
         "xfailed_count": run.xfailed_count,
         "network_blocked": run.network_blocked,
         "fresh_state": run.fresh_state,
+        # D-217: creations the kernel refused in this run. The record's own
+        # digest is computed from the record at write and again at verify, so
+        # a bundle written before this field keeps the digest it was sealed
+        # with -- unlike a field added to the receipt, which would move every
+        # provenance digest that predates it (INV-VERSION-001).
+        "contained_attempts": list(run.contained_attempts),
         "files": files,
     }
 

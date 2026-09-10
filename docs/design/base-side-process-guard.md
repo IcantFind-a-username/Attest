@@ -73,3 +73,40 @@ defines.
 
 **Trace:** D-198 (the backlog line this answers), D-206; the 2026-09-12 held-out report;
 `AGENTS.md` §16; `INV-SEC-001`.
+
+## Addendum, 2026-09-11: a fourth option, and the owner took it behind a switch
+
+The three options above all ask *should the guard refuse this?* There is a fourth question
+this document did not ask: **when the kernel has already refused it and the run then completed
+normally, is the observation void?**
+
+That is the shape six of the 2026-09-10 losses actually have. `sphinx/__init__.py` calls
+`git show` at import inside `try/except Exception`. On a POSIX host the audit hook writes the
+marker and does **not** raise; `RLIMIT_NPROC`, which is `(0, 0)` for the whole run, refuses the
+fork; Sphinx swallows the `OSError`; the import completes; the probe runs; the observation is
+recorded — and `execute_repro` then returns `_deferred` **before reading it**. Nothing escaped,
+nothing was contained late, and a recording that existed was thrown away.
+
+**Owner decision of 2026-09-11 (D-217): implement it, behind `ReviewConfig.contained_attempt_voids`,
+and do not move the default.** `True` is the product's setting and this window does not change
+it. `False` records the refused attempt on the run — `contained_attempts` — and reads the run
+like any other.
+
+Three things bound it, and they are the reason it is not option 1 in disguise:
+
+- **the kernel must be the thing that refused.** The relaxation is available only when
+  `process-contained` is present, which is written only after `RLIMIT_NPROC == (0, 0)` is
+  verified. Where the guard is a Python audit hook alone — which `AGENTS.md` §4 calls
+  best-effort containment and not a security boundary — nothing is relaxed.
+- **the run must have completed normally.** A timeout, an executor error, a missing JUnit
+  artifact and a non-zero exit that is not a test failure are all unchanged.
+- **the escape classes are untouched.** `process-replacement-attempted`, `network-attempted`
+  and `write-attempted` void the run under either setting, because none of them is an attempt
+  the kernel refused on the way to a normal exit — each is the boundary itself being reached
+  for. `tests/test_executor.py::test_the_relaxation_never_reaches_an_escape_class` asserts
+  that with the switch **off**, which is the only setting under which the assertion could fail.
+
+**What is still not claimed.** This does not say the guard should stop refusing. Option 1's
+question — may a reviewed project start a thread during an ordinary import? — is untouched and
+is still an owner decision. This says only that an attempt the kernel already refused, in a run
+that finished, is a fact to disclose rather than a reason to discard evidence.

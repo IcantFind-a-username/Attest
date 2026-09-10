@@ -37,6 +37,9 @@ class FindingEvidence:
     extra: dict[str, str] = field(default_factory=dict)
     evidence_class: str = ""  # D-102: "regression_reproduced" | "behavior_change"
     rejection: str = ""  # D-102: what the behavior-change receipt proves, one sentence
+    # D-217: creations the kernel refused during the recorded runs. Empty under
+    # the product's setting, where such an attempt voids the run instead.
+    contained_attempts: tuple[str, ...] = ()
 
     def summary(self) -> str:
         head = sum(1 for run in self.head_runs if run.outcome == "failed")
@@ -70,6 +73,24 @@ def _runs(bundle: Path, run_ids: list[str]) -> tuple[RunSummary, ...]:
             )
         )
     return tuple(out)
+
+
+def _contained_attempts(bundle: Path, run_ids: list[str]) -> tuple[str, ...]:
+    """Every kernel-refused creation the bundle's run records name (D-217).
+
+    Read from the bundle rather than passed in, like everything else here: what
+    an author is shown must be exactly what the sealed artifact says, so that
+    the `<details>` and an offline `attest verify` cannot disagree.
+    """
+    seen: dict[str, None] = {}
+    for run_id in run_ids:
+        try:
+            record = json.loads((bundle / "runs" / run_id / "run.json").read_bytes())
+        except (OSError, ValueError):
+            continue
+        for attempt in record.get("contained_attempts") or []:
+            seen.setdefault(str(attempt), None)
+    return tuple(seen)
 
 
 def _rejection_sentence(bundle: Path) -> str:
@@ -126,6 +147,7 @@ def evidence_from_bundle(bundle: Path, *, repo: Path | None = None) -> FindingEv
         executor_profile=profile,
         evidence_class=evidence_class,
         rejection=_rejection_sentence(bundle) if evidence_class == "behavior_change" else "",
+        contained_attempts=_contained_attempts(bundle, [*head_ids, *base_ids]),
     )
 
 
@@ -148,8 +170,20 @@ def render_markdown(evidence: FindingEvidence) -> str:
         if evidence.rejection
         else ""
     )
+    # D-217: an attempt the kernel refused is disclosed rather than hidden. The
+    # runs are still the six that certify; this says what the code reached for
+    # and did not get, so a reader can judge the evidence knowing it.
+    contained = (
+        "<details>\n<summary>Creations the kernel refused during these runs</summary>\n\n"
+        + "\n".join(f"- `{attempt}`" for attempt in evidence.contained_attempts)
+        + "\n\nEach was denied before it happened; the run completed and its result is the "
+        "differential above.\n\n</details>\n\n"
+        if evidence.contained_attempts
+        else ""
+    )
     return (
         behavior
+        + contained
         + "Run it yourself: save the test as `test_repro.py` in the repository root and run\n\n"
         f"```bash\n{evidence.command}\n```\n\n"
         f"```python\n{evidence.test_source.rstrip()}\n```\n\n"

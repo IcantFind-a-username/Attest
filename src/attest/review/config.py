@@ -67,6 +67,19 @@ class ReviewConfig:
     # variant of each literal. Free of model calls; bounded in container time.
     # False restores the model-only probe path.
     derived_probes: bool = True
+    # D-217: whether a process or thread creation the **kernel** already
+    # refused voids the observation. True is the product's setting and this
+    # change does not move it. False says: an attempt that RLIMIT_NPROC denied,
+    # made by code that then completed normally, is a contained attempt and not
+    # a failed run -- the isolation was not breached, and the evidence is still
+    # a 3x3 deterministic differential. It exists because 18 of 67 verification
+    # attempts in the 2026-09-10 held-out run died on `sphinx/__init__.py`
+    # calling `git show` inside a `try/except Exception` at import: the guard
+    # marked, the kernel refused, Sphinx swallowed the error, the probe ran and
+    # recorded -- and the executor then discarded the recording it had.
+    # `process-replacement-attempted`, `network-attempted` and
+    # `write-attempted` void the run under either setting.
+    contained_attempt_voids: bool = True
     # D-157: how many candidates' reproductions may run at once. The three runs
     # *inside* one candidate stay serial -- the repeat count is what makes a
     # reproduction stable, and a concurrent repeat is a different experiment.
@@ -132,6 +145,8 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError("probe_generation must be a boolean")
     if type(config.derived_probes) is not bool:
         raise ValueError("derived_probes must be a boolean")
+    if type(config.contained_attempt_voids) is not bool:
+        raise ValueError("contained_attempt_voids must be a boolean")
     if type(config.repro_concurrency) is not int or not 1 <= config.repro_concurrency <= 8:
         raise ValueError("repro_concurrency must be an integer in [1, 8]")
     if type(config.verification_cap_per_unit) is not int or config.verification_cap_per_unit < 1:
@@ -162,6 +177,10 @@ _KNOWN_POLICY_KEYS = {
     "tier0_commands",
     "probe_generation",
     "derived_probes",
+    # `contained_attempt_voids` is deliberately absent (D-217): it is an
+    # isolation-adjacent knob, and a reviewed repository's own `.attest.toml`
+    # may not be the thing that decides what voids an observation. It is set by
+    # the caller that constructs the config -- today, only a measurement driver.
     "repro_concurrency",
     "verification_cap_per_unit",
     "daily_budget_usd",

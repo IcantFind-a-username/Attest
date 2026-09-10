@@ -560,6 +560,9 @@ def cmd_run(args: argparse.Namespace) -> int:
                 "900",
                 "--results-suffix",
                 args.results_suffix,
+                # D-217: the product's setting unless this run was told otherwise
+                "--contained-attempt-voids",
+                "true" if args.contained_attempt_voids else "false",
             ],
             check=False,
             env=case_env,
@@ -711,6 +714,16 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--only", default="")
     r.add_argument("--rerun", action="store_true")
     r.add_argument("--results-suffix", default=RESULTS_SUFFIX)
+    r.add_argument(
+        "--contained-attempt-voids",
+        dest="contained_attempt_voids",
+        default=True,
+        type=lambda value: value.strip().lower() not in {"false", "0", "no"},
+        help=(
+            "D-217. True is the product's setting. False records a process or "
+            "thread creation the kernel refused instead of voiding the run."
+        ),
+    )
     r.set_defaults(func=cmd_run)
     t = sub.add_parser("table")
     t.add_argument("--results-suffix", default=RESULTS_SUFFIX)

@@ -388,6 +388,10 @@ class ExecutionResult:
     raise_origins_truncated: bool = False
     failure_message: str = ""  # the JUnit failure message ("Type: text"), failed runs only
     failure_detail: str = ""  # D-132: the JUnit failure body (pytest's longrepr)
+    # D-217: process or thread creations this run attempted and the **kernel**
+    # refused, when the run then completed normally. Empty under the product's
+    # setting, where such an attempt voids the run instead.
+    contained_attempts: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -459,6 +463,19 @@ class DifferentialExecution:
     probe: ProbeObservation | None = None  # D-146: what base did, recorded
     # D-213: every run the recording phase bought, in the order it bought them
     recording_runs: tuple[RecordingRun, ...] = ()
+
+    @property
+    def contained_attempts(self) -> tuple[str, ...]:
+        """D-217: every creation the kernel refused, over every run of this
+        differential, in order and deduplicated. Empty under the product's
+        setting, where such an attempt voids the run instead."""
+        seen: dict[str, None] = {}
+        for run in (self.collection_run, *self.head_runs, *self.base_runs):
+            if run is None:
+                continue
+            for attempt in run.contained_attempts:
+                seen.setdefault(attempt, None)
+        return tuple(seen)
     # D-124: the spec whose bytes the recorded runs actually executed. The
     # collection loop may replace the generated test (D-114), so the caller's
     # first spec is not in general the one the receipt is about; the evidence
@@ -1076,6 +1093,25 @@ def _truncate_output(output: bytes | str | None, limit: int) -> str:
     return encoded[-limit:].decode("utf-8", errors="ignore")
 
 
+def _contained_attempt(kind: str, marker: bytes | None) -> str:
+    """One line naming a creation the kernel refused (D-217).
+
+    The marker file the guard wrote holds the audit event, its target and the
+    stack that reached it; what travels is the event and the target, because
+    that is what an author or an operator acts on -- the stack is in the run's
+    stderr, which the bundle carries.
+    """
+    text = (marker or b"").decode("utf-8", errors="replace")
+    fields = {}
+    for line in text.splitlines():
+        name, _, value = line.partition("=")
+        if _ and name in {"event", "target"}:
+            fields[name] = value.strip()
+    event = fields.get("event") or f"{kind} creation"
+    target = fields.get("target")
+    return f"{event}: {target}" if target else f"{event} refused by the kernel"
+
+
 def _append_guard_evidence(stderr: str, marker: bytes | None, limit: int) -> str:
     evidence = (
         marker.decode("utf-8", errors="replace")
@@ -1511,6 +1547,7 @@ def execute_repro(
     controller: Controller | None = None,
     adapter: ExecutorAdapter | None = None,
     tree_target: str | None = None,
+    contained_attempt_voids: bool = True,
 ) -> ExecutionResult:
     """One guarded pytest run through the controller/executor protocol (X-01).
     ``node`` selects the exact test function; with ``collect_only`` the run only
@@ -1616,6 +1653,7 @@ def execute_repro(
             "fresh_state": True,
             "raise_origins": (),
             "raise_origins_truncated": False,
+            "contained_attempts": (),
         }
         request = active_controller.issue(
             task_id=candidate.task_id,
@@ -1697,26 +1735,46 @@ def execute_repro(
             stderr=stderr,
             network_blocked=network_blocked,
         )
+    # D-217. `process-attempted` and `thread-attempted` are the two markers whose
+    # attempt the **kernel** itself refuses: RLIMIT_NPROC is (0, 0) for the whole
+    # run, and `process-contained` is written only after that is verified. Under
+    # the product's setting both still void the observation. Under
+    # `contained_attempt_voids=False` an attempt that was refused, by code that
+    # then completed its run normally, is recorded as a *contained attempt* and
+    # the run is read as any other run -- the isolation was not breached and the
+    # evidence is still a 3x3 deterministic differential.
+    #
+    # The relaxation is available only where the kernel is the thing refusing:
+    # on a platform with no `process-contained` marker the guard is a Python
+    # audit hook alone, which `AGENTS.md` §4 says in its own words is
+    # best-effort containment and not a security boundary.
+    kernel_contained = os.name == "posix" and "process-contained" in artifacts
+    may_contain = not contained_attempt_voids and kernel_contained
+    contained: list[str] = []
     if "process-attempted" in artifacts:
-        return _deferred(
-            "reproduction attempted to create a child process",
-            started,
-            exit_code=exit_code,
-            stdout=stdout,
-            stderr=_append_guard_evidence(
-                stderr, artifacts.get("process-attempted"), limits.output_bytes
-            ),
-            network_blocked=network_blocked,
-        )
+        if not may_contain:
+            return _deferred(
+                "reproduction attempted to create a child process",
+                started,
+                exit_code=exit_code,
+                stdout=stdout,
+                stderr=_append_guard_evidence(
+                    stderr, artifacts.get("process-attempted"), limits.output_bytes
+                ),
+                network_blocked=network_blocked,
+            )
+        contained.append(_contained_attempt("process", artifacts.get("process-attempted")))
     if "thread-attempted" in artifacts:
-        return _deferred(
-            "reproduction attempted to create a thread",
-            started,
-            exit_code=exit_code,
-            stdout=stdout,
-            stderr=stderr,
-            network_blocked=network_blocked,
-        )
+        if not may_contain:
+            return _deferred(
+                "reproduction attempted to create a thread",
+                started,
+                exit_code=exit_code,
+                stdout=stdout,
+                stderr=stderr,
+                network_blocked=network_blocked,
+            )
+        contained.append(_contained_attempt("thread", artifacts.get("thread-attempted")))
     if "network-attempted" in artifacts:
         return _deferred(
             "reproduction attempted a network connection",
@@ -1772,6 +1830,7 @@ def execute_repro(
             test_node=node_id,
             **identity,
         )
+    identity["contained_attempts"] = tuple(contained)
     identity["executed_lines"] = _executed_lines(artifacts.get("executed-lines"))
     identity["import_origins"] = _import_origins(artifacts.get("import-origin"))
     raise_record = parse_raise_record(artifacts.get("raise-origin"))
@@ -2323,6 +2382,7 @@ def execute_differential(
     probe: ProbeSpec | None = None,
     reprobe: Callable[[str], ProbeSpec] | None = None,
     derived: Sequence[DerivedProbe] = (),
+    contained_attempt_voids: bool = True,
 ) -> DifferentialExecution:
     """Run the same reproduction repeatedly against detached head/base
     worktrees. Only a deterministic head failure that shows the code
@@ -2419,6 +2479,7 @@ def execute_differential(
             revision_sha=revisions.get(side, revisions["head"]),
             controller=controller,
             adapter=adapter,
+            contained_attempt_voids=contained_attempt_voids,
         )
 
     if repeats < 1:
@@ -2905,6 +2966,7 @@ def verify_candidate(
     generation_model: str = "",
     probe_generation: bool = True,
     derive_probes: bool = True,
+    contained_attempt_voids: bool = True,
     ledger: Ledger | None = None,
 ) -> VerificationRun:
     """Generate a reproduction and run it on both revisions.
@@ -3014,6 +3076,7 @@ def verify_candidate(
                 probe=probe,
                 reprobe=choose_probe if probe_generation else None,
                 derived=free,
+                contained_attempt_voids=contained_attempt_voids,
             )
 
     journal = ledger if ledger is not None else Ledger(repo)
@@ -3034,6 +3097,7 @@ def verify_candidate(
         evidence_class=execution.evidence_class.value,
         run_evidence=_differential_run_evidence(execution),
         intent=None if execution.intent is None else asdict(execution.intent),
+        contained_attempts=list(execution.contained_attempts) or None,
     )
     if execution.probe is not None:
         # D-146: the recording is audit, not certification. It goes in the ledger

@@ -226,6 +226,7 @@ def run_verification_stage(
             generation_model=config.generation_model,
             probe_generation=config.probe_generation,
             derive_probes=config.derived_probes,
+            contained_attempt_voids=config.contained_attempt_voids,
             ledger=journal,
         )
 
