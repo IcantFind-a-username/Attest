@@ -158,6 +158,12 @@ Three next steps, in the order the evidence supports:
    restricted itself to module-level functions because *"a method needs a receiver and a receiver
    is an object the test built"*; on a corpus of `sympy`, `xarray` and `sphinx` that restriction
    may be excluding most of the population, and this measurement decides it before any code moves.
+
+   **Done, 2026-09-11 (D-212), and it decided against the route.** Fully relaxed, a derived
+   probe exists for **5 of 39 cases**; only the method relaxation contributes. **25 of 39 cases
+   have no test call site at all** for what their diff changed. The rule is not broken — it
+   scores 22 of 200 (11%) on this repository — the supply is not there.
+   [Report](2026-09-10-probe-reach.md).
 2. **The intent clause's evidence source** — the instruction's own preferred direction, and the
    category is 14 of 67 attempts here (12 of 60 on the shared cases), 8 of which are the value
    class D-158 already excludes. The live question is what may count as the base tree stating an
