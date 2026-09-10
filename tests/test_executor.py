@@ -3548,7 +3548,12 @@ def test_the_relaxation_never_reaches_an_escape_class(tmp_path: Path) -> None:
             "from pathlib import Path\n"
             "def test_repro():\n"
             "    try:\n"
-            "        Path('/tmp/attest-escape-probe').write_text('x')\n"
+            # the filesystem root: outside the writable set on every platform,
+            # and unwritable anyway, so the guard records the attempt and the
+            # attempt itself cannot leave anything behind. `/tmp` is **not** a
+            # substitute -- the executor puts a writable scratch area there on
+            # Linux, so this test passed on macOS and failed on the runner.
+            "        Path('/attest-escape-probe-must-not-exist').write_text('x')\n"
             "    except Exception:  # noqa: BLE001\n"
             "        pass\n"
             "    assert True\n"
