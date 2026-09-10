@@ -93,6 +93,16 @@ instruction); cumulative before it: **$68.21** (the 2026-09-06c handoff's figure
 | 2026-09-04 | **numpy fix re-run (owner instruction 4)** — the four `Corum` defect pairs the corpus lost to `blas_thread_init`, re-run at the same `--budget 0.60` (**non-default**) through `linux-container-v1` with the three thread-count variables set (D-123): **7 of 8 verifications reproduced, 7 accepted receipts, 4 published**, against 0 of 9 the day before. [Report](docs/acceptance/2026-09-04-numpy-under-the-thread-cap.md) | $0.404600 |
 | 2026-09-04 | **budget-wall measurement (owner instruction 5)** — `d02`, `d03` and `d16` re-run at **`--budget 1.20`** (**non-default**; the product default is $0.25 and the corpus standard was $0.60), product code frozen at `fc2014f`, cap $8. `BudgetExceeded` falls from 25 of 31 verifications to **0 of 31**; certification goes from 0 of 3 pairs to **3 of 3** (5 receipts); **0 published**, all suppressed by the family threshold. [Report](docs/acceptance/2026-09-04-budget-wall.md) | $2.732400 |
 
+## 2026-09-10 — `G-RECALL-002` re-measurement (D-208)
+
+**Owner authorisation, 2026-09-10:** the paid dispatch, at a cap of **$6.50**, chosen over $5.00
+so that all 39 evaluable cases run and the denominator is complete — the 2026-09-12 run left 4
+cases unbought when its $5.00 cap bound.
+
+| item | reserved | settled |
+|---|---|---|
+| **the crash-class held-out slice, re-measured under D-206** — the *same* 39 instances of the 2026-09-12 run, restored from that run's committed probe evidence rather than re-screened, so the result is comparable to **2 of 28 = 7.1%**. Factory configuration: `--k 5 --budget 1.00`, containers, on a GitHub runner (`heldout.yml`, D-208) because no development host here can build the images. **Local review path only: no GitHub client is constructed, so no publication surface exists.** Reservation basis is the maximum the driver may commit — its hard cumulative `--cap` — not the measured rate; the measured basis says it is ample, the same slice costing **$4.138447** on 2026-09-12. **Stop rule: the driver refuses to start any case whose maximum would exceed the cap, and stops there** | **$6.50** | *pending* |
+
 **Total API spend: $96.493141 of $110.00.**
 
 > **Erratum, 2026-09-13.** This line read *"$52.226537 of $90.00", the figure at the end of the 2026-09-05c window*, and it had not moved since. It is the **only machine-readable line in this file** — `attest.benchmark.live.read_devspend` parses it, and every paid preflight since 2026-09-05c has therefore checked its headroom against a total **$38 low and a cap $20 low**. No run was actually over the real cap, because every window since has also carried its own driver-enforced cumulative cap and the owner's per-item ceiling; but the guard that exists to catch that was not the thing catching it. The figure above is the 2026-09-12b handoff's settled cumulative ($90.009721) plus this window's [PR #19](https://github.com/IcantFind-a-username/Attest/pull/19) self-review ($0.125900), against the $110 cap D-192 declined to raise. **It is updated at the end of every window from now on**, and the per-window prose totals below stay as the audit trail they always were.
