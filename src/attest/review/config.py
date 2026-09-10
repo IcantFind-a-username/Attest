@@ -62,6 +62,11 @@ class ReviewConfig:
     # D-114 path where the model writes the assertion from the diff alone; it is
     # the reversal, and it is what the before/after measurement compares.
     probe_generation: bool = True
+    # Probes read out of the repository's own tests, tried on base before the
+    # model is asked for one: the exact calls the tests make, then a boundary
+    # variant of each literal. Free of model calls; bounded in container time.
+    # False restores the model-only probe path.
+    derived_probes: bool = True
     # D-157: how many candidates' reproductions may run at once. The three runs
     # *inside* one candidate stay serial -- the repeat count is what makes a
     # reproduction stable, and a concurrent repeat is a different experiment.
@@ -125,6 +130,8 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError("enabled must be a boolean")
     if type(config.probe_generation) is not bool:
         raise ValueError("probe_generation must be a boolean")
+    if type(config.derived_probes) is not bool:
+        raise ValueError("derived_probes must be a boolean")
     if type(config.repro_concurrency) is not int or not 1 <= config.repro_concurrency <= 8:
         raise ValueError("repro_concurrency must be an integer in [1, 8]")
     if type(config.verification_cap_per_unit) is not int or config.verification_cap_per_unit < 1:
@@ -154,6 +161,7 @@ _KNOWN_POLICY_KEYS = {
     "auto_tighten_alpha",
     "tier0_commands",
     "probe_generation",
+    "derived_probes",
     "repro_concurrency",
     "verification_cap_per_unit",
     "daily_budget_usd",

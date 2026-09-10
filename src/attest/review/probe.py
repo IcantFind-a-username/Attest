@@ -46,6 +46,7 @@ import ast
 import base64
 import json
 import re
+from collections.abc import Collection
 from dataclasses import dataclass
 
 PROBE_POLICY_VERSION = "attest.probe.record-replay.v1"
@@ -169,6 +170,40 @@ def parse_probe(text: str) -> ProbeSpec:
     except SyntaxError as exc:
         raise ProbeRefused("probe setup does not parse") from exc
     return spec
+
+
+def reaches_the_tree(imports: str, tree_roots: Collection[str]) -> bool:
+    """Does this probe import anything the repository itself defines? (D-206)
+
+    A probe must execute the anchored file, and it can only do that through a
+    module of the tree. The recorder already refuses one that does not -- but
+    only after three container runs on base, and the 2026-09-12 held-out
+    measurement spent **17 of 56** verification attempts on probes that never
+    collected. This is the same refusal, decided from the import block before
+    anything runs, and it says which imports it saw.
+
+    Deliberately one-sided. A probe importing `numpy` **and** the project is
+    fine: whether the image provides `numpy` is the image's answer, not this
+    function's, and refusing on a dependency it cannot enumerate would silence
+    probes that work. Only a probe that names **no** tree module at all is
+    refused, because that one cannot reach the code under review by any route.
+    A relative import names no root and cannot resolve outside the test tree;
+    it does not count as reaching it.
+    """
+    try:
+        tree = ast.parse(imports or "pass")
+    except SyntaxError:
+        return True  # not this function's refusal; `parse_probe` owns the shape
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            if any(alias.name.split(".", 1)[0] in tree_roots for alias in node.names):
+                return True
+        elif isinstance(node, ast.ImportFrom):
+            if node.level or not node.module:
+                continue
+            if node.module.split(".", 1)[0] in tree_roots:
+                return True
+    return False
 
 
 def probe_test_body(spec: ProbeSpec) -> str:
