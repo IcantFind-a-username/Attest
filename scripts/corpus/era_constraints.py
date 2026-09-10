@@ -27,6 +27,7 @@ import configparser
 import json
 import re
 import sys
+import time
 import tomllib
 import urllib.error
 import urllib.request
@@ -35,6 +36,13 @@ from datetime import datetime
 from pathlib import Path
 
 PYPI = "https://pypi.org/pypi/{name}/json"
+# One request, and the whole file. A corpus build runs this once per case over
+# 39 cases; at the 60 s the first draft used, a PyPI outage would have turned a
+# free build stage into six hours of a 330-minute job and taken the paid run
+# with it. Both bounds are ceilings on a fault, not on the normal case, where a
+# request is well under a second.
+FETCH_TIMEOUT_S = 10.0
+TOTAL_BUDGET_S = 180.0
 # PEP 508 far enough for a distribution name: everything before the first
 # version specifier, extra, marker or comment.
 _NAME = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
@@ -123,7 +131,9 @@ def direct_dependencies(tree: Path) -> list[str]:
 
 def _fetch(name: str) -> dict | None:
     try:
-        with urllib.request.urlopen(PYPI.format(name=name), timeout=60) as response:
+        with urllib.request.urlopen(
+            PYPI.format(name=name), timeout=FETCH_TIMEOUT_S
+        ) as response:
             return json.loads(response.read())
     except (urllib.error.URLError, TimeoutError, ValueError, OSError):
         return None
@@ -167,8 +177,12 @@ def constraints_for(
     """(the constraints file's text, the names that could not be pinned)."""
     lines: list[str] = []
     unresolved: list[str] = []
+    deadline = time.monotonic() + TOTAL_BUDGET_S
     for name in direct_dependencies(tree):
-        payload = fetch(name)
+        # not pinned rather than waited for: an unreachable index must not be
+        # able to stall a build stage, and a case with no pins runs exactly as
+        # it did before this tool existed
+        payload = fetch(name) if time.monotonic() < deadline else None
         version = None if payload is None else latest_before(payload, cutoff)
         if version is None:
             unresolved.append(name)
