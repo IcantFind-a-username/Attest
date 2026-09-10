@@ -7,13 +7,26 @@ recall or in trust**, because in this project those are the same currency.
 The authority for *why* something changed is [`DECISIONS.md`](DECISIONS.md); dated measurements
 live under [`docs/acceptance/`](docs/acceptance/). This file is the index, not the evidence.
 
-Versions follow [semantic versioning](https://semver.org/) once `v0.1.0` exists. Until then the
-only published ref is a pilot tag, and the sections below say plainly which is which.
+Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
-## Unreleased — after `v0.1.0-rc.2`
+## `v0.1.0` — 2026-09-13
 
-**The publication rule changed, and it is the largest behaviour change in this file.** Copy, on
-the two lines a truncated review prints. **No constant moved.**
+**The first ref meant for an outside repository to install.** One behaviour change, one surface
+made honest, and a great deal of measurement. **No constant moved**: `alpha`, every likelihood
+ratio, `k_samples`, the hard cap of three, `budget-usd` and the supported interpreter range
+3.10–3.13 are what they were.
+
+**What it can do, in one line each, with the number attached.** Crash-class recall **2 of 28 =
+7.1%**, Wilson 95% [2.0%, 22.6%]. Zero false publications over a prospective shadow of 28 real
+pull requests where **13 reproductions actually executed**. Zero on 68 independent null controls
+and 40 held-out controls, both at K=4. Thirteen of thirteen red-team attack classes dispatched on
+the production backend and every one marked, never certified.
+
+**What it cannot do**, in the README's own words: it is silent far more often than it speaks, its
+recall interval tops out at 22.6%, it reads Python and pytest only, its gate level is in shadow,
+and **a silence from it is never evidence that your code is fine**.
+
+### The publication rule, which is the largest behaviour change in this file
 
 - **A reproduced receipt is no longer thresholded on its score (D-199).** Until now a certified
   finding also had to clear `m_u/α` — the eligible-candidate count of its own changed file, over
@@ -34,6 +47,25 @@ the two lines a truncated review prints. **No constant moved.**
   `S_CAP × V_CAP = 60` against a bar of `10·m_u` — meaning **a changed file with seven or more
   eligible candidates could not publish a receipt at all**, whatever the evidence showed. 29 of
   the 35 hidden receipts were behind a bar above 60.
+
+### Every author-visible line is now adjudicated
+
+- **An ordinary deferral gets a contract line (D-201).** D-190 put the five *refusals* on the
+  line an author reads and left a verification deferral rendering as bare prose — `DEFER:
+  verification deferred: probe reported no observation on base (3 candidates)`, with no level
+  marker, no coordinate and no count of units read. **Six of the eleven self-reviews since
+  D-174 published exactly that**, and the product's own adjudicator refuses that line. A fifth
+  silence verdict fixes it, in the same register a refusal already had, with four classes whose
+  published sentence is the register's own — so no traceback, runner path or key can reach it.
+- **The whole summary body is adjudicated, not only the lines inside it (D-204).** `Review
+  complete.` and `No finding was verified by a reproduction; abstained.` were preamble, which
+  the contract forbids in those words, published on **every** review and never checked. Both are
+  deleted; a review with nothing to say **is** its silence line. `check_summary` refuses anything
+  else and a refused body is replaced by the deterministic silence line, recorded in the ledger.
+  **Recall cost: none.** A certified finding reaches the author through the inline review, which
+  is independent of the summary.
+
+### Copy, on the two lines a truncated review prints
 
 - **D-187's clause no longer stops inside a word.** The collapsed run status applied its
   160-character bound as a slice, and PR #17's own review rendered ``… `budget-usd` $1.15 would ``.
@@ -333,9 +365,9 @@ and attaches both to the GitHub Release.
   matrix says so: every row is observed from inside the product, which is evidence the boundary
   held for this attempt and not evidence the kernel denied it.
 
-## Unreleased
+## Earlier work, since `v0.1.0-pilot.1`
 
-The work since `v0.1.0-pilot.1` that predates the tag above.
+Everything below predates `v0.1.0-rc.1` and is kept for provenance.
 
 ### Author-visible surface
 

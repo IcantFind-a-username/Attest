@@ -31,12 +31,17 @@ match the bug.
 
 ## Operational guides
 
+- [`contributing.md`](contributing.md) is the one page for **someone changing attest**: the
+  local CLI, the development setup, the spend ledger, the decision records and the gates. The
+  README is for someone *installing* it and links here for everything else.
 - [`github-action.md`](github-action.md) documents how the current prototype Action behaves
   and its current safety limitations. It is non-normative: target architecture and release
   gates override its implementation-era usage instructions.
 - [`../SECURITY.md`](../SECURITY.md) is the security policy: reporting channel, supported
   versions, disclosure, what is in scope and what is **not claimed**.
 - the dated handoffs are SHA-bound records of one window each; the newest is
+  [`overnight-handoff-2026-09-13.md`](overnight-handoff-2026-09-13.md) (the six-phase window
+  that cut `v0.1.0`); before it,
   [`overnight-handoff-2026-09-09.md`](overnight-handoff-2026-09-09.md) (the release-readiness
   acceptance: an outside repository could not be reviewed at all until D-176, every comment now
   carries an adjudicated action clause, and six gates still do not pass —

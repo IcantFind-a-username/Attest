@@ -93,7 +93,7 @@ instruction); cumulative before it: **$68.21** (the 2026-09-06c handoff's figure
 | 2026-09-04 | **numpy fix re-run (owner instruction 4)** — the four `Corum` defect pairs the corpus lost to `blas_thread_init`, re-run at the same `--budget 0.60` (**non-default**) through `linux-container-v1` with the three thread-count variables set (D-123): **7 of 8 verifications reproduced, 7 accepted receipts, 4 published**, against 0 of 9 the day before. [Report](docs/acceptance/2026-09-04-numpy-under-the-thread-cap.md) | $0.404600 |
 | 2026-09-04 | **budget-wall measurement (owner instruction 5)** — `d02`, `d03` and `d16` re-run at **`--budget 1.20`** (**non-default**; the product default is $0.25 and the corpus standard was $0.60), product code frozen at `fc2014f`, cap $8. `BudgetExceeded` falls from 25 of 31 verifications to **0 of 31**; certification goes from 0 of 3 pairs to **3 of 3** (5 receipts); **0 published**, all suppressed by the family threshold. [Report](docs/acceptance/2026-09-04-budget-wall.md) | $2.732400 |
 
-**Total API spend: $95.826208 of $110.00.**
+**Total API spend: $96.344840 of $110.00.**
 
 > **Erratum, 2026-09-13.** This line read *"$52.226537 of $90.00", the figure at the end of the 2026-09-05c window*, and it had not moved since. It is the **only machine-readable line in this file** — `attest.benchmark.live.read_devspend` parses it, and every paid preflight since 2026-09-05c has therefore checked its headroom against a total **$38 low and a cap $20 low**. No run was actually over the real cap, because every window since has also carried its own driver-enforced cumulative cap and the owner's per-item ceiling; but the guard that exists to catch that was not the thing catching it. The figure above is the 2026-09-12b handoff's settled cumulative ($90.009721) plus this window's [PR #19](https://github.com/IcantFind-a-username/Attest/pull/19) self-review ($0.125900), against the $110 cap D-192 declined to raise. **It is updated at the end of every window from now on**, and the per-window prose totals below stay as the audit trail they always were.
 
@@ -263,3 +263,6 @@ before the first call of each phase and settled after it, per phase.
 | — | the `attest` self-reviews the pull requests of phases 2 and 3 buy | — | **$0.946111** — $0.311148 (PR #20), $0.377654 (PR #21), $0.257309 (PR #22) |
 | 3 | the red-team matrix, thirteen classes on a GitHub runner — **no model call anywhere in it** | $0.00 | **$0.000000** |
 | 4 | the yellow census and both control scans — `gh`, `git` and `ast` only | $0.00 | **$0.000000** |
+| 4b | the three owner decisions — the trailers, the summary body, the shadow gate's bar. One code change, no model anywhere | $0.00 | **$0.000000** |
+| 5 | the release documentation — README rewrite, the contributors page, the L-01 exit list, the five quickstart copies, the CHANGELOG and the version bump | $0.00 | **$0.000000** |
+| — | the `attest` self-reviews the pull requests of phases 4 and 4b buy | — | **$0.518632** — $0.101894 + $0.103914 (PR #23, pushed twice), $0.312606 (PR #24) |
