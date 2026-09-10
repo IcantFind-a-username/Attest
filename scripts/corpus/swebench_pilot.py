@@ -204,6 +204,39 @@ def _make_env(case: Path, worktree: Path) -> Path:
     return env_dir / "bin" / "python"
 
 
+def _write_era_constraints(
+    case: Path, worktree: Path, upstream: Path, manifest: dict[str, object]
+) -> None:
+    """`constraints.txt` beside the case, pinned to the base commit's own date.
+
+    The date is the **upstream** base commit's, not the synthetic one this
+    driver makes: the synthetic commits are made today and would pin nothing.
+    """
+    from datetime import datetime
+
+    from era_constraints import constraints_for
+
+    upstream_base = _instances()[str(manifest["instance_id"])]["base_commit"]
+    stamp = subprocess.run(
+        ["git", "-C", str(upstream), "show", "-s", "--format=%cI", upstream_base],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
+    if not stamp:
+        manifest["constraints"] = "no upstream commit date; not pinned"
+        return
+    try:
+        text, unresolved = constraints_for(worktree, datetime.fromisoformat(stamp))
+    except Exception as exc:  # noqa: BLE001 - PyPI is a network and may be down
+        manifest["constraints"] = f"not pinned: {type(exc).__name__}"
+        return
+    (case / "constraints.txt").write_text(text, encoding="utf-8")
+    manifest["constraints"] = "constraints.txt"
+    manifest["constraints_as_of"] = stamp
+    manifest["constraints_unresolved"] = unresolved
+
+
 def cmd_build(args: argparse.Namespace) -> int:
     row = _instances()[args.instance_id]
     upstream = _upstream(row["repo"])
@@ -242,6 +275,12 @@ def cmd_build(args: argparse.Namespace) -> int:
             manifest.update(
                 base_sha=base_sha, head_sha=head_sha, shape="regression PR (revert of the gold fix)"
             )
+    # D-214: the era pins for this tree, written beside the case. The image the
+    # product builds installs the project with no constraint on anything, so a
+    # 2022 tree resolves today's dependencies and `import xarray` raises before
+    # pytest collects. Best effort and stated: PyPI may be unreachable, and a
+    # case without pins is a case that runs exactly as it did before.
+    _write_era_constraints(case, worktree, upstream, manifest)
     # the container backend (X-02) builds its own image from the tree; the
     # host virtualenv is only needed by the development adapter
     manifest["project_python"] = sys.executable if args.no_env else str(_make_env(case, worktree))
