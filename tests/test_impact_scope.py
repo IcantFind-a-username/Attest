@@ -350,7 +350,8 @@ def test_the_summary_carries_the_yellow_line_when_the_level_speaks() -> None:
     body = render_complete([], 0.0125, 3.2, units=(4, 9), impact=list(notes))
 
     lines = body.splitlines()
-    assert lines[0] == "Review complete."
+    # D-204: the first line is the section heading, not a preamble
+    assert lines[0] == IMPACT_HEADING
     assert IMPACT_HEADING in lines
     yellow = [line for line in lines if LEVEL_MARKERS["yellow"] in line]
     assert len(yellow) == 1

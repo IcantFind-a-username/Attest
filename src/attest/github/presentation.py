@@ -150,7 +150,13 @@ def render_complete(
             refusal=refusal,
             ledger_url=ledger_url,
         )
-    lines = ["Review complete."]
+    # D-204: the body is contract lines, the headings the product owns,
+    # collapsed blocks and one spend footer. `Review complete.` and `No finding
+    # was verified by a reproduction; abstained.` were preamble -- which
+    # condition 7 forbids in those words -- published on every review and never
+    # adjudicated, because `check` was applied to the lines inside the body and
+    # never to the body itself. `check_summary` now decides the whole thing.
+    lines: list[str] = []
     if certified:
         lines.append("Verified findings (each backed by a reproduction receipt):")
         for finding in certified:
@@ -171,10 +177,8 @@ def render_complete(
                     )
                 )
                 lines.append("")
-    else:
-        lines.append("No finding was verified by a reproduction; abstained.")
     for note in notes[:MAX_STRUCTURAL_COMMENTS]:
-        if lines[-1] != "":
+        if lines and lines[-1] != "":
             lines.append("")
         lines.append(STRUCTURAL_HEADING)
         lines.append(structural_line(note))
@@ -182,7 +186,7 @@ def render_complete(
             lines.append("")
             lines.append(contract_collapsed(note.advice, summary=STRUCTURAL_ADVICE_HEADING))
     for index, scoped in enumerate(yellow):
-        if lines[-1] != "":
+        if lines and lines[-1] != "":
             lines.append("")
         if index == 0:
             lines.append(IMPACT_HEADING)
