@@ -298,8 +298,13 @@ def _probe_one(instance_id: str, timeout_s: float) -> dict:
         if "outside" in reason:
             record.update(stage="interpreter", ok=False, reason=reason)
             return record
+        pins = None
+        constraints_path = case / "constraints.txt"
+        if constraints_path.is_file():
+            pins = constraints_path.read_text(encoding="utf-8")
+        record["constraints"] = "constraints.txt" if pins else "none"
         try:
-            image = ensure_image(tree, remaining_s=timeout_s)
+            image = ensure_image(tree, remaining_s=timeout_s, constraints=pins)
         except BootstrapFailed as exc:
             record.update(stage="image", ok=False, reason=str(exc)[-400:])
             return record
@@ -532,6 +537,15 @@ def cmd_run(args: argparse.Namespace) -> int:
                 break
             cap.start(instance_id)
         print(f"run {instance_id}", flush=True)
+        # D-214: the era pins for this case reach the product's image build
+        # through the one variable `ensure_image` reads. Set per case and never
+        # in a product path.
+        case_env = dict(env)
+        pins = CASES / instance_id / "constraints.txt"
+        if pins.is_file():
+            case_env["ATTEST_PIP_CONSTRAINT"] = str(pins)
+        else:
+            case_env.pop("ATTEST_PIP_CONSTRAINT", None)
         subprocess.run(
             [
                 sys.executable,
@@ -548,7 +562,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 args.results_suffix,
             ],
             check=False,
-            env=env,
+            env=case_env,
         )
         actual = (
             float(json.loads(result_path.read_text()).get("spend_usd", 0.0))

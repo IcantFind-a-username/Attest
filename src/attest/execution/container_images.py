@@ -14,6 +14,7 @@ project reuses its image. A bootstrap that fails is reported as exactly that
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import shutil
 import subprocess
@@ -240,8 +241,25 @@ def scm_pretend_version(tree: Path, roots: list[ProjectRoot]) -> str | None:
 
 
 def dockerfile(
-    python_version: str, roots: list[ProjectRoot], scm_version: str | None = None
+    python_version: str,
+    roots: list[ProjectRoot],
+    scm_version: str | None = None,
+    *,
+    constraints: str | None = None,
 ) -> str:
+    """The image for one tree.
+
+    ``constraints`` is a pip constraint file applied to the **project's** install
+    and to nothing else. It is not a product path: nothing in a review supplies
+    it, and without it this function's output is byte-identical to what it always
+    was. It exists for a historical corpus, where "resolve today's dependencies"
+    is the wrong answer -- `xarray` 2022.6 with `numpy` 2.4 raises at import and
+    nine of the 2026-09-10 held-out cases died there (D-214).
+
+    It is applied **after** `pip install pytest` on purpose: an era pin on the
+    test runner's own dependencies would break the runner rather than reproduce
+    the era, and the runner is not what is under review.
+    """
     lines = [
         f"FROM python:{python_version}-slim",
         "ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1",
@@ -249,10 +267,13 @@ def dockerfile(
     if scm_version:
         # setuptools_scm cannot see a repository inside the build context
         lines.append(f"ENV SETUPTOOLS_SCM_PRETEND_VERSION={scm_version}")
-    lines += [
-        "RUN pip install pytest",
-        "COPY tree /attest/build",
-    ]
+    lines.append("RUN pip install pytest")
+    if constraints is not None:
+        lines += [
+            "COPY constraints.txt /attest/constraints.txt",
+            "ENV PIP_CONSTRAINT=/attest/constraints.txt",
+        ]
+    lines.append("COPY tree /attest/build")
     for root in roots:
         directory = "/attest/build" + (f"/{root.relative}" if root.relative else "")
         # the project itself must install (its import roots are what the
@@ -270,8 +291,30 @@ def dockerfile(
                     f"RUN pip install {directory} || "
                     f'echo "attest: optional project {root.relative} failed to install"'
                 )
-            else:
+            elif constraints is None:
                 lines.append(f"RUN pip install {directory}")
+            else:
+                # D-214, measured: an era pin can be uninstallable. `numpy<=1.23.1`
+                # is right for a 2022 tree and has no wheel for any interpreter
+                # newer than 3.10, so on a tree whose classifiers select 3.12 the
+                # constrained install fails outright -- and an image that fails to
+                # build loses a case the unpinned build would at least have
+                # attempted. The pin is therefore an attempt, not a demand: it
+                # falls back to exactly the line above, and the build log says
+                # which one ran.
+                lines.append(
+                    f"RUN pip install {directory} || "
+                    '(echo "attest: era constraints refused this install; retrying unpinned" '
+                    f"&& PIP_CONSTRAINT= pip install {directory})"
+                )
+    # D-214: `matplotlib.font_manager` builds a `FontManager` on a cache miss,
+    # and that constructor starts a `threading.Timer` -- which the executor's
+    # thread guard rejects, so the probe dies on a font cache rather than on
+    # anything about the diff (two of the 2026-09-10 held-out cases). Warming
+    # the cache at build time, with the network still on, means the constructor
+    # never runs under the guard. A tree without matplotlib is unaffected: that
+    # is what the `|| true` is for, and it costs one failed import.
+    lines.append('RUN python -c "import matplotlib.font_manager" || true')
     lines.append("RUN rm -rf /attest/build")
     return "\n".join(lines) + "\n"
 
@@ -318,12 +361,35 @@ def resolve_image(tag: str, *, docker: str | None = None) -> str:
     return image_id(tag, docker=docker) or image_digest(tag, docker=docker)
 
 
+# D-214. A measurement knob, in the shape this module already uses for
+# `ATTEST_PROJECT_PYTHON` and `ATTEST_WRITABLE`: the path of a pip constraint
+# file to apply to the project's install. **Unset in every product path**, and
+# unset means the Dockerfile is byte-identical to what it always was.
+ERA_CONSTRAINT_ENV = "ATTEST_PIP_CONSTRAINT"
+
+
+def era_constraints() -> str | None:
+    """The constraint file named by the environment, or None.
+
+    Unreadable is None rather than an error: a corpus knob must not be able to
+    fail an image build that would otherwise work.
+    """
+    named = os.environ.get(ERA_CONSTRAINT_ENV, "").strip()
+    if not named:
+        return None
+    try:
+        return Path(named).read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
 def ensure_image(
     tree: Path,
     *,
     docker: str | None = None,
     rebuild: bool = False,
     remaining_s: float | None = None,
+    constraints: str | None = None,
 ) -> ContainerImage:
     """Build (or reuse) the image for ``tree``; raise BootstrapFailed with the
     build log's tail when the environment cannot be constructed.
@@ -337,12 +403,16 @@ def ensure_image(
     version, _reason = project_python(tree)
     roots = discover_roots(tree)
     scm_version = scm_pretend_version(tree, roots)
-    text = dockerfile(version, roots, scm_version)
+    pins = constraints if constraints is not None else era_constraints()
+    text = dockerfile(version, roots, scm_version, constraints=pins)
+    # the pins are digested as well as the Dockerfile: the `COPY` line is the
+    # same text for every constraint file, so two different files would
+    # otherwise share one tag and the second would silently reuse the first
     tag = (
         "attest-repro:"
-        + hashlib.sha256(f"{version}\n{manifest_digest(tree, roots)}\n{text}".encode()).hexdigest()[
-            :16
-        ]
+        + hashlib.sha256(
+            f"{version}\n{manifest_digest(tree, roots)}\n{text}\n{pins or ''}".encode()
+        ).hexdigest()[:16]
     )
     existing = resolve_image(tag, docker=binary)
     if existing and not rebuild:
@@ -360,6 +430,8 @@ def ensure_image(
             # ``text`` is what the tag digests; writing it (rather than a
             # second ``dockerfile()`` call) keeps the two from ever diverging
             (context_dir / "Dockerfile").write_text(text, encoding="utf-8")
+            if pins is not None:
+                (context_dir / "constraints.txt").write_text(pins, encoding="utf-8")
             shutil.copytree(
                 tree,
                 context_dir / "tree",
