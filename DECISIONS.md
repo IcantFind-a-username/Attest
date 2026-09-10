@@ -2180,6 +2180,16 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Reversal:** drop the `unsaid` filter in `ci.py`; every note is posted on every push again.
 - **Trace:** D-133, D-142, D-145, D-151, D-160, D-190; mainline §1 condition 7, §1.2.
 
+### D-210 — The whole probe is what reaches the tree, and the drills gate a pull request
+
+- **Date/status/scope:** 2026-09-10 · active · agent decision under `AGENTS.md` §11 · `src/attest/review/probe.py`, `src/attest/review/executor.py`, `.github/workflows/ci.yml`; RED `tests/test_derived_probes.py::test_a_probe_that_loads_the_tree_by_path_reaches_it`.
+- **The defect.** D-206's import-reach check read `spec.imports` alone and refused any probe whose import block named nothing of the tree. **An import is not the only route into the tree.** The release drills replay a probe that does `import runpy` and then `runpy.run_path("app.py")`, which reaches the code under review perfectly well — and the check called it unreachable. `gates` on `main` failed at `516b924` with **8 drill failures**, all of them `generation failed: ProbeRefused: probe imports nothing this repository defines`. This was never drill-specific: the same shape on any real repository would have been silenced the same way, which is a **false refusal in a level whose whole value is not saying wrong things**.
+- **The fix.** `reaches_the_tree` takes the whole `ProbeSpec`. A probe reaches when an import names a tree root **or** when any string literal it carries in setup or expression names a tree module or a `.py` file of the tree. Still one-sided and still failing open: only a probe naming nothing of the tree anywhere is refused. Measured here: 8 drill failures to 2, and those 2 fail identically on `a554329`, the commit before D-206 — they need a docker daemon this development container has not got.
+- **The process half, which matters more.** `checks` excluded `tests/release/test_drill.py`, so the regression could not be seen until after the merge. **A release safety net that runs only on `main` gates nothing.** The drills are back in the pull-request job. What stays out is the container isolation matrix (it pulls `python:3.9-slim`) and the red-team matrix (it builds an image and dispatches deliberately hostile code); both belong on `main` and on their own dispatch.
+- **What this says about the D-206 window.** That pull request claimed the drills *"fail identically on untouched `origin/main` here"*. Six of the eight did not — they were caused by the change and were invisible because the job that would have caught them had been told not to look. The claim was made from a run whose failures were not compared case by case.
+- **Cost:** $0.00. The pull-request job grows by the drills' wall time. **Reversal:** restore the two `--ignore` lines and pass `spec.imports` again.
+- **Trace:** D-114, D-146, D-177, D-206; mainline §1 condition 2.
+
 ### D-208 — `G-RECALL-002` is measurable on a runner, and the population is restored rather than re-selected
 
 - **Date/status/scope:** 2026-09-10 · active · agent decision under `AGENTS.md` §11 · `.github/workflows/heldout.yml`; no product code, no constant.

@@ -71,11 +71,17 @@ jobs:
       - name: git diff --check
         run: git diff --check
 
-      - name: Pytest, without the container and drill suites
+      # The drills are back in, and their absence is why: excluding them let a
+      # probe-refusal regression reach `main` at 516b924 and fail `gates` there
+      # with 8 drill failures. A release safety net that only runs after the
+      # merge is not gating anything. What stays out is the container isolation
+      # matrix, which pulls `python:3.9-slim`, and the red-team matrix, which
+      # builds an image and dispatches deliberately hostile code -- both belong
+      # on `main` and on their own dispatch.
+      - name: Pytest, without the container and red-team matrices
         run: |
           python -m pytest -p no:cacheprovider \
             --ignore=tests/execution/test_linux_isolation.py \
-            --ignore=tests/release/test_drill.py \
             --ignore=tests/release/test_redteam_matrix.py
 
       - name: Build the wheel and the sdist

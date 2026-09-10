@@ -11,6 +11,12 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **A probe that loads your code by path is no longer refused (D-210).** D-206's reach check read
+  the import block alone, so `import runpy` followed by `runpy.run_path("app.py")` was called
+  unreachable and the probe was thrown away before it ran. It broke this repository's own release
+  drills and would have silenced the same shape on any project. The whole probe is what reaches
+  now. The drills also return to the pull-request checks, because a safety net that only runs
+  after the merge gates nothing.
 - **The same note is no longer posted on every push (D-209).** D-160 already said a note you have
   been told is not news, but it read a ledger, and a CI run is a fresh checkout whose ledger is
   always empty -- so on the Action, the only way the product ships, it never fired. Found on this

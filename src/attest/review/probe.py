@@ -172,26 +172,33 @@ def parse_probe(text: str) -> ProbeSpec:
     return spec
 
 
-def reaches_the_tree(imports: str, tree_roots: Collection[str]) -> bool:
-    """Does this probe import anything the repository itself defines? (D-206)
+def reaches_the_tree(spec: ProbeSpec, tree_roots: Collection[str]) -> bool:
+    """Does this probe touch anything the repository itself defines? (D-206)
 
-    A probe must execute the anchored file, and it can only do that through a
-    module of the tree. The recorder already refuses one that does not -- but
+    A probe must execute the anchored file, and it can only do that through
+    something of the tree. The recorder already refuses one that does not -- but
     only after three container runs on base, and the 2026-09-12 held-out
     measurement spent **17 of 56** verification attempts on probes that never
-    collected. This is the same refusal, decided from the import block before
-    anything runs, and it says which imports it saw.
+    collected. This is the same refusal, decided before anything runs.
 
-    Deliberately one-sided. A probe importing `numpy` **and** the project is
-    fine: whether the image provides `numpy` is the image's answer, not this
-    function's, and refusing on a dependency it cannot enumerate would silence
-    probes that work. Only a probe that names **no** tree module at all is
+    **The whole probe is what reaches, not its import block.** An import is one
+    route; loading a module by path is another, and the release drills use it:
+    `import runpy` then `runpy.run_path('app.py')`. Reading imports alone called
+    that unreachable, which broke `gates` on `main` at `516b924` and would have
+    silenced the same shape on any real repository. So a probe reaches when an
+    import names a tree root **or** any string it carries names a tree module or
+    a Python file of the tree.
+
+    Deliberately one-sided, and it fails open. A probe importing `numpy` **and**
+    the project is fine: whether the image provides `numpy` is the image's
+    answer, and refusing on a dependency this cannot enumerate would silence
+    probes that work. Only a probe naming **nothing** of the tree anywhere is
     refused, because that one cannot reach the code under review by any route.
-    A relative import names no root and cannot resolve outside the test tree;
-    it does not count as reaching it.
+    A relative import names no root and cannot resolve outside the test tree; it
+    does not count on its own.
     """
     try:
-        tree = ast.parse(imports or "pass")
+        tree = ast.parse(spec.imports or "pass")
     except SyntaxError:
         return True  # not this function's refusal; `parse_probe` owns the shape
     for node in ast.walk(tree):
@@ -203,7 +210,30 @@ def reaches_the_tree(imports: str, tree_roots: Collection[str]) -> bool:
                 continue
             if node.module.split(".", 1)[0] in tree_roots:
                 return True
+    # the other route: the probe names a module of the tree in a string it
+    # carries -- `runpy.run_path("app.py")`, an `importlib` spec from a path, a
+    # file opened by name. Read from the text rather than from the imports.
+    for name in _quoted_names(f"{spec.setup}\n{spec.expression}"):
+        stem = name.rsplit("/", 1)[-1]
+        if stem.endswith(".py") and stem[:-3] in tree_roots:
+            return True
+        if stem in tree_roots:
+            return True
     return False
+
+
+def _quoted_names(source: str) -> set[str]:
+    """Every string literal in a fragment, or every quoted run when it will not
+    parse -- the fragment is the model's and need not be a complete statement."""
+    found: set[str] = set()
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return set(re.findall(r"""['"]([^'"\n]{1,200})['"]""", source))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            found.add(node.value)
+    return found
 
 
 def probe_test_body(spec: ProbeSpec) -> str:
