@@ -509,6 +509,13 @@ replayable evidence on the current code.
     `source: "derived"` appears **zero** times. The numerator is 2 in both runs but only one of its
     two members is stable — `pytest-dev__pytest-10356` lost a receipt and `pallets__flask-5014`
     gained one. No loss category closed. **No release.**
+  - **AND THE ROUTE IS CLOSED, 2026-09-11 (D-212).** Free offline measurement on the same 39
+    cases: a derived probe exists for **2 of 39** today and **5 of 39** with every plausible
+    relaxation counted generously; only the method relaxation contributes. **25 of 39 cases have
+    no test call site at all** for what their diff changed, so no rule about arguments reaches
+    them. The rule is not broken — it reaches 22 of 200 (11%) of this repository's module-level
+    functions. Effort moves to the intent clause
+    ([report](acceptance/2026-09-10-probe-reach.md)).
 - [ ] **E-03 — heterogeneous stability.** Execute the nontrivial repeated-case design in
   `G-STAB-001`; repeats remain operational only.
 - **THE FIRST FORWARD-PAIR RECALL NUMBER, 2026-09-05d (D-140).** All 11 distinct forward pairs

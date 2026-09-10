@@ -1,0 +1,1170 @@
+{
+  "produced": "2026-09-11",
+  "units": [
+    {
+      "admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "anchors": 3,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 1,
+      "reasons": {
+        "derivable now": 1,
+        "non-literal argument: local variable": 3,
+        "non-literal argument: other expression": 1
+      },
+      "sites": 5,
+      "unit": "src/attest/benchmark/api.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: local variable": 6,
+        "non-literal argument: other expression": 1
+      },
+      "sites": 7,
+      "unit": "src/attest/benchmark/artifacts.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/benchmark/baselines.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: local variable": 1
+      },
+      "sites": 1,
+      "unit": "src/attest/benchmark/checkpoints.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/benchmark/corpus.py"
+    },
+    {
+      "admitted": {
+        "+local": 12,
+        "+method": 12,
+        "+parametrize": 12,
+        "all relaxations": 12,
+        "current": 12
+      },
+      "anchors": 3,
+      "anchors_admitted": {
+        "+local": 3,
+        "+method": 3,
+        "+parametrize": 3,
+        "all relaxations": 3,
+        "current": 3
+      },
+      "derived_now": 3,
+      "reasons": {
+        "derivable now": 12
+      },
+      "sites": 12,
+      "unit": "src/attest/benchmark/experiments.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1,
+        "non-literal argument: constructed object": 1,
+        "non-literal argument: fixture parameter": 1,
+        "non-literal argument: local variable": 4,
+        "non-literal argument: other expression": 1
+      },
+      "sites": 7,
+      "unit": "src/attest/benchmark/live.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: other expression": 7
+      },
+      "sites": 7,
+      "unit": "src/attest/benchmark/matcher.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/benchmark/measurement.py"
+    },
+    {
+      "admitted": {
+        "+local": 2,
+        "+method": 2,
+        "+parametrize": 3,
+        "all relaxations": 3,
+        "current": 2
+      },
+      "anchors": 3,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 4,
+      "reasons": {
+        "derivable now": 2,
+        "no call site in the test tree": 2,
+        "non-literal argument: fixture parameter": 1
+      },
+      "sites": 3,
+      "unit": "src/attest/benchmark/metrics.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/benchmark/outcomes.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/benchmark/prospective.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: constructed object": 5,
+        "non-literal argument: fixture parameter": 1,
+        "non-literal argument: local variable": 6
+      },
+      "sites": 12,
+      "unit": "src/attest/benchmark/report.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: local variable": 3
+      },
+      "sites": 3,
+      "unit": "src/attest/benchmark/runner.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "non-literal argument: constructed object": 2,
+        "non-literal argument: local variable": 3,
+        "non-literal argument: other expression": 3
+      },
+      "sites": 8,
+      "unit": "src/attest/benchmark/schema.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: constructed object": 2,
+        "non-literal argument: local variable": 6
+      },
+      "sites": 8,
+      "unit": "src/attest/benchmark/stability.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "src/attest/certification/binding.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/certification/clustering.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: constructed object": 2,
+        "non-literal argument: local variable": 2
+      },
+      "sites": 4,
+      "unit": "src/attest/certification/intent.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "non-literal argument: constructed object": 2,
+        "non-literal argument: fixture parameter": 1
+      },
+      "sites": 3,
+      "unit": "src/attest/certification/policy.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1,
+        "non-literal argument: local variable": 3
+      },
+      "sites": 3,
+      "unit": "src/attest/certification/selection.py"
+    },
+    {
+      "admitted": {
+        "+local": 4,
+        "+method": 2,
+        "+parametrize": 2,
+        "all relaxations": 4,
+        "current": 2
+      },
+      "anchors": 2,
+      "anchors_admitted": {
+        "+local": 2,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 2,
+        "current": 1
+      },
+      "derived_now": 3,
+      "reasons": {
+        "derivable now": 2,
+        "non-literal argument: local variable": 3
+      },
+      "sites": 5,
+      "unit": "src/attest/certification/units.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/certification/validate.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/cli/main.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/core/allocation.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: local variable": 1
+      },
+      "sites": 1,
+      "unit": "src/attest/core/betting.py"
+    },
+    {
+      "admitted": {
+        "+parametrize": 1,
+        "all relaxations": 1
+      },
+      "anchors": 3,
+      "anchors_admitted": {
+        "+parametrize": 1,
+        "all relaxations": 1
+      },
+      "derived_now": 0,
+      "reasons": {
+        "non-literal argument: fixture parameter": 1,
+        "non-literal argument: local variable": 7,
+        "non-literal argument: other expression": 7
+      },
+      "sites": 15,
+      "unit": "src/attest/core/demo_compat.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "non-literal argument: local variable": 1
+      },
+      "sites": 1,
+      "unit": "src/attest/core/engine.py"
+    },
+    {
+      "admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "anchors": 1,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 4,
+      "reasons": {
+        "derivable now": 1,
+        "non-literal argument: fixture parameter": 1,
+        "non-literal argument: local variable": 3,
+        "non-literal argument: other expression": 1
+      },
+      "sites": 6,
+      "unit": "src/attest/core/stream.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1,
+        "non-literal argument: fixture parameter": 4
+      },
+      "sites": 4,
+      "unit": "src/attest/execution/backends.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/execution/container_adapter.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: local variable": 5
+      },
+      "sites": 5,
+      "unit": "src/attest/execution/container_images.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: local variable": 3
+      },
+      "sites": 3,
+      "unit": "src/attest/execution/controller.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/execution/local_adapter.py"
+    },
+    {
+      "admitted": {
+        "+local": 5,
+        "+method": 5,
+        "+parametrize": 5,
+        "all relaxations": 5,
+        "current": 5
+      },
+      "anchors": 3,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 4,
+      "reasons": {
+        "derivable now": 5,
+        "no call site in the test tree": 2,
+        "non-literal argument: constructed object": 1,
+        "non-literal argument: other expression": 2
+      },
+      "sites": 8,
+      "unit": "src/attest/execution/protocol.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: fixture parameter": 2,
+        "non-literal argument: local variable": 2
+      },
+      "sites": 4,
+      "unit": "src/attest/execution/provenance.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/github/client.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "src/attest/github/context.py"
+    },
+    {
+      "admitted": {
+        "+local": 2,
+        "+method": 2,
+        "+parametrize": 2,
+        "all relaxations": 2,
+        "current": 2
+      },
+      "anchors": 3,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 4,
+      "reasons": {
+        "derivable now": 2,
+        "no call site in the test tree": 2,
+        "non-literal argument: constructed object": 3,
+        "non-literal argument: other expression": 3
+      },
+      "sites": 8,
+      "unit": "src/attest/github/presentation.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1,
+        "non-literal argument: constructed object": 2,
+        "non-literal argument: local variable": 1,
+        "non-literal argument: other expression": 1
+      },
+      "sites": 4,
+      "unit": "src/attest/review/acceptance.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1,
+        "non-literal argument: other expression": 4
+      },
+      "sites": 4,
+      "unit": "src/attest/review/binding.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1,
+        "non-literal argument: local variable": 3
+      },
+      "sites": 3,
+      "unit": "src/attest/review/budget.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/review/certify.py"
+    },
+    {
+      "admitted": {
+        "+local": 28,
+        "+method": 28,
+        "+parametrize": 28,
+        "all relaxations": 28,
+        "current": 28
+      },
+      "anchors": 3,
+      "anchors_admitted": {
+        "+local": 3,
+        "+method": 3,
+        "+parametrize": 3,
+        "all relaxations": 3,
+        "current": 3
+      },
+      "derived_now": 10,
+      "reasons": {
+        "derivable now": 28,
+        "non-literal argument: local variable": 7
+      },
+      "sites": 35,
+      "unit": "src/attest/review/channels.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1,
+        "non-literal argument: constructed object": 1,
+        "non-literal argument: local variable": 8
+      },
+      "sites": 9,
+      "unit": "src/attest/review/ci.py"
+    },
+    {
+      "admitted": {
+        "+local": 10,
+        "+method": 10,
+        "+parametrize": 10,
+        "all relaxations": 10,
+        "current": 10
+      },
+      "anchors": 3,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 1,
+      "reasons": {
+        "derivable now": 10,
+        "no call site in the test tree": 1,
+        "non-literal argument: local variable": 1
+      },
+      "sites": 11,
+      "unit": "src/attest/review/config.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/review/dedup.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: fixture parameter": 1,
+        "non-literal argument: local variable": 1,
+        "non-literal argument: other expression": 2
+      },
+      "sites": 4,
+      "unit": "src/attest/review/derived_probes.py"
+    },
+    {
+      "admitted": {
+        "+local": 13,
+        "+method": 5,
+        "+parametrize": 5,
+        "all relaxations": 13,
+        "current": 5
+      },
+      "anchors": 3,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 4,
+      "reasons": {
+        "derivable now": 5,
+        "no call site in the test tree": 2,
+        "non-literal argument: constructed object": 2,
+        "non-literal argument: local variable": 19
+      },
+      "sites": 26,
+      "unit": "src/attest/review/diffs.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/review/eligibility.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/review/evidence.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2,
+        "non-literal argument: local variable": 8
+      },
+      "sites": 8,
+      "unit": "src/attest/review/executor.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/review/finding_evidence.py"
+    },
+    {
+      "admitted": {
+        "+local": 2,
+        "+method": 2,
+        "+parametrize": 2,
+        "all relaxations": 2,
+        "current": 2
+      },
+      "anchors": 3,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 3,
+      "reasons": {
+        "derivable now": 2,
+        "non-literal argument: constructed object": 10,
+        "non-literal argument: local variable": 6,
+        "non-literal argument: other expression": 2
+      },
+      "sites": 20,
+      "unit": "src/attest/review/gate.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 3,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 3
+      },
+      "sites": 0,
+      "unit": "src/attest/review/gate_level.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1,
+        "non-literal argument: constructed object": 3
+      },
+      "sites": 3,
+      "unit": "src/attest/review/history.py"
+    },
+    {
+      "admitted": {
+        "+local": 9,
+        "+method": 9,
+        "+parametrize": 9,
+        "all relaxations": 9,
+        "current": 9
+      },
+      "anchors": 2,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 4,
+      "reasons": {
+        "derivable now": 9,
+        "no call site in the test tree": 1
+      },
+      "sites": 9,
+      "unit": "src/attest/review/impact.py"
+    },
+    {
+      "admitted": {
+        "+local": 4,
+        "+method": 4,
+        "+parametrize": 4,
+        "all relaxations": 4,
+        "current": 4
+      },
+      "anchors": 2,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 4,
+      "reasons": {
+        "derivable now": 4,
+        "non-literal argument: constructed object": 4
+      },
+      "sites": 8,
+      "unit": "src/attest/review/intent.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "src/attest/review/ledger.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "src/attest/review/machine.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "src/attest/review/nullability.py"
+    },
+    {
+      "admitted": {
+        "+local": 5,
+        "+method": 5,
+        "+parametrize": 5,
+        "all relaxations": 5,
+        "current": 5
+      },
+      "anchors": 2,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 4,
+      "reasons": {
+        "derivable now": 5,
+        "no call site in the test tree": 1
+      },
+      "sites": 5,
+      "unit": "src/attest/review/output_contract.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "src/attest/review/planner.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1,
+        "non-literal argument: constructed object": 1
+      },
+      "sites": 1,
+      "unit": "src/attest/review/probe.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "src/attest/review/propagation.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "src/attest/review/proposer.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "non-literal argument: fixture parameter": 7,
+        "non-literal argument: local variable": 2
+      },
+      "sites": 9,
+      "unit": "src/attest/review/ranking.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "src/attest/review/recovery.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "src/attest/review/report.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "src/attest/review/run.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1,
+        "non-literal argument: constructed object": 12
+      },
+      "sites": 12,
+      "unit": "src/attest/review/schema.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "src/attest/review/security.py"
+    },
+    {
+      "admitted": {
+        "+local": 7,
+        "+method": 6,
+        "+parametrize": 6,
+        "all relaxations": 7,
+        "current": 6
+      },
+      "anchors": 2,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 4,
+      "reasons": {
+        "derivable now": 6,
+        "no call site in the test tree": 1,
+        "non-literal argument: local variable": 1
+      },
+      "sites": 7,
+      "unit": "src/attest/review/status.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1,
+        "non-literal argument: local variable": 1
+      },
+      "sites": 1,
+      "unit": "src/attest/review/structural.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "src/attest/review/support.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "non-literal argument: fixture parameter": 6
+      },
+      "sites": 6,
+      "unit": "src/attest/review/tier0.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1,
+        "non-literal argument: constructed object": 1
+      },
+      "sites": 1,
+      "unit": "src/attest/review/verification.py"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "src/attest/review/vocabulary.py"
+    },
+    {
+      "admitted": {
+        "+local": 2,
+        "+method": 2,
+        "+parametrize": 2,
+        "all relaxations": 2,
+        "current": 2
+      },
+      "anchors": 2,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 3,
+      "reasons": {
+        "derivable now": 2,
+        "non-literal argument: fixture parameter": 2
+      },
+      "sites": 4,
+      "unit": "src/attest/review/window.py"
+    },
+    {
+      "admitted": {
+        "+local": 7,
+        "+method": 7,
+        "+parametrize": 7,
+        "all relaxations": 7,
+        "current": 7
+      },
+      "anchors": 2,
+      "anchors_admitted": {
+        "+local": 2,
+        "+method": 2,
+        "+parametrize": 2,
+        "all relaxations": 2,
+        "current": 2
+      },
+      "derived_now": 2,
+      "reasons": {
+        "derivable now": 7
+      },
+      "sites": 7,
+      "unit": "src/attest/review/workdir.py"
+    }
+  ],
+  "upper_bounds": true
+}

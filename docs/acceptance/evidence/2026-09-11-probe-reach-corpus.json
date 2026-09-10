@@ -1,0 +1,477 @@
+{
+  "produced": "2026-09-11",
+  "units": [
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "anchor is not inside any def": 1,
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "mwaskom__seaborn-3069"
+    },
+    {
+      "admitted": {},
+      "anchors": 0,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {},
+      "sites": 0,
+      "unit": "pallets__flask-5014"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "method (not derived in this version)": 2
+      },
+      "sites": 2,
+      "unit": "psf__requests-5414"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "pydata__xarray-4687"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "anchor is not inside any def": 1
+      },
+      "sites": 0,
+      "unit": "pylint-dev__pylint-4661"
+    },
+    {
+      "admitted": {
+        "+method": 1,
+        "all relaxations": 1
+      },
+      "anchors": 2,
+      "anchors_admitted": {
+        "+method": 1,
+        "all relaxations": 1
+      },
+      "derived_now": 0,
+      "reasons": {
+        "anchor is not inside any def": 1,
+        "method (not derived in this version)": 3
+      },
+      "sites": 3,
+      "unit": "pytest-dev__pytest-10051"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "sphinx-doc__sphinx-10435"
+    },
+    {
+      "admitted": {},
+      "anchors": 0,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {},
+      "sites": 0,
+      "unit": "sympy__sympy-22914"
+    },
+    {
+      "admitted": {},
+      "anchors": 0,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {},
+      "sites": 0,
+      "unit": "mwaskom__seaborn-3187"
+    },
+    {
+      "admitted": {},
+      "anchors": 0,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {},
+      "sites": 0,
+      "unit": "psf__requests-6028"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "pydata__xarray-6461"
+    },
+    {
+      "admitted": {},
+      "anchors": 4,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "anchor is not inside any def": 2,
+        "no call site in the test tree": 1,
+        "non-literal argument: fixture parameter": 2
+      },
+      "sites": 2,
+      "unit": "pylint-dev__pylint-6528"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "pytest-dev__pytest-10356"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 2
+      },
+      "sites": 0,
+      "unit": "sphinx-doc__sphinx-10449"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "sympy__sympy-23262"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "anchor is in a nested function": 1
+      },
+      "sites": 0,
+      "unit": "pydata__xarray-6599"
+    },
+    {
+      "admitted": {},
+      "anchors": 0,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {},
+      "sites": 0,
+      "unit": "pylint-dev__pylint-6903"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "method (not derived in this version)": 1
+      },
+      "sites": 1,
+      "unit": "sphinx-doc__sphinx-10466"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "non-literal argument: local variable": 1
+      },
+      "sites": 1,
+      "unit": "sympy__sympy-23413"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "pydata__xarray-6721"
+    },
+    {
+      "admitted": {},
+      "anchors": 0,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {},
+      "sites": 0,
+      "unit": "pylint-dev__pylint-7080"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "sphinx-doc__sphinx-10614"
+    },
+    {
+      "admitted": {
+        "+local": 1969,
+        "+method": 1969,
+        "+parametrize": 1969,
+        "all relaxations": 1969,
+        "current": 1969
+      },
+      "anchors": 1,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 4,
+      "reasons": {
+        "derivable now": 1969,
+        "non-literal argument: constructed object": 8,
+        "non-literal argument: fixture parameter": 1,
+        "non-literal argument: local variable": 170,
+        "non-literal argument: other expression": 3
+      },
+      "sites": 2151,
+      "unit": "sympy__sympy-23534"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "pydata__xarray-6744"
+    },
+    {
+      "admitted": {
+        "+local": 11,
+        "+method": 11,
+        "+parametrize": 11,
+        "all relaxations": 11,
+        "current": 11
+      },
+      "anchors": 1,
+      "anchors_admitted": {
+        "+local": 1,
+        "+method": 1,
+        "+parametrize": 1,
+        "all relaxations": 1,
+        "current": 1
+      },
+      "derived_now": 1,
+      "reasons": {
+        "derivable now": 11
+      },
+      "sites": 11,
+      "unit": "pylint-dev__pylint-7277"
+    },
+    {
+      "admitted": {},
+      "anchors": 9,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "anchor is not inside any def": 8,
+        "non-literal argument: local variable": 3
+      },
+      "sites": 3,
+      "unit": "sphinx-doc__sphinx-11445"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "non-literal argument: local variable": 20
+      },
+      "sites": 20,
+      "unit": "sympy__sympy-23824"
+    },
+    {
+      "admitted": {},
+      "anchors": 5,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "definition is absent or ambiguous": 3,
+        "method (not derived in this version)": 4,
+        "no call site in the test tree": 1
+      },
+      "sites": 4,
+      "unit": "pydata__xarray-6938"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "anchor is not inside any def": 1,
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "pylint-dev__pylint-8898"
+    },
+    {
+      "admitted": {},
+      "anchors": 0,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {},
+      "sites": 0,
+      "unit": "sphinx-doc__sphinx-11510"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "method (not derived in this version)": 5
+      },
+      "sites": 5,
+      "unit": "sympy__sympy-23950"
+    },
+    {
+      "admitted": {
+        "+method": 4,
+        "all relaxations": 4
+      },
+      "anchors": 3,
+      "anchors_admitted": {
+        "+method": 1,
+        "all relaxations": 1
+      },
+      "derived_now": 0,
+      "reasons": {
+        "method (not derived in this version)": 40,
+        "no call site in the test tree": 1
+      },
+      "sites": 40,
+      "unit": "pydata__xarray-6992"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "sphinx-doc__sphinx-9711"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "method (not derived in this version)": 17
+      },
+      "sites": 17,
+      "unit": "sympy__sympy-24213"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "pydata__xarray-7229"
+    },
+    {
+      "admitted": {},
+      "anchors": 2,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "anchor is in a nested function": 1,
+        "no call site in the test tree": 1
+      },
+      "sites": 0,
+      "unit": "sympy__sympy-24443"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "definition is absent or ambiguous": 1
+      },
+      "sites": 0,
+      "unit": "pydata__xarray-7393"
+    },
+    {
+      "admitted": {
+        "+method": 2,
+        "all relaxations": 2
+      },
+      "anchors": 1,
+      "anchors_admitted": {
+        "+method": 1,
+        "all relaxations": 1
+      },
+      "derived_now": 0,
+      "reasons": {
+        "method (not derived in this version)": 50
+      },
+      "sites": 50,
+      "unit": "sympy__sympy-24539"
+    },
+    {
+      "admitted": {},
+      "anchors": 1,
+      "anchors_admitted": {},
+      "derived_now": 0,
+      "reasons": {
+        "definition is absent or ambiguous": 1
+      },
+      "sites": 0,
+      "unit": "sympy__sympy-24562"
+    }
+  ],
+  "upper_bounds": true
+}

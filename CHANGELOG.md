@@ -11,6 +11,15 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The derived probe's route is measured and closed (D-212).** D-211 left one question open:
+  were the calls D-206 looks for there and discarded, or never there? Free, offline, $0.00, on
+  the same 39 held-out cases: a derived probe exists for **2 of 39** today and **5 of 39** with
+  all three plausible relaxations of its rules. Only relaxing methods contributes at all. The
+  cause is upstream of any rule about arguments -- **25 of 39 cases have no test call site at
+  all** for what their diff changed. The rule itself is fine: it reaches 22 of 200 module-level
+  functions (11%) on this repository. Nothing is removed and `derived_probes` still runs and
+  still costs no model call; what stops is investment in relaxing it. The measurement predicts
+  the paid run's ledger exactly -- same two cases, same five probes.
 - **The derived probe was measured and it moved no receipt (D-211).** The paid dispatch D-208
   built the harness for has run: the same 39 held-out instances, all of them bought this time, at
   the factory configuration for $5.044872. **Crash-class recall is 2 of 31 -- 6.5%, Wilson 95%
