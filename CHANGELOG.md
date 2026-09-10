@@ -11,6 +11,12 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The held-out recall measurement can be re-taken by anyone with the repository (D-208).**
+  It needed a docker daemon and the owner's own corpus, so it ran on exactly one machine. A
+  `workflow_dispatch` workflow now runs the same driver on a GitHub runner, restoring the
+  2026-09-12 population from committed evidence so the result is comparable rather than merely
+  new. Free by default: the paid stage is a separate dispatch under a hard cap. **No recall
+  number is claimed here** -- `G-RECALL-002` stands at 7.1% until a paid dispatch says otherwise.
 - **The repository's own tests are probes now (D-206).** Before the model is asked what to
   call, Attest tries the calls your tests already make on the changed function -- and boundary
   variants of their literals: the empty list, zero, the empty string, a negative count. Each is

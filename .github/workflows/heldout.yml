@@ -1,0 +1,232 @@
+name: heldout
+
+# `G-RECALL-002`: the crash-class held-out measurement, on the platform the
+# product ships to.
+#
+# It exists for the reason `e04-shadow.yml` exists. The same measurement on a
+# developer Mac produced 24 reproduction attempts and 24 `environment bootstrap
+# failed` deferrals, because buildkit on that host hangs resolving registry
+# metadata; and it cannot run in a cloud development container at all, which has
+# no docker daemon. A silence over an executor that never ran is not a
+# measurement (D-177), so this runs where the executor works.
+#
+# **Nothing is published anywhere.** The driver uses the local review path, so no
+# GitHub client is constructed and no comment, review or status can be written to
+# any repository.
+#
+# **The population is restored, not re-selected.** `probe.json` is copied from
+# the committed evidence of the 2026-09-12 run, so this measures the *same 39
+# instances* under new code. Re-screening could return a different population and
+# then the before/after comparison would not be one. `rebuild_probe: true` runs
+# the free screen and probe stages instead, which re-derives the population and
+# is therefore a *new* measurement rather than a re-measurement.
+#
+# Two dispatches, on purpose. `paid: false` (the default) rebuilds the corpus and
+# stops at the plan, so the evaluable denominator and the runner's own health are
+# known before a dollar is committed. `paid: true` then buys the reviews under a
+# hard cumulative cap. **Reserve in DEVSPEND.md before the paid dispatch.**
+
+on:
+  workflow_dispatch:
+    inputs:
+      paid:
+        description: >-
+          Buy the reviews. Leave false to rebuild the corpus and stop at the
+          plan, which costs nothing and reports the evaluable denominator.
+        type: boolean
+        default: false
+      cap_usd:
+        description: >-
+          Hard cumulative spend cap for the paid stage, in US dollars. A case
+          whose maximum would exceed it is refused and the run stops.
+        type: string
+        default: "5.00"
+      budget_usd:
+        description: Per-review budget, the factory value. One case's maximum cost.
+        type: string
+        default: "1.00"
+      k:
+        description: Proposal samples per change unit, the factory value.
+        type: string
+        default: "5"
+      only:
+        description: Restrict to these instance ids, comma-separated (empty = the whole plan).
+        type: string
+        default: ""
+      rebuild_probe:
+        description: >-
+          Re-derive the population with the free screen and probe stages instead
+          of restoring the 2026-09-12 one. Makes this a new measurement, not a
+          re-measurement.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  heldout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-toolchain.lock
+
+      - name: Install the locked toolchain
+        run: |
+          python -m pip install -r requirements-toolchain.lock
+          python -m pip install --no-deps --no-build-isolation -e .
+
+      - name: Record the environment
+        run: |
+          python -c "import sys, platform; print(sys.version); print(platform.platform())"
+          python -c "import attest; print('attest', attest.__version__)"
+          docker version --format 'docker {{.Server.Version}}'
+          git rev-parse HEAD
+          df -h / | tail -1
+
+      # The drivers read exactly four columns of SWE-bench Verified --
+      # instance_id, repo, base_commit, patch -- and the dataset itself is not in
+      # this repository (it lives under the gitignored `.attest/`). Fetched from
+      # the dataset server rather than vendored, and the step fails loudly if a
+      # column is missing rather than letting a later stage spend money on a
+      # half-built corpus.
+      - name: Fetch the SWE-bench Verified instance table
+        run: |
+          set -eu
+          python - <<'PY'
+          import json, pathlib, urllib.request
+          fields = ("instance_id", "repo", "base_commit", "patch")
+          url = (
+              "https://datasets-server.huggingface.co/rows"
+              "?dataset=princeton-nlp%2FSWE-bench_Verified&config=default&split=test"
+          )
+          rows, offset = [], 0
+          while True:
+              with urllib.request.urlopen(f"{url}&offset={offset}&length=100", timeout=120) as r:
+                  page = json.loads(r.read())
+              batch = page.get("rows") or []
+              if not batch:
+                  break
+              for entry in batch:
+                  row = entry["row"]
+                  missing = [f for f in fields if f not in row]
+                  if missing:
+                      raise SystemExit(f"dataset row is missing {missing}: {sorted(row)}")
+                  rows.append({f: row[f] for f in fields})
+              offset += len(batch)
+              if offset >= int(page.get("num_rows_total") or 0):
+                  break
+          if len(rows) < 400:
+              raise SystemExit(f"fetched only {len(rows)} instances; refusing a partial corpus")
+          out = pathlib.Path(".attest/corpora/swebench-verified")
+          out.mkdir(parents=True, exist_ok=True)
+          (out / "instances.jsonl").write_text(
+              "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8"
+          )
+          print(f"instances: {len(rows)}")
+          PY
+
+      # Restored, not re-selected: the same 39 instances the 2026-09-12 run
+      # probed, so the recall number this produces is comparable to 2 of 28.
+      - name: Restore the 2026-09-12 population
+        if: ${{ ! inputs.rebuild_probe }}
+        run: |
+          set -eu
+          mkdir -p .attest/corpora/heldout-supported-v1
+          python - <<'PY'
+          import json, pathlib
+          src = pathlib.Path("docs/acceptance/evidence/2026-09-12-heldout-supported-probe.json")
+          probe = json.loads(src.read_text(encoding="utf-8"))["probe"]
+          dst = pathlib.Path(".attest/corpora/heldout-supported-v1/probe.json")
+          dst.write_text(json.dumps(probe, indent=2) + "\n", encoding="utf-8")
+          evaluable = sum(1 for r in probe if r.get("ok"))
+          print(f"restored {len(probe)} probed instances; evaluable {evaluable}")
+          PY
+
+      # Only the projects the population actually names. A clone that fails is
+      # reported by name and never quietly dropped from the denominator.
+      - name: Clone the upstream projects
+        run: |
+          set -eu
+          python - <<'PY'
+          import json, pathlib, subprocess
+          probe = pathlib.Path(".attest/corpora/heldout-supported-v1/probe.json")
+          if probe.is_file():
+              repos = sorted({r["repo"] for r in json.loads(probe.read_text())})
+          else:
+              split = json.loads(
+                  pathlib.Path("benchmarks/attest-v2/splits/swebench-verified-v1.json").read_text()
+              )
+              table = {
+                  json.loads(line)["instance_id"]: json.loads(line)["repo"]
+                  for line in pathlib.Path(
+                      ".attest/corpora/swebench-verified/instances.jsonl"
+                  ).read_text().splitlines()
+              }
+              repos = sorted({table[i] for i in split["held_out"] if i in table})
+          upstream = pathlib.Path(".attest/corpora/swebench/upstream")
+          upstream.mkdir(parents=True, exist_ok=True)
+          failed = []
+          for repo in repos:
+              target = upstream / repo.replace("/", "__")
+              if (target / ".git").is_dir():
+                  continue
+              done = subprocess.run(
+                  ["git", "clone", "-q", f"https://github.com/{repo}.git", str(target)]
+              )
+              if done.returncode != 0:
+                  failed.append(repo)
+                  print(f"SKIPPED {repo}: clone failed")
+              else:
+                  print(f"cloned {repo}")
+          print("failed clones:", failed or "none")
+          PY
+          df -h / | tail -1
+
+      - name: Screen and probe (free; re-derives the population)
+        if: ${{ inputs.rebuild_probe }}
+        run: |
+          python -u scripts/corpus/heldout_v2.py screen 2>&1 | tee heldout-screen.log
+          python -u scripts/corpus/heldout_v2.py probe 2>&1 | tee heldout-probe.log
+
+      - name: Plan
+        run: python -u scripts/corpus/heldout_v2.py plan 2>&1 | tee heldout-plan.log
+
+      - name: Run (PAID)
+        if: ${{ inputs.paid }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ATTEST_ALLOW_PAID_API: "1"
+        run: |
+          python -u scripts/corpus/heldout_v2.py run \
+            --k "${{ inputs.k }}" \
+            --budget "${{ inputs.budget_usd }}" \
+            --cap "${{ inputs.cap_usd }}" \
+            --only "${{ inputs.only }}" \
+            2>&1 | tee heldout-run.log
+
+      - name: Table
+        if: ${{ always() && inputs.paid }}
+        run: python -u scripts/corpus/heldout_v2.py table 2>&1 | tee heldout-table.log || true
+
+      # The corpus itself is gitignored and dies with the runner; its results and
+      # every ledger the run wrote are what a report is written from.
+      - name: Upload the results, the ledgers and the logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: heldout-${{ github.run_id }}
+          path: |
+            .attest/corpora/heldout-supported-v1/
+            .attest/corpora/swebench/results/
+            .attest/corpora/swebench/cases/*/repo/.attest/ledger.jsonl
+            heldout-*.log
+          if-no-files-found: warn
+          retention-days: 30

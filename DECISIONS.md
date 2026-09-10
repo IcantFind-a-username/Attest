@@ -2168,6 +2168,17 @@ is active only when the owning architecture/acceptance document changes with it.
 - **What is not claimed.** No recall number. This changes which probes are tried, and whether that moves **2 of 28** is a paid measurement on the held-out corpus that has not been run.
 - **Trace:** D-114, D-146, D-158, D-174 (the binding layer this rests on), D-186, D-198; `docs/acceptance/2026-09-12-heldout-supported.md`.
 
+### D-208 — `G-RECALL-002` is measurable on a runner, and the population is restored rather than re-selected
+
+- **Date/status/scope:** 2026-09-10 · active · agent decision under `AGENTS.md` §11 · `.github/workflows/heldout.yml`; no product code, no constant.
+- **The problem.** The held-out measurement could be run in exactly one place: the owner's laptop. It needs a docker daemon, so a cloud development container cannot run it at all (no `/var/run/docker.sock`); and on that laptop buildkit hangs resolving registry metadata, which is what turned the 2026-09-12 E-04 run into 24 attempts and 24 `environment bootstrap failed` deferrals. A number that only one machine can produce is not a number this project can keep re-taking, and D-206 is unmeasurable until it can.
+- **The decision.** A `workflow_dispatch` workflow runs the same driver on `ubuntu-latest`, the platform the product ships to — the shape `e04-shadow.yml` already established for the same reason. Two dispatches: `paid: false` rebuilds the corpus and stops at the plan, so the evaluable denominator and the runner's health are known before a dollar is committed; `paid: true` buys the reviews under the driver's own hard cumulative cap.
+- **The population is restored, not re-selected.** `probe.json` is copied from the committed evidence of the 2026-09-12 run, so the measurement covers the *same 39 instances*. Re-screening could return a different population, and a recall number over a different population is not comparable to 2 of 28 — it is a new measurement wearing the old one's name. `rebuild_probe: true` re-derives it and is documented as producing a new measurement rather than a re-measurement.
+- **The dataset is fetched, not vendored, and the fetch fails closed.** The drivers read exactly four columns of SWE-bench Verified — `instance_id`, `repo`, `base_commit`, `patch` — and the dataset lives under the gitignored `.attest/`, so it is in no clone of this repository. It is fetched from the dataset server at run time; a missing column or a short read raises before any later stage can spend on a half-built corpus. Verified against the committed population: all 39 instances present, all 39 `upstream_base_commit` values equal to the dataset's own `base_commit`, all 39 carrying a patch.
+- **What it does not do.** It claims no recall number. It is the harness; the number is a paid dispatch nobody has run, and `G-RECALL-002` stands at **2 of 28 = 7.1%**, Wilson 95% [2.0%, 22.6%], until one does.
+- **Cost:** $0.00 to add. **Reversal:** delete the workflow file; the measurement returns to the owner's laptop.
+- **Trace:** D-177 (a silence over an executor that never ran), D-191 (the corpus rebuild), D-206 (what is to be measured); `G-RECALL-002`; mainline §3.
+
 ### D-207 — The process guard is not relaxed on the merge base, because it would buy nothing
 
 - **Date/status/scope:** 2026-09-14 · active · **owner instruction to scope, agent finding** · `docs/design/base-side-process-guard.md`; no code.
