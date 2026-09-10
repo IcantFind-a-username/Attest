@@ -1,0 +1,403 @@
+{
+  "produced": "2026-09-10",
+  "decision": "D-211",
+  "plan": ".attest/corpora/heldout-supported-v1/plan.json",
+  "k": 5,
+  "budget_usd": 1.0,
+  "cap_usd": 6.5,
+  "code": "a1f74dc",
+  "run": "https://github.com/IcantFind-a-username/Attest/actions/runs/34478078680",
+  "population": "restored from docs/acceptance/evidence/2026-09-12-heldout-supported-probe.json (D-208); the same 39 instances",
+  "results": [
+    {
+      "case": "mwaskom__seaborn-3069",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-124320-558a7844",
+      "candidate_count": 3,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: reproduction attempted to create a thread (3 candidates)",
+      "spend_usd": 0.26660960000000006
+    },
+    {
+      "case": "mwaskom__seaborn-3187",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-125515-ff953eb0",
+      "candidate_count": 2,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: reproduction attempted to create a thread (2 candidates)",
+      "spend_usd": 0.13427255
+    },
+    {
+      "case": "pallets__flask-5014",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-124449-6a0733e9",
+      "candidate_count": 1,
+      "surfaced_count": 1,
+      "deferred_reason": null,
+      "spend_usd": 0.06523785
+    },
+    {
+      "case": "psf__requests-5414",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-124529-279ba178",
+      "candidate_count": 1,
+      "surfaced_count": 1,
+      "deferred_reason": null,
+      "spend_usd": 0.07070380000000001
+    },
+    {
+      "case": "psf__requests-6028",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-125611-6a37b250",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": null,
+      "spend_usd": 0.055892550000000006
+    },
+    {
+      "case": "pydata__xarray-4687",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-124604-1fdc584d",
+      "candidate_count": 2,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s)) (2 candidates)",
+      "spend_usd": 0.19373215000000002
+    },
+    {
+      "case": "pydata__xarray-6461",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-125640-26aa2f04",
+      "candidate_count": 2,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s)) (2 candidates)",
+      "spend_usd": 0.20139070000000003
+    },
+    {
+      "case": "pydata__xarray-6599",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-134633-de8d5f3d",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))",
+      "spend_usd": 0.08863684999999999
+    },
+    {
+      "case": "pydata__xarray-6721",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-135703-f1df71dc",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))",
+      "spend_usd": 0.1073259
+    },
+    {
+      "case": "pydata__xarray-6744",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-142731-5c0eb60a",
+      "candidate_count": 5,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s)) (3 candidates)",
+      "spend_usd": 0.17423175000000002
+    },
+    {
+      "case": "pydata__xarray-6938",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-145634-e48a26e2",
+      "candidate_count": 5,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s)) (4 candidates)",
+      "spend_usd": 0.3229342500000001
+    },
+    {
+      "case": "pydata__xarray-6992",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-150614-a528b5f7",
+      "candidate_count": 10,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s)) (4 candidates)",
+      "spend_usd": 0.41304805000000006
+    },
+    {
+      "case": "pydata__xarray-7229",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-151557-f5276029",
+      "candidate_count": 2,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s)) (2 candidates)",
+      "spend_usd": 0.24531900000000004
+    },
+    {
+      "case": "pydata__xarray-7393",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-152653-e3c4d747",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))",
+      "spend_usd": 0.0776515
+    },
+    {
+      "case": "pylint-dev__pylint-4661",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-124744-0179b8db",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))",
+      "spend_usd": 0.053532300000000005
+    },
+    {
+      "case": "pylint-dev__pylint-6528",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-125821-01b4e1d1",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe observation is not stable on base: the merge base returned ['/attest/scratch/tmprsm4sjcg/good.py'], then the merge base returned ['/attest/scratch/tmpiaiybixt/good.py']",
+      "spend_usd": 0.09538480000000002
+    },
+    {
+      "case": "pylint-dev__pylint-6903",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-134754-f710fa1d",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": null,
+      "spend_usd": 0.06622845
+    },
+    {
+      "case": "pylint-dev__pylint-7080",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-135834-50cb0901",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under test (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "spend_usd": 0.052492
+    },
+    {
+      "case": "pylint-dev__pylint-7277",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-142927-04fe3375",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "spend_usd": 0.07014645
+    },
+    {
+      "case": "pylint-dev__pylint-8898",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-145841-e77803b7",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "spend_usd": 0.0717682
+    },
+    {
+      "case": "pytest-dev__pytest-10051",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-124814-8cf93aab",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": null,
+      "spend_usd": 0.07072520000000002
+    },
+    {
+      "case": "pytest-dev__pytest-10356",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-125921-f054a89c",
+      "candidate_count": 2,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe) (2 candidates)",
+      "spend_usd": 0.15880135
+    },
+    {
+      "case": "sphinx-doc__sphinx-10435",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-124915-15577d42",
+      "candidate_count": 3,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: reproduction attempted to create a child process (3 candidates)",
+      "spend_usd": 0.25785565000000005
+    },
+    {
+      "case": "sphinx-doc__sphinx-10449",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-130037-02e276dc",
+      "candidate_count": 2,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: reproduction attempted to create a child process (2 candidates)",
+      "spend_usd": 0.1717976
+    },
+    {
+      "case": "sphinx-doc__sphinx-10466",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-134843-067d98c9",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "spend_usd": 0.062093350000000005
+    },
+    {
+      "case": "sphinx-doc__sphinx-10614",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-135933-9ca65341",
+      "candidate_count": 2,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: reproduction attempted to create a child process (2 candidates)",
+      "spend_usd": 0.2444704
+    },
+    {
+      "case": "sphinx-doc__sphinx-11445",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-143024-bca38c5a",
+      "candidate_count": 3,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: reproduction attempted to create a child process (3 candidates)",
+      "spend_usd": 0.15141854999999999
+    },
+    {
+      "case": "sphinx-doc__sphinx-11510",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-145932-dd02a6a6",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: reproduction attempted to create a child process",
+      "spend_usd": 0.0936718
+    },
+    {
+      "case": "sphinx-doc__sphinx-9711",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-150900-43466363",
+      "candidate_count": 2,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: probe deferred on base: reproduction attempted to create a child process (2 candidates)",
+      "spend_usd": 0.09457720000000001
+    },
+    {
+      "case": "sympy__sympy-22914",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-125052-449cbc6c",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: binding: the reproduction exercises none of the changed lines of sympy/printing/pycode.py",
+      "spend_usd": 0.04716935
+    },
+    {
+      "case": "sympy__sympy-23262",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-130133-2ac607dc",
+      "candidate_count": 4,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5) (4 candidates)",
+      "spend_usd": 0.11059320000000003
+    },
+    {
+      "case": "sympy__sympy-23413",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-134929-701d866c",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": null,
+      "spend_usd": 0.08987085000000002
+    },
+    {
+      "case": "sympy__sympy-23534",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-140057-e01141ff",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "spend_usd": 0.07332845000000002
+    },
+    {
+      "case": "sympy__sympy-23824",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-143138-80c65f9f",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "spend_usd": 0.0992435
+    },
+    {
+      "case": "sympy__sympy-23950",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-150025-cba0a9be",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: intent: behavior change confirmed, intent unknown: head raises NotImplementedError from a raise statement on a changed line; no rejected input could be identified from the test's literals (\u884c\u4e3a\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "spend_usd": 0.03915880000000001
+    },
+    {
+      "case": "sympy__sympy-24213",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-150955-acb59433",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: intent: behavior change confirmed, intent unknown: head raises ValueError from a raise statement on a changed line; no rejected input could be identified from the test's literals (\u884c\u4e3a\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "spend_usd": 0.0758081
+    },
+    {
+      "case": "sympy__sympy-24443",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-151749-7912844c",
+      "candidate_count": 8,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)",
+      "spend_usd": 0.17487400000000003
+    },
+    {
+      "case": "sympy__sympy-24539",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-152804-484921a0",
+      "candidate_count": 1,
+      "surfaced_count": 0,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "spend_usd": 0.0695087
+    },
+    {
+      "case": "sympy__sympy-24562",
+      "control": null,
+      "model": "claude-sonnet-5",
+      "task_id": "20260910-153359-77bcb322",
+      "candidate_count": 2,
+      "surfaced_count": 0,
+      "deferred_reason": null,
+      "spend_usd": 0.13336755000000003
+    }
+  ]
+}
