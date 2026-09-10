@@ -653,3 +653,46 @@ def test_every_registered_deferral_fact_fits_the_one_line_it_is_written_for() ->
             deferral=(deferral.code, deferral.fact),
         )
         assert check(line), deferral.code
+
+
+def test_the_summary_body_is_contract_lines_and_nothing_else() -> None:
+    """The one required RED for D-204.
+
+    Condition 7 says an author-visible line is *one line per finding … and
+    nothing else. No preamble.* The summary body opened with `Review complete.`
+    and, when nothing certified, a second line saying so -- both preamble, both
+    published on every review, and **never adjudicated**: `check` was applied to
+    the lines inside the body and never to the body itself.
+
+    `check_summary` decides the whole body: every non-blank line outside a
+    collapsed block is either a contract line, a section heading the product
+    owns, or the spend footer."""
+    from attest.review.output_contract import check_summary
+
+    good = "\n".join(
+        [
+            "Structural observations — measured, not reproduced; no defect is claimed:",
+            "- [green] Structural (no defect claimed): a.py:1-2 `x` and b.py:3-4 `y` "
+            "normalise to token sequences of 9 and 9 tokens whose token-sequence "
+            "similarity is 0.990 (threshold 0.92); identifiers erased.",
+            "Spend $0.1019; 57.0s.",
+        ]
+    )
+    assert check_summary(good), check_summary(good).reason
+
+    for preamble in ("Review complete.", "No finding was verified by a reproduction; abstained."):
+        verdict = check_summary(preamble + "\n" + good)
+        assert not verdict, preamble
+        assert verdict.category == "summary_preamble"
+
+
+def test_a_summary_with_nothing_to_say_is_the_silence_line_alone() -> None:
+    """A silent review already owed exactly one line (D-142). It now *is* that
+    line: no header above it and no spend footer after it, because the line
+    carries the spend itself."""
+    from attest.review.output_contract import check_summary
+
+    line = silence_line(units_read=1, units_planned=7, spend_usd=0.1019, elapsed_s=57.0)
+
+    assert check_summary(line), check_summary(line).reason
+    assert not check_summary("Review complete.\n" + line)

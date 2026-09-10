@@ -304,3 +304,48 @@ yours, taken four times, D-201 was one narrowly-scoped change you approved, and 
 summary header is a second and larger one nobody asked for. **Condition 7 is `FAIL` in the
 release checklist**, with one gap closed and one open, and it is item 1 of the three at the end
 of this handoff.
+
+---
+
+## Phase 4b — three owner decisions
+
+Branch `feature/owner-three` · decisions [D-203](../DECISIONS.md), [D-204](../DECISIONS.md),
+[D-205](../DECISIONS.md) · **$0.00**
+
+### 1. D-203 — the trailers stay, and D-002 binds forward
+
+**249 commits** on `main` carry `Co-Authored-By: Claude Opus 5`, plus 5 merge subjects naming a
+`claude/*` branch. Rewriting them would invalidate every sha in every acceptance report, every
+receipt's `head_sha`, and every install ref — the evidence chain the product's claims rest on.
+D-002 now binds **commits made after D-002**, and the checklist item is judged on **this task's
+commits**, which are clean. What is *not* claimed: that this history is free of vendor names. It
+is not, 249 times, and `git log --grep` finds them in a second.
+
+### 2. D-204 — the summary body is adjudicated end to end
+
+`Review complete.` and `No finding was verified by a reproduction; abstained.` are **deleted**. A
+body is now: the headings the product owns, contract lines, collapsed blocks, one spend footer —
+and **a review with nothing to say *is* its silence line**, no header above, no footer after,
+because that line already carries the spend. `check_summary` refuses anything else as
+`summary_preamble`; a refused body is replaced by the deterministic silence line and the
+substitution is written to the ledger. **No receipt can be lost**: certified findings reach the
+author through the inline review, independent of the summary since D-180.
+
+**The deletion broke one branch and the tests caught it.** A **mixed** outcome spliced its
+`DEFER:` text over the `Review complete.` header; with the header gone the splice matched nothing
+and dropped the notice entirely. A mixed outcome is now the findings' lines, with the deferral in
+the collapsed run status — which carries the counts *and* each reproduction's own failure reason,
+strictly more than the one line of prose it replaced.
+
+**Condition 7 now holds**: both gaps the census found are closed, D-201 and D-204.
+
+### 3. D-205 — the gate asks what the evidence can answer
+
+`G-SHADOW-001`'s bar becomes mainline condition 5's own sentence: one prospective run, real
+executed reproductions, zero false publications. **PASS** on the runner re-take — 28 units, 13
+executions, 0 bootstrap failures, 0 published. The scale design (≥500 pull requests, ≥30
+repositories, ≥100 adjudicated findings) moves to a **post-release goal**, with the reason: this
+account holds **29 across 6**, so no budget reaches it.
+
+**Three caveats travel with the PASS, in the gate's own text**: all-silence, so **precision is
+undefined and utility unproven**; **no recall measured**; **one prospective unit of 29**.

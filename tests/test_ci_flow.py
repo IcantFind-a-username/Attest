@@ -577,7 +577,9 @@ def test_a_duplicated_implementation_reaches_the_author_as_a_structural_comment(
     assert contract_check(claim).admitted is True
 
     final = github_server.status_bodies[-1]
-    assert "No finding was verified by a reproduction; abstained." in final
+    # D-204: the body carries no preamble at all -- the green section is the
+    # first thing in it, and `check_summary` is what makes that a property
+    assert "No finding was verified" not in final and "Review complete." not in final
     red, heading, green = final.partition(STRUCTURAL_HEADING)
     assert heading and STRUCTURAL_PREFIX in green and STRUCTURAL_PREFIX not in red
 
@@ -677,9 +679,14 @@ def test_a_review_whose_every_note_was_dropped_posts_no_review_at_all(
     # so no review is posted at all, and none is journalled
     assert github_server.review_bodies == []
     assert [row for row in rows if row.get("channel") == "inline_review"] == []
-    # the run still finishes and still says its one silent line
+    # the run still finishes and still says its one silent line -- which since
+    # D-204 *is* the whole body, with no header above it
     assert result.surfaced_count == 0
-    assert "Review complete." in github_server.status_bodies[-1]
+    final = github_server.status_bodies[-1]
+    assert "Review complete." not in final
+    # the summary still carries the green section the dropped review would have
+    # anchored, and D-204 means it starts with that section and no preamble
+    assert final.split("-->")[1].lstrip().startswith(STRUCTURAL_HEADING)
 
 
 def test_a_changed_signature_with_an_untested_caller_reaches_the_author_as_yellow(
@@ -1445,7 +1452,16 @@ def test_mixed_defer_summary_keeps_all_surfaced_overflow_and_hides_deferred_deta
     assert isinstance(comments, list)
     assert len(comments) == 1
     sticky = github_server.status_bodies[-1]
-    assert "DEFER" in sticky
+    # D-204: a mixed outcome is the published findings' contract lines and
+    # nothing else. The deferral is not dropped -- it moves to the collapsed run
+    # status, where every other unjudged-candidate detail already lives.
+    head, _, collapsed_block = sticky.partition("<details>")
+    assert "DEFER" not in head and "Review complete." not in head
+    # what an author can act on is there: the counts, and each reproduction's
+    # own failure reason -- which is strictly more than the one-line `DEFER:`
+    # prose it replaces
+    assert "reproductions attempted:" in collapsed_block
+    assert "reproduction 1:" in collapsed_block
     assert sum(str(finding["claim"]) in sticky for finding in surfaced) == 1
     for private_detail in (
         deferred["claim"],

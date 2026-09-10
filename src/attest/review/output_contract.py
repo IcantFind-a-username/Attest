@@ -505,6 +505,71 @@ def check_comment(body: str) -> ContractVerdict:
     return ADMITTED
 
 
+# --- the whole summary body (D-204) ------------------------------------------
+#
+# Condition 7 says an author-visible line is *one line per finding … and nothing
+# else. No preamble.* Until D-204 the summary body opened with `Review
+# complete.` and, when nothing certified, a second line saying so -- both
+# preamble, both published on every review, and **never adjudicated**: `check`
+# was applied to the lines inside the body and never to the body itself. The
+# census of 2026-09-13 found the header on every review that published a note.
+#
+# A summary body is now: contract lines, the section headings the product owns,
+# collapsed blocks, and one spend footer. Nothing else, and the adjudicator
+# below is what makes that true rather than intended.
+
+SUMMARY_HEADINGS = frozenset(
+    {
+        "Verified findings (each backed by a reproduction receipt):",
+        "Structural observations — measured, not reproduced; no defect is claimed:",
+        "Impact scope — counted over the call graph; no defect is claimed and no "
+        "coverage was measured:",
+    }
+)
+SPEND_FOOTER = re.compile(r"^Spend \$\d+\.\d{4}; \d+\.\d+s\.$")
+_STATUS_MARKER_LINE = re.compile(r"^<!--\s*attest:[a-z:]*\s*-->$", re.IGNORECASE)
+# a line inside a collapsed block is the block's business, not the contract's
+_BLOCK_OPEN = re.compile(r"<\s*details\b", re.IGNORECASE)
+_BLOCK_CLOSE = re.compile(r"</\s*details\s*>", re.IGNORECASE)
+
+
+def check_summary(body: str) -> ContractVerdict:
+    """Adjudicate a whole summary body, not only the lines inside it.
+
+    Every non-blank line outside a collapsed block must be a contract line, a
+    heading the product owns, the spend footer, or the status marker. A line
+    that is none of those is **preamble** and the body is refused -- which is
+    what makes condition 7 a property of the surface rather than of the lines
+    that happen to be checked.
+    """
+    if not body.strip():
+        return ContractVerdict(False, "the summary body is empty", "empty")
+    depth = 0
+    for raw in body.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        opens = len(_BLOCK_OPEN.findall(line))
+        closes = len(_BLOCK_CLOSE.findall(line))
+        if depth > 0 or opens:
+            depth = max(0, depth + opens - closes)
+            continue
+        depth = max(0, depth - closes)
+        if _STATUS_MARKER_LINE.match(line) or line in SUMMARY_HEADINGS:
+            continue
+        if SPEND_FOOTER.match(line):
+            continue
+        candidate = line[2:].strip() if line.startswith("- ") else line
+        if check(candidate):
+            continue
+        return ContractVerdict(
+            False,
+            f"the summary body carries a line the contract does not admit: {line[:80]!r}",
+            "summary_preamble",
+        )
+    return ADMITTED
+
+
 COLLAPSED_SUMMARY = "Suggested fix — written by a model, not part of the claim"
 
 

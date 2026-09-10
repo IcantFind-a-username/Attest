@@ -681,7 +681,27 @@ case can surface, redesign the set and do not publish a stability claim.
 author-visible finding; adjudicate every shadow finding plus a known-probability random
 sample of at least 200 silent PRs; preserve language/diff/new-code/size strata.
 
-**Pass conditions:**
+**Pass condition, amended 2026-09-13 (D-205).** The bar is mainline §1 condition 5's own
+sentence: **one prospective shadow run on the owner's live repositories, with reproductions that
+actually executed, and zero false publications.** The design's scale requirements below are
+**post-release goals**, and the reason is arithmetic rather than budgetary — the owner's entire
+account holds **29 reviewable pull requests across 6 supported repositories**, against a design
+asking for 500 across 30, so no amount of money reaches them on this population.
+
+**Read 2026-09-13: PASS**, on the runner re-take of the frozen stratum-v3 sample — **28 units,
+191 candidates, 19 eligible, 13 reproductions that actually executed in `linux-container-v1`, 0
+bootstrap failures, 0 certified, 0 published**. The 13 outcomes are adjudications (4 collection
+failures, 3 unfaithful tests, 6 other), not a closed door, which is exactly what the local run of
+the same sample could not say: there 24 of 24 attempts died at `environment bootstrap failed` and
+the zero was vacuous (D-177).
+
+**What the PASS does not say, and it must travel with it.** The run is **all-silence**: nothing
+certified, so **precision is undefined** and **utility is unproven** — a review that says nothing
+cannot be wrong and cannot be useful. It measures **no recall**: the 28 carry no known defect and
+the five drills that do were excluded before the run. **One unit of 29 is genuinely prospective**
+([report](2026-09-13-e04-shadow-v3.md)).
+
+**The post-release goals**, kept in full and dated later:
 
 - at least 100 adjudicated shadow findings;
 - every PR selected for truth ascertainment—whether it had a shadow finding or was sampled

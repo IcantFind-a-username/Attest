@@ -70,6 +70,7 @@ from attest.review.nullability import notes_for_change as nullability_notes_for_
 from attest.review.output_contract import (
     LEVEL_MARKERS,
     budget_unverified,
+    check_summary,
     ledger_link,
     silence_line,
 )
@@ -1147,13 +1148,20 @@ def _post_deferred(
             ledger, task_id, deferral, spend_usd=spend_usd, elapsed_s=elapsed_s,
             word="deferred",
         )
+    elif surfaced:
+        # D-204: a mixed outcome -- something published *and* something deferred
+        # -- is the published findings' contract lines and nothing else. The
+        # deferral reason goes where every other unjudged-candidate detail
+        # already goes: the collapsed run status. It used to be spliced over the
+        # `Review complete.` header, and when D-204 deleted that header the
+        # splice silently dropped the whole notice, which is how this branch was
+        # found. INV-CERT-001 §7 is unaffected: a DEFER still cannot erase a
+        # finding an author was shown, and every finding here is still shown.
+        body = _with_run_status(
+            ledger, task_id, render_complete(surfaced, spend_usd, elapsed_s)
+        )
     else:
-        body = render_deferred(f"DEFER: {reason}")
-        if surfaced:
-            body = render_complete(surfaced, spend_usd, elapsed_s).replace(
-                "Review complete.", body, 1
-            )
-        body = _with_run_status(ledger, task_id, body)
+        body = _with_run_status(ledger, task_id, render_deferred(f"DEFER: {reason}"))
     members = tuple(
         (_candidate_id(finding), placement)
         for placement, findings in (
@@ -2258,10 +2266,7 @@ def run_ci(
     blocked_reason = status.executor_unavailable if status is not None else ""
     blocked_count = status.unsupported_executor if status is not None else 0
     truncation = status.refusal() if status is not None else None
-    complete_body = _with_run_status(
-        ledger,
-        task_id,
-        render_complete(
+    summary_body = render_complete(
             surfaced,
             review.budget.spent_usd,
             elapsed_s,
@@ -2286,8 +2291,29 @@ def run_ci(
             # `budget-usd` that would have read the unit it stopped on
             refusal=truncation,
             ledger_url=_run_url(),
-        ),
     )
+    # D-204: the whole summary body is adjudicated, not only the lines inside
+    # it. A body the contract refuses is not published as it stands; what
+    # replaces it is the deterministic silence line the same run already owes,
+    # and the substitution is recorded rather than hidden.
+    summary_verdict = check_summary(summary_body)
+    if not summary_verdict:
+        ledger.append(
+            {
+                "kind": "contract_refusal",
+                "task_id": task_id,
+                "channel": "summary_body",
+                "reason": summary_verdict.reason,
+                "category": summary_verdict.category,
+            }
+        )
+        summary_body = silence_line(
+            units_read=status.units_read if status is not None else 0,
+            units_planned=(status.units_planned or status.units_read) if status is not None else 0,
+            spend_usd=review.budget.spent_usd,
+            elapsed_s=elapsed_s,
+        )
+    complete_body = _with_run_status(ledger, task_id, summary_body)
     try:
         prepared = _prepare_status_delivery(client, context, complete_body)
     except GitHubApiError as exc:

@@ -144,7 +144,8 @@ def test_green_is_rendered_in_its_own_section_and_never_as_a_finding() -> None:
 
     body = render_complete([], spend_usd=0.0, elapsed_s=1.0, structural=[note])
 
-    assert "No finding was verified by a reproduction; abstained." in body
+    # D-204: no preamble; the green section is the first thing in the body
+    assert "No finding was verified" not in body and "Review complete." not in body
     red, heading, green = body.partition(STRUCTURAL_HEADING)
     assert heading and green, "the green section is missing"
     assert "no defect is claimed" in heading
