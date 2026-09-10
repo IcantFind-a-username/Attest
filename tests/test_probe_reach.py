@@ -23,6 +23,10 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "corpus"))
 
 from probe_reach import (  # noqa: E402
+    R_CONSTRUCTED,
+    R_FIXTURE,
+    R_LOCAL,
+    R_OTHER_EXPR,
     _admits,
     _argument_reason,
     _enclosing,
@@ -30,10 +34,6 @@ from probe_reach import (  # noqa: E402
     _literal_locals,
     _parametrized_literals,
     _receiver_is_literal_construction,
-    R_CONSTRUCTED,
-    R_FIXTURE,
-    R_LOCAL,
-    R_OTHER_EXPR,
 )
 
 
