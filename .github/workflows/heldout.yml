@@ -306,6 +306,13 @@ jobs:
 
       # The corpus itself is gitignored and dies with the runner; its results and
       # every ledger the run wrote are what a report is written from.
+      #
+      # `include-hidden-files` is not a nicety here. Every path above except the
+      # logs is under `.attest/`, and the action skips a dotted path by default:
+      # the free dispatch of 2026-09-10 uploaded 829 bytes -- two log files and
+      # none of the corpus. A paid dispatch under that default spends the money
+      # and then throws away the per-case results and the ledgers the report is
+      # written from.
       - name: Upload the results, the ledgers and the logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -316,5 +323,6 @@ jobs:
             .attest/corpora/swebench/results/
             .attest/corpora/swebench/cases/*/repo/.attest/ledger.jsonl
             heldout-*.log
+          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 30
