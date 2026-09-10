@@ -500,6 +500,15 @@ replayable evidence on the current code.
     certified none. The loss is mechanical, not adjudicative: 17 of 56 attempts are a generated
     probe that will not collect and 17 are the process guard refusing the probe **on the merge
     base**.
+  - **RE-MEASURED 2026-09-10 (D-211), STILL FAILS, AND THE DERIVED PROBE MOVED NOTHING.** The
+    same 39 instances, restored rather than re-screened (D-208), on a GitHub runner: **all 39
+    bought** for $5.044872 of the $6.50 reserved, so the four cases the earlier cap left
+    unattempted are now in the denominator. **Crash-class recall 2 of 31 — 6.5%, Wilson 95%
+    [1.8%, 20.7%]** ([report](acceptance/2026-09-10-heldout-remeasurement.md)). D-206's derived
+    probe was reached on 2 of 25 candidates, produced 5 probes, and **every one was screened out**:
+    `source: "derived"` appears **zero** times. The numerator is 2 in both runs but only one of its
+    two members is stable — `pytest-dev__pytest-10356` lost a receipt and `pallets__flask-5014`
+    gained one. No loss category closed. **No release.**
 - [ ] **E-03 — heterogeneous stability.** Execute the nontrivial repeated-case design in
   `G-STAB-001`; repeats remain operational only.
 - **THE FIRST FORWARD-PAIR RECALL NUMBER, 2026-09-05d (D-140).** All 11 distinct forward pairs

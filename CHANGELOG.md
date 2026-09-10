@@ -11,6 +11,15 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The derived probe was measured and it moved no receipt (D-211).** The paid dispatch D-208
+  built the harness for has run: the same 39 held-out instances, all of them bought this time, at
+  the factory configuration for $5.044872. **Crash-class recall is 2 of 31 -- 6.5%, Wilson 95%
+  [1.8%, 20.7%]**, against 2 of 28 -- 7.1% when four of those cases were still unbought. D-206's
+  derived probe was reached on 2 of 25 candidates, produced 5 probes, and every one was screened
+  out: `source: "derived"` appears **zero** times in the run. No loss category closed; the
+  numerator is 2 in both runs and only one of its two members is the same case. The README, the
+  gate and the limitations list are restated **downwards** to 6.5%. Nothing else moved -- no
+  threshold, no `K`, no cap.
 - **A probe that loads your code by path is no longer refused (D-210).** D-206's reach check read
   the import block alone, so `import runpy` followed by `runpy.run_path("app.py")` was called
   unreachable and the probe was thrown away before it ran. It broke this repository's own release
@@ -28,8 +37,8 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   It needed a docker daemon and the owner's own corpus, so it ran on exactly one machine. A
   `workflow_dispatch` workflow now runs the same driver on a GitHub runner, restoring the
   2026-09-12 population from committed evidence so the result is comparable rather than merely
-  new. Free by default: the paid stage is a separate dispatch under a hard cap. **No recall
-  number is claimed here** -- `G-RECALL-002` stands at 7.1% until a paid dispatch says otherwise.
+  new. Free by default: the paid stage is a separate dispatch under a hard cap. The paid dispatch
+  has now been run (D-211).
 - **The repository's own tests are probes now (D-206).** Before the model is asked what to
   call, Attest tries the calls your tests already make on the changed function -- and boundary
   variants of their literals: the empty list, zero, the empty string, a negative count. Each is

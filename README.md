@@ -12,7 +12,7 @@ whether a claim is true, and no number here is a pull-request-level error guaran
 Everything else is a stated silence.
 
 It is **experimental**, and the numbers below say exactly how experimental. Its measured recall
-on a held-out defect corpus is **7.1%**; it is silent far more often than it speaks; and a
+on a held-out defect corpus is **6.5%**; it is silent far more often than it speaks; and a
 silence from it is never evidence that your code is fine.
 
 ## What it says, in four levels
@@ -111,7 +111,7 @@ the column on the right is the reason.
 
 | measurement | number | what it is **not** |
 |---|---|---|
-| **crash-class recall**, held-out corpus of 28 SWE-bench Verified cases whose projects declare a supported interpreter | **2 of 28 — 7.1%**, Wilson 95% **[2.0%, 22.6%]** ([report](docs/acceptance/2026-09-12-heldout-supported.md)) | not a precision figure, and not a sample-size problem: the interval's **upper** bound is 22.6% |
+| **crash-class recall**, held-out corpus of 31 SWE-bench Verified cases whose projects declare a supported interpreter, measured 2026-09-10 | **2 of 31 — 6.5%**, Wilson 95% **[1.8%, 20.7%]** ([report](docs/acceptance/2026-09-10-heldout-remeasurement.md)) | not a precision figure, and not a sample-size problem: the interval's **upper** bound is 20.7%. The denominator is the crash class of a 39-instance population, all of it bought; the 2026-09-12 figure of 2 of 28 was the same population with four cases left unbought by a cap |
 | **false publications**, prospective shadow over 28 real pull requests with 13 reproductions that actually executed | **0** ([report](docs/acceptance/2026-09-13-e04-shadow-v3.md)) | not a precision figure either — **nothing certified**, so precision is undefined and utility is unproven |
 | **false publications**, 68 independent null controls + 40 held-out controls, K=4 | **0** ([report](docs/acceptance/2026-09-05-g-null-001a-independent.md), [held-out](docs/acceptance/2026-09-03-e02-heldout.md)) | the last measured control arm is at **K=4**; the shipped `samples` is 5 and that arm has never been bought |
 | **yellow (a) noise floor**, 68 null controls, deterministic | **1 of 68 — 1.47%**, Wilson 95% **[0.26%, 7.87%]** ([report](docs/acceptance/2026-09-13-yellow.md)) | the one note is **true**; the level claims no defect and has never been shown to find one |
@@ -121,11 +121,13 @@ the column on the right is the reason.
 
 ## Known limitations, in the order they will bite you
 
-1. **Recall is 7.1%** — Wilson 95% [2.0%, 22.6%] on the held-out crash-class corpus. Three
-   places the evidence is lost, measured over 56 verification attempts: **17** the generated
-   probe does not collect at all; **17** the process guard refuses the probe **on the merge
-   base**, where nothing untrusted runs; **13** the whole intent clause. Two mechanical
-   categories hold 34 of 56 ([report](docs/acceptance/2026-09-12-heldout-supported.md)).
+1. **Recall is 6.5%** — Wilson 95% [1.8%, 20.7%], 2 of 31, measured 2026-09-10 on the held-out
+   crash-class corpus. Three places the evidence is lost, measured over 67 verification attempts:
+   **21** the generated probe does not collect at all; **18** the process guard refuses the probe
+   **on the merge base**, where nothing untrusted runs; **14** the whole intent clause. Two
+   mechanical categories hold 39 of 67. Deriving probes from the repository's own tests was tried
+   against exactly this corpus and **changed no receipt**
+   ([report](docs/acceptance/2026-09-10-heldout-remeasurement.md)).
 2. **Python only.** Python, pytest, Linux containers, interpreters **3.10–3.13**. Anything else
    gets one line naming the reason and exit 0 — never a traceback, never a silence that reads
    as *nothing found*.
