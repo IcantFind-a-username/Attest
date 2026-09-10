@@ -532,3 +532,45 @@ def test_when_every_derived_probe_is_screened_out_the_model_is_asked_once(
     # the reason belongs to the verdict, which is the ordinary silence
     assert observed.screened >= 1
     assert run.execution.reason == "pytest passed on head in 3/3 runs; base not executed"
+
+
+# --- D-213: a recording that dies on base leaves its output behind ----------
+
+
+# The probe collects nothing on base: `mod` is of the tree so the probe is
+# admitted before it runs, and the second import then fails at collection.
+UNCOLLECTABLE_PROBE = {
+    "imports": "import mod\nimport a_module_that_does_not_exist",
+    "setup": "items = [1, 2, 3]",
+    "expression": "mod.total(items)",
+}
+
+
+def test_a_probe_that_defers_on_base_writes_its_output_to_the_ledger(
+    tmp_path: Path,
+) -> None:
+    """D-213. `probe deferred on base` was the largest loss category of the
+    2026-09-10 held-out run and the row carried no output at all, so the cause
+    of each one had to be re-derived by hand. The recording phase's runs are
+    evidence like any other run, and they carry a bounded tail of both streams.
+    """
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_MODULE, HEAD_WRONG_VALUE)
+
+    run = verify(repo, base_sha, head_sha, ProbeProvider(UNCOLLECTABLE_PROBE))
+
+    assert run.execution.outcome is ExecutionOutcome.DEFERRED
+    assert "probe deferred on base" in run.execution.reason
+    row = next(
+        entry
+        for entry in reversed(Ledger(repo).entries())
+        if entry["kind"] == "verification"
+    )
+    assert row["schema_version"] == "attest.verification.v2"
+    recordings = [entry for entry in row["run_evidence"] if entry["side"] == "probe"]
+    assert recordings, "the recording run is not in the row"
+    assert recordings[0]["outcome"] == "deferred"
+    assert all(len(entry["stdout_tail"]) <= 4_096 for entry in recordings)
+    assert all(len(entry["stderr_tail"]) <= 4_096 for entry in recordings)
+    # the cause is readable without re-running anything
+    streams = recordings[0]["stdout_tail"] + recordings[0]["stderr_tail"]
+    assert "a_module_that_does_not_exist" in streams

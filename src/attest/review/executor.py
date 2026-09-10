@@ -91,6 +91,10 @@ CLEANUP_TIMEOUT_S = 1.0
 GIT_TIMEOUT_S = 60.0
 MAX_REASON_CHARS = 300
 MAX_RUN_OUTPUT_FRAGMENT_CHARS = 2_000
+# D-213: the recording phase's own runs keep a larger tail than a differential
+# run's fragment. A probe that dies on base dies at collection or at import, and
+# 2,000 characters of a `pytest` traceback is routinely the wrong 2,000.
+MAX_RECORDING_TAIL_CHARS = 4_096
 CAP_SYS_ADMIN = 21
 CAP_SYS_RESOURCE = 24
 # where the reproduction is executed from inside the tree under test; it is
@@ -405,6 +409,24 @@ class ProbeObservation:
 
 
 @dataclass(frozen=True)
+class RecordingRun:
+    """One run of the recording phase, kept so a failure there can be read.
+
+    D-213. The probe path buys container runs *before* the differential exists:
+    the recordings on base and the one screening run on head. None of them is a
+    head or base run of the differential, so none reached ``run_evidence``, and
+    a verification that ended at ``probe deferred on base`` -- 17 of 39 cases in
+    the 2026-09-10 held-out run -- recorded the sentence and threw the output
+    away. The cause then had to be re-derived by hand on a developer host, which
+    is how three separate environment faults stayed invisible for two runs.
+    """
+
+    phase: str  # "probe" (recording, on base) | "screen" (one run on head)
+    attempt: int
+    result: ExecutionResult
+
+
+@dataclass(frozen=True)
 class DifferentialExecution:
     head_runs: tuple[ExecutionResult, ...]
     base_runs: tuple[ExecutionResult, ...]
@@ -420,6 +442,8 @@ class DifferentialExecution:
     binding: BindingObservation | None = None  # changed-line binding (V-02)
     intent: IntentObservation | None = None  # regression or new rejection (D-102)
     probe: ProbeObservation | None = None  # D-146: what base did, recorded
+    # D-213: every run the recording phase bought, in the order it bought them
+    recording_runs: tuple[RecordingRun, ...] = ()
     # D-124: the spec whose bytes the recorded runs actually executed. The
     # collection loop may replace the generated test (D-114), so the caller's
     # first spec is not in general the one the receipt is about; the evidence
@@ -2101,6 +2125,7 @@ def execute_differential(
     bindings: list[BindingObservation] = []
     intents: list[IntentObservation] = []
     probes: list[ProbeObservation] = []
+    recordings: list[RecordingRun] = []  # D-213
 
     def finish(
         outcome: ExecutionOutcome,
@@ -2123,6 +2148,7 @@ def execute_differential(
             binding=bindings[0] if bindings else None,
             intent=intents[0] if intents else None,
             probe=probes[0] if probes else None,
+            recording_runs=tuple(recordings),
             # read at call time: after a D-114 regeneration this is the round's
             # spec, not the one the caller passed in
             executed_spec=spec,
@@ -2205,7 +2231,10 @@ def execute_differential(
                 and the replay are the same code path under the same guards."""
                 nonlocal spec
                 spec = ReproSpec(test_body=body)
-                return run_once("probe", index, trees_dir / "base")
+                result = run_once("probe", index, trees_dir / "base")
+                if result is not None:
+                    recordings.append(RecordingRun("probe", index, result))
+                return result
 
             def record(
                 chosen: ProbeSpec, again: Callable[[], ProbeSpec] | None
@@ -2229,6 +2258,8 @@ def execute_differential(
                 result = run_once("head", 0, trees_dir / "head")
                 if result is None:
                     return None
+                screened_so_far = sum(1 for run in recordings if run.phase == "screen")
+                recordings.append(RecordingRun("screen", screened_so_far + 1, result))
                 if result.outcome is ExecutionOutcome.DEFERRED:
                     return False
                 seen = parse_observation(
@@ -2498,10 +2529,35 @@ def _bounded_run_output(value: str) -> str:
     return marker + value[-(MAX_RUN_OUTPUT_FRAGMENT_CHARS - len(marker)) :]
 
 
+def _bounded_recording_tail(value: str) -> str:
+    """The end of a recording run's stream, at most `MAX_RECORDING_TAIL_CHARS`."""
+    if len(value) <= MAX_RECORDING_TAIL_CHARS:
+        return value
+    marker = "[...truncated...]\n"
+    return marker + value[-(MAX_RECORDING_TAIL_CHARS - len(marker)) :]
+
+
 def _differential_run_evidence(
     execution: DifferentialExecution,
 ) -> list[dict[str, object]]:
     evidence: list[dict[str, object]] = []
+    # D-213: the recording phase first, because it ran first and because a
+    # verification that ended there has nothing else in this list to read.
+    for recording in execution.recording_runs:
+        run = recording.result
+        evidence.append(
+            {
+                "side": recording.phase,
+                "repeat": recording.attempt,
+                "outcome": run.outcome.value,
+                "reason": run.reason,
+                "exit_code": run.exit_code,
+                "elapsed_s": round(run.elapsed_s, 6),
+                "network_blocked": run.network_blocked,
+                "stdout_tail": _bounded_recording_tail(run.stdout),
+                "stderr_tail": _bounded_recording_tail(run.stderr),
+            }
+        )
     collection = () if execution.collection_run is None else (execution.collection_run,)
     for side, runs in (
         ("collect", collection),
