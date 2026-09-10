@@ -36,15 +36,17 @@ reached an adjudicator that had not before, and it was drawered.
 
 ## Known limitations — the ones that would change your mind
 
-- **S·T decides the order candidates are verified in and the order the drawer is read in. It
-  decides nothing else, and it is not evidence.** *The only evidence this product publishes on
-  is the differential reproduction (V).* Until 2026-09-13 a certified finding also had to clear
-  a per-unit bar of `m_u/alpha`; **D-199 removed that bar.** A finding whose certification is
-  accepted and whose verification is reproduced now publishes under exactly three rules — the
-  **differential reproduction**, the **intent discriminator**, and the hard author-visible
-  **cap of 3** per pull request, applied with same-defect clustering and taken in score order.
-  S and T rank candidates for verification and break ties inside that cap; **no score
-  suppresses a reproduced receipt any more.**
+- **S·T decides which finding speaks for a cluster and which three certified findings fill the
+  author-visible cap. It decides nothing else, and it is not evidence.** *The only evidence this
+  product publishes on is the differential reproduction (V).* Until 2026-09-13 a certified
+  finding also had to clear a per-unit bar of `m_u/alpha`; **D-199 removed that bar.** A finding
+  whose certification is accepted and whose verification is reproduced now publishes under
+  exactly three rules — the **differential reproduction**, the **intent discriminator**, and the
+  hard author-visible **cap of 3** per pull request, applied with same-defect clustering and
+  taken in score order. **No score suppresses a reproduced receipt any more**, and no score
+  decides which candidates buy a reproduction either: since D-168 that order is cluster size,
+  then a static credibility score computed with no model, then the finding id — the score used
+  to be that key and was flat at 2.0 for 190 of 226 candidates, which is why it is not.
   **Why the bar went, and it is arithmetic rather than statistical.** `T` has never fired in
   any of the **2,589 recorded `review` rows**, so a certified finding's reachable ceiling was
   `S_CAP × V_CAP = 60` against a bar of `10·m_u` — **a change unit holding 7 or more eligible

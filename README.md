@@ -7,8 +7,9 @@ An LLM proposes; an algorithm that calls no model decides whether it may speak. 
 is published only when a generated test **fails on your head commit and passes on the merge
 base**, three runs each way, inside a network-free container, with a receipt anyone can verify
 offline. That reproduction, an intent check, and a hard cap of three findings a pull request
-are the whole publication rule — **no score decides it, and no number here is a
-pull-request-level error guarantee** (D-199). Everything else is a stated silence.
+are the whole publication rule — **a score decides only which three an author sees, never
+whether a claim is true, and no number here is a pull-request-level error guarantee** (D-199).
+Everything else is a stated silence.
 
 It is **experimental**, and the numbers below say exactly how experimental. Its measured recall
 on a held-out defect corpus is **7.1%**; it is silent far more often than it speaks; and a
