@@ -796,3 +796,38 @@ def test_neither_half_of_the_silence_names_a_coordinate(tmp_path: Path) -> None:
     for reason in (missed.execution.reason, searched.execution.reason):
         assert "mod.py" not in reason
         assert "mod.total" not in reason  # nor the model's own expression
+
+
+def test_a_screening_run_that_died_says_why_in_the_search_s_own_reason() -> None:
+    """The release drill for a malicious same-repository change demands that the
+    run's reason **name what head code reached for**. The first draft of D-216
+    reported only counts, so `attempted a network connection` on the head
+    revision became "could not be executed on the head revision" and the drill
+    failed. Counts for the model's own probes, the product's own sentence for
+    the guard."""
+    from attest.review.executor import _choose_probe, _Recording, _Screen
+
+    spec = ProbeSpec(**PROBE)
+    recorded = _Recording(
+        probe=spec, observation=Observation(kind="value", detail="6"), reason="", attempts=1
+    )
+
+    outcome = _choose_probe(
+        derived=(),
+        model_probe=spec,
+        reprobe=lambda feedback: spec,
+        record=lambda chosen: recorded,
+        screen_on_head=lambda chosen: _Screen(
+            observation=None,
+            executed_lines=(),
+            deferred=True,
+            reason="reproduction attempted a network connection",
+        ),
+        anchored="mod.py",
+        changed_lines=(2,),
+        head_source="def total(items):\n    return sum(items)\n",
+    )
+
+    assert isinstance(outcome, _Recording)
+    assert "attempted a network connection" in outcome.reason
+    assert "3 probes tried" in outcome.reason

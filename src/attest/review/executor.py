@@ -2003,6 +2003,12 @@ class _Screen:
     observation: Observation | None
     executed_lines: tuple[int, ...]
     deferred: bool
+    # why the screening run was deferred, when it was. The release drill for a
+    # malicious same-repository change is what this is for: it demands that the
+    # run's own reason **name what head code reached for**, and a search that
+    # reported only counts would have hidden `attempted a network connection`
+    # behind "could not be executed on the head revision".
+    reason: str = ""
 
     def differs_from(self, base: Observation) -> bool:
         return self.observation is not None and self.observation != base
@@ -2246,6 +2252,8 @@ def _choose_probe(
             )
         if screen.deferred:
             feedback_kind = "head-deferred"
+            if screen.reason:
+                notes.append(f"on the head revision: {screen.reason}")
         elif changed_lines and not screen.reached(changed_lines):
             feedback_kind = "did-not-reach"
         else:
@@ -2477,7 +2485,12 @@ def execute_differential(
                 screened_so_far = sum(1 for run in recordings if run.phase == "screen")
                 recordings.append(RecordingRun("screen", screened_so_far + 1, result))
                 if result.outcome is ExecutionOutcome.DEFERRED:
-                    return _Screen(observation=None, executed_lines=(), deferred=True)
+                    return _Screen(
+                        observation=None,
+                        executed_lines=(),
+                        deferred=True,
+                        reason=result.reason,
+                    )
                 return _Screen(
                     observation=parse_observation(
                         result.stdout,
