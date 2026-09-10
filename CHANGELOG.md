@@ -11,6 +11,26 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The repository's own tests are probes now (D-206).** Before the model is asked what to
+  call, Attest tries the calls your tests already make on the changed function -- and boundary
+  variants of their literals: the empty list, zero, the empty string, a negative count. Each is
+  recorded on the merge base and run once on head; only one whose behaviour differs buys the
+  full differential, and only when none does is a model probe bought at all. A candidate your
+  tests already cover therefore costs **no model call**. Derived only where the call resolves
+  to the changed definition and every argument is a literal.
+- **A probe that imports nothing your repository defines is refused before it runs (D-206).**
+  It cannot reach the anchored file by any route; the recorder used to find that out after
+  three container runs. One-sided: importing a dependency *and* your project is fine.
+- **The process guard is not relaxed on the merge base, and the reason is measured (D-207).**
+  17 of 56 held-out attempts died there, but the import that trips the guard on base trips it
+  on head too, so the split recovers nothing. What it actually exposes is that the guard
+  refuses an ordinary import on projects that spawn a thread at import time
+  ([note](docs/design/base-side-process-guard.md)); that is an isolation-profile decision and
+  it stays open.
+- **No constant moved**, and no recall number is claimed: this changes which probes are tried,
+  not what may be said about one. `derived_probes: false` restores the previous path exactly.
+
+
 - **`checks` runs on every pull request, documentation-only ones included.** The
   `pull_request` trigger drops its `paths-ignore` so `checks` can be a required status check
   under the branch ruleset without stranding a docs pull request behind a run that never

@@ -90,7 +90,12 @@ def run_git(repo: Path, *args: str) -> str:
     return completed.stdout.strip()
 
 
-def two_revisions(tmp_path: Path, base: str, head: str) -> tuple[Path, str, str]:
+DEFAULT_TEST_SOURCE = "import mod\n\n\ndef test_total():\n    assert mod.total([1, 2, 3]) == 6\n"
+
+
+def two_revisions(
+    tmp_path: Path, base: str, head: str, test_source: str = DEFAULT_TEST_SOURCE
+) -> tuple[Path, str, str]:
     repo = tmp_path / "repo"
     repo.mkdir()
     run_git(repo, "init", "--initial-branch=main")
@@ -98,10 +103,7 @@ def two_revisions(tmp_path: Path, base: str, head: str) -> tuple[Path, str, str]
     (repo / "tests").mkdir()
     # the base tree states what the module returns, which the value-class rule
     # (D-132/D-134) requires before a changed value may be published
-    (repo / "tests" / "test_mod.py").write_text(
-        "import mod\n\n\ndef test_total():\n    assert mod.total([1, 2, 3]) == 6\n",
-        encoding="utf-8",
-    )
+    (repo / "tests" / "test_mod.py").write_text(test_source, encoding="utf-8")
     run_git(repo, "add", "--all")
     run_git(repo, "commit", "-m", "base")
     base_sha = run_git(repo, "rev-parse", "HEAD")
@@ -160,6 +162,9 @@ def gate_for(candidate: StoredCandidate) -> GateResult:
 
 def verify(repo: Path, base_sha: str, head_sha: str, provider: ProbeProvider, **kwargs: Any):
     candidate = kwargs.pop("candidate", None) or stored()
+    # the model path is what these tests measure; the free path derived from
+    # the repository's own tests has its own section below
+    kwargs.setdefault("derive_probes", False)
     return verify_candidate(
         repo,
         candidate,
@@ -414,3 +419,116 @@ def test_a_probe_that_touched_nothing_in_the_anchored_file_is_refused() -> None:
     )
     assert recorded.observation is None
     assert "did not execute mod.py on base" in recorded.reason
+
+
+# --- probes derived from the repository's own tests ------------------------
+# The base tree's own test calls `mod.total([1, 2, 3])`. That call, and the
+# boundary variants of its literal, are probes nobody has to pay a model for.
+
+HEAD_EMPTY_DIFFERS = (
+    "def total(items):\n    if not items:\n        return -1\n    return sum(items)\n"
+)
+
+
+class RefusingProvider:
+    """A provider that must never be asked: the derived path costs no model call."""
+
+    def sample(self, *args: Any, **kwargs: Any) -> ProviderResult:
+        del args, kwargs
+        raise AssertionError("the model was asked for a probe")
+
+
+def test_a_probe_derived_from_the_repository_tests_finds_the_differential_free(
+    tmp_path: Path,
+) -> None:
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_MODULE, HEAD_WRONG_VALUE)
+
+    run = verify(repo, base_sha, head_sha, RefusingProvider(), derive_probes=True)
+
+    assert run.execution.outcome is ExecutionOutcome.REPRODUCED
+    observed = run.execution.probe
+    assert observed is not None
+    assert observed.expression == "mod.total([1, 2, 3])"
+    assert (observed.kind, observed.detail) == ("value", "6")
+    assert observed.source == "derived"
+    assert observed.origin == "tests/test_mod.py:5"
+    assert run.spec is not None and "assert _attest_value == 6" in run.spec.test_body
+    row = next(r for r in Ledger(repo).entries() if r["kind"] == "probe_observation")
+    assert row["source"] == "derived" and row["origin"] == "tests/test_mod.py:5"
+
+
+def test_a_boundary_variant_finds_what_the_exact_test_call_cannot(tmp_path: Path) -> None:
+    """The exact call returns 6 on both revisions and is screened out by one head
+    run; the empty-list variant of the same literal is where head differs.
+
+    The differential itself holds -- head fails every run, base passes every run.
+    What that is *worth* is the unchanged intent rule's call: `0` is a generic
+    constant, so v4.2 drawers it, exactly as it would for a model-written probe.
+    This test is about which probe the pipeline chose and that it ran, not about
+    what the intent clause then decided.
+    """
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_MODULE, HEAD_EMPTY_DIFFERS)
+
+    run = verify(repo, base_sha, head_sha, RefusingProvider(), derive_probes=True)
+
+    observed = run.execution.probe
+    assert observed is not None
+    assert observed.expression == "mod.total([])"
+    assert (observed.kind, observed.detail) == ("value", "0")
+    assert observed.source == "derived"
+    assert observed.screened >= 1  # the exact call was tried first and passed on head
+    assert [len(run.execution.head_runs), len(run.execution.base_runs)] == [3, 3]
+    assert [r.outcome for r in run.execution.head_runs] == [ExecutionOutcome.REPRODUCED] * 3
+    assert [r.outcome for r in run.execution.base_runs] == [ExecutionOutcome.NOT_REPRODUCED] * 3
+    assert "value change confirmed, intent unknown" in run.execution.reason
+
+
+def test_a_boundary_variant_certifies_a_crash_the_repository_tests_never_try(
+    tmp_path: Path,
+) -> None:
+    """The class recall is measured on: head crashes on an input no test uses.
+
+    The repository's own test calls `total([1, 2, 3])`, which both revisions
+    handle. The empty-list boundary of that literal is where head raises, and a
+    crash is not a value change -- so this is a receipt, bought with no model
+    call at all."""
+    # the external receipt's own shape: a guard removed, so an input the tests
+    # never pass now crashes where it used to return. Identical on `[1, 2, 3]`.
+    base_guarded = (
+        "def first(items):\n    if not items:\n        return None\n    return items[0]\n"
+    )
+    head_unguarded = "def first(items):\n    return items[0]\n"
+    tests = "import mod\n\n\ndef test_first():\n    assert mod.first([1, 2, 3]) == 1\n"
+    repo, base_sha, head_sha = two_revisions(tmp_path, base_guarded, head_unguarded, tests)
+    candidate = stored(line=2)
+
+    run = verify(
+        repo, base_sha, head_sha, RefusingProvider(), derive_probes=True, candidate=candidate
+    )
+
+    assert run.execution.outcome is ExecutionOutcome.REPRODUCED
+    assert run.execution.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    observed = run.execution.probe
+    assert observed is not None
+    assert observed.expression == "mod.first([])"
+    assert observed.source == "derived" and observed.origin == "tests/test_mod.py:5"
+    assert observed.screened >= 1
+
+
+def test_when_every_derived_probe_is_screened_out_the_model_is_asked_once(
+    tmp_path: Path,
+) -> None:
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_MODULE, HEAD_SAME_VALUE)
+    provider = ProbeProvider(PROBE)
+
+    run = verify(repo, base_sha, head_sha, provider, derive_probes=True)
+
+    assert run.execution.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert len(provider.systems) == 1  # bought after the free probes, not before
+    observed = run.execution.probe
+    assert observed is not None
+    assert observed.source == "model" and observed.expression == "mod.total(items)"
+    # the free probes were tried and put aside first, and the count says so;
+    # the reason belongs to the verdict, which is the ordinary silence
+    assert observed.screened >= 1
+    assert run.execution.reason == "pytest passed on head in 3/3 runs; base not executed"

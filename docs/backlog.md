@@ -225,15 +225,18 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   and `.attest/evidence/` — the two paths, not the whole directory. A bundle holds the generated
   test, bounded stdout/stderr of runs inside the credential-free container, and the receipt; an
   artifact is visible to whoever can read the run. Reversal: drop the second path.
-- **The process guard refuses the probe on the merge base, where there is no untrusted code**
+- **ANSWERED 2026-09-14 (D-207), and the answer is that this recovers nothing.** The process guard refuses the probe on the merge base, where there is no untrusted code
   (2026-09-12, D-198). **17 of 56** verification attempts on the rebuilt held-out corpus ended in
   `reproduction attempted to create a child process` (12) or `… a thread` (5) — `seaborn`,
   `sphinx` and others spawn one during an ordinary import. The containment exists to stop *head*
   code doing it; on the **base** revision the code is the one the defect was fixed in, and there
   is nothing to contain. Tied with the collect failure as the single largest loss of receipts.
   Relaxing a guard is a safety decision and belongs to the owner, which is why this is a line
-  here and not a change.
-- **The generated probe fails to collect on trees whose stub collects fine** (2026-09-12, D-198).
+  here and not a change. **Scoped and dropped**: the import that trips the guard on base trips
+  it on head too, so the split moves the deferral rather than recovering the receipt, measured
+  in `docs/design/base-side-process-guard.md`. What remains open is the isolation profile
+  refusing an ordinary import, which is §16's and is written out in that note.
+- **PARTLY ADDRESSED 2026-09-14 (D-206).** The generated probe fails to collect on trees whose stub collects fine (2026-09-12, D-198).
   The other **17 of 56**: `pytest collection/import/syntax or infrastructure failure (exit code 2)`
   on base. The free probe proved a stub collects in every one of those 39 trees before a dollar
   was spent, so this is the *generated* probe importing something the tree cannot import in that

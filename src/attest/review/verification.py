@@ -225,6 +225,7 @@ def run_verification_stage(
             shared_system=shared_system,
             generation_model=config.generation_model,
             probe_generation=config.probe_generation,
+            derive_probes=config.derived_probes,
             ledger=journal,
         )
 

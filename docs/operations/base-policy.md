@@ -55,6 +55,7 @@ they bound what the keys above can do.
 | green cap | **2** per pull request | author-visible green notes | `structural_note` rows; the comment section |
 | yellow cap | **2** per pull request, **shared across every yellow class** | author-visible yellow notes | the yellow section of the comment |
 | `probe_generation` | `true` | the reproduction's assertion is **recorded from the merge base**, not written by a model. `false` restores the D-114 path and is the reversal | `verification.mode`; the receipt's probe policy version |
+| `derived_probes` | `true` | before the model is asked for a probe, try the calls **your own tests** already make on the changed function, and boundary variants of their literals. Screened one head run at a time; the model is bought only when none of them differs, so a candidate your tests cover costs no model call. `false` restores the model-only path (D-206) | `probe_observation.source` = `derived`/`model`, with `origin` and `screened` |
 | `gate_shadow` | `false` | the gate level. On, it asks the gate question of new-code candidates and writes to the ledger and `.attest/shadow/gate/` **and nothing else** — it reaches no author-visible surface either way | `gate_shadow` rows |
 
 ## What a repository setting can never do
