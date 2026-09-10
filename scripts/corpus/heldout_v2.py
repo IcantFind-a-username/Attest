@@ -491,7 +491,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
-def _wilson(successes: int, trials: int, z: float = 1.959963985) -> tuple[float, float]:
+def wilson(successes: int, trials: int, z: float = 1.959963985) -> tuple[float, float]:
+    """The Wilson score interval. Public because `heldout_compare` calls it:
+    the same arithmetic in two files is two things to keep in step (green,
+    on PR #31, `attest.structural.duplicate-implementation.v2`)."""
     if trials == 0:
         return (0.0, 1.0)
     p = successes / trials
@@ -588,7 +591,7 @@ def cmd_table(args: argparse.Namespace) -> int:
     ran = [r for r in rows if r["class"] != "not run"]
     crash = [r for r in ran if r["class"].startswith("crash class")]
     certified = [r for r in crash if r["certified"]]
-    low, high = _wilson(len(certified), len(crash))
+    low, high = wilson(len(certified), len(crash))
     print("\nclass counts:")
     for name, n in counts.most_common():
         print(f"  {n:4d}  {name}")

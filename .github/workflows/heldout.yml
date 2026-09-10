@@ -21,18 +21,20 @@ name: heldout
 # the free screen and probe stages instead, which re-derives the population and
 # is therefore a *new* measurement rather than a re-measurement.
 #
-# Two dispatches, on purpose. `paid: false` (the default) rebuilds the corpus and
-# stops at the plan, so the evaluable denominator and the runner's own health are
-# known before a dollar is committed. `paid: true` then buys the reviews under a
-# hard cumulative cap. **Reserve in DEVSPEND.md before the paid dispatch.**
+# Two dispatches, on purpose. `paid: false` (the default) rebuilds the corpus,
+# **builds every planned case** and refuses a partial one -- so everything except
+# the reviews themselves is exercised before a dollar is committed. `paid: true`
+# then buys the reviews under a hard cumulative cap. **Reserve in DEVSPEND.md
+# before the paid dispatch.**
 
 on:
   workflow_dispatch:
     inputs:
       paid:
         description: >-
-          Buy the reviews. Leave false to rebuild the corpus and stop at the
-          plan, which costs nothing and reports the evaluable denominator.
+          Buy the reviews. Leave false to rebuild and build the whole corpus and
+          stop before the reviews, which costs nothing and exercises every stage
+          that a paid run depends on.
         type: boolean
         default: false
       cap_usd:
@@ -217,6 +219,69 @@ jobs:
 
       - name: Plan
         run: python -u scripts/corpus/heldout_v2.py plan 2>&1 | tee heldout-plan.log
+
+      # `swebench_pilot.py run` reads a case's `manifest.json`, so every planned
+      # case must be built first. The `probe` stage is what normally builds
+      # them, and it skips an instance already recorded in `probe.json` -- so
+      # restoring the population skips the building too, and the paid stage then
+      # finds nothing to review. Building is free: `--no-env` skips the host
+      # virtualenv because the container backend builds its own image, and the
+      # only inputs are the upstream clone and the gold patch.
+      - name: Build the cases (free)
+        run: |
+          set -eu
+          python - <<'PY' 2>&1 | tee heldout-build.log
+          import json, pathlib, subprocess, sys
+          plan = json.loads(
+              pathlib.Path(".attest/corpora/heldout-supported-v1/plan.json").read_text()
+          )
+          cases = plan["cases"]
+          pilot = "scripts/corpus/swebench_pilot.py"
+          for n, case in enumerate(cases, 1):
+              instance = case["instance_id"]
+              manifest = pathlib.Path(f".attest/corpora/swebench/cases/{instance}/manifest.json")
+              if manifest.is_file():
+                  print(f"[{n}/{len(cases)}] {instance}: already built", flush=True)
+                  continue
+              print(f"[{n}/{len(cases)}] build {instance}", flush=True)
+              done = subprocess.run(
+                  [sys.executable, pilot, "build", instance, "--no-env"],
+                  capture_output=True, text=True,
+              )
+              if not manifest.is_file():
+                  print(f"    FAILED: {done.stderr.strip()[:400]}", flush=True)
+          built = sum(
+              1 for c in cases
+              if pathlib.Path(
+                  f".attest/corpora/swebench/cases/{c['instance_id']}/manifest.json"
+              ).is_file()
+          )
+          print(f"\nbuilt {built} of {len(cases)} planned cases")
+          PY
+
+      # A paid stage that starts on an incomplete corpus spends money and
+      # measures a denominator nobody chose. It refuses instead.
+      - name: Refuse a partial corpus before spending
+        run: |
+          set -eu
+          python - <<'PY'
+          import json, pathlib, sys
+          plan = json.loads(
+              pathlib.Path(".attest/corpora/heldout-supported-v1/plan.json").read_text()
+          )
+          missing = [
+              c["instance_id"] for c in plan["cases"]
+              if not pathlib.Path(
+                  f".attest/corpora/swebench/cases/{c['instance_id']}/manifest.json"
+              ).is_file()
+          ]
+          if missing:
+              print(f"{len(missing)} of {len(plan['cases'])} planned cases did not build:")
+              for instance in missing:
+                  print(f"  {instance}")
+              sys.exit(1)
+          print(f"all {len(plan['cases'])} planned cases are built")
+          PY
 
       - name: Run (PAID)
         if: ${{ inputs.paid }}

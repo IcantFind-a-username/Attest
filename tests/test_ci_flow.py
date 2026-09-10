@@ -80,6 +80,9 @@ class RecordingGitHub:
         self.events: list[dict[str, object]] = []
         self.status_bodies: list[str] = []
         self.review_bodies: list[dict[str, object]] = []
+        # review comments the pull request already carries, as GitHub returns
+        # them from /pulls/{n}/comments -- what a re-review of the same head sees
+        self.existing_review_comments: list[dict[str, object]] = []
         self.fail_status_write_number: int | None = None
         self.status_write_attempts = 0
         self._status_comment: dict[str, object] | None = None
@@ -125,9 +128,12 @@ class RecordingGitHub:
                 recorder.events.append(event)
 
                 if self.command == "GET":
-                    response: object = (
-                        [] if recorder._status_comment is None else [recorder._status_comment]
-                    )
+                    if "/pulls/" in self.path and self.path.split("?")[0].endswith("/comments"):
+                        response: object = list(recorder.existing_review_comments)
+                    else:
+                        response = (
+                            [] if recorder._status_comment is None else [recorder._status_comment]
+                        )
                 elif self.path.endswith("/comments") or "/issues/comments/" in self.path:
                     assert isinstance(body, dict)
                     recorder.status_write_attempts += 1
@@ -587,6 +593,105 @@ def test_a_duplicated_implementation_reaches_the_author_as_a_structural_comment(
     rows = _ledger_rows(tmp_path)
     note_row = next(row for row in rows if row["kind"] == "structural_note")
     assert note_row["advice_published"] is True and note_row["refusal"] is None
+    assert note_row["note_id"] == "invoices.py:1|orders.py:1"
+
+
+def test_a_note_the_pull_request_already_carries_is_not_posted_twice(
+    tmp_path: Path, github_server: RecordingGitHub
+) -> None:
+    """D-160 on the only path the product ships: the GitHub Action.
+
+    "A pair this repository has already been told about is not news" was
+    implemented against the ledger, and a CI run is a fresh checkout on a fresh
+    runner, so the ledger is always empty there and the suppression never fired.
+    Observed on this repository's own PR #31: the identical green note, marker
+    for marker, posted as two review threads four minutes apart.
+
+    The marker is the identity. A note whose marker the pull request already
+    carries has already been read, so it is not posted again -- and the run is
+    still a run: the summary and the ledger are unchanged.
+    """
+    from attest.review.ci import run_ci
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(tmp_path), *args], check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    body = (
+        "def summarise_orders(rows, floor):\n"
+        "    total = 0\n"
+        "    seen = set()\n"
+        "    for row in rows:\n"
+        "        if row.amount < floor:\n"
+        "            continue\n"
+        "        seen.add(row.customer_id)\n"
+        "        total += row.amount * row.quantity\n"
+        "    average = total / max(len(seen), 1)\n"
+        '    return {"total": total, "customers": len(seen), "average": average}\n'
+    )
+    copy = (
+        "def tally_invoices(records, minimum):\n"
+        "    running = 0\n"
+        "    people = set()\n"
+        "    for record in records:\n"
+        "        if record.amount < minimum:\n"
+        "            continue\n"
+        "        people.add(record.customer_id)\n"
+        "        running += record.amount * record.quantity\n"
+        "    mean = running / max(len(people), 1)\n"
+        '    return {"total": running, "customers": len(people), "average": mean}\n'
+    )
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test")
+    (tmp_path / "orders.py").write_text(body, encoding="utf-8")
+    git("add", "orders.py")
+    git("commit", "-m", "base")
+    base_sha = git("rev-parse", "HEAD")
+    (tmp_path / "invoices.py").write_text(copy, encoding="utf-8")
+    git("add", "invoices.py")
+    git("commit", "-m", "copy the summariser into invoices")
+    head_sha = git("rev-parse", "HEAD")
+
+    # the pull request already carries this exact note, from an earlier push
+    github_server.existing_review_comments = [
+        {
+            "id": 1,
+            "user": {"type": "Bot"},
+            "body": (
+                f"{STRUCTURAL_MARKER_PREFIX}invoices.py:1|orders.py:1 -->\n"
+                "[green] Structural (no defect claimed): said once already."
+            ),
+        }
+    ]
+
+    provider = RecordingProvider(
+        _payload(),
+        '{"test_body":"assert False"}',
+        json.dumps(
+            {
+                "sentence": "`tally_invoices` in invoices.py is `summarise_orders` renamed.",
+                "fix": "Delete it and import `summarise_orders` from orders.py.",
+            }
+        ),
+    )
+
+    result = run_ci(
+        tmp_path,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(probe_generation=False, k_samples=1, tier0_commands=[]),
+        provider,
+    )
+
+    assert result.surfaced_count == 0
+    comments = [c for body in github_server.review_bodies for c in body["comments"]]
+    structural = [c for c in comments if str(c["body"]).startswith(STRUCTURAL_MARKER_PREFIX)]
+    assert structural == [], "the note the pull request already carries was posted again"
+    # the note still happened: the ledger records it, and the summary still says it
+    rows = _ledger_rows(tmp_path)
+    note_row = next(row for row in rows if row["kind"] == "structural_note")
     assert note_row["note_id"] == "invoices.py:1|orders.py:1"
 
 

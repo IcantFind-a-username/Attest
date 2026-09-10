@@ -11,6 +11,8 @@ from urllib.request import Request, urlopen
 
 STATUS_MARKER = "<!-- attest:status -->"
 _NEXT_LINK_RE = re.compile(r'<([^>]+)>;\s*rel="next"')
+# any attest marker, whole-line: the identity a rendered inline comment carries
+_MARKER_RE = re.compile(r"<!-- attest:[^\s>]+ -->")
 
 
 class GitHubApiError(RuntimeError):
@@ -81,6 +83,38 @@ class GitHubClient:
         )
         return _object_response(response)
 
+    def posted_review_markers(self, repository: str, number: int) -> frozenset[str]:
+        """Marker ids of the inline review comments this pull request already has.
+
+        D-160 says a note the repository has already been told is not news, and
+        it was implemented against the ledger. A CI run is a fresh checkout on a
+        fresh runner, so that ledger is always empty and the suppression never
+        fired on the Action -- the one path the product ships. Here the durable
+        record is the pull request itself, and the marker each comment carries
+        on its own first line is the identity D-133/D-145/D-151 gave it.
+
+        Read-only, and **fails open**: a caller that cannot list the comments
+        must post the note rather than lose it, so every failure returns the
+        empty set rather than raising.
+        """
+        markers: set[str] = set()
+        url: str | None = (
+            f"{self._api_url}/repos/{repository}/pulls/{number}/comments?per_page=100&page=1"
+        )
+        try:
+            while url:
+                response, headers = self._request("GET", url)
+                if not isinstance(response, list):
+                    return frozenset()
+                for comment in response:
+                    marker = _first_line_marker(comment)
+                    if marker is not None:
+                        markers.add(marker)
+                url = _next_page(headers.get("Link"))
+        except GitHubApiError:
+            return frozenset()
+        return frozenset(markers)
+
     def _find_marker_comment(self, repository: str, number: int, marker: str) -> int | None:
         url: str | None = (
             f"{self._api_url}/repos/{repository}/issues/{number}/comments?per_page=100&page=1"
@@ -129,6 +163,19 @@ class GitHubClient:
             raise GitHubApiError("GitHub API request failed") from None
         except (json.JSONDecodeError, UnicodeDecodeError):
             raise GitHubApiError("GitHub API returned an invalid response") from None
+
+
+def _first_line_marker(comment: object) -> str | None:
+    """The `<!-- attest:... -->` a bot comment carries on its own first line."""
+    if not isinstance(comment, dict):
+        return None
+    user = comment.get("user")
+    body = comment.get("body")
+    if not isinstance(user, dict) or user.get("type") != "Bot" or not isinstance(body, str):
+        return None
+    first = body.splitlines()[0] if body.splitlines() else ""
+    match = _MARKER_RE.fullmatch(first.strip())
+    return match.group(0) if match else None
 
 
 def _is_bot_marker(comment: object, marker: str) -> bool:

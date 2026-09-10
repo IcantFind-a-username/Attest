@@ -173,7 +173,10 @@ def test_a_derived_probe_is_a_plain_record() -> None:
 def test_a_probe_that_imports_nothing_the_tree_defines_cannot_reach_it(tmp_path) -> None:
     """The refusal the recorder used to make after three container runs on base."""
     from attest.review.derived_probes import tree_roots
-    from attest.review.probe import reaches_the_tree
+    from attest.review.probe import ProbeSpec, reaches_the_tree
+
+    def probe(imports: str) -> ProbeSpec:
+        return ProbeSpec(imports=imports, setup="", expression="f()")
 
     (tmp_path / "mod.py").write_text("def total(items):\n    return sum(items)\n")
     (tmp_path / "pkg").mkdir()
@@ -181,15 +184,41 @@ def test_a_probe_that_imports_nothing_the_tree_defines_cannot_reach_it(tmp_path)
     roots = tree_roots(tmp_path)
 
     assert roots >= {"mod", "pkg"}
-    assert reaches_the_tree("import mod", roots) is True
-    assert reaches_the_tree("from pkg.thing import f", roots) is True
+    assert reaches_the_tree(probe("import mod"), roots) is True
+    assert reaches_the_tree(probe("from pkg.thing import f"), roots) is True
     # one-sided on purpose: a dependency the image provides is not this check's
-    assert reaches_the_tree("import numpy\nimport mod", roots) is True
-    assert reaches_the_tree("import numpy", roots) is False
-    assert reaches_the_tree("import json", roots) is False
-    assert reaches_the_tree("from . import mod", roots) is False
+    assert reaches_the_tree(probe("import numpy\nimport mod"), roots) is True
+    assert reaches_the_tree(probe("import numpy"), roots) is False
+    assert reaches_the_tree(probe("import json"), roots) is False
+    assert reaches_the_tree(probe("from . import mod"), roots) is False
     # a shape `parse_probe` owns is not refused here
-    assert reaches_the_tree("import (", roots) is True
+    assert reaches_the_tree(probe("import ("), roots) is True
+
+
+def test_a_probe_that_loads_the_tree_by_path_reaches_it(tmp_path) -> None:
+    """An import statement is not the only route into the tree.
+
+    The release drills replay a probe that imports `runpy` and reaches the code
+    under review with `runpy.run_path('app.py')`. Reading the import block alone
+    calls that unreachable and refuses it -- which is what broke `gates` on
+    `main` at 516b924, and which would silence the same shape on any real
+    repository. The whole probe is what reaches, not its first three lines.
+    """
+    from attest.review.derived_probes import tree_roots
+    from attest.review.probe import ProbeSpec, reaches_the_tree
+
+    (tmp_path / "app.py").write_text("def average(items):\n    return sum(items) / len(items)\n")
+    roots = tree_roots(tmp_path)
+
+    drill = ProbeSpec(
+        imports="import runpy",
+        setup="average = runpy.run_path('app.py')['average']",
+        expression="average([])",
+    )
+    assert reaches_the_tree(drill, roots) is True
+    # still refused: nothing in the whole probe names anything of the tree
+    unreachable = ProbeSpec(imports="import json", setup="x = json.dumps({})", expression="len(x)")
+    assert reaches_the_tree(unreachable, roots) is False
 
 
 def test_a_src_layout_package_is_a_tree_root(tmp_path) -> None:

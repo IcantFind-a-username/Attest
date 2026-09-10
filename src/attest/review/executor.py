@@ -1004,7 +1004,7 @@ def generate_probe(
                 f"probe imports test module(s) {', '.join(imported)}; it must be self-contained"
             )
             continue
-        if not reaches_the_tree(spec.imports, tree_roots(repo)):
+        if not reaches_the_tree(spec, tree_roots(repo)):
             # D-206: a probe that imports nothing this repository defines cannot
             # execute the anchored file by any route. The recorder refuses it
             # too, but only after three container runs on base.
