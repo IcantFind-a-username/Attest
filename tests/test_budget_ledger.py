@@ -870,6 +870,10 @@ def test_record_verification_preserves_identity_and_evidence_without_changing_re
     assert verification == {
         "ts": verification["ts"],
         "kind": "verification",
+        # D-213: the row is versioned. This assertion is exact on purpose --
+        # it is what makes a field added to the verification row a decision
+        # somebody had to write down rather than a drift.
+        "schema_version": "attest.verification.v2",
         "task_id": "task-9",
         "finding_id": "finding-a",
         "outcome": outcome,
