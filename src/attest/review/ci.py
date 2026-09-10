@@ -2162,7 +2162,13 @@ def run_ci(
         # "already told" means. **Red is never dropped** (the receipt-bearing
         # comments are not filtered), and the read fails open: a listing that
         # errors returns nothing and every note is posted.
-        already_posted = client.posted_review_markers(context.repository, context.number)
+        # a client without the listing (a harness double, an older adapter) is
+        # the same case as a listing that fails: nothing is known to be posted,
+        # so everything is posted
+        lister = getattr(client, "posted_review_markers", None)
+        already_posted = (
+            lister(context.repository, context.number) if callable(lister) else frozenset()
+        )
 
         def unsaid(comments: list[dict[str, object]]) -> list[dict[str, object]]:
             if not already_posted:
