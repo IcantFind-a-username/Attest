@@ -1,0 +1,249 @@
+name: probe-reach
+
+# Can a derived probe reach a real project's tests at all? (D-206, D-211)
+#
+# D-211 measured D-206 on the held-out corpus: `source: "derived"` appears zero
+# times in the whole paid run. That says the mechanism bought nothing; it does
+# not say whether the calls it looks for are there and were discarded, or were
+# never there. This measures the second half before any further development or
+# any further paid run is committed to.
+#
+# **Free by construction.** The driver calls no model, executes nothing, opens
+# no socket and needs no docker: `ast`, the binding index and `git diff`. No
+# secret is used and none is needed; `permissions` is read-only. There is no
+# DEVSPEND reservation because there is no spend.
+#
+# It runs here rather than on a development host for one reason: the 39 case
+# checkouts do not exist locally. The held-out artifact carries each case's
+# `ledger.jsonl` and its results, not its worktree -- and cloning the eight
+# upstream projects and building all 39 cases takes about a minute on a runner
+# and costs nothing (measured: 45s to clone, 15s to build, on run 34477014798).
+#
+# The population is restored from the committed 2026-09-12 probe evidence, the
+# same way `heldout.yml` restores it, so this measures the *same 39 instances*
+# D-211 measured.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe-reach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-toolchain.lock
+
+      - name: Install the locked toolchain
+        run: |
+          python -m pip install -r requirements-toolchain.lock
+          python -m pip install --no-deps --no-build-isolation -e .
+
+      # 39 case checkouts of eight projects, `sympy` among them, do not fit
+      # beside the runner's preinstalled toolchains. The tool cache is
+      # deliberately not in this list: `setup-python` installed this job's
+      # interpreter into it.
+      - name: Reclaim runner disk
+        run: |
+          set -eu
+          echo "before:"; df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/share/boost /usr/share/swift /usr/local/.ghcup || true
+          sudo docker image prune -af || true
+          echo "after:"; df -h / | tail -1
+
+      - name: Record the environment
+        run: |
+          python -c "import sys, platform; print(sys.version); print(platform.platform())"
+          python -c "import attest; print('attest', attest.__version__)"
+          git rev-parse HEAD
+          df -h / | tail -1
+
+      # Exactly four columns, and the step fails loudly on a missing one rather
+      # than letting a later stage measure a half-built corpus.
+      - name: Fetch the SWE-bench Verified instance table
+        run: |
+          set -eu
+          python - <<'PY'
+          import json, pathlib, urllib.request
+          fields = ("instance_id", "repo", "base_commit", "patch")
+          url = (
+              "https://datasets-server.huggingface.co/rows"
+              "?dataset=princeton-nlp%2FSWE-bench_Verified&config=default&split=test"
+          )
+          rows, offset = [], 0
+          while True:
+              with urllib.request.urlopen(f"{url}&offset={offset}&length=100", timeout=120) as r:
+                  page = json.loads(r.read())
+              batch = page.get("rows") or []
+              if not batch:
+                  break
+              for entry in batch:
+                  row = entry["row"]
+                  missing = [f for f in fields if f not in row]
+                  if missing:
+                      raise SystemExit(f"dataset row is missing {missing}: {sorted(row)}")
+                  rows.append({f: row[f] for f in fields})
+              offset += len(batch)
+              if offset >= int(page.get("num_rows_total") or 0):
+                  break
+          if len(rows) < 400:
+              raise SystemExit(f"fetched only {len(rows)} instances; refusing a partial corpus")
+          out = pathlib.Path(".attest/corpora/swebench-verified")
+          out.mkdir(parents=True, exist_ok=True)
+          (out / "instances.jsonl").write_text(
+              "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8"
+          )
+          print(f"instances: {len(rows)}")
+          PY
+
+      # The same 39 instances D-211 measured, restored rather than re-screened.
+      - name: Restore the 2026-09-12 population
+        run: |
+          set -eu
+          mkdir -p .attest/corpora/heldout-supported-v1
+          python - <<'PY'
+          import json, pathlib
+          src = pathlib.Path("docs/acceptance/evidence/2026-09-12-heldout-supported-probe.json")
+          probe = json.loads(src.read_text(encoding="utf-8"))["probe"]
+          dst = pathlib.Path(".attest/corpora/heldout-supported-v1/probe.json")
+          dst.write_text(json.dumps(probe, indent=2) + "\n", encoding="utf-8")
+          print(f"restored {len(probe)} probed instances")
+          PY
+
+      - name: Clone the upstream projects
+        run: |
+          set -eu
+          python - <<'PY'
+          import json, pathlib, subprocess
+          probe = pathlib.Path(".attest/corpora/heldout-supported-v1/probe.json")
+          repos = sorted({r["repo"] for r in json.loads(probe.read_text())})
+          upstream = pathlib.Path(".attest/corpora/swebench/upstream")
+          upstream.mkdir(parents=True, exist_ok=True)
+          failed = []
+          for repo in repos:
+              target = upstream / repo.replace("/", "__")
+              if (target / ".git").is_dir():
+                  continue
+              done = subprocess.run(
+                  ["git", "clone", "-q", f"https://github.com/{repo}.git", str(target)]
+              )
+              if done.returncode != 0:
+                  failed.append(repo)
+                  print(f"SKIPPED {repo}: clone failed")
+              else:
+                  print(f"cloned {repo}")
+          print("failed clones:", failed or "none")
+          PY
+          df -h / | tail -1
+
+      - name: Plan
+        run: python -u scripts/corpus/heldout_v2.py plan 2>&1 | tee probe-reach-plan.log
+
+      # `--no-env` skips the host virtualenv: this measurement never executes a
+      # test, it only reads the checkout, so the only inputs it needs are the
+      # upstream clone and the gold patch.
+      - name: Build the cases (free)
+        run: |
+          set -eu
+          python - <<'PY' 2>&1 | tee probe-reach-build.log
+          import json, pathlib, subprocess, sys
+          plan = json.loads(
+              pathlib.Path(".attest/corpora/heldout-supported-v1/plan.json").read_text()
+          )
+          cases = plan["cases"]
+          for n, case in enumerate(cases, 1):
+              instance = case["instance_id"]
+              manifest = pathlib.Path(f".attest/corpora/swebench/cases/{instance}/manifest.json")
+              if manifest.is_file():
+                  continue
+              print(f"[{n}/{len(cases)}] build {instance}", flush=True)
+              done = subprocess.run(
+                  [sys.executable, "scripts/corpus/swebench_pilot.py", "build", instance, "--no-env"],
+                  capture_output=True, text=True,
+              )
+              if not manifest.is_file():
+                  print(f"    FAILED: {done.stderr.strip()[:400]}", flush=True)
+          built = sum(
+              1 for c in cases
+              if pathlib.Path(
+                  f".attest/corpora/swebench/cases/{c['instance_id']}/manifest.json"
+              ).is_file()
+          )
+          print(f"\nbuilt {built} of {len(cases)} planned cases")
+          PY
+
+      # A measurement over a partial corpus is a denominator nobody chose. This
+      # one is free to re-run, so it refuses rather than reporting a short table.
+      - name: Refuse a partial corpus
+        run: |
+          set -eu
+          python - <<'PY'
+          import json, pathlib, sys
+          plan = json.loads(
+              pathlib.Path(".attest/corpora/heldout-supported-v1/plan.json").read_text()
+          )
+          missing = [
+              c["instance_id"] for c in plan["cases"]
+              if not pathlib.Path(
+                  f".attest/corpora/swebench/cases/{c['instance_id']}/manifest.json"
+              ).is_file()
+          ]
+          if missing:
+              print(f"{len(missing)} of {len(plan['cases'])} planned cases did not build:")
+              for instance in missing:
+                  print(f"  {instance}")
+              sys.exit(1)
+          print(f"all {len(plan['cases'])} planned cases are built")
+          PY
+
+      - name: Reachability on the held-out corpus (free)
+        run: |
+          python -u scripts/corpus/probe_reach.py corpus \
+            --out .attest/corpora/heldout-supported-v1/probe-reach-corpus.json \
+            2>&1 | tee probe-reach-corpus.log
+
+      # The control: the same script, same rules, on a repository whose tests
+      # were written by the people who wrote the rules. If this repository's
+      # rate is high and the corpus's is near zero, the rules work and those
+      # eight projects' test style does not match them; if both are near zero,
+      # the rules are the problem.
+      # Two arms, because they answer different questions. The first anchors on
+      # what recent commits actually changed, which is the honest analogue of a
+      # diff. The second anchors on every module-level function and is the
+      # rule's ceiling on a repository whose tests were written by the people
+      # who wrote the rule -- the number that separates "the rule is broken"
+      # from "these projects' tests do not look like that".
+      - name: Reachability on this repository (the control)
+        run: |
+          python -u scripts/corpus/probe_reach.py self --limit 20 \
+            --out .attest/corpora/heldout-supported-v1/probe-reach-self.json \
+            2>&1 | tee probe-reach-self.log
+          python -u scripts/corpus/probe_reach.py self --all-definitions --limit 200 \
+            --out .attest/corpora/heldout-supported-v1/probe-reach-self-ceiling.json \
+            2>&1 | tee probe-reach-self-ceiling.log
+
+      # `include-hidden-files` is not a nicety: every path below except the logs
+      # is under `.attest/`, and the action skips a dotted path by default. The
+      # free dispatch of 2026-09-10 uploaded 829 bytes for exactly this reason
+      # (PR #32).
+      - name: Upload the measurement
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-reach-${{ github.run_id }}
+          path: |
+            .attest/corpora/heldout-supported-v1/probe-reach-*.json
+            probe-reach-*.log
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 30
