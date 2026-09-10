@@ -8,10 +8,10 @@ produced a receipt.
 
 | | |
 |---|---|
-| ref | **`v0.1.0-rc.2`** (internal trial, 2026-09-12) · `v0.1.0-rc.1`, `v0.1.0-pilot.1` (previous, never moved) |
+| ref | **`v0.1.0`** (2026-09-13) · `v0.1.0-rc.2`, `v0.1.0-rc.1`, `v0.1.0-pilot.1` (previous, never moved) |
 | kind | annotated tag; immutable |
-| commit | `a759083`; resolve with `git rev-parse v0.1.0-rc.2^{commit}`. Every tag here is annotated and none is ever moved |
-| package version | wheel metadata `0.1.0rc2`; **`attest.__version__` at this ref reads `0.1.0rc1`** — the version is hand-written in two files and the bump reached one of them (D-193). Nothing in the product depends on the attribute, and the tag is not moved because it is the ref that produced the [external receipt](../acceptance/2026-09-12-external-receipt.md) |
+| commit | resolve with `git rev-parse v0.1.0^{commit}`. Every tag here is annotated and **none is ever moved** |
+| package version | wheel metadata `0.1.0`, and `attest.__version__` reads the installed metadata rather than a second hand-written literal, so the `0.1.0rc1`/`0.1.0rc2` disagreement `v0.1.0-rc.2` shipped cannot recur. **`pyproject.toml` is the one hand-written place** |
 | interpreter | CPython 3.11 minimum, 3.12 primary (the Action pins 3.12.8); the **reproduction** image is built on 3.10–3.13 and a project declaring outside that range is refused by name (D-186) |
 | isolation backend | `linux-container-v1` (Docker/OCI); production never falls back to the host |
 | evidence schemas | run record, receipt, seal and bundle are versioned; an unknown version is rejected, never misread |
@@ -21,16 +21,37 @@ Install it exactly as [`quickstart.md`](quickstart.md) §1 does:
 ```bash
 git clone https://github.com/IcantFind-a-username/Attest.git
 cd Attest
-git checkout v0.1.0-rc.2
+git checkout v0.1.0
 ```
 
 and pin the workflow the same way:
 
 ```yaml
-- uses: IcantFind-a-username/Attest@v0.1.0-rc.2
+- uses: IcantFind-a-username/Attest@v0.1.0
 ```
 
-### What `v0.1.0-rc.2` changes over `v0.1.0-rc.1`
+### What `v0.1.0` changes over `v0.1.0-rc.2`
+
+**One constant-free behaviour change and a great deal of measurement.** `alpha`, every
+likelihood ratio, `k_samples`, the hard cap, `budget-usd` and the supported interpreter range are
+unchanged.
+
+- **The `m_u/α` score bar is removed (D-199).** A finding whose certification is accepted and
+  whose verification is reproduced publishes subject to same-defect clustering and the hard cap
+  of three alone. Replayed over every recorded ledger that is **+25 published, −0 withdrawn**.
+  **What it costs in trust:** the per-unit multiplicity cap goes with it — a row now records
+  `pr_error_bound: 1.0` and `e_value_validity: "not-applied"`, because with no threshold there is
+  no rejection rule for a union bound to be taken over. **The product offers the receipt and
+  nothing statistical.**
+- **Every author-visible line is adjudicated (D-201, D-204).** An ordinary deferral gets a
+  contract line instead of bare `DEFER:` prose, and the **whole summary body** is checked rather
+  than the lines inside it.
+- **The red-team matrix dispatches all thirteen preregistered attack classes** (D-200), up from
+  nine: `/proc`, home/git, native syscall and namespace were added.
+- **`G-SHADOW-001` passes** under the bar of mainline condition 5 (D-205), on 28 pull requests
+  with 13 reproductions that actually executed and 0 publications.
+
+### What `v0.1.0-rc.2` changed over `v0.1.0-rc.1`
 
 Copy and denominators, not capability. **No constant moved** — `alpha`, the likelihood ratios,
 `k_samples`, the hard cap, `budget-usd` and the supported interpreter range are the same.
@@ -64,7 +85,8 @@ those four receipts came from a `pytest` tree this ref can no longer run
 
 ## Rollback targets
 
-`v0.1.0-rc.2` and `v0.1.0-rc.1` are **internal trial refs, not public releases**: each is tagged so a colleague can install the exact bytes a name points at, nothing is published to PyPI and nothing is listed on the GitHub Marketplace, and three of the seven `v0.1` conditions still fail ([read](../acceptance/2026-09-07-v01-tag-readiness.md)). `v0.1.0-rc.1` is the rollback target for `v0.1.0-rc.2`: it lowers no trust bar, because rc.2 adds refusals and moves no constant.
+`v0.1.0` is the first ref intended for an outside repository to install. `v0.1.0-rc.2` and
+`v0.1.0-rc.1` were **internal trial refs, not public releases**: each is tagged so a colleague can install the exact bytes a name points at, nothing is published to PyPI and nothing is listed on the GitHub Marketplace, and three of the seven `v0.1` conditions still fail ([read](../acceptance/2026-09-07-v01-tag-readiness.md)). `v0.1.0-rc.1` is the rollback target for `v0.1.0-rc.2`: it lowers no trust bar, because rc.2 adds refusals and moves no constant.
 
 The oldest ref a production pilot may roll back to is `v0.1.0-pilot.1`: earlier commits
 predate one or more of the container backend, the controller seal and the offline verifier,

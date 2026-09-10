@@ -349,3 +349,63 @@ account holds **29 across 6**, so no budget reaches it.
 
 **Three caveats travel with the PASS, in the gate's own text**: all-silence, so **precision is
 undefined and utility unproven**; **no recall measured**; **one prospective unit of 29**.
+
+---
+
+## Phase 5 — the release documentation
+
+Branch `feature/release-docs` · **$0.00**
+
+### 1. The README, rewritten for someone who does not work here
+
+- **One sentence at the top**, and it leads with the constraint rather than the ambition: *a
+  pull-request reviewer that only says things it can prove, and abstains out loud when it
+  cannot* — followed immediately by the number that sizes it, **7.1% recall**.
+- **A results table where every row carries its interval and its report link**, and a right-hand
+  column saying what each number is *not*: recall 2 of 28 [2.0%, 22.6%]; 0 false publications on
+  28 shadow pull requests with 13 real executions; 0 on 68 + 40 controls **at K=4**; yellow (a)
+  1 of 68 [0.26%, 7.87%]; propagation 0 of 68 [0.00%, 5.35%]; 13 of 13 red-team classes.
+- **Known limitations, ordered by what bites first**: the 7.1% and its three loss sources (17
+  probes that do not collect, 17 refused **on the merge base**, 13 the intent clause); Python
+  and pytest only, 3.10–3.13; the gate level in shadow at 0 of 445; the two known-untested arms
+  with their prices; and a silence is never a true negative.
+- **The quickstart workflow is copyable whole** and pins `@v0.1.0`.
+
+### 2. Developer material moved out
+
+`docs/contributing.md` is new and holds the local CLI, the development setup, the Action's
+internals and a table pointing at `DECISIONS.md`, `DEVSPEND.md`, the gates, the backlog and the
+acceptance reports — plus the five rules that are not obvious to a newcomer. The README keeps a
+four-line pointer. `docs/README.md` indexes it.
+
+### 3. The L-01 exit list, checked item by item
+
+All eight documents exist and were read against the code: install ref, quickstart, base-owned
+policy, support matrix, privacy and retention, failure copy, kill switch, rollback.
+
+### 4. What the consistency pass caught
+
+**`docs/operations/us-stock-helper-attest-review.yml` still uploaded `.attest/ledger.jsonl` and
+not `.attest/evidence/`** — the exact gap D-194 closed in the other three copies, left behind in
+the fourth. It is the file an outside repository would have copied, so it would have shipped a
+workflow whose `attest verify --bundle` line had nothing to point at. All five copies now pin
+`@v0.1.0` and upload the same two paths.
+
+`pyproject.toml` is `0.1.0` — **the one hand-written place**; `attest.__version__` reads the
+installed metadata, so the `0.1.0rc1`/`0.1.0rc2` disagreement `v0.1.0-rc.2` shipped cannot recur.
+The packaging test failed locally until the editable install was refreshed, which is the stale-
+install failure mode the backlog predicted after D-194.
+
+### 5. And D-201/D-204 on real traffic, first sighting
+
+[PR #24](https://github.com/IcantFind-a-username/Attest/pull/24)'s own self-review published a
+contract line where its six predecessors published prose:
+
+```
+[silent] read 2 of 5 units; deferred (probe-base-collection): pytest could not collect the
+probe on the merge base, so the base side of the differential never ran; nothing was
+verified; ledger: https://…/runs/34422433277; $0.3126, 107.2s.
+```
+
+Marker, units read, named class, the register's own sentence, the ledger link, spend and elapsed
+— with no preamble above it.

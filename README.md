@@ -1,11 +1,16 @@
 # attest
 
-Attest is an experimental, evidence-first, LLM-driven code evaluator. Its target is simple
-to state and deliberately hard to satisfy:
+**A pull-request reviewer that only says things it can prove, and abstains out loud when it
+cannot.**
 
-> Publish only a small number of important defect claims that have a trusted, replayable,
-> claim-bound execution certificate; spend model and test budget where it is most likely to
-> produce such a certificate; otherwise abstain explicitly.
+An LLM proposes; an algorithm that calls no model decides whether it may speak. A defect claim
+is published only when a generated test **fails on your head commit and passes on the merge
+base**, three runs each way, inside a network-free container, with a receipt anyone can verify
+offline. Everything else is a stated silence.
+
+It is **experimental**, and the numbers below say exactly how experimental. Its measured recall
+on a held-out defect corpus is **7.1%**; it is silent far more often than it speaks; and a
+silence from it is never evidence that your code is fine.
 
 ## What it says, in four levels
 
@@ -17,7 +22,7 @@ other's words, and never speak for each other:
 |---|---|---|---|
 | **red** | *this change broke something* — a generated test that fails on head and passes on the merge base, three runs each way, with an offline-verifiable receipt | yes | **live** |
 | **gate** | *this new code crashes on an input a pre-existing caller produces* — new code has no merge base, so it is admitted only through a caller outside the added lines | yes | **shadow** — nothing on this path is author-visible, and on **0 of 445** recorded candidates has it found a publishing-grade witness |
-| **yellow** | *here is a hypothesis, and here are the premises I checked* — (a) the change's impact scope, (b) a null/Optional dereference or an exception no caller handles | (a) no · (b) one for the null class, none for the exception class | **live**, ≤ 2 per pull request, shared across every class |
+| **yellow** | *here is a hypothesis, and here are the premises I checked* — a checker verifies each premise separately and only the verified ones are said | no | **(a) the impact scope is live**, ≤ 2 per pull request. **Its other two classes are not**: the null/Optional class is **closed** (0 of 79 under two rule versions) and exception propagation is a **shadow** that reaches no author-visible surface |
 | **green** | *this is structurally so* — computed with no model at all; today, the same implementation in two places | only to word it | **live** |
 
 ```text
@@ -180,7 +185,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Review pull request
-        uses: IcantFind-a-username/Attest@v0.1.0-rc.1   # docs/operations/install-ref.md
+        uses: IcantFind-a-username/Attest@v0.1.0   # docs/operations/install-ref.md
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -205,6 +210,41 @@ skip them before any credential enters a runner step, and this repository uses n
 `pull_request_target` trigger anywhere. A skipped fork leaves **no comment, no review, no
 check annotation and no artifact** — nothing that could read as *reviewed, nothing found* —
 only one Actions notice in the run log saying it was skipped.
+
+### What it has actually done, with intervals
+
+Every number here links to the report it comes from. **Each is what it says and nothing more**;
+the column on the right is the reason.
+
+| measurement | number | what it is **not** |
+|---|---|---|
+| **crash-class recall**, held-out corpus of 28 SWE-bench Verified cases whose projects declare a supported interpreter | **2 of 28 — 7.1%**, Wilson 95% **[2.0%, 22.6%]** ([report](docs/acceptance/2026-09-12-heldout-supported.md)) | not a precision figure, and not a sample-size problem: the interval's **upper** bound is 22.6% |
+| **false publications**, prospective shadow over 28 real pull requests with 13 reproductions that actually executed | **0** ([report](docs/acceptance/2026-09-13-e04-shadow-v3.md)) | not a precision figure either — **nothing certified**, so precision is undefined and utility is unproven |
+| **false publications**, 68 independent null controls + 40 held-out controls, K=4 | **0** ([report](docs/acceptance/2026-09-05-g-null-001a-independent.md), [held-out](docs/acceptance/2026-09-03-e02-heldout.md)) | the last measured control arm is at **K=4**; the shipped `samples` is 5 and that arm has never been bought |
+| **yellow (a) noise floor**, 68 null controls, deterministic | **1 of 68 — 1.47%**, Wilson 95% **[0.26%, 7.87%]** ([report](docs/acceptance/2026-09-13-yellow.md)) | the one note is **true**; the level claims no defect and has never been shown to find one |
+| **yellow (b), exception propagation**, 68 null controls | **0 of 68 — 0.00%**, Wilson 95% **[0.00%, 5.35%]** | it is a **shadow**: it reaches no author-visible surface at all |
+| **red-team attack classes** dispatched on the production backend, all marked and never certified | **13 of 13** ([matrix](docs/acceptance/2026-09-13-redteam-thirteen.md)) | observed from **inside** the product for 11 of the 13; an external kernel observer has watched seven syscalls, once |
+| **cost of a review** | mean **$0.22**, hard cap `budget-usd` (default $1.00) | — |
+
+### Known limitations, in the order they will bite you
+
+1. **Recall is 7.1%** — Wilson 95% [2.0%, 22.6%] on the held-out crash-class corpus. Three
+   places the evidence is lost, measured over 56 verification attempts: **17** the generated
+   probe does not collect at all; **17** the process guard refuses the probe **on the merge
+   base**, where nothing untrusted runs; **13** the whole intent clause. Two mechanical
+   categories hold 34 of 56 ([report](docs/acceptance/2026-09-12-heldout-supported.md)).
+2. **Python only.** Python, pytest, Linux containers, interpreters **3.10–3.13**. Anything else
+   gets one line naming the reason and exit 0 — never a traceback, never a silence that reads
+   as *nothing found*.
+3. **The gate level is in shadow.** New-code findings are computed and written to the ledger and
+   reach **no author-visible surface**; on 0 of 445 recorded candidates has it found a
+   publishing-grade witness.
+4. **Two things are known untested, for budget and not because they do not matter**
+   ([decision](DECISIONS.md)): the red control arm at the shipped **K=5** (126 controls, ≈$126),
+   and `G-NULL-001`'s full natural-null population (≈$53). Every control number above is a K=4
+   number and says so.
+5. **A silence is never a true negative.** Nothing here licenses *"attest found nothing, so it
+   is fine"*.
 
 A review costs about **$0.22** on average and is hard-capped by `budget-usd` (default
 $1.00). **Do not lower it below $0.54**: at the default `samples: "5"` the discovery share is
@@ -384,59 +424,12 @@ The target product distinguishes:
 DEFER is an abstention, not a true negative or evidence of precision. When nothing is
 published, finding precision is undefined.
 
-## Local development usage
+## For contributors
 
-The current CLI remains available while the receipt-only architecture is implemented:
-
-```text
-attest review [--base REF] [--alpha X] [--budget USD] [--k N]
-attest verify <finding-id> --reproduced|--not-reproduced
-attest feedback <finding-id> --fix|--good|--dismiss
-attest stats [--since 7d|2026-09-01] [--drawer] [--json]
-```
-
-`attest verify --reproduced` currently updates local legacy gate bookkeeping. Do not treat
-it as a trusted differential receipt or include it in autonomous-certification metrics.
-
-BYOK model credentials are resolved through the provider SDK's standard credential chain.
-Never expose them to generated tests or project code. Per-repository configuration currently
-lives in `.attest.toml`; the evolution roadmap moves safety policy to a trusted base-owned
-source. The local ledger under `.attest/` is gitignored.
-
-## GitHub Action
-
-The repository includes a self-installing composite Action and an
-[example workflow](examples/pull-request.yml). Read the
-[current safety guide](docs/github-action.md) before using it.
-
-The Action is not yet approved for untrusted production deployment. Forks are skipped, and
-same-repository head code still runs in a best-effort same-runner boundary. The roadmap
-requires a privileged-controller/secretless-executor split and OS-level isolation before an
-external pilot.
-
-The historical 60-second acceptance criterion covered the initial status comment from job
-start, not completion of differential verification; the current verification deadline can
-be longer. No final-review-under-60-seconds claim is made.
-
-## Development
-
-Python 3.11 or newer is required. A typical local setup is:
-
-```bash
-python -m venv .venv
-.venv/bin/python -m pip install -e ".[dev]"
-.venv/bin/python -m pytest
-.venv/bin/python -m ruff check .
-.venv/bin/python -m mypy src/attest
-```
-
-On Windows, use `.venv\Scripts\python` in place of `.venv/bin/python`. The supported
-Gate toolchain is pinned in `requirements-toolchain.lock`; use the current branch's lock
-and record exact interpreter/tool versions with every Gate result.
-
-Coding agents start with [AGENTS.md](AGENTS.md). The complete documentation map is
-[docs/README.md](docs/README.md). Design decisions are preserved in
-[DECISIONS.md](DECISIONS.md); dated reports remain evidence rather than current plans.
+Everything about changing attest — the local CLI, the development setup, the Action's internals,
+the spend ledger, the decision records and the gates — is on one page:
+**[`docs/contributing.md`](docs/contributing.md)**. Start there, then
+[`AGENTS.md`](AGENTS.md).
 
 ## Evidence already in the repository
 

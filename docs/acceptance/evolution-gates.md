@@ -444,6 +444,19 @@ the hidden semantic regression corpus. All DEFER/no-surface eligible cases count
 
 This gate does not authorize a natural-PR recall claim; E-04 does.
 
+**Read 2026-09-12: FAIL, and 2026-09-13: it does not block `v0.1.0`** (owner decision, phase 1
+of that window). The measured figure is **2 of 28 — 7.1%, Wilson 95% [2.0%, 22.6%]** on a
+corpus rebuilt for the supported interpreter ([report](2026-09-12-heldout-supported.md)). Both
+clauses fail and **the interval's upper bound is 22.6%**, so this is not a sample-size result.
+
+**The 70% is a post-release target.** It is not weakened, not restated at a number the evidence
+happens to meet, and not deleted: the gate above is the bar, the product is far from it, and the
+README's first screen carries the 7.1% with its interval so no reader can install this without
+meeting the number. Where the evidence is lost is measured rather than guessed — over 56
+verification attempts, **17** probes do not collect at all, **17** are refused by the process
+guard **on the merge base** where nothing untrusted runs, and **13** fall to the intent clause;
+two mechanical categories hold 34 of 56, and **neither is an adjudicator**.
+
 ## 10. Isolation and security gates
 
 ### G-SEC-001 — Secretless execution protocol
