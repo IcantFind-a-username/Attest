@@ -599,7 +599,7 @@ def self_all_anchors(limit: int) -> list[Anchor]:
     that scores well here and zero on the corpus is a rule whose assumptions the
     corpus's test style does not meet, which is a different finding entirely.
     """
-    anchors: list[Anchor] = []
+    by_file: list[list[Anchor]] = []
     for path in sorted((ROOT / "src" / "attest").rglob("*.py")):
         relative = path.relative_to(ROOT).as_posix()
         source = _read(path)
@@ -608,11 +608,21 @@ def self_all_anchors(limit: int) -> list[Anchor]:
         module = _parse(source)
         if module is None:
             continue
-        for node in module.body:
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                anchors.append(
-                    Anchor(path=relative, line=node.lineno, function=node.name, kind="module")
-                )
+        found = [
+            Anchor(path=relative, line=node.lineno, function=node.name, kind="module")
+            for node in module.body
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        ]
+        if found:
+            by_file.append(found)
+    # Round robin over files, not path order. Taking the first `limit` anchors in
+    # path order samples only the alphabetically-early modules -- a control whose
+    # answer would depend on how the package happens to be named.
+    anchors: list[Anchor] = []
+    for index in range(max((len(f) for f in by_file), default=0)):
+        for found in by_file:
+            if index < len(found):
+                anchors.append(found[index])
                 if len(anchors) >= limit:
                     return anchors
     return anchors

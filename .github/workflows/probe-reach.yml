@@ -32,7 +32,12 @@ permissions:
 jobs:
   probe-reach:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # The cost here is parsing, not spending: the call graph is rebuilt over a
+    # project's whole test tree once per changed source file, and `sympy`'s test
+    # tree is large. Generous because it is free -- a job that runs long costs
+    # nothing on a public repository, and a job that is killed half way wastes
+    # the clone and the build.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
 
