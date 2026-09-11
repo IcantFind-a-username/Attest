@@ -1,0 +1,16 @@
+{
+  "authorized_by": "owner, authorisation 4 of the 2026-09-12 overnight work order: a new study population of eight public Python repositories, the local review path only, writing to no repository",
+  "granted_at": "2026-09-12T00:00:00+00:00",
+  "population": [
+    "more-itertools/more-itertools",
+    "pallets/click",
+    "pallets/itsdangerous",
+    "pallets/jinja",
+    "pypa/packaging",
+    "python-attrs/attrs",
+    "theskumar/python-dotenv",
+    "urllib3/urllib3"
+  ],
+  "scope": "shadow only: read-only clones of public repositories under .attest/corpora/<name>/ (AGENTS.md section 7, D-070), the local review path, no GitHub client is constructed, no comment, review, status or any other write reaches any repository; the study bundle carries counts, ids and the lines an author would have seen",
+  "budget": "owner reservation for this item: $4.50 for the 24 units (run B) and $0.30 for one smoke unit before it, posted in DEVSPEND.md before the first paid call; the driver holds the reservation as a hard cumulative cap and a unit starts only if its per-review maximum fits under it (D-172)"
+}

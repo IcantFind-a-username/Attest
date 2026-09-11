@@ -1,0 +1,155 @@
+name: e05-external
+
+# e05-external-v1: the frozen 24-pull-request sample of
+# `benchmarks/studies/e05-external-v1` -- eight public Python libraries this
+# project does not own -- reviewed on the declared CI platform with both
+# yellow switches on (owner authorisation 4 of 2026-09-12).
+#
+# It runs only when asked (workflow_dispatch) and it is **paid** -- it calls the
+# model with this repository's own ANTHROPIC_API_KEY. Reserve in DEVSPEND.md
+# first. AGENTS.md section 9: the first dispatch is a smoke (`limit` 1,
+# `unit_budget` 0.30, its own trials file) that proves the artifact carries a
+# ledger and a lines file; the paid run follows only if it did.
+#
+# **Nothing is written to any repository.** The eight clones are read-only,
+# the driver uses the local review path, no GitHub client is constructed, and
+# no comment, review or status can reach anyone. The population is the frozen
+# `sample.jsonl`; this workflow never re-selects it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      cap_usd:
+        description: >-
+          Hard cumulative spend cap for the run, in US dollars. The study's own
+          preregistered cost_cap_usd binds independently and the smaller wins.
+        type: string
+        default: "4.50"
+      limit:
+        description: Stop after this many units (0 = every unit not yet recorded).
+        type: string
+        default: "0"
+      only:
+        description: >-
+          Comma-separated unit ids to run alone, in the frozen order; every
+          other pending unit is recorded as skipped: not selected. Empty runs
+          the whole pending sample.
+        type: string
+        default: ""
+      trials_file:
+        description: >-
+          Trials file under the study directory. Leave empty to continue
+          trials.jsonl; the smoke names trials-smoke.jsonl so its one unit is
+          bought again, at the preregistered budget, by the main run.
+        type: string
+        default: ""
+      unit_budget:
+        description: >-
+          Lower the per-unit budget below the preregistration's $1.00 (the
+          smoke passes 0.30). Empty or 0 keeps the preregistered budget.
+        type: string
+        default: "0"
+      value_notes_visible:
+        description: Render the value-class yellow line (on for this study).
+        type: boolean
+        default: true
+      gate_notes_visible:
+        description: Render the gate yellow line (on for this study).
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install the locked toolchain
+        run: |
+          python -m pip install -r requirements-toolchain.lock
+          python -m pip install --no-deps --no-build-isolation -e .
+
+      - name: Record the environment
+        run: |
+          python -c "import sys, platform; print(sys.version); print(platform.platform())"
+          docker version --format 'docker {{.Server.Version}}'
+
+      - name: Clone the population (read-only, public)
+        run: |
+          set -eu
+          mkdir -p .attest/corpora
+          # Eight public repositories, cloned with no credential at all: nothing
+          # this job holds could write to them. A clone that fails is reported
+          # by name and its units are skipped by name, never dropped silently.
+          for repo in more-itertools/more-itertools pallets/click pallets/itsdangerous \
+                      pallets/jinja pypa/packaging python-attrs/attrs \
+                      theskumar/python-dotenv urllib3/urllib3; do
+            dir=".attest/corpora/$(basename "$repo" | tr '[:upper:]' '[:lower:]')"
+            if git clone -q "https://github.com/${repo}.git" "$dir"; then
+              echo "cloned ${repo} at $(git -C "$dir" rev-parse --short HEAD)"
+            else
+              echo "SKIPPED ${repo}: clone failed"
+            fi
+          done
+
+      - name: Run the shadow
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ATTEST_ALLOW_PAID_API: "1"
+        run: |
+          python -u scripts/corpus/prospective_shadow.py \
+            --study e05-external-v1 run \
+            --allow-paid-api \
+            --reserve "${{ inputs.cap_usd }}" \
+            --limit "${{ inputs.limit }}" \
+            --only "${{ inputs.only }}" \
+            --unit-budget "${{ inputs.unit_budget }}" \
+            --trials-file "${{ inputs.trials_file }}" \
+            ${{ inputs.value_notes_visible && '--value-notes-visible' || '' }} \
+            ${{ inputs.gate_notes_visible && '--gate-notes-visible' || '' }} \
+            2>&1 | tee shadow-run.log
+
+      - name: Report
+        if: always()
+        run: |
+          python -u scripts/corpus/prospective_shadow.py --study e05-external-v1 report || true
+
+      # AGENTS.md §9: a stage that reports zero of something first asserts its
+      # input is non-empty. Run 34618040099 reported "0 lines" over ledgers that
+      # never left the runner (D-225); the report reads the ledgers, so a run
+      # that produced none is a failed job, not a quiet artifact.
+      - name: Assert the ledgers and the lines file exist before anything is uploaded
+        if: always()
+        run: |
+          count="$(ls .attest/corpora/*/.attest/ledger.jsonl 2>/dev/null | wc -l)"
+          echo "ledgers written: ${count}"
+          test "${count}" -gt 0
+          lines="$(ls benchmarks/studies/e05-external-v1/lines-*.jsonl 2>/dev/null | wc -l)"
+          echo "lines files written: ${lines}"
+          test "${lines}" -gt 0
+
+      - name: Upload the trials, the report and the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e05-external-v1
+          path: |
+            benchmarks/studies/e05-external-v1/trials*.jsonl
+            benchmarks/studies/e05-external-v1/lines-*.jsonl
+            benchmarks/studies/e05-external-v1/report.json
+            shadow-run.log
+            .attest/corpora/*/.attest/ledger.jsonl
+          # upload-artifact v4.4+ skips hidden paths unless told otherwise; run
+          # 34618040099 lost every ledger to this default (D-225)
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 30
