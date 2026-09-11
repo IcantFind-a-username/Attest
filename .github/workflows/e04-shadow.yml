@@ -32,6 +32,13 @@ on:
         description: Stop after this many units (0 = every unit not yet recorded).
         type: string
         default: "0"
+      only:
+        description: >-
+          Comma-separated unit ids to run alone, in the frozen order; every
+          other pending unit is recorded as skipped: not selected. Empty runs
+          the whole pending sample.
+        type: string
+        default: ""
       trials_file:
         description: >-
           Trials file under the study directory. Leave empty to continue
@@ -102,6 +109,7 @@ jobs:
             --allow-paid-api \
             --reserve "${{ inputs.cap_usd }}" \
             --limit "${{ inputs.limit }}" \
+            --only "${{ inputs.only }}" \
             --trials-file "${{ inputs.trials_file }}" \
             ${{ inputs.value_notes_visible && '--value-notes-visible' || '' }} \
             ${{ inputs.gate_notes_visible && '--gate-notes-visible' || '' }} \
@@ -111,6 +119,17 @@ jobs:
         if: always()
         run: |
           python -u scripts/corpus/prospective_shadow.py --study e04-prospective-v3 report || true
+
+      # AGENTS.md §9: a stage that reports zero of something first asserts its
+      # input is non-empty. Run 34618040099 reported "0 lines" over ledgers that
+      # never left the runner (D-225); the report reads the ledgers, so a run
+      # that produced none is a failed job, not a quiet artifact.
+      - name: Assert the ledgers exist before anything is uploaded
+        if: always()
+        run: |
+          count="$(ls .attest/corpora/*/.attest/ledger.jsonl 2>/dev/null | wc -l)"
+          echo "ledgers written: ${count}"
+          test "${count}" -gt 0
 
       - name: Upload the trials, the report and the log
         if: always()

@@ -8,7 +8,10 @@
             which is the pair the shipped Action reviews
   run       one shadow review per sampled unit not yet run: head = the commit, base = its
             parent, the local review path (no GitHub client exists), K and per-PR budget
-            from the preregistration, results to trials.jsonl; stops at the cost cap
+            from the preregistration, results to trials.jsonl; stops at the cost cap.
+            `--only a,b,c` runs the named units alone and records every other pending
+            unit as skipped: "not selected", so the sample's denominator is never
+            silently narrowed
   report    report.json + the table
 
 Paid: ``run`` (pass --allow-paid-api). Reserve in DEVSPEND.md first. Population
@@ -330,6 +333,42 @@ def _author_visible_lines(
     return {"red": red, "value": value, "gate": gate, "impact": impact}
 
 
+def _only_units(raw: str) -> tuple[str, ...]:
+    """The unit ids a `--only` names, in the order written, blanks dropped."""
+    return tuple(part.strip() for part in (raw or "").split(",") if part.strip())
+
+
+def _plan_units(
+    samples: list[dict[str, object]],
+    done: set[str],
+    *,
+    only: tuple[str, ...] = (),
+    limit: int = 0,
+) -> tuple[list[dict[str, object]], list[str]]:
+    """Which sampled units this invocation runs, and which pending ones it
+    leaves by name.
+
+    The frozen order is kept: `--only` filters it and never re-orders it, so a
+    subset run walks the same sequence the full run would. A unit already in
+    the trials file is not pending and is not named again; a pending unit
+    `--only` did not name is returned in ``not_selected`` so the run can record
+    it as skipped rather than let it vanish from the denominator. `--limit`
+    applies after the selection.
+    """
+    pending = [row for row in samples if str(row["unit_id"]) not in done]
+    not_selected: list[str] = []
+    if only:
+        wanted = set(only)
+        unknown = wanted - {str(row["unit_id"]) for row in samples}
+        if unknown:
+            raise SystemExit(f"--only names units not in the sample: {sorted(unknown)}")
+        not_selected = [str(row["unit_id"]) for row in pending if str(row["unit_id"]) not in wanted]
+        pending = [row for row in pending if str(row["unit_id"]) in wanted]
+    if limit:
+        pending = pending[:limit]
+    return pending, not_selected
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     from attest.review.config import load_config
     from attest.review.proposer import ApiProvider
@@ -345,9 +384,15 @@ def cmd_run(args: argparse.Namespace) -> int:
     trials_path = study / (args.trials_file or prospective.TRIALS_FILE)
     lines_path = study / (args.lines_file or f"lines-{trials_path.stem}.jsonl")
     done = {row["unit_id"] for row in prospective._read_jsonl(trials_path)}
-    pending = [row for row in samples if row["unit_id"] not in done]
-    if args.limit:
-        pending = pending[: args.limit]
+    pending, not_selected = _plan_units(
+        samples, done, only=_only_units(args.only), limit=args.limit
+    )
+    # Owner instruction of 2026-09-12 (run A): a run over a named subset of the
+    # frozen sample says so for every unit it did not select, in the same
+    # place a cap refusal or a missing clone is said, so the report can tell a
+    # unit nobody asked for from one the run could not buy.
+    for unit_id in not_selected:
+        print(json.dumps({"unit_id": unit_id, "skipped": "not selected"}), flush=True)
     # The reservation basis is the owner's ceiling for the item when one is
     # given, and the driver's own cumulative cap enforces it; otherwise it is
     # every pending unit's per-review maximum (D-172).
@@ -513,6 +558,9 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run")
     run.add_argument("--allow-paid-api", action="store_true")
     run.add_argument("--limit", type=int, default=0)
+    run.add_argument("--only", default="",
+                     help="comma-separated unit ids: run these alone, in the frozen order, "
+                     "and record every other pending unit as skipped: not selected")
     run.add_argument("--reserve", type=float, default=0.0,
                      help="the owner's reservation for this item; the smaller of it and the "
                      "study's cost cap binds, and no unit starts unless its maximum fits under it")

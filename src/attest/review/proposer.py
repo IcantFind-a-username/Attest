@@ -18,7 +18,7 @@ from pathlib import Path
 from threading import Event, Lock
 from typing import Any, Protocol
 
-from attest.review.budget import Budget, BudgetExceeded
+from attest.review.budget import PROPOSAL_SHARE, Budget, BudgetExceeded
 from attest.review.config import ReviewConfig
 from attest.review.dedup import cluster_findings
 from attest.review.diffs import DiffInfo
@@ -425,9 +425,9 @@ def budget_shortfall_clause(unit_label: str, exc: BudgetExceeded) -> str:
     `budget-limited` and nothing else, on the very branch that recorded D-187.
     """
     if exc.shortfall_usd is None or exc.budget_usd_needed is None:
-        return f"{unit_label} did not fit the budget"
+        return f"{unit_label} did not fit the discovery share"
     return (
-        f"{unit_label} was ${exc.shortfall_usd:.4f} short of the budget; "
+        f"{unit_label} was ${exc.shortfall_usd:.4f} short of the discovery share; "
         f"`budget-usd` ${usd_that_covers(exc.budget_usd_needed):.2f} would have read it"
     )
 
@@ -460,20 +460,20 @@ def propose_plan(
 ) -> ProposalRun:
     """Propose per planned unit in deterministic order, then cluster task-wide.
 
-    Units are attempted in plan order; the first unit that the budget cannot
+    Units are attempted in plan order; the first unit that the share cannot
     cover stops the run and every remaining unit is recorded as omitted **and
     named** (`units_unread`), so a large change is reviewed partially and
     *visibly*, never truncated in silence. A first unit that does not fit
     raises BudgetExceeded as before.
 
     D-111 and D-168 bought this stage inside a 30% share of the budget so that
-    breadth could not starve verification. Owner instruction 3 of the
-    2026-09-11 drawer window removed the share's hold on units: on the E-04
-    stratum it silenced 11 of 29 real pull requests after 179 of their 298
-    change units, and a review that stops reading a change at 30% of a budget
-    it never spent is not a review of that change. Every unit is now read
-    until the whole budget is gone, and what the budget could not fund is
-    named rather than counted.
+    breadth could not starve verification. D-221 removed the share on
+    2026-09-11 after it silenced 11 of 29 real pull requests part-way through
+    their change units; the re-run of the same sample under whole-budget
+    discovery then cost 3.6x per pull request, read 23 of 56 units instead of
+    10 and certified nothing (D-225). Owner authorisation 5 of 2026-09-12
+    restores the share at 0.3 and keeps D-221's other half: what the share
+    could not fund is **named**, never only counted.
     """
     per_sample: list[list[Finding]] = []
     rejected: list[str] = []
@@ -487,16 +487,17 @@ def propose_plan(
     units_read = 0
     for index, unit in enumerate(plan.units):
         try:
-            run = propose(
-                unit.diff(),
-                config,
-                budget,
-                provider,
-                context=unit.prompt_context(),
-                sample_offset=index * config.k_samples,
-                cache_root=cache_root,
-                shared_system=shared_system,
-            )
+            with budget.stage("discovery", PROPOSAL_SHARE):
+                run = propose(
+                    unit.diff(),
+                    config,
+                    budget,
+                    provider,
+                    context=unit.prompt_context(),
+                    sample_offset=index * config.k_samples,
+                    cache_root=cache_root,
+                    shared_system=shared_system,
+                )
         except BudgetExceeded as exc:
             if index == 0:
                 raise

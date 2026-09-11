@@ -10,9 +10,10 @@ re-starves the budget.
 So the knob is not the budget; it is what the budget is spent *on*. Owner
 decision 1 of 2026-09-07 set three rules, and this module holds the two that
 are about candidates. The third -- discovery bought inside a 30% share of the
-budget -- was removed by owner instruction 3 of 2026-09-11, after it silenced
-11 of 29 real pull requests part-way through their change units: every unit is
-now read until the whole budget is gone, and the unread ones are named.
+budget, `budget.PROPOSAL_SHARE` -- was removed by D-221 on 2026-09-11 and
+restored by owner authorisation 5 of 2026-09-12 after the whole-budget run
+cost 3.6x per pull request and certified nothing (D-225); the unread units are
+still named.
 
 **Order.** Candidates are ranked by **cluster size**, descending -- how many
 proposal findings merged into this one candidate -- and ties are broken by a
