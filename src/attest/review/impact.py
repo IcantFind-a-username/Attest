@@ -757,9 +757,12 @@ def note_for(
 
     - **a1** the *signature* moved **and** some caller is named by no test.
       D-145's rule, retained unchanged.
-    - **a2** the function *raises a type the base did not*, or its *return
-      annotation* moved, **and** some caller is named by no test. A caller that
-      never had to handle `KeyError` now does, and no test names it.
+    - **a2** the function *raises a type the base did not* **and** some caller
+      is named by no test. A caller that never had to handle `KeyError` now
+      does, and no test names it. D-150 also let a moved *return annotation*
+      fire this condition; D-233 withdrew that half -- an annotation that moves
+      while every parameter's name, count, order and default stay put is a
+      change to type hints, not to what a caller receives.
     - **a3** the function *gained a required parameter* **and** some call site
       statically passes fewer positional arguments than it now takes. This one
       carries no coverage half, because arity is decidable: the call is wrong
@@ -814,19 +817,18 @@ def note_for(
             reason="the signature changed and a caller is named by no test",
             condition=CONDITION_SIGNATURE,
         )
-    if CONDITION_RAISE_OR_RETURNS in conditions and (
-        changed.added_raise or changed.returns_changed
-    ):
-        what = (
-            "a new exception type is raised"
-            if changed.added_raise
-            else "the return annotation changed"
-        )
+    # D-233: an annotation is not an interface. `pallets/jinja#2096` moved two
+    # return annotations and nothing else, and two lines told callers named by
+    # no test that a function "changed its return annotation" -- a fact about
+    # type hints, not about behaviour, that no caller has to act on. The
+    # condition keeps its id (a2 is what was measured) and fires on the raised
+    # type alone; `returns_changed` stays on the record and decides nothing.
+    if CONDITION_RAISE_OR_RETURNS in conditions and changed.added_raise:
         return ImpactNote(
             changed=changed,
             callers=callers,
             untested=untested,
-            reason=f"{what} and a caller is named by no test",
+            reason="a new exception type is raised and a caller is named by no test",
             condition=CONDITION_RAISE_OR_RETURNS,
         )
     return None

@@ -223,7 +223,9 @@ def test_a_test_that_names_the_caller_at_one_hop_counts_as_named() -> None:
     assert tested[0].hops_to_test == 1
 
 
-def test_a_return_annotation_change_is_an_interface_change() -> None:
+def test_a_return_annotation_only_change_is_recorded_and_not_a_claim() -> None:
+    """D-233 RED, the `pallets/jinja#2096` shape: the return annotation moved
+    and nothing else did. The movement is on the record; no line is made."""
     base = "def quote(items):\n    return 0\n"
     head = "def quote(items) -> int:\n    return 0\n"
     sources = {"pricing.py": head, "reporting.py": REPORTING}
@@ -231,10 +233,38 @@ def test_a_return_annotation_change_is_an_interface_change() -> None:
     changed = changed_functions(
         path="pricing.py", head_source=head, base_source=base, changed_lines={1}
     )
+    assert changed[0].returns_changed is True
+    assert changed[0].signature_changed is False
+    assert notes_for_change(graph, changed) == ()
+
+
+def test_a_parameter_annotation_only_change_is_not_a_claim() -> None:
+    """The other half of D-233: parameter annotations move, the names, count,
+    order and defaults do not. The signature did not change."""
+    base = "def quote(items, currency=None):\n    return 0\n"
+    head = "def quote(items: list, currency: str | None = None) -> int:\n    return 0\n"
+    sources = {"pricing.py": head, "reporting.py": REPORTING}
+    graph = build_call_graph(sources)
+    changed = changed_functions(
+        path="pricing.py", head_source=head, base_source=base, changed_lines={1}
+    )
+    assert changed[0].signature_changed is False
+    assert notes_for_change(graph, changed) == ()
+
+
+def test_a_renamed_parameter_beside_a_new_annotation_still_speaks() -> None:
+    """The control for D-233: a change that really moves a parameter -- here a
+    rename -- fires a1 exactly as before, annotation or no annotation."""
+    base = "def quote(items):\n    return 0\n"
+    head = "def quote(basket: list) -> int:\n    return 0\n"
+    sources = {"pricing.py": head, "reporting.py": REPORTING}
+    graph = build_call_graph(sources)
+    changed = changed_functions(
+        path="pricing.py", head_source=head, base_source=base, changed_lines={1}
+    )
     notes = notes_for_change(graph, changed)
-    assert len(notes) == 1
-    assert notes[0].changed.returns_changed is True
-    assert "return annotation" in impact_line(notes[0])
+    assert [n.condition for n in notes] == [CONDITION_SIGNATURE]
+    assert "changed signature" in impact_line(notes[0])
 
 
 def test_at_most_two_notes_reach_one_pull_request() -> None:
