@@ -70,7 +70,12 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   ledger now as one yellow line -- what the merge base returned, what head returns, three runs
   each side, and whether anything in the tree pinned either. **Nothing posts it**; a test checks
   the import graph rather than trusting that sentence. On 780 control verification rows the rule
-  fires four times, and on 28 real pull requests three times.
+  fires four times, and on 28 real pull requests three times. Run for real on the held-out
+  corpus it wrote **16 notes over 13 cases**, of which **12 are admitted by the output contract
+  and 4 are not** — three carry a `repr` too long for one line, and one is refused because the
+  project's own fixture value contains a word the contract bans in model prose. Both are design
+  questions the shadow exists to surface, and neither is patched under a rule that says post
+  nothing.
 - **The derived probe's route is measured and closed (D-212).** D-211 left one question open:
   were the calls D-206 looks for there and discarded, or never there? Free, offline, $0.00, on
   the same 39 held-out cases: a derived probe exists for **2 of 39** today and **5 of 39** with
