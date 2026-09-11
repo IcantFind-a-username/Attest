@@ -47,6 +47,11 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   benchmark schema field and a regression pin depend on it) and the S/T e-value (still the
   ordering key under the cap). Every deleted level was silent on real traffic; nothing an author
   saw changes.
+- **The frozen E-04 sample was re-run with both switches on and produced nothing (D-225).** 9 of
+  28 units ran for $2.77 before the $3.00 cap refused the rest by name; 0 of the 9 carried a
+  line. The same 9 cost $0.77 on 2026-09-13 — the whole-budget discovery of D-221, measured.
+  Two intent-unknown drawers on `Attest#18` rendered no value line and the ledgers that would
+  say why were lost to the artifact upload's hidden-path default, fixed in the same change.
 - **The README's recall line now carries both numbers**: 5 of 25 — 20.0% [8.9%, 39.1%]
   (2026-09-11) beside 2 of 31 — 6.5% [1.8%, 20.7%] (2026-09-10), with the sentence that the
   whole difference is measurement repair and not the reviewer.

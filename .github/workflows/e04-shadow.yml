@@ -123,5 +123,8 @@ jobs:
             benchmarks/studies/e04-prospective-v3/report.json
             shadow-run.log
             .attest/corpora/*/.attest/ledger.jsonl
+          # upload-artifact v4.4+ skips hidden paths unless told otherwise; run
+          # 34618040099 lost every ledger to this default (D-225)
+          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 30
