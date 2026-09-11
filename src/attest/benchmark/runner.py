@@ -90,7 +90,6 @@ PROBE_MARKER = "choosing ONE call"  # D-146: the probe generator's system prompt
 # is exactly what it is on a cassette that never recorded it -- rather than
 # raising, because an exception inside a provider call is an *ambiguous cost* to
 # the checkpoint machinery and would withhold the whole run's claims.
-NULLABILITY_MARKER = "used without being checked for None"
 
 #: Differential evidence class -> the benchmark's scoreable reproduction status.
 #: Only ``buggy_fail_fixed_pass`` may participate in matching; a new-code
@@ -181,7 +180,6 @@ class ReplayProvider:
         self._lock = Lock()
         self.proposal_calls = 0
         self.generator_calls = 0
-        self.nullability_calls = 0
 
     def sample(
         self,
@@ -201,9 +199,6 @@ class ReplayProvider:
                     raise ValueError("cassette records no probe; replay the legacy generator")
                 self.generator_calls += 1
                 text = self._cassette.probe
-            elif NULLABILITY_MARKER in system:
-                self.nullability_calls += 1
-                text = '{"hypotheses": []}'
             elif GENERATOR_MARKER in system:
                 self.generator_calls += 1
                 text = self._cassette.repro

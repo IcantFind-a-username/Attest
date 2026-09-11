@@ -19,13 +19,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from attest.github.presentation import (
     impact_comments,
     inline_comments,
-    nullability_comments,
-    propagation_comments,
     structural_comments,
 )
 from attest.review.finding_evidence import FindingEvidence, RunSummary
@@ -181,14 +177,6 @@ def test_a_green_comment_names_where_the_surviving_copy_goes() -> None:
     clause = action_clause(body) or ""
     assert "billing/invoices.py:2" in clause
     assert "reports/summary.py:11" in clause
-
-
-@pytest.mark.parametrize("builder", (nullability_comments, propagation_comments))
-def test_the_yellow_b_builders_publish_nothing_without_an_action_clause(builder) -> None:
-    """Both classes are off or in shadow, so this pins the seam rather than a
-    live surface: an empty input publishes nothing, and the builders are the
-    only path to a comment."""
-    assert builder([]) == []
 
 
 def test_no_live_comment_builder_can_publish_an_actionless_comment(

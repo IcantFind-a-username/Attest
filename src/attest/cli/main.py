@@ -19,8 +19,6 @@ from attest.github.context import load_pull_request_context
 from attest.review.candidates import CandidateStore
 from attest.review.ci import (
     impact_notes,
-    nullability_notes,
-    propagation_notes,
     run_ci,
     structural_notes,
 )
@@ -115,23 +113,9 @@ def cmd_review(args: argparse.Namespace) -> int:
     head_sha = _head_sha(repo)
     merge_base = resolve_merge_base(repo, args.base, head_sha) if head_sha and args.base else None
     impact: list[object] = []
-    nullability: list[object] = []
-    propagation: list[object] = []
     structural: list[object] = []
     if head_sha and merge_base:
         impact = list(impact_notes(repo=repo, base_sha=merge_base, head_sha=head_sha))
-        nullability = list(
-            nullability_notes(
-                repo=repo,
-                base_sha=merge_base,
-                head_sha=head_sha,
-                provider=provider,
-                budget=review.budget,
-            )
-        )
-        propagation = list(
-            propagation_notes(repo=repo, base_sha=merge_base, head_sha=head_sha)
-        )
         structural = list(
             structural_notes(
                 repo=repo,
@@ -153,19 +137,12 @@ def cmd_review(args: argparse.Namespace) -> int:
                 task_id=review.task_id,
                 repo=repo,
                 impact=impact,
-                nullability=nullability,
-                propagation=propagation,
                 structural=structural,
             )
     if getattr(args, "json", False):
         # D-163: the same run, projected for a machine. Nothing here is computed
         # that the text report does not already show.
-        from attest.github.presentation import (
-            impact_line,
-            nullability_line,
-            propagation_line,
-            structural_line,
-        )
+        from attest.github.presentation import impact_line, structural_line
 
         print(
             dumps(
@@ -184,9 +161,7 @@ def cmd_review(args: argparse.Namespace) -> int:
                     notes=review.notes,
                     lines={
                         "red": [_certified_line(finding) for finding in review.published],
-                        "yellow": [impact_line(note) for note in impact]  # type: ignore[arg-type]
-                        + [nullability_line(note) for note in nullability]  # type: ignore[arg-type]
-                        + [propagation_line(note) for note in propagation],  # type: ignore[arg-type]
+                        "yellow": [impact_line(note) for note in impact],  # type: ignore[arg-type]
                         "green": [
                             structural_line(note, bullet="")  # type: ignore[arg-type]
                             for note in structural
@@ -209,7 +184,6 @@ def cmd_review(args: argparse.Namespace) -> int:
             status=review.status,
             evidence=review.evidence,
             impact=impact,
-            nullability=[*nullability, *propagation],
             structural=structural,
             explain=bool(getattr(args, "explain", False)),
             reasons=review.verification_reasons,
@@ -225,8 +199,6 @@ def _record_notes(
     task_id: str,
     repo: Path,
     impact: list[Any],
-    nullability: list[Any],
-    propagation: list[Any],
     structural: list[Any],
 ) -> None:
     """Write the same rows `run_ci` writes for the three levels below red.
@@ -234,14 +206,8 @@ def _record_notes(
     The shapes are `run_ci`'s, field for field, because `attest stats` and every
     later reader must not be able to tell which entry point said a thing.
     """
-    from attest.github.presentation import (
-        impact_member_id,
-        nullability_member_id,
-        propagation_member_id,
-        structural_member_id,
-    )
+    from attest.github.presentation import impact_member_id, structural_member_id
     from attest.review.impact import IMPACT_POLICY_VERSION
-    from attest.review.nullability import NULLABILITY_POLICY_VERSION
     from attest.review.structural import (
         STRUCTURAL_NOTE_SCHEMA_VERSION,
         structural_fingerprint,
@@ -272,30 +238,6 @@ def _record_notes(
                 "reason": scoped.reason,
                 "callers": len(scoped.callers),
                 "untested_callers": len(scoped.untested),
-            }
-        )
-    for null in nullability:
-        ledger.append(
-            {
-                "kind": "nullability_note",
-                "schema_version": "attest.nullability-note.v1",
-                "task_id": task_id,
-                "policy_version": NULLABILITY_POLICY_VERSION,
-                "note_id": nullability_member_id(null),
-            }
-        )
-    for escaping in propagation:
-        ledger.append(
-            {
-                "kind": "propagation_note",
-                "schema_version": "attest.propagation-note.v1",
-                "task_id": task_id,
-                "policy_version": escaping.policy_version,
-                "note_id": propagation_member_id(escaping),
-                "callee": escaping.callee,
-                "exception": escaping.exception,
-                "evidence": escaping.evidence,
-                "caller": f"{escaping.caller_path}:{escaping.caller_line}",
             }
         )
 
