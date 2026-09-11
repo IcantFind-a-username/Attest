@@ -256,6 +256,11 @@ Violating one is rework, not a small regression.
   selecting a PR-level statistical policy, pricing a new evidence class, promoting a learned
   scheduler, selecting a production isolation backend when not already decided, or enabling
   public release.
+- A measurement workflow may be dispatched paid only after one dispatch of the **same**
+  workflow has proven that its artifact carries every class of path the report will read
+  (trials, lines, ledgers, log). A stage that reports zero of anything first asserts its
+  input is non-empty and fails the job when it is not: run 34618040099 reported "0 lines"
+  over ledgers that never left the runner (D-225).
 
 ## 10. Work-order selection
 
