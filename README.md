@@ -24,8 +24,8 @@ other's words, and never speak for each other:
 | | one sentence | costs a model call? | status |
 |---|---|---|---|
 | **red** | *this change broke something* — a generated test that fails on head and passes on the merge base, three runs each way, with an offline-verifiable receipt | yes | **live** |
-| **gate** | *this new code crashes on an input a pre-existing caller produces* — new code has no merge base, so it is admitted only through a caller outside the added lines | yes | **shadow** — nothing on this path is author-visible, and on **0 of 445** recorded candidates has it found a publishing-grade witness |
-| **yellow** | *here is a hypothesis, and here are the premises I checked* — a checker verifies each premise separately and only the verified ones are said | no | **(a) the impact scope is live**, ≤ 2 per pull request. **Its other two classes are not**: the null/Optional class is **closed** (0 of 79 under two rule versions) and exception propagation is a **shadow** that reaches no author-visible surface |
+| **gate** | *this new code crashes on an input a pre-existing caller produces* — new code has no merge base, so it is admitted only through a caller outside the added lines | yes | **yellow, behind `gate_notes_visible`** (D-223): off everywhere by default, **enabled in the owner's own repositories**; through-caller witnesses only, at most one line per pull request, none when red published. On **0 of 445** recorded candidates before this window had it found a publishing-grade witness, so its noise floor on real traffic is not yet measured — see the report of the run that first switched it on |
+| **yellow** | *here is a hypothesis, and here are the premises I checked* — a checker verifies each premise separately and only the verified ones are said | (a) no; value: the run already paid for it | **(a) the impact scope is live**, ≤ 2 per pull request. **Two new classes, behind base-owned switches and enabled in the owner's own repositories only** (D-222, D-223): the **value class** — *the merge base returned A and head returns B for this call, three runs each side, and nothing in the base tree pins either* — and the **gate** line above. Noise floor for the value class: **4 notes over 780 control verification rows**, 3 over 11 forward pairs, 3 over 28 real pull requests ([report](docs/acceptance/2026-09-11-value-note-shadow.md)); its rendering rules and the 16-of-16 replay are in D-222. The null/Optional and exception-propagation classes were **deleted** on 2026-09-11 (D-224) |
 | **green** | *this is structurally so* — computed with no model at all; today, the same implementation in two places | only to word it | **live** |
 
 ```text
@@ -111,29 +111,30 @@ the column on the right is the reason.
 
 | measurement | number | what it is **not** |
 |---|---|---|
-| **crash-class recall**, held-out corpus of 31 SWE-bench Verified cases whose projects declare a supported interpreter, measured 2026-09-10 | **2 of 31 — 6.5%**, Wilson 95% **[1.8%, 20.7%]** ([report](docs/acceptance/2026-09-10-heldout-remeasurement.md)) | not a precision figure, and not a sample-size problem: the interval's **upper** bound is 20.7%. The denominator is the crash class of a 39-instance population, all of it bought; the 2026-09-12 figure of 2 of 28 was the same population with four cases left unbought by a cap |
+| **crash-class recall**, held-out SWE-bench Verified corpus whose projects declare a supported interpreter | **5 of 25 — 20.0%, Wilson 95% [8.9%, 39.1%]** (2026-09-11, [report](docs/acceptance/2026-09-11-heldout-after-search.md)). The previous measurement of the same population was **2 of 31 — 6.5% [1.8%, 20.7%]** (2026-09-10, [report](docs/acceptance/2026-09-10-heldout-remeasurement.md)); the entire difference is measurement repair (era-pinned dependencies, font cache, contained import-time process attempts), not a change in the reviewer; the denominator moved from 31 to 25 because 4 cases went unbought and 2 moved to the value class | not a precision figure. One of the five receipts depends on `contained_attempt_voids=false`, which is not the shipped default; under the default the figure is 4 of 25. On the cases-run denominator, where nothing was dropped, the movement is 2 of 39 → 5 of 35 |
 | **false publications**, prospective shadow over 28 real pull requests with 13 reproductions that actually executed | **0** ([report](docs/acceptance/2026-09-13-e04-shadow-v3.md)) | not a precision figure either — **nothing certified**, so precision is undefined and utility is unproven |
 | **false publications**, 68 independent null controls + 40 held-out controls, K=4 | **0** ([report](docs/acceptance/2026-09-05-g-null-001a-independent.md), [held-out](docs/acceptance/2026-09-03-e02-heldout.md)) | the last measured control arm is at **K=4**; the shipped `samples` is 5 and that arm has never been bought |
 | **yellow (a) noise floor**, 68 null controls, deterministic | **1 of 68 — 1.47%**, Wilson 95% **[0.26%, 7.87%]** ([report](docs/acceptance/2026-09-13-yellow.md)) | the one note is **true**; the level claims no defect and has never been shown to find one |
-| **yellow (b), exception propagation**, 68 null controls | **0 of 68 — 0.00%**, Wilson 95% **[0.00%, 5.35%]** | it is a **shadow**: it reaches no author-visible surface at all |
 | **red-team attack classes** dispatched on the production backend, all marked and never certified | **13 of 13** ([matrix](docs/acceptance/2026-09-13-redteam-thirteen.md)) | observed from **inside** the product for 11 of the 13; an external kernel observer has watched seven syscalls, once |
 | **cost of a review** | mean **$0.22**, hard cap `budget-usd` (default $1.00) | — |
 
 ## Known limitations, in the order they will bite you
 
-1. **Recall is 6.5%** — Wilson 95% [1.8%, 20.7%], 2 of 31, measured 2026-09-10 on the held-out
-   crash-class corpus. Three places the evidence is lost, measured over 67 verification attempts:
-   **21** the generated probe does not collect at all; **18** the process guard refuses the probe
-   **on the merge base**, where nothing untrusted runs; **14** the whole intent clause. Two
-   mechanical categories hold 39 of 67. Deriving probes from the repository's own tests was tried
-   against exactly this corpus and **changed no receipt**
-   ([report](docs/acceptance/2026-09-10-heldout-remeasurement.md)).
+1. **Recall is 20.0%** — Wilson 95% [8.9%, 39.1%], 5 of 25, measured 2026-09-11 on the held-out
+   crash-class corpus, up from 6.5% on 2026-09-10 **entirely through measurement repair**, not a
+   better reviewer: 11 of the 18 cases whose probe never executed on the merge base now execute
+   one, and all three new receipts are among them. Where the evidence is lost now: **19** cases
+   end at the intent clause, 6 of them on a reversed-corpus artifact of clause (c); the probe
+   search bought 12 extra probes and added no certified case
+   ([report](docs/acceptance/2026-09-11-heldout-after-search.md)).
 2. **Python only.** Python, pytest, Linux containers, interpreters **3.10–3.13**. Anything else
    gets one line naming the reason and exit 0 — never a traceback, never a silence that reads
    as *nothing found*.
-3. **The gate level is in shadow.** New-code findings are computed and written to the ledger and
-   reach **no author-visible surface**; on 0 of 445 recorded candidates has it found a
-   publishing-grade witness.
+3. **The gate level and the value class speak only where a repository's own policy opens them**,
+   and that is the owner's repositories today (D-222, D-223). Everywhere else both are ledger
+   rows. Their noise floors on real traffic are measured by the run that first switched them on
+   ([report](docs/acceptance/2026-09-12-e04-with-notes.md)) and adjudicated line by line by the
+   owner; neither has a precision figure.
 4. **Two things are known untested, for budget and not because they do not matter**
    ([decision](DECISIONS.md)): the red control arm at the shipped **K=5** (126 controls, ≈$126),
    and `G-NULL-001`'s full natural-null population (≈$53). Every control number above is a K=4

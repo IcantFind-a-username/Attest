@@ -1,9 +1,12 @@
 # The gate level: the evidence form for new code
 
-**Implemented in shadow since D-137 (2026-09-05c); this document remains the shape, not the
+**Implemented in shadow since D-137 (2026-09-05c); author-visible at yellow, through-caller
+witnesses only, behind `ReviewConfig.gate_notes_visible` since D-223 (2026-09-11) — on in the
+owner's own repositories, off everywhere else. This document remains the shape, not the
 status.** `src/attest/review/gate_level.py` implements what is below behind
-`ReviewConfig.gate_shadow`, which is **off** in the product; on, it writes ledger rows and
-`.attest/shadow/gate/` records and reaches no author-visible surface. What shipped, what it
+`ReviewConfig.gate_shadow` (ledger rows and `.attest/shadow/gate/` records, no author-visible
+surface); `review/gate_note.py` renders the one yellow line §5 describes from the ledger row
+where the switch is set. What shipped, what it
 measured and what is still unmeasured are in
 [the report](../acceptance/2026-09-05-gate-shadow.md). This document
 answers the five questions mainline §1.1's gate row leaves open — what "reachable" means, how

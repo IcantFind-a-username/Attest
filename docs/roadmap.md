@@ -489,6 +489,12 @@ replayable evidence on the current code.
 - [ ] **E-02 — hidden semantic corpus.** Execute blind semantic truth, control, precision,
   and eligible-detection protocols in `G-MEASURE-004`, `G-CORPUS-001`, and
   `G-RECALL-002`.
+  - **The drawer window, 2026-09-11 (D-219–D-225).** The value class (D-218) and the gate level
+    (D-137) become author-visible yellow lines behind base-owned switches, on in the owner's own
+    repositories and off everywhere else; the discovery share no longer truncates a change unit;
+    three environment repairs; yellow (b) and the derived-probe path deleted. `G-RECALL-002`'s bar
+    and population do not move; the 2026-09-11 figure (5 of 25) stands beside the 2026-09-10 one
+    (2 of 31) in the README, with the sentence that the difference is measurement repair.
   - **`G-RECALL-002` HAS A NUMBER AGAIN, AND IT FAILS, 2026-09-12 (D-195, D-198).** D-186 had cut
     the crash-class denominator to 7; the held-out slice is rebuilt from the **same split** with
     instances whose own manifests select an interpreter inside 3.10–3.13, evaluability decided by
