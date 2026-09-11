@@ -145,11 +145,19 @@ discipline and the paid measurement competing for the same headroom — is owner
 | [#38](https://github.com/IcantFind-a-username/Attest/pull/38), push 4 | `34530083023` | $0.098533 |
 | **subtotal** | | **$2.124361** |
 
+| [#39](https://github.com/IcantFind-a-username/Attest/pull/39), the record, both pushes | `34548305337`, `34548420332` | **$0.000000** |
+
+**The window's own record cost nothing, and the reason is D-187's clause.** Both reviews of
+[#39](https://github.com/IcantFind-a-username/Attest/pull/39) deferred before a single call was
+made: `budget: call 'sample-3' estimated $0.0877; projected total $0.3507 exceeds the discovery
+share $0.3000 of budget $1.00 -- $0.0507 short; \`budget-usd\` $1.17 would have bought it`. The
+reservations were cancelled and `review_run` records `spend_usd 0.0`. **A pull request of this
+size is outside what the product reviews at the shipped budget**, which is a fact about the
+product and not a saving to be pleased about; there is no lag carried into the next window.
+
 **Window total for 2026-09-11: $7.153254** — $5.028893 (the held-out re-run) and $2.124361
 (nine self-review runs). Every other item of this window — the value-note census, the baseline
-re-analysis, the era-pin verification and every document — cost **$0.00**. The pull request
-that records this window is not in the figure above and is carried into the next one, the way
-the 2026-09-12 window carried its own lag.
+re-analysis, the era-pin verification and every document — cost **$0.00**.
 
 **Total API spend: $108.691267 of $110.00.**
 

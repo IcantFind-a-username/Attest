@@ -58,6 +58,22 @@ hook D-002 describes is not installed in this checkout** — `.git/hooks` holds 
 nothing caught it. History is not rewritten (§7); the trailer is dropped from every commit from
 `aa5b3ec` onwards. Installing the hook is a one-line chore nobody has done.
 
+## One more thing the window measured without meaning to
+
+**The pull request that records this window is outside what the product reviews at the shipped
+budget.** Both of [#39](https://github.com/IcantFind-a-username/Attest/pull/39)'s self-reviews
+deferred before a single model call, on D-187's clause:
+
+```text
+budget: call 'sample-3' estimated $0.0877; projected total $0.3507 exceeds the
+discovery share $0.3000 of budget $1.00 -- $0.0507 short; `budget-usd` $1.17
+would have bought it
+```
+
+It cost **$0.00**, and that is not a saving. It is the product declining to read a diff of
+eight files because the discovery share of a $1.00 budget does not cover three proposal
+samples over it.
+
 ## What the owner has to decide
 
 1. **`contained_attempt_voids`: flip the default to `False`?** One of the five certified cases
