@@ -32,6 +32,21 @@ on:
         description: Stop after this many units (0 = every unit not yet recorded).
         type: string
         default: "0"
+      trials_file:
+        description: >-
+          Trials file under the study directory. Leave empty to continue
+          trials.jsonl; name a new one (e.g. trials-runner-notes.jsonl) to re-run
+          the same frozen sample without touching the earlier run's data.
+        type: string
+        default: ""
+      value_notes_visible:
+        description: Render the value-class yellow line (owner instruction 7 of 2026-09-11).
+        type: boolean
+        default: false
+      gate_notes_visible:
+        description: Render the gate yellow line (owner instruction 7 of 2026-09-11).
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -87,6 +102,9 @@ jobs:
             --allow-paid-api \
             --reserve "${{ inputs.cap_usd }}" \
             --limit "${{ inputs.limit }}" \
+            --trials-file "${{ inputs.trials_file }}" \
+            ${{ inputs.value_notes_visible && '--value-notes-visible' || '' }} \
+            ${{ inputs.gate_notes_visible && '--gate-notes-visible' || '' }} \
             2>&1 | tee shadow-run.log
 
       - name: Report
@@ -100,8 +118,10 @@ jobs:
         with:
           name: e04-shadow-v3
           path: |
-            benchmarks/studies/e04-prospective-v3/trials.jsonl
+            benchmarks/studies/e04-prospective-v3/trials*.jsonl
+            benchmarks/studies/e04-prospective-v3/lines-*.jsonl
             benchmarks/studies/e04-prospective-v3/report.json
             shadow-run.log
+            .attest/corpora/*/.attest/ledger.jsonl
           if-no-files-found: warn
           retention-days: 30
