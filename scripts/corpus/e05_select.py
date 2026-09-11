@@ -100,15 +100,15 @@ def pull_files(repository: str, number: int) -> list[dict[str, object]]:
 
 
 def select(
-    repository: str, clone: Path, *, fetch: bool = True
+    repository: str, clone: Path, *, fetch: bool = True, per_repository: int = PER_REPOSITORY
 ) -> tuple[list[prospective.TrafficUnit], list[dict[str, object]]]:
-    """The repository's three qualifying units, and the walk that found them."""
+    """The repository's qualifying units, and the walk that found them."""
     if fetch:
         subprocess.run(["git", "-C", str(clone), "fetch", "-q", "origin"], check=False)
     kept: list[prospective.TrafficUnit] = []
     walk: list[dict[str, object]] = []
     for pull in merged_pulls(repository):
-        if len(kept) >= PER_REPOSITORY:
+        if len(kept) >= per_repository:
             break
         number = int(pull["number"])  # type: ignore[call-overload]
         title = str(pull.get("title", ""))
@@ -191,12 +191,16 @@ def main(argv: list[str] | None = None) -> int:
     raw = json.loads((study / "preregistration.json").read_text(encoding="utf-8"))
     per_repo: dict[str, list[prospective.TrafficUnit]] = {}
     walks: dict[str, list[dict[str, object]]] = {}
+    # e05-external-v2 takes four per repository; the preregistration says so
+    per_repository = int(raw.get("per_repository", PER_REPOSITORY))
     for repository in raw["population"]:
         clone = Path(args.clones) / _clone_name(repository)
         if not (clone / ".git").is_dir():
             print(f"skip {repository}: no clone at {clone}", file=sys.stderr)
             continue
-        kept, walk = select(repository, clone, fetch=not args.no_fetch)
+        kept, walk = select(
+            repository, clone, fetch=not args.no_fetch, per_repository=per_repository
+        )
         per_repo[repository] = kept
         walks[repository] = walk
         print(f"{repository}: {len(kept)} kept of {len(walk)} walked", file=sys.stderr)
@@ -213,7 +217,7 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "recorded_at": recorded_at,
                 "rule": raw.get("unit"),
-                "per_repository": PER_REPOSITORY,
+                "per_repository": per_repository,
                 "max_changed_lines": MAX_CHANGED_LINES,
                 "walk": walks,
             },
