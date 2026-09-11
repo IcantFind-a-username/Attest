@@ -27,6 +27,7 @@ from attest.certification.intent import (
     intent_verdict,
 )
 from attest.certification.types import (
+    RECEIPT_BODY_V1,
     AcceptedReceipt,
     CertificationPolicy,
     CertificationReceipt,
@@ -123,11 +124,29 @@ def execution_run_from_record(record: dict[str, object]) -> ExecutionRun:
 
 
 def receipt_body(receipt: CertificationReceipt) -> dict[str, object]:
+    """The field set the provenance digest is computed over, under the body
+    version the receipt records (owner authorisation 2 of 2026-09-12).
+
+    v1 is exactly the set every bundle sealed before 2026-09-12 was digested
+    over -- neither `body_version` nor `contained_attempts` exists in it, so a
+    v1 receipt keeps the digest it was sealed with (INV-VERSION-001). v2 is
+    every field but the digest itself. An unknown version is digested as v2
+    and refused by the validator, which fails closed either way."""
     body = asdict(receipt)
     body["head_runs"] = [asdict(run) for run in receipt.head_runs]
     body["base_runs"] = [asdict(run) for run in receipt.base_runs]
     del body["provenance_digest"]
+    if receipt.body_version == RECEIPT_BODY_V1:
+        del body["body_version"]
+        del body["contained_attempts"]
     return body
+
+
+def serialised_receipt(receipt: CertificationReceipt) -> dict[str, object]:
+    """What `receipt.json` holds: the body under its version, plus the digest.
+    A v1 receipt is therefore written byte-for-byte as the pre-2026-09-12
+    writer wrote it, and a v2 receipt carries the two fields its digest covers."""
+    return {**receipt_body(receipt), "provenance_digest": receipt.provenance_digest}
 
 
 def provenance_digest(receipt: CertificationReceipt) -> str:
@@ -168,7 +187,7 @@ def write_bundle(
     put("task.json", canonical_bytes(asdict(task)))
     put("policy.json", canonical_bytes(asdict(policy)))
     put("subject.json", canonical_bytes(asdict(subject)))
-    put("receipt.json", canonical_bytes(asdict(receipt)))
+    put("receipt.json", canonical_bytes(serialised_receipt(receipt)))
     put("test_repro.py", test_bytes)
     if binding is not None:
         put("binding.json", canonical_bytes(asdict(binding)))
@@ -300,6 +319,15 @@ def verify_bundle(
         subject = CertificationSubject(**subject_raw)
         receipt_raw["head_runs"] = tuple(ExecutionRun(**run) for run in receipt_raw["head_runs"])
         receipt_raw["base_runs"] = tuple(ExecutionRun(**run) for run in receipt_raw["base_runs"])
+        # The receipt is rebuilt under the body version the file records. A
+        # file with no `body_version` was written before the field existed
+        # and is a v1 body: its digest covers neither new field, and reading
+        # it back with the current default would move every digest that
+        # predates 2026-09-12 (the D-124 failure, INV-VERSION-001).
+        receipt_raw.setdefault("body_version", RECEIPT_BODY_V1)
+        receipt_raw["contained_attempts"] = tuple(
+            str(attempt) for attempt in receipt_raw.get("contained_attempts", ())
+        )
         receipt = CertificationReceipt(**receipt_raw)
     except (TypeError, ValueError, KeyError) as exc:
         return BundleRejection((*reasons, f"malformed bundle value: {type(exc).__name__}"))

@@ -265,3 +265,66 @@ def test_two_sentence_claim_longer_than_an_identifier_still_certifies(
     )
     assert isinstance(rejected, ReceiptRejection)
     assert RejectionCode.SUBJECT_INVALID in rejected.codes
+
+
+# --- owner authorisation 2 of 2026-09-12: the receipt body is versioned -------
+
+
+def test_an_unknown_body_version_rejects(
+    task: CertificationTask,
+    policy: CertificationPolicy,
+    subject: CertificationSubject,
+    receipt: CertificationReceipt,
+) -> None:
+    """The body version names the field set the provenance digest covers; one
+    the validator does not know cannot be recomputed and fails closed."""
+    result = validate_receipt(task, policy, subject, replace(receipt, body_version="future"))
+
+    assert not isinstance(result, AcceptedReceipt)
+    assert RejectionCode.UNKNOWN_BODY_VERSION in result.codes
+
+
+@pytest.mark.parametrize(
+    ("body_version", "attempts"),
+    [
+        # a v1 body cannot carry an attempt: its digest would not cover it
+        ("attest.receipt-body.v1", ("subprocess.Popen: git rev-parse",)),
+        # not a tuple, and an empty attempt, are malformed under any version
+        ("attest.receipt-body.v2", ["subprocess.Popen: git rev-parse"]),
+        ("attest.receipt-body.v2", ("",)),
+    ],
+)
+def test_contained_attempts_a_body_cannot_carry_reject(
+    task: CertificationTask,
+    policy: CertificationPolicy,
+    subject: CertificationSubject,
+    receipt: CertificationReceipt,
+    body_version: str,
+    attempts: object,
+) -> None:
+    result = validate_receipt(
+        task,
+        policy,
+        subject,
+        replace(receipt, body_version=body_version, contained_attempts=attempts),  # type: ignore[arg-type]
+    )
+
+    assert not isinstance(result, AcceptedReceipt)
+    assert RejectionCode.CONTAINED_ATTEMPTS_INVALID in result.codes
+
+
+def test_a_v2_receipt_may_disclose_a_contained_attempt_and_a_v1_receipt_still_validates(
+    task: CertificationTask,
+    policy: CertificationPolicy,
+    subject: CertificationSubject,
+    receipt: CertificationReceipt,
+) -> None:
+    disclosed = replace(
+        receipt,
+        body_version="attest.receipt-body.v2",
+        contained_attempts=("subprocess.Popen: git rev-parse",),
+    )
+    assert isinstance(validate_receipt(task, policy, subject, disclosed), AcceptedReceipt)
+
+    legacy = replace(receipt, body_version="attest.receipt-body.v1", contained_attempts=())
+    assert isinstance(validate_receipt(task, policy, subject, legacy), AcceptedReceipt)

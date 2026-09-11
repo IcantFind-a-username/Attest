@@ -11,6 +11,8 @@ from .types import (
     _ACCEPTED_RECEIPT_TOKEN,
     CERTIFICATION_RECEIPT_SCHEMA_VERSION,
     CERTIFICATION_TASK_SCHEMA_VERSION,
+    KNOWN_RECEIPT_BODY_VERSIONS,
+    RECEIPT_BODY_V1,
     AcceptedReceipt,
     CertificationPolicy,
     CertificationReceipt,
@@ -60,6 +62,8 @@ class RejectionCode(StrEnum):
     BINDING_DIGEST_INVALID = "binding_digest_invalid"
     INTENT_POLICY_MISMATCH = "intent_policy_mismatch"
     INTENT_DIGEST_INVALID = "intent_digest_invalid"
+    UNKNOWN_BODY_VERSION = "unknown_body_version"
+    CONTAINED_ATTEMPTS_INVALID = "contained_attempts_invalid"
 
 
 @dataclass(frozen=True)
@@ -278,6 +282,20 @@ def validate_receipt(
     reject_if(
         bool(policy.intent_policy_version) and not _is_digest(receipt.intent_digest),
         RejectionCode.INTENT_DIGEST_INVALID,
+    )
+    # Owner authorisation 2 of 2026-09-12: the body version names the field set
+    # the provenance digest covers, so an unknown one cannot be recomputed and
+    # fails closed. Under v1 the digest cannot cover `contained_attempts`, so a
+    # v1 receipt carrying any is malformed rather than silently unbound.
+    reject_if(
+        receipt.body_version not in KNOWN_RECEIPT_BODY_VERSIONS,
+        RejectionCode.UNKNOWN_BODY_VERSION,
+    )
+    reject_if(
+        type(receipt.contained_attempts) is not tuple
+        or any(type(attempt) is not str or not attempt for attempt in receipt.contained_attempts)
+        or (receipt.body_version == RECEIPT_BODY_V1 and receipt.contained_attempts != ()),
+        RejectionCode.CONTAINED_ATTEMPTS_INVALID,
     )
     if codes:
         return ReceiptRejection(tuple(codes))
