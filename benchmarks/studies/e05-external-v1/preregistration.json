@@ -43,5 +43,6 @@
   "exclusions": "none after recording",
   "silence_reporting": "every silent unit records units_read and units_total; a silence over a partly-read pull request covers only what was read",
   "code": "the night/e05-and-record branch of 2026-09-12, which carries the discovery share restored at 0.3 (PR 1), the contained-attempt symmetry constraint and the versioned receipt body (PR 2)",
-  "freeze_at_note": "the host clock, UTC, written by the freeze step immediately before selection"
+  "freeze_at_note": "the host clock, UTC, written by the freeze step immediately before selection",
+  "authorization_erratum": "2026-09-11T21:20Z, before any unit ran and with $0.00 spent: authorization.json's granted_at had been written as the owner's calendar date 2026-09-12T00:00Z, which is after the host-clock freeze at 2026-09-11T20:47:34Z, and the smoke dispatch (run 34648625646) was refused at preflight -- 'authorization was granted after the freeze' -- before any client was constructed. granted_at is corrected to the UTC instant the work order was received and the protocol digest re-frozen; the sample (recorded 20:52Z, after the unchanged freeze_at) is untouched, no unit was added, removed or re-ordered, and no outcome existed to influence the correction."
 }
