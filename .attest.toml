@@ -6,3 +6,7 @@
 # keeps the shipped default.
 value_notes_visible = true
 gate_notes_visible = true
+# Owner authorisation 3 of 2026-09-13 (D-227's switch, opened here): the value
+# line asks the author for an `intended` / `unintended` reply and the next
+# review records it as ledger evidence. Shadow: nothing reads the rows back.
+intent_replies = true
