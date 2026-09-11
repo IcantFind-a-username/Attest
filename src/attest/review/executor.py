@@ -2738,6 +2738,20 @@ def execute_differential(
             return deferred(
                 "unfaithful generated test: fails on base as well", EvidenceClass.UNFAITHFUL
             )
+        # Owner authorisation 2 of 2026-09-12: the symmetry constraint. Under
+        # `contained_attempt_voids=False` a creation the kernel refused is
+        # disclosed rather than fatal (D-217), and that opens one false-positive
+        # path: a change that *adds* a subprocess call raises where the kernel
+        # refuses it, head fails 3/3 for that reason alone, base never reaches
+        # for a process and passes 3/3 -- a real differential about the sandbox
+        # and not about the code. The kernel refusing the same call on both
+        # revisions (the sphinx shape) says nothing about the diff; refusing it
+        # on one side only says everything. So the set of contained attempts
+        # must be identical across every head run and every base run, or the
+        # run is void with the asymmetry named.
+        asymmetry = _contained_asymmetry(head_runs, base_runs)
+        if asymmetry is not None:
+            return deferred(asymmetry)
         # Every base run passed. That alone is NOT enough to certify: the same
         # head-side condition the new-code class already demands must hold here
         # too, and for the same reason. Read the four quadrants together --
@@ -2830,6 +2844,37 @@ def execute_differential(
         shutil.rmtree(trees_dir, ignore_errors=True)
         with suppress(OSError, subprocess.SubprocessError):
             _git(repo_root, "worktree", "prune")
+
+
+CONTAINED_ASYMMETRY_REASON = "contained attempt asymmetric across revisions"
+
+
+def _contained_asymmetry(
+    head_runs: list[ExecutionResult], base_runs: list[ExecutionResult]
+) -> str | None:
+    """None when every head run and every base run recorded the same set of
+    contained attempts (the empty set included); otherwise one bounded
+    sentence naming what each side reached for and in how many of its runs.
+
+    The rule is over **sets per run**, not a union per side: three head runs
+    that disagree among themselves are as unreadable as a head and a base that
+    disagree, and either way the differential is not about the diff.
+    """
+    per_run = [frozenset(run.contained_attempts) for run in (*head_runs, *base_runs)]
+    if not per_run or all(attempts == per_run[0] for attempts in per_run):
+        return None
+
+    def side(runs: list[ExecutionResult]) -> str:
+        reached = sorted({attempt for run in runs for attempt in run.contained_attempts})
+        if not reached:
+            return f"none in {len(runs)}/{len(runs)} runs"
+        return "; ".join(
+            f"{attempt} in "
+            f"{sum(1 for run in runs if attempt in run.contained_attempts)}/{len(runs)} runs"
+            for attempt in reached
+        )
+
+    return f"{CONTAINED_ASYMMETRY_REASON}: head {side(head_runs)}; base {side(base_runs)}"
 
 
 def _reach_on_head(

@@ -3573,6 +3573,101 @@ def test_the_relaxation_never_reaches_an_escape_class(tmp_path: Path) -> None:
     assert escape.contained_attempts == ()
 
 
+# Owner authorisation 2 of 2026-09-12: the false-positive path D-217 left open.
+# Head *adds* a subprocess call inside the function under test; base has none.
+# Under `contained_attempt_voids=False` the kernel refuses head's fork, `add`
+# raises where it was refused, head fails 3/3 and base passes 3/3 -- a real
+# differential about the sandbox and not about the code.
+SPAWNING_HEAD_MODULE = (
+    "import subprocess\n"
+    "\n"
+    "\n"
+    "def add(a, b):\n"
+    "    subprocess.run(['git', 'rev-parse'], capture_output=True)\n"
+    "    return a + b\n"
+)
+# The D-217 shape with a real regression under it: both revisions reach for a
+# process at import inside try/except, and head's `add` also crashes (a crash,
+# not a changed value: the intent rule refuses an unspecified value change).
+CRASHING_MODULE = "def add(a, b):\n    parts = [a]\n    return parts[1] + b\n"
+SPAWNING_IMPORT = (
+    "import subprocess\n"
+    "import sys\n"
+    "try:\n"
+    "    subprocess.run([sys.executable, '-c', 'pass'], capture_output=True)\n"
+    "except Exception:  # noqa: BLE001 - the package under review does exactly this\n"
+    "    pass\n"
+    "\n"
+    "\n"
+)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="kernel process containment is POSIX-only")
+def test_a_change_that_adds_a_subprocess_call_does_not_certify_when_contained(
+    tmp_path: Path,
+) -> None:
+    """RED for owner authorisation 2 of 2026-09-12: a pull request whose head
+    newly reaches for a child process must not certify because the sandbox
+    refused it. The contained set differs between the revisions -- head 3/3
+    runs, base none -- so the run is void and says so."""
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": GOOD_MODULE}, {"mod.py": SPAWNING_HEAD_MODULE}
+    )
+    stored = candidate(file="mod.py", line=5)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(DIFFERENTIAL_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+        contained_attempt_voids=False,
+    )
+
+    assert result.outcome is ExecutionOutcome.DEFERRED, result.reason
+    assert "contained attempt asymmetric across revisions" in result.reason
+    assert "head" in result.reason and "base none in 3/3 runs" in result.reason
+    # the head runs did fail and did record what they reached for: the void is
+    # the asymmetry, not a missing observation
+    assert len(result.head_runs) == 3
+    assert all(run.contained_attempts for run in result.head_runs)
+    assert all(not run.contained_attempts for run in result.base_runs)
+    assert_worktrees_cleaned(repo, stored)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="kernel process containment is POSIX-only")
+def test_a_symmetric_contained_attempt_still_lets_a_real_regression_certify(
+    tmp_path: Path,
+) -> None:
+    """The other half of the constraint, and the whole of what D-217 was for:
+    the same refused creation on both revisions says nothing about the diff,
+    so a real regression underneath it certifies with the attempt disclosed."""
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path,
+        {"mod.py": SPAWNING_IMPORT + GOOD_MODULE},
+        {"mod.py": SPAWNING_IMPORT + CRASHING_MODULE},
+    )
+    stored = candidate(file="mod.py", line=10)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(DIFFERENTIAL_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+        contained_attempt_voids=False,
+    )
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+    assert result.reason == "head FAIL 3/3, base PASS 3/3"
+    assert result.contained_attempts and "subprocess" in result.contained_attempts[0].lower()
+    assert {frozenset(run.contained_attempts) for run in (*result.head_runs, *result.base_runs)} \
+        == {frozenset(result.contained_attempts)}
+    assert_worktrees_cleaned(repo, stored)
+
+
 def test_a_refused_probe_s_reason_is_fed_to_the_next_attempt(tmp_path: Path) -> None:
     """`seaborn-3069`, 2026-09-11: three probe attempts, the same refusal three
     times, because a `ProbeRefused` went to `continue` and the next sample was
