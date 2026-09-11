@@ -1,4 +1,5 @@
-"""The value-class observation, as one yellow line — shadow only (D-218).
+"""The value-class observation, as one yellow line (D-218; author-visible
+behind `value_notes_visible` since owner instruction 4 of 2026-09-11).
 
 D-127 and its successors decided that a differential about a **changed value**
 may not publish as a defect unless the base tree specified the value it moved.
@@ -17,17 +18,22 @@ red is *this is a defect and here is the receipt*, yellow is *here is a fact you
 should look at*, and the fact here is not an inference. Every number in the line
 was measured by this process minutes earlier.
 
-**This module reaches no author.** `ci.py` does not import it; nothing posts it.
-It writes a ledger row and renders a line, and whether that line becomes
-author-visible is the owner's decision, taken on the census this shadow run
-produces (`docs/acceptance/2026-09-11-value-note-shadow.md`) rather than on an
-argument.
+**Where it reaches an author, and where it does not.** The note is always
+written to the ledger. It is rendered to a pull request only when the
+base-owned policy sets ``value_notes_visible`` (off by default), and then under
+four rules the 2026-09-11 census and the paid run of the same day asked for:
+one note per ``(path, expression)``; a value over ``VALUE_VERBATIM_CHARS`` is
+written as ``<type len=N sha256 hhhhhhhh>`` rather than cut; a banned phrase
+inside a measured literal does not refuse the line; and a note anchored inside
+``tests/`` is not shown.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 
 from attest.certification.intent import (
@@ -35,9 +41,18 @@ from attest.certification.intent import (
     VALUE_CHANGE_LABEL,
     IntentObservation,
 )
-from attest.review.output_contract import claim_line
+from attest.review.output_contract import MAX_LINE_CHARS, ContractVerdict, check, claim_line
 
-VALUE_NOTE_POLICY_VERSION = "attest.value-note.v1"
+VALUE_NOTE_POLICY_VERSION = "attest.value-note.v2"
+
+# A measured value is quoted whole up to this many characters (owner
+# instruction 4 of 2026-09-11); over it, or when the line would still not fit
+# the contract, it is written as a digest of the recorded `repr`.
+VALUE_VERBATIM_CHARS = 200
+# The probe's expression is quoted whole up to this many characters
+EXPRESSION_VERBATIM_CHARS = 120
+# the same rule the gate level applies to a path (D-166)
+TEST_PATH = re.compile(r"(^|/)(tests?/|test_[^/]*\.py$|[^/]*_test\.py$)")
 
 # The two drawers this note is written from. Both mean *the differential is
 # real and the intent is unreadable*; the third drawer, "intent stated in the
@@ -88,17 +103,27 @@ class ValueNote:
             json.dumps(body, sort_keys=True, default=list).encode("utf-8")
         ).hexdigest()[:12]
 
-    def sentence(self) -> str:
-        """The fact clause: what each revision produced, and how many times."""
+    def sentence(self, *, digested: Sequence[str] = ()) -> str:
+        """The fact clause: what each revision produced, and how many times.
+
+        ``digested`` names the parts written as a digest rather than whole:
+        ``"expression"``, ``"base"``, ``"head"``."""
+        expression = (
+            expression_digest(self.expression)
+            if "expression" in digested
+            else self.expression
+        )
+        base_detail = (
+            value_digest(self.base_detail) if "base" in digested else self.base_detail
+        )
+        head_detail = (
+            value_digest(self.head_detail) if "head" in digested else self.head_detail
+        )
         base = (
-            f"raised {self.base_detail}"
-            if self.base_kind == "exception"
-            else f"returned {self.base_detail}"
+            f"raised {base_detail}" if self.base_kind == "exception" else f"returned {base_detail}"
         )
         head = (
-            f"raises {self.head_detail}"
-            if self.head_kind == "exception"
-            else f"returns {self.head_detail}"
+            f"raises {head_detail}" if self.head_kind == "exception" else f"returns {head_detail}"
         )
         pins = (
             "no base test, docstring or changelog pins either"
@@ -108,21 +133,141 @@ class ValueNote:
             + ", and this change moved it"
         )
         return (
-            f"for {self.expression}, the merge base {base} and head {head} "
+            f"for {expression}, the merge base {base} and head {head} "
             f"({self.head_runs}/{self.head_runs} and {self.base_runs}/{self.base_runs} "
             f"runs each side); {pins}"
         )
 
+    def digested_parts(self) -> tuple[str, ...]:
+        """Which of the three quoted parts are written as digests.
+
+        A part is quoted whole when it is inside its verbatim cap **and** the
+        assembled line fits the contract. Otherwise parts are digested longest
+        first until the line fits -- a different rendering of the same
+        measurement, never a cut `repr` (D-142). An exception's type name is
+        never digested: it is short by construction."""
+        lengths = {
+            "expression": len(self.expression),
+            "base": 0 if self.base_kind == "exception" else len(self.base_detail),
+            "head": 0 if self.head_kind == "exception" else len(self.head_detail),
+        }
+        caps = {
+            "expression": EXPRESSION_VERBATIM_CHARS,
+            "base": VALUE_VERBATIM_CHARS,
+            "head": VALUE_VERBATIM_CHARS,
+        }
+        digested = [part for part, length in lengths.items() if length > caps[part]]
+        remaining = sorted(
+            (part for part in lengths if part not in digested),
+            key=lambda part: -lengths[part],
+        )
+        while len(self._line(digested)) > MAX_LINE_CHARS and remaining:
+            digested.append(remaining.pop(0))
+        return tuple(digested)
+
+    def _line(self, digested: Sequence[str]) -> str:
+        return claim_line(
+            "yellow",
+            path=self.path,
+            line=self.line,
+            fact=self.sentence(digested=digested),
+            evidence=f"note {self.note_id()}",
+        )
+
+    def measured_literals(self) -> tuple[str, ...]:
+        """The spans of the rendered line that are measurements, not prose:
+        the two observations as they appear in it."""
+        digested = self.digested_parts()
+        return (
+            value_digest(self.base_detail) if "base" in digested else self.base_detail,
+            value_digest(self.head_detail) if "head" in digested else self.head_detail,
+        )
+
+
+def _type_of_repr(text: str) -> str:
+    """The type a `repr` announces in its first characters -- a heuristic read
+    of the recorded text, named as such, never a claim about the object."""
+    stripped = text.lstrip()
+    if not stripped:
+        return "value"
+    first = stripped[0]
+    if first == "[":
+        return "list"
+    if first == "(":
+        return "tuple"
+    if first == "{":
+        return "dict" if re.match(r"\{\s*['\"\w.-]+\s*:", stripped) else "set"
+    if first in "'\"":
+        return "str"
+    if stripped.startswith("<class "):
+        return "class"
+    if first == "<":
+        return re.match(r"<([\w.]+)", stripped).group(1).split(".")[-1]  # type: ignore[union-attr]
+    call = re.match(r"([A-Za-z_][\w.]*)\(", stripped)
+    if call:
+        return call.group(1).split(".")[-1]
+    if re.fullmatch(r"-?\d+", stripped):
+        return "int"
+    if re.fullmatch(r"-?\d+\.\d*(e-?\d+)?", stripped):
+        return "float"
+    if stripped in ("True", "False"):
+        return "bool"
+    if stripped == "None":
+        return "NoneType"
+    return "value"
+
+
+def value_digest(detail: str) -> str:
+    """`<type len=N sha256 hhhhhhhh>` for a recorded value: the type its `repr`
+    announces, the length of the `repr`, and the first eight hex digits of its
+    SHA-256, which an operator matches against the ledger row."""
+    digest = hashlib.sha256(detail.encode("utf-8")).hexdigest()[:8]
+    return f"<{_type_of_repr(detail)} len={len(detail)} sha256 {digest}>"
+
+
+def expression_digest(expression: str) -> str:
+    digest = hashlib.sha256(expression.encode("utf-8")).hexdigest()[:8]
+    return f"the recorded call <expression len={len(expression)} sha256 {digest}>"
+
 
 def render(note: ValueNote) -> str:
-    """The one contract line this note would be, if it were ever shown."""
-    return claim_line(
-        "yellow",
-        path=note.path,
-        line=note.line,
-        fact=note.sentence(),
-        evidence=f"note {note.note_id()}",
-    )
+    """The one contract line this note is, when it is shown."""
+    return note._line(note.digested_parts())
+
+
+def admitted(note: ValueNote) -> ContractVerdict:
+    """The contract's verdict on this note's line, with the two measured
+    literals exempt from the banned-phrase rule and from nothing else."""
+    return check(render(note), measured=note.measured_literals())
+
+
+def anchored_in_tests(note: ValueNote) -> bool:
+    """Would the line point an author at their own test?"""
+    return TEST_PATH.search(note.path) is not None
+
+
+def distinct(notes: Iterable[ValueNote]) -> list[ValueNote]:
+    """One note per `(path, expression)`, the first kept: the same call
+    recorded twice is one fact."""
+    seen: set[tuple[str, str]] = set()
+    kept: list[ValueNote] = []
+    for note in notes:
+        key = (note.path, note.expression)
+        if key in seen:
+            continue
+        seen.add(key)
+        kept.append(note)
+    return kept
+
+
+def visible(notes: Iterable[ValueNote]) -> list[ValueNote]:
+    """The notes an author may be shown, in order: not in tests/, one per
+    `(path, expression)`, and admitted by the contract."""
+    return [
+        note
+        for note in distinct(notes)
+        if not anchored_in_tests(note) and admitted(note).admitted
+    ]
 
 
 def note_from(

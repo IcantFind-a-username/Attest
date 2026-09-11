@@ -202,3 +202,11 @@ def _host_executor_for_tests(request: pytest.FixtureRequest, monkeypatch: pytest
 
     monkeypatch.setattr(verification, "select_backend", host_backend)
     yield
+
+
+@pytest.fixture
+def note_line_cap():
+    """Is this one author-visible line inside the contract's length cap?"""
+    from attest.review.output_contract import MAX_LINE_CHARS
+
+    return lambda line: len(line) <= MAX_LINE_CHARS

@@ -142,23 +142,166 @@ def test_the_note_id_is_stable_and_moves_with_the_content() -> None:
     assert first.policy_version == VALUE_NOTE_POLICY_VERSION
 
 
-def test_nothing_in_the_publication_path_imports_this_module() -> None:
-    """Shadow means shadow. `ci.py` is the only thing that writes to a pull
-    request, and the check is the import graph rather than a promise."""
-    import ast
+def test_a_value_over_the_verbatim_cap_is_rendered_as_a_digest_not_cut(note_line_cap) -> None:
+    """Three of the 16 lines the 2026-09-11 run produced were refused for length
+    because a `repr` is whatever the project's object prints. D-142 forbids
+    truncating a line into shape; a value over the cap is rendered as
+    `<type len=N sha256 hhhhhhhh>` -- a different rendering of the same
+    measurement, never a cut `repr`."""
+    long_list = "[" + ", ".join(f"({n}.0, [{n}.0, {n + 1}.0])" for n in range(40)) + "]"
+    assert len(long_list) > 200
+    note = _note(base_detail=long_list, head_detail="[]")
+    assert note is not None
+
+    line = render(note)
+
+    assert check(line).admitted, check(line).reason
+    assert long_list not in line
+    assert f"<list len={len(long_list)} sha256 " in line
+    assert "and head returns [] (" in line
+    # the digest is of the recorded repr, so an operator can match it to the ledger
+    import hashlib
+
+    assert hashlib.sha256(long_list.encode("utf-8")).hexdigest()[:8] in line
+    # no `repr` is ever cut: what is not written whole is written as a digest
+    assert "..." not in line
+    assert note_line_cap(line)
+
+
+def test_a_line_that_still_overflows_digests_the_longest_part_first(note_line_cap) -> None:
+    """`pydata__xarray-6744`: two 130-character values under the cap each, and
+    the assembled line is 513. Parts are digested longest-first until the line
+    fits, and the expression is a part too (`pytest-dev__pytest-10051` carries
+    a 230-character expression)."""
+    base = "[" + ", ".join(f"('{n}', [{n}.0, {n + 1}.0])" for n in range(6)) + "]"
+    head = "[" + ", ".join(f"('{n}', [{n}.0, {n + 1}.0])" for n in range(5)) + "]"
+    assert len(head) < len(base) <= 200
+    note = _note(base_detail=base, head_detail=head, expression="x" * 60 + "(roll)")
+    assert note is not None
+
+    line = render(note)
+
+    assert check(line).admitted, check(line).reason
+    assert note_line_cap(line)
+    assert head in line  # the shortest part survives verbatim
+    assert "<list len=" in line
+    assert "sha256" in line
+
+
+def test_a_banned_word_inside_a_measured_literal_does_not_refuse_the_line() -> None:
+    """`sphinx-doc__sphinx-10466`: the recorded value contains the word `hello`
+    -- a fixture string of that project's own gettext test -- and the
+    contract's preamble rule refused a line no model wrote a word of. The rule
+    still applies to the sentence; it does not apply inside the two measured
+    literals."""
+    from attest.review.value_note import admitted
+
+    note = _note(
+        base_detail="[('hello', [('a.rst', 1)], 4)]",
+        head_detail="[('hello', [('b.rst', 10), ('a.rst', 1)], 4)]",
+    )
+    assert note is not None
+    line = render(note)
+
+    assert not check(line).admitted  # the bare contract still says preamble
+    verdict = admitted(note)
+    assert verdict.admitted, verdict.reason
+    # and the sentence itself is still adjudicated: a banned word outside the
+    # literals refuses the line
+    prose = _note(expression="maybe(x)")
+    assert prose is not None
+    assert not admitted(prose).admitted
+
+
+def test_notes_are_one_per_path_and_expression() -> None:
+    """The `click` pair of the census: the same call recorded twice is one
+    fact. Two notes on the same `(path, expression)` keep the first."""
+    from attest.review.value_note import distinct
+
+    first = _note()
+    again = _note(head_detail="Decimal('1.20')")
+    other = _note(expression="money.rate('USD')")
+    assert first and again and other
+
+    kept = distinct([first, again, other])
+
+    assert kept == [first, other]
+
+
+def test_a_note_anchored_inside_tests_is_not_shown() -> None:
+    """`itsdangerous` in the census anchors in `tests/test_serializer.py`: the
+    note would point an author at their own test. Such a note is written to
+    the ledger and not shown."""
+    from attest.review.value_note import anchored_in_tests
+
+    inside = _note(intent=_intent(path="tests/test_money.py"))
+    assert inside is not None and anchored_in_tests(inside)
+    for path in ("pkg/money.py", "src/pkg/money.py", "pkg/testing.py"):
+        outside = _note(intent=_intent(path=path))
+        assert outside is not None and not anchored_in_tests(outside)
+
+
+def test_every_line_of_the_2026_09_11_run_is_admitted_under_the_visible_rule(
+    note_line_cap,
+) -> None:
+    """The 16 notes the paid held-out run wrote (run 34530619773), replayed
+    through the rendering an author would see. At recording 12 of 16 were
+    admitted -- three over the length cap, one on a banned word inside a
+    measured literal. Under this rule all 16 are."""
+    import json
     from pathlib import Path
 
-    ci = Path(__file__).resolve().parents[1] / "src" / "attest" / "review" / "ci.py"
-    tree = ast.parse(ci.read_text(encoding="utf-8"))
-    imported = {
-        node.module
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and node.module
-    } | {
-        alias.name
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Import)
-        for alias in node.names
+    from attest.review.value_note import ValueNote, admitted, anchored_in_tests, distinct
+
+    evidence = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "docs/acceptance/evidence/2026-09-11-value-notes-sixteen.json"
+        ).read_text(encoding="utf-8")
+    )
+    rows = evidence["notes"]
+    assert len(rows) == 16
+    fields = {f for f in ValueNote.__dataclass_fields__}
+
+    def rebuilt(row: dict) -> ValueNote:
+        payload = {k: v for k, v in row.items() if k in fields}
+        payload["specified_by"] = tuple(tuple(x) for x in payload["specified_by"])
+        payload["pinned_values"] = tuple(payload["pinned_values"])
+        return ValueNote(**payload)
+
+    notes = [rebuilt(row) for row in rows]
+    verdicts = [admitted(note) for note in notes]
+    refused = [(n.path, v.reason) for n, v in zip(notes, verdicts, strict=True) if not v]
+    assert refused == []
+    assert all(note_line_cap(render(note)) for note in notes)
+    # what the author-visible rule then keeps: none in tests/, and one fewer
+    # after the (path, expression) rule -- `kahane_simplify(t)` twice
+    assert [n for n in notes if anchored_in_tests(n)] == []
+    assert len(distinct(notes)) == 15
+
+
+def test_ci_reads_no_note_while_the_switch_is_off() -> None:
+    """`value_notes_visible` is False by default; a ledger full of notes yields
+    nothing an author sees. Only the switch opens the surface, and the switch is
+    a base-owned policy key."""
+    from attest.review.ci import value_notes_for_task
+    from attest.review.config import _KNOWN_POLICY_KEYS, ReviewConfig
+
+    assert ReviewConfig().value_notes_visible is False
+    assert "value_notes_visible" in _KNOWN_POLICY_KEYS
+    from dataclasses import asdict
+
+    note = _note()
+    assert note is not None
+    row = {
+        "kind": "value_observation_note",
+        "task_id": "t1",
+        "finding_id": "cafe1234ab",
+        "note_id": note.note_id(),
+        **asdict(note),
     }
-    assert "attest.review.value_note" not in imported
-    assert "value_note" not in ci.read_text(encoding="utf-8")
+    assert value_notes_for_task([row], "t1", ReviewConfig()) == []
+    shown = value_notes_for_task([row], "t1", ReviewConfig(value_notes_visible=True))
+    assert shown == [note]
+    # another task's row is not this task's note
+    assert value_notes_for_task([row], "t2", ReviewConfig(value_notes_visible=True)) == []

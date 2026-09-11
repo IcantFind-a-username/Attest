@@ -9,7 +9,7 @@ import os
 import re
 import subprocess
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,6 +39,7 @@ from attest.github.presentation import (
     render_running,
     structural_comments,
     structural_member_id,
+    value_comments,
 )
 from attest.review.budget import Budget
 from attest.review.config import DISABLED_REASON, ReviewConfig, resolve_review_policy
@@ -98,6 +99,8 @@ from attest.review.support import (
     preflight,
     refusal_from_reason,
 )
+from attest.review.value_note import ValueNote
+from attest.review.value_note import visible as visible_value_notes
 from attest.review.verification import CERTIFICATION_REPEATS, run_verification_stage
 
 DELIVERY_TRANSCRIPT_SCHEMA_VERSION = 1
@@ -393,6 +396,9 @@ _INLINE_IMPACT_MARKER_RE = re.compile(r"<!-- attest:impact:([^\s>]+) -->")
 # D-151: yellow (b) carries no receipt either, so the journal identifies it by
 # the coordinate of the dereference the note is about.
 _INLINE_NULLABILITY_MARKER_RE = re.compile(r"<!-- attest:nullability:([^\s>]+) -->")
+# owner instruction 4 of 2026-09-11: the value-class note carries no receipt
+# either; the journal identifies it by the note's own digest.
+_INLINE_VALUE_MARKER_RE = re.compile(r"<!-- attest:value:([0-9a-f]{12}) -->")
 _SUMMARY_FINDING_MARKER_RE = re.compile(
     # What this regex is for is **journal integrity**: does the body publish
     # exactly the findings the intent declared? That is a question about
@@ -1022,6 +1028,7 @@ def _marker_kind(comment: Mapping[str, object]) -> str:
         ("structural", _INLINE_STRUCTURAL_MARKER_RE),
         ("impact", _INLINE_IMPACT_MARKER_RE),
         ("nullability", _INLINE_NULLABILITY_MARKER_RE),
+        ("value", _INLINE_VALUE_MARKER_RE),
     ):
         if pattern.fullmatch(first):
             return kind
@@ -1035,6 +1042,7 @@ def _marker_id(comment: Mapping[str, object]) -> str:
         _INLINE_STRUCTURAL_MARKER_RE.fullmatch(first)
         or _INLINE_IMPACT_MARKER_RE.fullmatch(first)
         or _INLINE_NULLABILITY_MARKER_RE.fullmatch(first)
+        or _INLINE_VALUE_MARKER_RE.fullmatch(first)
     )
     if match is None:  # pragma: no cover - the renderers always write a marker
         raise ValueError("rendered comment carries no marker")
@@ -1059,6 +1067,7 @@ def _body_finding_ids(value: object, channel: str) -> tuple[str, ...]:
                 or _INLINE_STRUCTURAL_MARKER_RE.fullmatch(first)
                 or _INLINE_IMPACT_MARKER_RE.fullmatch(first)
                 or _INLINE_NULLABILITY_MARKER_RE.fullmatch(first)
+                or _INLINE_VALUE_MARKER_RE.fullmatch(first)
             )
             if match is None:
                 raise ValueError("inline review comment has no finding marker")
@@ -1282,6 +1291,50 @@ def _refusal_body(
             refusal=(refusal.code, refusal.fact),
         )
     return _with_run_status(ledger, task_id, line)
+
+
+def value_notes_for_task(
+    rows: Sequence[Mapping[str, object]], task_id: str, config: ReviewConfig
+) -> list[ValueNote]:
+    """The value-class notes this task wrote, as the author may see them.
+
+    Owner instruction 4 of 2026-09-11. The executor writes a
+    `value_observation_note` row for every differential the intent clause
+    drawered for unreadable intent (D-218); this reads those rows back for one
+    task and applies the visibility rule -- **only when the base-owned policy
+    opened the surface.** With `value_notes_visible` off, which is the default,
+    it returns nothing whatever the ledger holds, and nothing downstream
+    renders. A row this cannot rebuild is skipped, never guessed."""
+    if not config.value_notes_visible:
+        return []
+    notes: list[ValueNote] = []
+    for row in rows:
+        if row.get("kind") != "value_observation_note" or row.get("task_id") != task_id:
+            continue
+        try:
+            note = ValueNote(
+                policy_version=str(row["policy_version"]),
+                path=str(row["path"]),
+                line=int(cast(int, row["line"])),
+                expression=str(row["expression"]),
+                base_kind=str(row["base_kind"]),
+                base_detail=str(row["base_detail"]),
+                head_kind=str(row["head_kind"]),
+                head_detail=str(row["head_detail"]),
+                head_runs=int(cast(int, row["head_runs"])),
+                base_runs=int(cast(int, row["base_runs"])),
+                pinned_values=tuple(str(v) for v in cast(list[object], row["pinned_values"])),
+                specified_by=tuple(
+                    (str(a), str(b))
+                    for a, b in cast(list[tuple[object, object]], row["specified_by"])
+                ),
+                drawer_reason=str(row["drawer_reason"]),
+                candidate_id=str(row["candidate_id"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+        notes.append(note)
+    return visible_value_notes(notes)
 
 
 def _units_read(ledger: Ledger, task_id: str | None) -> tuple[int, int] | None:
@@ -2096,7 +2149,13 @@ def run_ci(
         spend_usd=review.budget.spent_usd,
         elapsed_s=clock() - started,
     )
-    if (surfaced or green or yellow) and _workspace_head(repo) != context.head_sha:
+    # Owner instruction 4 of 2026-09-11: the value-class notes the executor
+    # wrote for this task, read back from the ledger under the visibility rule.
+    # Silent unless the base-owned policy opened the surface.
+    value_notes = value_notes_for_task(ledger.entries(), task_id, config)
+    if (
+        surfaced or green or yellow or value_notes
+    ) and _workspace_head(repo) != context.head_sha:
         # revalidate the task immediately before the first author-visible write --
         # a green note is coordinates, and coordinates against a drifted head are
         # wrong in exactly the way this guard exists to prevent
@@ -2122,8 +2181,9 @@ def run_ci(
     green_comments: list[dict[str, object]] = []
     yellow_comments: list[dict[str, object]] = []
     null_comments: list[dict[str, object]] = []
+    value_note_comments: list[dict[str, object]] = []
     review_comments: list[dict[str, object]] = []
-    if surfaced or green or yellow or nullability or propagation:
+    if surfaced or green or yellow or nullability or propagation or value_notes:
         # D-147: GitHub refuses a review comment on a line the diff does not
         # carry, and it refuses the whole review with it. Both unanchored
         # channels are handed the diff so an unanchorable note is dropped from
@@ -2133,8 +2193,11 @@ def run_ci(
         # The two yellow classes share one cap, (a) first, so a pull request
         # never shows more than two yellow comments however many levels spoke.
         yellow_comments = impact_comments(yellow, changed_lines)
-        null_comments = nullability_comments(nullability, changed_lines)[
+        value_note_comments = value_comments(value_notes, changed_lines)[
             : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments))
+        ]
+        null_comments = nullability_comments(nullability, changed_lines)[
+            : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments) - len(value_note_comments))
         ]
         # Owner decision 2 of 2026-09-07: yellow (b)'s second class stays, and
         # stays a **shadow**. It fired on 0 of 79 units with 0% control noise,
@@ -2149,7 +2212,13 @@ def run_ci(
             []
             if PROPAGATION_SHADOW
             else propagation_comments(propagation, changed_lines)[
-                : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments) - len(null_comments))
+                : max(
+                    0,
+                    YELLOW_MAX_COMMENTS
+                    - len(yellow_comments)
+                    - len(value_note_comments)
+                    - len(null_comments),
+                )
             ]
         )
         # D-160 on the path the product ships. That rule -- a pair this
@@ -2182,11 +2251,13 @@ def run_ci(
 
         green_comments = unsaid(green_comments)
         yellow_comments = unsaid(yellow_comments)
+        value_note_comments = unsaid(value_note_comments)
         null_comments = unsaid(null_comments)
         review_comments = [
             *inline_comments(inline_results, finding_evidence),
             *green_comments,
             *yellow_comments,
+            *value_note_comments,
             *null_comments,
             *propagation_inline,
         ]
@@ -2212,6 +2283,7 @@ def run_ci(
                 # yellow members carry the coordinate of the function they are
                 # about, for the same reason: no receipt, no candidate
                 *((_marker_id(comment), "impact") for comment in yellow_comments),
+                *((_marker_id(comment), "value") for comment in value_note_comments),
                 *((_marker_id(comment), "nullability") for comment in null_comments),
             ),
             body={
@@ -2324,6 +2396,7 @@ def run_ci(
             impact=yellow,
             nullability=nullability,
             propagation=[] if PROPAGATION_SHADOW else propagation,
+            value_notes=value_notes,
             # D-161: a silence bought out by the ceiling says how many
             # candidates it stopped
             unverified=budget_unverified(review.verification_reasons),

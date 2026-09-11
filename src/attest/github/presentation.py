@@ -50,6 +50,9 @@ from attest.review.output_contract import collapsed as contract_collapsed
 from attest.review.propagation import PropagationNote
 from attest.review.structural import CATEGORY as STRUCTURAL_CATEGORY
 from attest.review.structural import StructuralNote
+from attest.review.value_note import ValueNote
+from attest.review.value_note import admitted as value_admitted
+from attest.review.value_note import render as value_line
 
 FINDING_ID_MARKER_PREFIX = "<!-- attest:finding-id:"
 RECEIPT_LINE_PREFIX = "Receipt:"
@@ -75,6 +78,13 @@ EVIDENCE_HEADING = "Reproduce it yourself — command, test and the six runs"
 NULLABILITY_MARKER_PREFIX = "<!-- attest:nullability:"
 # D-164: yellow (b)'s second class carries no receipt either
 PROPAGATION_MARKER_PREFIX = "<!-- attest:propagation:"
+# Owner instruction 4 of 2026-09-11: the value-class note (D-218), its own
+# marker and its own section; it shares yellow's cap, after (a).
+VALUE_MARKER_PREFIX = "<!-- attest:value:"
+VALUE_HEADING = (
+    "Observed behaviour changes — the same call run on both revisions; no defect "
+    "is claimed and nothing in the base tree pins either value:"
+)
 YELLOW_MAX_COMMENTS = 2
 IMPACT_MAX_CALLERS_LISTED = 8
 
@@ -101,6 +111,7 @@ def render_complete(
     impact: Sequence[ImpactNote] = (),
     nullability: Sequence[NullabilityNote] = (),
     propagation: Sequence[PropagationNote] = (),
+    value_notes: Sequence[ValueNote] = (),
     unverified: int = 0,
     executor_unavailable: str = "",
     unsupported_executor: int = 0,
@@ -126,9 +137,13 @@ def render_complete(
     propagations = [
         note for note in _propagation_only(propagation) if contract_check(propagation_line(note))
     ]
-    # Every yellow class shares one cap and one section, (a) first.
-    yellow: list[ImpactNote | NullabilityNote | PropagationNote] = [
+    values = [note for note in _value_only(value_notes) if value_admitted(note)]
+    # Every yellow class shares one cap, (a) first; the value-class note has
+    # its own section because its claim has a different shape (a measurement
+    # on two revisions, not a count over a call graph).
+    yellow: list[ImpactNote | NullabilityNote | PropagationNote | ValueNote] = [
         *scope,
+        *values,
         *nulls,
         *propagations,
     ]
@@ -185,7 +200,9 @@ def render_complete(
         if note.advice:
             lines.append("")
             lines.append(contract_collapsed(note.advice, summary=STRUCTURAL_ADVICE_HEADING))
-    for index, scoped in enumerate(yellow):
+    graph_notes = [note for note in yellow if not isinstance(note, ValueNote)]
+    value_shown = [note for note in yellow if isinstance(note, ValueNote)]
+    for index, scoped in enumerate(graph_notes):
         if lines and lines[-1] != "":
             lines.append("")
         if index == 0:
@@ -200,6 +217,12 @@ def render_complete(
                 else nullability_line(scoped)
             )
         )
+    for index, observed in enumerate(value_shown):
+        if lines and lines[-1] != "":
+            lines.append("")
+        if index == 0:
+            lines.append(VALUE_HEADING)
+        lines.append("- " + value_line(observed))
     lines.append(f"Spend ${spend_usd:.4f}; {elapsed_s:.1f}s.")
     return "\n".join(lines)
 
@@ -551,6 +574,75 @@ def nullability_comments(
         if _anchored(comment, changed_lines) and check_comment(str(comment["body"])):
             out.append(comment)
     return out
+
+
+def value_comments(
+    notes: Sequence[ValueNote],
+    changed_lines: Mapping[str, Collection[int]] | None = None,
+) -> list[dict[str, object]]:
+    """The value-class notes one pull request may show, each anchored on the
+    failing assertion's line and each admitted by the format adjudicator with
+    its two measured literals exempt from the banned-phrase rule (owner
+    instruction 4 of 2026-09-11).
+
+    The collapsed block carries what the line could not: the whole expression
+    and both observations verbatim, the drawer's own reason, and what the
+    intent clause found pinned. The action clause names both ways to close it,
+    because the level does not choose between them."""
+    out: list[dict[str, object]] = []
+    for note in _value_only(notes)[:YELLOW_MAX_COMMENTS]:
+        if not value_admitted(note):
+            continue
+        line = value_line(note)
+        base = "raised" if note.base_kind == "exception" else "returned"
+        head = "raises" if note.head_kind == "exception" else "returns"
+        pinned = (
+            "\n".join(f"- {value} is pinned at {site}" for value, site in note.specified_by)
+            or "- nothing in the base tree pins either value"
+        )
+        detail = (
+            f"Expression: `{note.expression}`\n\n"
+            f"Merge base {base}, {note.base_runs}/{note.base_runs} runs:\n\n"
+            f"```\n{note.base_detail}\n```\n\n"
+            f"Head {head}, {note.head_runs}/{note.head_runs} runs:\n\n"
+            f"```\n{note.head_detail}\n```\n\n"
+            f"What the intent clause found:\n{pinned}\n\n"
+            f"Why this is not a red finding: {note.drawer_reason}"
+        )
+        comment = {
+            "path": note.path,
+            "line": note.line,
+            "side": "RIGHT",
+            "body": "\n".join(
+                [
+                    f"{VALUE_MARKER_PREFIX}{value_member_id(note)} -->",
+                    line,
+                    "",
+                    contract_collapsed(
+                        detail, summary="The two observations, verbatim, and the drawer's reason"
+                    ),
+                    "",
+                    f"{ACTION_PREFIX} if the new value is intended, add a test that pins it at "
+                    f"`{note.path}:{note.line}`; otherwise restore what the merge base "
+                    f"{base} there.",
+                ]
+            ),
+        }
+        if _anchored(comment, changed_lines) and check_comment(str(comment["body"])):
+            out.append(comment)
+    return out
+
+
+def value_member_id(note: ValueNote) -> str:
+    """A value-class note carries no receipt; the journal identifies it by the
+    note's own digest, which is what the line ends in."""
+    return note.note_id()
+
+
+def _value_only(notes: Sequence[ValueNote]) -> list[ValueNote]:
+    if any(type(note) is not ValueNote for note in notes):
+        raise TypeError("the value channel accepts only ValueNote values")
+    return list(notes)
 
 
 def propagation_comments(
