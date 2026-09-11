@@ -297,10 +297,15 @@ def note_from(
         return None
     if not expression or not head_kind:
         return None
+    # The coordinate is the candidate's anchor -- a changed line of the anchored
+    # file. `intent.failing_assertion_line` is the line of the *generated test*
+    # the head runs failed on (D-132), and D-218 paired it with the source path:
+    # 13 of the 16 lines of the 2026-09-11 run pointed at a test-file line
+    # number on a source file. The assertion line stays in the ledger row.
     return ValueNote(
         policy_version=VALUE_NOTE_POLICY_VERSION,
         path=intent.path,
-        line=intent.failing_assertion_line or anchor_line,
+        line=anchor_line,
         expression=expression,
         base_kind=base_kind,
         base_detail=base_detail,

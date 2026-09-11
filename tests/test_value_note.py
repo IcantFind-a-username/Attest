@@ -305,3 +305,16 @@ def test_ci_reads_no_note_while_the_switch_is_off() -> None:
     assert shown == [note]
     # another task's row is not this task's note
     assert value_notes_for_task([row], "t2", ReviewConfig(value_notes_visible=True)) == []
+
+
+def test_the_note_s_coordinate_is_the_anchored_source_line_not_the_test_s() -> None:
+    """Found in the self-review of the drawer window: `failing_assertion_line`
+    is *the line of the generated test the head runs failed on* (D-132), and
+    D-218 paired it with the source path -- so 13 of the 16 lines of the paid
+    run pointed at `xarray/core/rolling.py:11`, a test-file line number on a
+    source file. The coordinate is the candidate's anchor, a changed line of
+    the anchored file; the assertion line stays in the ledger row."""
+    note = _note(intent=_intent(failing_assertion_line=11), anchor_line=347)
+    assert note is not None
+    assert note.line == 347
+    assert render(note).startswith("[yellow] pkg/money.py:347 — ")
