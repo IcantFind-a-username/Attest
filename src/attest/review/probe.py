@@ -48,6 +48,7 @@ import json
 import re
 from collections.abc import Collection
 from dataclasses import dataclass
+from pathlib import Path
 
 PROBE_POLICY_VERSION = "attest.probe.record-replay.v1"
 
@@ -370,3 +371,41 @@ def parse_observation(*texts: str) -> Observation | None:
             ):
                 return Observation(kind=payload["kind"], detail=payload["detail"])
     return None
+
+
+_SKIPPED = frozenset(
+    {".git", ".attest", ".venv", "venv", "node_modules", "build", "dist", "__pycache__"}
+)
+
+
+
+def tree_roots(root: Path) -> frozenset[str]:
+    """Top-level module names **this repository defines**, for the probe check.
+
+    Packages (a directory with ``__init__.py``) and modules at the repository
+    root, and the same one level down -- ``src/`` and ``lib/`` are layout, not
+    packages, which is the rule the binding layer already applies to paths.
+    The standard library and installed distributions are deliberately absent:
+    the question this answers is *does the probe import the project*, not
+    *does every import resolve*.
+    """
+    names: set[str] = set()
+    try:
+        top = sorted(root.iterdir())
+    except OSError:
+        return frozenset()
+    for base in (root, *(child for child in top if child.is_dir())):
+        if base is not root and (base.name.startswith(".") or base.name in _SKIPPED):
+            continue
+        try:
+            entries = sorted(base.iterdir())
+        except OSError:
+            continue
+        for entry in entries:
+            if entry.name.startswith(".") or entry.name in _SKIPPED:
+                continue
+            if entry.is_dir() and (entry / "__init__.py").is_file():
+                names.add(entry.name)
+            elif entry.is_file() and entry.suffix == ".py":
+                names.add(entry.stem)
+    return frozenset(names)

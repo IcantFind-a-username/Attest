@@ -17,7 +17,12 @@ tree. Nothing derived here asserts anything; the recording on base does that.
 
 from __future__ import annotations
 
-from attest.review.derived_probes import (
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "corpus"))
+
+from derived_probes import (  # noqa: E402
     DERIVED_PROBE_POLICY_VERSION,
     MAX_DERIVED_PROBES,
     DerivedProbe,
@@ -172,8 +177,7 @@ def test_a_derived_probe_is_a_plain_record() -> None:
 
 def test_a_probe_that_imports_nothing_the_tree_defines_cannot_reach_it(tmp_path) -> None:
     """The refusal the recorder used to make after three container runs on base."""
-    from attest.review.derived_probes import tree_roots
-    from attest.review.probe import ProbeSpec, reaches_the_tree
+    from attest.review.probe import ProbeSpec, reaches_the_tree, tree_roots
 
     def probe(imports: str) -> ProbeSpec:
         return ProbeSpec(imports=imports, setup="", expression="f()")
@@ -204,8 +208,7 @@ def test_a_probe_that_loads_the_tree_by_path_reaches_it(tmp_path) -> None:
     `main` at 516b924, and which would silence the same shape on any real
     repository. The whole probe is what reaches, not its first three lines.
     """
-    from attest.review.derived_probes import tree_roots
-    from attest.review.probe import ProbeSpec, reaches_the_tree
+    from attest.review.probe import ProbeSpec, reaches_the_tree, tree_roots
 
     (tmp_path / "app.py").write_text("def average(items):\n    return sum(items) / len(items)\n")
     roots = tree_roots(tmp_path)
@@ -222,7 +225,7 @@ def test_a_probe_that_loads_the_tree_by_path_reaches_it(tmp_path) -> None:
 
 
 def test_a_src_layout_package_is_a_tree_root(tmp_path) -> None:
-    from attest.review.derived_probes import tree_roots
+    from attest.review.probe import tree_roots
 
     (tmp_path / "src" / "proj").mkdir(parents=True)
     (tmp_path / "src" / "proj" / "__init__.py").write_text("")

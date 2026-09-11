@@ -162,9 +162,6 @@ def gate_for(candidate: StoredCandidate) -> GateResult:
 
 def verify(repo: Path, base_sha: str, head_sha: str, provider: ProbeProvider, **kwargs: Any):
     candidate = kwargs.pop("candidate", None) or stored()
-    # the model path is what these tests measure; the free path derived from
-    # the repository's own tests has its own section below
-    kwargs.setdefault("derive_probes", False)
     kwargs.setdefault("probe_generation", True)
     return verify_candidate(
         repo,
@@ -435,127 +432,6 @@ def test_a_probe_that_touched_nothing_in_the_anchored_file_is_refused() -> None:
     assert "did not execute mod.py on base" in recorded.reason
 
 
-# --- probes derived from the repository's own tests ------------------------
-# The base tree's own test calls `mod.total([1, 2, 3])`. That call, and the
-# boundary variants of its literal, are probes nobody has to pay a model for.
-
-HEAD_EMPTY_DIFFERS = (
-    "def total(items):\n    if not items:\n        return -1\n    return sum(items)\n"
-)
-
-
-class RefusingProvider:
-    """A provider that must never be asked: the derived path costs no model call."""
-
-    def sample(self, *args: Any, **kwargs: Any) -> ProviderResult:
-        del args, kwargs
-        raise AssertionError("the model was asked for a probe")
-
-
-def test_a_probe_derived_from_the_repository_tests_finds_the_differential_free(
-    tmp_path: Path,
-) -> None:
-    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_MODULE, HEAD_WRONG_VALUE)
-
-    run = verify(repo, base_sha, head_sha, RefusingProvider(), derive_probes=True)
-
-    assert run.execution.outcome is ExecutionOutcome.REPRODUCED
-    observed = run.execution.probe
-    assert observed is not None
-    assert observed.expression == "mod.total([1, 2, 3])"
-    assert (observed.kind, observed.detail) == ("value", "6")
-    assert observed.source == "derived"
-    assert observed.origin == "tests/test_mod.py:5"
-    assert run.spec is not None and "assert _attest_value == 6" in run.spec.test_body
-    row = next(r for r in Ledger(repo).entries() if r["kind"] == "probe_observation")
-    assert row["source"] == "derived" and row["origin"] == "tests/test_mod.py:5"
-
-
-def test_a_boundary_variant_finds_what_the_exact_test_call_cannot(tmp_path: Path) -> None:
-    """The exact call returns 6 on both revisions and is screened out by one head
-    run; the empty-list variant of the same literal is where head differs.
-
-    The differential itself holds -- head fails every run, base passes every run.
-    What that is *worth* is the unchanged intent rule's call: `0` is a generic
-    constant, so v4.2 drawers it, exactly as it would for a model-written probe.
-    This test is about which probe the pipeline chose and that it ran, not about
-    what the intent clause then decided.
-    """
-    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_MODULE, HEAD_EMPTY_DIFFERS)
-
-    run = verify(repo, base_sha, head_sha, RefusingProvider(), derive_probes=True)
-
-    observed = run.execution.probe
-    assert observed is not None
-    assert observed.expression == "mod.total([])"
-    assert (observed.kind, observed.detail) == ("value", "0")
-    assert observed.source == "derived"
-    assert observed.screened >= 1  # the exact call was tried first and passed on head
-    assert [len(run.execution.head_runs), len(run.execution.base_runs)] == [3, 3]
-    assert [r.outcome for r in run.execution.head_runs] == [ExecutionOutcome.REPRODUCED] * 3
-    assert [r.outcome for r in run.execution.base_runs] == [ExecutionOutcome.NOT_REPRODUCED] * 3
-    assert "value change confirmed, intent unknown" in run.execution.reason
-
-
-def test_a_boundary_variant_certifies_a_crash_the_repository_tests_never_try(
-    tmp_path: Path,
-) -> None:
-    """The class recall is measured on: head crashes on an input no test uses.
-
-    The repository's own test calls `total([1, 2, 3])`, which both revisions
-    handle. The empty-list boundary of that literal is where head raises, and a
-    crash is not a value change -- so this is a receipt, bought with no model
-    call at all."""
-    # the external receipt's own shape: a guard removed, so an input the tests
-    # never pass now crashes where it used to return. Identical on `[1, 2, 3]`.
-    base_guarded = (
-        "def first(items):\n    if not items:\n        return None\n    return items[0]\n"
-    )
-    head_unguarded = "def first(items):\n    return items[0]\n"
-    tests = "import mod\n\n\ndef test_first():\n    assert mod.first([1, 2, 3]) == 1\n"
-    repo, base_sha, head_sha = two_revisions(tmp_path, base_guarded, head_unguarded, tests)
-    candidate = stored(line=2)
-
-    run = verify(
-        repo, base_sha, head_sha, RefusingProvider(), derive_probes=True, candidate=candidate
-    )
-
-    assert run.execution.outcome is ExecutionOutcome.REPRODUCED
-    assert run.execution.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
-    observed = run.execution.probe
-    assert observed is not None
-    assert observed.expression == "mod.first([])"
-    assert observed.source == "derived" and observed.origin == "tests/test_mod.py:5"
-    assert observed.screened >= 1
-
-
-def test_the_model_is_asked_only_after_every_free_probe_is_screened_out(
-    tmp_path: Path,
-) -> None:
-    """D-206's ordering, unchanged by D-216: the free probes are spent first and
-    the model is not bought until they are. What D-216 changes is what happens
-    *after* the first paid probe fails to differ -- it is asked again, up to
-    `MAX_MODEL_PROBES`, which is the whole search."""
-    from attest.review.executor import MAX_MODEL_PROBES
-
-    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_MODULE, HEAD_SAME_VALUE)
-    provider = ProbeProvider(PROBE)
-
-    run = verify(repo, base_sha, head_sha, provider, derive_probes=True)
-
-    assert run.execution.outcome is ExecutionOutcome.DEFERRED
-    assert len(provider.systems) == MAX_MODEL_PROBES
-    # the free probes were tried and put aside before the first paid one, and
-    # the reason says so as well as saying how many paid probes followed
-    assert "derived probe(s) screened out first" in run.execution.reason
-    assert f"{MAX_MODEL_PROBES} probes tried" in run.execution.reason
-
-
-# --- D-213: a recording that dies on base leaves its output behind ----------
-
-
-# The probe collects nothing on base: `mod` is of the tree so the probe is
-# admitted before it runs, and the second import then fails at collection.
 UNCOLLECTABLE_PROBE = {
     "imports": "import mod\nimport a_module_that_does_not_exist",
     "setup": "items = [1, 2, 3]",
@@ -813,7 +689,6 @@ def test_a_screening_run_that_died_says_why_in_the_search_s_own_reason() -> None
     )
 
     outcome = _choose_probe(
-        derived=(),
         model_probe=spec,
         reprobe=lambda feedback: spec,
         record=lambda chosen: recorded,

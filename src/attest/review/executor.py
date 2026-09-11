@@ -35,12 +35,6 @@ from attest.execution.local_adapter import LocalDevelopmentAdapter
 from attest.execution.types import ResourceLimits
 from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
-from attest.review.derived_probes import (
-    DerivedProbe,
-    derive_probes,
-    probe_sources,
-    tree_roots,
-)
 from attest.review.diffs import parse_diff
 from attest.review.gate import GateResult, apply_verification
 from attest.review.intent import RaiseOrigin, observe_intent, parse_raise_record
@@ -59,6 +53,7 @@ from attest.review.probe import (
     probe_test_body,
     reaches_the_tree,
     replay_test_body,
+    tree_roots,
 )
 from attest.review.proposer import (
     Provider,
@@ -2177,7 +2172,6 @@ def _probe_feedback(
 
 def _choose_probe(
     *,
-    derived: Sequence[DerivedProbe],
     model_probe: ProbeSpec | None,
     reprobe: Callable[[str], ProbeSpec] | None,
     record: Callable[[ProbeSpec], _Recording],
@@ -2218,40 +2212,11 @@ def _choose_probe(
         exhausted_deadline=True,
     )
     screened = 0
-    last: _Recording | None = None
-    for candidate in derived:
-        recorded = record(candidate.spec)
-        if recorded.exhausted_deadline:
-            return recorded
-        last = recorded
-        if recorded.observation is None:
-            screened += 1
-            continue
-        screen = screen_on_head(candidate.spec)
-        if screen is None:
-            return deadline_recording(candidate.spec)
-        if screen.differs_from(recorded.observation):
-            return _Chosen(
-                probe=candidate.spec,
-                observation=recorded.observation,
-                source="derived",
-                origin=candidate.origin,
-                attempts=1,
-                screened=screened,
-                head_observation=screen.observation,
-            )
-        screened += 1
-
     if reprobe is None and model_probe is None:
-        reason = (
-            f"{screened} derived probe(s) screened out and no model probe was available"
-            if screened
-            else "no probe was available"
-        )
         return _Recording(
-            probe=last.probe if last is not None else ProbeSpec("", "", ""),
+            probe=ProbeSpec("", "", ""),
             observation=None,
-            reason=reason if last is None else f"{last.reason}; {reason}",
+            reason="no probe was available",
             attempts=0,
         )
 
@@ -2358,23 +2323,6 @@ def _choose_probe(
     )
 
 
-def _derived_for(repo: Path, candidate: StoredCandidate) -> tuple[DerivedProbe, ...]:
-    """Probes read out of the repository's own tests, or nothing (D-206).
-
-    Free and best-effort: an unreadable tree, an anchor that is not inside a
-    module-level function, or a function no test calls with literal arguments
-    all yield nothing, and the model path runs exactly as it did before."""
-    try:
-        sources = probe_sources(repo, candidate.finding.file)
-    except OSError:
-        return ()
-    if not sources:
-        return ()
-    return derive_probes(
-        sources, path=candidate.finding.file, line=candidate.finding.line
-    )
-
-
 def execute_differential(
     repo: Path,
     candidate: StoredCandidate,
@@ -2390,7 +2338,6 @@ def execute_differential(
     regenerate: Callable[[], ReproSpec] | None = None,
     probe: ProbeSpec | None = None,
     reprobe: Callable[[str], ProbeSpec] | None = None,
-    derived: Sequence[DerivedProbe] = (),
     contained_attempt_voids: bool = True,
 ) -> DifferentialExecution:
     """Run the same reproduction repeatedly against detached head/base
@@ -2514,7 +2461,7 @@ def execute_differential(
         # the merge base does with the model's chosen call, and write the test
         # from that recording -- so the expectation the differential asserts was
         # measured on base rather than guessed at from the diff.
-        if probe is not None or derived:
+        if probe is not None:
 
             def run_probe(index: int, body: str) -> ExecutionResult | None:
                 """One recording run on base, with the probe file in place of the
@@ -2582,7 +2529,6 @@ def execute_differential(
             except OSError:
                 head_text = ""
             outcome = _choose_probe(
-                derived=derived,
                 model_probe=probe,
                 reprobe=reprobe,
                 record=record,
@@ -2974,7 +2920,6 @@ def verify_candidate(
     shared_system: str = "",
     generation_model: str = "",
     probe_generation: bool = True,
-    derive_probes: bool = True,
     contained_attempt_voids: bool = True,
     ledger: Ledger | None = None,
 ) -> VerificationRun:
@@ -2986,11 +2931,10 @@ def verify_candidate(
     where the model writes the assertion too -- the reversal for D-146, kept so
     the two can be measured against each other on the same corpus.
 
-    ``derive_probes`` (D-206) tries the calls the repository's **own tests**
-    already make on the changed function, and boundary variants of their
-    literals, before the model is asked for a probe at all. They cost container
-    time and no model call; the model is bought only when none of them shows a
-    difference between the revisions."""
+    Derived probes (D-206) were removed from this path on 2026-09-11: D-212
+    measured their supply at 5 of 39 held-out cases and D-216's model search
+    covers the same ground. The derivation lives on as a harness tool under
+    `scripts/corpus/`."""
     started = time.monotonic()
     resolved_base = _resolve_commit(repo, base_sha)
     resolved_head = _resolve_commit(repo, head_sha)
@@ -3054,16 +2998,8 @@ def verify_candidate(
                 feedback=feedback,
             )
 
-        free: tuple[DerivedProbe, ...] = ()
-        if probe_generation and derive_probes:
-            free = _derived_for(repo, candidate)
-
         try:
-            # with free probes in hand the model is not bought up front:
-            # `execute_differential` asks `reprobe` for one only after every
-            # derived probe has been screened out, so a candidate the
-            # repository's own tests already cover costs no model call at all
-            probe = choose_probe() if probe_generation and not free else None
+            probe = choose_probe() if probe_generation else None
             spec = ReproSpec(test_body="") if probe_generation else generate()
         except Exception as exc:  # noqa: BLE001 - generation failures are ternary DEFER
             execution = deferred_execution(
@@ -3084,7 +3020,6 @@ def verify_candidate(
                 regenerate=None if probe_generation else generate,
                 probe=probe,
                 reprobe=choose_probe if probe_generation else None,
-                derived=free,
                 contained_attempt_voids=contained_attempt_voids,
             )
 

@@ -50,8 +50,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from attest.review.binding import _UNPARSABLE  # noqa: E402
-from attest.review.derived_probes import (  # noqa: E402
+from derived_probes import (  # noqa: E402
     _all_literal,
     _calls_at,
     _import_line,
@@ -60,6 +59,8 @@ from attest.review.derived_probes import (  # noqa: E402
     derive_probes,
     probe_sources,
 )
+
+from attest.review.binding import _UNPARSABLE  # noqa: E402
 from attest.review.impact import CallSite, build_call_graph, is_test_path  # noqa: E402
 
 CASES = ROOT / ".attest" / "corpora" / "swebench" / "cases"

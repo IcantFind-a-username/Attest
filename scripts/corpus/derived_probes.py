@@ -1,34 +1,12 @@
-"""Probes derived from the repository's own tests: free inputs for the recorder.
+"""Probes derived from a repository's own tests -- a **harness** tool since
+2026-09-11 (owner authorisation 5 of the drawer window).
 
-D-146 split the reproduction in two -- the model chooses *what to call*, the
-merge base is executed to record *what it does* -- and the largest loss of
-receipts that remains is the first half: the model's one call does not collect
-on the tree, or it is not the input the change is about. The 2026-09-12
-held-out measurement put 17 of 56 verification attempts on a probe that would
-not collect, against 13 on the intent clause everyone had been watching.
-
-The repository's tests already call the changed function: the way the project
-imports it, with inputs that are real. Each such call is a probe nobody has to
-pay a model for, and a **boundary variant** of a real input -- the empty list,
-zero, the empty string, a negative count -- is the input a regression is most
-often about. The recorder treats a derived probe exactly like the model's: it
-runs on base, records what base did, and the replay asserts that recording.
-Nothing here asserts anything.
-
-Three rules keep this from guessing:
-
-- a call is derived only when it **resolves** to the changed definition
-  (`attest.review.binding`), so `total` in a test that never imported the
-  project's `total` derives nothing;
-- every argument must be a **literal** -- a fixture, a variable or an object
-  built two lines up cannot travel into a file that runs outside the test tree;
-- the import is reproduced **as the test wrote it**, so a probe imports the
-  project the way the project's own tests do, which is the shape that collects.
-
-This version derives module-level functions only. A method needs a receiver,
-and a receiver is an object the test built, which is the thing the second rule
-refuses. Free: `ast` and the binding index, no model, no execution, no network.
+D-206 put this in the product path and D-212 measured its supply: 5 of 39
+held-out cases had a derived probe at all, and D-216's model search covers
+the same ground. The product no longer derives probes; `probe_reach.py`
+still measures what the derivation would reach, and imports it from here.
 """
+
 
 from __future__ import annotations
 
@@ -324,35 +302,3 @@ def _read(path: Path) -> str | None:
         return path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
-
-
-def tree_roots(root: Path) -> frozenset[str]:
-    """Top-level module names **this repository defines**, for the probe check.
-
-    Packages (a directory with ``__init__.py``) and modules at the repository
-    root, and the same one level down -- ``src/`` and ``lib/`` are layout, not
-    packages, which is the rule the binding layer already applies to paths.
-    The standard library and installed distributions are deliberately absent:
-    the question this answers is *does the probe import the project*, not
-    *does every import resolve*.
-    """
-    names: set[str] = set()
-    try:
-        top = sorted(root.iterdir())
-    except OSError:
-        return frozenset()
-    for base in (root, *(child for child in top if child.is_dir())):
-        if base is not root and (base.name.startswith(".") or base.name in _SKIPPED):
-            continue
-        try:
-            entries = sorted(base.iterdir())
-        except OSError:
-            continue
-        for entry in entries:
-            if entry.name.startswith(".") or entry.name in _SKIPPED:
-                continue
-            if entry.is_dir() and (entry / "__init__.py").is_file():
-                names.add(entry.name)
-            elif entry.is_file() and entry.suffix == ".py":
-                names.add(entry.stem)
-    return frozenset(names)
