@@ -92,6 +92,14 @@ class ReviewConfig:
     # says so. Off by default. On, it also runs the gate stage (as
     # `gate_shadow` does), because a line needs an observation to render from.
     gate_notes_visible: bool = False
+    # Owner authorisation 3 of 2026-09-12 (D-227), shadow: when the base-owned
+    # policy sets this, `run_ci` reads the replies an author left under the
+    # value-class yellow line's thread -- `intended` or `unintended` -- and
+    # writes each to the ledger as an `intent_reply` row. Off by default. On,
+    # the line's action clause also asks for the reply. **Nothing reads the
+    # rows back**: no publication and no drawer decision depends on them in
+    # this version; they are evidence for the owner's next decision.
+    intent_replies: bool = False
     # D-157: how many candidates' reproductions may run at once. The three runs
     # *inside* one candidate stay serial -- the repeat count is what makes a
     # reproduction stable, and a concurrent repeat is a different experiment.
@@ -161,6 +169,8 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError("value_notes_visible must be a boolean")
     if type(config.gate_notes_visible) is not bool:
         raise ValueError("gate_notes_visible must be a boolean")
+    if type(config.intent_replies) is not bool:
+        raise ValueError("intent_replies must be a boolean")
     if type(config.repro_concurrency) is not int or not 1 <= config.repro_concurrency <= 8:
         raise ValueError("repro_concurrency must be an integer in [1, 8]")
     if type(config.verification_cap_per_unit) is not int or config.verification_cap_per_unit < 1:
@@ -200,6 +210,9 @@ _KNOWN_POLICY_KEYS = {
     # speech surfaces, not evidence rules: the base-owned policy may open them
     "value_notes_visible",
     "gate_notes_visible",
+    # D-227: reading an author's reply is a speech surface too, and only the
+    # base may open it
+    "intent_replies",
 }
 
 

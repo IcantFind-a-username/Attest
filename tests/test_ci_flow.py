@@ -2630,3 +2630,180 @@ def test_a_gate_line_reaches_the_author_only_when_the_base_policy_opens_it(
         assert "[yellow]" not in everything
         assert "attest:gate" not in everything
         assert "ZeroDivisionError" not in everything
+
+
+# --- D-227: an author's reply under a value line is ledger evidence, and only that --
+
+
+def _value_comment_with_reply(task_id: str) -> list[dict[str, object]]:
+    """What GitHub returns from /pulls/{n}/comments after an author replied
+    `intended` under the value line an earlier review posted."""
+    return [
+        {
+            "id": 501,
+            "user": {"type": "Bot", "login": "attest[bot]"},
+            "path": "app.py",
+            "line": 6,
+            "body": (
+                "<!-- attest:value:0123456789ab -->\n"
+                "[yellow] app.py:6 — for average([]), the merge base returned 0 and head "
+                "raises ZeroDivisionError (3/3 and 3/3 runs each side); no base test, "
+                "docstring or changelog pins either — note 0123456789ab\n\n"
+                "<details><summary>The two observations</summary>\n\n"
+                "Expression: `average([])`\n\n</details>\n\n"
+                "Action: if the new value is intended, add a test that pins it at "
+                "`app.py:6`; otherwise restore what the merge base returned there."
+            ),
+        },
+        {
+            "id": 601,
+            "in_reply_to_id": 501,
+            "user": {"type": "User", "login": "octocat"},
+            "body": "intended",
+            "created_at": "2026-09-12T08:00:00Z",
+        },
+    ]
+
+
+def test_an_authors_reply_under_a_value_line_is_written_to_the_ledger_when_the_base_opens_it(
+    planted_repo: tuple[Path, str, str],
+    github_server: RecordingGitHub,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """RED, owner authorisation 3 of 2026-09-12. With `intent_replies` on, the
+    review reads the thread under the product's own value line, writes one
+    `intent_reply` row -- path, expression, note id, the word, the author,
+    the timestamp -- and changes nothing it publishes: the row is evidence for
+    the owner's next decision, not an input to this one."""
+    from attest.review import ci as ci_module
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = planted_repo
+    task_id = "20260912-000000-deadbeef"
+    monkeypatch.setattr(ci_module, "make_task_id", lambda seed: task_id)
+    github_server.existing_review_comments = _value_comment_with_reply(task_id)
+    provider = RecordingProvider(
+        _finding_payload(),
+        json.dumps({"test_body": "def test_passes_everywhere():\n    assert True\n"}),
+    )
+
+    result = run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(
+            probe_generation=False, k_samples=2, tier0_commands=[], intent_replies=True
+        ),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    rows = [row for row in _ledger_rows(repo) if row["kind"] == "intent_reply"]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["task_id"] == task_id
+    assert row["schema_version"] == "attest.intent-reply.v1"
+    assert (row["path"], row["line"]) == ("app.py", 6)
+    assert row["expression"] == "average([])"
+    assert row["note_id"] == "0123456789ab"
+    assert row["reply"] == "intended"
+    assert row["author"] == "octocat" and row["ts"] == "2026-09-12T08:00:00Z"
+    # and it decided nothing: the review published what it would have anyway
+    assert result.surfaced_count == 0
+    everything = "\n".join([*github_server.status_bodies, *github_server.review_bodies])
+    assert "intent_reply" not in everything and "octocat" not in everything
+
+
+def test_with_intent_replies_off_ci_never_reads_the_thread(
+    planted_repo: tuple[Path, str, str],
+    github_server: RecordingGitHub,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """RED, the other half: off is the default, and off means no request. A
+    reply sitting in the thread is neither read nor recorded."""
+    from attest.review import ci as ci_module
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = planted_repo
+    task_id = "20260912-000001-deadbeef"
+    monkeypatch.setattr(ci_module, "make_task_id", lambda seed: task_id)
+    github_server.existing_review_comments = _value_comment_with_reply(task_id)
+    provider = RecordingProvider(
+        _finding_payload(),
+        json.dumps({"test_body": "def test_passes_everywhere():\n    assert True\n"}),
+    )
+
+    run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(probe_generation=False, k_samples=2, tier0_commands=[]),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    assert ReviewConfig().intent_replies is False
+    assert [row for row in _ledger_rows(repo) if row["kind"] == "intent_reply"] == []
+    thread_reads = [
+        event
+        for event in github_server.events
+        if event["method"] == "GET" and "/pulls/9/comments" in str(event["path"])
+    ]
+    assert thread_reads == []
+
+
+def test_the_value_line_asks_for_the_reply_only_when_the_base_opens_it(
+    planted_repo: tuple[Path, str, str],
+    github_server: RecordingGitHub,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The one sentence the value line gains under `intent_replies`, and the
+    switch is the base's: `intent_replies` is a policy key."""
+    from attest.github.presentation import REPLY_PROMPT
+    from attest.review import ci as ci_module
+    from attest.review.ci import run_ci
+    from attest.review.config import _KNOWN_POLICY_KEYS
+    from attest.review.value_note import VALUE_NOTE_POLICY_VERSION
+
+    assert "intent_replies" in _KNOWN_POLICY_KEYS
+    repo, base_sha, head_sha = planted_repo
+    task_id = "20260912-000002-deadbeef"
+    monkeypatch.setattr(ci_module, "make_task_id", lambda seed: task_id)
+    # the planted diff is a pure deletion, so no head line is "changed" and
+    # D-147 would drop the inline comment for want of an anchor; the anchor
+    # rule is tested on its own, and here the note's line is declared changed
+    monkeypatch.setattr(ci_module, "_changed_line_numbers", lambda *_a, **_k: {"app.py": {6}})
+    ledger_path = repo / ".attest" / "ledger.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    row = _value_note_row(task_id)
+    row["policy_version"] = VALUE_NOTE_POLICY_VERSION
+    ledger_path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    provider = RecordingProvider(
+        _finding_payload(),
+        json.dumps({"test_body": "def test_passes_everywhere():\n    assert True\n"}),
+    )
+
+    run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(
+            probe_generation=False,
+            k_samples=2,
+            tier0_commands=[],
+            value_notes_visible=True,
+            intent_replies=True,
+        ),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    inline = [
+        str(comment["body"])
+        for review in github_server.review_bodies
+        for comment in review.get("comments", [])  # type: ignore[union-attr]
+        if "attest:value" in str(comment["body"])
+    ]
+    assert len(inline) == 1
+    assert inline[0].rstrip().endswith(REPLY_PROMPT.strip())
+    assert "Reply `intended` or `unintended` to record it." in inline[0]

@@ -318,3 +318,23 @@ def test_the_note_s_coordinate_is_the_anchored_source_line_not_the_test_s() -> N
     assert note is not None
     assert note.line == 347
     assert render(note).startswith("[yellow] pkg/money.py:347 — ")
+
+
+def test_the_inline_value_comment_asks_for_a_reply_only_when_told_to() -> None:
+    """D-227: `value_comments(..., ask_for_reply=True)` ends the action clause
+    with the one sentence that asks for `intended` or `unintended`, and the
+    comment still passes the whole-comment adjudicator; without the flag the
+    clause is unchanged."""
+    from attest.github.presentation import REPLY_PROMPT, value_comments
+    from attest.review.output_contract import check_comment
+
+    note = _note()
+    plain = value_comments([note])
+    asked = value_comments([note], ask_for_reply=True)
+    assert len(plain) == 1 and len(asked) == 1
+    plain_body, asked_body = str(plain[0]["body"]), str(asked[0]["body"])
+    assert REPLY_PROMPT.strip() not in plain_body
+    assert asked_body.rstrip().endswith("Reply `intended` or `unintended` to record it.")
+    assert check_comment(asked_body).admitted
+    # one action clause, still: the sentence is appended to it, not a second one
+    assert asked_body.count("Action:") == 1

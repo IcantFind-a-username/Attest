@@ -91,6 +91,10 @@ IMPACT_MAX_CALLERS_LISTED = 8
 # red's totals); at most one per pull request, and none when red published.
 GATE_MARKER_PREFIX = "<!-- attest:gate:"
 GATE_HEADING = "Gate — new code, nothing to compare against:"
+# D-227: the one sentence the value line gains when the base-owned
+# `intent_replies` switch is on. A reply is read by the next review and written
+# to the ledger; nothing publishes or drawers on it.
+REPLY_PROMPT = " Reply `intended` or `unintended` to record it."
 GATE_DISCLAIMER = (
     "There is no base revision to compare against; this is not a claim that the change "
     "broke something that worked."
@@ -468,6 +472,8 @@ def impact_comments(
 def value_comments(
     notes: Sequence[ValueNote],
     changed_lines: Mapping[str, Collection[int]] | None = None,
+    *,
+    ask_for_reply: bool = False,
 ) -> list[dict[str, object]]:
     """The value-class notes one pull request may show, each anchored on the
     failing assertion's line and each admitted by the format adjudicator with
@@ -477,7 +483,10 @@ def value_comments(
     The collapsed block carries what the line could not: the whole expression
     and both observations verbatim, the drawer's own reason, and what the
     intent clause found pinned. The action clause names both ways to close it,
-    because the level does not choose between them."""
+    because the level does not choose between them. With ``ask_for_reply``
+    (D-227: the base-owned `intent_replies` switch) the clause ends by asking
+    the author to reply `intended` or `unintended`, which the next review
+    records to the ledger and to nowhere else."""
     out: list[dict[str, object]] = []
     for note in _value_only(notes)[:YELLOW_MAX_COMMENTS]:
         if not value_admitted(note):
@@ -513,7 +522,8 @@ def value_comments(
                     "",
                     f"{ACTION_PREFIX} if the new value is intended, add a test that pins it at "
                     f"`{note.path}:{note.line}`; otherwise restore what the merge base "
-                    f"{base} there.",
+                    f"{base} there."
+                    + (REPLY_PROMPT if ask_for_reply else ""),
                 ]
             ),
         }
