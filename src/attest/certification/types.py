@@ -7,6 +7,17 @@ from dataclasses import dataclass
 CERTIFICATION_TASK_SCHEMA_VERSION = "attest.certification-task.v1"
 CERTIFICATION_POLICY_SCHEMA_VERSION = "attest.certification-policy.v1"
 CERTIFICATION_RECEIPT_SCHEMA_VERSION = "attest.certification-receipt.v4"
+# Owner authorisation 2 of 2026-09-12: the receipt **body** -- the field set the
+# provenance digest is computed over -- is versioned apart from the schema. v1
+# is the set every bundle sealed before 2026-09-12 was digested over; v2 adds
+# `body_version` itself and `contained_attempts` (D-217). A receipt is digested
+# under the body version it records, so a v1 bundle keeps the digest it was
+# sealed with (INV-VERSION-001) and a v2 receipt's digest covers what it
+# discloses.
+RECEIPT_BODY_V1 = "attest.receipt-body.v1"
+RECEIPT_BODY_V2 = "attest.receipt-body.v2"
+RECEIPT_BODY_VERSION = RECEIPT_BODY_V2
+KNOWN_RECEIPT_BODY_VERSIONS = frozenset({RECEIPT_BODY_V1, RECEIPT_BODY_V2})
 
 
 @dataclass(frozen=True)
@@ -93,6 +104,15 @@ class CertificationReceipt:
     binding_digest: str = ""  # digest of the recorded BindingObservation
     intent_policy_version: str = ""  # D-102
     intent_digest: str = ""  # digest of the recorded IntentObservation
+    # Which field set the provenance digest covers. The default is the current
+    # version; a bundle written before the field exists is read back as v1 by
+    # the verifier, never by this default.
+    body_version: str = RECEIPT_BODY_VERSION
+    # D-217, disclosed in the receipt under body v2: every process or thread
+    # creation the kernel refused across the certified runs. Empty under the
+    # product's setting where such an attempt voids the run, and always empty
+    # under body v1, whose digest could not cover it.
+    contained_attempts: tuple[str, ...] = ()
 
 
 _ACCEPTED_RECEIPT_TOKEN = object()

@@ -1578,7 +1578,7 @@ def execute_repro(
     controller: Controller | None = None,
     adapter: ExecutorAdapter | None = None,
     tree_target: str | None = None,
-    contained_attempt_voids: bool = True,
+    contained_attempt_voids: bool = False,
 ) -> ExecutionResult:
     """One guarded pytest run through the controller/executor protocol (X-01).
     ``node`` selects the exact test function; with ``collect_only`` the run only
@@ -1769,11 +1769,13 @@ def execute_repro(
     # D-217. `process-attempted` and `thread-attempted` are the two markers whose
     # attempt the **kernel** itself refuses: RLIMIT_NPROC is (0, 0) for the whole
     # run, and `process-contained` is written only after that is verified. Under
-    # the product's setting both still void the observation. Under
-    # `contained_attempt_voids=False` an attempt that was refused, by code that
-    # then completed its run normally, is recorded as a *contained attempt* and
-    # the run is read as any other run -- the isolation was not breached and the
-    # evidence is still a 3x3 deterministic differential.
+    # `contained_attempt_voids=True` both void the observation. Under `False` --
+    # the product's setting since D-226, which also requires the contained set
+    # to be identical across every head and base run of a differential -- an
+    # attempt that was refused, by code that then completed its run normally,
+    # is recorded as a *contained attempt* and the run is read as any other
+    # run: the isolation was not breached and the evidence is still a 3x3
+    # deterministic differential.
     #
     # The relaxation is available only where the kernel is the thing refusing:
     # on a platform with no `process-contained` marker the guard is a Python
@@ -2372,7 +2374,7 @@ def execute_differential(
     regenerate: Callable[[], ReproSpec] | None = None,
     probe: ProbeSpec | None = None,
     reprobe: Callable[[str], ProbeSpec] | None = None,
-    contained_attempt_voids: bool = True,
+    contained_attempt_voids: bool = False,
 ) -> DifferentialExecution:
     """Run the same reproduction repeatedly against detached head/base
     worktrees. Only a deterministic head failure that shows the code
@@ -2738,6 +2740,20 @@ def execute_differential(
             return deferred(
                 "unfaithful generated test: fails on base as well", EvidenceClass.UNFAITHFUL
             )
+        # Owner authorisation 2 of 2026-09-12: the symmetry constraint. Under
+        # `contained_attempt_voids=False` a creation the kernel refused is
+        # disclosed rather than fatal (D-217), and that opens one false-positive
+        # path: a change that *adds* a subprocess call raises where the kernel
+        # refuses it, head fails 3/3 for that reason alone, base never reaches
+        # for a process and passes 3/3 -- a real differential about the sandbox
+        # and not about the code. The kernel refusing the same call on both
+        # revisions (the sphinx shape) says nothing about the diff; refusing it
+        # on one side only says everything. So the set of contained attempts
+        # must be identical across every head run and every base run, or the
+        # run is void with the asymmetry named.
+        asymmetry = _contained_asymmetry(head_runs, base_runs)
+        if asymmetry is not None:
+            return deferred(asymmetry)
         # Every base run passed. That alone is NOT enough to certify: the same
         # head-side condition the new-code class already demands must hold here
         # too, and for the same reason. Read the four quadrants together --
@@ -2830,6 +2846,37 @@ def execute_differential(
         shutil.rmtree(trees_dir, ignore_errors=True)
         with suppress(OSError, subprocess.SubprocessError):
             _git(repo_root, "worktree", "prune")
+
+
+CONTAINED_ASYMMETRY_REASON = "contained attempt asymmetric across revisions"
+
+
+def _contained_asymmetry(
+    head_runs: list[ExecutionResult], base_runs: list[ExecutionResult]
+) -> str | None:
+    """None when every head run and every base run recorded the same set of
+    contained attempts (the empty set included); otherwise one bounded
+    sentence naming what each side reached for and in how many of its runs.
+
+    The rule is over **sets per run**, not a union per side: three head runs
+    that disagree among themselves are as unreadable as a head and a base that
+    disagree, and either way the differential is not about the diff.
+    """
+    per_run = [frozenset(run.contained_attempts) for run in (*head_runs, *base_runs)]
+    if not per_run or all(attempts == per_run[0] for attempts in per_run):
+        return None
+
+    def side(runs: list[ExecutionResult]) -> str:
+        reached = sorted({attempt for run in runs for attempt in run.contained_attempts})
+        if not reached:
+            return f"none in {len(runs)}/{len(runs)} runs"
+        return "; ".join(
+            f"{attempt} in "
+            f"{sum(1 for run in runs if attempt in run.contained_attempts)}/{len(runs)} runs"
+            for attempt in reached
+        )
+
+    return f"{CONTAINED_ASYMMETRY_REASON}: head {side(head_runs)}; base {side(base_runs)}"
 
 
 def _reach_on_head(
@@ -2954,7 +3001,7 @@ def verify_candidate(
     shared_system: str = "",
     generation_model: str = "",
     probe_generation: bool = True,
-    contained_attempt_voids: bool = True,
+    contained_attempt_voids: bool = False,
     ledger: Ledger | None = None,
 ) -> VerificationRun:
     """Generate a reproduction and run it on both revisions.

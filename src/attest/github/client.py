@@ -13,6 +13,10 @@ STATUS_MARKER = "<!-- attest:status -->"
 _NEXT_LINK_RE = re.compile(r'<([^>]+)>;\s*rel="next"')
 # any attest marker, whole-line: the identity a rendered inline comment carries
 _MARKER_RE = re.compile(r"<!-- attest:[^\s>]+ -->")
+# the marker's two parts: the note kind (value, gate, impact, ...) and its id
+_MARKER_PARTS_RE = re.compile(r"<!-- attest:([a-z-]+):([^\s>]+) -->")
+# D-227: the two words an author may reply with under a yellow line
+INTENT_REPLIES = frozenset({"intended", "unintended"})
 
 
 class GitHubApiError(RuntimeError):
@@ -115,6 +119,70 @@ class GitHubClient:
             return frozenset()
         return frozenset(markers)
 
+    def thread_replies(self, repository: str, number: int) -> list[dict[str, object]]:
+        """The author replies under this product's own inline comments that say
+        `intended` or `unintended` (D-227, shadow).
+
+        GitHub returns a review comment's replies in the same listing as the
+        comment, each carrying `in_reply_to_id`; a reply counts only when its
+        parent is one of this product's marker-bearing comments, its body is
+        exactly one of the two words (case and surrounding whitespace aside),
+        and it was not written by a bot. What travels is the parent's marker
+        kind and id, the parent's path and line, the parent's body (the
+        product's own text, so the expression can be read back), the reply,
+        its author's login and its timestamp.
+
+        Read-only, and **fails open the same way `posted_review_markers`
+        does**: this is audit, so a listing that cannot be read records nothing
+        rather than failing the review.
+        """
+        parents: dict[int, dict[str, object]] = {}
+        replies: list[dict[str, object]] = []
+        url: str | None = (
+            f"{self._api_url}/repos/{repository}/pulls/{number}/comments?per_page=100&page=1"
+        )
+        try:
+            while url:
+                response, headers = self._request("GET", url)
+                if not isinstance(response, list):
+                    return []
+                for comment in response:
+                    if not isinstance(comment, dict):
+                        continue
+                    marker = _first_line_marker(comment)
+                    if marker is not None and isinstance(comment.get("id"), int):
+                        parents[int(comment["id"])] = comment
+                        continue
+                    if _is_intent_reply(comment):
+                        replies.append(comment)
+                url = _next_page(headers.get("Link"))
+        except GitHubApiError:
+            return []
+        out: list[dict[str, object]] = []
+        for reply in replies:
+            parent = parents.get(int(reply["in_reply_to_id"]))  # type: ignore[call-overload]
+            if parent is None:
+                continue
+            marker = _first_line_marker(parent) or ""
+            parts = _MARKER_PARTS_RE.fullmatch(marker)
+            if parts is None:
+                continue
+            user = reply.get("user")
+            out.append(
+                {
+                    "note_kind": parts.group(1),
+                    "note_id": parts.group(2),
+                    "path": str(parent.get("path", "")),
+                    "line": parent.get("line") or parent.get("original_line") or 0,
+                    "parent_body": str(parent.get("body", "")),
+                    "reply": str(reply["body"]).strip().lower(),
+                    "author": str(user.get("login", "")) if isinstance(user, dict) else "",
+                    "ts": str(reply.get("created_at", "")),
+                    "reply_id": reply.get("id"),
+                }
+            )
+        return out
+
     def _find_marker_comment(self, repository: str, number: int, marker: str) -> int | None:
         url: str | None = (
             f"{self._api_url}/repos/{repository}/issues/{number}/comments?per_page=100&page=1"
@@ -176,6 +244,19 @@ def _first_line_marker(comment: object) -> str | None:
     first = body.splitlines()[0] if body.splitlines() else ""
     match = _MARKER_RE.fullmatch(first.strip())
     return match.group(0) if match else None
+
+
+def _is_intent_reply(comment: dict[str, object]) -> bool:
+    """A non-bot reply whose whole body is `intended` or `unintended`."""
+    user = comment.get("user")
+    body = comment.get("body")
+    return (
+        isinstance(comment.get("in_reply_to_id"), int)
+        and isinstance(body, str)
+        and body.strip().lower() in INTENT_REPLIES
+        and isinstance(user, dict)
+        and user.get("type") != "Bot"
+    )
 
 
 def _is_bot_marker(comment: object, marker: str) -> bool:

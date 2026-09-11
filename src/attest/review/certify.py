@@ -21,6 +21,7 @@ from attest.certification.types import (
     CERTIFICATION_POLICY_SCHEMA_VERSION,
     CERTIFICATION_RECEIPT_SCHEMA_VERSION,
     CERTIFICATION_TASK_SCHEMA_VERSION,
+    RECEIPT_BODY_VERSION,
     AcceptedReceipt,
     CertificationPolicy,
     CertificationReceipt,
@@ -266,6 +267,10 @@ def attempt_certification(
             "" if execution.intent is None else execution.intent.policy_version
         ),
         "intent_digest": "" if execution.intent is None else execution.intent.digest(),
+        # owner authorisation 2 of 2026-09-12: body v2 discloses, under the
+        # digest, every creation the kernel refused across the certified runs
+        "body_version": RECEIPT_BODY_VERSION,
+        "contained_attempts": tuple(execution.contained_attempts),
     }
     draft = CertificationReceipt(
         **{**unsigned, "head_runs": head_runs, "base_runs": base_runs},

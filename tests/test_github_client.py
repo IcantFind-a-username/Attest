@@ -206,3 +206,86 @@ def test_http_error_is_sanitized_and_never_discloses_token(github_server: _FakeG
 
     assert str(raised.value) == "GitHub API request failed with HTTP 500"
     assert token not in str(raised.value)
+
+
+# --- D-227: the author's `intended` / `unintended` reply under a yellow line --
+
+
+def _value_parent(comment_id: int = 501) -> dict[str, object]:
+    return {
+        "id": comment_id,
+        "user": {"type": "Bot", "login": "attest[bot]"},
+        "path": "pkg/money.py",
+        "line": 41,
+        "body": (
+            "<!-- attest:value:0123456789ab -->\n"
+            "[yellow] pkg/money.py:41 — for money.rate('EUR'), the merge base returned "
+            "Decimal('1.05') and head returns Decimal('1.10') (3/3 and 3/3 runs each side); "
+            "no base test, docstring or changelog pins either — note 0123456789ab\n\n"
+            "<details><summary>The two observations</summary>\n\n"
+            "Expression: `money.rate('EUR')`\n\n</details>\n\n"
+            "Action: if the new value is intended, add a test that pins it at "
+            "`pkg/money.py:41`; otherwise restore what the merge base returned there. "
+            "Reply `intended` or `unintended` to record it."
+        ),
+    }
+
+
+def _reply(comment_id: int, parent: int, body: str, *, bot: bool = False) -> dict[str, object]:
+    return {
+        "id": comment_id,
+        "in_reply_to_id": parent,
+        "user": {"type": "Bot" if bot else "User", "login": "octocat"},
+        "body": body,
+        "created_at": "2026-09-12T08:00:00Z",
+    }
+
+
+def test_thread_replies_returns_the_authors_word_under_the_products_own_line(
+    github_server: _FakeGitHub,
+) -> None:
+    """RED, owner authorisation 3 of 2026-09-12: a reply is recorded only when
+    its parent is one of this product's marker-bearing comments, its whole
+    body is one of the two words, and a person wrote it. Everything else in
+    the thread -- a bot's reply, a sentence, a reply to somebody else's
+    comment -- is not a reply the ledger may carry."""
+    from attest.github.client import GitHubClient
+
+    listing = "/repos/octo/widgets/pulls/9/comments?per_page=100&page=1"
+    github_server.reply(
+        "GET",
+        listing,
+        [
+            _value_parent(501),
+            _reply(601, 501, "  Intended \n"),
+            _reply(602, 501, "I think this is intended", ),
+            _reply(603, 501, "unintended", bot=True),
+            {"id": 700, "user": {"type": "User", "login": "someone"}, "body": "plain review",
+             "path": "pkg/money.py", "line": 3},
+            _reply(701, 700, "intended"),
+            _reply(702, 999, "unintended"),
+        ],
+    )
+
+    replies = GitHubClient("secret-token", github_server.url).thread_replies("octo/widgets", 9)
+
+    assert len(replies) == 1
+    reply = replies[0]
+    assert reply["note_kind"] == "value" and reply["note_id"] == "0123456789ab"
+    assert reply["reply"] == "intended"
+    assert reply["author"] == "octocat" and reply["ts"] == "2026-09-12T08:00:00Z"
+    assert reply["path"] == "pkg/money.py" and reply["line"] == 41
+    assert "Expression: `money.rate('EUR')`" in str(reply["parent_body"])
+    assert reply["reply_id"] == 601
+    assert github_server.requests[-1]["method"] == "GET"
+
+
+def test_thread_replies_fails_open_on_an_api_error(github_server: _FakeGitHub) -> None:
+    """Audit, not publication: a listing that cannot be read records nothing
+    and never fails the review it runs inside."""
+    from attest.github.client import GitHubClient
+
+    listing = "/repos/octo/widgets/pulls/9/comments?per_page=100&page=1"
+    github_server.reply("GET", listing, {"message": "boom"}, status=500)
+
+    assert GitHubClient("secret-token", github_server.url).thread_replies("octo/widgets", 9) == []

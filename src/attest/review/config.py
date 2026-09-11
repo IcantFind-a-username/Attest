@@ -63,18 +63,25 @@ class ReviewConfig:
     # the reversal, and it is what the before/after measurement compares.
     probe_generation: bool = True
     # D-217: whether a process or thread creation the **kernel** already
-    # refused voids the observation. True is the product's setting and this
-    # change does not move it. False says: an attempt that RLIMIT_NPROC denied,
-    # made by code that then completed normally, is a contained attempt and not
-    # a failed run -- the isolation was not breached, and the evidence is still
-    # a 3x3 deterministic differential. It exists because 18 of 67 verification
-    # attempts in the 2026-09-10 held-out run died on `sphinx/__init__.py`
-    # calling `git show` inside a `try/except Exception` at import: the guard
-    # marked, the kernel refused, Sphinx swallowed the error, the probe ran and
-    # recorded -- and the executor then discarded the recording it had.
-    # `process-replacement-attempted`, `network-attempted` and
-    # `write-attempted` void the run under either setting.
-    contained_attempt_voids: bool = True
+    # refused voids the observation. False says: an attempt that RLIMIT_NPROC
+    # denied, made by code that then completed normally, is a contained attempt
+    # and not a failed run -- the isolation was not breached, and the evidence
+    # is still a 3x3 deterministic differential. It exists because 18 of 67
+    # verification attempts in the 2026-09-10 held-out run died on
+    # `sphinx/__init__.py` calling `git show` inside a `try/except Exception`
+    # at import: the guard marked, the kernel refused, Sphinx swallowed the
+    # error, the probe ran and recorded -- and the executor then discarded the
+    # recording it had. `process-replacement-attempted`, `network-attempted`
+    # and `write-attempted` void the run under either setting.
+    #
+    # **False is the product's setting since owner authorisation 2 of
+    # 2026-09-12 (D-226)**, on two premises that were both met before the
+    # default moved: the symmetry constraint -- the contained set must be
+    # identical on every head and base run, so a change that *adds* a
+    # subprocess call cannot certify because the sandbox refused it -- and the
+    # thirteen-class red-team matrix green on the CI platform under this
+    # setting. True restores D-217's default exactly.
+    contained_attempt_voids: bool = False
     # Owner instruction 4 of the 2026-09-11 drawer window: the value-class
     # yellow note (D-218) is author-visible only where the base-owned policy
     # says so. Off by default; this window turns it on in the owner's own
@@ -85,6 +92,14 @@ class ReviewConfig:
     # says so. Off by default. On, it also runs the gate stage (as
     # `gate_shadow` does), because a line needs an observation to render from.
     gate_notes_visible: bool = False
+    # Owner authorisation 3 of 2026-09-12 (D-227), shadow: when the base-owned
+    # policy sets this, `run_ci` reads the replies an author left under the
+    # value-class yellow line's thread -- `intended` or `unintended` -- and
+    # writes each to the ledger as an `intent_reply` row. Off by default. On,
+    # the line's action clause also asks for the reply. **Nothing reads the
+    # rows back**: no publication and no drawer decision depends on them in
+    # this version; they are evidence for the owner's next decision.
+    intent_replies: bool = False
     # D-157: how many candidates' reproductions may run at once. The three runs
     # *inside* one candidate stay serial -- the repeat count is what makes a
     # reproduction stable, and a concurrent repeat is a different experiment.
@@ -154,6 +169,8 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError("value_notes_visible must be a boolean")
     if type(config.gate_notes_visible) is not bool:
         raise ValueError("gate_notes_visible must be a boolean")
+    if type(config.intent_replies) is not bool:
+        raise ValueError("intent_replies must be a boolean")
     if type(config.repro_concurrency) is not int or not 1 <= config.repro_concurrency <= 8:
         raise ValueError("repro_concurrency must be an integer in [1, 8]")
     if type(config.verification_cap_per_unit) is not int or config.verification_cap_per_unit < 1:
@@ -193,6 +210,9 @@ _KNOWN_POLICY_KEYS = {
     # speech surfaces, not evidence rules: the base-owned policy may open them
     "value_notes_visible",
     "gate_notes_visible",
+    # D-227: reading an author's reply is a speech surface too, and only the
+    # base may open it
+    "intent_replies",
 }
 
 

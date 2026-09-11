@@ -1282,6 +1282,45 @@ def _refusal_body(
     return _with_run_status(ledger, task_id, line)
 
 
+INTENT_REPLY_SCHEMA_VERSION = "attest.intent-reply.v1"
+_EXPRESSION_IN_BODY = re.compile(r"^Expression: `(.*)`$", re.MULTILINE)
+
+
+def record_intent_replies(
+    client: GitHubClient, context: PullRequestContext, ledger: Ledger, task_id: str
+) -> int:
+    """Write one `intent_reply` row per author reply under a value line
+    (D-227). Returns how many were written. The expression is read out of the
+    parent comment's own collapsed block -- text this product wrote -- so the
+    row stands on its own without the earlier review's ledger, which on a
+    fresh runner does not exist."""
+    reader = getattr(client, "thread_replies", None)
+    if not callable(reader):
+        return 0
+    written = 0
+    for reply in reader(context.repository, context.number):
+        if reply.get("note_kind") != "value":
+            continue
+        found = _EXPRESSION_IN_BODY.search(str(reply.get("parent_body", "")))
+        ledger.append(
+            {
+                "kind": "intent_reply",
+                "schema_version": INTENT_REPLY_SCHEMA_VERSION,
+                "task_id": task_id,
+                "path": str(reply.get("path", "")),
+                "line": reply.get("line", 0),
+                "expression": found.group(1) if found else "",
+                "note_id": str(reply.get("note_id", "")),
+                "reply": str(reply.get("reply", "")),
+                "author": str(reply.get("author", "")),
+                "ts": str(reply.get("ts", "")),
+                "reply_id": reply.get("reply_id"),
+            }
+        )
+        written += 1
+    return written
+
+
 def value_notes_for_task(
     rows: Sequence[Mapping[str, object]], task_id: str, config: ReviewConfig
 ) -> list[ValueNote]:
@@ -1776,6 +1815,12 @@ def run_ci(
             "review_policy_digest": resolved.policy_digest,
         }
     )
+    # D-227, shadow: an author's `intended` / `unintended` reply under a value
+    # line of an earlier review is read back and written to the ledger -- only
+    # when the base-owned policy opened the surface, and to the ledger only.
+    # Nothing below reads these rows: no publication, no drawer, no cap.
+    if config.intent_replies:
+        record_intent_replies(client, context, ledger, task_id)
     try:
         review = run_review(
             repo,
@@ -2021,9 +2066,9 @@ def run_ci(
         # The two yellow classes share one cap, (a) first, so a pull request
         # never shows more than two yellow comments however many levels spoke.
         yellow_comments = impact_comments(yellow, changed_lines)
-        value_note_comments = value_comments(value_notes, changed_lines)[
-            : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments))
-        ]
+        value_note_comments = value_comments(
+            value_notes, changed_lines, ask_for_reply=config.intent_replies
+        )[: max(0, YELLOW_MAX_COMMENTS - len(yellow_comments))]
         gate_note_comments = gate_comments(gate_notes, changed_lines)
         # D-160 on the path the product ships. That rule -- a pair this
         # repository has already been told about is not news -- reads the
