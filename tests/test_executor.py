@@ -2603,10 +2603,10 @@ def test_differential_certification_requires_the_head_code_to_misbehave(
 
 
 @pytest.mark.parametrize(
-    ("base_module", "head_module", "test_body"),
+    ("base_module", "head_module", "test_body", "certifies"),
     [
-        (DEFAULTED_LOOKUP_MODULE, UNDEFAULTED_LOOKUP_MODULE, DEEP_KEY_ERROR_BODY),
-        (MERGED_SETTINGS_MODULE, DROPPED_SETTINGS_MODULE, TEST_FRAME_KEY_ERROR_BODY),
+        (DEFAULTED_LOOKUP_MODULE, UNDEFAULTED_LOOKUP_MODULE, DEEP_KEY_ERROR_BODY, False),
+        (MERGED_SETTINGS_MODULE, DROPPED_SETTINGS_MODULE, TEST_FRAME_KEY_ERROR_BODY, True),
     ],
     ids=["raised_inside_the_code_under_test", "raised_at_the_reproduction_assertion"],
 )
@@ -2616,12 +2616,20 @@ def test_verify_candidate_key_error_regression_certifies(
     base_module: str,
     head_module: str,
     test_body: str,
+    certifies: bool,
 ) -> None:
     """The reproduced defect. A genuine regression whose reproduction fails with
     KeyError: the symbol is present on BOTH trees, base honours the default and
     head genuinely misbehaves. Reading the exception NAME called this a missing
     symbol, and since certification now requires the head code to misbehave,
-    that silently blocked a true finding from buying any evidence at all."""
+    that silently blocked a true finding from buying any evidence at all.
+
+    D-232 splits the two shapes. The KeyError raised *at the reproduction's own
+    assertion* is a regression and certifies as before. The KeyError raised
+    *inside the code under test* is raised by `config["threshold"]` on the line
+    the change wrote -- head rejects an input the merge base accepted -- and
+    that is a behaviour change whose intent the product cannot read: the
+    drawer, buying nothing. That is the recall cost the decision states."""
 
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path, {"mod.py": base_module}, {"mod.py": head_module}
@@ -2650,6 +2658,19 @@ def test_verify_candidate_key_error_regression_certifies(
     assert "KeyError" in verification.execution.head_runs[0].stdout
     assert [run.outcome.value for run in verification.execution.base_runs] == ["not_reproduced"] * 3
 
+    if not certifies:
+        assert verification.execution.evidence_class is EvidenceClass.BEHAVIOR_CHANGE
+        assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+        assert "behavior change confirmed, intent unknown" in verification.execution.reason
+        assert "KeyError from a call or expression on a changed line" in verification.execution.reason
+        # nothing is bought: the caller's own gate result comes straight back
+        assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
+        assert verification.gate_result.wealth == 8.0
+        row = Ledger(repo).entries()[-1]
+        assert row["outcome"] == "deferred"
+        assert row["evidence_class"] == "behavior_change"
+        assert_worktrees_cleaned(repo, stored)
+        return
     assert verification.execution.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
     assert verification.execution.outcome is ExecutionOutcome.REPRODUCED
     assert verification.execution.reason == "head FAIL 3/3, base PASS 3/3"
