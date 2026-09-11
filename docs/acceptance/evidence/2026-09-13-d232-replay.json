@@ -1,0 +1,177 @@
+{
+  "what": "D-232 replay: reproduced rows re-judged under attest.intent.v5",
+  "policy": "attest.intent.v5",
+  "summary": {
+    "verification_rows_read": {
+      "heldout 2026-09-12 (35 cases)": 56,
+      "e05-external-v1 run B (24 units)": 32,
+      "e04 run A (2 units)": 7
+    },
+    "reproduced_rows": 4,
+    "certified_rows": 4,
+    "moved_to_the_drawer": 2,
+    "moved_certified": 2,
+    "kept_as_regression": 0,
+    "unchanged": 2,
+    "unreadable": 0,
+    "by_source": {
+      "e05-external-v1 run B (24 units)": {
+        "reproduced": 2,
+        "certified": 2,
+        "moved": 2,
+        "kept": 0
+      },
+      "heldout 2026-09-12 (35 cases)": {
+        "reproduced": 2,
+        "certified": 2,
+        "moved": 0,
+        "kept": 0
+      }
+    },
+    "attrs_1603": {
+      "986187b2bb": "moved",
+      "6febbf922e": "moved"
+    }
+  },
+  "rows": [
+    {
+      "finding_id": "520c57974d",
+      "path": "requests/models.py",
+      "before_class": "regression_reproduced",
+      "before_outcome": "reproduced",
+      "origin_line_recorded": 0,
+      "origin_statement_recorded": "",
+      "exception_type": "",
+      "new_rejection_recorded": false,
+      "value_mismatch_recorded": true,
+      "after": "unchanged",
+      "after_class": "regression_reproduced",
+      "why": "a value mismatch: the frame rule does not apply",
+      "source": "heldout 2026-09-12 (35 cases)",
+      "unit": "psf__requests-5414",
+      "task_id": "20260909-024504-41e024c6",
+      "certified": true
+    },
+    {
+      "finding_id": "e9223c7815",
+      "path": "src/_pytest/mark/structures.py",
+      "before_class": "regression_reproduced",
+      "before_outcome": "reproduced",
+      "origin_line_recorded": 0,
+      "origin_statement_recorded": "",
+      "exception_type": "",
+      "new_rejection_recorded": false,
+      "value_mismatch_recorded": false,
+      "added_lines": [
+        358,
+        359,
+        360,
+        361,
+        362,
+        363,
+        391
+      ],
+      "anchored_frames_per_head_run": [
+        [],
+        [],
+        []
+      ],
+      "after": "unchanged",
+      "after_class": "regression_reproduced",
+      "why": "no frame of the anchored file on the exception's path (raised at the call site or in another file)",
+      "source": "heldout 2026-09-12 (35 cases)",
+      "unit": "pytest-dev__pytest-10356",
+      "task_id": "20260909-025426-9afd76e5",
+      "certified": true
+    },
+    {
+      "finding_id": "986187b2bb",
+      "path": "src/attr/_make.py",
+      "before_class": "regression_reproduced",
+      "before_outcome": "reproduced",
+      "origin_line_recorded": 2687,
+      "origin_statement_recorded": "other",
+      "exception_type": "ValueError",
+      "new_rejection_recorded": false,
+      "value_mismatch_recorded": false,
+      "added_lines": [
+        811,
+        1050,
+        1602,
+        2675,
+        2683,
+        3115
+      ],
+      "anchored_frames_per_head_run": [
+        [
+          2683,
+          2687
+        ],
+        [
+          2683,
+          2687
+        ],
+        [
+          2683,
+          2687
+        ]
+      ],
+      "origin_line": 2687,
+      "path_lines": [
+        2683
+      ],
+      "written_hits": [
+        2683
+      ],
+      "after": "moved",
+      "after_class": "behavior_change",
+      "why": "raised on an unchanged line (src/attr/_make.py:2687) reached through a written line (src/attr/_make.py:2683)",
+      "source": "e05-external-v1 run B (24 units)",
+      "unit": "python-attrs/attrs#1603",
+      "task_id": "20260911-214502-fd4b177a",
+      "certified": true
+    },
+    {
+      "finding_id": "6febbf922e",
+      "path": "src/attr/_make.py",
+      "before_class": "regression_reproduced",
+      "before_outcome": "reproduced",
+      "origin_line_recorded": 3115,
+      "origin_statement_recorded": "other",
+      "exception_type": "ValueError",
+      "new_rejection_recorded": false,
+      "value_mismatch_recorded": false,
+      "added_lines": [
+        811,
+        1050,
+        1602,
+        2675,
+        2683,
+        3115
+      ],
+      "anchored_frames_per_head_run": [
+        [
+          3115
+        ],
+        [
+          3115
+        ],
+        [
+          3115
+        ]
+      ],
+      "origin_line": 3115,
+      "path_lines": [],
+      "written_hits": [
+        3115
+      ],
+      "after": "moved",
+      "after_class": "behavior_change",
+      "why": "raised on a line the change wrote (src/attr/_make.py:3115)",
+      "source": "e05-external-v1 run B (24 units)",
+      "unit": "python-attrs/attrs#1603",
+      "task_id": "20260911-214502-fd4b177a",
+      "certified": true
+    }
+  ]
+}

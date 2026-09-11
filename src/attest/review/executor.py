@@ -714,6 +714,7 @@ _pending = {}  # id(frame) -> id(exception) currently propagating through that f
 _caught = set()  # ids of exceptions handled inside a frame of the anchored file
 _truncated = False
 MAX_RAISE_ORIGINS = 256
+MAX_PATH_FRAMES = 64
 MAX_SEEN_EXCEPTIONS = 4096
 MAX_MESSAGE_CHARS = 1000
 MAX_VALUE_CHARS = 300
@@ -753,6 +754,14 @@ def _record_exception(frame, arg):
     key = id(exc_value)
     _pending[id(frame)] = key
     if key in _seen_exceptions:
+        # D-232: an outer frame of the anchored file the exception propagated
+        # into. Recorded on the origin so the classifier can see whether a
+        # changed line is anywhere on the exception's path through this file.
+        index = _origin_index.get(key)
+        if index is not None:
+            path = _raise_origins[index]["path"]
+            if len(path) < MAX_PATH_FRAMES:
+                path.append(frame.f_lineno)
         return
     if len(_seen_exceptions) >= MAX_SEEN_EXCEPTIONS:
         _truncated = True
@@ -769,6 +778,7 @@ def _record_exception(frame, arg):
         "message": message,
         "values": _string_values(frame),
         "exception_id": key,
+        "path": [],
     }
     signature = (record["line"], record["exception_type"], message, tuple(record["values"]))
     if signature in _signatures:
@@ -1236,6 +1246,25 @@ def _changed_lines(repo: Path, base_sha: str, head_sha: str, path: str) -> tuple
         return ()
     ranges = parse_diff(proc.stdout).hunks.get(path, [])
     return tuple(sorted({line for start, end in ranges for line in range(start, end + 1)}))
+
+
+def _added_lines(repo: Path, base_sha: str, head_sha: str, path: str) -> tuple[int, ...]:
+    """D-232: the new-file lines the change *wrote* in the anchored file -- the
+    diff's ``+`` lines, never its context. `_changed_lines` is the hunk range
+    the binding policy has always used and includes three context lines each
+    side; the frame rule needs the lines the author touched, or a crash three
+    lines away from an edit, and every crash beside a deleted guard, would be
+    read as raised "on a changed line"."""
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "diff", "--no-color", base_sha, head_sha, "--", path],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if proc.returncode != 0:
+        return ()
+    return tuple(sorted(parse_diff(proc.stdout).added_lines.get(path, set())))
 
 
 def _changed_files(repo: Path, base_sha: str, head_sha: str) -> tuple[str, ...]:
@@ -2804,6 +2833,7 @@ def execute_differential(
         observed = observe_intent(
             path=candidate.finding.file,
             changed_lines=changed,
+            added_lines=_added_lines(repo_root, base_sha, head_sha, candidate.finding.file),
             head_source=head_source,
             base_source=base_source,
             test_source=spec.test_body,

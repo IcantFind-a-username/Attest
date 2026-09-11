@@ -120,6 +120,23 @@ def test_rejected_inputs_are_literals_equal_to_a_local_or_quoted_in_the_message(
     assert identify_rejected_inputs(literals, unquoted) == ()
 
 
+def test_parse_raise_record_reads_the_path_and_drops_what_is_not_a_line() -> None:
+    """D-232: the tracer's `path` is read as anchored-frame lines, fail-soft."""
+    payload = json.dumps(
+        {
+            "origins": [
+                {"line": 5, "exception_type": "ValueError", "path": [9, "x", 0, 12]},
+                {"line": 6, "exception_type": "KeyError"},
+            ],
+            "truncated": False,
+        }
+    ).encode("utf-8")
+
+    record = parse_raise_record(payload)
+
+    assert [origin.path for origin in record.origins] == [(9, 12), ()]
+
+
 def test_parse_raise_record_is_fail_soft_on_rows_and_fail_closed_on_the_artifact() -> None:
     rows = [
         {
@@ -327,6 +344,8 @@ def test_observe_intent_records_a_regression_and_a_crash_without_a_rejection(
     assert not regression.new_rejection
     assert (regression.origin_line, regression.origin_statement) == (0, "")
 
+    # D-232: a crash from an expression on a changed line is a new rejection,
+    # recorded with its statement kind and an empty path
     crash = observe_intent(
         path="mod.py",
         changed_lines=(13,),
@@ -334,12 +353,15 @@ def test_observe_intent_records_a_regression_and_a_crash_without_a_rejection(
         base_source=BASE_SOURCE,
         test_source=TEST_SOURCE,
         head_origins=[(_origin(line=13, exception_type="AttributeError"),)] * 3,
+        head_failures=["AttributeError: no attribute"] * 3,
         base_tree=tmp_path,
     )
     assert isinstance(crash, IntentObservation)
-    assert not crash.new_rejection
+    assert crash.new_rejection
     assert (crash.origin_line, crash.origin_statement) == (13, "other")
-    # a raise on an unchanged line is not a new rejection either
+    assert crash.path_lines == ()
+    # a raise on an unchanged line whose path crosses no changed line is not
+    # a new rejection: the changed code's effect surfaced elsewhere
     unchanged = observe_intent(
         path="mod.py",
         changed_lines=(13,),
@@ -351,6 +373,20 @@ def test_observe_intent_records_a_regression_and_a_crash_without_a_rejection(
     )
     assert isinstance(unchanged, IntentObservation)
     assert not unchanged.new_rejection
+    # ... but one whose path passes back through the changed line is (the
+    # lazy-iterator shape of `attrs#1603`), and the path is recorded
+    through = observe_intent(
+        path="mod.py",
+        changed_lines=(13,),
+        head_source=HEAD_SOURCE,
+        base_source=BASE_SOURCE,
+        test_source=TEST_SOURCE,
+        head_origins=[(_origin(line=10, path=(13,)),)] * 3,
+        base_tree=tmp_path,
+    )
+    assert isinstance(through, IntentObservation)
+    assert through.new_rejection
+    assert (through.origin_line, through.path_lines) == (10, (13,))
 
 
 def test_observe_intent_refuses_head_runs_that_disagree(tmp_path: Path) -> None:

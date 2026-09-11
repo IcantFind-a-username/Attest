@@ -3362,12 +3362,13 @@ def test_a_lone_surrogate_in_the_message_does_not_break_the_head_run(tmp_path: P
     assert not any("\ud800" <= char <= "\udfff" for char in origins[0].message)
 
 
-def test_a_regression_and_a_crash_on_a_changed_line_keep_the_regression_class(
+def test_a_regression_keeps_its_class_and_a_crash_on_a_changed_line_is_drawered(
     tmp_path: Path,
 ) -> None:
-    """The discriminator separates a rejection from a defect: an assertion in
-    the test and a crash raised by an expression on a changed line are both
-    regressions, and their intent observation says so."""
+    """D-232 RED: an assertion in the test is a regression as before; a crash
+    raised by an expression on a changed line is a behaviour change whose
+    intent is unknown -- the `zip(strict=True)` shape -- and goes to the
+    drawer with the label, certifying nothing."""
     repo, base_sha, head_sha = differential_repo(tmp_path)
     stored = candidate(file="mod.py", line=2)
     regression = execute_differential(
@@ -3395,11 +3396,111 @@ def test_a_regression_and_a_crash_on_a_changed_line_keep_the_regression_class(
         base_sha=crash_base,
         head_sha=crash_head,
     )
-    assert crash.outcome is ExecutionOutcome.REPRODUCED, crash.reason
-    assert crash.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
-    assert crash.intent is not None and not crash.intent.new_rejection
+    assert [run.outcome.value for run in crash.head_runs] == ["reproduced"] * 3
+    assert crash.outcome is ExecutionOutcome.DEFERRED, crash.reason
+    assert crash.evidence_class is EvidenceClass.BEHAVIOR_CHANGE
+    assert "behavior change confirmed, intent unknown" in crash.reason
+    assert "from a call or expression on a changed line" in crash.reason
+    assert crash.intent is not None and crash.intent.new_rejection
     assert (crash.intent.origin_line, crash.intent.origin_statement) == (2, "other")
     assert crash.intent.exception_type == "IndexError"
+    assert crash.intent.path_lines == ()
+
+
+# D-232, the second `attrs#1603` receipt: the strict zip is built on the changed
+# line and consumed by an unchanged helper, so the ValueError is raised in the
+# helper and passes back through the changed line.
+LAZY_BASE_MODULE = (
+    "SLOTS = ('x', 'y')\n"
+    "\n\n"
+    "def load(state):\n"
+    "    return _apply(zip(SLOTS, state))\n"
+    "\n\n"
+    "def _apply(pairs):\n"
+    "    out = {}\n"
+    "    for name, value in pairs:\n"
+    "        out[name] = value\n"
+    "    return out\n"
+)
+LAZY_HEAD_MODULE = LAZY_BASE_MODULE.replace("zip(SLOTS, state)", "zip(SLOTS, state, strict=True)")
+LAZY_BODY = "import mod\n\ndef test_repro():\n    assert mod.load(('a',)) == {'x': 'a'}\n"
+
+
+def test_a_strict_zip_consumed_by_an_unchanged_helper_is_a_behavior_change(
+    tmp_path: Path,
+) -> None:
+    """D-232 RED: the exception is raised on an unchanged line, but a changed
+    line is on its path through the anchored file, so it is a new rejection
+    and not a regression. The observation records where it was raised and the
+    path back through the change."""
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": LAZY_BASE_MODULE}, {"mod.py": LAZY_HEAD_MODULE}
+    )
+    stored = candidate(file="mod.py", line=5)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(LAZY_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert [run.outcome.value for run in result.head_runs] == ["reproduced"] * 3
+    assert [run.outcome.value for run in result.base_runs] == ["not_reproduced"] * 3
+    assert result.outcome is ExecutionOutcome.DEFERRED, result.reason
+    assert result.evidence_class is EvidenceClass.BEHAVIOR_CHANGE
+    assert "on an unchanged line reached through a changed line" in result.reason
+    intent = result.intent
+    assert intent is not None and intent.new_rejection
+    assert intent.exception_type == "ValueError"
+    assert intent.origin_line == 10 and intent.origin_line not in intent.changed_lines
+    assert 5 in intent.path_lines and 5 in intent.changed_lines
+    origins = result.head_runs[0].raise_origins
+    assert origins and origins[0].line == 10 and 5 in origins[0].path
+
+
+# D-232, the regression it keeps: the change moves a limit inside `limit()`, and
+# an unchanged function called by the test crashes on it. No changed line is on
+# the exception's path -- the effect of the change surfaced elsewhere.
+ELSEWHERE_BASE_MODULE = (
+    "def limit():\n"
+    "    return 1\n"
+    "\n\n"
+    "def first(items):\n"
+    "    return items[: limit()][0]\n"
+)
+ELSEWHERE_HEAD_MODULE = ELSEWHERE_BASE_MODULE.replace("return 1", "return 0")
+ELSEWHERE_BODY = "import mod\n\ndef test_repro():\n    assert mod.first([7]) == 7\n"
+
+
+def test_a_crash_on_an_unchanged_line_with_no_changed_frame_on_its_path_certifies(
+    tmp_path: Path,
+) -> None:
+    """The negative control for D-232: head raises on an unchanged line and the
+    changed line is not on the exception's path, so this is the regression
+    the frame rule was written to keep."""
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": ELSEWHERE_BASE_MODULE}, {"mod.py": ELSEWHERE_HEAD_MODULE}
+    )
+    stored = candidate(file="mod.py", line=2)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(ELSEWHERE_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+    assert result.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    intent = result.intent
+    assert intent is not None and not intent.new_rejection
+    assert intent.exception_type == "IndexError" and intent.origin_line == 6
+    assert not set(intent.path_lines) & set(intent.changed_lines)
 
 
 def test_a_stdlib_module_sharing_the_anchored_basename_is_not_a_shadow(tmp_path: Path) -> None:

@@ -257,14 +257,14 @@ def test_a_value_quoted_in_another_paragraph_specifies_nothing(tmp_path: Path) -
 # --- the version is recorded and replayed ---------------------------------------
 
 
-def test_the_policy_version_is_v42_and_registered(tmp_path: Path) -> None:
+def test_the_policy_version_is_v5_and_registered(tmp_path: Path) -> None:
     observed = _observe(
         tmp_path,
         base={"convert.py": CONV_BASE, "tests/test_convert.py": ASSOCIATED_IMPORT},
         head={"convert.py": CONV_HEAD, "tests/test_convert.py": ASSOCIATED_IMPORT},
     )
 
-    assert observed.policy_version == INTENT_POLICY_VERSION == "attest.intent.v4.2"
+    assert observed.policy_version == INTENT_POLICY_VERSION == "attest.intent.v5"
     assert INTENT_POLICY_VERSION in POLICY_FIELDS
 
 

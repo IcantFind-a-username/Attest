@@ -1,4 +1,5 @@
-"""D-102: a new rejection publishes only with a base-tree witness; otherwise the drawer."""
+"""D-102: a new rejection publishes only with a base-tree witness; otherwise the drawer.
+D-232: the rejection is a frame on the exception's path, not a statement."""
 
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ from attest.certification.intent import (
     EVIDENCE_CLASS_BEHAVIOR_CHANGE,
     EVIDENCE_CLASS_REGRESSION,
     INTENT_POLICY_V1,
+    INTENT_POLICY_V42,
     INTENT_POLICY_VERSION,
     INTENT_UNKNOWN_LABEL,
     INTENT_UNKNOWN_LABEL_ZH,
@@ -49,8 +51,11 @@ def natural_null_observation(**overrides: object) -> IntentObservation:
         "rejected_inputs": FABRICATED,
         "witnesses": (),
         "head_runs_observed": 3,
+        "added_lines": tuple(range(331, 356)),
     }
     values.update(overrides)
+    if values["policy_version"] != INTENT_POLICY_VERSION:
+        values.pop("added_lines", None)  # the field arrived with v5
     return IntentObservation(**values)  # type: ignore[arg-type]
 
 
@@ -112,20 +117,112 @@ def test_a_regression_keeps_its_class_and_publishes() -> None:
     assert evidence_class_for(regression) == EVIDENCE_CLASS_REGRESSION
 
 
-def test_a_crash_on_a_changed_line_is_not_a_rejection() -> None:
+def test_a_crash_on_a_changed_line_is_a_new_rejection_under_v5() -> None:
+    """D-232 RED, the `zip(strict=True)` shape of `python-attrs/attrs#1603`: a
+    builtin raising on a changed line is read the way a `raise` statement there
+    is -- a behaviour change whose intent is unknown, drawered without a
+    witness -- and the drawer names the shape."""
     crash = natural_null_observation(
-        origin_statement="other", exception_type="AttributeError", new_rejection=False
+        origin_statement="other",
+        exception_type="ValueError",
+        new_rejection=True,
+        rejected_inputs=(),
+    )
+
+    verdict = intent_verdict(crash)
+    assert verdict is not None
+    assert verdict.startswith(INTENT_UNKNOWN_LABEL)
+    assert "from a call or expression on a changed line" in verdict
+    assert INTENT_UNKNOWN_LABEL_ZH in verdict
+    assert evidence_class_for(crash) == EVIDENCE_CLASS_BEHAVIOR_CHANGE
+
+
+def test_the_same_crash_recorded_under_v42_keeps_the_regression_class() -> None:
+    """D-121: a v4.2 receipt is judged by v4.2's statement rule, under which a
+    crash from an expression on a changed line was a regression. Nothing
+    already issued is re-adjudicated by the version bump."""
+    crash = natural_null_observation(
+        policy_version=INTENT_POLICY_V42,
+        origin_statement="other",
+        exception_type="AttributeError",
+        new_rejection=False,
+        rejected_inputs=(),
     )
 
     assert intent_verdict(crash) is None
     assert evidence_class_for(crash) == EVIDENCE_CLASS_REGRESSION
 
 
+def test_a_raise_on_an_unchanged_line_reached_through_a_changed_one_is_a_new_rejection() -> None:
+    """D-232 RED, the second `attrs#1603` receipt: the strict zip is built on a
+    changed line and consumed by an unchanged helper, so the exception is
+    raised at an unchanged line and passes back through the changed one. The
+    path decides; without a witness it is the drawer."""
+    lazy = natural_null_observation(
+        origin_line=360,  # unchanged: the helper's loop
+        origin_statement="other",
+        exception_type="ValueError",
+        new_rejection=True,
+        rejected_inputs=(),
+        path_lines=(347,),  # the changed line that built the strict zip
+    )
+
+    verdict = intent_verdict(lazy)
+    assert verdict is not None
+    assert verdict.startswith(INTENT_UNKNOWN_LABEL)
+    assert "on an unchanged line reached through a changed line" in verdict
+    assert evidence_class_for(lazy) == EVIDENCE_CLASS_BEHAVIOR_CHANGE
+
+    witnessed = natural_null_observation(
+        origin_line=360,
+        origin_statement="other",
+        exception_type="ValueError",
+        new_rejection=True,
+        path_lines=(347,),
+        witnesses=tuple((literal, "tests/test_x.py") for literal in FABRICATED),
+    )
+    assert intent_verdict(witnessed) is None
+    assert evidence_class_for(witnessed) == EVIDENCE_CLASS_BEHAVIOR_CHANGE
+
+
+def test_a_raise_on_an_unchanged_line_off_every_written_frame_stays_a_regression() -> None:
+    """The regression D-232 keeps: head raises where nothing changed and no
+    changed line of the file is on the exception's path -- the changed code's
+    effect surfaced elsewhere. Recorded as not a rejection, it publishes."""
+    elsewhere = natural_null_observation(
+        origin_line=360,
+        origin_statement="other",
+        exception_type="ValueError",
+        new_rejection=False,
+        rejected_inputs=(),
+        path_lines=(365,),
+    )
+
+    assert intent_verdict(elsewhere) is None
+    assert evidence_class_for(elsewhere) == EVIDENCE_CLASS_REGRESSION
+
+
+def test_the_v5_digest_covers_the_path_and_a_v42_digest_does_not() -> None:
+    """The path is part of what a v5 receipt binds; a v4.2 observation never
+    had the field and its digest cannot move when a reader adds it."""
+    without = natural_null_observation(new_rejection=False, path_lines=())
+    with_path = natural_null_observation(new_rejection=False, path_lines=(1,))
+    assert without.digest() != with_path.digest()
+
+    old_without = natural_null_observation(
+        policy_version=INTENT_POLICY_V42, new_rejection=False, path_lines=()
+    )
+    old_with = natural_null_observation(
+        policy_version=INTENT_POLICY_V42, new_rejection=False, path_lines=(1,)
+    )
+    assert old_without.digest() == old_with.digest()
+
+
 @pytest.mark.parametrize(
     "overrides",
     [
-        {"origin_statement": "other"},
-        {"origin_line": 10},
+        {"origin_line": 10, "path_lines": ()},
+        {"exception_type": ""},
         {"policy_version": "attest.intent.future"},
         {"head_runs_observed": 0},
     ],
@@ -195,8 +292,11 @@ def v1_observation(**overrides: object) -> IntentObservation:
         "rejected_inputs": (),
         "witnesses": (),
         "head_runs_observed": 3,
+        "added_lines": tuple(range(331, 356)),
     }
     values.update(overrides)
+    if values["policy_version"] != INTENT_POLICY_VERSION:
+        values.pop("added_lines", None)  # the field arrived with v5
     return IntentObservation(**values)  # type: ignore[arg-type]
 
 
