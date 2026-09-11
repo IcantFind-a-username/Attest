@@ -55,9 +55,68 @@ def _behind(kind: str, item: dict) -> str:
     return f"yellow (a), {item.get('callers')} caller(s): {item.get('reason')}"
 
 
-def build(study: Path, trials_name: str, lines_name: str, baseline_name: str, run_id: str) -> str:
+def _anchors(ledgers_root: Path | None) -> dict[tuple[str, str], tuple[str, int]]:
+    """(task_id, finding_id) -> (path, anchor line), read from every ledger under
+    ``ledgers_root``: the `history_signal` row carries the candidate's anchor."""
+    anchors: dict[tuple[str, str], tuple[str, int]] = {}
+    if ledgers_root is None:
+        return anchors
+    for path in sorted(ledgers_root.rglob("ledger.jsonl")):
+        for row in _read_jsonl(path):
+            if row.get("kind") == "history_signal" and row.get("finding_id") and row.get("line"):
+                anchors[(str(row["task_id"]), str(row["finding_id"]))] = (
+                    str(row.get("file")),
+                    int(row["line"]),
+                )
+    return anchors
+
+
+def _rerendered(item: dict, task_id: str, anchors: dict) -> dict:
+    """The value line with the candidate's anchor as its coordinate (the D-218
+    coordinate defect, D-222): the run wrote the test's assertion line."""
+    from attest.review.value_note import ValueNote, render
+
+    key = (task_id, str(item.get("candidate_id")))
+    anchor = anchors.get(key)
+    if anchor is None or anchor[0] != item.get("path"):
+        return {**item, "coordinate": "as recorded (anchor not recovered)"}
+    base_kind, _, base_detail = str(item.get("base", "")).partition(": ")
+    head_kind, _, head_detail = str(item.get("head", "")).partition(": ")
+    note = ValueNote(
+        policy_version="attest.value-note.v2",
+        path=str(item["path"]),
+        line=anchor[1],
+        expression=str(item.get("expression", "")),
+        base_kind=base_kind,
+        base_detail=base_detail,
+        head_kind=head_kind,
+        head_detail=head_detail,
+        head_runs=3,
+        base_runs=3,
+        pinned_values=(),
+        specified_by=tuple(tuple(x) for x in item.get("specified_by", [])),
+        drawer_reason=str(item.get("drawer_reason", "")),
+        candidate_id=str(item.get("candidate_id", "")),
+    )
+    return {**item, "line": render(note), "line_no": anchor[1], "coordinate": "anchor"}
+
+
+def build(
+    study: Path,
+    trials_name: str,
+    lines_name: str,
+    baseline_name: str,
+    run_id: str,
+    ledgers_root: Path | None = None,
+) -> str:
     trials = _read_jsonl(study / trials_name)
     lines = _read_jsonl(study / lines_name)
+    anchors = _anchors(ledgers_root)
+    for row in lines:
+        row["lines"]["value"] = [
+            _rerendered(item, str(row.get("task_id")), anchors)
+            for item in row.get("lines", {}).get("value", [])
+        ]
     baseline = _read_jsonl(study / baseline_name)
     sample = _read_jsonl(study / "sample.jsonl")
     by_unit = {row["unit_id"]: row for row in lines}
@@ -233,8 +292,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--baseline", default="trials-runner.jsonl")
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument(
+        "--ledgers",
+        type=Path,
+        default=None,
+        help="root holding the run's ledgers; value lines are re-rendered with the anchor",
+    )
     args = parser.parse_args(argv)
-    text = build(args.study, args.trials, args.lines, args.baseline, args.run_id)
+    text = build(args.study, args.trials, args.lines, args.baseline, args.run_id, args.ledgers)
     args.out.write_text(text, encoding="utf-8")
     print(f"wrote {args.out} ({text.count(chr(10))} lines)")
     return 0
