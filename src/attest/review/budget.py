@@ -17,6 +17,18 @@ from typing import Any, cast
 
 from attest.review.config import load_pricing
 
+# Discovery may spend at most this share of a review's budget, so breadth
+# cannot starve every reproduction (owner decision 3 of 2026-09-03d, D-111;
+# lowered from 0.6 to 0.3 and extended to the first unit by D-168).
+#
+# Removed by D-221 on 2026-09-11 and **restored at 0.3 by owner authorisation 5
+# of 2026-09-12**: on the frozen E-04 sample the whole-budget discovery of
+# D-221 cost $2.77 for the same 9 units that had cost $0.77, read 23 of their
+# 56 change units instead of 10, and certified nothing (D-225). What D-221
+# keeps is the other half of its change: a unit the share cannot fund is
+# **named** in the coverage row and on the status line, never only counted.
+PROPOSAL_SHARE = 0.3
+
 # rough chars-per-token for preflight estimates (conservative: low divisor
 # overestimates tokens and cost)
 CHARS_PER_TOKEN = 3.0

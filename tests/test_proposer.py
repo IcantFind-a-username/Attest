@@ -433,23 +433,25 @@ def test_shared_system_block_leads_every_role_request_identically() -> None:
     assert [call["system"][1]["text"] for call in captured] == ["proposer role", "generator role"]
 
 
-def test_every_unit_of_a_change_is_read_and_an_unread_one_is_named() -> None:
-    """Owner instruction 3 of the 2026-09-11 drawer window.
+def test_the_discovery_share_bounds_breadth_and_every_unread_unit_is_named() -> None:
+    """Owner authorisation 5 of 2026-09-12, which restores the share D-221 removed
+    and keeps the naming D-221 added.
 
     D-111 and D-168 bought discovery inside a 30% share of the budget so that
-    breadth could not starve verification. On the E-04 stratum that share
-    silenced 11 of 29 real pull requests after 179 of their 298 change units --
-    the review read what fitted the share and said `budget-limited`. The share
-    no longer omits a unit: every unit of a change is read until the **whole**
-    budget is gone, and a unit the budget could not fund is named in the
-    coverage row, so the status line says which parts of the change were never
-    read rather than a count.
+    breadth could not starve verification. D-221 removed the share after it
+    silenced 11 of 29 real pull requests part-way through their change units;
+    the re-run of the same frozen sample under whole-budget discovery then cost
+    3.6x per pull request, read 23 of 56 units instead of 10 and certified
+    nothing (D-225). The share is back at 0.3 -- and what D-221 keeps is that a
+    unit the share could not fund is **named** in the coverage row, so the
+    status line says which parts of the change went unread rather than a count.
 
-    Seven units, a $1.00 budget and K=5 at $0.16 a unit: the first six are read
-    ($0.96, well past the old $0.30 share) and the seventh is named unread."""
+    Seven units, a $1.00 budget and K=5 at $0.16 a unit: the first fits the
+    $0.30 share, the second would take the stage to $0.32, so one unit is read
+    and six are named unread, with the share named in the reason."""
     from types import SimpleNamespace
 
-    from attest.review.budget import Budget, BudgetExceeded
+    from attest.review.budget import PROPOSAL_SHARE, Budget, BudgetExceeded
     from attest.review.config import ReviewConfig
     from attest.review.diffs import DiffInfo
     from attest.review.proposer import ProviderResult, propose_plan
@@ -484,6 +486,7 @@ def test_every_unit_of_a_change_is_read_and_an_unread_one_is_named() -> None:
             prompt_context=lambda: "",
         )
 
+    assert PROPOSAL_SHARE == 0.3
     config = ReviewConfig(budget_usd=1.00, k_samples=5, tier0_commands=[])
     assert (config.budget_usd, config.k_samples) == (1.00, 5)
     budget = Budget(limit_usd=config.budget_usd, model=config.model)
@@ -497,18 +500,20 @@ def test_every_unit_of_a_change_is_read_and_an_unread_one_is_named() -> None:
         provider,
     )
 
-    # six units read -- twice what a 30% share funds -- and the seventh named
-    assert run.units_read == 6
+    # one unit read inside the share, and every other unit named -- not counted
+    assert run.units_read == 1
     assert run.units_planned == 7
-    assert provider.calls == 6 * config.k_samples
-    assert run.units_unread == ["unit u7 (u7.py)"]
-    assert len(run.omitted_units) == 1 and "u7" in run.omitted_units[0]
-    assert "share" not in run.omitted_units[0]
-    assert budget.spent_usd <= config.budget_usd
+    assert provider.calls == config.k_samples
+    assert run.units_unread == [f"unit u{n} (u{n}.py)" for n in range(2, 8)]
+    assert len(run.omitted_units) == 6 and "u2" in run.omitted_units[0]
+    assert "discovery share" in run.omitted_units[0]
+    assert f"${config.budget_usd * PROPOSAL_SHARE:.4f}" in run.omitted_units[0]
+    assert "discovery share" in run.budget_shortfall
+    assert budget.spent_usd <= config.budget_usd * PROPOSAL_SHARE
 
-    # and a first unit that does not fit the whole budget is a BudgetExceeded
-    # the caller turns into a stated budget DEFER, not a silent partial read
-    tight = ReviewConfig(budget_usd=0.10, k_samples=5, tier0_commands=[])
+    # and a first unit that does not fit the share is a BudgetExceeded the
+    # caller turns into a stated budget DEFER, not a silent partial read
+    tight = ReviewConfig(budget_usd=0.25, k_samples=5, tier0_commands=[])
     with pytest.raises(BudgetExceeded) as refused:
         propose_plan(
             SimpleNamespace(units=[unit("only")]),  # type: ignore[arg-type]
@@ -516,7 +521,7 @@ def test_every_unit_of_a_change_is_read_and_an_unread_one_is_named() -> None:
             Budget(limit_usd=tight.budget_usd, model=tight.model),
             Abstaining(),
         )
-    assert "exceeds budget" in refused.value.reason
+    assert "exceeds" in refused.value.reason
 
 
 def test_a_provider_error_never_carries_a_credential_into_author_visible_text(

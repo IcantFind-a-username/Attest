@@ -163,9 +163,10 @@ IMAGE_BUILD_FAILED = Unsupported(
 )
 BUDGET_TRUNCATED = Unsupported(
     "budget-truncated",
-    "refused: `budget-usd` stopped this review before every change unit was read; "
-    "the units it did not read were not judged.",
-    "`budget-usd` stopped this review; the units it did not read were not judged",
+    "refused: the discovery share of `budget-usd` stopped this review before every "
+    "change unit was read; the units it did not read were not judged.",
+    "the discovery share of `budget-usd` stopped this review; the units it did not "
+    "read were not judged",
 )
 
 #: Every refusal the author-visible one-line contract may name, in the order the
@@ -467,7 +468,7 @@ def deferral_from_reason(reason: str) -> Unsupported | None:
 # longer than one line holds -- so the clause is reduced in whole steps rather
 # than cut mid-sentence, and the number the reader can act on is the last thing
 # to go.
-_BUDGET_TRUNCATION_PREFIX = "`budget-usd` stopped this review; "
+_BUDGET_TRUNCATION_PREFIX = "the discovery share of `budget-usd` stopped this review; "
 _BUDGET_USD_SENTENCE = BUDGET_USD_SENTENCE  # one pattern, shared with the collapsed block
 # The clause names a change unit, and a change unit is named after **paths in
 # the repository under review**. A file called
