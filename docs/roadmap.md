@@ -495,6 +495,19 @@ replayable evidence on the current code.
     three environment repairs; yellow (b) and the derived-probe path deleted. `G-RECALL-002`'s bar
     and population do not move; the 2026-09-11 figure (5 of 25) stands beside the 2026-09-10 one
     (2 of 31) in the README, with the sentence that the difference is measurement repair.
+  - **The overnight window, 2026-09-12 (D-226–D-231).** A contained attempt no longer voids the
+    run by default, under a symmetry constraint (the contained set must be identical on every
+    head and base run) and a versioned receipt body (v1 bundles keep their digests; 140
+    re-verified verdict for verdict), with the red-team matrix 13 of 13 under the new default;
+    an author's `intended` / `unintended` reply is written to the ledger in shadow; the discovery
+    share is back at 0.3 with the unread units still named. Run A put the two yellow surfaces on
+    two of the owner's five pull requests (three refused by the D-172 rule) and rendered no line —
+    the one drawer observation was the author stating intent, for which no note is written.
+    e05-external-v1 froze 24 pull requests of eight public libraries and ran them from read-only
+    clones: 24 of 24 for $2.72, 6 lines on 4 pull requests (2 red on `attrs#1603`, 2 value, 2
+    yellow (a)), 2 shown of 8 drawer observations across both runs and 5 with intent already
+    stated ([report](acceptance/2026-09-12-lines-on-real-prs.md)). mutations-v1
+    built 122 crash mutations, 244 cases, for $0 ([report](acceptance/2026-09-12-mutation-corpus.md)).
   - **`G-RECALL-002` HAS A NUMBER AGAIN, AND IT FAILS, 2026-09-12 (D-195, D-198).** D-186 had cut
     the crash-class denominator to 7; the held-out slice is rebuilt from the **same split** with
     instances whose own manifests select an interpreter inside 3.10–3.13, evaluability decided by

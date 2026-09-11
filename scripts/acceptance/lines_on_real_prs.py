@@ -177,6 +177,11 @@ def observations(run: RunData) -> list[Observation]:
             reason = str(row.get("reason", ""))
             label = _label_of(reason)
             note_row = notes.get(finding_id)
+            key = (
+                (str(note_row.get("path")), str(note_row.get("expression")))
+                if note_row is not None
+                else None
+            )
             if finding_id in shown:
                 fate, detail = FATES[0], ""
             elif note_row is None:
@@ -193,15 +198,19 @@ def observations(run: RunData) -> list[Observation]:
                     )
             else:
                 note = _note_from_row(note_row)
-                key = (str(note_row.get("path")), str(note_row.get("expression")))
+                assert key is not None
                 if note is not None and anchored_in_tests(note):
                     fate, detail = FATES[4], str(note_row.get("path"))
                 elif key in seen_keys:
+                    # D-222 rule (1): one note per (path, expression), the first
+                    # kept -- so the second observation of the same call on the
+                    # same file is the same fact, already shown once
                     fate, detail = FATES[5], f"{key[0]} / {key[1][:60]}"
                 elif note is not None and not admitted(note).admitted:
                     fate, detail = FATES[6], admitted(note).reason
                 else:
                     fate, detail = FATES[7], ""
+            if key is not None:
                 seen_keys.add(key)
             out.append(
                 Observation(

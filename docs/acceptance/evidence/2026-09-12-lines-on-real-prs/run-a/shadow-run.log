@@ -1,0 +1,33 @@
+{"unit_id": "IcantFind-a-username/-SC6122-Group5-Credit-Default#3", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Attest#19", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Corum#1", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/IcantFind-a-username#5", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/OneTapVocal#1", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/us-stock-helper#3", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/-SC6122-Group5-Credit-Default#2", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/IcantFind-a-username#4", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/us-stock-helper#2", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/-SC6122-Group5-Credit-Default#1", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Attest#17", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/IcantFind-a-username#3", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Attest#16", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/IcantFind-a-username#2", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/IcantFind-a-username#1", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Attest#13", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Attest#12", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Attest#7", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Attest#6", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Attest#5", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Attest#4", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Attest#3", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Attest#2", "skipped": "not selected"}
+{"unit_id": "IcantFind-a-username/Attest#1", "skipped": "not selected"}
+{"protocol_sha256": "7e141545861dda89b3d2b056382f14333020a47b0d58db2cd166c1b10facbcd3", "freeze_at": "2026-09-09T18:44:00+00:00", "population": ["IcantFind-a-username/-SC6122-Group5-Credit-Default", "IcantFind-a-username/Attest", "IcantFind-a-username/Corum", "IcantFind-a-username/IcantFind-a-username", "IcantFind-a-username/OneTapVocal", "IcantFind-a-username/us-stock-helper"], "sampled_units": 29, "trials_recorded": 0, "reserved_usd": 1.5, "headroom_usd": 36.117639999999994}
+{"unit_id": "IcantFind-a-username/Attest#18", "task_id": "20260911-205340-63f1138b", "recorded_at": "2026-09-11T20:53:40.233561+00:00", "candidates": 7, "eligible": 2, "attempted": 2, "certified": 0, "would_publish": [], "behavior_changes_verified": 0, "behavior_changes_intent_unknown": 1, "failure_categories": {"other": 1, "collection failure": 1}, "units_read": 1, "units_planned": 2, "budget_limited": true, "deferred_reason": null, "spend_usd": 0.201656, "elapsed_s": 64.512, "executor_profile": "linux-container-v1"}
+{"unit_id": "IcantFind-a-username/Attest#18", "lines": {"red": 0, "value": 0, "gate": 0, "impact": 0}}
+{"unit_id": "IcantFind-a-username/us-stock-helper#1", "task_id": "20260911-205450-92f2c997", "recorded_at": "2026-09-11T20:54:50.556486+00:00", "candidates": 16, "eligible": 6, "attempted": 5, "certified": 0, "would_publish": [], "behavior_changes_verified": 0, "behavior_changes_intent_unknown": 0, "failure_categories": {"other": 5}, "units_read": 2, "units_planned": 2, "budget_limited": false, "deferred_reason": null, "spend_usd": 0.451989, "elapsed_s": 147.592, "executor_profile": "linux-container-v1"}
+{"unit_id": "IcantFind-a-username/us-stock-helper#1", "lines": {"red": 0, "value": 0, "gate": 0, "impact": 0}}
+{"unit_id": "IcantFind-a-username/Attest#15", "skipped": "cap", "detail": "cumulative cap: $0.6536 spent, reserving $1.0000 for this unit would project $1.6536 past the $1.50 cap"}
+{"unit_id": "IcantFind-a-username/Attest#14", "skipped": "cap", "detail": "cumulative cap: $0.6536 spent, reserving $1.0000 for this unit would project $1.6536 past the $1.50 cap"}
+{"unit_id": "IcantFind-a-username/Attest#10", "skipped": "cap", "detail": "cumulative cap: $0.6536 spent, reserving $1.0000 for this unit would project $1.6536 past the $1.50 cap"}
+{"unbought_units": ["IcantFind-a-username/Attest#15", "IcantFind-a-username/Attest#14", "IcantFind-a-username/Attest#10"], "cap_usd": 1.5, "spent_usd": 0.653645}

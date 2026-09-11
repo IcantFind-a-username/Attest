@@ -11,6 +11,39 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **A contained attempt no longer voids the run by default (D-226).** D-217's switch flips to
+  `contained_attempt_voids = False` under two premises met first: the set of creations the kernel
+  refused must be identical on every head and base run of a differential, or the run is void
+  (`contained attempt asymmetric across revisions`), so a change that *adds* a subprocess call
+  cannot certify because the sandbox refused it; and the thirteen-class red-team matrix passed
+  on the CI platform under the new default. The receipt body is versioned — v1 is the field set
+  every earlier bundle was sealed over and still verifies (140 bundles re-verified, verdict for
+  verdict), v2 discloses `contained_attempts` under the digest. **What it costs in trust:** a
+  receipt may now carry a refused process creation rather than being withheld for it; the
+  receipt says so, and the external-observer item of `G-SEC-002` stays open.
+- **An author's `intended` / `unintended` reply is ledger evidence, in shadow (D-227).** Behind
+  the base-owned `intent_replies` switch (off by default) the next review reads the reply under
+  the product's own value line and writes an `intent_reply` row; nothing reads the rows back and
+  the review publishes what it would have anyway. On, the value line asks for the reply.
+- **The discovery share is back at 0.3 (D-228)**; the unread units stay named. D-221's
+  whole-budget discovery cost 3.6× per pull request on the frozen sample and certified nothing.
+- **The shadow driver takes `--only`, the workflows fail when no ledger was written, and a
+  measurement workflow must prove its artifact before a paid dispatch (D-229, AGENTS.md §9).**
+  Run A reviewed two of the owner's five pull requests under the share ($0.6536; the D-172 rule
+  refused the other three by name) and rendered no line; the one drawer observation was
+  `intent stated in the change itself`, for which D-218 deliberately writes no note.
+- **e05-external-v1: the two yellow lines on eight public libraries (D-230).** A frozen
+  24-pull-request sample (three per library, merge commit against its first parent), reviewed
+  on the CI platform from read-only clones with nothing written anywhere: 24 of 24 units for
+  $2.72, **6 lines on 4 pull requests** — two red receipts on `attrs#1603` where `zip(strict=True)`
+  now raises on a short pickle state, two value lines that restate the pull request's own fix,
+  two yellow (a) — and 5 of 8 drawer observations across both runs were the author stating
+  intent, for which no line is written. **What it costs in trust:** the two red lines are the
+  first receipt-backed claims on repositories this project does not own, and whether a builtin
+  raising on a changed line is a regression or a stated intent is the owner's to adjudicate.
+- **mutations-v1: a crash-mutation corpus over the same eight clones, built for $0 (D-231).**
+  122 mutations on lines each library's own tests reach, 244 forward-and-fix cases, no review
+  bought; whether the libraries' own tests catch each mutation is not yet measured.
 - **The drawer opens: two yellow surfaces, behind base-owned switches, on in the owner's own
   repositories (D-222, D-223).** The value-class note D-218 wrote to the ledger — *the merge base
   returned A and head returns B for this call, three runs each side, and nothing in the base tree
