@@ -11,6 +11,71 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The held-out corpus was re-measured and the two halves of the answer disagree.** Crash-class
+  recall is **5 of 25 — 20.0%, Wilson 95% [8.9%, 39.1%]**, against 2 of 31 — 6.5%; on the
+  cases-run denominator 5 of 35 — 14.3% against 2 of 39. **All of the movement is the
+  environment**: 11 of the 18 cases whose probe never executed on the merge base now execute
+  one, and all three new receipts are among them. **The probe search added nothing** — it
+  bought 12 extra probes, certified 3, and every one was an extra candidate inside a case its
+  own first probe had already certified. One of the five certified cases depends on
+  `contained_attempt_voids=false` and would be void under the shipped default. The cap bound
+  and four cases went unbought; they are named. **The README's 6.5% is not updated**, because
+  the rule that governs it turns on the capability line, and that line is zero
+  ([report](docs/acceptance/2026-09-11-heldout-after-search.md)).
+- **A recording that dies on the merge base leaves its output behind (D-213).** `probe deferred
+  on base` was the largest single loss of the 2026-09-10 held-out run -- **17 of 31** cases
+  never executed a probe there -- and the verification row carried **no output at all** for it,
+  because the recording phase's runs are neither head runs nor base runs. They are in the row
+  now, as `side: "probe"` and `side: "screen"`, each with 4 KB of both streams. The row also
+  carries a schema version for the first time. Costs nothing and changes no verdict; what it
+  buys is that the next failure of this kind can be read instead of re-derived by hand. The
+  held-out driver's evaluability stub, which was `assert True` and therefore blind to a project
+  that will not import at all, now imports every top-level package the tree defines -- and says
+  so in its own source when a tree defines none.
+- **The image is built for today; the tree under review is not (D-214).** Nine of the 39 held-out
+  cases died because `xarray` 2022.6 resolved `numpy` 2.5 and raised at import before pytest
+  collected anything, and two more because `matplotlib`'s font cache builds a `FontManager` --
+  which starts a thread the executor's guard rejects. A corpus tool now writes era pins for a
+  tree and a date, and the image applies them to the project's install only. **The pin is an
+  attempt and not a demand**: `numpy<=1.23.1` is right for a 2022 tree and has no wheel past
+  Python 3.10, so a constrained install falls back to the unpinned one rather than losing the
+  case. One product-path change: every image warms the font cache at build time, which costs a
+  failed import on a tree without matplotlib and **rebuilds every cached image once**.
+- **"It passed on head" was two facts (D-215).** Six of the thirteen held-out cases that executed
+  a probe ended on that sentence, and nobody could say whether the probe had touched the change
+  at all. The head runs' executed lines are intersected with the diff's changed lines now, and
+  the run says which of the two it was -- `UNBOUND` when nothing was reached, `NOT_REPRODUCED`
+  when it was. Neither sentence names a path or a line, because both reach the author's status
+  body on a silent run.
+- **The model probe is a search (D-216).** The probes derived from a repository's own tests have
+  had a screen-and-eliminate loop since D-206; the paid probe had one candidate and stopped, so a
+  first guess that entered the wrong function ended the candidate. It gets up to three now, each
+  screened once on head before the 3x3 differential is bought, and each after the first told what
+  the last one executed, which lines the diff changed and which definitions those lines are
+  inside. **This costs money**: a candidate whose probes never differ buys up to three model
+  calls instead of one, and one extra head run per attempt -- against which a probe that shows no
+  difference no longer buys the six-run differential behind it. Everything stays inside
+  `budget-usd`, and no threshold, likelihood ratio, sample count or cap moves.
+- **A creation the kernel already refused is not a failed run -- behind a switch whose default
+  does not move (D-217).** 18 of 67 verification attempts died at the process guard, six of them
+  on one shape: a package that calls `git show` at import inside `try/except`. The kernel refuses
+  the fork, the package swallows the error, the probe runs and records -- and the executor
+  discarded the recording before reading it. `contained_attempt_voids` stays `True`, which is what
+  every repository gets. Set to `False` the refused attempt is recorded on the run and travels to
+  the ledger row, the evidence bundle and the author-visible details. Process replacement, network
+  and writes outside the work directory void the run under **either** setting.
+- **The value-class observation has a shape, and it is shown to nobody yet (D-218).** When a
+  differential proves that a call returns something different and the intent clause cannot read
+  whether that was meant, the drawer throws away what the run measured. It is written to the
+  ledger now as one yellow line -- what the merge base returned, what head returns, three runs
+  each side, and whether anything in the tree pinned either. **Nothing posts it**; a test checks
+  the import graph rather than trusting that sentence. On 780 control verification rows the rule
+  fires four times, and on 28 real pull requests three times. Run for real on the held-out
+  corpus it wrote **16 notes over 13 cases**, of which **12 are admitted by the output contract
+  and 4 are not** — three carry a `repr` too long for one line, and one is refused because the
+  project's own fixture value contains a word the contract bans in model prose. Both are design
+  questions the shadow exists to surface, and neither is patched under a rule that says post
+  nothing.
 - **The derived probe's route is measured and closed (D-212).** D-211 left one question open:
   were the calls D-206 looks for there and discarded, or never there? Free, offline, $0.00, on
   the same 39 held-out cases: a derived probe exists for **2 of 39** today and **5 of 39** with

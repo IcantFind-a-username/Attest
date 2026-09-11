@@ -1,0 +1,507 @@
+{
+  "budget_usd": 1.0,
+  "cap_usd": 6.0,
+  "contained_attempt_voids": false,
+  "k": 5,
+  "produced": "2026-09-11",
+  "ref": "overnight/step-5",
+  "results": [
+    {
+      "candidate_count": 3,
+      "case": "mwaskom__seaborn-3069",
+      "control": null,
+      "deferred_reason": "verification deferred: after 2 probe(s), probe generation failed: ProbeRefused: probe imports contain something that is not an import (3 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.3337916,
+      "surfaced_count": 0,
+      "task_id": "20260910-211201-fa5dd360"
+    },
+    {
+      "candidate_count": 5,
+      "case": "mwaskom__seaborn-3187",
+      "control": null,
+      "deferred_reason": "verification deferred: 3 probes tried and none produced a differential: 3 recorded nothing usable on the merge base -- probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s)) (5 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.3298368,
+      "surfaced_count": 0,
+      "task_id": "20260910-212430-3d5de216"
+    },
+    {
+      "candidate_count": 1,
+      "case": "pallets__flask-5014",
+      "control": null,
+      "deferred_reason": null,
+      "model": "claude-sonnet-5",
+      "reviews": [
+        {
+          "body": "Attest review.",
+          "comments": [
+            {
+              "body": "<!-- attest:finding-id:5de50497ba -->\n[red] src/flask/blueprints.py:193 \u2014 Removing the empty-name check allows a Blueprint to be created with an empty string name, which will later cause silent routing/endpoint collisions or confusing errors instead of a clear upfront ValueError. (receipt 49424efe2ba8)\nFinding ID: 5de50497ba\nVerified: the generated test failed on head in 3/3 runs and passed on the merge base in 3/3 runs.\nTest: test_repro.py::test_attest_replay\nReceipt: 49424efe2ba82b297117568f172d68339dfc5427394ba5e7197f654a1f05f797\nAction: reproduce it \u2014 `pytest -q test_repro.py::test_attest_replay` \u2014 then check the receipt offline with `attest verify --bundle .attest/evidence/20260910-211334-0aa920f2/5de50497ba --require-seal`.\n\nRun it yourself: save the test as `test_repro.py` in the repository root and run\n\n```bash\npytest -q test_repro.py::test_attest_replay\n```\n\n```python\nimport flask\n\n\ndef test_attest_replay():\n    try:\n        _attest_value = flask.Blueprint(name='', import_name=__name__)\n    except BaseException as _attest_error:  # noqa: BLE001 - the type is the record\n        _attest_raised = type(_attest_error).__name__\n    else:\n        _attest_raised = None\n    # recorded by executing the expression above on the merge base;\n    # no model wrote this expectation\n    assert _attest_raised == 'ValueError'\n```\n\nRuns: head FAIL 3/3, base PASS 3/3\n\nhead:\n- head-1: failed (exit 1)\n- head-2: failed (exit 1)\n- head-3: failed (exit 1)\n\nbase (merge-base):\n- base-1: passed (exit 0)\n- base-2: passed (exit 0)\n- base-3: passed (exit 0)\n\n<details>\n<summary>Full logs</summary>\n\n**head-1**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        try:\n            _attest_value = flask.Blueprint(name='', import_name=__name__)\n        except BaseException as _attest_error:  # noqa: BLE001 - the type is the record\n            _attest_raised = type(_attest_error).__name__\n        else:\n            _attest_raised = None\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_raised == 'ValueError'\nE       AssertionError: assert None == 'ValueError'\n\n.attest-repro/test_repro.py:13: AssertionError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.18s\n\n```\n\n**head-2**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        try:\n            _attest_value = flask.Blueprint(name='', import_name=__name__)\n        except BaseException as _attest_error:  # noqa: BLE001 - the type is the record\n            _attest_raised = type(_attest_error).__name__\n        else:\n            _attest_raised = None\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_raised == 'ValueError'\nE       AssertionError: assert None == 'ValueError'\n\n.attest-repro/test_repro.py:13: AssertionError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.18s\n\n```\n\n**head-3**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        try:\n            _attest_value = flask.Blueprint(name='', import_name=__name__)\n        except BaseException as _attest_error:  # noqa: BLE001 - the type is the record\n            _attest_raised = type(_attest_error).__name__\n        else:\n            _attest_raised = None\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_raised == 'ValueError'\nE       AssertionError: assert None == 'ValueError'\n\n.attest-repro/test_repro.py:13: AssertionError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.18s\n\n```\n\n**base-1**\n\n```text\n.                                                                        [100%]\n1 passed in 0.15s\n\n```\n\n**base-2**\n\n```text\n.                                                                        [100%]\n1 passed in 0.15s\n\n```\n\n**base-3**\n\n```text\n.                                                                        [100%]\n1 passed in 0.15s\n\n```\n\n</details>\n\nEvidence bundle: `.attest/evidence/20260910-211334-0aa920f2/5de50497ba` \u2014 verify offline with `attest verify --bundle .attest/evidence/20260910-211334-0aa920f2/5de50497ba --require-seal`.",
+              "line": 193,
+              "path": "src/flask/blueprints.py",
+              "side": "RIGHT"
+            }
+          ],
+          "commit_id": "1b4880be600a9ede032dd4ed5353384922bf935d",
+          "event": "COMMENT"
+        }
+      ],
+      "spend_usd": 0.06485035000000001,
+      "surfaced_count": 1,
+      "task_id": "20260910-211334-0aa920f2"
+    },
+    {
+      "candidate_count": 1,
+      "case": "psf__requests-5414",
+      "control": null,
+      "deferred_reason": null,
+      "model": "claude-sonnet-5",
+      "reviews": [
+        {
+          "body": "Attest review.",
+          "comments": [
+            {
+              "body": "<!-- attest:finding-id:0e2cccfe5e -->\n[red] requests/models.py:406 \u2014 Removing the `.startswith(u'.')` check allows URLs with a leading-dot hostname (e.g. '.evil.com') to pass validation, whereas previously such malformed/ambiguous hosts were rejected as invalid labels. (receipt 17e9648c4e16)\nFinding ID: 0e2cccfe5e\nVerified: the generated test failed on head in 3/3 runs and passed on the merge base in 3/3 runs.\nTest: test_repro.py::test_attest_replay\nReceipt: 17e9648c4e1654f02e2fd0db38cc2b7f698053b60a7396e37585426d16f0e015\nAction: reproduce it \u2014 `pytest -q test_repro.py::test_attest_replay` \u2014 then check the receipt offline with `attest verify --bundle .attest/evidence/20260910-211415-1d4f5335/0e2cccfe5e --require-seal`.\n\nRun it yourself: save the test as `test_repro.py` in the repository root and run\n\n```bash\npytest -q test_repro.py::test_attest_replay\n```\n\n```python\nfrom requests.models import PreparedRequest\n\n\ndef test_attest_replay():\n    req = PreparedRequest()\n    try:\n        _attest_value = req.prepare_url('http://.example.com', None)\n    except BaseException as _attest_error:  # noqa: BLE001 - the type is the record\n        _attest_raised = type(_attest_error).__name__\n    else:\n        _attest_raised = None\n    # recorded by executing the expression above on the merge base;\n    # no model wrote this expectation\n    assert _attest_raised == 'InvalidURL'\n```\n\nRuns: head FAIL 3/3, base PASS 3/3\n\nhead:\n- head-1: failed (exit 1)\n- head-2: failed (exit 1)\n- head-3: failed (exit 1)\n\nbase (merge-base):\n- base-1: passed (exit 0)\n- base-2: passed (exit 0)\n- base-3: passed (exit 0)\n\n<details>\n<summary>Full logs</summary>\n\n**head-1**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        req = PreparedRequest()\n        try:\n            _attest_value = req.prepare_url('http://.example.com', None)\n        except BaseException as _attest_error:  # noqa: BLE001 - the type is the record\n            _attest_raised = type(_attest_error).__name__\n        else:\n            _attest_raised = None\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_raised == 'InvalidURL'\nE       AssertionError: assert None == 'InvalidURL'\n\n.attest-repro/test_repro.py:14: AssertionError\n---------------- generated xml file: /attest/outputs/junit.xml -----------------\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.17s\n\n```\n\n**head-2**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        req = PreparedRequest()\n        try:\n            _attest_value = req.prepare_url('http://.example.com', None)\n        except BaseException as _attest_error:  # noqa: BLE001 - the type is the record\n            _attest_raised = type(_attest_error).__name__\n        else:\n            _attest_raised = None\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_raised == 'InvalidURL'\nE       AssertionError: assert None == 'InvalidURL'\n\n.attest-repro/test_repro.py:14: AssertionError\n---------------- generated xml file: /attest/outputs/junit.xml -----------------\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.17s\n\n```\n\n**head-3**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        req = PreparedRequest()\n        try:\n            _attest_value = req.prepare_url('http://.example.com', None)\n        except BaseException as _attest_error:  # noqa: BLE001 - the type is the record\n            _attest_raised = type(_attest_error).__name__\n        else:\n            _attest_raised = None\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_raised == 'InvalidURL'\nE       AssertionError: assert None == 'InvalidURL'\n\n.attest-repro/test_repro.py:14: AssertionError\n---------------- generated xml file: /attest/outputs/junit.xml -----------------\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.17s\n\n```\n\n**base-1**\n\n```text\n.                                                                        [100%]\n---------------- generated xml file: /attest/outputs/junit.xml -----------------\n1 passed in 0.12s\n\n```\n\n**base-2**\n\n```text\n.                                                                        [100%]\n---------------- generated xml file: /attest/outputs/junit.xml -----------------\n1 passed in 0.12s\n\n```\n\n**base-3**\n\n```text\n.                                                                        [100%]\n---------------- generated xml file: /attest/outputs/junit.xml -----------------\n1 passed in 0.12s\n\n```\n\n</details>\n\nEvidence bundle: `.attest/evidence/20260910-211415-1d4f5335/0e2cccfe5e` \u2014 verify offline with `attest verify --bundle .attest/evidence/20260910-211415-1d4f5335/0e2cccfe5e --require-seal`.",
+              "line": 406,
+              "path": "requests/models.py",
+              "side": "RIGHT"
+            }
+          ],
+          "commit_id": "3274b484b4bcd7f1acbe73033b7aea73d35c6eb9",
+          "event": "COMMENT"
+        }
+      ],
+      "spend_usd": 0.0688588,
+      "surfaced_count": 1,
+      "task_id": "20260910-211415-1d4f5335"
+    },
+    {
+      "candidate_count": 1,
+      "case": "psf__requests-6028",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.06312330000000001,
+      "surfaced_count": 0,
+      "task_id": "20260910-212611-168ba320"
+    },
+    {
+      "candidate_count": 2,
+      "case": "pydata__xarray-4687",
+      "control": null,
+      "deferred_reason": "verification deferred: binding: the reproduction exercises none of the changed lines of xarray/core/computation.py (2 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.18209815000000001,
+      "surfaced_count": 0,
+      "task_id": "20260910-211448-5f2c78fe"
+    },
+    {
+      "candidate_count": 1,
+      "case": "pydata__xarray-6461",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.12553395,
+      "surfaced_count": 0,
+      "task_id": "20260910-212649-74c188c0"
+    },
+    {
+      "candidate_count": 1,
+      "case": "pydata__xarray-6599",
+      "control": null,
+      "deferred_reason": null,
+      "model": "claude-sonnet-5",
+      "reviews": [
+        {
+          "body": "Attest review.",
+          "comments": [
+            {
+              "body": "<!-- attest:finding-id:b1b5fa108e -->\n[red] xarray/core/computation.py:1936 \u2014 Timedelta arrays (dtype kind 'm') are now passed through datetime_to_numeric with offset=np.datetime64('1970-01-01'), which will fail or produce incorrect results since offsetting a timedelta by a datetime is a type mismatch, whereas the old code simply cast timedeltas to float. (receipt 3ead11781a36)\nFinding ID: b1b5fa108e\nVerified: the generated test failed on head in 3/3 runs and passed on the merge base in 3/3 runs.\nTest: test_repro.py::test_attest_replay\nReceipt: 3ead11781a36b5a412a908c8f8f6971180ad9bba17f3e1d3e7663b0e49adb837\nAction: reproduce it \u2014 `pytest -q test_repro.py::test_attest_replay` \u2014 then check the receipt offline with `attest verify --bundle .attest/evidence/20260910-221604-6fa35977/b1b5fa108e --require-seal`.\n\nRun it yourself: save the test as `test_repro.py` in the repository root and run\n\n```bash\npytest -q test_repro.py::test_attest_replay\n```\n\n```python\nimport numpy as np\nimport xarray as xr\nfrom xarray.core.computation import _ensure_numeric\n\n\ndef test_attest_replay():\n    da = xr.DataArray(np.array([1, 2, 3], dtype=\"timedelta64[ns]\"), dims=\"x\")\n    _attest_value = _ensure_numeric(da).values\n    # recorded by executing the expression above on the merge base;\n    # no model wrote this expectation\n    assert repr(_attest_value) == 'array([1., 2., 3.])'\n```\n\nRuns: head FAIL 3/3, base PASS 3/3\n\nhead:\n- head-1: failed (exit 1)\n- head-2: failed (exit 1)\n- head-3: failed (exit 1)\n\nbase (merge-base):\n- base-1: passed (exit 0)\n- base-2: passed (exit 0)\n- base-3: passed (exit 0)\n\n<details>\n<summary>Full logs</summary>\n\n**head-1**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        da = xr.DataArray(np.array([1, 2, 3], dtype=\"timedelta64[ns]\"), dims=\"x\")\n>       _attest_value = _ensure_numeric(da).values\n\n/attest/tree/.attest-repro/test_repro.py:8: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n/attest/tree/xarray/core/computation.py:1949: in _ensure_numeric\n    return to_floatable(data)\n/attest/tree/xarray/core/computation.py:1938: in to_floatable\n    data=datetime_to_numeric(\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\narray = array([1, 2, 3], dtype='timedelta64[ns]')\noffset = numpy.datetime64('1970-01-01'), datetime_unit = 'ns'\ndtype = <class 'float'>\n\n    def datetime_to_numeric(array, offset=None, datetime_unit=None, dtype=float):\n        \"\"\"Convert an array containing datetime-like data to numerical values.\n        Convert the datetime array to a timedelta relative to an offset.\n        Parameters\n        ----------\n        array : array-like\n            Input data\n        offset : None, datetime or cftime.datetime\n            Datetime offset. If None, this is set by default to the array's minimum\n            value to reduce round off errors.\n        datetime_unit : {None, Y, M, W, D, h, m, s, ms, us, ns, ps, fs, as}\n            If not None, convert output to a given datetime unit. Note that some\n            conversions are not allowed due to non-linear relationships between units.\n        dtype : dtype\n            Output dtype.\n        Returns\n        -------\n        array\n            Numerical representation of datetime object relative to an offset.\n        Notes\n        -----\n        Some datetime unit conversions won't work, for example from days to years, even\n        though some calendars would allow for them (e.g. no_leap). This is because there\n        is no `cftime.timedelta` object.\n        \"\"\"\n        # TODO: make this function dask-compatible?\n        # Set offset to minimum if not given\n        if offset is None:\n            if array.dtype.kind in \"Mm\":\n                offset = _datetime_nanmin(array)\n            else:\n                offset = min(array)\n    \n        # Compute timedelta object.\n        # For np.datetime64, this can silently yield garbage due to overflow.\n        # One option is to enforce 1970-01-01 as the universal offset.\n>       array = array - offset\nE       numpy.core._exceptions._UFuncBinaryResolutionError: ufunc 'subtract' cannot use operands with types dtype('<m8[ns]') and dtype('<M8[D]')\n\n/attest/tree/xarray/core/duck_array_ops.py:434: UFuncTypeError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - numpy.core._exceptio...\n1 failed in 0.74s\n\n```\n\n**head-2**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        da = xr.DataArray(np.array([1, 2, 3], dtype=\"timedelta64[ns]\"), dims=\"x\")\n>       _attest_value = _ensure_numeric(da).values\n\n/attest/tree/.attest-repro/test_repro.py:8: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n/attest/tree/xarray/core/computation.py:1949: in _ensure_numeric\n    return to_floatable(data)\n/attest/tree/xarray/core/computation.py:1938: in to_floatable\n    data=datetime_to_numeric(\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\narray = array([1, 2, 3], dtype='timedelta64[ns]')\noffset = numpy.datetime64('1970-01-01'), datetime_unit = 'ns'\ndtype = <class 'float'>\n\n    def datetime_to_numeric(array, offset=None, datetime_unit=None, dtype=float):\n        \"\"\"Convert an array containing datetime-like data to numerical values.\n        Convert the datetime array to a timedelta relative to an offset.\n        Parameters\n        ----------\n        array : array-like\n            Input data\n        offset : None, datetime or cftime.datetime\n            Datetime offset. If None, this is set by default to the array's minimum\n            value to reduce round off errors.\n        datetime_unit : {None, Y, M, W, D, h, m, s, ms, us, ns, ps, fs, as}\n            If not None, convert output to a given datetime unit. Note that some\n            conversions are not allowed due to non-linear relationships between units.\n        dtype : dtype\n            Output dtype.\n        Returns\n        -------\n        array\n            Numerical representation of datetime object relative to an offset.\n        Notes\n        -----\n        Some datetime unit conversions won't work, for example from days to years, even\n        though some calendars would allow for them (e.g. no_leap). This is because there\n        is no `cftime.timedelta` object.\n        \"\"\"\n        # TODO: make this function dask-compatible?\n        # Set offset to minimum if not given\n        if offset is None:\n            if array.dtype.kind in \"Mm\":\n                offset = _datetime_nanmin(array)\n            else:\n                offset = min(array)\n    \n        # Compute timedelta object.\n        # For np.datetime64, this can silently yield garbage due to overflow.\n        # One option is to enforce 1970-01-01 as the universal offset.\n>       array = array - offset\nE       numpy.core._exceptions._UFuncBinaryResolutionError: ufunc 'subtract' cannot use operands with types dtype('<m8[ns]') and dtype('<M8[D]')\n\n/attest/tree/xarray/core/duck_array_ops.py:434: UFuncTypeError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - numpy.core._exceptio...\n1 failed in 0.74s\n\n```\n\n**head-3**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        da = xr.DataArray(np.array([1, 2, 3], dtype=\"timedelta64[ns]\"), dims=\"x\")\n>       _attest_value = _ensure_numeric(da).values\n\n/attest/tree/.attest-repro/test_repro.py:8: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n/attest/tree/xarray/core/computation.py:1949: in _ensure_numeric\n    return to_floatable(data)\n/attest/tree/xarray/core/computation.py:1938: in to_floatable\n    data=datetime_to_numeric(\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\narray = array([1, 2, 3], dtype='timedelta64[ns]')\noffset = numpy.datetime64('1970-01-01'), datetime_unit = 'ns'\ndtype = <class 'float'>\n\n    def datetime_to_numeric(array, offset=None, datetime_unit=None, dtype=float):\n        \"\"\"Convert an array containing datetime-like data to numerical values.\n        Convert the datetime array to a timedelta relative to an offset.\n        Parameters\n        ----------\n        array : array-like\n            Input data\n        offset : None, datetime or cftime.datetime\n            Datetime offset. If None, this is set by default to the array's minimum\n            value to reduce round off errors.\n        datetime_unit : {None, Y, M, W, D, h, m, s, ms, us, ns, ps, fs, as}\n            If not None, convert output to a given datetime unit. Note that some\n            conversions are not allowed due to non-linear relationships between units.\n        dtype : dtype\n            Output dtype.\n        Returns\n        -------\n        array\n            Numerical representation of datetime object relative to an offset.\n        Notes\n        -----\n        Some datetime unit conversions won't work, for example from days to years, even\n        though some calendars would allow for them (e.g. no_leap). This is because there\n        is no `cftime.timedelta` object.\n        \"\"\"\n        # TODO: make this function dask-compatible?\n        # Set offset to minimum if not given\n        if offset is None:\n            if array.dtype.kind in \"Mm\":\n                offset = _datetime_nanmin(array)\n            else:\n                offset = min(array)\n    \n        # Compute timedelta object.\n        # For np.datetime64, this can silently yield garbage due to overflow.\n        # One option is to enforce 1970-01-01 as the universal offset.\n>       array = array - offset\nE       numpy.core._exceptions._UFuncBinaryResolutionError: ufunc 'subtract' cannot use operands with types dtype('<m8[ns]') and dtype('<M8[D]')\n\n/attest/tree/xarray/core/duck_array_ops.py:434: UFuncTypeError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - numpy.core._exceptio...\n1 failed in 0.73s\n\n```\n\n**base-1**\n\n```text\n.                                                                        [100%]\n1 passed in 0.48s\n\n```\n\n**base-2**\n\n```text\n.                                                                        [100%]\n1 passed in 0.48s\n\n```\n\n**base-3**\n\n```text\n.                                                                        [100%]\n1 passed in 0.48s\n\n```\n\n</details>\n\nEvidence bundle: `.attest/evidence/20260910-221604-6fa35977/b1b5fa108e` \u2014 verify offline with `attest verify --bundle .attest/evidence/20260910-221604-6fa35977/b1b5fa108e --require-seal`.",
+              "line": 1936,
+              "path": "xarray/core/computation.py",
+              "side": "RIGHT"
+            }
+          ],
+          "commit_id": "c22f8babb1c325905055080b7c0cb08c8dff0656",
+          "event": "COMMENT"
+        }
+      ],
+      "spend_usd": 0.08126535,
+      "surfaced_count": 1,
+      "task_id": "20260910-221604-6fa35977"
+    },
+    {
+      "candidate_count": 1,
+      "case": "pydata__xarray-6721",
+      "control": null,
+      "deferred_reason": "verification deferred: 3 probes tried and none produced a differential: 2 reached the changed lines and observed no difference; 1 recorded nothing usable on the merge base -- probe reported no observation on base",
+      "model": "claude-sonnet-5",
+      "reviews": [
+        {
+          "body": "Attest review.",
+          "comments": [
+            {
+              "body": "<!-- attest:impact:xarray/core/common.py:2020 -->\n[yellow] xarray/core/common.py:2020 \u2014 `get_chunksizes` changed; 3 call site(s) in 2 file(s) name it and no test names it \u2014 xarray/core/dataarray.py:1143\n\nCall sites that resolve to this definition:\n- xarray/core/dataarray.py:1143\n- xarray/core/dataset.py:2138\n- xarray/core/dataset.py:2155\n\nResolved statically: a call reached only through inheritance, a decorator, a package re-export, a variable or `getattr` does not resolve and is not listed, so this says *named by no test*, never *not covered*.\n\nAction: add a test that names `xarray/core/common.py:2020`, or change the caller there to match the new interface.",
+              "line": 2026,
+              "path": "xarray/core/common.py",
+              "side": "RIGHT"
+            }
+          ],
+          "commit_id": "87a7c9b2e170e771092a510ec4fae99c5d36679a",
+          "event": "COMMENT"
+        }
+      ],
+      "spend_usd": 0.1233444,
+      "surfaced_count": 0,
+      "task_id": "20260910-230307-58485d81"
+    },
+    {
+      "candidate_count": 2,
+      "case": "pydata__xarray-6744",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5) (2 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.11821150000000001,
+      "surfaced_count": 0,
+      "task_id": "20260910-233341-8d61286f"
+    },
+    {
+      "candidate_count": 3,
+      "case": "pydata__xarray-6938",
+      "control": null,
+      "deferred_reason": null,
+      "model": "claude-sonnet-5",
+      "reviews": [
+        {
+          "body": "Attest review.",
+          "comments": [
+            {
+              "body": "<!-- attest:finding-id:faf98b1502 -->\n[red] xarray/core/variable.py:2887 \u2014 IndexVariable.to_index_variable() now returns `self` instead of a copy, so callers that mutate the returned variable (e.g. setting `.dims` in Dataset.swap_dims) mutate the original IndexVariable in place, causing aliasing bugs and silent data corruption of the original object. (receipt 3b34827de018)\nFinding ID: faf98b1502\nVerified: the generated test failed on head in 3/3 runs and passed on the merge base in 3/3 runs.\nTest: test_repro.py::test_attest_replay\nReceipt: 3b34827de018f383370195c1b053abba63b0669139aeb2edba4ac0cdf5aab56a\nAction: reproduce it \u2014 `pytest -q test_repro.py::test_attest_replay` \u2014 then check the receipt offline with `attest verify --bundle .attest/evidence/20260911-002102-97be031b/faf98b1502 --require-seal`.\n\nRun it yourself: save the test as `test_repro.py` in the repository root and run\n\n```bash\npytest -q test_repro.py::test_attest_replay\n```\n\n```python\nfrom xarray.core.variable import IndexVariable\n\n\ndef test_attest_replay():\n    iv = IndexVariable('x', [1, 2, 3])\n    out = iv.to_index_variable()\n    out.dims = ('y',)\n    _attest_value = (out is iv, iv.dims, out.dims)\n    # recorded by executing the expression above on the merge base;\n    # no model wrote this expectation\n    assert _attest_value == (False, ('x',), ('y',))\n```\n\nRuns: head FAIL 3/3, base PASS 3/3\n\nhead:\n- head-1: failed (exit 1)\n- head-2: failed (exit 1)\n- head-3: failed (exit 1)\n\nbase (merge-base):\n- base-1: passed (exit 0)\n- base-2: passed (exit 0)\n- base-3: passed (exit 0)\n\n<details>\n<summary>Full logs</summary>\n\n**head-1**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        iv = IndexVariable('x', [1, 2, 3])\n        out = iv.to_index_variable()\n        out.dims = ('y',)\n        _attest_value = (out is iv, iv.dims, out.dims)\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_value == (False, ('x',), ('y',))\nE       AssertionError: assert (True, ('y',), ('y',)) == (False, ('x',), ('y',))\nE         \nE         At index 0 diff: True != False\nE         Use -v to get more diff\n\n/attest/tree/.attest-repro/test_repro.py:11: AssertionError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.63s\n\n```\n\n**head-2**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        iv = IndexVariable('x', [1, 2, 3])\n        out = iv.to_index_variable()\n        out.dims = ('y',)\n        _attest_value = (out is iv, iv.dims, out.dims)\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_value == (False, ('x',), ('y',))\nE       AssertionError: assert (True, ('y',), ('y',)) == (False, ('x',), ('y',))\nE         \nE         At index 0 diff: True != False\nE         Use -v to get more diff\n\n/attest/tree/.attest-repro/test_repro.py:11: AssertionError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.59s\n\n```\n\n**head-3**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        iv = IndexVariable('x', [1, 2, 3])\n        out = iv.to_index_variable()\n        out.dims = ('y',)\n        _attest_value = (out is iv, iv.dims, out.dims)\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_value == (False, ('x',), ('y',))\nE       AssertionError: assert (True, ('y',), ('y',)) == (False, ('x',), ('y',))\nE         \nE         At index 0 diff: True != False\nE         Use -v to get more diff\n\n/attest/tree/.attest-repro/test_repro.py:11: AssertionError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.57s\n\n```\n\n**base-1**\n\n```text\n.                                                                        [100%]\n1 passed in 0.47s\n\n```\n\n**base-2**\n\n```text\n.                                                                        [100%]\n1 passed in 0.46s\n\n```\n\n**base-3**\n\n```text\n.                                                                        [100%]\n1 passed in 0.47s\n\n```\n\n</details>\n\nEvidence bundle: `.attest/evidence/20260911-002102-97be031b/faf98b1502` \u2014 verify offline with `attest verify --bundle .attest/evidence/20260911-002102-97be031b/faf98b1502 --require-seal`.",
+              "line": 2887,
+              "path": "xarray/core/variable.py",
+              "side": "RIGHT"
+            },
+            {
+              "body": "<!-- attest:finding-id:d34dc5e3ea -->\n[red] xarray/core/dataset.py:3774 \u2014 the generated test test_repro.py::test_attest_replay fails on head in 3/3 runs and passes on the merge base in 3/3 (receipt 76f4c9ab01bb)\nFinding ID: d34dc5e3ea\nVerified: the generated test failed on head in 3/3 runs and passed on the merge base in 3/3 runs.\nTest: test_repro.py::test_attest_replay\nReceipt: 76f4c9ab01bb52387c5ba458f3cb4da95dc82f3d3cc93e377c22d2f02cec7731\nAction: reproduce it \u2014 `pytest -q test_repro.py::test_attest_replay` \u2014 then check the receipt offline with `attest verify --bundle .attest/evidence/20260911-002102-97be031b/d34dc5e3ea --require-seal`.\n\nRun it yourself: save the test as `test_repro.py` in the repository root and run\n\n```bash\npytest -q test_repro.py::test_attest_replay\n```\n\n```python\nimport numpy as np\nimport pandas as pd\nimport xarray as xr\nfrom xarray.core.variable import IndexVariable\n\n\ndef test_attest_replay():\n    ds = xr.Dataset({\"a\": (\"x\", [5, 7])}, coords={\"x\": [\"a\", \"b\"], \"y\": (\"x\", [0, 1])})\n    # make 'y' an actual IndexVariable object stored in variables (not an index dim)\n    ds._variables[\"y\"] = IndexVariable(\"x\", np.array([0, 1]))\n    yvar = ds._variables[\"y\"]\n    xvar = ds._variables[\"x\"]\n    before = (type(yvar).__name__, yvar.dims, xvar.dims, dict(ds.dims))\n    _attest_value = (before, ds.swap_dims({\"x\": \"y\"}).variables[\"y\"].dims, ds._variables[\"y\"].dims, ds._variables[\"x\"].dims, ds.swap_dims({\"x\": \"y\"}).variables[\"y\"] is ds._variables[\"y\"], dict(ds.dims))\n    # recorded by executing the expression above on the merge base;\n    # no model wrote this expectation\n    assert _attest_value == (('IndexVariable', ('x',), ('x',), {'x': 2}), ('y',), ('x',), ('x',), False, {'x': 2})\n```\n\nRuns: head FAIL 3/3, base PASS 3/3\n\nhead:\n- head-1: failed (exit 1)\n- head-2: failed (exit 1)\n- head-3: failed (exit 1)\n\nbase (merge-base):\n- base-1: passed (exit 0)\n- base-2: passed (exit 0)\n- base-3: passed (exit 0)\n\n<details>\n<summary>Full logs</summary>\n\n**head-1**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        ds = xr.Dataset({\"a\": (\"x\", [5, 7])}, coords={\"x\": [\"a\", \"b\"], \"y\": (\"x\", [0, 1])})\n        # make 'y' an actual IndexVariable object stored in variables (not an index dim)\n        ds._variables[\"y\"] = IndexVariable(\"x\", np.array([0, 1]))\n        yvar = ds._variables[\"y\"]\n        xvar = ds._variables[\"x\"]\n        before = (type(yvar).__name__, yvar.dims, xvar.dims, dict(ds.dims))\n>       _attest_value = (before, ds.swap_dims({\"x\": \"y\"}).variables[\"y\"].dims, ds._variables[\"y\"].dims, ds._variables[\"x\"].dims, ds.swap_dims({\"x\": \"y\"}).variables[\"y\"] is ds._variables[\"y\"], dict(ds.dims))\n\n/attest/tree/.attest-repro/test_repro.py:14: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <xarray.Dataset>\nDimensions:  (x: 2)\nCoordinates:\n  * x        (x) <U1 'a' 'b'\n    y        (y) int64 0 1\nData variables:\n    a        (x) int64 5 7\ndims_dict = {'x': 'y'}, dims_kwargs = {}\n\n    def swap_dims(\n        self: T_Dataset, dims_dict: Mapping[Any, Hashable] = None, **dims_kwargs\n    ) -> T_Dataset:\n        \"\"\"Returns a new object with swapped dimensions.\n    \n        Parameters\n        ----------\n        dims_dict : dict-like\n            Dictionary whose keys are current dimension names and whose values\n            are new names.\n        **dims_kwargs : {existing_dim: new_dim, ...}, optional\n            The keyword arguments form of ``dims_dict``.\n            One of dims_dict or dims_kwargs must be provided.\n    \n        Returns\n        -------\n        swapped : Dataset\n            Dataset with swapped dimensions.\n    \n        Examples\n        --------\n        >>> ds = xr.Dataset(\n        ...     data_vars={\"a\": (\"x\", [5, 7]), \"b\": (\"x\", [0.1, 2.4])},\n        ...     coords={\"x\": [\"a\", \"b\"], \"y\": (\"x\", [0, 1])},\n        ... )\n        >>> ds\n        <xarray.Dataset>\n        Dimensions:  (x: 2)\n        Coordinates:\n          * x        (x) <U1 'a' 'b'\n            y        (x) int64 0 1\n        Data variables:\n            a        (x) int64 5 7\n            b        (x) float64 0.1 2.4\n    \n        >>> ds.swap_dims({\"x\": \"y\"})\n        <xarray.Dataset>\n        Dimensions:  (y: 2)\n        Coordinates:\n            x        (y) <U1 'a' 'b'\n          * y        (y) int64 0 1\n        Data variables:\n            a        (y) int64 5 7\n            b        (y) float64 0.1 2.4\n    \n        >>> ds.swap_dims({\"x\": \"z\"})\n        <xarray.Dataset>\n        Dimensions:  (z: 2)\n        Coordinates:\n            x        (z) <U1 'a' 'b'\n            y        (z) int64 0 1\n        Dimensions without coordinates: z\n        Data variables:\n            a        (z) int64 5 7\n            b        (z) float64 0.1 2.4\n    \n        See Also\n        --------\n        Dataset.rename\n        DataArray.swap_dims\n        \"\"\"\n        # TODO: deprecate this method in favor of a (less confusing)\n        # rename_dims() method that only renames dimensions.\n    \n        dims_dict = either_dict_or_kwargs(dims_dict, dims_kwargs, \"swap_dims\")\n        for k, v in dims_dict.items():\n            if k not in self.dims:\n                raise ValueError(\n                    f\"cannot swap from dimension {k!r} because it is \"\n                    \"not an existing dimension\"\n                )\n            if v in self.variables and self.variables[v].dims != (k,):\n>               raise ValueError(\n                    f\"replacement dimension {v!r} is not a 1D \"\n                    f\"variable along the old dimension {k!r}\"\n                )\nE               ValueError: replacement dimension 'y' is not a 1D variable along the old dimension 'x'\n\n/attest/tree/xarray/core/dataset.py:3760: ValueError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - ValueError: replacem...\n1 failed in 0.86s\n\n```\n\n**head-2**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        ds = xr.Dataset({\"a\": (\"x\", [5, 7])}, coords={\"x\": [\"a\", \"b\"], \"y\": (\"x\", [0, 1])})\n        # make 'y' an actual IndexVariable object stored in variables (not an index dim)\n        ds._variables[\"y\"] = IndexVariable(\"x\", np.array([0, 1]))\n        yvar = ds._variables[\"y\"]\n        xvar = ds._variables[\"x\"]\n        before = (type(yvar).__name__, yvar.dims, xvar.dims, dict(ds.dims))\n>       _attest_value = (before, ds.swap_dims({\"x\": \"y\"}).variables[\"y\"].dims, ds._variables[\"y\"].dims, ds._variables[\"x\"].dims, ds.swap_dims({\"x\": \"y\"}).variables[\"y\"] is ds._variables[\"y\"], dict(ds.dims))\n\n/attest/tree/.attest-repro/test_repro.py:14: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <xarray.Dataset>\nDimensions:  (x: 2)\nCoordinates:\n  * x        (x) <U1 'a' 'b'\n    y        (y) int64 0 1\nData variables:\n    a        (x) int64 5 7\ndims_dict = {'x': 'y'}, dims_kwargs = {}\n\n    def swap_dims(\n        self: T_Dataset, dims_dict: Mapping[Any, Hashable] = None, **dims_kwargs\n    ) -> T_Dataset:\n        \"\"\"Returns a new object with swapped dimensions.\n    \n        Parameters\n        ----------\n        dims_dict : dict-like\n            Dictionary whose keys are current dimension names and whose values\n            are new names.\n        **dims_kwargs : {existing_dim: new_dim, ...}, optional\n            The keyword arguments form of ``dims_dict``.\n            One of dims_dict or dims_kwargs must be provided.\n    \n        Returns\n        -------\n        swapped : Dataset\n            Dataset with swapped dimensions.\n    \n        Examples\n        --------\n        >>> ds = xr.Dataset(\n        ...     data_vars={\"a\": (\"x\", [5, 7]), \"b\": (\"x\", [0.1, 2.4])},\n        ...     coords={\"x\": [\"a\", \"b\"], \"y\": (\"x\", [0, 1])},\n        ... )\n        >>> ds\n        <xarray.Dataset>\n        Dimensions:  (x: 2)\n        Coordinates:\n          * x        (x) <U1 'a' 'b'\n            y        (x) int64 0 1\n        Data variables:\n            a        (x) int64 5 7\n            b        (x) float64 0.1 2.4\n    \n        >>> ds.swap_dims({\"x\": \"y\"})\n        <xarray.Dataset>\n        Dimensions:  (y: 2)\n        Coordinates:\n            x        (y) <U1 'a' 'b'\n          * y        (y) int64 0 1\n        Data variables:\n            a        (y) int64 5 7\n            b        (y) float64 0.1 2.4\n    \n        >>> ds.swap_dims({\"x\": \"z\"})\n        <xarray.Dataset>\n        Dimensions:  (z: 2)\n        Coordinates:\n            x        (z) <U1 'a' 'b'\n            y        (z) int64 0 1\n        Dimensions without coordinates: z\n        Data variables:\n            a        (z) int64 5 7\n            b        (z) float64 0.1 2.4\n    \n        See Also\n        --------\n        Dataset.rename\n        DataArray.swap_dims\n        \"\"\"\n        # TODO: deprecate this method in favor of a (less confusing)\n        # rename_dims() method that only renames dimensions.\n    \n        dims_dict = either_dict_or_kwargs(dims_dict, dims_kwargs, \"swap_dims\")\n        for k, v in dims_dict.items():\n            if k not in self.dims:\n                raise ValueError(\n                    f\"cannot swap from dimension {k!r} because it is \"\n                    \"not an existing dimension\"\n                )\n            if v in self.variables and self.variables[v].dims != (k,):\n>               raise ValueError(\n                    f\"replacement dimension {v!r} is not a 1D \"\n                    f\"variable along the old dimension {k!r}\"\n                )\nE               ValueError: replacement dimension 'y' is not a 1D variable along the old dimension 'x'\n\n/attest/tree/xarray/core/dataset.py:3760: ValueError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - ValueError: replacem...\n1 failed in 0.85s\n\n```\n\n**head-3**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        ds = xr.Dataset({\"a\": (\"x\", [5, 7])}, coords={\"x\": [\"a\", \"b\"], \"y\": (\"x\", [0, 1])})\n        # make 'y' an actual IndexVariable object stored in variables (not an index dim)\n        ds._variables[\"y\"] = IndexVariable(\"x\", np.array([0, 1]))\n        yvar = ds._variables[\"y\"]\n        xvar = ds._variables[\"x\"]\n        before = (type(yvar).__name__, yvar.dims, xvar.dims, dict(ds.dims))\n>       _attest_value = (before, ds.swap_dims({\"x\": \"y\"}).variables[\"y\"].dims, ds._variables[\"y\"].dims, ds._variables[\"x\"].dims, ds.swap_dims({\"x\": \"y\"}).variables[\"y\"] is ds._variables[\"y\"], dict(ds.dims))\n\n/attest/tree/.attest-repro/test_repro.py:14: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <xarray.Dataset>\nDimensions:  (x: 2)\nCoordinates:\n  * x        (x) <U1 'a' 'b'\n    y        (y) int64 0 1\nData variables:\n    a        (x) int64 5 7\ndims_dict = {'x': 'y'}, dims_kwargs = {}\n\n    def swap_dims(\n        self: T_Dataset, dims_dict: Mapping[Any, Hashable] = None, **dims_kwargs\n    ) -> T_Dataset:\n        \"\"\"Returns a new object with swapped dimensions.\n    \n        Parameters\n        ----------\n        dims_dict : dict-like\n            Dictionary whose keys are current dimension names and whose values\n            are new names.\n        **dims_kwargs : {existing_dim: new_dim, ...}, optional\n            The keyword arguments form of ``dims_dict``.\n            One of dims_dict or dims_kwargs must be provided.\n    \n        Returns\n        -------\n        swapped : Dataset\n            Dataset with swapped dimensions.\n    \n        Examples\n        --------\n        >>> ds = xr.Dataset(\n        ...     data_vars={\"a\": (\"x\", [5, 7]), \"b\": (\"x\", [0.1, 2.4])},\n        ...     coords={\"x\": [\"a\", \"b\"], \"y\": (\"x\", [0, 1])},\n        ... )\n        >>> ds\n        <xarray.Dataset>\n        Dimensions:  (x: 2)\n        Coordinates:\n          * x        (x) <U1 'a' 'b'\n            y        (x) int64 0 1\n        Data variables:\n            a        (x) int64 5 7\n            b        (x) float64 0.1 2.4\n    \n        >>> ds.swap_dims({\"x\": \"y\"})\n        <xarray.Dataset>\n        Dimensions:  (y: 2)\n        Coordinates:\n            x        (y) <U1 'a' 'b'\n          * y        (y) int64 0 1\n        Data variables:\n            a        (y) int64 5 7\n            b        (y) float64 0.1 2.4\n    \n        >>> ds.swap_dims({\"x\": \"z\"})\n        <xarray.Dataset>\n        Dimensions:  (z: 2)\n        Coordinates:\n            x        (z) <U1 'a' 'b'\n            y        (z) int64 0 1\n        Dimensions without coordinates: z\n        Data variables:\n            a        (z) int64 5 7\n            b        (z) float64 0.1 2.4\n    \n        See Also\n        --------\n        Dataset.rename\n        DataArray.swap_dims\n        \"\"\"\n        # TODO: deprecate this method in favor of a (less confusing)\n        # rename_dims() method that only renames dimensions.\n    \n        dims_dict = either_dict_or_kwargs(dims_dict, dims_kwargs, \"swap_dims\")\n        for k, v in dims_dict.items():\n            if k not in self.dims:\n                raise ValueError(\n                    f\"cannot swap from dimension {k!r} because it is \"\n                    \"not an existing dimension\"\n                )\n            if v in self.variables and self.variables[v].dims != (k,):\n>               raise ValueError(\n                    f\"replacement dimension {v!r} is not a 1D \"\n                    f\"variable along the old dimension {k!r}\"\n                )\nE               ValueError: replacement dimension 'y' is not a 1D variable along the old dimension 'x'\n\n/attest/tree/xarray/core/dataset.py:3760: ValueError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - ValueError: replacem...\n1 failed in 0.85s\n\n```\n\n**base-1**\n\n```text\n.                                                                        [100%]\n1 passed in 0.47s\n\n```\n\n**base-2**\n\n```text\n.                                                                        [100%]\n1 passed in 0.47s\n\n```\n\n**base-3**\n\n```text\n.                                                                        [100%]\n1 passed in 0.47s\n\n```\n\n</details>\n\nEvidence bundle: `.attest/evidence/20260911-002102-97be031b/d34dc5e3ea` \u2014 verify offline with `attest verify --bundle .attest/evidence/20260911-002102-97be031b/d34dc5e3ea --require-seal`.",
+              "line": 3774,
+              "path": "xarray/core/dataset.py",
+              "side": "RIGHT"
+            },
+            {
+              "body": "<!-- attest:finding-id:91970b5b19 -->\n[red] xarray/core/variable.py:539 \u2014 the generated test test_repro.py::test_attest_replay fails on head in 3/3 runs and passes on the merge base in 3/3 (receipt a4508e2dec86)\nFinding ID: 91970b5b19\nVerified: the generated test failed on head in 3/3 runs and passed on the merge base in 3/3 runs.\nTest: test_repro.py::test_attest_replay\nReceipt: a4508e2dec865f3325fa78174fd73a4eee611f1428d5ea49521ca563a2b8afe3\nAction: reproduce it \u2014 `pytest -q test_repro.py::test_attest_replay` \u2014 then check the receipt offline with `attest verify --bundle .attest/evidence/20260911-002102-97be031b/91970b5b19 --require-seal`.\n\nRun it yourself: save the test as `test_repro.py` in the repository root and run\n\n```bash\npytest -q test_repro.py::test_attest_replay\n```\n\n```python\nimport numpy as np\nfrom xarray.core.variable import Variable, IndexVariable\n\n\ndef test_attest_replay():\n    class LazyDimsVariable(Variable):\n        @property\n        def dims(self):\n            return tuple(f\"{d}_lazy\" for d in self._dims)\n\n    v = LazyDimsVariable([\"x\"], np.arange(5))\n    _attest_value = (v.to_base_variable().dims, v.to_index_variable().dims, v._dims)\n    # recorded by executing the expression above on the merge base;\n    # no model wrote this expectation\n    assert _attest_value == (('x',), ('x',), ('x',))\n```\n\nRuns: head FAIL 3/3, base PASS 3/3\n\nhead:\n- head-1: failed (exit 1)\n- head-2: failed (exit 1)\n- head-3: failed (exit 1)\n\nbase (merge-base):\n- base-1: passed (exit 0)\n- base-2: passed (exit 0)\n- base-3: passed (exit 0)\n\n<details>\n<summary>Full logs</summary>\n\n**head-1**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        class LazyDimsVariable(Variable):\n            @property\n            def dims(self):\n                return tuple(f\"{d}_lazy\" for d in self._dims)\n    \n        v = LazyDimsVariable([\"x\"], np.arange(5))\n        _attest_value = (v.to_base_variable().dims, v.to_index_variable().dims, v._dims)\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_value == (('x',), ('x',), ('x',))\nE       AssertionError: assert (('x_lazy',),...zy',), ('x',)) == (('x',), ('x',), ('x',))\nE         \nE         At index 0 diff: ('x_lazy',) != ('x',)\nE         Use -v to get more diff\n\n/attest/tree/.attest-repro/test_repro.py:15: AssertionError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.57s\n\n```\n\n**head-2**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        class LazyDimsVariable(Variable):\n            @property\n            def dims(self):\n                return tuple(f\"{d}_lazy\" for d in self._dims)\n    \n        v = LazyDimsVariable([\"x\"], np.arange(5))\n        _attest_value = (v.to_base_variable().dims, v.to_index_variable().dims, v._dims)\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_value == (('x',), ('x',), ('x',))\nE       AssertionError: assert (('x_lazy',),...zy',), ('x',)) == (('x',), ('x',), ('x',))\nE         \nE         At index 0 diff: ('x_lazy',) != ('x',)\nE         Use -v to get more diff\n\n/attest/tree/.attest-repro/test_repro.py:15: AssertionError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.57s\n\n```\n\n**head-3**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        class LazyDimsVariable(Variable):\n            @property\n            def dims(self):\n                return tuple(f\"{d}_lazy\" for d in self._dims)\n    \n        v = LazyDimsVariable([\"x\"], np.arange(5))\n        _attest_value = (v.to_base_variable().dims, v.to_index_variable().dims, v._dims)\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_value == (('x',), ('x',), ('x',))\nE       AssertionError: assert (('x_lazy',),...zy',), ('x',)) == (('x',), ('x',), ('x',))\nE         \nE         At index 0 diff: ('x_lazy',) != ('x',)\nE         Use -v to get more diff\n\n/attest/tree/.attest-repro/test_repro.py:15: AssertionError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.57s\n\n```\n\n**base-1**\n\n```text\n.                                                                        [100%]\n1 passed in 0.50s\n\n```\n\n**base-2**\n\n```text\n.                                                                        [100%]\n1 passed in 0.48s\n\n```\n\n**base-3**\n\n```text\n.                                                                        [100%]\n1 passed in 0.47s\n\n```\n\n</details>\n\nEvidence bundle: `.attest/evidence/20260911-002102-97be031b/91970b5b19` \u2014 verify offline with `attest verify --bundle .attest/evidence/20260911-002102-97be031b/91970b5b19 --require-seal`.",
+              "line": 539,
+              "path": "xarray/core/variable.py",
+              "side": "RIGHT"
+            }
+          ],
+          "commit_id": "4357a72d0808b5c8b98ba1306a734be010ad2f2a",
+          "event": "COMMENT"
+        }
+      ],
+      "spend_usd": 0.2747022500000001,
+      "surfaced_count": 3,
+      "task_id": "20260911-002102-97be031b"
+    },
+    {
+      "candidate_count": 9,
+      "case": "pydata__xarray-6992",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe) (4 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.3791938,
+      "surfaced_count": 0,
+      "task_id": "20260911-003145-069111a8"
+    },
+    {
+      "candidate_count": 1,
+      "case": "pydata__xarray-7229",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.1364955,
+      "surfaced_count": 0,
+      "task_id": "20260911-004130-82003e22"
+    },
+    {
+      "candidate_count": 1,
+      "case": "pylint-dev__pylint-4661",
+      "control": null,
+      "deferred_reason": "verification deferred: 3 probes tried and none produced a differential: 3 recorded nothing usable on the merge base -- probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.0647153,
+      "surfaced_count": 0,
+      "task_id": "20260910-211626-c00874bd"
+    },
+    {
+      "candidate_count": 2,
+      "case": "pylint-dev__pylint-6528",
+      "control": null,
+      "deferred_reason": "verification deferred: binding: the reproduction exercises none of the changed lines of pylint/lint/pylinter.py (2 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.18666805000000003,
+      "surfaced_count": 0,
+      "task_id": "20260910-212824-981555b2"
+    },
+    {
+      "candidate_count": 1,
+      "case": "pylint-dev__pylint-6903",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.07451470000000002,
+      "surfaced_count": 0,
+      "task_id": "20260910-221724-f450b5c6"
+    },
+    {
+      "candidate_count": 1,
+      "case": "pylint-dev__pylint-7080",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under test (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.05270075,
+      "surfaced_count": 0,
+      "task_id": "20260910-230510-67b7b1cb"
+    },
+    {
+      "candidate_count": 1,
+      "case": "pylint-dev__pylint-7277",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.06901895000000001,
+      "surfaced_count": 0,
+      "task_id": "20260910-233509-4433010c"
+    },
+    {
+      "candidate_count": 1,
+      "case": "pylint-dev__pylint-8898",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.07047320000000001,
+      "surfaced_count": 0,
+      "task_id": "20260911-002328-aa70d304"
+    },
+    {
+      "candidate_count": 1,
+      "case": "pytest-dev__pytest-10051",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.12328795000000001,
+      "surfaced_count": 0,
+      "task_id": "20260910-211702-613acf18"
+    },
+    {
+      "candidate_count": 2,
+      "case": "pytest-dev__pytest-10356",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe) (2 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [
+        {
+          "body": "Attest review.",
+          "comments": [
+            {
+              "body": "<!-- attest:impact:src/_pytest/mark/structures.py:358 -->\n[yellow] src/_pytest/mark/structures.py:358 \u2014 `get_unpacked_marks` changed; 3 call site(s) in 2 file(s) name it and no test names it \u2014 src/_pytest/mark/structures.py:391\n\nCall sites that resolve to this definition:\n- src/_pytest/mark/structures.py:391\n- src/_pytest/python.py:314\n- src/_pytest/python.py:1717\n\nResolved statically: a call reached only through inheritance, a decorator, a package re-export, a variable or `getattr` does not resolve and is not listed, so this says *named by no test*, never *not covered*.\n\nAction: add a test that names `src/_pytest/mark/structures.py:358`, or change the caller there to match the new interface.",
+              "line": 358,
+              "path": "src/_pytest/mark/structures.py",
+              "side": "RIGHT"
+            }
+          ],
+          "commit_id": "a45bab61bda555a8f0452e7ccecf3baedbf476a7",
+          "event": "COMMENT"
+        }
+      ],
+      "spend_usd": 0.16323510000000002,
+      "surfaced_count": 0,
+      "task_id": "20260910-212957-96881b09"
+    },
+    {
+      "candidate_count": 5,
+      "case": "sphinx-doc__sphinx-10435",
+      "control": null,
+      "deferred_reason": null,
+      "model": "claude-sonnet-5",
+      "reviews": [
+        {
+          "body": "Attest review.",
+          "comments": [
+            {
+              "body": "<!-- attest:finding-id:3611dfc962 -->\n[red] sphinx/writers/latex.py:1717 \u2014 Behavior change (intent to confirm): the generated test test_repro.py::test_attest_replay fails on head in 3/3 runs and passes on the merge base in 3/3 (receipt 13cb1b6ad6e7)\nFinding ID: 3611dfc962\nVerified behavior change: the generated test failed on head in 3/3 runs and passed on the merge base in 3/3 runs. This change rejects an input the merge base accepted; the input appears in the base tree's own tests, fixtures or documentation, so the rejection is reported for you to confirm.\nTest: test_repro.py::test_attest_replay\nReceipt: 13cb1b6ad6e7231e86428c6f6e72832095eafe69e908a1a3d2361f5c0848818a\nAction: reproduce it \u2014 `pytest -q test_repro.py::test_attest_replay` \u2014 then check the receipt offline with `attest verify --bundle .attest/evidence/20260910-211818-adea2a50/3611dfc962 --require-seal`.\n\nBehavior change: head raises SkipNode at sphinx/writers/latex.py:1718 on 'python', an input the merge base accepts and the base tree uses in doc/conf.py. If the rejection is intended, dismiss this finding.\n\n<details>\n<summary>Creations the kernel refused during these runs</summary>\n\n- `subprocess.Popen: 'git'`\n\nEach was denied before it happened; the run completed and its result is the differential above.\n\n</details>\n\nRun it yourself: save the test as `test_repro.py` in the repository root and run\n\n```bash\npytest -q test_repro.py::test_attest_replay\n```\n\n```python\nfrom docutils import nodes\nfrom sphinx.writers.latex import LaTeXTranslator\nfrom sphinx.highlighting import PygmentsBridge\n\n\ndef test_attest_replay():\n    class FakeConfig:\n        highlight_options = {}\n\n    class FakeTranslator(LaTeXTranslator):\n        def __init__(self):\n            self.body = []\n            self.in_title = False\n            self.config = FakeConfig()\n            self.highlighter = PygmentsBridge('latex')\n\n    translator = FakeTranslator()\n    node = nodes.literal('print(1)', 'print(1)', classes=['code', 'python'])\n    node['language'] = 'python'\n\n    def run():\n        try:\n            translator.visit_literal(node)\n        except nodes.SkipNode:\n            pass\n        return ''.join(translator.body)\n    _attest_value = run()\n    # recorded by executing the expression above on the merge base;\n    # no model wrote this expectation\n    assert _attest_value == '\\\\sphinxcode{\\\\sphinxupquote{%\\n\\\\PYG{n+nb}{print}\\\\PYG{p}{(}\\\\PYG{l+m+mi}{1}\\\\PYG{p}{)}%\\n}}'\n```\n\nRuns: head FAIL 3/3, base PASS 3/3\n\nhead:\n- head-1: failed (exit 1)\n- head-2: failed (exit 1)\n- head-3: failed (exit 1)\n\nbase (merge-base):\n- base-1: passed (exit 0)\n- base-2: passed (exit 0)\n- base-3: passed (exit 0)\n\n<details>\n<summary>Full logs</summary>\n\n**head-1**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        class FakeConfig:\n            highlight_options = {}\n    \n        class FakeTranslator(LaTeXTranslator):\n            def __init__(self):\n                self.body = []\n                self.in_title = False\n                self.config = FakeConfig()\n                self.highlighter = PygmentsBridge('latex')\n    \n        translator = FakeTranslator()\n        node = nodes.literal('print(1)', 'print(1)', classes=['code', 'python'])\n        node['language'] = 'python'\n    \n        def run():\n            try:\n                translator.visit_literal(node)\n            except nodes.SkipNode:\n                pass\n            return ''.join(translator.body)\n        _attest_value = run()\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_value == '\\\\sphinxcode{\\\\sphinxupquote{%\\n\\\\PYG{n+nb}{print}\\\\PYG{p}{(}\\\\PYG{l+m+mi}{1}\\\\PYG{p}{)}%\\n}}'\nE       AssertionError: assert '\\\\sphinxcode...PYG{p}{)}\\n}}' == '\\\\sphinxcode...YG{p}{)}%\\n}}'\nE         \nE         - \\sphinxcode{\\sphinxupquote{%\nE         ?                            -\nE         + \\sphinxcode{\\sphinxupquote{\nE         - \\PYG{n+nb}{print}\\PYG{p}{(}\\PYG{l+m+mi}{1}\\PYG{p}{)}%\nE         ?                                                     -\nE         + \\PYG{n+nb}{print}\\PYG{p}{(}\\PYG{l+m+mi}{1}\\PYG{p}{)}\nE           }}\n\n.attest-repro/test_repro.py:30: AssertionError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.43s\n\n```\n\n**head-2**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        class FakeConfig:\n            highlight_options = {}\n    \n        class FakeTranslator(LaTeXTranslator):\n            def __init__(self):\n                self.body = []\n                self.in_title = False\n                self.config = FakeConfig()\n                self.highlighter = PygmentsBridge('latex')\n    \n        translator = FakeTranslator()\n        node = nodes.literal('print(1)', 'print(1)', classes=['code', 'python'])\n        node['language'] = 'python'\n    \n        def run():\n            try:\n                translator.visit_literal(node)\n            except nodes.SkipNode:\n                pass\n            return ''.join(translator.body)\n        _attest_value = run()\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_value == '\\\\sphinxcode{\\\\sphinxupquote{%\\n\\\\PYG{n+nb}{print}\\\\PYG{p}{(}\\\\PYG{l+m+mi}{1}\\\\PYG{p}{)}%\\n}}'\nE       AssertionError: assert '\\\\sphinxcode...PYG{p}{)}\\n}}' == '\\\\sphinxcode...YG{p}{)}%\\n}}'\nE         \nE         - \\sphinxcode{\\sphinxupquote{%\nE         ?                            -\nE         + \\sphinxcode{\\sphinxupquote{\nE         - \\PYG{n+nb}{print}\\PYG{p}{(}\\PYG{l+m+mi}{1}\\PYG{p}{)}%\nE         ?                                                     -\nE         + \\PYG{n+nb}{print}\\PYG{p}{(}\\PYG{l+m+mi}{1}\\PYG{p}{)}\nE           }}\n\n.attest-repro/test_repro.py:30: AssertionError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.43s\n\n```\n\n**head-3**\n\n```text\nF                                                                        [100%]\n=================================== FAILURES ===================================\n______________________________ test_attest_replay ______________________________\n\n    def test_attest_replay():\n        class FakeConfig:\n            highlight_options = {}\n    \n        class FakeTranslator(LaTeXTranslator):\n            def __init__(self):\n                self.body = []\n                self.in_title = False\n                self.config = FakeConfig()\n                self.highlighter = PygmentsBridge('latex')\n    \n        translator = FakeTranslator()\n        node = nodes.literal('print(1)', 'print(1)', classes=['code', 'python'])\n        node['language'] = 'python'\n    \n        def run():\n            try:\n                translator.visit_literal(node)\n            except nodes.SkipNode:\n                pass\n            return ''.join(translator.body)\n        _attest_value = run()\n        # recorded by executing the expression above on the merge base;\n        # no model wrote this expectation\n>       assert _attest_value == '\\\\sphinxcode{\\\\sphinxupquote{%\\n\\\\PYG{n+nb}{print}\\\\PYG{p}{(}\\\\PYG{l+m+mi}{1}\\\\PYG{p}{)}%\\n}}'\nE       AssertionError: assert '\\\\sphinxcode...PYG{p}{)}\\n}}' == '\\\\sphinxcode...YG{p}{)}%\\n}}'\nE         \nE         - \\sphinxcode{\\sphinxupquote{%\nE         ?                            -\nE         + \\sphinxcode{\\sphinxupquote{\nE         - \\PYG{n+nb}{print}\\PYG{p}{(}\\PYG{l+m+mi}{1}\\PYG{p}{)}%\nE         ?                                                     -\nE         + \\PYG{n+nb}{print}\\PYG{p}{(}\\PYG{l+m+mi}{1}\\PYG{p}{)}\nE           }}\n\n.attest-repro/test_repro.py:30: AssertionError\n=========================== short test summary info ============================\nFAILED .attest-repro/test_repro.py::test_attest_replay - AssertionError: asse...\n1 failed in 0.43s\n\n```\n\n**base-1**\n\n```text\n.                                                                        [100%]\n1 passed in 0.36s\n\n```\n\n**base-2**\n\n```text\n.                                                                        [100%]\n1 passed in 0.36s\n\n```\n\n**base-3**\n\n```text\n.                                                                        [100%]\n1 passed in 0.37s\n\n```\n\n</details>\n\nEvidence bundle: `.attest/evidence/20260910-211818-adea2a50/3611dfc962` \u2014 verify offline with `attest verify --bundle .attest/evidence/20260910-211818-adea2a50/3611dfc962 --require-seal`.",
+              "line": 1717,
+              "path": "sphinx/writers/latex.py",
+              "side": "RIGHT"
+            }
+          ],
+          "commit_id": "93665151e5b1ab0ea755cc4fda4d81eba9cee42b",
+          "event": "COMMENT"
+        }
+      ],
+      "spend_usd": 0.2442814,
+      "surfaced_count": 1,
+      "task_id": "20260910-211818-adea2a50"
+    },
+    {
+      "candidate_count": 5,
+      "case": "sphinx-doc__sphinx-10449",
+      "control": null,
+      "deferred_reason": "verification deferred: binding: the reproduction exercises none of the changed lines of sphinx/ext/autodoc/typehints.py (3 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.23978785000000002,
+      "surfaced_count": 0,
+      "task_id": "20260910-213105-9ef80dbe"
+    },
+    {
+      "candidate_count": 1,
+      "case": "sphinx-doc__sphinx-10466",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.0580546,
+      "surfaced_count": 0,
+      "task_id": "20260910-221819-5fc683cd"
+    },
+    {
+      "candidate_count": 6,
+      "case": "sphinx-doc__sphinx-10614",
+      "control": null,
+      "deferred_reason": "verification deferred: 3 probes tried and none produced a differential: 3 recorded nothing usable on the merge base -- probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s)) (3 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.4282161500000001,
+      "surfaced_count": 0,
+      "task_id": "20260910-230603-3f820482"
+    },
+    {
+      "candidate_count": 4,
+      "case": "sphinx-doc__sphinx-11445",
+      "control": null,
+      "deferred_reason": "verification deferred: 3 probes tried and none produced a differential: 3 recorded nothing usable on the merge base -- probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s)) (3 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.16595405000000002,
+      "surfaced_count": 0,
+      "task_id": "20260910-233608-9a027715"
+    },
+    {
+      "candidate_count": 1,
+      "case": "sphinx-doc__sphinx-11510",
+      "control": null,
+      "deferred_reason": "verification deferred: 3 probes tried and none produced a differential: 3 recorded nothing usable on the merge base -- probe deferred on base: pytest collection/import/syntax or infrastructure failure (exit code 2, 0 failure(s), 1 error(s))",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.10611155000000001,
+      "surfaced_count": 0,
+      "task_id": "20260911-002421-07b58caf"
+    },
+    {
+      "candidate_count": 1,
+      "case": "sphinx-doc__sphinx-9711",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: behavior change confirmed, intent unknown: head raises VersionRequirementError from a raise statement on a changed line; the rejected input is not in the base tree's tests, fixtures or documentation (\u884c\u4e3a\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.0498522,
+      "surfaced_count": 0,
+      "task_id": "20260911-003421-b32cd1a4"
+    },
+    {
+      "candidate_count": 1,
+      "case": "sympy__sympy-22914",
+      "control": null,
+      "deferred_reason": "verification deferred: binding: the reproduction exercises none of the changed lines of sympy/printing/pycode.py",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.04852685000000001,
+      "surfaced_count": 0,
+      "task_id": "20260910-212019-58bfa2af"
+    },
+    {
+      "candidate_count": 2,
+      "case": "sympy__sympy-23262",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5) (2 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.10607345000000001,
+      "surfaced_count": 0,
+      "task_id": "20260910-213244-6286a7e0"
+    },
+    {
+      "candidate_count": 3,
+      "case": "sympy__sympy-23413",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: intent stated in the change itself: the same change also updates a test, a docstring, documentation, a changelog entry or an inline comment about the symbol under test (\u6539\u52a8\u81ea\u8eab\u5df2\u9648\u8ff0\u610f\u56fe) (3 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.1455596,
+      "surfaced_count": 0,
+      "task_id": "20260910-221913-d2a38d50"
+    },
+    {
+      "candidate_count": 1,
+      "case": "sympy__sympy-23534",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.0720237,
+      "surfaced_count": 0,
+      "task_id": "20260910-230837-f76c6047"
+    },
+    {
+      "candidate_count": 2,
+      "case": "sympy__sympy-23824",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (\u8fd4\u56de\u503c\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5) (2 candidates)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.160649,
+      "surfaced_count": 0,
+      "task_id": "20260910-233722-2115ecb8"
+    },
+    {
+      "candidate_count": 1,
+      "case": "sympy__sympy-23950",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: behavior change confirmed, intent unknown: head raises NotImplementedError from a raise statement on a changed line; no rejected input could be identified from the test's literals (\u884c\u4e3a\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.03954505,
+      "surfaced_count": 0,
+      "task_id": "20260911-002539-57c2da3e"
+    },
+    {
+      "candidate_count": 1,
+      "case": "sympy__sympy-24213",
+      "control": null,
+      "deferred_reason": "verification deferred: intent: behavior change confirmed, intent unknown: head raises ValueError from a raise statement on a changed line; no rejected input could be identified from the test's literals (\u884c\u4e3a\u53d8\u5316\u5df2\u8bc1\u5b9e\uff0c\u610f\u56fe\u672a\u77e5)",
+      "model": "claude-sonnet-5",
+      "reviews": [],
+      "spend_usd": 0.0783381,
+      "surfaced_count": 0,
+      "task_id": "20260911-003513-0ee29a7b"
+    }
+  ],
+  "run": "34530619773",
+  "sha": "6edb0922d091d2ffd13dec771592aea60cafcdad"
+}

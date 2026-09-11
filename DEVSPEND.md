@@ -113,19 +113,53 @@ rule this file has used since 2026-09-03.
 
 | item | reserved | settled |
 |---|---|---|
-| **the crash-class held-out slice, re-measured after the environment fixes (D-214), the reach signal (D-215) and the probe search (D-216)** — the *same* 39 instances, restored from the 2026-09-12 probe evidence rather than re-screened, so the result stays comparable to 2 of 31. Factory configuration `--k 5 --budget 1.00`, containers, on a GitHub runner (`heldout.yml`, D-208), **local review path only — no GitHub client is constructed, so no publication surface exists**. This run alone sets `contained_attempt_voids: false` (D-217); the product default does not move. Reservation basis is the driver's hard cumulative `--cap`, which is the maximum it may commit; the measured basis says $6.50 is ample, the same slice costing **$5.044872** on 2026-09-10 — but the search buys up to three probes where it bought one, so the rate is expected higher and the cap, not the estimate, is what binds. **Stop rule: the driver refuses to start any case whose maximum would exceed the cap, and stops there** | **$6.50** | *(pending)* |
+| **the crash-class held-out slice, re-measured after the environment fixes (D-214), the reach signal (D-215) and the probe search (D-216)** — the *same* 39 instances, restored from the 2026-09-12 probe evidence rather than re-screened, so the result stays comparable to 2 of 31. Factory configuration `--k 5 --budget 1.00`, containers, on a GitHub runner (`heldout.yml`, D-208), **local review path only — no GitHub client is constructed, so no publication surface exists**. This run alone sets `contained_attempt_voids: false` (D-217); the product default does not move. Reservation basis is the driver's hard cumulative `--cap`, which is the maximum it may commit; the measured basis says $6.50 is ample, the same slice costing **$5.044872** on 2026-09-10 — but the search buys up to three probes where it bought one, so the rate is expected higher and the cap, not the estimate, is what binds. **Stop rule: the driver refuses to start any case whose maximum would exceed the cap, and stops there** | **$6.50** authorised; **$6.00 dispatched** | **$5.028893** |
 
-**Self-reviews this window.** This repository reviews its own pull requests, so each pull
-request the work order asks for buys one. They are recorded as they settle and are **not**
-part of the $6.50 above.
+**Settled 2026-09-11.** Run [`34530619773`](https://github.com/IcantFind-a-username/Attest/actions/runs/34530619773)
+at `6edb092` on `ubuntu-latest`, 3h33m17s. **$0.471107 of the dispatched cap is released** and
+$1.471107 of the authorisation was never committed. **The dispatched cap bound**: the run
+refused `sympy__sympy-24443` by name and three further cases went unattempted, so 35 of 39 ran.
+The measurement: crash-class recall **5 of 25 — 20.0%, Wilson 95% [8.9%, 39.1%]**, against
+2 of 31 — 6.5%; on the cases-run denominator 5 of 35 — 14.3% against 2 of 39 — 5.1%.
+[Report](docs/acceptance/2026-09-11-heldout-after-search.md).
+
+**Why $6.00 and not the authorised $6.50.** The authorisation's arithmetic — reserve $6.50
+against $101.538013 and land at $108.04 — did not include the self-reviews the work order's own
+*one pull request per step* rule buys. This repository reviews its own pull requests, and this
+window's review runs are below. Dispatching at $6.50 would have projected past the **$110 hard
+cap**, so the cap was set to the headroom instead, and it bound. **That trade — the PR-per-step
+discipline and the paid measurement competing for the same headroom — is owner decision (3).**
+
+**Self-reviews this window**, not part of the $6.00 above:
 
 | pull request | run | cost |
 |---|---|---|
 | [#35](https://github.com/IcantFind-a-username/Attest/pull/35), first push | `34516260031` | $0.314888 |
 | [#35](https://github.com/IcantFind-a-username/Attest/pull/35), the pinned-row fix | `34517551239` | $0.309442 |
 | [#36](https://github.com/IcantFind-a-username/Attest/pull/36) | `34520695026` | $0.139605 |
+| [#37](https://github.com/IcantFind-a-username/Attest/pull/37), first push | `34522902214` | $0.493462 |
+| [#37](https://github.com/IcantFind-a-username/Attest/pull/37), the drill fix | `34523980763` | $0.502081 |
+| [#38](https://github.com/IcantFind-a-username/Attest/pull/38), push 1 (cancelled by push 2) | `34527821072` | $0.097981 |
+| [#38](https://github.com/IcantFind-a-username/Attest/pull/38), push 2 (cancelled by push 3) | `34527938551` | $0.093467 |
+| [#38](https://github.com/IcantFind-a-username/Attest/pull/38), push 3 | `34528074160` | $0.074902 |
+| [#38](https://github.com/IcantFind-a-username/Attest/pull/38), push 4 | `34530083023` | $0.098533 |
+| **subtotal** | | **$2.124361** |
 
-**Total API spend: $101.538013 of $110.00.**
+| [#39](https://github.com/IcantFind-a-username/Attest/pull/39), the record, both pushes | `34548305337`, `34548420332` | **$0.000000** |
+
+**The window's own record cost nothing, and the reason is D-187's clause.** Both reviews of
+[#39](https://github.com/IcantFind-a-username/Attest/pull/39) deferred before a single call was
+made: `budget: call 'sample-3' estimated $0.0877; projected total $0.3507 exceeds the discovery
+share $0.3000 of budget $1.00 -- $0.0507 short; \`budget-usd\` $1.17 would have bought it`. The
+reservations were cancelled and `review_run` records `spend_usd 0.0`. **A pull request of this
+size is outside what the product reviews at the shipped budget**, which is a fact about the
+product and not a saving to be pleased about; there is no lag carried into the next window.
+
+**Window total for 2026-09-11: $7.153254** — $5.028893 (the held-out re-run) and $2.124361
+(nine self-review runs). Every other item of this window — the value-note census, the baseline
+re-analysis, the era-pin verification and every document — cost **$0.00**.
+
+**Total API spend: $108.691267 of $110.00.**
 
 > **Erratum, 2026-09-13.** This line read *"$52.226537 of $90.00", the figure at the end of the 2026-09-05c window*, and it had not moved since. It is the **only machine-readable line in this file** — `attest.benchmark.live.read_devspend` parses it, and every paid preflight since 2026-09-05c has therefore checked its headroom against a total **$38 low and a cap $20 low**. No run was actually over the real cap, because every window since has also carried its own driver-enforced cumulative cap and the owner's per-item ceiling; but the guard that exists to catch that was not the thing catching it. The figure above is the 2026-09-12b handoff's settled cumulative ($90.009721) plus this window's [PR #19](https://github.com/IcantFind-a-username/Attest/pull/19) self-review ($0.125900), against the $110 cap D-192 declined to raise. **It is updated at the end of every window from now on**, and the per-window prose totals below stay as the audit trail they always were.
 

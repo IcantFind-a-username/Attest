@@ -96,6 +96,64 @@ the output contract (`tests/test_value_note.py::test_the_line_is_one_admissible_
   `tests/test_value_note.py::test_nothing_in_the_publication_path_imports_this_module`
   checks the import graph rather than trusting the sentence above.
 
+## 5b. The level was then run for real, and four of its sixteen lines do not conform
+
+The held-out re-run of the same day ([report](2026-09-11-heldout-after-search.md)) executed
+this level for the first time on live traffic and produced **16 notes over 13 cases**, every
+one of them carrying the head observation D-216 records -- so unlike the census above, all 16
+are renderable from the run itself rather than recovered from an assertion.
+
+**12 of the 16 are admitted by the output contract. Four are not**, and neither reason is a
+fault in the rule:
+
+| case | coordinate | admitted | line length |
+|---|---|---|---|
+| `pydata__xarray-6461` | `xarray/core/computation.py:11` | yes | 246 |
+| `pydata__xarray-6744` | `xarray/core/rolling.py:11` | **no** — length | 513 |
+| `pydata__xarray-6744` | `xarray/core/rolling.py:11` | **no** — length | 460 |
+| `pylint-dev__pylint-7080` | `pylint/lint/expand_modules.py:13` | yes | 276 |
+| `pylint-dev__pylint-7277` | `pylint/__init__.py:13` | yes | 333 |
+| `pylint-dev__pylint-8898` | `pylint/config/argument.py:9` | yes | 316 |
+| `pytest-dev__pytest-10051` | `src/_pytest/logging.py:25` | **no** — length | 525 |
+| `sphinx-doc__sphinx-10466` | `sphinx/builders/gettext.py:13` | **no** — preamble | 375 |
+| `sphinx-doc__sphinx-9711` | `sphinx/extension.py:54` | yes | 243 |
+| `sympy__sympy-23262` | `sympy/utilities/lambdify.py:10` | yes | 198 |
+| `sympy__sympy-23262` | `sympy/utilities/lambdify.py:12` | yes | 234 |
+| `sympy__sympy-23534` | `sympy/core/symbol.py:10` | yes | 399 |
+| `sympy__sympy-23824` | `sympy/physics/hep/gamma_matrices.py:11` | yes | 281 |
+| `sympy__sympy-23824` | `sympy/physics/hep/gamma_matrices.py:11` | yes | 321 |
+| `sympy__sympy-23950` | `sympy/sets/contains.py:48` | yes | 227 |
+| `sympy__sympy-24213` | `sympy/physics/units/unitsystem.py:178` | yes | 281 |
+
+- **Three are over the 400-character cap.** The line carries the `repr` of what each revision
+  returned, and a `repr` is whatever the project's object prints -- `xarray`'s rolling windows
+  run to hundreds of characters. D-142 forbids truncating a line into shape, so the refusal
+  that happened is the correct behaviour. **A value-class line needs a bounded rendering of a
+  value**, and this level does not have one.
+- **One trips a banned phrase.** `sphinx-doc__sphinx-10466`'s recorded value contains the word
+  *hello* -- a fixture string in that project's own gettext test -- and that word is on the
+  contract's banned list because it is how a model opens a paragraph. **The adjudicator was
+  written for model prose and this line is a measured literal**, so it refuses a line no model
+  wrote a word of. That is a real defect in applying the contract to this level.
+
+Neither was fixed. The level is shadow, nothing is published, and *format non-conformance is
+not publication* is the existing behaviour working correctly; both are design questions for
+the decision below rather than bugs to patch under a rule that says post nothing.
+
+**What the sixteen look like when they conform**, verbatim from `pylint-dev__pylint-8898`, with
+the value shortened here only to fit this page:
+
+```text
+[yellow] pylint/config/argument.py:9 - for _regexp_csv_transfomer(value), the merge base
+returned [re.compile('\d{1,2}'), re.compile('foo')] and head returns [re.compile('\d{1'),
+re.compile('2}'), re.compile('foo')] (3/3 and 3/3 runs each side); no base test, docstring or
+changelog pins either - note <id>
+```
+
+That is a comma inside a regular-expression quantifier being split as a CSV separator. It is
+the case's actual defect; the intent clause drawered it because nothing in the base tree pinned
+the value, and this line is the only place in the product where it is written down.
+
 ## 6. The decision this supports
 
 Three shapes the owner could take, in the order of how much they claim:
