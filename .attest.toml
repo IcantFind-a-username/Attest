@@ -1,0 +1,8 @@
+# This repository's own review policy, read at the merge base of every pull request
+# (`resolve_review_policy`); the head checkout's copy is never read.
+#
+# Owner authorisation 1 and 2 of 2026-09-11 (D-222, D-223): the two yellow surfaces
+# are on in the owner's own repositories and off everywhere else. Every other key
+# keeps the shipped default.
+value_notes_visible = true
+gate_notes_visible = true

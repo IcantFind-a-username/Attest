@@ -11,6 +11,53 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The drawer opens: two yellow surfaces, behind base-owned switches, on in the owner's own
+  repositories (D-222, D-223).** The value-class note D-218 wrote to the ledger — *the merge base
+  returned A and head returns B for this call, three runs each side, and nothing in the base tree
+  pins either* — reaches the author where `value_notes_visible` is set, under four rules: one note
+  per `(path, expression)`, a value over 200 characters written as `<type len=N sha256 …>` rather
+  than cut (parts digested longest-first until the line fits), the banned-phrase rule not applied
+  inside the two measured literals, and no note anchored inside `tests/`. The 16 notes of the
+  2026-09-11 paid run went from 12 admitted to 16. The gate level speaks at yellow where
+  `gate_notes_visible` is set — through-caller witnesses only, at most one line per pull request,
+  none when red published — rendered from the ledger row by a module that imports nothing that
+  runs code. **Both are off by default.** Neither has a precision figure; the first run with both
+  on is [the E-04 re-run](docs/acceptance/2026-09-12-e04-with-notes.md), adjudicated line by line
+  by the owner. **What it costs in trust:** an author in the owner's repositories now sees lines
+  that carry no receipt, and every one says so in its own evidence token.
+- **Every change unit is read; the ones the budget cannot fund are named (D-221).** The 30%
+  discovery share of D-168 silenced 11 of 29 real pull requests after 179 of their 298 change
+  units. It is gone: discovery reads units until the whole `budget-usd` is spent, and the status
+  line says `unread: unit u3 (pkg/u3.py), … and 2 more` instead of a count. **What it costs:** a
+  change with many units may now spend the whole budget on discovery and leave verification
+  nothing; the trade is the owner's and its first measurement is the E-04 re-run.
+- **Three repairs of the reproduction environment (D-220).** The container launcher no longer
+  imports the guard before the process limit is set, so `kernel process containment is inactive`
+  disappears from every run's stderr (it was never true). The image warms matplotlib's font cache
+  into a named directory and the launcher seeds it into the run's writable scratch — matplotlib
+  refuses a cache directory it cannot write, so the readable copy the instruction asked for was
+  necessary and not sufficient. A refused probe's reason travels into the next attempt instead
+  of the same question being asked again. No isolation flag moved.
+- **Every base recording must agree (D-219).** Three recordings were bought and two compared; a
+  merge base unstable only on its third recording was called stable. All three must agree now.
+- **Deleted (D-224):** yellow (b)'s null/Optional class (closed at 0 of 79) and exception-
+  propagation shadow (0 of 68) — 3,003 lines and 33 tests with no subject left; the derived-probe
+  path (5 of 39 supply), whose derivation moves to the corpus harness; the product path's last
+  import from `attest.core`. **Not deleted, with the reason recorded:** the T channel (a frozen
+  benchmark schema field and a regression pin depend on it) and the S/T e-value (still the
+  ordering key under the cap). Every deleted level was silent on real traffic; nothing an author
+  saw changes.
+- **The frozen E-04 sample was re-run with both switches on and produced nothing (D-225).** 9 of
+  28 units ran for $2.77 before the $3.00 cap refused the rest by name; 0 of the 9 carried a
+  line. The same 9 cost $0.77 on 2026-09-13 — the whole-budget discovery of D-221, measured.
+  Two intent-unknown drawers on `Attest#18` rendered no value line and the ledgers that would
+  say why were lost to the artifact upload's hidden-path default, fixed in the same change.
+- **The README's recall line now carries both numbers**: 5 of 25 — 20.0% [8.9%, 39.1%]
+  (2026-09-11) beside 2 of 31 — 6.5% [1.8%, 20.7%] (2026-09-10), with the sentence that the
+  whole difference is measurement repair and not the reviewer.
+- **The development spend cap is $150** (owner authorisation 4 of 2026-09-11); self-reviews are
+  settled on their own dogfooding line and no longer count against a research reservation.
+
 - **The held-out corpus was re-measured and the two halves of the answer disagree.** Crash-class
   recall is **5 of 25 — 20.0%, Wilson 95% [8.9%, 39.1%]**, against 2 of 31 — 6.5%; on the
   cases-run denominator 5 of 35 — 14.3% against 2 of 39. **All of the movement is the

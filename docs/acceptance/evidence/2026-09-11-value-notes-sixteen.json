@@ -1,6 +1,8 @@
 {
+ "erratum_2026_09_11": "`line` was the generated test's failing-assertion line paired with the source path (D-218 defect, fixed in the drawer window); it is replaced here by the candidate's anchor read from the same ledger's history_signal row (or the first changed line the intent observation recorded), and the recorded value is kept as line_at_recording",
  "notes": [
   {
+   "anchor_source": "history_signal",
    "base_detail": "{}",
    "base_kind": "value",
    "base_runs": 3,
@@ -12,7 +14,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 11,
+   "line": 1831,
+   "line_at_recording": 11,
    "note_id": "50e7e4c7f734",
    "path": "xarray/core/computation.py",
    "pinned_values": [],
@@ -24,6 +27,7 @@
    "task_id": "20260910-212649-74c188c0"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "[(0.0, [0.0, 1.0]), (1.0, [0.0, 1.0, 2.0]), (2.0, [1.0, 2.0, 3.0]), (3.0, [2.0, 3.0, 4.0]), (4.0, [3.0, 4.0, 5.0]), (5.0, [4.0, 5.0])]",
    "base_kind": "value",
    "base_runs": 3,
@@ -35,7 +39,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 11,
+   "line": 273,
+   "line_at_recording": 11,
    "note_id": "875fc5e6b8c5",
    "path": "xarray/core/rolling.py",
    "pinned_values": [
@@ -54,6 +59,7 @@
    "task_id": "20260910-233341-8d61286f"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "[('0', [0.0, 1.0]), ('1', [0.0, 1.0, 2.0]), ('2', [1.0, 2.0, 3.0]), ('3', [2.0, 3.0, 4.0]), ('4', [3.0, 4.0])]",
    "base_kind": "value",
    "base_runs": 3,
@@ -65,7 +71,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 11,
+   "line": 275,
+   "line_at_recording": 11,
    "note_id": "5ac8fa95b5d7",
    "path": "xarray/core/rolling.py",
    "pinned_values": [
@@ -88,6 +95,7 @@
    "task_id": "20260910-233341-8d61286f"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "True",
    "base_kind": "value",
    "base_runs": 3,
@@ -99,7 +107,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 13,
+   "line": 55,
+   "line_at_recording": 13,
    "note_id": "0cccc9683e18",
    "path": "pylint/lint/expand_modules.py",
    "pinned_values": [
@@ -113,6 +122,7 @@
    "task_id": "20260910-230510-67b7b1cb"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "['/custom/launcher/path', '/second/path']",
    "base_kind": "value",
    "base_runs": 3,
@@ -124,7 +134,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 13,
+   "line": 99,
+   "line_at_recording": 13,
    "note_id": "7268b2e2d7da",
    "path": "pylint/__init__.py",
    "pinned_values": [
@@ -139,6 +150,7 @@
    "task_id": "20260910-233509-4433010c"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "[re.compile('\\\\d{1,2}'), re.compile('foo')]",
    "base_kind": "value",
    "base_runs": 3,
@@ -150,7 +162,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 9,
+   "line": 117,
+   "line_at_recording": 9,
    "note_id": "939da5e112d5",
    "path": "pylint/config/argument.py",
    "pinned_values": [
@@ -164,6 +177,7 @@
    "task_id": "20260911-002328-aa70d304"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "(None, True, 0, 0, False, 'first message\\n', '', True, 0)",
    "base_kind": "value",
    "base_runs": 3,
@@ -175,7 +189,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 25,
+   "line": 443,
+   "line_at_recording": 25,
    "note_id": "b617235cc75b",
    "path": "src/_pytest/logging.py",
    "pinned_values": [
@@ -193,6 +208,7 @@
    "task_id": "20260910-211702-613acf18"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "[('hello', [('a.rst', 1), ('a.rst', 5), ('b.rst', 10)], 4)]",
    "base_kind": "value",
    "base_runs": 3,
@@ -204,7 +220,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 13,
+   "line": 60,
+   "line_at_recording": 13,
    "note_id": "097ff65ad9cc",
    "path": "sphinx/builders/gettext.py",
    "pinned_values": [
@@ -224,6 +241,7 @@
    "task_id": "20260910-221819-5fc683cd"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "None",
    "base_kind": "value",
    "base_runs": 3,
@@ -236,6 +254,7 @@
    "head_runs": 3,
    "kind": "value_observation_note",
    "line": 54,
+   "line_at_recording": 54,
    "note_id": "c46c17aadecd",
    "path": "sphinx/extension.py",
    "pinned_values": [],
@@ -247,6 +266,7 @@
    "task_id": "20260911-003421-b32cd1a4"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "(2,)",
    "base_kind": "value",
    "base_runs": 3,
@@ -258,7 +278,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 10,
+   "line": 961,
+   "line_at_recording": 10,
    "note_id": "9db445aac492",
    "path": "sympy/utilities/lambdify.py",
    "pinned_values": [
@@ -272,6 +293,7 @@
    "task_id": "20260910-213244-6286a7e0"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "'(x,)'",
    "base_kind": "value",
    "base_runs": 3,
@@ -283,7 +305,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 12,
+   "line": 962,
+   "line_at_recording": 12,
    "note_id": "8adb0a2f710a",
    "path": "sympy/utilities/lambdify.py",
    "pinned_values": [
@@ -297,6 +320,7 @@
    "task_id": "20260910-213244-6286a7e0"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "[<class 'sympy.core.function.UndefinedFunction'>, <class 'sympy.core.function.UndefinedFunction'>]",
    "base_kind": "value",
    "base_runs": 3,
@@ -308,7 +332,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 10,
+   "line": 794,
+   "line_at_recording": 10,
    "note_id": "932f874e87c6",
    "path": "sympy/core/symbol.py",
    "pinned_values": [
@@ -322,6 +347,7 @@
    "task_id": "20260910-230837-f76c6047"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "4*GammaMatrix(i0)*GammaMatrix(i1)",
    "base_kind": "value",
    "base_runs": 3,
@@ -333,7 +359,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 11,
+   "line": 698,
+   "line_at_recording": 11,
    "note_id": "b46850f4a213",
    "path": "sympy/physics/hep/gamma_matrices.py",
    "pinned_values": [
@@ -347,6 +374,7 @@
    "task_id": "20260910-233722-2115ecb8"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "-2*GammaMatrix(mu)*GammaMatrix(nu)*GammaMatrix(sigma)",
    "base_kind": "value",
    "base_runs": 3,
@@ -358,7 +386,8 @@
    "head_kind": "value",
    "head_runs": 3,
    "kind": "value_observation_note",
-   "line": 11,
+   "line": 698,
+   "line_at_recording": 11,
    "note_id": "03a258f59257",
    "path": "sympy/physics/hep/gamma_matrices.py",
    "pinned_values": [
@@ -372,6 +401,7 @@
    "task_id": "20260910-233722-2115ecb8"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "Interval(0, oo)",
    "base_kind": "value",
    "base_runs": 3,
@@ -384,6 +414,7 @@
    "head_runs": 3,
    "kind": "value_observation_note",
    "line": 48,
+   "line_at_recording": 48,
    "note_id": "1c20869f371b",
    "path": "sympy/sets/contains.py",
    "pinned_values": [],
@@ -395,6 +426,7 @@
    "task_id": "20260911-002539-57c2da3e"
   },
   {
+   "anchor_source": "history_signal",
    "base_detail": "(2000, Dimension(length*mass/time**2))",
    "base_kind": "value",
    "base_runs": 3,
@@ -407,6 +439,7 @@
    "head_runs": 3,
    "kind": "value_observation_note",
    "line": 178,
+   "line_at_recording": 178,
    "note_id": "d92e0d128d55",
    "path": "sympy/physics/units/unitsystem.py",
    "pinned_values": [],
