@@ -1578,7 +1578,7 @@ def execute_repro(
     controller: Controller | None = None,
     adapter: ExecutorAdapter | None = None,
     tree_target: str | None = None,
-    contained_attempt_voids: bool = True,
+    contained_attempt_voids: bool = False,
 ) -> ExecutionResult:
     """One guarded pytest run through the controller/executor protocol (X-01).
     ``node`` selects the exact test function; with ``collect_only`` the run only
@@ -1769,11 +1769,13 @@ def execute_repro(
     # D-217. `process-attempted` and `thread-attempted` are the two markers whose
     # attempt the **kernel** itself refuses: RLIMIT_NPROC is (0, 0) for the whole
     # run, and `process-contained` is written only after that is verified. Under
-    # the product's setting both still void the observation. Under
-    # `contained_attempt_voids=False` an attempt that was refused, by code that
-    # then completed its run normally, is recorded as a *contained attempt* and
-    # the run is read as any other run -- the isolation was not breached and the
-    # evidence is still a 3x3 deterministic differential.
+    # `contained_attempt_voids=True` both void the observation. Under `False` --
+    # the product's setting since D-226, which also requires the contained set
+    # to be identical across every head and base run of a differential -- an
+    # attempt that was refused, by code that then completed its run normally,
+    # is recorded as a *contained attempt* and the run is read as any other
+    # run: the isolation was not breached and the evidence is still a 3x3
+    # deterministic differential.
     #
     # The relaxation is available only where the kernel is the thing refusing:
     # on a platform with no `process-contained` marker the guard is a Python
@@ -2372,7 +2374,7 @@ def execute_differential(
     regenerate: Callable[[], ReproSpec] | None = None,
     probe: ProbeSpec | None = None,
     reprobe: Callable[[str], ProbeSpec] | None = None,
-    contained_attempt_voids: bool = True,
+    contained_attempt_voids: bool = False,
 ) -> DifferentialExecution:
     """Run the same reproduction repeatedly against detached head/base
     worktrees. Only a deterministic head failure that shows the code
@@ -2999,7 +3001,7 @@ def verify_candidate(
     shared_system: str = "",
     generation_model: str = "",
     probe_generation: bool = True,
-    contained_attempt_voids: bool = True,
+    contained_attempt_voids: bool = False,
     ledger: Ledger | None = None,
 ) -> VerificationRun:
     """Generate a reproduction and run it on both revisions.

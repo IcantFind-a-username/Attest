@@ -707,8 +707,17 @@ def test_execute_timeout_is_deferred(tmp_path: Path) -> None:
     assert result.elapsed_s < 2.0
 
 
+# D-226: the four containment fixtures below run under both settings of
+# `contained_attempt_voids`. The property that is security -- the child, the
+# thread, the native fork never started -- is asserted under both. What the
+# setting decides is only how the refused attempt is *read*: voided with the
+# reason (True, D-217's default) or disclosed on the run (False, the product's
+# setting since D-226). Neither branch is weaker than the assertion it replaced.
+@pytest.mark.parametrize("voids", [False, True])
 @pytest.mark.skipif(os.name != "posix", reason="kernel process limit is POSIX-only")
-def test_execute_defers_atexit_spawn_attempt_without_starting_child(tmp_path: Path) -> None:
+def test_execute_contains_atexit_spawn_attempt_without_starting_child(
+    tmp_path: Path, voids: bool
+) -> None:
 
     child_started = tmp_path / "atexit-child-started"
     result = execute_repro(
@@ -732,14 +741,22 @@ def test_execute_defers_atexit_spawn_attempt_without_starting_child(tmp_path: Pa
             "    assert True\n"
         ),
         ExecutorLimits(),
+        contained_attempt_voids=voids,
     )
 
     observation_deadline = time.monotonic() + 1.0
     while not child_started.exists() and time.monotonic() < observation_deadline:
         time.sleep(0.02)
     assert not child_started.exists()
-    assert result.outcome is ExecutionOutcome.DEFERRED
-    assert result.reason == "reproduction attempted to create a child process"
+    if voids:
+        assert result.outcome is ExecutionOutcome.DEFERRED
+        assert result.reason == "reproduction attempted to create a child process"
+        assert result.contained_attempts == ()
+    else:
+        assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
+        assert result.reason == "pytest passed"
+        assert len(result.contained_attempts) == 1
+        assert result.contained_attempts[0].startswith("subprocess.Popen")
 
 
 @pytest.mark.skipif(os.name != "posix", reason="exec replacement is POSIX-only")
@@ -771,9 +788,10 @@ def test_execute_defers_atexit_exec_attempt_without_replacing_pytest(tmp_path: P
     assert result.reason == "reproduction attempted to replace the pytest process"
 
 
+@pytest.mark.parametrize("voids", [False, True])
 @pytest.mark.skipif(os.name != "posix", reason="native fork is POSIX-only")
-def test_execute_kernel_limit_defers_native_fork_without_starting_child(
-    tmp_path: Path,
+def test_execute_kernel_limit_contains_native_fork_without_starting_child(
+    tmp_path: Path, voids: bool
 ) -> None:
 
     child_started = tmp_path / "native-fork-child-started"
@@ -797,15 +815,25 @@ def test_execute_kernel_limit_defers_native_fork_without_starting_child(
             "    assert ctypes.get_errno() == errno.EAGAIN\n"
         ),
         ExecutorLimits(),
+        contained_attempt_voids=voids,
     )
 
     assert not child_started.exists()
-    assert result.outcome is ExecutionOutcome.DEFERRED
-    assert result.reason == "reproduction attempted to create a child process"
+    if voids:
+        assert result.outcome is ExecutionOutcome.DEFERRED
+        assert result.reason == "reproduction attempted to create a child process"
+    else:
+        # the fixture asserts the kernel refused (EAGAIN) and so passes; the
+        # refusal is disclosed on the run rather than voiding it
+        assert result.outcome is ExecutionOutcome.NOT_REPRODUCED, result.reason
+        assert result.contained_attempts and "fork" in result.contained_attempts[0]
 
 
+@pytest.mark.parametrize("voids", [False, True])
 @pytest.mark.skipif(os.name != "posix", reason="POSIX process containment limits tasks")
-def test_execute_defers_python_thread_attempt_without_starting_thread(tmp_path: Path) -> None:
+def test_execute_contains_python_thread_attempt_without_starting_thread(
+    tmp_path: Path, voids: bool
+) -> None:
 
     thread_started = tmp_path / "thread-started"
     result = execute_repro(
@@ -821,11 +849,18 @@ def test_execute_defers_python_thread_attempt_without_starting_thread(tmp_path: 
             "    thread.join()\n"
         ),
         ExecutorLimits(),
+        contained_attempt_voids=voids,
     )
 
     assert not thread_started.exists()
-    assert result.outcome is ExecutionOutcome.DEFERRED
-    assert result.reason == "reproduction attempted to create a thread"
+    if voids:
+        assert result.outcome is ExecutionOutcome.DEFERRED
+        assert result.reason == "reproduction attempted to create a thread"
+    else:
+        # `thread.start()` raises where the guard refused it, so the test
+        # fails on this tree -- and the refusal is disclosed, not hidden
+        assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+        assert result.contained_attempts and "thread" in result.contained_attempts[0].lower()
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX process containment limits tasks")
@@ -930,8 +965,11 @@ def test_execute_linux_privilege_state_fails_closed_before_generated_code(
     assert not (work_root(tmp_path) / "repro").exists()
 
 
+@pytest.mark.parametrize("voids", [False, True])
 @pytest.mark.skipif(os.name != "posix", reason="kernel process limit is POSIX-only")
-def test_execute_defers_subprocess_attempt_without_starting_child(tmp_path: Path) -> None:
+def test_execute_contains_subprocess_attempt_without_starting_child(
+    tmp_path: Path, voids: bool
+) -> None:
 
     child_started = tmp_path / "subprocess-child-started"
     result = execute_repro(
@@ -954,14 +992,23 @@ def test_execute_defers_subprocess_attempt_without_starting_child(tmp_path: Path
             "    raise AssertionError('child process was created')\n"
         ),
         ExecutorLimits(),
+        contained_attempt_voids=voids,
     )
 
-    assert result.outcome is ExecutionOutcome.DEFERRED
-    assert result.reason == "reproduction attempted to create a child process"
     assert not child_started.exists()
-    assert "[process audit]" in result.stderr
-    assert "event=subprocess.Popen" in result.stderr
-    assert "test_repro" in result.stderr
+    if voids:
+        assert result.outcome is ExecutionOutcome.DEFERRED
+        assert result.reason == "reproduction attempted to create a child process"
+        assert "[process audit]" in result.stderr
+        assert "event=subprocess.Popen" in result.stderr
+        assert "test_repro" in result.stderr
+    else:
+        # the fixture returns on the OSError the refusal raised, so it passes;
+        # what it reached for is on the run, event and target
+        assert result.outcome is ExecutionOutcome.NOT_REPRODUCED, result.reason
+        assert result.contained_attempts == (
+            f"subprocess.Popen: {sys.executable!r}",
+        ), result.contained_attempts
 
 
 @pytest.mark.skipif(os.name != "posix", reason="PID liveness assertion uses POSIX signals")
@@ -3463,20 +3510,37 @@ CONTAINED_SPAWN_BODY = (
 
 
 @pytest.mark.skipif(os.name != "posix", reason="kernel process containment is POSIX-only")
-def test_a_contained_process_attempt_still_voids_the_run_by_default(tmp_path: Path) -> None:
-    """The product's setting does not move. This is the half of D-217 that has
-    to keep failing, and it is asserted before the other half is asserted."""
+def test_a_contained_process_attempt_still_voids_the_run_when_configured(tmp_path: Path) -> None:
+    """D-217's original setting is one switch away and behaves exactly as it
+    did: under `contained_attempt_voids=True` the refused creation voids the
+    run and nothing is disclosed. Asserted so the reversal of D-226 is a
+    one-line change and not a re-implementation."""
 
     result = execute_repro(
         tmp_path,
         candidate(file="mod.py", line=1),
         ReproSpec(CONTAINED_SPAWN_BODY),
         ExecutorLimits(),
+        contained_attempt_voids=True,
     )
 
     assert result.outcome is ExecutionOutcome.DEFERRED
     assert result.reason == "reproduction attempted to create a child process"
     assert result.contained_attempts == ()
+
+
+def test_the_product_default_records_a_contained_attempt_and_every_default_agrees() -> None:
+    """D-226: `contained_attempt_voids` is False in the product's configuration
+    and in every executor entry point, so a driver that passes nothing and a
+    review that reads no policy get the same setting."""
+    import inspect
+
+    from attest.review.config import ReviewConfig
+
+    assert ReviewConfig().contained_attempt_voids is False
+    for entry in (execute_repro, execute_differential, verify_candidate):
+        parameter = inspect.signature(entry).parameters["contained_attempt_voids"]
+        assert parameter.default is False, entry.__name__
 
 
 @pytest.mark.skipif(os.name != "posix", reason="kernel process containment is POSIX-only")
