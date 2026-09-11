@@ -3571,3 +3571,33 @@ def test_the_relaxation_never_reaches_an_escape_class(tmp_path: Path) -> None:
     assert replacement.contained_attempts == ()
     assert network.contained_attempts == ()
     assert escape.contained_attempts == ()
+
+
+def test_a_refused_probe_s_reason_is_fed_to_the_next_attempt(tmp_path: Path) -> None:
+    """`seaborn-3069`, 2026-09-11: three probe attempts, the same refusal three
+    times, because a `ProbeRefused` went to `continue` and the next sample was
+    asked the identical question. The refusal now travels into the next
+    attempt's prompt -- after the cacheable prefix, so the shared prefix the
+    provider is given is byte-identical on every attempt."""
+    from attest.review.executor import generate_probe
+
+    write_anchor_file(tmp_path)
+    (tmp_path / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    good = '{"imports": "import pkg.example", "setup": "", "expression": "pkg.example.line_1"}'
+    provider = RecordingProvider(
+        [
+            ProviderResult(text="this is not json", input_tokens=9, output_tokens=7),
+            ProviderResult(text=good, input_tokens=9, output_tokens=7),
+        ]
+    )
+    budget = Budget(limit_usd=1.0, model=DEFAULT_MODEL)
+
+    spec = generate_probe(tmp_path, candidate(), provider, budget)
+
+    assert spec.expression == "pkg.example.line_1"
+    assert len(provider.requests) == 2
+    first_prompt = provider.requests[0][1]
+    second_prompt = provider.requests[1][1]
+    assert second_prompt.startswith(first_prompt)
+    assert "probe output is not valid JSON" in second_prompt
+    assert "probe output is not valid JSON" not in first_prompt

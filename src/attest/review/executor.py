@@ -1012,7 +1012,10 @@ def generate_probe(
             reservations.append(
                 budget.reserve(
                     label,
-                    len(PROBE_SYSTEM) + len(prompt),
+                    # a refused attempt's reason is appended to the next prompt
+                    # (bounded to REFUSAL_FEEDBACK_CHARS), so every attempt is
+                    # reserved at the length the last one could reach
+                    len(PROBE_SYSTEM) + len(prompt) + REFUSAL_FEEDBACK_CHARS,
                     PROBE_MAX_OUTPUT_TOKENS,
                     model or None,
                 )
@@ -1023,12 +1026,19 @@ def generate_probe(
         raise
 
     last_error: Exception | None = None
+    refusals: list[str] = []
     for index, (label, reservation) in enumerate(zip(labels, reservations, strict=True)):
+        # The previous attempts' refusals travel with the next question -- after
+        # the cacheable prefix, so the shared prefix is byte-identical on every
+        # attempt. Until 2026-09-11 a refusal went straight to `continue` and
+        # the same question was asked again: `seaborn-3069` bought three probes
+        # and was refused three times for the same reason.
+        attempt_prompt = prompt if not refusals else f"{prompt}\n\n{_refusal_feedback(refusals)}"
         try:
             result = call_provider(
                 provider,
                 PROBE_SYSTEM,
-                prompt,
+                attempt_prompt,
                 cast(dict[str, Any], PROBE_SCHEMA),
                 PROBE_MAX_OUTPUT_TOKENS,
                 timeout_s=timeout_s,
@@ -1056,6 +1066,7 @@ def generate_probe(
             spec = parse_probe(result.text)
         except ProbeRefused as exc:
             last_error = exc
+            refusals.append(str(exc))
             continue
         imported = imported_test_modules(spec.imports)
         if imported:
@@ -1064,6 +1075,7 @@ def generate_probe(
             last_error = ProbeRefused(
                 f"probe imports test module(s) {', '.join(imported)}; it must be self-contained"
             )
+            refusals.append(str(last_error))
             continue
         if not reaches_the_tree(spec, tree_roots(repo)):
             # D-206: a probe that imports nothing this repository defines cannot
@@ -1073,6 +1085,7 @@ def generate_probe(
                 "probe imports nothing this repository defines, so it cannot reach "
                 f"{candidate.finding.file}"
             )
+            refusals.append(str(last_error))
             continue
         for unused in reservations[index + 1 :]:
             budget.cancel(unused)
@@ -1081,6 +1094,27 @@ def generate_probe(
     if last_error is None:  # pragma: no cover - fixed positive attempt count
         raise RuntimeError("probe generation made no attempts")
     raise last_error
+
+
+# the most a refusal clause may add to a probe prompt; the reservation counts it
+REFUSAL_FEEDBACK_CHARS = 600
+
+
+def _refusal_feedback(refusals: Sequence[str]) -> str:
+    """Why the previous probe(s) for this candidate were refused, for the next.
+
+    The refusal is a structural fact about the last answer -- it did not parse,
+    it imported a test module, it reached nothing of the tree -- and nothing
+    about what the answer should be. Bounded so the reservation made before
+    the first call still covers the last."""
+    lines = [f"- {reason}" for reason in refusals]
+    text = (
+        "The previous probe(s) for this candidate were refused before execution:\n"
+        + "\n".join(lines)
+        + "\nAnswer with one JSON object of the three fields, importing something this "
+        "repository defines and nothing from its tests."
+    )
+    return text[:REFUSAL_FEEDBACK_CHARS]
 
 
 def _truncate_output(output: bytes | str | None, limit: int) -> str:
