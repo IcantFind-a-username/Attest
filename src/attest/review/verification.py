@@ -151,8 +151,9 @@ def run_verification_stage(
     )
     # D-137: the gate level executes head-only, and it needs the same isolation
     # red does, so a review with only new-code candidates still selects one
+    gate_stage_on = config.gate_shadow or config.gate_notes_visible
     gate_candidates = (
-        [c for c in candidates if c.eligibility == "new_code"] if config.gate_shadow else []
+        [c for c in candidates if c.eligibility == "new_code"] if gate_stage_on else []
     )
     backend_reason = "caller-supplied adapter"
     if adapter is None and (eligible_candidates or gate_candidates):
@@ -392,7 +393,7 @@ def run_verification_stage(
     # buying anything, and its output goes to the ledger and to
     # `.attest/shadow/gate/` and nowhere else. Any exception anywhere in it
     # leaves the review exactly as it was.
-    if config.gate_shadow:
+    if gate_stage_on:
         from attest.review.gate_level import run_gate_shadow_stage
 
         with suppress(Exception):

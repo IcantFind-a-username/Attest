@@ -36,6 +36,9 @@ from typing import cast
 
 from attest.certification.types import CertifiedFinding
 from attest.review.finding_evidence import FindingEvidence, render_markdown
+from attest.review.gate_note import GateNote
+from attest.review.gate_note import admitted as gate_admitted
+from attest.review.gate_note import render as gate_line
 from attest.review.impact import CONDITION_ARITY, CONDITION_FANOUT, ImpactNote, fanout_of
 from attest.review.nullability import NullabilityNote
 from attest.review.output_contract import (
@@ -87,6 +90,15 @@ VALUE_HEADING = (
 )
 YELLOW_MAX_COMMENTS = 2
 IMPACT_MAX_CALLERS_LISTED = 8
+# Owner instruction 5 of 2026-09-11: the gate level's yellow line. Its own
+# marker and its own section (design §5: never inside red's, never counted in
+# red's totals); at most one per pull request, and none when red published.
+GATE_MARKER_PREFIX = "<!-- attest:gate:"
+GATE_HEADING = "Gate — new code, nothing to compare against:"
+GATE_DISCLAIMER = (
+    "There is no base revision to compare against; this is not a claim that the change "
+    "broke something that worked."
+)
 
 
 def render_running(candidate_count: int | None = None) -> str:
@@ -112,6 +124,7 @@ def render_complete(
     nullability: Sequence[NullabilityNote] = (),
     propagation: Sequence[PropagationNote] = (),
     value_notes: Sequence[ValueNote] = (),
+    gate_notes: Sequence[GateNote] = (),
     unverified: int = 0,
     executor_unavailable: str = "",
     unsupported_executor: int = 0,
@@ -148,7 +161,10 @@ def render_complete(
         *propagations,
     ]
     yellow = yellow[:YELLOW_MAX_COMMENTS]
-    if not certified and not notes and not yellow:
+    # the gate line is not red and not counted with yellow's cap; zero when red
+    # published anything (design §5: a receipt is strictly stronger)
+    gates = [] if certified else [note for note in _gate_only(gate_notes) if gate_admitted(note)]
+    if not certified and not notes and not yellow and not gates:
         # D-142: a wholly silent review owes exactly one line, and it says over
         # how many change units the silence holds.
         read, planned = units if units is not None else (0, 0)
@@ -223,6 +239,12 @@ def render_complete(
         if index == 0:
             lines.append(VALUE_HEADING)
         lines.append("- " + value_line(observed))
+    for index, reached in enumerate(gates):
+        if lines and lines[-1] != "":
+            lines.append("")
+        if index == 0:
+            lines.append(GATE_HEADING)
+        lines.append("- " + gate_line(reached))
     lines.append(f"Spend ${spend_usd:.4f}; {elapsed_s:.1f}s.")
     return "\n".join(lines)
 
@@ -631,6 +653,58 @@ def value_comments(
         if _anchored(comment, changed_lines) and check_comment(str(comment["body"])):
             out.append(comment)
     return out
+
+
+def gate_comments(
+    notes: Sequence[GateNote],
+    changed_lines: Mapping[str, Collection[int]] | None = None,
+) -> list[dict[str, object]]:
+    """The gate line as an inline comment, anchored on the **added line** the
+    exception was raised from (the caller's line is not in the diff, by
+    construction). The collapsed block carries the design's own disclaimer and
+    the three coordinates; the action names both ways to close it."""
+    out: list[dict[str, object]] = []
+    for note in _gate_only(notes)[:1]:
+        if not gate_admitted(note):
+            continue
+        detail = (
+            f"{GATE_DISCLAIMER}\n\n"
+            f"- caller: `{note.call_site}` (`{note.caller}`), a line the change did not add\n"
+            f"- added line: `{note.path}:{note.origin_line}`\n"
+            f"- exception: `{note.exception_type}`, {note.runs}/{note.repeats} runs agreeing\n"
+            f"- the reproduction entered with `{note.entry}`; a pre-existing test of the "
+            "same caller passed in the same image"
+        )
+        comment = {
+            "path": note.path,
+            "line": note.origin_line,
+            "side": "RIGHT",
+            "body": "\n".join(
+                [
+                    f"{GATE_MARKER_PREFIX}{gate_member_id(note)} -->",
+                    gate_line(note),
+                    "",
+                    contract_collapsed(detail, summary="What was witnessed, and what was not"),
+                    "",
+                    f"{ACTION_PREFIX} handle `{note.exception_type}` at "
+                    f"`{note.path}:{note.origin_line}`, or reject that input at "
+                    f"`{note.call_site}` before it reaches the new code.",
+                ]
+            ),
+        }
+        if _anchored(comment, changed_lines) and check_comment(str(comment["body"])):
+            out.append(comment)
+    return out
+
+
+def gate_member_id(note: GateNote) -> str:
+    return note.note_id()
+
+
+def _gate_only(notes: Sequence[GateNote]) -> list[GateNote]:
+    if any(type(note) is not GateNote for note in notes):
+        raise TypeError("the gate channel accepts only GateNote values")
+    return list(notes)
 
 
 def value_member_id(note: ValueNote) -> str:

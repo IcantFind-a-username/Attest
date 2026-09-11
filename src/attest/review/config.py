@@ -85,6 +85,11 @@ class ReviewConfig:
     # says so. Off by default; this window turns it on in the owner's own
     # repositories and nowhere else.
     value_notes_visible: bool = False
+    # Owner instruction 5 of the 2026-09-11 drawer window: the gate level speaks
+    # at yellow -- through-caller witnesses only -- where the base-owned policy
+    # says so. Off by default. On, it also runs the gate stage (as
+    # `gate_shadow` does), because a line needs an observation to render from.
+    gate_notes_visible: bool = False
     # D-157: how many candidates' reproductions may run at once. The three runs
     # *inside* one candidate stay serial -- the repeat count is what makes a
     # reproduction stable, and a concurrent repeat is a different experiment.
@@ -154,6 +159,8 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError("contained_attempt_voids must be a boolean")
     if type(config.value_notes_visible) is not bool:
         raise ValueError("value_notes_visible must be a boolean")
+    if type(config.gate_notes_visible) is not bool:
+        raise ValueError("gate_notes_visible must be a boolean")
     if type(config.repro_concurrency) is not int or not 1 <= config.repro_concurrency <= 8:
         raise ValueError("repro_concurrency must be an integer in [1, 8]")
     if type(config.verification_cap_per_unit) is not int or config.verification_cap_per_unit < 1:
@@ -191,8 +198,9 @@ _KNOWN_POLICY_KEYS = {
     "repro_concurrency",
     "verification_cap_per_unit",
     "daily_budget_usd",
-    # a speech surface, not an evidence rule: the base-owned policy may open it
+    # speech surfaces, not evidence rules: the base-owned policy may open them
     "value_notes_visible",
+    "gate_notes_visible",
 }
 
 

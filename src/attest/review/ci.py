@@ -27,6 +27,7 @@ from attest.github.presentation import (
     IMPACT_MAX_COMMENTS,
     MAX_STRUCTURAL_COMMENTS,
     YELLOW_MAX_COMMENTS,
+    gate_comments,
     impact_comments,
     impact_member_id,
     inline_comments,
@@ -45,6 +46,8 @@ from attest.review.budget import Budget
 from attest.review.config import DISABLED_REASON, ReviewConfig, resolve_review_policy
 from attest.review.diffs import resolve_merge_base
 from attest.review.executor import ExecutorLimits
+from attest.review.gate_note import GateNote, note_from_row
+from attest.review.gate_note import visible as visible_gate_notes
 from attest.review.impact import (
     IMPACT_POLICY_VERSION,
     ChangedFunction,
@@ -399,6 +402,8 @@ _INLINE_NULLABILITY_MARKER_RE = re.compile(r"<!-- attest:nullability:([^\s>]+) -
 # owner instruction 4 of 2026-09-11: the value-class note carries no receipt
 # either; the journal identifies it by the note's own digest.
 _INLINE_VALUE_MARKER_RE = re.compile(r"<!-- attest:value:([0-9a-f]{12}) -->")
+# owner instruction 5 of 2026-09-11: the gate line, identified by its note digest
+_INLINE_GATE_MARKER_RE = re.compile(r"<!-- attest:gate:([0-9a-f]{12}) -->")
 _SUMMARY_FINDING_MARKER_RE = re.compile(
     # What this regex is for is **journal integrity**: does the body publish
     # exactly the findings the intent declared? That is a question about
@@ -1029,6 +1034,7 @@ def _marker_kind(comment: Mapping[str, object]) -> str:
         ("impact", _INLINE_IMPACT_MARKER_RE),
         ("nullability", _INLINE_NULLABILITY_MARKER_RE),
         ("value", _INLINE_VALUE_MARKER_RE),
+        ("gate", _INLINE_GATE_MARKER_RE),
     ):
         if pattern.fullmatch(first):
             return kind
@@ -1043,6 +1049,7 @@ def _marker_id(comment: Mapping[str, object]) -> str:
         or _INLINE_IMPACT_MARKER_RE.fullmatch(first)
         or _INLINE_NULLABILITY_MARKER_RE.fullmatch(first)
         or _INLINE_VALUE_MARKER_RE.fullmatch(first)
+        or _INLINE_GATE_MARKER_RE.fullmatch(first)
     )
     if match is None:  # pragma: no cover - the renderers always write a marker
         raise ValueError("rendered comment carries no marker")
@@ -1068,6 +1075,7 @@ def _body_finding_ids(value: object, channel: str) -> tuple[str, ...]:
                 or _INLINE_IMPACT_MARKER_RE.fullmatch(first)
                 or _INLINE_NULLABILITY_MARKER_RE.fullmatch(first)
                 or _INLINE_VALUE_MARKER_RE.fullmatch(first)
+                or _INLINE_GATE_MARKER_RE.fullmatch(first)
             )
             if match is None:
                 raise ValueError("inline review comment has no finding marker")
@@ -1335,6 +1343,25 @@ def value_notes_for_task(
             continue
         notes.append(note)
     return visible_value_notes(notes)
+
+
+def gate_notes_for_task(
+    rows: Sequence[Mapping[str, object]], task_id: str, config: ReviewConfig
+) -> list[GateNote]:
+    """The gate lines this task may show (owner instruction 5 of 2026-09-11):
+    would-publish `gate_shadow` rows with a through-caller witness, rendered
+    from the row, admitted by the contract, at most one -- and none at all
+    unless the base-owned policy set `gate_notes_visible`."""
+    if not config.gate_notes_visible:
+        return []
+    notes = [
+        note
+        for row in rows
+        if row.get("task_id") == task_id
+        for note in (note_from_row(row),)
+        if note is not None
+    ]
+    return visible_gate_notes(notes)
 
 
 def _units_read(ledger: Ledger, task_id: str | None) -> tuple[int, int] | None:
@@ -2152,9 +2179,13 @@ def run_ci(
     # Owner instruction 4 of 2026-09-11: the value-class notes the executor
     # wrote for this task, read back from the ledger under the visibility rule.
     # Silent unless the base-owned policy opened the surface.
-    value_notes = value_notes_for_task(ledger.entries(), task_id, config)
+    ledger_rows = ledger.entries()
+    value_notes = value_notes_for_task(ledger_rows, task_id, config)
+    # Owner instruction 5 of 2026-09-11: the gate line, and none when red
+    # published anything (design §5) -- a receipt is strictly stronger.
+    gate_notes = [] if surfaced else gate_notes_for_task(ledger_rows, task_id, config)
     if (
-        surfaced or green or yellow or value_notes
+        surfaced or green or yellow or value_notes or gate_notes
     ) and _workspace_head(repo) != context.head_sha:
         # revalidate the task immediately before the first author-visible write --
         # a green note is coordinates, and coordinates against a drifted head are
@@ -2182,8 +2213,9 @@ def run_ci(
     yellow_comments: list[dict[str, object]] = []
     null_comments: list[dict[str, object]] = []
     value_note_comments: list[dict[str, object]] = []
+    gate_note_comments: list[dict[str, object]] = []
     review_comments: list[dict[str, object]] = []
-    if surfaced or green or yellow or nullability or propagation or value_notes:
+    if surfaced or green or yellow or nullability or propagation or value_notes or gate_notes:
         # D-147: GitHub refuses a review comment on a line the diff does not
         # carry, and it refuses the whole review with it. Both unanchored
         # channels are handed the diff so an unanchorable note is dropped from
@@ -2196,6 +2228,7 @@ def run_ci(
         value_note_comments = value_comments(value_notes, changed_lines)[
             : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments))
         ]
+        gate_note_comments = gate_comments(gate_notes, changed_lines)
         null_comments = nullability_comments(nullability, changed_lines)[
             : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments) - len(value_note_comments))
         ]
@@ -2252,6 +2285,7 @@ def run_ci(
         green_comments = unsaid(green_comments)
         yellow_comments = unsaid(yellow_comments)
         value_note_comments = unsaid(value_note_comments)
+        gate_note_comments = unsaid(gate_note_comments)
         null_comments = unsaid(null_comments)
         review_comments = [
             *inline_comments(inline_results, finding_evidence),
@@ -2260,6 +2294,7 @@ def run_ci(
             *value_note_comments,
             *null_comments,
             *propagation_inline,
+            *gate_note_comments,
         ]
     # Entering the branch above means a *note* exists; it does not mean a comment
     # survived. A green note whose anchor is not a line the diff carries is
@@ -2285,6 +2320,7 @@ def run_ci(
                 *((_marker_id(comment), "impact") for comment in yellow_comments),
                 *((_marker_id(comment), "value") for comment in value_note_comments),
                 *((_marker_id(comment), "nullability") for comment in null_comments),
+                *((_marker_id(comment), "gate") for comment in gate_note_comments),
             ),
             body={
                 "commit_id": context.head_sha,
@@ -2397,6 +2433,7 @@ def run_ci(
             nullability=nullability,
             propagation=[] if PROPAGATION_SHADOW else propagation,
             value_notes=value_notes,
+            gate_notes=gate_notes,
             # D-161: a silence bought out by the ceiling says how many
             # candidates it stopped
             unverified=budget_unverified(review.verification_reasons),

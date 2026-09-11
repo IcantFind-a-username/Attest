@@ -544,6 +544,8 @@ SUMMARY_HEADINGS = frozenset(
         # owner instruction 4 of 2026-09-11: the value-class note's own section
         "Observed behaviour changes — the same call run on both revisions; no defect "
         "is claimed and nothing in the base tree pins either value:",
+        # owner instruction 5 of 2026-09-11: the gate level's own section (design §5)
+        "Gate — new code, nothing to compare against:",
     }
 )
 SPEND_FOOTER = re.compile(r"^Spend \$\d+\.\d{4}; \d+\.\d+s\.$")
