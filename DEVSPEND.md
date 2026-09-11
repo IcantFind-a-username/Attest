@@ -348,6 +348,29 @@ before the first call of each phase and settled after it, per phase.
 | 7 | **E-04 stratum v3, the same frozen 28-unit sample, re-run with `value_notes_visible` and `gate_notes_visible` on** (owner authorisation 3). `.github/workflows/e04-shadow.yml` on `ubuntu-latest`, **local review path only — no GitHub client is constructed, nothing is written to any repository**; `per_pr_budget_usd` $1.00, the shipped `k_samples` 5, `linux-container-v1`, `contained_attempt_voids` at the product default. The driver's cap is the reservation and a unit starts only if its $1.00 maximum still fits under it (D-172), so the run cannot overshoot; a unit the cap refuses is named. Measured basis: the 2026-09-13 runner re-take of the same sample cost $2.483001 for 28 units, before step 3 stopped the discovery share from truncating units, so the per-unit cost is expected higher and the cap, not the estimate, is what binds | **$3.00** | **$2.765980**; $0.234020 released. **9 of 28 units ran** before the cap refused the rest by name; **0 of 9 carried an author-visible line**; the same 9 cost $0.7676 on 2026-09-13 (D-221's whole-budget discovery, 3.6×). The ledgers were lost to the artifact upload's hidden-path default ([report](docs/acceptance/2026-09-12-e04-with-notes.md), D-225) |
 | — | **dogfooding**: the `attest` self-reviews the eight pull requests of this window buy (#40–#47). Not a study and not against any reservation; the cost of merging what the owner asked for | — | **$0.925113 so far** — $0.020659 ([#40](https://github.com/IcantFind-a-username/Attest/pull/40), run `34614084605`), $0.091862 ([#41](https://github.com/IcantFind-a-username/Attest/pull/41), run `34616278439`), $0.812592 ([#42](https://github.com/IcantFind-a-username/Attest/pull/42), run `34617821991` — the first self-review under D-221: read 10 of 20 units and named the other 10). The self-reviews of #43 and the step-8 pull request are not yet in this figure and are carried as a named lag |
 
+## Window 2026-09-13 (release) — two paid studies and one drill, reserved before the first call
+
+**Owner authorisation 2 of the 2026-09-13 work order:** e05-external-v2 (run C) **$3.50** with a
+$0.30 smoke before it; mutations-v1-recall (40 cases) **$5.00** with a $0.30 smoke before it; the
+planted-defect drill pull request's self-review **≤ $0.50**. Reservations **$9.60** against the
+$150 cap and **$117.733196 settled before this window** (plus the named lag below). The owner's
+ceiling for this window's *settled* paid total is **$9.50**; both smokes are expected to settle
+at $0.00 as v1's did (the discovery share refuses a $0.30 unit), and whatever a smoke does cost
+comes out of the drill's reservation, never past the ceiling. Each study reservation is the
+driver's hard cumulative cap (D-172): a unit starts only if its per-unit maximum still fits
+under it, and a unit the cap refuses is named. The self-reviews the window's four pull requests
+buy are dogfooding and are settled below.
+
+| item | reserved | settled |
+|---|---|---|
+| **e05-external-v2 probe** — `e05-external.yml` with `probe_only`, the free evaluability probe over eight candidates: build the reproduction image for each tip and import its package inside it. No model is constructed | $0.00 | **$0.000000** (run [34659453810](https://github.com/IcantFind-a-username/Attest/actions/runs/34659453810): 3 of 8 passed, two of the five failures on the probe's own stub -- `probe-run-1.json` -- and the probe re-dispatched after the fix) |
+| **the e05-v2 smoke** — `--limit 1 --unit-budget 0.30` into `trials-smoke.jsonl` | $0.30 | — |
+| **run C** — `e05-external.yml`, study `e05-external-v2`, both yellow switches on, $1.00 per unit, K=5, containers, code from `release/batch2` (D-232, D-233, D-234). Read-only clones; nothing written to any repository | $3.50 | — |
+| **the mutation smoke** — `mutation-recall.yml`, `--limit 1 --unit-budget 0.30` into `trials-smoke.jsonl` | $0.30 | — |
+| **mutations-v1-recall** — 40 forward cases, five per library under seed 20260913, K=5, $1.00 per case, cap $5.00, the local review path | $5.00 | — |
+| **the drill pull request** — a THROWAWAY pull request on this repository carrying the planted regression of `tests/release`'s drill fixture, so `pull-request.yml` runs once for real; closed unmerged | ≤ $0.50 | — |
+| — | **$9.60** | — |
+
 ## Window 2026-09-12 (overnight) — three paid dispatches, reserved before the first call
 
 **Owner authorisation 1 of the 2026-09-12 overnight work order:** run A $1.50, the smoke

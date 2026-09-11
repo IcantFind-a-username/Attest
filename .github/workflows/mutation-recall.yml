@@ -1,0 +1,160 @@
+name: mutation-recall
+
+# mutations-v1-recall: forty forward cases of D-231's mutation corpus, re-created
+# on the runner from the sites the frozen sample records and reviewed through
+# the local review path at the factory settings (owner authorisation 2 of
+# 2026-09-13). The first red-level recall figure on a corpus that is not
+# reversed by construction, and the count of how many of its defects D-232
+# sends to the drawer.
+#
+# It runs only when asked (workflow_dispatch) and it is **paid** -- it calls the
+# model with this repository's own ANTHROPIC_API_KEY. Reserve in DEVSPEND.md
+# first. AGENTS.md section 9: the first dispatch is a smoke (`limit` 1,
+# `unit_budget` 0.30, its own trials file) that proves the artifact carries a
+# ledger and a lines file; the paid run follows only if it did.
+#
+# **Nothing is written to any repository.** The eight clones are read-only, the
+# mutation is a local commit pushed nowhere, the driver uses the local review
+# path, no GitHub client is constructed, and no comment, review or status can
+# reach anyone. The population is the frozen `sample.jsonl`; this workflow
+# never re-draws it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      cap_usd:
+        description: >-
+          Hard cumulative spend cap for the run, in US dollars. The study's own
+          preregistered cost_cap_usd binds independently and the smaller wins.
+        type: string
+        default: "5.00"
+      limit:
+        description: Stop after this many cases (0 = every case not yet recorded).
+        type: string
+        default: "0"
+      trials_file:
+        description: >-
+          Trials file under the study directory. Leave empty to continue
+          trials.jsonl; the smoke names trials-smoke.jsonl so its one case is
+          bought again, at the preregistered budget, by the main run.
+        type: string
+        default: ""
+      unit_budget:
+        description: >-
+          Lower the per-case budget below the preregistration's $1.00 (the
+          smoke passes 0.30). Empty or 0 keeps the preregistered budget.
+        type: string
+        default: "0"
+
+permissions:
+  contents: read
+
+jobs:
+  recall:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install the locked toolchain
+        run: |
+          python -m pip install -r requirements-toolchain.lock
+          python -m pip install --no-deps --no-build-isolation -e .
+
+      - name: Reclaim runner disk
+        run: |
+          set -eu
+          echo "before:"; df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/share/boost /usr/share/swift /usr/local/.ghcup || true
+          sudo docker image prune -af || true
+          echo "after:"; df -h / | tail -1
+
+      - name: Record the environment
+        run: |
+          python -c "import sys, platform; print(sys.version); print(platform.platform())"
+          python -c "import attest; print('attest', attest.__version__)"
+          docker version --format 'docker {{.Server.Version}}'
+          git rev-parse HEAD
+
+      # The eight libraries, cloned without a credential into the study's own
+      # work tree: nothing this job holds could write to them. The list is the
+      # preregistration's population, never one typed here.
+      - name: Clone the population (read-only, public)
+        run: |
+          set -eu
+          python - <<'PY'
+          import json, pathlib, subprocess
+          study = pathlib.Path("benchmarks/studies/mutations-v1-recall")
+          repos = json.loads((study / "preregistration.json").read_text())["population"]
+          assert repos, "the preregistration names no repository"
+          work = pathlib.Path(".attest/corpora/mutations-v1-recall")
+          for repo in repos:
+              name = repo.split("/")[-1].lower()
+              target = work / name / "repo"
+              target.parent.mkdir(parents=True, exist_ok=True)
+              done = subprocess.run(["git", "clone", "-q", f"https://github.com/{repo}.git", str(target)])
+              print(("cloned " if done.returncode == 0 else "SKIPPED ") + repo)
+          PY
+
+      # Re-create every sampled mutation from its recorded site, as one local
+      # commit on the recorded tip. A case that does not build is named, and a
+      # paid run over a partial sample is refused: the denominator is forty.
+      - name: Build the cases (free)
+        run: |
+          python -u scripts/corpus/mutation_recall.py build 2>&1 | tee build.log
+
+      - name: Run (PAID)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ATTEST_ALLOW_PAID_API: "1"
+        run: |
+          python -u scripts/corpus/mutation_recall.py run \
+            --allow-paid-api \
+            --reserve "${{ inputs.cap_usd }}" \
+            --limit "${{ inputs.limit }}" \
+            --unit-budget "${{ inputs.unit_budget }}" \
+            --trials-file "${{ inputs.trials_file }}" \
+            2>&1 | tee recall-run.log
+
+      - name: Table
+        if: always()
+        run: |
+          python -u scripts/corpus/mutation_recall.py table \
+            --trials-file "${{ inputs.trials_file }}" 2>&1 | tee table.log || true
+
+      # AGENTS.md section 9: a stage that reports zero of something first
+      # asserts its input is non-empty. A run that wrote no ledger is a failed
+      # job, not a quiet artifact (D-225).
+      - name: Assert the ledgers and the lines file exist before anything is uploaded
+        if: always()
+        run: |
+          count="$(ls .attest/corpora/mutations-v1-recall/*/repo/.attest/ledger.jsonl 2>/dev/null | wc -l)"
+          echo "ledgers written: ${count}"
+          test "${count}" -gt 0
+          lines="$(ls benchmarks/studies/mutations-v1-recall/lines-*.jsonl 2>/dev/null | wc -l)"
+          echo "lines files written: ${lines}"
+          test "${lines}" -gt 0
+
+      - name: Upload the trials, the table, the ledgers and the logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutations-v1-recall
+          path: |
+            benchmarks/studies/mutations-v1-recall/trials*.jsonl
+            benchmarks/studies/mutations-v1-recall/lines-*.jsonl
+            benchmarks/studies/mutations-v1-recall/table.json
+            build.log
+            recall-run.log
+            table.log
+            .attest/corpora/mutations-v1-recall/*/repo/.attest/ledger.jsonl
+            .attest/corpora/mutations-v1-recall/cases/*/manifest.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 30

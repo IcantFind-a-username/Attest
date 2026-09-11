@@ -34,13 +34,41 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
 
-from heldout_v2 import probe_stub_source, stub_packages  # noqa: E402
+from heldout_v2 import stub_packages  # noqa: E402
 
 STUDIES = ROOT / "benchmarks" / "studies"
 
 
 def _clone_name(repository: str) -> str:
     return repository.split("/")[-1].lower().lstrip("-")
+
+
+def probe_stub_source(tree: Path) -> str:
+    """The stub collected in the image: import the tree's own packages.
+
+    The held-out probe's stub asserts a tuple literal, which pytest's assertion
+    rewriter warns is always true, and a project whose `filterwarnings` is
+    `error` (`pallets/werkzeug`, `pallets/markupsafe`) refuses that warning at
+    collection -- the first dispatch of this probe (run 34659453810,
+    `probe-run-1.json`) failed both on the probe's own stub and not on the
+    tree. This stub asserts nothing a rewriter can call trivially true."""
+    packages = stub_packages(tree)
+    if not packages:
+        return (
+            "# no top-level package was found in this tree, so this stub imports\n"
+            "# nothing and answers only whether pytest collects here\n"
+            "def test_attest_probe() -> None:\n"
+            "    pass\n"
+        )
+    imports = "".join(f"import {name}\n" for name in packages)
+    names = ", ".join(packages)
+    return (
+        f"{imports}\n"
+        "\n"
+        "def test_attest_probe() -> None:\n"
+        f"    imported = [{names}]\n"
+        f"    assert len(imported) == {len(packages)}\n"
+    )
 
 
 def probe_tree(worktree: Path, sha: str, *, timeout_s: float) -> dict[str, object]:

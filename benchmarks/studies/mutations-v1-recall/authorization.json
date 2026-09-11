@@ -1,0 +1,17 @@
+{
+  "authorized_by": "owner, authorisation 2 of the 2026-09-13 window: a stratified random sample of 40 forward cases of the mutations-v1 corpus reviewed on the declared CI platform, the local review path only, $5.00 reserved",
+  "granted_at": "2026-09-12T14:00:00+00:00",
+  "population": [
+    "more-itertools/more-itertools",
+    "pallets/click",
+    "pallets/itsdangerous",
+    "pallets/jinja",
+    "pypa/packaging",
+    "python-attrs/attrs",
+    "theskumar/python-dotenv",
+    "urllib3/urllib3"
+  ],
+  "scope": "read-only clones of the eight public repositories under .attest/corpora/mutations-v1-recall/<library>/repo (AGENTS.md section 7, D-070); the mutation is a local commit in that clone and is pushed nowhere; the local review path, no GitHub client is constructed, no comment, review, status or any other write reaches any repository",
+  "budget": "owner reservation: $5.00 for the 40 cases and $0.30 for one smoke case before it, posted in DEVSPEND.md before the first paid call; the driver holds the reservation as a hard cumulative cap and a case starts only if its per-review maximum fits under it (D-172)",
+  "granted_at_note": "the UTC instant the owner's work order was received, before this window's first commit; the preregistration's freeze_at is the host clock, UTC, and the authorization must precede it"
+}
