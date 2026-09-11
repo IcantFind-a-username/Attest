@@ -2037,7 +2037,14 @@ def _record_on_base(
                 break
             observations.append(observed)
         if len(observations) == PROBE_RECORDINGS:
-            if observations[0] == observations[1]:
+            # every recording bought must agree, not just the first two: the
+            # third was compared to nothing until 2026-09-11, so a base that
+            # answered the same way twice and differently the third time was
+            # called stable and the paid-for recording was never read
+            differing = next(
+                (o for o in observations[1:] if o != observations[0]), None
+            )
+            if differing is None:
                 return _Recording(
                     probe=current,
                     observation=observations[0],
@@ -2046,7 +2053,7 @@ def _record_on_base(
                 )
             reason = (
                 "probe observation is not stable on base: "
-                f"{observations[0].sentence()}, then {observations[1].sentence()}"
+                f"{observations[0].sentence()}, then {differing.sentence()}"
             )
     return _Recording(probe=current, observation=None, reason=reason, attempts=MAX_PROBE_ATTEMPTS)
 

@@ -870,3 +870,26 @@ def test_a_certified_differential_writes_no_note(tmp_path: Path) -> None:
 
     assert run.execution.outcome is ExecutionOutcome.REPRODUCED
     assert not [r for r in Ledger(repo).entries() if r["kind"] == "value_observation_note"]
+
+
+def test_a_recording_whose_third_observation_disagrees_is_refused() -> None:
+    """Three recordings are bought (D-148) and all three must agree. Until this
+    test the recorder compared only the first two, so a base that returned the
+    same value twice and something else the third time was called stable --
+    and the third recording, paid for, was never read."""
+    from attest.review.executor import PROBE_RECORDINGS, _record_on_base
+
+    assert PROBE_RECORDINGS == 3
+    answers = iter(["6", "6", "7"])
+
+    def run(index: int, body: str) -> Any:
+        del index, body
+        return _result(_observation_line("value", next(answers)))
+
+    recorded = _record_on_base(
+        probe=ProbeSpec(**PROBE), reprobe=None, run=run, anchored="mod.py"
+    )
+    assert recorded.observation is None
+    assert "not stable on base" in recorded.reason
+    assert "the merge base returned 6" in recorded.reason
+    assert "then the merge base returned 7" in recorded.reason
