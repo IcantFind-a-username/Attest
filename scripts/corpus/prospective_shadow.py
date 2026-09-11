@@ -393,10 +393,16 @@ def cmd_run(args: argparse.Namespace) -> int:
     # unit nobody asked for from one the run could not buy.
     for unit_id in not_selected:
         print(json.dumps({"unit_id": unit_id, "skipped": "not selected"}), flush=True)
+    # The per-unit budget is the preregistration's, unless the invocation lowers
+    # it: a **smoke** (AGENTS.md section 9) buys one unit under a reservation a
+    # $1.00 unit could never start under the D-172 rule. The number travels
+    # into every row the run writes, and a trials file written under it is
+    # never the measurement -- the e05 protocol says so and runs the unit again.
+    unit_budget = args.unit_budget or preregistration.per_pr_budget_usd
     # The reservation basis is the owner's ceiling for the item when one is
     # given, and the driver's own cumulative cap enforces it; otherwise it is
     # every pending unit's per-review maximum (D-172).
-    reserve = args.reserve or len(pending) * preregistration.per_pr_budget_usd
+    reserve = args.reserve or len(pending) * unit_budget
     preflight = prospective.preflight_prospective(
         study,
         devspend_path=ROOT / "DEVSPEND.md",
@@ -418,14 +424,14 @@ def cmd_run(args: argparse.Namespace) -> int:
     skipped: list[str] = []
     unbought: list[str] = []
     for row in pending:
-        if spent + preregistration.per_pr_budget_usd > cap:
+        if spent + unit_budget > cap:
             print(
                 json.dumps({
                     "unit_id": str(row["unit_id"]),
                     "skipped": "cap",
                     "detail": f"cumulative cap: ${spent:.4f} spent, reserving "
-                    f"${preregistration.per_pr_budget_usd:.4f} for this unit would project "
-                    f"${spent + preregistration.per_pr_budget_usd:.4f} past the ${cap:.2f} cap",
+                    f"${unit_budget:.4f} for this unit would project "
+                    f"${spent + unit_budget:.4f} past the ${cap:.2f} cap",
                 }),
                 flush=True,
             )
@@ -453,7 +459,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             **{
                 **config.__dict__,
                 "k_samples": preregistration.k_samples,
-                "budget_usd": preregistration.per_pr_budget_usd,
+                "budget_usd": unit_budget,
                 # owner instruction 7 of 2026-09-11: the two yellow surfaces,
                 # on only when this run says so; the product default is off
                 "value_notes_visible": bool(args.value_notes_visible),
@@ -510,6 +516,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 "task_id": review.task_id,
                 "recorded_at": started.isoformat(),
                 "spend_usd": trial.spend_usd,
+                "unit_budget_usd": unit_budget,
                 "value_notes_visible": bool(args.value_notes_visible),
                 "gate_notes_visible": bool(args.gate_notes_visible),
                 "lines": lines,
@@ -558,6 +565,9 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run")
     run.add_argument("--allow-paid-api", action="store_true")
     run.add_argument("--limit", type=int, default=0)
+    run.add_argument("--unit-budget", type=float, default=0.0,
+                     help="lower the per-unit budget below the preregistration's for a smoke "
+                     "(AGENTS.md section 9); recorded in every row the run writes")
     run.add_argument("--only", default="",
                      help="comma-separated unit ids: run these alone, in the frozen order, "
                      "and record every other pending unit as skipped: not selected")
