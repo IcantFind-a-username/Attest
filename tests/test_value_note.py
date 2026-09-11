@@ -9,10 +9,12 @@ and **reaches no author**.
 
 from __future__ import annotations
 
-from attest.certification.intent import IntentObservation
+from attest.certification.intent import VALUE_CHANGE_LABEL, IntentObservation
 from attest.review.output_contract import check
 from attest.review.value_note import (
     VALUE_NOTE_POLICY_VERSION,
+    ValueNote,
+    admitted,
     drawered_for_unknown_intent,
     note_from,
     render,
@@ -148,7 +150,9 @@ def test_a_value_over_the_verbatim_cap_is_rendered_as_a_digest_not_cut(note_line
     truncating a line into shape; a value over the cap is rendered as
     `<type len=N sha256 hhhhhhhh>` -- a different rendering of the same
     measurement, never a cut `repr`."""
-    long_list = "[" + ", ".join(f"({n}.0, [{n}.0, {n + 1}.0])" for n in range(40)) + "]"
+    # 60 elements: over D-234's element bound, so the element form is refused
+    # and this is the whole-value rendering the digest rule governs
+    long_list = "[" + ", ".join(f"({n}.0, [{n}.0, {n + 1}.0])" for n in range(60)) + "]"
     assert len(long_list) > 200
     note = _note(base_detail=long_list, head_detail="[]")
     assert note is not None
@@ -173,8 +177,10 @@ def test_a_line_that_still_overflows_digests_the_longest_part_first(note_line_ca
     the assembled line is 513. Parts are digested longest-first until the line
     fits, and the expression is a part too (`pytest-dev__pytest-10051` carries
     a 230-character expression)."""
-    base = "[" + ", ".join(f"('{n}', [{n}.0, {n + 1}.0])" for n in range(6)) + "]"
-    head = "[" + ", ".join(f"('{n}', [{n}.0, {n + 1}.0])" for n in range(5)) + "]"
+    # two strings, not containers: D-234's element form does not apply and the
+    # whole-value rule of D-222 is what is exercised here
+    base = "'" + "b" * 128 + "'"
+    head = "'" + "h" * 118 + "'"
     assert len(head) < len(base) <= 200
     note = _note(base_detail=base, head_detail=head, expression="x" * 60 + "(roll)")
     assert note is not None
@@ -184,7 +190,7 @@ def test_a_line_that_still_overflows_digests_the_longest_part_first(note_line_ca
     assert check(line).admitted, check(line).reason
     assert note_line_cap(line)
     assert head in line  # the shortest part survives verbatim
-    assert "<list len=" in line
+    assert "<str len=" in line
     assert "sha256" in line
 
 
@@ -338,3 +344,93 @@ def test_the_inline_value_comment_asks_for_a_reply_only_when_told_to() -> None:
     assert check_comment(asked_body).admitted
     # one action clause, still: the sentence is appended to it, not a second one
     assert asked_body.count("Action:") == 1
+
+
+# D-234 RED: the `python-dotenv#640` observation, verbatim from the run-B ledger
+# (note 3ea6ff202b82). v2 rendered two 198/186-character lists as two digests
+# and hid the one thing that moved: the BOM on the first key.
+DOTENV_BASE = (
+    "[Binding(key='\\ufeffFOO', value='bar', original=Original(string='\\ufeffFOO=bar\\n', "
+    "line=1), error=False), Binding(key='BAZ', value='qux', original=Original(string='BAZ=qux\\n', "
+    "line=2), error=False)]"
+)
+DOTENV_HEAD = DOTENV_BASE.replace("\\ufeffFOO", "FOO")
+
+
+def _container_note(base_detail: str, head_detail: str, **overrides: object) -> ValueNote:
+    values = dict(
+        policy_version=VALUE_NOTE_POLICY_VERSION,
+        path="src/dotenv/parser.py",
+        line=71,
+        expression="list(parse_stream(stream))",
+        base_kind="value",
+        base_detail=base_detail,
+        head_kind="value",
+        head_detail=head_detail,
+        head_runs=3,
+        base_runs=3,
+        pinned_values=(),
+        specified_by=(),
+        drawer_reason=VALUE_CHANGE_LABEL,
+        candidate_id="515fc8ee16",
+    )
+    values.update(overrides)
+    return ValueNote(**values)  # type: ignore[arg-type]
+
+
+def test_the_dotenv_bom_observation_names_the_element_that_moved() -> None:
+    note = _container_note(DOTENV_BASE, DOTENV_HEAD)
+
+    line = render(note)
+
+    assert "first differ at index 0 (3/3 and 3/3 runs): base Binding(key='\\ufeffFOO'" in line
+    assert "→ head Binding(key='FOO'" in line
+    assert "base and head lists of 2 first differ" in line
+    assert "sha256" not in line
+    assert admitted(note).admitted, admitted(note).reason
+    assert note.measured_literals() == (
+        "Binding(key='\\ufeffFOO', value='bar', original=Original(string='\\ufeffFOO=bar\\n', "
+        "line=1), error=False)",
+        "Binding(key='FOO', value='bar', original=Original(string='FOO=bar\\n', line=1), "
+        "error=False)",
+    )
+
+
+def test_a_container_that_grew_names_the_first_extra_element() -> None:
+    note = _container_note("[1, 2]", "[1, 2, 3]")
+
+    assert "index 2 (3/3 and 3/3 runs): base (no element there) → head 3" in render(note)
+    assert "a base list of 2 and a head list of 3 first differ" in render(note)
+
+
+def test_the_element_form_is_refused_where_it_could_not_be_honest() -> None:
+    """Over MAX_DIFF_ELEMENTS elements, an element over ELEMENT_VERBATIM_CHARS,
+    two different container kinds, or a value that is not a container at all:
+    the whole-value rendering of v2 stands."""
+    from attest.review.value_note import ELEMENT_VERBATIM_CHARS, MAX_DIFF_ELEMENTS
+
+    many = "[" + ", ".join(str(n) for n in range(MAX_DIFF_ELEMENTS + 1)) + "]"
+    assert _container_note(many, many.replace("0,", "9,", 1)).difference() is None
+    long_element = "['" + "x" * (ELEMENT_VERBATIM_CHARS + 1) + "']"
+    assert _container_note("['a']", long_element).difference() is None
+    assert _container_note("[1, 2]", "(1, 2)").difference() is None
+    assert _container_note("'plain'", "'text'").difference() is None
+    # a repr whose quote never closes is not read as a container
+    assert _container_note("['a, b]", "['b, a]").difference() is None
+    # a mapping is split at its entries, and a nested comma does not split it
+    note = _container_note("{'a': (1, 2), 'b': 3}", "{'a': (1, 2), 'b': 4}")
+    assert "first differ at index 1 (3/3 and 3/3 runs): base 'b': 3 → head 'b': 4" in render(note)
+    assert "mappings of 2" in render(note)
+
+
+def test_the_element_form_still_digests_when_the_line_would_overflow(note_line_cap) -> None:
+    """Two 110-character elements beside a long expression still make a line
+    over the contract; the digest rule of D-222 then applies, longest part
+    first, and the whole-value rendering returns."""
+    base = "['" + "b" * 110 + "']"
+    head = "['" + "h" * 110 + "']"
+    note = _container_note(base, head, expression="f(" + "x" * 100 + ")")
+    line = render(note)
+    assert admitted(note).admitted, admitted(note).reason
+    assert "first differ" not in line and "sha256" in line
+

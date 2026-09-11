@@ -25,7 +25,11 @@ four rules the 2026-09-11 census and the paid run of the same day asked for:
 one note per ``(path, expression)``; a value over ``VALUE_VERBATIM_CHARS`` is
 written as ``<type len=N sha256 hhhhhhhh>`` rather than cut; a banned phrase
 inside a measured literal does not refuse the line; and a note anchored inside
-``tests/`` is not shown.
+``tests/`` is not shown. D-234 adds a fifth: when both values are containers of
+at most ``MAX_DIFF_ELEMENTS`` elements, the line names the **first element
+that differs** -- ``first differ at index i (3/3 and 3/3 runs): base <element> →
+head <element>`` -- and digests only when an element is too long to quote or the
+line would still not fit the contract.
 """
 
 from __future__ import annotations
@@ -43,7 +47,7 @@ from attest.certification.intent import (
 )
 from attest.review.output_contract import MAX_LINE_CHARS, ContractVerdict, check, claim_line
 
-VALUE_NOTE_POLICY_VERSION = "attest.value-note.v2"
+VALUE_NOTE_POLICY_VERSION = "attest.value-note.v3"  # D-234
 
 # A measured value is quoted whole up to this many characters (owner
 # instruction 4 of 2026-09-11); over it, or when the line would still not fit
@@ -51,6 +55,15 @@ VALUE_NOTE_POLICY_VERSION = "attest.value-note.v2"
 VALUE_VERBATIM_CHARS = 200
 # The probe's expression is quoted whole up to this many characters
 EXPRESSION_VERBATIM_CHARS = 120
+# D-234: when both values are a sequence, a mapping or a record list of at
+# most this many elements, the line names the first element that differs
+# rather than digesting both wholes -- `python-dotenv#640` moved one key from
+# `'\ufeffFOO'` to `'FOO'` inside a 198-character list and the v2 line showed
+# two digests. Each element is quoted whole up to ELEMENT_VERBATIM_CHARS;
+# a longer element falls back to the whole-value rendering.
+MAX_DIFF_ELEMENTS = 50
+ELEMENT_VERBATIM_CHARS = 120
+_BRACKETS = {"[": ("]", "list"), "(": (")", "tuple"), "{": ("}", "mapping")}
 # the same rule the gate level applies to a path (D-166)
 TEST_PATH = re.compile(r"(^|/)(tests?/|test_[^/]*\.py$|[^/]*_test\.py$)")
 
@@ -64,6 +77,100 @@ NOTE_DRAWERS = (VALUE_CHANGE_LABEL, INTENT_UNKNOWN_LABEL)
 def drawered_for_unknown_intent(reason: str) -> bool:
     """Does this verification reason carry one of the two drawers?"""
     return any(label in (reason or "") for label in NOTE_DRAWERS)
+
+
+@dataclass(frozen=True)
+class FirstDifference:
+    """The first element at which two recorded container values disagree."""
+
+    kind: str  # list | tuple | mapping | set, read off the repr's brackets
+    base_len: int
+    head_len: int
+    index: int
+    base: str  # the element's repr, or "" when base has no element there
+    head: str
+
+    @property
+    def label(self) -> str:
+        return f"index {self.index}"
+
+
+def split_top_level(text: str) -> tuple[str, list[str]] | None:
+    """The top-level elements of a bracketed `repr` -- a list, tuple, dict or
+    set -- split at depth-zero commas outside string literals. ``None`` when
+    the text is not one bracketed value, is unbalanced, or a quote never
+    closes: a reading of the text, never a claim about the object."""
+    stripped = text.strip()
+    if not stripped or stripped[0] not in _BRACKETS:
+        return None
+    closer, kind = _BRACKETS[stripped[0]]
+    if stripped[-1] != closer:
+        return None
+    body = stripped[1:-1]
+    elements: list[str] = []
+    depth = 0
+    quote: str | None = None
+    start = 0
+    i = 0
+    while i < len(body):
+        char = body[i]
+        if quote is not None:
+            if char == "\\":
+                i += 2
+                continue
+            if char == quote:
+                quote = None
+        elif char in ("'", '"'):
+            quote = char
+        elif char in "([{":
+            depth += 1
+        elif char in ")]}":
+            depth -= 1
+            if depth < 0:
+                return None
+        elif char == "," and depth == 0:
+            elements.append(body[start:i].strip())
+            start = i + 1
+        i += 1
+    if quote is not None or depth != 0:
+        return None
+    tail = body[start:].strip()
+    if tail:
+        elements.append(tail)
+    if kind == "mapping" and not any(":" in element for element in elements):
+        kind = "set"
+    return kind, elements
+
+
+def first_difference(base: str, head: str) -> FirstDifference | None:
+    """D-234: where two container values first differ, when both are
+    containers of the same kind with at most MAX_DIFF_ELEMENTS elements and
+    the differing elements each fit ELEMENT_VERBATIM_CHARS. ``None`` sends the
+    line back to the whole-value rendering."""
+    base_split, head_split = split_top_level(base), split_top_level(head)
+    if base_split is None or head_split is None:
+        return None
+    (base_kind, base_items), (head_kind, head_items) = base_split, head_split
+    if base_kind != head_kind:
+        return None
+    if max(len(base_items), len(head_items)) > MAX_DIFF_ELEMENTS:
+        return None
+    for index in range(max(len(base_items), len(head_items))):
+        left = base_items[index] if index < len(base_items) else ""
+        right = head_items[index] if index < len(head_items) else ""
+        if left == right:
+            continue
+        if len(left) > ELEMENT_VERBATIM_CHARS or len(right) > ELEMENT_VERBATIM_CHARS:
+            return None
+        return FirstDifference(
+            kind=base_kind,
+            base_len=len(base_items),
+            head_len=len(head_items),
+            index=index,
+            base=left,
+            head=right,
+        )
+    return None
 
 
 @dataclass(frozen=True)
@@ -91,6 +198,13 @@ class ValueNote:
     def nothing_pins_it(self) -> bool:
         return not self.specified_by
 
+    def difference(self) -> FirstDifference | None:
+        """D-234: the first differing element, when both revisions returned a
+        container this line can name an element of."""
+        if self.base_kind != "value" or self.head_kind != "value":
+            return None
+        return first_difference(self.base_detail, self.head_detail)
+
     def note_id(self) -> str:
         """A stable name for this note, so the line can point at the row.
 
@@ -113,6 +227,40 @@ class ValueNote:
             if "expression" in digested
             else self.expression
         )
+        pins = (
+            "no base test, docstring or changelog pins either"
+            if self.nothing_pins_it
+            else "the base tree pins it at "
+            + ", ".join(site for _value, site in self.specified_by[:2])
+            + ", and this change moved it"
+        )
+        runs = (
+            f"{self.head_runs}/{self.head_runs} and {self.base_runs}/{self.base_runs} "
+            "runs each side"
+        )
+        difference = self.difference() if not {"base", "head"} & set(digested) else None
+        if difference is not None:
+            # D-234: name the element that moved, not two digests of the wholes.
+            # The prose is as short as it honestly can be: two 120-character
+            # elements leave the contract's 400 characters little room.
+            absent = "(no element there)"
+            counted = (
+                f"{self.head_runs}/{self.head_runs} and {self.base_runs}/{self.base_runs} runs"
+            )
+            sides = (
+                f"base and head {difference.kind}s of {difference.base_len}"
+                if difference.base_len == difference.head_len
+                else (
+                    f"a base {difference.kind} of {difference.base_len} and a head "
+                    f"{difference.kind} of {difference.head_len}"
+                )
+            )
+            short_pins = "nothing in the base tree pins it" if self.nothing_pins_it else pins
+            return (
+                f"for {expression}, {sides} first differ at {difference.label} ({counted}): "
+                f"base {difference.base or absent} → head {difference.head or absent}; "
+                f"{short_pins}"
+            )
         base_detail = (
             value_digest(self.base_detail) if "base" in digested else self.base_detail
         )
@@ -125,18 +273,7 @@ class ValueNote:
         head = (
             f"raises {head_detail}" if self.head_kind == "exception" else f"returns {head_detail}"
         )
-        pins = (
-            "no base test, docstring or changelog pins either"
-            if self.nothing_pins_it
-            else "the base tree pins it at "
-            + ", ".join(site for _value, site in self.specified_by[:2])
-            + ", and this change moved it"
-        )
-        return (
-            f"for {expression}, the merge base {base} and head {head} "
-            f"({self.head_runs}/{self.head_runs} and {self.base_runs}/{self.base_runs} "
-            f"runs each side); {pins}"
-        )
+        return f"for {expression}, the merge base {base} and head {head} ({runs}); {pins}"
 
     def digested_parts(self) -> tuple[str, ...]:
         """Which of the three quoted parts are written as digests.
@@ -146,10 +283,20 @@ class ValueNote:
         first until the line fits -- a different rendering of the same
         measurement, never a cut `repr` (D-142). An exception's type name is
         never digested: it is short by construction."""
+        difference = self.difference()
         lengths = {
             "expression": len(self.expression),
-            "base": 0 if self.base_kind == "exception" else len(self.base_detail),
-            "head": 0 if self.head_kind == "exception" else len(self.head_detail),
+            # D-234: in the element form the measured parts are the elements
+            "base": (
+                0
+                if self.base_kind == "exception"
+                else len(difference.base) if difference is not None else len(self.base_detail)
+            ),
+            "head": (
+                0
+                if self.head_kind == "exception"
+                else len(difference.head) if difference is not None else len(self.head_detail)
+            ),
         }
         caps = {
             "expression": EXPRESSION_VERBATIM_CHARS,
@@ -178,6 +325,9 @@ class ValueNote:
         """The spans of the rendered line that are measurements, not prose:
         the two observations as they appear in it."""
         digested = self.digested_parts()
+        difference = self.difference() if not {"base", "head"} & set(digested) else None
+        if difference is not None:
+            return (difference.base, difference.head)
         return (
             value_digest(self.base_detail) if "base" in digested else self.base_detail,
             value_digest(self.head_detail) if "head" in digested else self.head_detail,
