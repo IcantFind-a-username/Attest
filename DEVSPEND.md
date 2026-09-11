@@ -16,6 +16,10 @@ Window cap for 2026-09-05d: $20 (owner instruction); cumulative before it: $52.2
 Cumulative cap raised from $90 to **$110** on 2026-09-07 (owner decision C of the
 2026-09-07 window). **Window cap for 2026-09-07 (this window): $35** (owner
 instruction); cumulative before it: **$68.21** (the 2026-09-06c handoff's figure).
+Cumulative cap raised from $110 to **$150** on 2026-09-11 (owner authorisation 4 of the
+drawer window); from that window on, the self-reviews this repository's own workflow buys
+are settled on their own **dogfooding** line and no longer count against a research
+reservation. Cumulative before the drawer window: **$108.691267**.
 
 ## API spend (counts against the cap)
 
@@ -159,7 +163,7 @@ product and not a saving to be pleased about; there is no lag carried into the n
 (nine self-review runs). Every other item of this window — the value-note census, the baseline
 re-analysis, the era-pin verification and every document — cost **$0.00**.
 
-**Total API spend: $108.691267 of $110.00.**
+**Total API spend: $108.691267 of $150.00.**
 
 > **Erratum, 2026-09-13.** This line read *"$52.226537 of $90.00", the figure at the end of the 2026-09-05c window*, and it had not moved since. It is the **only machine-readable line in this file** — `attest.benchmark.live.read_devspend` parses it, and every paid preflight since 2026-09-05c has therefore checked its headroom against a total **$38 low and a cap $20 low**. No run was actually over the real cap, because every window since has also carried its own driver-enforced cumulative cap and the owner's per-item ceiling; but the guard that exists to catch that was not the thing catching it. The figure above is the 2026-09-12b handoff's settled cumulative ($90.009721) plus this window's [PR #19](https://github.com/IcantFind-a-username/Attest/pull/19) self-review ($0.125900), against the $110 cap D-192 declined to raise. **It is updated at the end of every window from now on**, and the per-window prose totals below stay as the audit trail they always were.
 
@@ -333,3 +337,13 @@ before the first call of each phase and settled after it, per phase.
 | 5 | the release documentation — README rewrite, the contributors page, the L-01 exit list, the five quickstart copies, the CHANGELOG and the version bump | $0.00 | **$0.000000** |
 | — | the `attest` self-reviews the pull requests of phases 4 and 4b buy | — | **$0.518632** — $0.101894 + $0.103914 (PR #23, pushed twice), $0.312606 (PR #24) |
 | 6 | the release checklist, the announcement draft and the tag — reading what is already on disk | ~$1.00 | **$0.148301** (the PR #25 self-review), plus whatever the phase-6 pull request itself buys |
+
+## Window 2026-09-11 (drawer) — the eight-step work order
+
+**Cumulative cap raised to $150 (owner authorisation 4).** Settled before this window:
+**$108.691267.** Reservations are posted here before the first paid call and settled after it.
+
+| step | item | reserved | settled |
+|---|---|---|---|
+| 7 | **E-04 stratum v3, the same frozen 28-unit sample, re-run with `value_notes_visible` and `gate_notes_visible` on** (owner authorisation 3). `.github/workflows/e04-shadow.yml` on `ubuntu-latest`, **local review path only — no GitHub client is constructed, nothing is written to any repository**; `per_pr_budget_usd` $1.00, the shipped `k_samples` 5, `linux-container-v1`, `contained_attempt_voids` at the product default. The driver's cap is the reservation and a unit starts only if its $1.00 maximum still fits under it (D-172), so the run cannot overshoot; a unit the cap refuses is named. Measured basis: the 2026-09-13 runner re-take of the same sample cost $2.483001 for 28 units, before step 3 stopped the discovery share from truncating units, so the per-unit cost is expected higher and the cap, not the estimate, is what binds | **$3.00** | *pending — settled below when the run ends* |
+| — | **dogfooding**: the `attest` self-reviews the eight pull requests of this window buy (#40–#47). Not a study and not against any reservation; the cost of merging what the owner asked for | — | *settled at the end of the window* |
