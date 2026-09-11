@@ -11,6 +11,31 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **A new rejection is a frame on the exception's path, not a statement (D-232, `attest.intent.v5`).**
+  D-102 read the rejection off the syntax of the raising line, so `zip(…, strict=True)` raising on
+  a changed line of `python-attrs/attrs#1603` certified two red receipts while the statement
+  `if short: raise ValueError` one line away would have been the drawer. Now an escaped exception
+  whose path through the anchored file crosses a line the change wrote -- raised there by any
+  statement, builtin or library call, or raised on an unchanged line and propagated back through
+  one the change wrote -- is a behaviour change with unknown intent: the drawer, and under D-218 a
+  yellow value line. Red keeps what is left: the merge base raised and head does not, or head
+  raises where nothing was written and no written line is on the path. Replay over 95
+  verification rows: both `attrs#1603` receipts move, both held-out receipts stay. **What it
+  costs in recall:** a real regression that raises on the line its author wrote is a yellow line
+  now, not a receipt; the mutation corpus measures how much of the crash class that is.
+- **A return-annotation-only change is not a yellow (a) claim (D-233).** `pallets/jinja#2096`
+  rewrote two return annotations and yellow (a) told untested callers the functions "changed
+  their return annotation". A signature change is a change to a parameter's name, count, order or
+  default; annotations alone make no line. Recomputed over run B's 24 units: 0 carry a line.
+- **A container value on the yellow line names the first element that moved (D-234,
+  `attest.value-note.v3`).** `python-dotenv#640` stripped a BOM from one key inside a
+  198-character list and the line showed two digests; it now reads `base and head lists of 2
+  first differ at index 0 (3/3 and 3/3 runs): base Binding(key='\ufeffFOO', …) → head
+  Binding(key='FOO', …)`. An element over 120 characters, or a line that would still not fit the
+  400-character contract, falls back to the digest.
+- **This repository's own `.attest.toml` opens `intent_replies`** (owner authorisation 3 of
+  2026-09-13): the value line asks its author for an `intended` / `unintended` reply and the next
+  review records it; nothing reads the rows back yet (D-227).
 - **A contained attempt no longer voids the run by default (D-226).** D-217's switch flips to
   `contained_attempt_voids = False` under two premises met first: the set of creations the kernel
   refused must be identical on every head and base run of a differential, or the run is void

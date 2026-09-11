@@ -80,6 +80,14 @@ reached an adjudicator that had not before, and it was drawered.
   confirmed, intent unknown*. On a held-out slice of **known defects** that clause cost **four
   publications**; on forward pairs it is right where it fires. Two populations, two answers
   (D-158).
+- **The rejection class is read off the frame, not the statement, and that costs recall too
+  (D-232).** An escaped exception whose path through the anchored file crosses a line the change
+  wrote is a behaviour change with unknown intent -- a yellow value line where the switch is on,
+  never a red receipt -- whatever raised it: a `raise`, a builtin, a library call. On the real
+  pull requests of 2026-09-12 that moved both `python-attrs/attrs#1603` receipts (a strict `zip`
+  on a short pickle state) out of red and kept both held-out receipts; on injected defects it
+  means a crash raised **on the line the author wrote** is not red, and the mutation corpus
+  measures how much of the crash class that is.
 - **Reachability has a ceiling, and after D-174 the measured ceiling is zero.** The gate level
   requires a call site outside the added lines and a fully annotated signature; on real traffic
   **30 of 90** new-code candidates were admissible at all, and a caller reached only through a
