@@ -12,10 +12,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from attest.core.betting import decide
 from attest.review.channels import ChannelPurchase, tier0_lr, verification_lr, votes_lr
 from attest.review.schema import Finding
 from attest.review.tier0 import Tier0Signal
+
+
+def decide(wealth: float, alpha: float) -> int | None:
+    """The odds-threshold rule: 1 surfaces, 0 discards, None defers (drawer).
+
+    Until 2026-09-11 this was imported from `attest.core.betting`, the
+    research engine's last import on the product path (owner authorisation 5
+    of the drawer window). The rule is unchanged; D-199 already removed its
+    hold on publication, and what it still decides is the `action` label a
+    ledger row carries."""
+    if wealth >= 1.0 / alpha:
+        return 1
+    if wealth <= alpha:
+        return 0
+    return None
 
 
 @dataclass
