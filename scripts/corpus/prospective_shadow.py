@@ -258,6 +258,78 @@ def cmd_select(args: argparse.Namespace) -> int:
     return 0
 
 
+def _author_visible_lines(
+    repo: Path, review: object, ledger_rows: list[dict[str, object]], config: object,
+    *, base_sha: str, head_sha: str,
+) -> dict[str, list[dict[str, object]]]:
+    """Every line this review would put in front of the author, verbatim, with
+    what stands behind each (owner instruction 7 of 2026-09-11).
+
+    The local review path constructs no GitHub client, so the lines are
+    rendered here by the same functions `run_ci` renders them with: red from
+    the published receipts, value and gate from the ledger rows under the two
+    switches, yellow (a) from the two trees (free). Nothing is posted."""
+    from attest.github.presentation import impact_line
+    from attest.review.ci import gate_notes_for_task, impact_notes, value_notes_for_task
+    from attest.review.gate_note import render as render_gate
+    from attest.review.report import _certified_line
+    from attest.review.value_note import render as render_value
+
+    task_id = review.task_id  # type: ignore[attr-defined]
+    red = [
+        {
+            "line": _certified_line(finding),
+            "receipt": finding.accepted_receipt.receipt.provenance_digest[:12],
+            "candidate_id": finding.accepted_receipt.receipt.candidate_id,
+            "evidence_class": finding.accepted_receipt.receipt.evidence_class,
+        }
+        for finding in review.published  # type: ignore[attr-defined]
+    ]
+    value = [
+        {
+            "line": render_value(note),
+            "note_id": note.note_id(),
+            "path": note.path,
+            "line_no": note.line,
+            "expression": note.expression,
+            "base": f"{note.base_kind}: {note.base_detail}",
+            "head": f"{note.head_kind}: {note.head_detail}",
+            "runs": (
+                f"{note.head_runs}/{note.head_runs} head, {note.base_runs}/{note.base_runs} base"
+            ),
+            "specified_by": list(note.specified_by),
+            "drawer_reason": note.drawer_reason,
+            "candidate_id": note.candidate_id,
+        }
+        for note in value_notes_for_task(ledger_rows, task_id, config)  # type: ignore[arg-type]
+    ]
+    gate = [
+        {
+            "line": render_gate(note),
+            "note_id": note.note_id(),
+            "call_site": note.call_site,
+            "caller": note.caller,
+            "path": note.path,
+            "origin_line": note.origin_line,
+            "exception_type": note.exception_type,
+            "entry": note.entry,
+            "runs": f"{note.runs}/{note.repeats}",
+            "finding_id": note.finding_id,
+        }
+        for note in (
+            [] if red else gate_notes_for_task(ledger_rows, task_id, config)  # type: ignore[arg-type]
+        )
+    ]
+    try:
+        impact = [
+            {"line": impact_line(note), "reason": note.reason, "callers": len(note.callers)}
+            for note in impact_notes(repo=repo, base_sha=base_sha, head_sha=head_sha)
+        ]
+    except Exception:  # noqa: BLE001 - yellow (a) is a courtesy here as in ci.py
+        impact = []
+    return {"red": red, "value": value, "gate": gate, "impact": impact}
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     from attest.review.config import load_config
     from attest.review.proposer import ApiProvider
@@ -266,7 +338,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     study = _study(args)
     preregistration = prospective.load_preregistration(study)
     samples = prospective._read_jsonl(study / prospective.SAMPLE_FILE)
-    done = {row["unit_id"] for row in prospective._read_jsonl(study / prospective.TRIALS_FILE)}
+    # Owner instruction 7 of 2026-09-11: a re-run of the same frozen sample with
+    # the two speech switches on writes its own trials file beside the
+    # 2026-09-13 one, so the earlier run's data is never appended to or
+    # confused with it. `done` is read from the file this run writes.
+    trials_path = study / (args.trials_file or prospective.TRIALS_FILE)
+    lines_path = study / (args.lines_file or f"lines-{trials_path.stem}.jsonl")
+    done = {row["unit_id"] for row in prospective._read_jsonl(trials_path)}
     pending = [row for row in samples if row["unit_id"] not in done]
     if args.limit:
         pending = pending[: args.limit]
@@ -282,15 +360,32 @@ def cmd_run(args: argparse.Namespace) -> int:
         reserve_usd=reserve,
     )
     print(json.dumps(preflight.to_json_dict()), flush=True)
-    spent = sum(
-        float(row.get("spend_usd", 0.0))
-        for row in prospective._read_jsonl(study / prospective.TRIALS_FILE)
+    spent = sum(float(row.get("spend_usd", 0.0)) for row in prospective._read_jsonl(trials_path))
+    # The owner's reservation, when given, is a hard cap and the smaller of the
+    # two binds. A unit is started only if its per-review maximum still fits
+    # under it (D-172), so the run can never overshoot the reservation; a unit
+    # the cap refuses is named, not dropped.
+    cap = (
+        min(preregistration.cost_cap_usd, args.reserve)
+        if args.reserve
+        else preregistration.cost_cap_usd
     )
     skipped: list[str] = []
+    unbought: list[str] = []
     for row in pending:
-        if spent >= preregistration.cost_cap_usd:
-            print(f"cost cap {preregistration.cost_cap_usd} reached; stopping", flush=True)
-            break
+        if spent + preregistration.per_pr_budget_usd > cap:
+            print(
+                json.dumps({
+                    "unit_id": str(row["unit_id"]),
+                    "skipped": "cap",
+                    "detail": f"cumulative cap: ${spent:.4f} spent, reserving "
+                    f"${preregistration.per_pr_budget_usd:.4f} for this unit would project "
+                    f"${spent + preregistration.per_pr_budget_usd:.4f} past the ${cap:.2f} cap",
+                }),
+                flush=True,
+            )
+            unbought.append(str(row["unit_id"]))
+            continue
         repo = CORPORA / _clone_name(str(row["repository"]))
         # A population repository this host cannot clone -- a private one on a
         # runner whose token does not reach it -- is **skipped by name**, not a
@@ -314,6 +409,10 @@ def cmd_run(args: argparse.Namespace) -> int:
                 **config.__dict__,
                 "k_samples": preregistration.k_samples,
                 "budget_usd": preregistration.per_pr_budget_usd,
+                # owner instruction 7 of 2026-09-11: the two yellow surfaces,
+                # on only when this run says so; the product default is off
+                "value_notes_visible": bool(args.value_notes_visible),
+                "gate_notes_visible": bool(args.gate_notes_visible),
             }
         )
         started = datetime.now(UTC)
@@ -351,11 +450,40 @@ def cmd_run(args: argparse.Namespace) -> int:
             spend_usd=review.budget.spent_usd,
             elapsed_s=review.elapsed_s,
         )
-        prospective.record_trial(study, trial)
+        prospective._append_jsonl(trials_path, trial.to_json_dict())
         spent += trial.spend_usd
         print(json.dumps(trial.to_json_dict(), ensure_ascii=False), flush=True)
+        lines = _author_visible_lines(
+            repo, review, ledger_rows, config,
+            base_sha=str(row["base_sha"]), head_sha=str(row["head_sha"]),
+        )
+        prospective._append_jsonl(
+            lines_path,
+            {
+                "unit_id": str(row["unit_id"]),
+                "repository": str(row["repository"]),
+                "task_id": review.task_id,
+                "recorded_at": started.isoformat(),
+                "spend_usd": trial.spend_usd,
+                "value_notes_visible": bool(args.value_notes_visible),
+                "gate_notes_visible": bool(args.gate_notes_visible),
+                "lines": lines,
+            },
+        )
+        print(
+            json.dumps(
+                {"unit_id": str(row["unit_id"]), "lines": {k: len(v) for k, v in lines.items()}},
+                ensure_ascii=False,
+            ),
+            flush=True,
+        )
     if skipped:
         print(json.dumps({"skipped_units": skipped}), flush=True)
+    if unbought:
+        print(
+            json.dumps({"unbought_units": unbought, "cap_usd": cap, "spent_usd": round(spent, 6)}),
+            flush=True,
+        )
     return 0
 
 
@@ -386,7 +514,17 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--allow-paid-api", action="store_true")
     run.add_argument("--limit", type=int, default=0)
     run.add_argument("--reserve", type=float, default=0.0,
-                     help="the owner's reservation for this item; the study's cost cap enforces it")
+                     help="the owner's reservation for this item; the smaller of it and the "
+                     "study's cost cap binds, and no unit starts unless its maximum fits under it")
+    run.add_argument("--value-notes-visible", action="store_true",
+                     help="owner instruction 7 of 2026-09-11: render the value-class yellow line")
+    run.add_argument("--gate-notes-visible", action="store_true",
+                     help="owner instruction 7 of 2026-09-11: render the gate yellow line")
+    run.add_argument("--trials-file", default="",
+                     help="write trials here instead of trials.jsonl (a re-run of a frozen sample)")
+    run.add_argument("--lines-file", default="",
+                     help="write every author-visible line per unit here "
+                     "(default lines-<trials>.jsonl)")
     run.set_defaults(func=cmd_run)
     sub.add_parser("report").set_defaults(func=cmd_report)
     args = parser.parse_args(argv)
