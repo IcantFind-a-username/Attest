@@ -509,6 +509,21 @@ replayable evidence on the current code.
     `source: "derived"` appears **zero** times. The numerator is 2 in both runs but only one of its
     two members is stable — `pytest-dev__pytest-10356` lost a receipt and `pallets__flask-5014`
     gained one. No loss category closed. **No release.**
+  - **RE-MEASURED 2026-09-11 AFTER THE ENVIRONMENT FIXES AND THE SEARCH (D-213 to D-218), AND
+    THE TWO HALVES DO NOT AGREE.** The same 39 instances, restored, on a GitHub runner with
+    `contained_attempt_voids: false` for this run only, 3h33m, **$5.028893 of a $6.00 cap that
+    bound** — 35 of 39 cases ran and the four unbought are named. **Crash-class recall 5 of 25 —
+    20.0%, Wilson 95% [8.9%, 39.1%]**, against 2 of 31 — 6.5%; on the cases-run denominator
+    5 of 35 — 14.3% against 2 of 39 — 5.1%. **The measurement repair is real and the capability
+    gain is zero**: 11 of the 18 cases whose probe never executed on the merge base now execute
+    one, and all three new receipts come from those; the probe search bought 12 extra probes,
+    certified 3 of them, and **every one was an extra candidate inside a case its own first
+    probe had already certified** — 0 added cases, and 0 of 1 `did not reach` verdicts
+    corrected. One of the five certified cases (`sphinx-doc__sphinx-10435`) depends on
+    `contained_attempt_voids=false` and would be void under the shipped default, which makes it
+    4 of 25 there. **No control arm; no false positive seen, and with no control arm that is all
+    that can be said.** The README is **not** updated, by the owner's own rule
+    ([report](acceptance/2026-09-11-heldout-after-search.md)).
   - **AND THE ROUTE IS CLOSED, 2026-09-11 (D-212).** Free offline measurement on the same 39
     cases: a derived probe exists for **2 of 39** today and **5 of 39** with every plausible
     relaxation counted generously; only the method relaxation contributes. **25 of 39 cases have

@@ -11,6 +11,17 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The held-out corpus was re-measured and the two halves of the answer disagree.** Crash-class
+  recall is **5 of 25 — 20.0%, Wilson 95% [8.9%, 39.1%]**, against 2 of 31 — 6.5%; on the
+  cases-run denominator 5 of 35 — 14.3% against 2 of 39. **All of the movement is the
+  environment**: 11 of the 18 cases whose probe never executed on the merge base now execute
+  one, and all three new receipts are among them. **The probe search added nothing** — it
+  bought 12 extra probes, certified 3, and every one was an extra candidate inside a case its
+  own first probe had already certified. One of the five certified cases depends on
+  `contained_attempt_voids=false` and would be void under the shipped default. The cap bound
+  and four cases went unbought; they are named. **The README's 6.5% is not updated**, because
+  the rule that governs it turns on the capability line, and that line is zero
+  ([report](docs/acceptance/2026-09-11-heldout-after-search.md)).
 - **A recording that dies on the merge base leaves its output behind (D-213).** `probe deferred
   on base` was the largest single loss of the 2026-09-10 held-out run -- **17 of 31** cases
   never executed a probe there -- and the verification row carried **no output at all** for it,
