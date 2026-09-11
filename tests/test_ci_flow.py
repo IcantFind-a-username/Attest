@@ -2471,3 +2471,162 @@ def test_a_refusal_line_carries_no_key_no_stack_and_no_host_detail(
     for forbidden in ("sk-ant-", "ANTHROPIC_API_KEY", "Traceback", "/home/runner"):
         assert forbidden not in claim, forbidden
     assert contract_check(claim), contract_check(claim).reason
+
+
+def _value_note_row(task_id: str) -> dict[str, object]:
+    """A value-class note as the executor writes it (D-218), on the planted
+    repository's changed function."""
+    return {
+        "kind": "value_observation_note",
+        "schema_version": "attest.value-observation-note.v1",
+        "task_id": task_id,
+        "finding_id": "cafe1234ab",
+        "note_id": "0" * 12,
+        "policy_version": "attest.value-note.v2",
+        "path": "app.py",
+        "line": 6,
+        "expression": "average([])",
+        "base_kind": "value",
+        "base_detail": "0",
+        "head_kind": "exception",
+        "head_detail": "ZeroDivisionError",
+        "head_runs": 3,
+        "base_runs": 3,
+        "pinned_values": ["0"],
+        "specified_by": [],
+        "drawer_reason": "intent: value change confirmed, intent unknown: the base tree does "
+        "not specify the value this assertion pins",
+        "candidate_id": "cafe1234ab",
+    }
+
+
+@pytest.mark.parametrize("visible", [False, True])
+def test_a_value_note_reaches_the_author_only_when_the_base_policy_opens_it(
+    planted_repo: tuple[Path, str, str],
+    github_server: RecordingGitHub,
+    monkeypatch: pytest.MonkeyPatch,
+    visible: bool,
+) -> None:
+    """Owner instruction 4 of 2026-09-11. The same ledger row, the same run:
+    with `value_notes_visible` off (the default) no author-visible surface
+    carries the note; with it on, the summary carries the one yellow line
+    under its own heading."""
+    from attest.review import ci as ci_module
+    from attest.review.ci import run_ci
+    from attest.review.value_note import VALUE_NOTE_POLICY_VERSION
+
+    repo, base_sha, head_sha = planted_repo
+    task_id = "20260911-000000-deadbeef"
+    monkeypatch.setattr(ci_module, "make_task_id", lambda seed: task_id)
+    ledger_path = repo / ".attest" / "ledger.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    row = _value_note_row(task_id)
+    row["policy_version"] = VALUE_NOTE_POLICY_VERSION
+    ledger_path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    provider = RecordingProvider(
+        _finding_payload(),
+        json.dumps({"test_body": "def test_passes_everywhere():\n    assert True\n"}),
+    )
+
+    run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(
+            probe_generation=False,
+            k_samples=2,
+            tier0_commands=[],
+            value_notes_visible=visible,
+        ),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    everything = "\n".join([*github_server.status_bodies, *github_server.review_bodies])
+    line = "[yellow] app.py:6 — for average([]), the merge base returned 0 and head raises "
+    if visible:
+        assert line in everything
+        assert "Observed behaviour changes" in everything
+    else:
+        assert "[yellow]" not in everything
+        assert "average([])" not in everything
+        assert "attest:value" not in everything
+
+
+def _gate_row(task_id: str) -> dict[str, object]:
+    """A would-publish through-caller gate row as the stage writes it (v2)."""
+    return {
+        "kind": "gate_shadow",
+        "schema_version": "attest.gate-shadow.v2",
+        "task_id": task_id,
+        "finding_id": "feed5678cd",
+        "policy_version": "attest.gate.v0-shadow",
+        "path": "app.py",
+        "symbol": "average",
+        "reachability": "through_caller",
+        "admissible": True,
+        "call_site": "cli.py:14",
+        "caller": "main",
+        "entry": "main([])",
+        "repeats": 3,
+        "exception_type": "ZeroDivisionError",
+        "origin_line": 6,
+        "runs_agreeing": True,
+        "control_passed": True,
+        "would_publish": True,
+        "reason": "ZeroDivisionError from the added line app.py:6, reached from cli.py:14",
+        "source": "live",
+        "author_visible": False,
+    }
+
+
+@pytest.mark.parametrize("visible", [False, True])
+def test_a_gate_line_reaches_the_author_only_when_the_base_policy_opens_it(
+    planted_repo: tuple[Path, str, str],
+    github_server: RecordingGitHub,
+    monkeypatch: pytest.MonkeyPatch,
+    visible: bool,
+) -> None:
+    """Owner instruction 5 of 2026-09-11: the same would-publish row, the same
+    run; only `gate_notes_visible` decides whether the one yellow gate line
+    reaches the summary, under its own heading."""
+    from attest.review import ci as ci_module
+    from attest.review.ci import run_ci
+
+    repo, base_sha, head_sha = planted_repo
+    task_id = "20260911-000001-deadbeef"
+    monkeypatch.setattr(ci_module, "make_task_id", lambda seed: task_id)
+    ledger_path = repo / ".attest" / "ledger.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    ledger_path.write_text(json.dumps(_gate_row(task_id)) + "\n", encoding="utf-8")
+    provider = RecordingProvider(
+        _finding_payload(),
+        json.dumps({"test_body": "def test_passes_everywhere():\n    assert True\n"}),
+    )
+
+    run_ci(
+        repo,
+        _context(base_sha, head_sha),
+        GitHubClient("local-token", github_server.url),
+        ReviewConfig(
+            probe_generation=False,
+            k_samples=2,
+            tier0_commands=[],
+            gate_notes_visible=visible,
+        ),
+        provider,
+        limits=ExecutorLimits(wall_timeout_s=20.0),
+    )
+
+    everything = "\n".join([*github_server.status_bodies, *github_server.review_bodies])
+    line = (
+        "[yellow] cli.py:14 — new code at app.py:6 raises ZeroDivisionError on main([]) "
+        "(3/3 runs), reached through main"
+    )
+    if visible:
+        assert line in everything
+        assert "Gate — new code, nothing to compare against:" in everything
+    else:
+        assert "[yellow]" not in everything
+        assert "attest:gate" not in everything
+        assert "ZeroDivisionError" not in everything

@@ -138,6 +138,8 @@ def _observe(
         head_source=lib,
         test_source=test_source,
     )
+    from attest.review.gate_level import entry_call
+
     return adjudicate(
         path="lib.py",
         reachability=reach,
@@ -146,6 +148,7 @@ def _observe(
         runs=runs,
         repeats=3,
         control=control,
+        entry=entry_call(test_source, reach.call_site.caller if reach.call_site else ""),
     )
 
 
@@ -326,8 +329,12 @@ def test_disagreeing_runs_and_an_unproven_environment_each_stop_it(tmp_path: Pat
 
 
 def test_a_would_publish_observation_reaches_no_author_visible_surface(tmp_path: Path):
-    """The property the level rests on while it is in shadow: the record says of
-    itself that it is not author-visible, and it is not a `CertifiedFinding`."""
+    """The observation itself never reaches an author: the record says of itself
+    that it is not author-visible, and it is not a `CertifiedFinding`. Since
+    owner instruction 5 of 2026-09-11 a **line rendered from its ledger row**
+    may -- through `gate_note`, only where the base-owned policy sets
+    `gate_notes_visible`, and only for a through-caller witness (see
+    `test_ci_reads_no_gate_row_while_the_switch_is_off`)."""
     repo, head, added = _tree(
         tmp_path / "r",
         base_cli=CLI_WITH_EXISTING_CALL,
@@ -354,9 +361,13 @@ def test_a_would_publish_observation_reaches_no_author_visible_surface(tmp_path:
 
 
 def test_no_author_visible_module_can_reach_the_gate_level():
-    """The cheapest guarantee that a shadow level stays shadow is that the code
-    which writes to the author cannot import it. If this test ever has to be
-    edited, the level is no longer in shadow and `G-NEWCODE-001` applies."""
+    """The code that writes to the author does not import the code that
+    executes the gate. Owner instruction 5 of 2026-09-11 opened a yellow
+    surface for the level, and it is rendered from the **ledger row** by
+    `gate_note`, which imports nothing that runs code; `gate_level` -- the
+    worktree, the container runs, the control run -- stays out of every
+    author-visible module. `G-NEWCODE-001` governs what this line may claim,
+    and it claims no regression, no likelihood ratio and no certificate."""
     src = Path(__file__).parents[1] / "src" / "attest"
     author_visible = [
         src / "github" / "presentation.py",
@@ -510,3 +521,88 @@ def test_a_real_imported_call_site_is_still_a_witness(tmp_path: Path) -> None:
     assert reach.call_site is not None
     assert reach.call_site.path == "cli.py"
     assert reach.kind == THROUGH_CALLER
+
+
+# ------------------------------------------------- the yellow gate line (2026-09-11)
+
+
+def test_a_through_caller_witness_renders_as_one_yellow_gate_line(tmp_path: Path) -> None:
+    """Owner instruction 5 of 2026-09-11 (§16 item 2): the gate level speaks at
+    yellow, through-caller witnesses only, behind `gate_notes_visible`. The line
+    names the caller's coordinate, the added line, the exception, the input the
+    reproduction entered with, the agreeing runs, and the caller -- and nothing
+    else. There is no base revision, so it claims no regression."""
+    from attest.review.gate_note import note_from_observation, render
+    from attest.review.output_contract import check
+
+    repo, head, added = _tree(
+        tmp_path / "r",
+        base_cli=CLI_WITH_EXISTING_CALL,
+        head_cli=CLI_WITH_EXISTING_CALL,
+        lib=LIB_NEW,
+    )
+    observation = _observe(
+        repo,
+        head,
+        added,
+        lib=LIB_NEW,
+        test_source=THROUGH_CALLER_TEST,
+        origins=(CRASH,),
+        runs=RUNS,
+    )
+    assert observation.would_publish
+    assert observation.entry == "main([''])"
+
+    note = note_from_observation(observation, task_id="t", finding_id="f")
+    assert note is not None
+    line = render(note)
+
+    assert check(line).admitted, check(line).reason
+    assert line.startswith(
+        "[yellow] cli.py:14 — new code at lib.py:2 raises IndexError on main(['']) "
+    )
+    assert "(3/3 runs), reached through main" in line
+    assert "regression" not in line and "broke" not in line
+    row = observation.to_ledger_row("t", "f")
+    assert row["schema_version"] == "attest.gate-shadow.v2"
+    assert row["entry"] == "main([''])" and row["caller"] == "main"
+
+
+def test_a_direct_witness_is_a_ledger_row_and_never_a_line(tmp_path: Path) -> None:
+    from attest.review.gate_note import note_from_observation
+
+    repo, head, added = _tree(
+        tmp_path / "r", base_cli=CLI_BEFORE, head_cli=CLI_AFTER_ADDED_CALL, lib=LIB_NEW
+    )
+    observation = _observe(
+        repo, head, added, lib=LIB_NEW, test_source=DIRECT_TEST, origins=(CRASH,), runs=RUNS
+    )
+    assert observation.reachability.kind == DIRECT
+    row = observation.to_ledger_row("t", "f")
+    assert row["kind"] == "gate_shadow" and row["would_publish"] is False
+    assert note_from_observation(observation, task_id="t", finding_id="f") is None
+
+
+def test_ci_reads_no_gate_row_while_the_switch_is_off(tmp_path: Path) -> None:
+    from attest.review.ci import gate_notes_for_task
+    from attest.review.config import _KNOWN_POLICY_KEYS, ReviewConfig
+
+    assert ReviewConfig().gate_notes_visible is False
+    assert "gate_notes_visible" in _KNOWN_POLICY_KEYS
+    repo, head, added = _tree(
+        tmp_path / "r",
+        base_cli=CLI_WITH_EXISTING_CALL,
+        head_cli=CLI_WITH_EXISTING_CALL,
+        lib=LIB_NEW,
+    )
+    observation = _observe(
+        repo, head, added, lib=LIB_NEW, test_source=THROUGH_CALLER_TEST, origins=(CRASH,), runs=RUNS
+    )
+    row = observation.to_ledger_row("t1", "f1")
+    assert gate_notes_for_task([row], "t1", ReviewConfig()) == []
+    shown = gate_notes_for_task([row], "t1", ReviewConfig(gate_notes_visible=True))
+    assert len(shown) == 1 and shown[0].call_site == "cli.py:14"
+    # two would-publish rows: at most one gate line per pull request (design §5)
+    second = dict(row, finding_id="f2")
+    assert len(gate_notes_for_task([row, second], "t1", ReviewConfig(gate_notes_visible=True))) == 1
+    assert gate_notes_for_task([row], "t2", ReviewConfig(gate_notes_visible=True)) == []

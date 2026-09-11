@@ -13,13 +13,12 @@ import json
 import math
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import ExitStack
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Event, Lock
 from typing import Any, Protocol
 
-from attest.review.budget import PROPOSAL_SHARE, Budget, BudgetExceeded
+from attest.review.budget import Budget, BudgetExceeded
 from attest.review.config import ReviewConfig
 from attest.review.dedup import cluster_findings
 from attest.review.diffs import DiffInfo
@@ -380,6 +379,9 @@ class ProposalRun:
     # to sit in the pull-request status beside `budget-limited`. Empty on
     # every run the ceiling did not stop.
     budget_shortfall: str = ""
+    # owner instruction 3 of 2026-09-11: the units the budget never funded, by
+    # label, so the status line can say *which* parts of the change went unread
+    units_unread: list[str] = field(default_factory=list)
 
 
 def budget_shortfall_note(exc: BudgetExceeded) -> str:
@@ -423,9 +425,9 @@ def budget_shortfall_clause(unit_label: str, exc: BudgetExceeded) -> str:
     `budget-limited` and nothing else, on the very branch that recorded D-187.
     """
     if exc.shortfall_usd is None or exc.budget_usd_needed is None:
-        return f"{unit_label} did not fit the discovery share"
+        return f"{unit_label} did not fit the budget"
     return (
-        f"{unit_label} was ${exc.shortfall_usd:.4f} short of the discovery share; "
+        f"{unit_label} was ${exc.shortfall_usd:.4f} short of the budget; "
         f"`budget-usd` ${usd_that_covers(exc.budget_usd_needed):.2f} would have read it"
     )
 
@@ -459,21 +461,19 @@ def propose_plan(
     """Propose per planned unit in deterministic order, then cluster task-wide.
 
     Units are attempted in plan order; the first unit that the budget cannot
-    cover stops the run and every remaining unit is recorded as omitted, so a
-    large change is reviewed partially and *visibly*, never truncated in
-    silence. A first unit that does not fit raises BudgetExceeded as before.
+    cover stops the run and every remaining unit is recorded as omitted **and
+    named** (`units_unread`), so a large change is reviewed partially and
+    *visibly*, never truncated in silence. A first unit that does not fit
+    raises BudgetExceeded as before.
 
-    D-111: *breadth* is what starves verification, so the proposal stage is
-    bought inside a PROPOSAL_SHARE cap on the budget.
-
-    D-168 extends that cap to the **first** unit as well, and lowers it to 30%.
-    D-111 exempted the first unit on the argument that a review which cannot
-    afford to read one change unit has nothing to say; the 2026-09-07 budget
-    re-run showed the cost of the exemption -- discovery that takes the whole
-    budget leaves verification nothing, and the review is then silent for a
-    reason no reader can see. A first unit that does not fit inside the share
-    now raises BudgetExceeded, which the caller turns into a stated budget
-    DEFER.
+    D-111 and D-168 bought this stage inside a 30% share of the budget so that
+    breadth could not starve verification. Owner instruction 3 of the
+    2026-09-11 drawer window removed the share's hold on units: on the E-04
+    stratum it silenced 11 of 29 real pull requests after 179 of their 298
+    change units, and a review that stops reading a change at 30% of a budget
+    it never spent is not a review of that change. Every unit is now read
+    until the whole budget is gone, and what the budget could not fund is
+    named rather than counted.
     """
     per_sample: list[list[Finding]] = []
     rejected: list[str] = []
@@ -482,34 +482,34 @@ def propose_plan(
     observations: list[SampleObservation] = []
     successful = 0
     omitted: list[str] = []
+    unread: list[str] = []
     shortfall = ""
     units_read = 0
     for index, unit in enumerate(plan.units):
         try:
-            with ExitStack() as stack:
-                stack.enter_context(budget.stage("discovery", PROPOSAL_SHARE))
-                run = propose(
-                    unit.diff(),
-                    config,
-                    budget,
-                    provider,
-                    context=unit.prompt_context(),
-                    sample_offset=index * config.k_samples,
-                    cache_root=cache_root,
-                    shared_system=shared_system,
-                )
+            run = propose(
+                unit.diff(),
+                config,
+                budget,
+                provider,
+                context=unit.prompt_context(),
+                sample_offset=index * config.k_samples,
+                cache_root=cache_root,
+                shared_system=shared_system,
+            )
         except BudgetExceeded as exc:
             if index == 0:
                 raise
             label = f"unit {unit.unit_id} ({', '.join(unit.files)})"
             shortfall = budget_shortfall_clause(label, exc)
             omitted.append(f"{label}: budget: {budget_shortfall_note(exc)}")
+            unread.append(label)
             # the clause travels with the run, so the pull-request status can
             # say what the ceiling cost without quoting the builder's reason
-            omitted.extend(
-                f"unit {later.unit_id} ({', '.join(later.files)}): not attempted after budget stop"
-                for later in plan.units[index + 1 :]
-            )
+            for later in plan.units[index + 1 :]:
+                later_label = f"unit {later.unit_id} ({', '.join(later.files)})"
+                omitted.append(f"{later_label}: not attempted after budget stop")
+                unread.append(later_label)
             break
         per_sample.extend(run.per_sample)
         rejected.extend(run.rejected)
@@ -530,6 +530,7 @@ def propose_plan(
         units_planned=len(plan.units),
         units_read=units_read,
         budget_shortfall=shortfall,
+        units_unread=unread,
     )
 
 

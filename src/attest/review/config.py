@@ -62,11 +62,6 @@ class ReviewConfig:
     # D-114 path where the model writes the assertion from the diff alone; it is
     # the reversal, and it is what the before/after measurement compares.
     probe_generation: bool = True
-    # Probes read out of the repository's own tests, tried on base before the
-    # model is asked for one: the exact calls the tests make, then a boundary
-    # variant of each literal. Free of model calls; bounded in container time.
-    # False restores the model-only probe path.
-    derived_probes: bool = True
     # D-217: whether a process or thread creation the **kernel** already
     # refused voids the observation. True is the product's setting and this
     # change does not move it. False says: an attempt that RLIMIT_NPROC denied,
@@ -80,6 +75,16 @@ class ReviewConfig:
     # `process-replacement-attempted`, `network-attempted` and
     # `write-attempted` void the run under either setting.
     contained_attempt_voids: bool = True
+    # Owner instruction 4 of the 2026-09-11 drawer window: the value-class
+    # yellow note (D-218) is author-visible only where the base-owned policy
+    # says so. Off by default; this window turns it on in the owner's own
+    # repositories and nowhere else.
+    value_notes_visible: bool = False
+    # Owner instruction 5 of the 2026-09-11 drawer window: the gate level speaks
+    # at yellow -- through-caller witnesses only -- where the base-owned policy
+    # says so. Off by default. On, it also runs the gate stage (as
+    # `gate_shadow` does), because a line needs an observation to render from.
+    gate_notes_visible: bool = False
     # D-157: how many candidates' reproductions may run at once. The three runs
     # *inside* one candidate stay serial -- the repeat count is what makes a
     # reproduction stable, and a concurrent repeat is a different experiment.
@@ -143,10 +148,12 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError("enabled must be a boolean")
     if type(config.probe_generation) is not bool:
         raise ValueError("probe_generation must be a boolean")
-    if type(config.derived_probes) is not bool:
-        raise ValueError("derived_probes must be a boolean")
     if type(config.contained_attempt_voids) is not bool:
         raise ValueError("contained_attempt_voids must be a boolean")
+    if type(config.value_notes_visible) is not bool:
+        raise ValueError("value_notes_visible must be a boolean")
+    if type(config.gate_notes_visible) is not bool:
+        raise ValueError("gate_notes_visible must be a boolean")
     if type(config.repro_concurrency) is not int or not 1 <= config.repro_concurrency <= 8:
         raise ValueError("repro_concurrency must be an integer in [1, 8]")
     if type(config.verification_cap_per_unit) is not int or config.verification_cap_per_unit < 1:
@@ -176,7 +183,6 @@ _KNOWN_POLICY_KEYS = {
     "auto_tighten_alpha",
     "tier0_commands",
     "probe_generation",
-    "derived_probes",
     # `contained_attempt_voids` is deliberately absent (D-217): it is an
     # isolation-adjacent knob, and a reviewed repository's own `.attest.toml`
     # may not be the thing that decides what voids an observation. It is set by
@@ -184,6 +190,9 @@ _KNOWN_POLICY_KEYS = {
     "repro_concurrency",
     "verification_cap_per_unit",
     "daily_budget_usd",
+    # speech surfaces, not evidence rules: the base-owned policy may open them
+    "value_notes_visible",
+    "gate_notes_visible",
 }
 
 

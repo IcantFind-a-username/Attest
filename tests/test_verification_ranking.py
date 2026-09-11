@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from attest.review.budget import PROPOSAL_SHARE, Budget, BudgetExceeded
+from attest.review.budget import Budget, BudgetExceeded
 from attest.review.candidates import StoredCandidate
 from attest.review.config import ReviewConfig, validate_review_config
 from attest.review.ranking import (
@@ -209,22 +209,24 @@ def test_the_cap_is_policy_configurable_and_never_zero(index: CredibilityIndex) 
             validate_review_config(config)
 
 
-# --- 3. the proposal stage cannot spend more than 30% of the budget ----------
+# --- 3. a staged share bounds reservations inside it and nothing outside ----
+# (D-168's third rule -- discovery inside a 30% stage -- was removed by owner
+# instruction 3 of 2026-09-11; the mechanism is still what a stage does)
 
 
-def test_discovery_cannot_reserve_more_than_thirty_percent_of_one_review() -> None:
-    assert PROPOSAL_SHARE == 0.3
+def test_a_stage_cannot_reserve_more_than_its_share_of_one_review() -> None:
+    share = 0.3
     budget = Budget(limit_usd=1.00, model="claude-sonnet-5")
-    with budget.stage("discovery", PROPOSAL_SHARE):
+    with budget.stage("discovery", share):
         # a call that fits inside the share is bought
         budget.reserve("unit-0", input_chars=30_000, max_output_tokens=1_000)
-        assert budget.reserved_usd <= 1.00 * PROPOSAL_SHARE
+        assert budget.reserved_usd <= 1.00 * share
         with pytest.raises(BudgetExceeded) as raised:
             # one that would take the stage past 30% is refused, not truncated
             budget.reserve("unit-1", input_chars=400_000, max_output_tokens=4_000)
     assert "discovery share" in raised.value.reason
-    assert f"${1.00 * PROPOSAL_SHARE:.4f}" in raised.value.reason
-    assert budget.reserved_usd <= 1.00 * PROPOSAL_SHARE
+    assert f"${1.00 * share:.4f}" in raised.value.reason
+    assert budget.reserved_usd <= 1.00 * share
     # and outside the stage the rest of the budget is still there for reproductions
     budget.reserve("repro-0", input_chars=400_000, max_output_tokens=4_000)
-    assert budget.reserved_usd > 1.00 * PROPOSAL_SHARE
+    assert budget.reserved_usd > 1.00 * share

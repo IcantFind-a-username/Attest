@@ -9,8 +9,7 @@ import os
 import re
 import subprocess
 import time
-from collections.abc import Callable, Mapping
-from contextlib import suppress
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -27,23 +26,23 @@ from attest.github.presentation import (
     IMPACT_MAX_COMMENTS,
     MAX_STRUCTURAL_COMMENTS,
     YELLOW_MAX_COMMENTS,
+    gate_comments,
     impact_comments,
     impact_member_id,
     inline_comments,
-    nullability_comments,
-    nullability_member_id,
-    propagation_comments,
-    propagation_member_id,
     render_complete,
     render_deferred,
     render_running,
     structural_comments,
     structural_member_id,
+    value_comments,
 )
 from attest.review.budget import Budget
 from attest.review.config import DISABLED_REASON, ReviewConfig, resolve_review_policy
 from attest.review.diffs import resolve_merge_base
 from attest.review.executor import ExecutorLimits
+from attest.review.gate_note import GateNote, note_from_row
+from attest.review.gate_note import visible as visible_gate_notes
 from attest.review.impact import (
     IMPACT_POLICY_VERSION,
     ChangedFunction,
@@ -54,19 +53,6 @@ from attest.review.impact import (
     read_tree,
 )
 from attest.review.ledger import Ledger
-from attest.review.nullability import (
-    HYPOTHESIS_MAX_TOKENS,
-    HYPOTHESIS_SCHEMA,
-    HYPOTHESIS_SYSTEM,
-    NULLABILITY_ENABLED,
-    NULLABILITY_MAX_FUNCTION_LINES,
-    NULLABILITY_MAX_UNITS_PER_CALL,
-    NULLABILITY_POLICY_VERSION,
-    NullabilityNote,
-    hypotheses_from,
-    prompt_for,
-)
-from attest.review.nullability import notes_for_change as nullability_notes_for_change
 from attest.review.output_contract import (
     LEVEL_MARKERS,
     budget_unverified,
@@ -75,8 +61,6 @@ from attest.review.output_contract import (
     silence_line,
 )
 from attest.review.output_contract import check as contract_check
-from attest.review.propagation import PROPAGATION_SHADOW, PropagationNote
-from attest.review.propagation import notes_for_change as propagation_for_change
 from attest.review.proposer import Provider
 from attest.review.run import ReviewExecutionError, ReviewSetupError, make_task_id, run_review
 from attest.review.status import RunStatus, status_from_rows
@@ -98,6 +82,8 @@ from attest.review.support import (
     preflight,
     refusal_from_reason,
 )
+from attest.review.value_note import ValueNote
+from attest.review.value_note import visible as visible_value_notes
 from attest.review.verification import CERTIFICATION_REPEATS, run_verification_stage
 
 DELIVERY_TRANSCRIPT_SCHEMA_VERSION = 1
@@ -390,9 +376,15 @@ _INLINE_STRUCTURAL_MARKER_RE = re.compile(r"<!-- attest:structural:([^\s>]+) -->
 # D-145: and neither does a yellow (a) comment, so it is identified by the
 # coordinate of the changed function it is about
 _INLINE_IMPACT_MARKER_RE = re.compile(r"<!-- attest:impact:([^\s>]+) -->")
-# D-151: yellow (b) carries no receipt either, so the journal identifies it by
-# the coordinate of the dereference the note is about.
+# D-151: yellow (b)'s null/Optional class carried no receipt either; the class
+# was deleted on 2026-09-11 and the marker is kept so a pull request that
+# already carries one still reconciles.
 _INLINE_NULLABILITY_MARKER_RE = re.compile(r"<!-- attest:nullability:([^\s>]+) -->")
+# owner instruction 4 of 2026-09-11: the value-class note carries no receipt
+# either; the journal identifies it by the note's own digest.
+_INLINE_VALUE_MARKER_RE = re.compile(r"<!-- attest:value:([0-9a-f]{12}) -->")
+# owner instruction 5 of 2026-09-11: the gate line, identified by its note digest
+_INLINE_GATE_MARKER_RE = re.compile(r"<!-- attest:gate:([0-9a-f]{12}) -->")
 _SUMMARY_FINDING_MARKER_RE = re.compile(
     # What this regex is for is **journal integrity**: does the body publish
     # exactly the findings the intent declared? That is a question about
@@ -1022,6 +1014,8 @@ def _marker_kind(comment: Mapping[str, object]) -> str:
         ("structural", _INLINE_STRUCTURAL_MARKER_RE),
         ("impact", _INLINE_IMPACT_MARKER_RE),
         ("nullability", _INLINE_NULLABILITY_MARKER_RE),
+        ("value", _INLINE_VALUE_MARKER_RE),
+        ("gate", _INLINE_GATE_MARKER_RE),
     ):
         if pattern.fullmatch(first):
             return kind
@@ -1035,6 +1029,8 @@ def _marker_id(comment: Mapping[str, object]) -> str:
         _INLINE_STRUCTURAL_MARKER_RE.fullmatch(first)
         or _INLINE_IMPACT_MARKER_RE.fullmatch(first)
         or _INLINE_NULLABILITY_MARKER_RE.fullmatch(first)
+        or _INLINE_VALUE_MARKER_RE.fullmatch(first)
+        or _INLINE_GATE_MARKER_RE.fullmatch(first)
     )
     if match is None:  # pragma: no cover - the renderers always write a marker
         raise ValueError("rendered comment carries no marker")
@@ -1059,6 +1055,8 @@ def _body_finding_ids(value: object, channel: str) -> tuple[str, ...]:
                 or _INLINE_STRUCTURAL_MARKER_RE.fullmatch(first)
                 or _INLINE_IMPACT_MARKER_RE.fullmatch(first)
                 or _INLINE_NULLABILITY_MARKER_RE.fullmatch(first)
+                or _INLINE_VALUE_MARKER_RE.fullmatch(first)
+                or _INLINE_GATE_MARKER_RE.fullmatch(first)
             )
             if match is None:
                 raise ValueError("inline review comment has no finding marker")
@@ -1284,6 +1282,69 @@ def _refusal_body(
     return _with_run_status(ledger, task_id, line)
 
 
+def value_notes_for_task(
+    rows: Sequence[Mapping[str, object]], task_id: str, config: ReviewConfig
+) -> list[ValueNote]:
+    """The value-class notes this task wrote, as the author may see them.
+
+    Owner instruction 4 of 2026-09-11. The executor writes a
+    `value_observation_note` row for every differential the intent clause
+    drawered for unreadable intent (D-218); this reads those rows back for one
+    task and applies the visibility rule -- **only when the base-owned policy
+    opened the surface.** With `value_notes_visible` off, which is the default,
+    it returns nothing whatever the ledger holds, and nothing downstream
+    renders. A row this cannot rebuild is skipped, never guessed."""
+    if not config.value_notes_visible:
+        return []
+    notes: list[ValueNote] = []
+    for row in rows:
+        if row.get("kind") != "value_observation_note" or row.get("task_id") != task_id:
+            continue
+        try:
+            note = ValueNote(
+                policy_version=str(row["policy_version"]),
+                path=str(row["path"]),
+                line=int(cast(int, row["line"])),
+                expression=str(row["expression"]),
+                base_kind=str(row["base_kind"]),
+                base_detail=str(row["base_detail"]),
+                head_kind=str(row["head_kind"]),
+                head_detail=str(row["head_detail"]),
+                head_runs=int(cast(int, row["head_runs"])),
+                base_runs=int(cast(int, row["base_runs"])),
+                pinned_values=tuple(str(v) for v in cast(list[object], row["pinned_values"])),
+                specified_by=tuple(
+                    (str(a), str(b))
+                    for a, b in cast(list[tuple[object, object]], row["specified_by"])
+                ),
+                drawer_reason=str(row["drawer_reason"]),
+                candidate_id=str(row["candidate_id"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+        notes.append(note)
+    return visible_value_notes(notes)
+
+
+def gate_notes_for_task(
+    rows: Sequence[Mapping[str, object]], task_id: str, config: ReviewConfig
+) -> list[GateNote]:
+    """The gate lines this task may show (owner instruction 5 of 2026-09-11):
+    would-publish `gate_shadow` rows with a through-caller witness, rendered
+    from the row, admitted by the contract, at most one -- and none at all
+    unless the base-owned policy set `gate_notes_visible`."""
+    if not config.gate_notes_visible:
+        return []
+    notes = [
+        note
+        for row in rows
+        if row.get("task_id") == task_id
+        for note in (note_from_row(row),)
+        if note is not None
+    ]
+    return visible_gate_notes(notes)
+
+
 def _units_read(ledger: Ledger, task_id: str | None) -> tuple[int, int] | None:
     """(units read, units planned) for the silence line (D-142). The same rows
     the collapsed run status reads; a ledger this cannot read means no counts,
@@ -1468,149 +1529,6 @@ def _blob(repo: Path, sha: str, path: str) -> str | None:
         check=False,
     )
     return done.stdout if done.returncode == 0 else None
-
-
-def propagation_notes(
-    *,
-    repo: Path,
-    base_sha: str,
-    head_sha: str,
-    limit: int = YELLOW_MAX_COMMENTS,
-) -> list[PropagationNote]:
-    """D-164: yellow (b)'s second class, the exception a caller never handled.
-
-    **Free and deterministic.** No provider and no budget are passed, because
-    none can be spent: all three premises are decided by `ast` over the two
-    trees, and the published sentence is built from the premises that held. Like
-    every level below red, any failure here is silence.
-    """
-    try:
-        touched = _changed_line_numbers(repo, base_sha, head_sha)
-        if not touched:
-            return []
-        head_sources = read_tree(repo)
-        base_sources: dict[str, str] = {}
-        changed: list[ChangedFunction] = []
-        for path, lines in sorted(touched.items()):
-            head_source = head_sources.get(path)
-            if head_source is None:
-                continue
-            base_source = _blob(repo, base_sha, path)
-            if base_source is None:
-                continue
-            base_sources[path] = base_source
-            changed.extend(
-                changed_functions(
-                    path=path,
-                    head_source=head_source,
-                    base_source=base_source,
-                    changed_lines=lines,
-                )
-            )
-        if not changed:
-            return []
-        graph = build_call_graph(head_sources)
-        return list(
-            propagation_for_change(
-                graph,
-                changed,
-                head_sources=head_sources,
-                base_sources=base_sources,
-                limit=limit,
-            )
-        )
-    except Exception:  # noqa: BLE001 - a courtesy level never breaks a review
-        return []
-
-
-def nullability_notes(
-    *,
-    repo: Path,
-    base_sha: str,
-    head_sha: str,
-    provider: Provider,
-    budget: Budget,
-    ledger: Ledger | None = None,
-    task_id: str | None = None,
-    limit: int = YELLOW_MAX_COMMENTS,
-) -> list[NullabilityNote]:
-    """D-151: yellow (b)'s notes for one pull request, at most ``limit``.
-
-    **One model call, and it decides nothing.** The model is shown the changed
-    functions and asked which parameter, which line and which caller; every
-    hypothesis it returns is then decided by `ast` and `git` over the head tree,
-    and a hypothesis missing any of the three premises is void. The void is
-    written to the ledger with the premise that failed, because a level whose
-    refusals are invisible cannot be measured.
-
-    Like green and yellow (a): any failure anywhere here is silence. It never
-    affects the red path and never delays a receipt.
-    """
-    if not NULLABILITY_ENABLED:
-        # owner decision 2 of 2026-09-07: closed. Before the changed-line walk,
-        # before the tree read and above all before the model call, so a closed
-        # class costs exactly $0.00 rather than a little less.
-        return []
-    try:
-        touched = _changed_line_numbers(repo, base_sha, head_sha)
-        if not touched:
-            return []
-        sources = read_tree(repo)
-        shown: list[tuple[str, str, int, str]] = []
-        for path, lines in sorted(touched.items()):
-            head_source = sources.get(path)
-            if head_source is None:
-                continue
-            for changed in changed_functions(
-                path=path,
-                head_source=head_source,
-                base_source=_base_source(repo, base_sha, path),
-                changed_lines=lines,
-            ):
-                definition = changed.definition
-                if definition.end_line - definition.line + 1 > NULLABILITY_MAX_FUNCTION_LINES:
-                    continue
-                body = "\n".join(
-                    head_source.splitlines()[definition.line - 1 : definition.end_line]
-                )
-                shown.append((path, definition.qualname, definition.line, body))
-        if not shown:
-            return []
-        shown.sort(key=lambda unit: (unit[0], unit[2]))
-        shown = shown[:NULLABILITY_MAX_UNITS_PER_CALL]
-        prompt = prompt_for(shown)
-        reserved = budget.reserve(
-            "nullability-hypotheses",
-            len(HYPOTHESIS_SYSTEM) + len(prompt),
-            HYPOTHESIS_MAX_TOKENS,
-        )
-        result = provider.sample(
-            system=HYPOTHESIS_SYSTEM,
-            prompt=prompt,
-            schema=HYPOTHESIS_SCHEMA,
-            max_tokens=HYPOTHESIS_MAX_TOKENS,
-        )
-        budget.settle("nullability-hypotheses", reserved, result.input_tokens, result.output_tokens)
-        hypotheses = hypotheses_from(json.loads(result.text or "{}"))
-        notes, voided = nullability_notes_for_change(sources, hypotheses, limit=limit)
-    except Exception:  # noqa: BLE001 - yellow is a courtesy; it never breaks a review
-        return []
-    if ledger is not None and task_id is not None:
-        for hypothesis, verdicts in voided:
-            with suppress(Exception):
-                ledger.append(
-                    {
-                        "kind": "nullability_void",
-                        "schema_version": "attest.nullability-void.v1",
-                        "task_id": task_id,
-                        "policy_version": NULLABILITY_POLICY_VERSION,
-                        "at": f"{hypothesis.path}:{hypothesis.access_line}",
-                        "parameter": hypothesis.parameter,
-                        "failed": [v.premise for v in verdicts if not v.holds],
-                        "detail": next((v.detail for v in verdicts if not v.holds), ""),
-                    }
-                )
-    return list(notes)
 
 
 def structural_notes(
@@ -2026,47 +1944,6 @@ def run_ci(
                 "untested_callers": len(scoped.untested),
             }
         )
-    # D-164: yellow (b)'s second class, the exception a caller never handled.
-    # Free and deterministic: no provider, no budget, and any failure is silence.
-    propagation = propagation_notes(repo=repo, base_sha=merge_base, head_sha=context.head_sha)
-    for escaping in propagation[:YELLOW_MAX_COMMENTS]:
-        ledger.append(
-            {
-                "kind": "propagation_note",
-                "schema_version": "attest.propagation-note.v1",
-                "task_id": task_id,
-                "policy_version": escaping.policy_version,
-                "note_id": propagation_member_id(escaping),
-                "callee": escaping.callee,
-                "exception": escaping.exception,
-                "evidence": escaping.evidence,
-                "caller": f"{escaping.caller_path}:{escaping.caller_line}",
-            }
-        )
-    # D-151: yellow (b), the null/Optional class. One model call, and the checker
-    # decides; the void rate goes to the ledger whether or not anything is said.
-    nullability = nullability_notes(
-        repo=repo,
-        base_sha=merge_base,
-        head_sha=context.head_sha,
-        provider=provider,
-        budget=review.budget,
-        ledger=ledger,
-        task_id=task_id,
-    )
-    for null_note in nullability[:YELLOW_MAX_COMMENTS]:
-        ledger.append(
-            {
-                "kind": "nullability_note",
-                "schema_version": "attest.nullability-note.v1",
-                "task_id": task_id,
-                "policy_version": NULLABILITY_POLICY_VERSION,
-                "note_id": nullability_member_id(null_note),
-                "parameter": null_note.hypothesis.parameter,
-                "access_kind": null_note.access_kind,
-                "source_returns": null_note.source_returns,
-            }
-        )
     published_ids = {_candidate_id(finding) for finding in inline_results}
     ledger.record_ci_final(
         task_id=task_id,
@@ -2096,7 +1973,17 @@ def run_ci(
         spend_usd=review.budget.spent_usd,
         elapsed_s=clock() - started,
     )
-    if (surfaced or green or yellow) and _workspace_head(repo) != context.head_sha:
+    # Owner instruction 4 of 2026-09-11: the value-class notes the executor
+    # wrote for this task, read back from the ledger under the visibility rule.
+    # Silent unless the base-owned policy opened the surface.
+    ledger_rows = ledger.entries()
+    value_notes = value_notes_for_task(ledger_rows, task_id, config)
+    # Owner instruction 5 of 2026-09-11: the gate line, and none when red
+    # published anything (design §5) -- a receipt is strictly stronger.
+    gate_notes = [] if surfaced else gate_notes_for_task(ledger_rows, task_id, config)
+    if (
+        surfaced or green or yellow or value_notes or gate_notes
+    ) and _workspace_head(repo) != context.head_sha:
         # revalidate the task immediately before the first author-visible write --
         # a green note is coordinates, and coordinates against a drifted head are
         # wrong in exactly the way this guard exists to prevent
@@ -2121,9 +2008,10 @@ def run_ci(
         )
     green_comments: list[dict[str, object]] = []
     yellow_comments: list[dict[str, object]] = []
-    null_comments: list[dict[str, object]] = []
+    value_note_comments: list[dict[str, object]] = []
+    gate_note_comments: list[dict[str, object]] = []
     review_comments: list[dict[str, object]] = []
-    if surfaced or green or yellow or nullability or propagation:
+    if surfaced or green or yellow or value_notes or gate_notes:
         # D-147: GitHub refuses a review comment on a line the diff does not
         # carry, and it refuses the whole review with it. Both unanchored
         # channels are handed the diff so an unanchorable note is dropped from
@@ -2133,25 +2021,10 @@ def run_ci(
         # The two yellow classes share one cap, (a) first, so a pull request
         # never shows more than two yellow comments however many levels spoke.
         yellow_comments = impact_comments(yellow, changed_lines)
-        null_comments = nullability_comments(nullability, changed_lines)[
+        value_note_comments = value_comments(value_notes, changed_lines)[
             : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments))
         ]
-        # Owner decision 2 of 2026-09-07: yellow (b)'s second class stays, and
-        # stays a **shadow**. It fired on 0 of 79 units with 0% control noise,
-        # which is a level that has not yet earned an author's attention, and it
-        # is free -- so it keeps being measured into the ledger and reaches no
-        # author-visible surface at all (the arrangement D-137 gave the gate).
-        # D-174: that 0-of-79 is a `unhandled-exception.v1` number and does not
-        # carry over -- v2's premise (i) reads call expressions as written, so a
-        # `read(x)` rewritten to `self.read(x)` is now an added call. Nothing an
-        # author sees depends on it while this flag is True.
-        propagation_inline = (
-            []
-            if PROPAGATION_SHADOW
-            else propagation_comments(propagation, changed_lines)[
-                : max(0, YELLOW_MAX_COMMENTS - len(yellow_comments) - len(null_comments))
-            ]
-        )
+        gate_note_comments = gate_comments(gate_notes, changed_lines)
         # D-160 on the path the product ships. That rule -- a pair this
         # repository has already been told about is not news -- reads the
         # ledger, and a CI run is a fresh checkout on a fresh runner whose
@@ -2182,13 +2055,14 @@ def run_ci(
 
         green_comments = unsaid(green_comments)
         yellow_comments = unsaid(yellow_comments)
-        null_comments = unsaid(null_comments)
+        value_note_comments = unsaid(value_note_comments)
+        gate_note_comments = unsaid(gate_note_comments)
         review_comments = [
             *inline_comments(inline_results, finding_evidence),
             *green_comments,
             *yellow_comments,
-            *null_comments,
-            *propagation_inline,
+            *value_note_comments,
+            *gate_note_comments,
         ]
     # Entering the branch above means a *note* exists; it does not mean a comment
     # survived. A green note whose anchor is not a line the diff carries is
@@ -2212,7 +2086,8 @@ def run_ci(
                 # yellow members carry the coordinate of the function they are
                 # about, for the same reason: no receipt, no candidate
                 *((_marker_id(comment), "impact") for comment in yellow_comments),
-                *((_marker_id(comment), "nullability") for comment in null_comments),
+                *((_marker_id(comment), "value") for comment in value_note_comments),
+                *((_marker_id(comment), "gate") for comment in gate_note_comments),
             ),
             body={
                 "commit_id": context.head_sha,
@@ -2302,7 +2177,7 @@ def run_ci(
     elapsed_s = clock() - started
     # D-177: one read of the ledger, not two -- the reason and the count come
     # from the same rows
-    # D-190: and a review the discovery share cut short is not a clean bill of
+    # D-190: and a review the budget cut short is not a clean bill of
     # health over the units it never read. PR #14 of this repository read 3 of
     # 16 units and said `budget-limited` inside the collapsed block, while the
     # line above it said `nothing met an adjudicator's bar`.
@@ -2322,8 +2197,8 @@ def run_ci(
                 else None
             ),
             impact=yellow,
-            nullability=nullability,
-            propagation=[] if PROPAGATION_SHADOW else propagation,
+            value_notes=value_notes,
+            gate_notes=gate_notes,
             # D-161: a silence bought out by the ceiling says how many
             # candidates it stopped
             unverified=budget_unverified(review.verification_reasons),

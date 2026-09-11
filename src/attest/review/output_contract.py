@@ -32,7 +32,7 @@ of 13 are different claims and a reader cannot tell them apart from a bare
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 CONTRACT_VERSION = "attest.output-contract.v1"
@@ -195,8 +195,16 @@ def has_evidence(text: str) -> bool:
     return len(COORDINATE.findall(text)) >= 2 or EVIDENCE_TOKEN.search(text) is not None
 
 
-def check(line: str) -> ContractVerdict:
-    """Adjudicate one assembled author-visible line. No model, no exceptions."""
+def check(line: str, *, measured: Sequence[str] = ()) -> ContractVerdict:
+    """Adjudicate one assembled author-visible line. No model, no exceptions.
+
+    ``measured`` (owner instruction 4 of 2026-09-11): literals the product
+    **measured** and quotes verbatim -- a value-class note's two observations.
+    The banned-phrase rule was written for model prose, and a fixture string
+    that happens to read `hello` inside a recorded `repr` is not a preamble:
+    those spans are masked before the phrase scan and before nothing else, so
+    the length, coordinate and evidence rules still see the whole line.
+    """
     if not line.strip():
         return ContractVerdict(False, "the line is empty", "empty")
     if "\n" in line.strip():
@@ -220,7 +228,11 @@ def check(line: str) -> ContractVerdict:
             "coordinate",
             "unevidenced",
         )
-    found = banned_phrase(line)
+    scanned = line
+    for literal in measured:
+        if literal and literal in scanned:
+            scanned = scanned.replace(literal, "\u2591" * len(literal))
+    found = banned_phrase(scanned)
     if found is not None:
         category, phrase = found
         return ContractVerdict(False, f"{category}: {phrase!r}", category)
@@ -529,6 +541,11 @@ SUMMARY_HEADINGS = frozenset(
         "Structural observations — measured, not reproduced; no defect is claimed:",
         "Impact scope — counted over the call graph; no defect is claimed and no "
         "coverage was measured:",
+        # owner instruction 4 of 2026-09-11: the value-class note's own section
+        "Observed behaviour changes — the same call run on both revisions; no defect "
+        "is claimed and nothing in the base tree pins either value:",
+        # owner instruction 5 of 2026-09-11: the gate level's own section (design §5)
+        "Gate — new code, nothing to compare against:",
     }
 )
 SPEND_FOOTER = re.compile(r"^Spend \$\d+\.\d{4}; \d+\.\d+s\.$")

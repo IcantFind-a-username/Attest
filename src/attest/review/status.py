@@ -92,6 +92,10 @@ class RunStatus:
     certified: int
     published: int
     units_planned: int = 0  # change units the plan held, read or not
+    # owner instruction 3 of 2026-09-11: the unread units by label. A unit label
+    # is `unit <id> (<files>)` -- the files of the author's own diff, never an
+    # uncertified candidate's coordinate (D-091).
+    units_unread: tuple[str, ...] = ()
     budget_limited: bool = False  # the per-unit budget stopped the proposal
     # D-187: which unit the ceiling stopped, how much short it was, and
     # the `budget-usd` that would have read it. Empty on every run that
@@ -120,6 +124,10 @@ class RunStatus:
             clause = bounded_budget_shortfall(self.budget_shortfall)
             if clause:
                 read += f" ({clause})"
+        if self.units_unread:
+            shown = list(self.units_unread[:UNREAD_UNITS_SHOWN])
+            more = len(self.units_unread) - len(shown)
+            read += "; unread: " + ", ".join(shown) + (f" and {more} more" if more else "")
         out = [
             f"{read}; candidates: {self.candidates}; "
             f"eligible: {self.eligible}; reproductions attempted: {self.attempts}; "
@@ -184,6 +192,8 @@ EXECUTOR_REASON_LIMIT = 200
 # than sliced: PR #17's own status rendered ``$1.15 would `` and stopped inside
 # the word that carries the advice.
 BUDGET_SHORTFALL_LIMIT = 160
+# how many unread units the status line names before it counts the rest
+UNREAD_UNITS_SHOWN = 5
 # the one sentence of the clause a reader can act on; `support` extracts the
 # same sentence for the line above this block, from this pattern
 BUDGET_USD_SENTENCE = re.compile(r"`budget-usd` \$\d+\.\d{2} would have read it")
@@ -229,6 +239,7 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
     planned = 0
     budget_limited = False
     shortfall = ""
+    unread: tuple[str, ...] = ()
     for row in mine:
         if row.get("kind") == "review_plan":
             plan_units = row.get("units")
@@ -242,6 +253,12 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
             budget_limited = bool(row.get("budget_limited"))
             raw_shortfall = row.get("budget_shortfall")
             shortfall = raw_shortfall if isinstance(raw_shortfall, str) else ""
+            raw_unread = row.get("units_unread")
+            unread = (
+                tuple(str(label) for label in raw_unread)
+                if isinstance(raw_unread, list)
+                else ()
+            )
     candidates = {
         str(row.get("finding_id"))
         for row in mine
@@ -332,6 +349,7 @@ def status_from_rows(rows: Iterable[Mapping[str, object]], task_id: str) -> RunS
         units_planned=planned,
         budget_limited=budget_limited,
         budget_shortfall=shortfall,
+        units_unread=unread,
         candidates=len(candidates),
         eligible=len(eligible),
         attempts=attempts,

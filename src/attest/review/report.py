@@ -126,18 +126,13 @@ def render(
     evidence: Mapping[str, FindingEvidence] | None = None,
     *,
     impact: Sequence[object] = (),
-    nullability: Sequence[object] = (),
     structural: Sequence[object] = (),
     gate: Sequence[str] = (),
     explain: bool = False,
     reasons: Mapping[str, str] | None = None,
     spend: Mapping[str, float] | None = None,
 ) -> str:
-    from attest.github.presentation import (
-        impact_line,
-        nullability_line,
-        structural_line,
-    )
+    from attest.github.presentation import impact_line, structural_line
 
     out: list[str] = []
     certified_ids = {finding.accepted_receipt.receipt.candidate_id for finding in certified}
@@ -165,9 +160,6 @@ def render(
         spoke = True
     for note in impact:
         out.append(impact_line(note))  # type: ignore[arg-type]
-        spoke = True
-    for note in nullability:
-        out.append(nullability_line(note))  # type: ignore[arg-type]
         spoke = True
     for note in structural:
         # no bullet: the terminal is a list of lines, not a markdown list, and a

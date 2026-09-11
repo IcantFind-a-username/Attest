@@ -50,7 +50,9 @@ from attest.review.intent import RaiseOrigin, statement_kinds
 from attest.review.workdir import gate_root
 
 GATE_POLICY_VERSION = "attest.gate.v0-shadow"
-GATE_SHADOW_SCHEMA_VERSION = "attest.gate-shadow.v1"
+# v2 (2026-09-11): `entry` and `caller` join the row, which is what the yellow
+# gate line is rendered from; v1 rows lack both and render no line.
+GATE_SHADOW_SCHEMA_VERSION = "attest.gate-shadow.v2"
 
 # §3: N runs, all naming the same (line, exception type). Red compares two
 # revisions; gate has only repetition to lean on, so the agreement is exact.
@@ -127,6 +129,9 @@ class GateObservation:
     would_publish: bool
     reason: str
     source: str = "live"  # live | replay
+    # the call the reproduction entered with, as written in the test -- what
+    # the yellow line means by "on <input>" (owner instruction 5 of 2026-09-11)
+    entry: str = ""
 
     def to_ledger_row(self, task_id: str, finding_id: str) -> dict[str, object]:
         return {
@@ -144,6 +149,11 @@ class GateObservation:
                 if self.reachability.call_site is None
                 else f"{self.reachability.call_site.path}:{self.reachability.call_site.line}"
             ),
+            "caller": (
+                "" if self.reachability.call_site is None else self.reachability.call_site.caller
+            ),
+            "entry": self.entry,
+            "repeats": self.repeats,
             "exception_type": "" if self.origin is None else self.origin.exception_type,
             "origin_line": None if self.origin is None else self.origin.line,
             "runs_agreeing": len(set(self.runs)) == 1 and bool(self.runs),
@@ -289,6 +299,34 @@ def calls_in(source: str, symbol: str) -> list[WrittenCall]:
             WrittenCall(line=node.lineno, caller=name, scope=qualname or None, dotted=written)
         )
     return found
+
+
+def entry_call(source: str, caller: str) -> str:
+    """The reproduction's call of ``caller``, as written -- `main([''])`.
+
+    The gate's yellow line says what input the new code crashed on, and the
+    only honest answer is the call the test made at the witnessed call site's
+    caller: the trace proves the new code ran underneath it. Bounded, and empty
+    when the test does not call the caller by that name."""
+    if not caller:
+        return ""
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return ""
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        written = dotted_name(node.func)
+        if written is None or written.rsplit(".", 1)[-1] != caller:
+            continue
+        segment = ast.get_source_segment(source, node) or ""
+        segment = " ".join(segment.split())
+        return segment if len(segment) <= ENTRY_CALL_CHARS else ""
+    return ""
+
+
+ENTRY_CALL_CHARS = 80
 
 
 def enclosing_qualname(source: str, line: int) -> str:
@@ -520,9 +558,11 @@ def adjudicate(
     repeats: int,
     control: ControlRun | None,
     source: str = "live",
+    entry: str = "",
 ) -> GateObservation:
     """The whole publication rule, in one place and with no model in it. A
-    `would_publish` observation still publishes nothing: this level is shadow."""
+    `would_publish` observation is a ledger row; it becomes one yellow line
+    only where the base-owned policy sets `gate_notes_visible` (2026-09-11)."""
 
     def observed(would_publish: bool, reason: str) -> GateObservation:
         return GateObservation(
@@ -537,6 +577,7 @@ def adjudicate(
             would_publish=would_publish,
             reason=reason,
             source=source,
+            entry=entry,
         )
 
     if origin is None:
@@ -938,6 +979,7 @@ def _attempt(
             head_source=head_source,
             test_source=spec.test_body,
         )
+        entry = entry_call(spec.test_body, reach.call_site.caller if reach.call_site else "")
         provisional = adjudicate(
             path=path,
             reachability=reach,
@@ -946,6 +988,7 @@ def _attempt(
             runs=tuple(runs),
             repeats=GATE_REPEATS,
             control=ControlRun("", True, "pending"),
+            entry=entry,
         )
         if not provisional.would_publish:
             return replace(provisional, control=None)
@@ -960,6 +1003,7 @@ def _attempt(
                 runs=tuple(runs),
                 repeats=GATE_REPEATS,
                 control=ControlRun("", False, "no pre-existing test names the caller"),
+                entry=entry,
             )
         control = execution.control(target)
     return adjudicate(
@@ -970,4 +1014,5 @@ def _attempt(
         runs=tuple(runs),
         repeats=GATE_REPEATS,
         control=control,
+        entry=entry,
     )
