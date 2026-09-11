@@ -381,6 +381,9 @@ def run_review(
                 # travels in the row the status is computed from, so the
                 # pull-request status can say it too.
                 "budget_shortfall": proposal.budget_shortfall,
+                # owner instruction 3 of 2026-09-11: which units went unread,
+                # so the status line names them instead of counting them
+                "units_unread": list(proposal.units_unread),
             }
         )
         if proposal.omitted_units:

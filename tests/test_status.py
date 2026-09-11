@@ -356,3 +356,30 @@ def test_the_two_halves_of_a_silence_have_their_own_categories() -> None:
         categorise_failure("binding: the reproduction exercises none of the changed lines of a.py")
         == "changed lines not executed"
     )
+
+
+def test_the_status_line_names_the_units_the_budget_never_read() -> None:
+    """Owner instruction 3 of the 2026-09-11 drawer window: `read 179 of 298
+    units` tells the author how much was skipped and nothing about *what*. The
+    coverage row now carries the unread units' labels and the status line
+    prints them, bounded, so a reader can tell which files of their change
+    the review never looked at."""
+    rows = _rows() + [
+        {
+            "kind": "proposal_coverage",
+            "task_id": "t1",
+            "units_planned": 9,
+            "units_read": 2,
+            "budget_limited": True,
+            "units_unread": [f"unit u{n} (pkg/u{n}.py)" for n in range(3, 10)],
+        }
+    ]
+    status = status_from_rows(rows, "t1")
+    assert status.units_unread == tuple(f"unit u{n} (pkg/u{n}.py)" for n in range(3, 10))
+    rendered = status.render()
+    assert "read 2 of 9 units, budget-limited" in rendered
+    assert "unread: unit u3 (pkg/u3.py), unit u4 (pkg/u4.py)" in rendered
+    assert "and 2 more" in rendered
+    assert "unit u9" not in rendered
+    # a run that read everything names nothing
+    assert "unread" not in status_from_rows(_rows(), "t1").render()

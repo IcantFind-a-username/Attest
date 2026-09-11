@@ -433,31 +433,30 @@ def test_shared_system_block_leads_every_role_request_identically() -> None:
     assert [call["system"][1]["text"] for call in captured] == ["proposer role", "generator role"]
 
 
-def test_the_discovery_share_bounds_breadth_including_the_first_unit() -> None:
-    """D-111: what starved verification on `d7be758` was *breadth* -- twelve
-    candidates from four change units -- so the proposal stage is bought inside
-    a share of the budget.
+def test_every_unit_of_a_change_is_read_and_an_unread_one_is_named() -> None:
+    """Owner instruction 3 of the 2026-09-11 drawer window.
 
-    D-168 lowered that share to 30% and removed D-111's exemption for the first
-    unit. The exemption existed because a review that cannot afford to read one
-    change unit has nothing to say; the 2026-09-07 budget re-run showed its cost,
-    which is that discovery may take the whole budget and leave verification
-    nothing, silently. The first unit is now bought inside the share like every
-    other, and a first unit that does not fit raises `BudgetExceeded` for the
-    caller to turn into a stated budget DEFER.
+    D-111 and D-168 bought discovery inside a 30% share of the budget so that
+    breadth could not starve verification. On the E-04 stratum that share
+    silenced 11 of 29 real pull requests after 179 of their 298 change units --
+    the review read what fitted the share and said `budget-limited`. The share
+    no longer omits a unit: every unit of a change is read until the **whole**
+    budget is gone, and a unit the budget could not fund is named in the
+    coverage row, so the status line says which parts of the change were never
+    read rather than a count.
 
-    Two units, a $1.00 budget and K=5: the first fits inside $0.30 and the
-    second does not, so the review reads one unit and says so."""
+    Seven units, a $1.00 budget and K=5 at $0.16 a unit: the first six are read
+    ($0.96, well past the old $0.30 share) and the seventh is named unread."""
     from types import SimpleNamespace
 
-    from attest.review.budget import PROPOSAL_SHARE, Budget, BudgetExceeded
+    from attest.review.budget import Budget, BudgetExceeded
     from attest.review.config import ReviewConfig
     from attest.review.diffs import DiffInfo
     from attest.review.proposer import ProviderResult, propose_plan
 
     class Abstaining:
-        """Abstains, and bills for it: the share bounds *spend*, so a sample
-        that costs nothing can never demonstrate the bound."""
+        """Abstains, and bills for it: the bound is on *spend*, so a sample
+        that costs nothing can never demonstrate it."""
 
         def __init__(self, output_tokens: int = 3200) -> None:
             self.calls = 0
@@ -487,30 +486,29 @@ def test_the_discovery_share_bounds_breadth_including_the_first_unit() -> None:
 
     config = ReviewConfig(budget_usd=1.00, k_samples=5, tier0_commands=[])
     assert (config.budget_usd, config.k_samples) == (1.00, 5)
-    assert PROPOSAL_SHARE == 0.3
     budget = Budget(limit_usd=config.budget_usd, model=config.model)
     provider = Abstaining()
+    units = [unit(f"u{n}") for n in range(1, 8)]
 
     run = propose_plan(
-        SimpleNamespace(units=[unit("first"), unit("second")]),  # type: ignore[arg-type]
+        SimpleNamespace(units=units),  # type: ignore[arg-type]
         config,
         budget,
         provider,
     )
 
-    # the first unit fits inside the share and spends $0.16 of it; the second
-    # unit's reservation would take the stage past $0.30, so it is omitted --
-    # visibly, and with the share named in the reason
-    assert run.units_read == 1
-    assert provider.calls == config.k_samples
-    assert len(run.omitted_units) == 1
-    assert "second" in run.omitted_units[0]
-    assert f"${config.budget_usd * PROPOSAL_SHARE:.4f}" in run.omitted_units[0]
-    assert budget.spent_usd <= config.budget_usd * PROPOSAL_SHARE
+    # six units read -- twice what a 30% share funds -- and the seventh named
+    assert run.units_read == 6
+    assert run.units_planned == 7
+    assert provider.calls == 6 * config.k_samples
+    assert run.units_unread == ["unit u7 (u7.py)"]
+    assert len(run.omitted_units) == 1 and "u7" in run.omitted_units[0]
+    assert "share" not in run.omitted_units[0]
+    assert budget.spent_usd <= config.budget_usd
 
-    # and a first unit that does not fit the share is a BudgetExceeded the
-    # caller turns into a stated budget DEFER, not a silent partial read
-    tight = ReviewConfig(budget_usd=0.25, k_samples=5, tier0_commands=[])
+    # and a first unit that does not fit the whole budget is a BudgetExceeded
+    # the caller turns into a stated budget DEFER, not a silent partial read
+    tight = ReviewConfig(budget_usd=0.10, k_samples=5, tier0_commands=[])
     with pytest.raises(BudgetExceeded) as refused:
         propose_plan(
             SimpleNamespace(units=[unit("only")]),  # type: ignore[arg-type]
@@ -518,7 +516,8 @@ def test_the_discovery_share_bounds_breadth_including_the_first_unit() -> None:
             Budget(limit_usd=tight.budget_usd, model=tight.model),
             Abstaining(),
         )
-    assert "discovery share" in refused.value.reason
+    assert "exceeds budget" in refused.value.reason
+
 
 def test_a_provider_error_never_carries_a_credential_into_author_visible_text(
     monkeypatch: pytest.MonkeyPatch,

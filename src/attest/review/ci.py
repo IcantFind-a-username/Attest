@@ -2302,7 +2302,7 @@ def run_ci(
     elapsed_s = clock() - started
     # D-177: one read of the ledger, not two -- the reason and the count come
     # from the same rows
-    # D-190: and a review the discovery share cut short is not a clean bill of
+    # D-190: and a review the budget cut short is not a clean bill of
     # health over the units it never read. PR #14 of this repository read 3 of
     # 16 units and said `budget-limited` inside the collapsed block, while the
     # line above it said `nothing met an adjudicator's bar`.

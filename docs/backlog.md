@@ -58,7 +58,8 @@ rather than deleted — a backlog whose closed items vanish cannot be audited.
   it would publish nothing. `k_samples = 4` or `budget_usd >= 1.06` removes it; either is a
   policy change, so it is the owner's. A third shape, not costed: reserve at a measured
   percentile of real proposal output rather than at the token bound, which weakens the hard-budget
-  guarantee and is therefore not proposed lightly.
+  guarantee and is therefore not proposed lightly. **Closed 2026-09-11 (drawer window, step 3):**
+  the discovery share no longer binds units; a first unit is refused only by the whole `budget-usd`.
 
 - **[P2] 2026-09-08 (D-170): yellow (a)'s a4 meets the 3% control ceiling by one event.** 2 of 68
   is 2.9%; 3 of 68 would be 4.4% and would fail. The 95% Clopper-Pearson upper bound on the true

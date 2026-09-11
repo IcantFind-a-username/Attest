@@ -41,12 +41,16 @@ def test_budget_defers_before_calling() -> None:
 
 
 def test_a_truncation_names_the_gap_and_the_budget_that_would_have_covered_it() -> None:
-    from attest.review.budget import PROPOSAL_SHARE
+    """A staged ceiling is a share of the budget, so the two numbers differ.
+    The product no longer buys discovery inside a share (owner instruction 3
+    of 2026-09-11); the arithmetic is still `Budget.stage`'s and is pinned here
+    at the 30% the share used to be."""
     from attest.review.proposer import budget_shortfall_note
 
+    share = 0.3
     b = Budget(limit_usd=1.00, model=DEFAULT_MODEL)
     b.spent_usd = 0.28
-    with b.stage("discovery", PROPOSAL_SHARE), pytest.raises(BudgetExceeded) as caught:
+    with b.stage("discovery", share), pytest.raises(BudgetExceeded) as caught:
         b.reserve("proposal sample 4", 60000, 2000)
 
     note = budget_shortfall_note(caught.value)
@@ -58,17 +62,14 @@ def test_a_truncation_names_the_gap_and_the_budget_that_would_have_covered_it() 
     # $0.339 share, still short of $0.34, so the sentence says $1.14
     assert "`budget-usd` $1.14 would have bought it" in note
     assert caught.value.shortfall_usd == pytest.approx(0.04)
-    assert caught.value.budget_usd_needed == pytest.approx(0.34 / PROPOSAL_SHARE)
+    assert caught.value.budget_usd_needed == pytest.approx(0.34 / share)
 
 
 def test_a_run_that_fits_says_nothing_about_the_budget() -> None:
     """No standing declaration: the clause exists only on the raise, so a review
     the ceiling never touched carries no budget sentence at all."""
-    from attest.review.budget import PROPOSAL_SHARE
-
     b = Budget(limit_usd=1.00, model=DEFAULT_MODEL)
-    with b.stage("discovery", PROPOSAL_SHARE):
-        b.reserve("proposal sample 0", 3000, 2000)
+    b.reserve("proposal sample 0", 3000, 2000)
 
     assert b.calls == []  # a reservation is not a call, and nothing was said
     assert b.reserved_usd > 0.0
@@ -983,22 +984,17 @@ def test_auto_tighten_never_relaxes_alpha_below_the_floor(tmp_path: Path) -> Non
     assert led.maybe_tighten_alpha(0.005, enabled=True) == (0.005, None)
 
 
-def test_discovery_cannot_spend_more_than_its_share_of_the_review_budget() -> None:
-    """D-111: on `d7be758` the proposal stage produced 12 candidates from a
-    210-line change and left nine of eleven reproductions unable to afford a
-    single generation attempt — the budget went to breadth, not to difficulty.
-    Discovery is capped at PROPOSAL_SHARE of the limit, and what it does not
-    spend stays available to verification.
-
-    D-168 lowered the share from 0.6 to 0.3 on the 2026-09-07 measurement that
-    four times the budget bought 3.2× the candidates and moved no verdict. The
-    property is unchanged; the number is the owner's."""
-    from attest.review.budget import PROPOSAL_SHARE
-
+def test_a_stage_cannot_spend_more_than_its_share_of_the_review_budget() -> None:
+    """`Budget.stage` bounds a stage's reservations to a share of the limit and
+    leaves the rest reservable outside it. D-111 and D-168 bought discovery
+    inside a 30% stage; owner instruction 3 of 2026-09-11 stopped doing so,
+    because the share silenced 11 of 29 real pull requests part-way through
+    their change units. The mechanism stays, pinned at the number it used to
+    be given, for the caller that next needs a stage."""
+    share = 0.3
     b = Budget(limit_usd=1.00, model=DEFAULT_MODEL)
-    assert PROPOSAL_SHARE == 0.3
     # 9 samples of 3,200 output tokens each: $0.032 apiece at $10/Mtok
-    with b.stage("proposal", PROPOSAL_SHARE):
+    with b.stage("proposal", share):
         for i in range(9):
             b.reserve(f"sample-{i}", 0, 3200)
         with pytest.raises(BudgetExceeded) as exc:
