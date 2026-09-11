@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from attest.execution.container_adapter import (
+    MPL_SEED_DIR,
     ContainerImage,
     docker_executable,
     image_digest,
@@ -314,7 +315,15 @@ def dockerfile(
     # the cache at build time, with the network still on, means the constructor
     # never runs under the guard. A tree without matplotlib is unaffected: that
     # is what the `|| true` is for, and it costs one failed import.
+    # The warm goes to a named directory, set *before* the import, and made
+    # world-readable *after* it: as root into $HOME it landed in /root, where
+    # the job -- uid 65534, HOME on the scratch tmpfs -- never looked, so the
+    # cache missed at run time and `seaborn-3187` still died on the timer
+    # thread. The launcher seeds this directory into the run's writable
+    # MPLCONFIGDIR (`container_adapter.NPROC_LAUNCHER`).
+    lines.append(f"ENV MPLCONFIGDIR={MPL_SEED_DIR}")
     lines.append('RUN python -c "import matplotlib.font_manager" || true')
+    lines.append(f"RUN chmod -R a+rX {MPL_SEED_DIR} || true")
     lines.append("RUN rm -rf /attest/build")
     return "\n".join(lines) + "\n"
 

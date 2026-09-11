@@ -3,6 +3,7 @@ host adapter to a production task."""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -393,3 +394,140 @@ def test_an_ordinary_version_string_is_still_used(tmp_path: Path) -> None:
     )
 
     assert scm_pretend_version(tmp_path, discover_roots(tmp_path)) == "7.4.0.dev3+g1a2b3c4"
+
+
+# --- the three one-line fixes of 2026-09-11 -----------------------------------
+
+
+def _launcher_argv(*job: str) -> list[str]:
+    """The adapter's launcher, with this host's interpreter in the image's place."""
+    import sys
+
+    from attest.execution.container_adapter import NPROC_LAUNCHER_ARGV
+
+    return [sys.executable if entry == "python3" else entry for entry in NPROC_LAUNCHER_ARGV] + [
+        sys.executable if job[0] == "python3" else job[0],
+        *job[1:],
+    ]
+
+
+@pytest.mark.skipif(os.name != "posix", reason="RLIMIT_NPROC is posix")
+def test_the_launcher_imports_no_sitecustomize_but_the_job_still_does(tmp_path: Path) -> None:
+    """The launcher sets RLIMIT_NPROC and execs the job. Until 2026-09-11 it was
+    `python3 -c`, which imports `sitecustomize` from PYTHONPATH *before* the
+    limit is set -- so the guard's own containment check raised inside the
+    launcher, Python printed `kernel process containment is inactive` to every
+    run's stderr, and the sentence was in every root-cause read of every run
+    although nothing was ever inactive. The job, exec'd after the limit, imports
+    the guard under RLIMIT_NPROC = (0, 0) and writes `process-contained`."""
+    import subprocess
+
+    (tmp_path / "sitecustomize.py").write_text(
+        "import os, pathlib, resource\n"
+        "if resource.getrlimit(resource.RLIMIT_NPROC) != (0, 0):\n"
+        "    raise RuntimeError('kernel process containment is inactive')\n"
+        "pathlib.Path(os.environ['ATTEST_TEST_MARK']).write_text('active')\n",
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        _launcher_argv("python3", "-c", "pass"),
+        env={
+            "PATH": os.environ.get("PATH", ""),
+            "PYTHONPATH": str(tmp_path),
+            "ATTEST_TEST_MARK": str(tmp_path / "process-contained"),
+        },
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "containment is inactive" not in completed.stderr
+    assert (tmp_path / "process-contained").read_text(encoding="utf-8") == "active"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="RLIMIT_NPROC is posix")
+def test_the_launcher_seeds_the_font_cache_into_the_writable_cache_directory(
+    tmp_path: Path,
+) -> None:
+    """matplotlib refuses a cache directory it cannot write (`os.access(W_OK)`
+    in `_get_config_or_cache_dir`) and rebuilds the font list in a temp dir
+    instead -- on a thread the guard rejects. The image's warmed cache sits on
+    a read-only root, so the launcher copies it into the run's writable
+    MPLCONFIGDIR before the job starts. No seed directory, no copy."""
+    import subprocess
+
+    seed = tmp_path / "seed"
+    seed.mkdir()
+    (seed / "fontlist-v330.json").write_text("{}", encoding="utf-8")
+    target = tmp_path / "scratch" / "mpl"
+    env = {
+        "PATH": os.environ.get("PATH", ""),
+        "ATTEST_MPL_SEED": str(seed),
+        "MPLCONFIGDIR": str(target),
+    }
+    completed = subprocess.run(
+        _launcher_argv("python3", "-c", "pass"),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert (target / "fontlist-v330.json").read_text(encoding="utf-8") == "{}"
+
+    env["ATTEST_MPL_SEED"] = str(tmp_path / "absent")
+    env["MPLCONFIGDIR"] = str(tmp_path / "scratch2" / "mpl")
+    completed = subprocess.run(
+        _launcher_argv("python3", "-c", "pass"), env=env, capture_output=True, text=True, timeout=60
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert not (tmp_path / "scratch2").exists()
+
+
+def test_the_image_warms_the_font_cache_into_a_named_directory_the_job_can_read(
+    tmp_path: Path,
+) -> None:
+    """D-214 warmed the cache as root into /root; the job runs as uid 65534
+    with HOME on the scratch tmpfs, so it never found it. The warm now goes
+    to MPLCONFIGDIR=/attest/mpl, set *before* the import, and the directory is
+    made world-readable *after* it."""
+    from attest.execution.container_adapter import MPL_SEED_DIR
+    from attest.execution.container_images import discover_roots, dockerfile
+
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\nversion='1'\n", encoding="utf-8")
+    text = dockerfile("3.11", discover_roots(tmp_path), None)
+    lines = text.splitlines()
+    env_at = lines.index(f"ENV MPLCONFIGDIR={MPL_SEED_DIR}")
+    warm_at = next(i for i, line in enumerate(lines) if "import matplotlib.font_manager" in line)
+    chmod_at = next(i for i, line in enumerate(lines) if f"chmod -R a+rX {MPL_SEED_DIR}" in line)
+    assert env_at < warm_at < chmod_at
+
+
+def test_the_container_job_is_told_where_its_font_cache_is(tmp_path: Path) -> None:
+    from attest.execution.container_adapter import (
+        MPL_SEED_DIR,
+        SCRATCH_MOUNT,
+        ContainerAdapter,
+        ContainerImage,
+    )
+    from attest.execution.controller import Controller
+    from attest.execution.types import ResourceLimits
+
+    adapter = ContainerAdapter(ContainerImage("img", ""), docker="/nonexistent/docker")
+    request = Controller(tmp_path / "runs").issue(
+        task_id="t",
+        run_id="head-1",
+        candidate_id="c",
+        revision_sha="",
+        profile=adapter.profile,
+        interpreter="python",
+        argv_template=["python", "-c", "pass"],
+        environment={},
+        inputs={},
+        limits=ResourceLimits(30.0, 10, 512, 4096),
+        expected_artifacts=["stdout.txt"],
+    )
+    argv = adapter.command(request, tree=tmp_path, inputs=tmp_path, outputs=tmp_path)
+    assert f"MPLCONFIGDIR={SCRATCH_MOUNT}/mpl" in argv
+    assert f"ATTEST_MPL_SEED={MPL_SEED_DIR}" in argv
+    assert argv[argv.index("-c") - 1 :][:2] == ["-I", "-c"]

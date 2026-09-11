@@ -46,11 +46,31 @@ DEFAULT_PIDS_LIMIT = 16
 DEFAULT_TMPFS_MB = 256
 KILL_GRACE_S = 2.0
 IMAGE_PROBE_TIMEOUT_S = 60
+# Where the image warms matplotlib's font cache at build time (D-214), and
+# where the job is told to look for it at run time. They are not the same
+# directory: matplotlib refuses a cache directory it cannot write
+# (`os.access(W_OK)` in `_get_config_or_cache_dir`) and rebuilds the font list
+# in a temp dir instead -- on a `threading.Timer` the guard rejects -- and the
+# image's root is read-only, so the launcher seeds the warmed cache into the
+# run's writable scratch before the job starts.
+MPL_SEED_DIR = "/attest/mpl"
+MPL_CACHE_DIR = f"{SCRATCH_MOUNT}/mpl"
 NPROC_LAUNCHER = (
-    "import os, resource, sys; "
+    "import os, resource, shutil, sys; "
+    "seed = os.environ.get('ATTEST_MPL_SEED', ''); "
+    "target = os.environ.get('MPLCONFIGDIR', ''); "
+    "seed and target and os.path.isdir(seed) "
+    "and shutil.copytree(seed, target, dirs_exist_ok=True); "
     "resource.setrlimit(resource.RLIMIT_NPROC, (0, 0)); "
     "os.execvp(sys.argv[1], sys.argv[1:])"
 )
+# `-I`: the launcher runs before RLIMIT_NPROC is set, and a plain `python3 -c`
+# imports `sitecustomize` from PYTHONPATH first -- the guard, whose own
+# containment check then raised inside the launcher and put `kernel process
+# containment is inactive` on every run's stderr while nothing was inactive.
+# Isolated mode ignores PYTHONPATH in the launcher only; the job it execs
+# inherits the environment and imports the guard under the limit.
+NPROC_LAUNCHER_ARGV = ("python3", "-I", "-c", NPROC_LAUNCHER)
 
 
 @dataclass(frozen=True)
@@ -234,6 +254,8 @@ class ContainerAdapter:
             f"PATH={CONTAINER_PATH}",
             f"HOME={SCRATCH_MOUNT}",
             f"TMPDIR={SCRATCH_MOUNT}",
+            f"MPLCONFIGDIR={MPL_CACHE_DIR}",
+            f"ATTEST_MPL_SEED={MPL_SEED_DIR}",
         ]
         for name, value in request.environment:
             argv.append(f"{name}={substitute(value, mounts)}")
@@ -244,7 +266,7 @@ class ContainerAdapter:
         # runtime's own setuid/exec (setting it through the runtime races the
         # per-uid process count of the whole VM and fails exec with EAGAIN);
         # fork then fails in the job, and the pid cgroup limit is the backstop
-        argv.extend(["python3", "-c", NPROC_LAUNCHER])
+        argv.extend(NPROC_LAUNCHER_ARGV)
         argv.extend(job)
         return argv
 
