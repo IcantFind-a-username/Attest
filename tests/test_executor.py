@@ -2603,10 +2603,10 @@ def test_differential_certification_requires_the_head_code_to_misbehave(
 
 
 @pytest.mark.parametrize(
-    ("base_module", "head_module", "test_body"),
+    ("base_module", "head_module", "test_body", "certifies"),
     [
-        (DEFAULTED_LOOKUP_MODULE, UNDEFAULTED_LOOKUP_MODULE, DEEP_KEY_ERROR_BODY),
-        (MERGED_SETTINGS_MODULE, DROPPED_SETTINGS_MODULE, TEST_FRAME_KEY_ERROR_BODY),
+        (DEFAULTED_LOOKUP_MODULE, UNDEFAULTED_LOOKUP_MODULE, DEEP_KEY_ERROR_BODY, False),
+        (MERGED_SETTINGS_MODULE, DROPPED_SETTINGS_MODULE, TEST_FRAME_KEY_ERROR_BODY, True),
     ],
     ids=["raised_inside_the_code_under_test", "raised_at_the_reproduction_assertion"],
 )
@@ -2616,12 +2616,20 @@ def test_verify_candidate_key_error_regression_certifies(
     base_module: str,
     head_module: str,
     test_body: str,
+    certifies: bool,
 ) -> None:
     """The reproduced defect. A genuine regression whose reproduction fails with
     KeyError: the symbol is present on BOTH trees, base honours the default and
     head genuinely misbehaves. Reading the exception NAME called this a missing
     symbol, and since certification now requires the head code to misbehave,
-    that silently blocked a true finding from buying any evidence at all."""
+    that silently blocked a true finding from buying any evidence at all.
+
+    D-232 splits the two shapes. The KeyError raised *at the reproduction's own
+    assertion* is a regression and certifies as before. The KeyError raised
+    *inside the code under test* is raised by `config["threshold"]` on the line
+    the change wrote -- head rejects an input the merge base accepted -- and
+    that is a behaviour change whose intent the product cannot read: the
+    drawer, buying nothing. That is the recall cost the decision states."""
 
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path, {"mod.py": base_module}, {"mod.py": head_module}
@@ -2650,6 +2658,20 @@ def test_verify_candidate_key_error_regression_certifies(
     assert "KeyError" in verification.execution.head_runs[0].stdout
     assert [run.outcome.value for run in verification.execution.base_runs] == ["not_reproduced"] * 3
 
+    if not certifies:
+        assert verification.execution.evidence_class is EvidenceClass.BEHAVIOR_CHANGE
+        assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+        assert "behavior change confirmed, intent unknown" in verification.execution.reason
+        reason = verification.execution.reason
+        assert "KeyError from a call or expression on a changed line" in reason
+        # nothing is bought: the caller's own gate result comes straight back
+        assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
+        assert verification.gate_result.wealth == 8.0
+        row = Ledger(repo).entries()[-1]
+        assert row["outcome"] == "deferred"
+        assert row["evidence_class"] == "behavior_change"
+        assert_worktrees_cleaned(repo, stored)
+        return
     assert verification.execution.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
     assert verification.execution.outcome is ExecutionOutcome.REPRODUCED
     assert verification.execution.reason == "head FAIL 3/3, base PASS 3/3"
@@ -3362,12 +3384,13 @@ def test_a_lone_surrogate_in_the_message_does_not_break_the_head_run(tmp_path: P
     assert not any("\ud800" <= char <= "\udfff" for char in origins[0].message)
 
 
-def test_a_regression_and_a_crash_on_a_changed_line_keep_the_regression_class(
+def test_a_regression_keeps_its_class_and_a_crash_on_a_changed_line_is_drawered(
     tmp_path: Path,
 ) -> None:
-    """The discriminator separates a rejection from a defect: an assertion in
-    the test and a crash raised by an expression on a changed line are both
-    regressions, and their intent observation says so."""
+    """D-232 RED: an assertion in the test is a regression as before; a crash
+    raised by an expression on a changed line is a behaviour change whose
+    intent is unknown -- the `zip(strict=True)` shape -- and goes to the
+    drawer with the label, certifying nothing."""
     repo, base_sha, head_sha = differential_repo(tmp_path)
     stored = candidate(file="mod.py", line=2)
     regression = execute_differential(
@@ -3395,11 +3418,111 @@ def test_a_regression_and_a_crash_on_a_changed_line_keep_the_regression_class(
         base_sha=crash_base,
         head_sha=crash_head,
     )
-    assert crash.outcome is ExecutionOutcome.REPRODUCED, crash.reason
-    assert crash.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
-    assert crash.intent is not None and not crash.intent.new_rejection
+    assert [run.outcome.value for run in crash.head_runs] == ["reproduced"] * 3
+    assert crash.outcome is ExecutionOutcome.DEFERRED, crash.reason
+    assert crash.evidence_class is EvidenceClass.BEHAVIOR_CHANGE
+    assert "behavior change confirmed, intent unknown" in crash.reason
+    assert "from a call or expression on a changed line" in crash.reason
+    assert crash.intent is not None and crash.intent.new_rejection
     assert (crash.intent.origin_line, crash.intent.origin_statement) == (2, "other")
     assert crash.intent.exception_type == "IndexError"
+    assert crash.intent.path_lines == ()
+
+
+# D-232, the second `attrs#1603` receipt: the strict zip is built on the changed
+# line and consumed by an unchanged helper, so the ValueError is raised in the
+# helper and passes back through the changed line.
+LAZY_BASE_MODULE = (
+    "SLOTS = ('x', 'y')\n"
+    "\n\n"
+    "def load(state):\n"
+    "    return _apply(zip(SLOTS, state))\n"
+    "\n\n"
+    "def _apply(pairs):\n"
+    "    out = {}\n"
+    "    for name, value in pairs:\n"
+    "        out[name] = value\n"
+    "    return out\n"
+)
+LAZY_HEAD_MODULE = LAZY_BASE_MODULE.replace("zip(SLOTS, state)", "zip(SLOTS, state, strict=True)")
+LAZY_BODY = "import mod\n\ndef test_repro():\n    assert mod.load(('a',)) == {'x': 'a'}\n"
+
+
+def test_a_strict_zip_consumed_by_an_unchanged_helper_is_a_behavior_change(
+    tmp_path: Path,
+) -> None:
+    """D-232 RED: the exception is raised on an unchanged line, but a changed
+    line is on its path through the anchored file, so it is a new rejection
+    and not a regression. The observation records where it was raised and the
+    path back through the change."""
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": LAZY_BASE_MODULE}, {"mod.py": LAZY_HEAD_MODULE}
+    )
+    stored = candidate(file="mod.py", line=5)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(LAZY_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert [run.outcome.value for run in result.head_runs] == ["reproduced"] * 3
+    assert [run.outcome.value for run in result.base_runs] == ["not_reproduced"] * 3
+    assert result.outcome is ExecutionOutcome.DEFERRED, result.reason
+    assert result.evidence_class is EvidenceClass.BEHAVIOR_CHANGE
+    assert "on an unchanged line reached through a changed line" in result.reason
+    intent = result.intent
+    assert intent is not None and intent.new_rejection
+    assert intent.exception_type == "ValueError"
+    assert intent.origin_line == 10 and intent.origin_line not in intent.changed_lines
+    assert 5 in intent.path_lines and 5 in intent.changed_lines
+    origins = result.head_runs[0].raise_origins
+    assert origins and origins[0].line == 10 and 5 in origins[0].path
+
+
+# D-232, the regression it keeps: the change moves a limit inside `limit()`, and
+# an unchanged function called by the test crashes on it. No changed line is on
+# the exception's path -- the effect of the change surfaced elsewhere.
+ELSEWHERE_BASE_MODULE = (
+    "def limit():\n"
+    "    return 1\n"
+    "\n\n"
+    "def first(items):\n"
+    "    return items[: limit()][0]\n"
+)
+ELSEWHERE_HEAD_MODULE = ELSEWHERE_BASE_MODULE.replace("return 1", "return 0")
+ELSEWHERE_BODY = "import mod\n\ndef test_repro():\n    assert mod.first([7]) == 7\n"
+
+
+def test_a_crash_on_an_unchanged_line_with_no_changed_frame_on_its_path_certifies(
+    tmp_path: Path,
+) -> None:
+    """The negative control for D-232: head raises on an unchanged line and the
+    changed line is not on the exception's path, so this is the regression
+    the frame rule was written to keep."""
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path, {"mod.py": ELSEWHERE_BASE_MODULE}, {"mod.py": ELSEWHERE_HEAD_MODULE}
+    )
+    stored = candidate(file="mod.py", line=2)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(ELSEWHERE_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+    assert result.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    intent = result.intent
+    assert intent is not None and not intent.new_rejection
+    assert intent.exception_type == "IndexError" and intent.origin_line == 6
+    assert not set(intent.path_lines) & set(intent.changed_lines)
 
 
 def test_a_stdlib_module_sharing_the_anchored_basename_is_not_a_shadow(tmp_path: Path) -> None:
@@ -3653,7 +3776,12 @@ SPAWNING_HEAD_MODULE = (
 # The D-217 shape with a real regression under it: both revisions reach for a
 # process at import inside try/except, and head's `add` also crashes (a crash,
 # not a changed value: the intent rule refuses an unspecified value change).
-CRASHING_MODULE = "def add(a, b):\n    parts = [a]\n    return parts[1] + b\n"
+# D-232: the regression under the contained attempt must be one the frame rule
+# keeps -- a guard deleted, so the crash lands on an unchanged line -- or the
+# differential is a behaviour change with unknown intent, which is the drawer
+# and not what this constraint is about.
+GUARDED_ADD_MODULE = "def add(a, b):\n    if b is None:\n        return a\n    return a + b\n"
+UNGUARDED_ADD_BODY = "import mod\n\ndef test_repro():\n    assert mod.add(2, None) == 2\n"
 SPAWNING_IMPORT = (
     "import subprocess\n"
     "import sys\n"
@@ -3706,18 +3834,20 @@ def test_a_symmetric_contained_attempt_still_lets_a_real_regression_certify(
 ) -> None:
     """The other half of the constraint, and the whole of what D-217 was for:
     the same refused creation on both revisions says nothing about the diff,
-    so a real regression underneath it certifies with the attempt disclosed."""
+    so a real regression underneath it certifies with the attempt disclosed.
+    The regression is a deleted `None` guard, so head's `TypeError` is raised
+    on an unchanged line: the shape D-232 keeps as red."""
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path,
+        {"mod.py": SPAWNING_IMPORT + GUARDED_ADD_MODULE},
         {"mod.py": SPAWNING_IMPORT + GOOD_MODULE},
-        {"mod.py": SPAWNING_IMPORT + CRASHING_MODULE},
     )
     stored = candidate(file="mod.py", line=10)
 
     result = execute_differential(
         repo,
         stored,
-        ReproSpec(DIFFERENTIAL_BODY),
+        ReproSpec(UNGUARDED_ADD_BODY),
         ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,

@@ -86,6 +86,30 @@ characters that is not ordinary English
 where the line sits and not what it is called, and that is the clause that stops
 ``urllib3 c7b9adcb``.
 
+``attest.intent.v5`` (D-232) widens the rejection clause from a *statement* to a
+*frame*. D-102 read a new rejection off the syntax of the line the exception was
+raised from -- a ``raise`` or ``assert`` statement on a changed line -- so a
+builtin raising on a changed line (``zip(..., strict=True)`` on
+``python-attrs/attrs#1603``) was a regression and published red, while the
+statement ``if short: raise ValueError`` one line away was a behaviour change
+and stayed in the drawer. The classification depended on the spelling and not
+on what happened. Under v5 an escaped exception whose **path through the
+anchored file crosses a changed line** -- raised on that line by any statement,
+a builtin or a library call included, or raised on an unchanged line of the
+anchored file that a changed line called into -- is a new rejection: a
+behaviour change whose intent this product cannot read, published only with a
+base-tree witness and otherwise drawered. A regression is what is left: **the
+merge base raised and head does not**, or **head raises on an unchanged line
+and no changed line of the anchored file is on the exception's path**. The
+observation gains two fields: ``path_lines``, the anchored frames the exception
+propagated through after the one it was raised in, so that a lazy iterator
+built on a changed line and consumed by an unchanged helper (the second
+``attrs`` receipt) is read the same way as one consumed on the spot; and
+``added_lines``, the lines the change actually wrote, because ``changed_lines``
+is the binding policy's hunk range with three context lines each side, under
+which every crash beside a deleted guard would read as raised on a changed
+line. A "changed line" in this rule is an added line.
+
 A receipt is judged under the policy version **it records**, not under the one
 in force today (D-121). Bumping the version is a promise to future readers of
 the audit chain, not a way to void every receipt already issued: an observation
@@ -101,12 +125,13 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
-INTENT_POLICY_VERSION = "attest.intent.v4.2"  # D-174
+INTENT_POLICY_VERSION = "attest.intent.v5"  # D-232
 INTENT_POLICY_V1 = "attest.intent.new-rejection.v1"  # D-102, before D-120
 INTENT_POLICY_V2 = "attest.intent.v2"  # D-120, before D-127
 INTENT_POLICY_V3 = "attest.intent.v3"  # D-127, before D-132
 INTENT_POLICY_V4 = "attest.intent.v4"  # D-132, before D-134
 INTENT_POLICY_V41 = "attest.intent.v4.1"  # D-134, before D-174
+INTENT_POLICY_V42 = "attest.intent.v4.2"  # D-174, before D-232
 EVIDENCE_CLASS_REGRESSION = "regression_reproduced"
 EVIDENCE_CLASS_BEHAVIOR_CHANGE = "behavior_change"
 INTENT_UNKNOWN_LABEL = "behavior change confirmed, intent unknown"
@@ -184,6 +209,16 @@ class IntentObservation:
     # docstring, a documentation or changelog line, or an inline comment the same
     # diff moved. First site per file, so the record stays bounded.
     intent_evidence: tuple[tuple[str, str], ...] = ()
+    # D-232 (v5): the lines of the anchored file the failure's exception
+    # propagated through *after* ``origin_line`` -- outer frames of the same
+    # file, innermost first. A changed line anywhere on that path makes the
+    # failure a new rejection under v5; empty under every earlier version.
+    path_lines: tuple[int, ...] = ()
+    # D-232 (v5): the lines of the anchored file this change *wrote* -- the
+    # diff's added lines, never its context. ``changed_lines`` is the hunk
+    # range the binding policy uses (three context lines each side, since
+    # V-02); the frame rule is read against these.
+    added_lines: tuple[int, ...] = ()
 
     def digest(self) -> str:
         """Over exactly the fields the recorded policy version defines, so that a
@@ -229,6 +264,8 @@ _V4_FIELDS = (
     "anchored_symbols",
     "intent_evidence",
 )
+# D-232: v5 records the exception's path through the anchored file.
+_V5_FIELDS = (*_V4_FIELDS, "path_lines", "added_lines")
 POLICY_FIELDS: dict[str, tuple[str, ...]] = {
     INTENT_POLICY_V1: _V1_FIELDS,
     INTENT_POLICY_V2: _V2_FIELDS,
@@ -239,7 +276,8 @@ POLICY_FIELDS: dict[str, tuple[str, ...]] = {
     # observation is made of. A v4 or v4.1 receipt therefore keeps its own
     # digest and its own answer, and each version is a promise about the rule.
     INTENT_POLICY_V41: _V4_FIELDS,
-    INTENT_POLICY_VERSION: _V4_FIELDS,
+    INTENT_POLICY_V42: _V4_FIELDS,
+    INTENT_POLICY_VERSION: _V5_FIELDS,
 }
 _CONSTANT_RULE_VERSIONS = frozenset(
     {
@@ -247,18 +285,39 @@ _CONSTANT_RULE_VERSIONS = frozenset(
         INTENT_POLICY_V3,
         INTENT_POLICY_V4,
         INTENT_POLICY_V41,
+        INTENT_POLICY_V42,
         INTENT_POLICY_VERSION,
     }
 )
 _VALUE_RULE_VERSIONS = frozenset(
-    {INTENT_POLICY_V3, INTENT_POLICY_V4, INTENT_POLICY_V41, INTENT_POLICY_VERSION}
+    {
+        INTENT_POLICY_V3,
+        INTENT_POLICY_V4,
+        INTENT_POLICY_V41,
+        INTENT_POLICY_V42,
+        INTENT_POLICY_VERSION,
+    }
 )
 # D-132 (b) and (c) arrived together and neither reaches a v1, v2 or v3 receipt.
 _V4_RULE_VERSIONS = frozenset(
-    {INTENT_POLICY_V4, INTENT_POLICY_V41, INTENT_POLICY_VERSION}
+    {INTENT_POLICY_V4, INTENT_POLICY_V41, INTENT_POLICY_V42, INTENT_POLICY_VERSION}
 )
-# D-174's association rule reaches v4.2 and nothing earlier.
-_V42_RULE_VERSIONS = frozenset({INTENT_POLICY_VERSION})
+# D-174's association rule reaches v4.2 and later, nothing earlier.
+_V42_RULE_VERSIONS = frozenset({INTENT_POLICY_V42, INTENT_POLICY_VERSION})
+# D-232's frame rule reaches v5 and nothing earlier: under every version before
+# it a new rejection is a raise/assert *statement* on a changed line.
+_V5_RULE_VERSIONS = frozenset({INTENT_POLICY_VERSION})
+
+
+def rejection_on_changed_frame(observation: IntentObservation) -> bool:
+    """D-232: is a changed line of the anchored file on the failure's path --
+    the line it was raised from, or an outer frame of the same file it
+    propagated through? Under v5 this, and not the statement kind, is what
+    makes a head failure a new rejection."""
+    written = set(observation.added_lines)
+    return observation.origin_line in written or any(
+        line in written for line in observation.path_lines
+    )
 
 
 def constant_change(observation: IntentObservation) -> bool:
@@ -361,6 +420,28 @@ def evidence_class_for(observation: IntentObservation) -> str:
     )
 
 
+def rejection_sentence(observation: IntentObservation) -> str:
+    """How head raised, in the words the run status and the drawer carry: the
+    statement kind under D-102, and under D-232 where on the exception's path
+    the changed line sits. Names neither the file nor the input (D-091)."""
+    if observation.policy_version not in _V5_RULE_VERSIONS:
+        return (
+            f"head raises {observation.exception_type} from a "
+            f"{observation.origin_statement} statement on a changed line"
+        )
+    if observation.origin_line in observation.added_lines:
+        how = (
+            f"a {observation.origin_statement} statement"
+            if observation.origin_statement in REJECTING_STATEMENTS
+            else "a call or expression"
+        )
+        return f"head raises {observation.exception_type} from {how} on a changed line"
+    return (
+        f"head raises {observation.exception_type} on an unchanged line reached "
+        "through a changed line of the same file"
+    )
+
+
 def intent_verdict(observation: IntentObservation) -> str | None:
     """None when the receipt may publish under its evidence class; otherwise why
     a behavior-change receipt stays in the drawer."""
@@ -368,7 +449,11 @@ def intent_verdict(observation: IntentObservation) -> str | None:
         return "unknown intent policy"
     if observation.head_runs_observed < 1:
         return "no head run observed"
-    if observation.new_rejection and (
+    if observation.new_rejection and observation.policy_version in _V5_RULE_VERSIONS:
+        # D-232: the frame rule. The statement kind is recorded, not required.
+        if not observation.exception_type or not rejection_on_changed_frame(observation):
+            return "new rejection recorded without a changed line on the exception's path"
+    elif observation.new_rejection and (
         observation.origin_statement not in REJECTING_STATEMENTS
         or observation.origin_line not in observation.changed_lines
     ):
@@ -391,10 +476,7 @@ def intent_verdict(observation: IntentObservation) -> str | None:
     # The verdict is what an author reads in the run status and the drawer, so
     # it names neither the anchored line nor the rejected input (D-091); the
     # observation itself keeps both for the ledger and the bundle.
-    raised = (
-        f"head raises {observation.exception_type} from a {observation.origin_statement} "
-        "statement on a changed line"
-    )
+    raised = rejection_sentence(observation)
     if not observation.rejected_inputs:
         return (
             f"{INTENT_UNKNOWN_LABEL}: {raised}; no rejected input could be identified "

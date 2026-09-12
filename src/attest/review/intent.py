@@ -34,12 +34,12 @@ from pathlib import Path
 from attest.certification.intent import (
     GENERIC_VALUE_REPRS,
     INTENT_POLICY_VERSION,
-    REJECTING_STATEMENTS,
     IntentObservation,
 )
 from attest.review.vocabulary import is_common_english
 
 MAX_ORIGIN_RECORDS = 256
+MAX_PATH_FRAMES = 64  # D-232: anchored frames recorded on one exception's path
 MAX_MESSAGE_CHARS = 2_000
 MAX_VALUE_CHARS = 500
 MAX_VALUES = 16
@@ -111,6 +111,11 @@ class RaiseOrigin:
     message: str  # bounded str(exception)
     values: tuple[str, ...]  # bounded string-typed locals of that frame
     escaped: bool = True  # False when a frame of the anchored file handled it
+    # D-232: the lines of the anchored file's *outer* frames the exception
+    # propagated through after this one, innermost first. A lazy iterator built
+    # on a changed line and consumed by an unchanged helper raises in the
+    # helper and passes back through the changed line; the path is what says so.
+    path: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -145,6 +150,7 @@ def parse_raise_record(marker: bytes | None) -> RaiseRecord:
         if type(line) is not int or line < 1:
             continue
         values = row.get("values")
+        path = row.get("path")
         origins.append(
             RaiseOrigin(
                 line=line,
@@ -157,6 +163,11 @@ def parse_raise_record(marker: bytes | None) -> RaiseRecord:
                     if isinstance(value, str)
                 ),
                 escaped=bool(row.get("escaped", True)),
+                path=tuple(
+                    item
+                    for item in (path if isinstance(path, list) else [])[:MAX_PATH_FRAMES]
+                    if type(item) is int and item >= 1
+                ),
             )
         )
     return RaiseRecord(tuple(origins), truncated or len(rows) > MAX_ORIGIN_RECORDS)
@@ -1055,21 +1066,32 @@ def failure_type(failure_message: str) -> str:
     return head if head.isidentifier() or head.replace(".", "").isidentifier() else ""
 
 
+def on_changed_frame(origin: RaiseOrigin, changed: frozenset[int]) -> bool:
+    """D-232: does the exception's path through the anchored file -- the frame
+    it was raised in, or any outer frame of the same file it propagated through
+    -- cross a changed line?"""
+    return origin.line in changed or any(line in changed for line in origin.path)
+
+
 def _rejecting_origin(
     origins: tuple[RaiseOrigin, ...],
     changed: frozenset[int],
     kinds: dict[int, str],
     failure: str,
 ) -> RaiseOrigin | None:
-    """The first origin that is a raise/assert on a changed line, escaped the
-    anchored code, and is consistent with the failure the test reported: either
-    the same exception type, or a test-level failure (assertion, pytest.fail)
-    that the escaped rejection can have caused."""
+    """The first origin whose path crosses a changed line (D-232: the frame,
+    not the statement -- ``kinds`` is recorded on the observation and no longer
+    decides), escaped the anchored code, and is consistent with the failure the
+    test reported: either the same exception type, or a test-level failure
+    (assertion, pytest.fail) that the escaped rejection can have caused."""
+    del kinds  # recorded on the observation; D-232 no longer classifies by it
     reported = failure_type(failure).rsplit(".", 1)[-1]
     for origin in origins:
-        if origin.line not in changed or kinds.get(origin.line) not in REJECTING_STATEMENTS:
+        if not on_changed_frame(origin, changed):
             continue
         if not origin.escaped:
+            continue
+        if not origin.exception_type:
             continue
         if reported in TEST_LEVEL_FAILURES or reported == origin.exception_type:
             return origin
@@ -1090,15 +1112,24 @@ def observe_intent(
     head_failure_details: list[str] | None = None,
     changed_files: tuple[str, ...] = (),
     truncated: bool = False,
+    added_lines: tuple[int, ...] | None = None,
 ) -> IntentObservation | str:
     """The intent observation for one differential, or the reason it cannot be
-    made (a string; the caller DEFERs and buys nothing)."""
+    made (a string; the caller DEFERs and buys nothing).
+
+    ``changed_lines`` is the binding policy's hunk range (context included) and
+    is what D-132's anchored symbols are read against, as before. D-232's frame
+    rule reads ``added_lines`` -- the lines the change actually wrote -- and a
+    caller that cannot tell the two apart may pass nothing, in which case the
+    hunk range stands in and the rule errs toward the drawer, never toward a
+    receipt."""
     if truncated:
         return (
             "the raise-origin record is incomplete (the tracer hit its record bound); "
             "the failure origin cannot be classified"
         )
     changed = frozenset(changed_lines)
+    written = frozenset(added_lines) if added_lines is not None else changed
     failures = list(head_failures or [""] * len(head_origins))
     if len(failures) < len(head_origins):
         failures += [""] * (len(head_origins) - len(failures))
@@ -1134,7 +1165,7 @@ def observe_intent(
     )
     kinds = statement_kinds(head_source)
     any_on_changed = any(
-        origin.line in changed for origins in head_origins for origin in origins
+        on_changed_frame(origin, written) for origins in head_origins for origin in origins
     )
     if kinds is None and any_on_changed:
         return (
@@ -1143,7 +1174,7 @@ def observe_intent(
         )
     kinds = kinds or {}
     rejecting = [
-        _rejecting_origin(origins, changed, kinds, failure)
+        _rejecting_origin(origins, written, kinds, failure)
         for origins, failure in zip(head_origins, failures, strict=True)
     ]
     present = [origin for origin in rejecting if origin is not None]
@@ -1209,8 +1240,9 @@ def observe_intent(
             failing_assertion_line=failing_line,
             anchored_symbols=symbols,
             intent_evidence=evidence,
+            added_lines=tuple(sorted(written)),
         )
-    signatures = {(origin.line, origin.exception_type) for origin in present}
+    signatures = {(origin.line, origin.exception_type, origin.path) for origin in present}
     if len(signatures) != 1:
         return "head runs disagree on the line or exception of the failure origin"
     origin = present[0]
@@ -1233,4 +1265,6 @@ def observe_intent(
         head_runs_observed=len(head_origins),
         constant_substitution=substitution,
         asserted_constants=asserted,
+        path_lines=origin.path,
+        added_lines=tuple(sorted(written)),
     )
