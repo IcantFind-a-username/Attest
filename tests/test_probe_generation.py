@@ -1005,3 +1005,46 @@ def test_the_probe_and_replay_bodies_strip_the_address_the_same_way() -> None:
     replay_namespace: dict[str, Any] = {}
     exec(compile(replay, "<replay>", "exec"), replay_namespace)
     replay_namespace["test_attest_replay"]()  # a fresh object, another address: still equal
+
+
+# --- D-238: the search is told what the base tests assert, and shown the hunk ----
+
+
+def test_the_first_probe_is_told_which_values_the_base_tests_assert(tmp_path: Path) -> None:
+    """D-238 RED. Fourteen of the forty mutation cases were the value class: the
+    probe found the change and the drawer refused it because nothing in the base
+    tree asserted the value it pinned. The kernel's rule is a fact about the
+    process, and the values the tests assert about the changed symbol are facts
+    about the tree; both go to the model before its first choice."""
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_MODULE, HEAD_WRONG_VALUE)
+    provider = PromptRecorder(PROBE)
+
+    verify(repo, base_sha, head_sha, provider)
+
+    first = provider.prompts[0]
+    assert "tests assert about `total`" in first
+    assert "\n- 6\n" in first
+    assert "can be certified" in first
+
+
+def test_the_feedback_carries_the_hunk_and_the_asserted_values() -> None:
+    from attest.review.executor import _probe_feedback, _Screen
+
+    text = _probe_feedback(
+        kind="no-difference",
+        spec=ProbeSpec(**PROBE),
+        base=Observation("value", "6"),
+        screen=_Screen(Observation("value", "6"), (2,), False),
+        changed=(2,),
+        definitions=["total:1"],
+        anchored="mod.py",
+        diff_text=(
+            "@@ -1,2 +1,2 @@\n def total(items):\n-    return sum(items)\n"
+            "+    return sum(items) - 1\n"
+        ),
+        asserted=("6", "'a'"),
+    )
+
+    assert "-    return sum(items)" in text and "+    return sum(items) - 1" in text
+    assert "\n- 6\n" in text and "\n- 'a'\n" in text
+    assert "reached the changed lines" in text  # the D-216 sentence is still there

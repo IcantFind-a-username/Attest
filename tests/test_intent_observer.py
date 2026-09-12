@@ -450,3 +450,25 @@ def test_a_substituted_constant_is_a_constant_change_and_a_deleted_one_is_not() 
     assert observe_constant_substitution(
         base_source=VERSION_BASE, head_source=VERSION_HEAD, test_source=other
     ) == (False, ())
+
+
+def test_asserted_values_about_reads_only_tests_that_name_the_symbol(tmp_path: Path) -> None:
+    """D-238: the values the tree's own tests assert about a symbol, read with
+    D-174's association rule; a test about something else, a generic constant
+    and a non-test file contribute nothing."""
+    from attest.review.intent import asserted_values_about
+
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_total.py").write_text(
+        "import mod\n\n\ndef test_total():\n    assert mod.total([1, 2, 3]) == 6\n"
+        "    assert mod.total([]) == 0\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "tests" / "test_other.py").write_text(
+        "def test_other():\n    assert len('weekday') == 7\n", encoding="utf-8"
+    )
+    (tmp_path / "mod.py").write_text("assert 42 == 42\n", encoding="utf-8")
+
+    assert asserted_values_about(tmp_path, ("total",)) == ("6",)
+    assert asserted_values_about(tmp_path, ("nothing",)) == ()
+    assert asserted_values_about(tmp_path, ()) == ()

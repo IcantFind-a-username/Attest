@@ -38,7 +38,12 @@ from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.diffs import parse_diff
 from attest.review.gate import GateResult, apply_verification
-from attest.review.intent import RaiseOrigin, observe_intent, parse_raise_record
+from attest.review.intent import (
+    RaiseOrigin,
+    asserted_values_about,
+    observe_intent,
+    parse_raise_record,
+)
 from attest.review.ledger import Ledger
 from attest.review.planner import generation_context
 from attest.review.probe import (
@@ -1013,7 +1018,10 @@ def generate_probe(
     costs the same cached tokens as the first."""
     model = effective_model(provider, model)
     shared = _generation_prompt(repo, candidate, base_ref)
-    prompt = f"{shared}\n\n{feedback}" if feedback else shared
+    # D-238: what the tree's own tests assert about the changed symbols, and the
+    # rule that makes it matter -- after the cacheable prefix, like the feedback
+    hint = _asserted_values_hint(repo, candidate)
+    prompt = "\n\n".join(part for part in (shared, hint, feedback) if part)
     labels = [
         f"probe-{candidate.finding.finding_id}-attempt-{attempt}"
         for attempt in range(1, MAX_PROBE_ATTEMPTS + 1)
@@ -1110,6 +1118,46 @@ def generate_probe(
 
 # the most a refusal clause may add to a probe prompt; the reservation counts it
 REFUSAL_FEEDBACK_CHARS = 600
+# D-238: the most of the anchored file's diff a probe's feedback quotes
+MAX_FEEDBACK_DIFF_CHARS = 1_500
+
+
+def _asserted_block(symbols: Sequence[str], values: Sequence[str]) -> str:
+    """D-238: the values the repository's own tests assert about ``symbols``,
+    and the kernel's rule for them, as a fact the model is told. Facts only:
+    the model still chooses the call and the merge base still decides."""
+    names = ", ".join(f"`{name}`" for name in symbols) or "the changed code"
+    if not values:
+        return (
+            f"No test in the repository asserts a value about {names}. A recorded value can "
+            "then be certified only where a docstring or documentation states it; an input "
+            "on which the merge base raises, or one whose result a docstring states, is "
+            "what the certification rule can use."
+        )
+    listed = "\n".join(f"- {value}" for value in values)
+    return (
+        f"Values the repository's own tests assert about {names}:\n{listed}\n"
+        "A recorded value that one of these tests asserts about the changed code can be "
+        "certified as a regression; a value nothing in the repository asserts cannot, and is "
+        "shown only as a changed value with unknown intent. Prefer an input whose merge-base "
+        "result is one of the values above, when the change is about such an input."
+    )
+
+
+def _asserted_values_hint(repo: Path, candidate: StoredCandidate) -> str:
+    """The D-238 block for the first probe, read from the checked-out tree: the
+    definitions the anchor sits in, and what the tree's tests assert about them."""
+    try:
+        source = (repo / candidate.finding.file).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    symbols = [
+        name.rsplit(":", 1)[0]
+        for name in _changed_definitions(source, [candidate.finding.line])
+    ]
+    if not symbols:
+        return ""
+    return _asserted_block(symbols, asserted_values_about(repo, symbols))
 
 
 def _refusal_feedback(refusals: Sequence[str]) -> str:
@@ -1267,6 +1315,22 @@ def _added_lines(repo: Path, base_sha: str, head_sha: str, path: str) -> tuple[i
     if proc.returncode != 0:
         return ()
     return tuple(sorted(parse_diff(proc.stdout).added_lines.get(path, set())))
+
+
+def _diff_text(repo: Path, base_sha: str, head_sha: str, path: str) -> str:
+    """D-238: the anchored file's hunks, as `git diff` prints them, for the
+    probe's feedback; empty when the diff cannot be read."""
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "diff", "--no-color", "-U2", base_sha, head_sha, "--", path],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if proc.returncode != 0:
+        return ""
+    body = proc.stdout.split("\n@@", 1)
+    return "@@" + body[1] if len(body) == 2 else ""
 
 
 def _changed_files(repo: Path, base_sha: str, head_sha: str) -> tuple[str, ...]:
@@ -2209,6 +2273,8 @@ def _probe_feedback(
     changed: Collection[int],
     definitions: Sequence[str],
     anchored: str,
+    diff_text: str = "",
+    asserted: Sequence[str] = (),
 ) -> str:
     """What the last probe did, in the words the next one needs (D-216).
 
@@ -2225,6 +2291,12 @@ def _probe_feedback(
         f"The diff changes these lines of {anchored}: {changed_text}\n"
         f"Those lines are inside: {where}\n"
     )
+    # D-238: the hunk itself, and what the tests assert about the definitions
+    # the change touched -- the two facts the second probe most often lacked
+    if diff_text:
+        shown = diff_text[:MAX_FEEDBACK_DIFF_CHARS]
+        header += f"The diff of {anchored}:\n```\n{shown}\n```\n"
+    header += _asserted_block([d.rsplit(":", 1)[0] for d in definitions], asserted) + "\n"
     if kind == "did-not-reach":
         executed = (
             ", ".join(str(line) for line in (screen.executed_lines if screen else ())[:20])
@@ -2276,6 +2348,8 @@ def _choose_probe(
     anchored: str,
     changed_lines: Collection[int] = (),
     head_source: str = "",
+    diff_text: str = "",
+    asserted: Sequence[str] = (),
 ) -> _Chosen | _Recording:
     """Try the free probes first, then **search** with the paid one (D-206, D-216).
 
@@ -2339,6 +2413,8 @@ def _choose_probe(
                         changed=changed_lines,
                         definitions=definitions,
                         anchored=anchored,
+                        diff_text=diff_text,
+                        asserted=asserted,
                     )
                     if feedback_kind
                     else ""
@@ -2642,6 +2718,10 @@ def execute_differential(
                 )
             except OSError:
                 head_text = ""
+            touched = [
+                name.rsplit(":", 1)[0]
+                for name in _changed_definitions(head_text, changed_for_probe)
+            ]
             outcome = _choose_probe(
                 model_probe=probe,
                 reprobe=reprobe,
@@ -2650,6 +2730,8 @@ def execute_differential(
                 anchored=candidate.finding.file,
                 changed_lines=changed_for_probe,
                 head_source=head_text,
+                diff_text=_diff_text(repo_root, base_sha, head_sha, candidate.finding.file),
+                asserted=asserted_values_about(trees_dir / "base", touched) if touched else (),
             )
             if isinstance(outcome, _Recording):
                 if outcome.exhausted_deadline:
