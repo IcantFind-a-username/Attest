@@ -1,9 +1,16 @@
 {
   "study_id": "attest.e05-external.v3",
-  "freeze_at": "2026-09-12T19:45:11+00:00",
+  "freeze_at": "2026-09-12T19:56:56.220064+00:00",
   "prospective": false,
   "prospective_note": "every pull request in this population was merged before the protocol was frozen. This is a shadow over the recent merged traffic of public repositories the product has never reviewed, not a prospective run, and no claim from it may say otherwise.",
-  "population": [],
+  "population": [
+    "python-babel/babel",
+    "pyparsing/pyparsing",
+    "Delgan/loguru",
+    "mahmoud/boltons",
+    "tkem/cachetools",
+    "marshmallow-code/marshmallow"
+  ],
   "candidates": [
     "python-babel/babel",
     "pyparsing/pyparsing",
@@ -14,7 +21,7 @@
     "marshmallow-code/marshmallow",
     "jmespath/jmespath.py"
   ],
-  "population_rule": "the first six candidates, in the recorded order, whose free evaluability probe passes (probe.json); fewer pass, and the population is what passes",
+  "population_rule": "the first six candidates, in the recorded order, whose free evaluability probe passes (probe.json, run 34715274804, dispatched on the study branch before anything was selected); seven of eight passed, so the population is the first six and jmespath/jmespath.py, which passed seventh, is not in it",
   "unit": "one merged pull request; head = its merge commit (what the target branch became when it landed, a squash and a merge commit alike) and base = that commit's first parent, which is the target branch as it stood the moment before and therefore merge-base(head, target branch at merge time). The diff base..head is exactly what the pull request contributed.",
   "selection": "per repository, the four most recently merged pull requests by merged_at descending that changed at least one Python file of the package itself -- a .py file outside tests/, docs/, examples/ and packaging scaffolding -- and whose diff does not exceed 2000 changed lines (additions plus deletions, from the GitHub API's file list). A pull request that fails either rule is recorded in selection.json with its reason and the walk continues. The merge commit must resolve in the read-only clone; one that does not is recorded and skipped.",
   "per_repository": 4,
@@ -47,5 +54,5 @@
   "exclusions": "none after recording",
   "silence_reporting": "every silent unit records units_read and units_total; a silence over a partly-read pull request covers only what was read",
   "code": "main after D-240 (attest.intent.v5.1), D-241, D-242, D-243 and D-244, at the SHA the run records",
-  "freeze_at_note": "provisional at creation; rewritten by the freeze step (the host clock, UTC) immediately before selection"
+  "freeze_note": "the instant the digest was written: after the probe (run 34715274804), before the selection walk and before any unit ran; the authorization's granted_at stands before it"
 }

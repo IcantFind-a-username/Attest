@@ -28,8 +28,24 @@ reproduction image itself: `python-babel/babel`, `pyparsing/pyparsing`, `dateuti
 (`scripts/corpus/e05_probe.py`) clones each without a credential, builds the product's
 reproduction image for its default-branch tip and collects a stub that imports its top-level
 package inside that image. **The population is the first six candidates whose probe passes**;
-if fewer pass, the population is what passes. The probe's table is written here when it has run;
-no outcome of any unit exists when it runs.
+if fewer pass, the population is what passes. The probe ran once (run `34715274804`, dispatched on
+the study branch before anything was selected; `probe.json`): **seven of eight passed, so the
+population is the first six**, and the seventh is recorded and not in it. No outcome of any unit
+existed when it ran.
+
+| candidate | probe | why |
+|---|---|---|
+| `python-babel/babel` | **kept** | builds (Python 3.13) and imports |
+| `pyparsing/pyparsing` | **kept** | builds (3.13) and imports |
+| `dateutil/dateutil` | excluded | its classifiers stop at 3.12, so the image is built on 3.12, and the pytest the image installs for it carries an assertion rewriter that does `import imp` -- removed in 3.12 (`ModuleNotFoundError: No module named 'imp'`); collection fails before any test, and the reproduction collects the same way |
+| `Delgan/loguru` | **kept** | builds (3.13) and imports |
+| `mahmoud/boltons` | **kept** | builds (3.13) and imports |
+| `tkem/cachetools` | **kept** | builds (3.13) and imports |
+| `marshmallow-code/marshmallow` | **kept** | builds (3.13) and imports |
+| `jmespath/jmespath.py` | passed, not kept | builds (3.13) and imports; the seventh to pass, and the rule keeps six |
+
+**Twenty-four units.** Four per kept library, six libraries; the rule stands and the count is
+what it produces.
 
 ## 3. The unit and the selection, fixed before the first run
 
@@ -39,6 +55,13 @@ that changed at least one Python file of the package itself and whose diff does 
 changed lines; the walk is recorded in `selection.json`; round-robin across repositories in name
 order; nothing excluded after selection, nothing re-sampled, nothing retried; `gh api` read-only
 throughout and nothing written to any repository.
+
+The walk runs after the freeze (the preflight refuses a unit recorded before `freeze_at`), on
+2026-09-12 (host clock, UTC), against read-only local clones, and is recorded in `selection.json`: babel 4 kept of 6 walked (2 changed no package source), pyparsing 4 of 4, loguru
+4 of 4, boltons 4 of 4, cachetools 4 of 35 (26 changed no package source -- release, CI and
+documentation traffic -- and 5 merge commits do not resolve in the clone, each named), marshmallow
+4 of 9 (5 changed no package source). `sample.jsonl` carries the 24 units, every row
+`prospective: false`.
 
 ## 4. Configuration
 
