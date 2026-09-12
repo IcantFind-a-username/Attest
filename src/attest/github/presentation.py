@@ -45,6 +45,7 @@ from attest.review.output_contract import (
     LEVEL_MARKERS,
     check_comment,
     claim_line,
+    receipt_sentence,
     silence_line,
 )
 from attest.review.output_contract import check as contract_check
@@ -481,8 +482,9 @@ def value_comments(
     instruction 4 of 2026-09-11).
 
     The collapsed block carries what the line could not: the whole expression
-    and both observations verbatim, the drawer's own reason, and what the
-    intent clause found pinned. The action clause names both ways to close it,
+    and both observations as recorded (less an object's ` at 0x…` address,
+    D-235 c; the ledger keeps it), the drawer's own reason, and what the intent
+    clause found pinned. The action clause names both ways to close it,
     because the level does not choose between them. With ``ask_for_reply``
     (D-227: the base-owned `intent_replies` switch) the clause ends by asking
     the author to reply `intended` or `unintended`, which the next review
@@ -501,9 +503,9 @@ def value_comments(
         detail = (
             f"Expression: `{note.expression}`\n\n"
             f"Merge base {base}, {note.base_runs}/{note.base_runs} runs:\n\n"
-            f"```\n{note.base_detail}\n```\n\n"
+            f"```\n{note.base_shown}\n```\n\n"
             f"Head {head}, {note.head_runs}/{note.head_runs} runs:\n\n"
-            f"```\n{note.head_detail}\n```\n\n"
+            f"```\n{note.head_shown}\n```\n\n"
             f"What the intent clause found:\n{pinned}\n\n"
             f"Why this is not a red finding: {note.drawer_reason}"
         )
@@ -633,12 +635,13 @@ def _summary_line(finding: CertifiedFinding) -> str:
 
 def _receipt_sentence(finding: CertifiedFinding) -> str:
     """What the receipt says on its own, with no model in it. This is the floor
-    under every red line: coordinates, the node that ran, and the two outcomes."""
+    under every red line: coordinates, the node that ran, and the two outcomes.
+    One sentence for every renderer (D-235 d): `attest.review.report` uses it too."""
     receipt = finding.accepted_receipt.receipt
-    return (
-        f"the generated test {receipt.test_node} fails on head in "
-        f"{len(receipt.head_runs)}/{len(receipt.head_runs)} runs and passes on the "
-        f"merge base in {len(receipt.base_runs)}/{len(receipt.base_runs)}"
+    return receipt_sentence(
+        test_node=receipt.test_node,
+        head_runs=len(receipt.head_runs),
+        base_runs=len(receipt.base_runs),
     )
 
 
