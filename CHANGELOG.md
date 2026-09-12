@@ -34,7 +34,12 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   exception from the touched symbol (`pytest.raises(X)`, `assertRaises(X)`) now specifies the type
   name a replay pins when the merge base raised; 8 of the forty's 18 value-class rows were this
   shape and every one was the drawer. **What it costs in trust:** the same standing an `assert`
-  already has; the ceiling measured offline is +2 of 40, with no exposure on the one null row.
+  already has; the ceiling measured offline was +2 of 40, with no exposure on the one null row.
+  **Measured** by re-running the forty ($3.68 including a run the provider's credit balance
+  aborted): **12 of 40 — 30.0%, Wilson 95% [18.1%, 45.4%]**, up from 10; four cases gained a
+  receipt, three of them because a base test expects the exception (two of those had never
+  recorded before D-236), two lost one to discovery and search variance. The boundary class is
+  still 1 of 13: the moved-conditions block named the boundary and the probes did not certify on it.
 - **A dirty-tree refusal writes `git status` to the ledger (D-239).** `itsdangerous-guard_raise-01`
   was refused for a dirty working tree on two runs and a fresh clone, and the refusal said no more.
   The ledger row now names the paths; the author-visible reason is unchanged.

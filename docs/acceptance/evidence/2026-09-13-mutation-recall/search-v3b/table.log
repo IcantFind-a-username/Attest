@@ -1,0 +1,38 @@
+{
+  "denominator": 40,
+  "run": 37,
+  "certified": 11,
+  "point": 0.275,
+  "wilson95": [
+    0.1611,
+    0.4283
+  ],
+  "classes": {
+    "no receipt": 10,
+    "value class": 15,
+    "certified": 11,
+    "no reproduction attempted": 1,
+    "not run": 3
+  },
+  "by_kind": {
+    "boundary": {
+      "no receipt": 4,
+      "value class": 7,
+      "certified": 1,
+      "no reproduction attempted": 1
+    },
+    "guard_raise": {
+      "value class": 7,
+      "no receipt": 4,
+      "certified": 5,
+      "not run": 1
+    },
+    "none_guard": {
+      "certified": 5,
+      "value class": 1,
+      "no receipt": 2,
+      "not run": 2
+    }
+  },
+  "spend_usd": 2.532637
+}

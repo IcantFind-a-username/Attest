@@ -1,0 +1,42 @@
+{"unit_id": "attrs-boundary-09--forward", "skipped": "not selected"}
+{"unit_id": "click-boundary-07--forward", "skipped": "not selected"}
+{"unit_id": "itsdangerous-boundary-07--forward", "skipped": "not selected"}
+{"unit_id": "jinja-boundary-09--forward", "skipped": "not selected"}
+{"unit_id": "more-itertools-boundary-08--forward", "skipped": "not selected"}
+{"unit_id": "packaging-boundary-08--forward", "skipped": "not selected"}
+{"unit_id": "python-dotenv-boundary-06--forward", "skipped": "not selected"}
+{"unit_id": "urllib3-boundary-07--forward", "skipped": "not selected"}
+{"unit_id": "attrs-guard_raise-03--forward", "skipped": "not selected"}
+{"unit_id": "click-boundary-10--forward", "skipped": "not selected"}
+{"unit_id": "itsdangerous-guard_raise-01--forward", "skipped": "not selected"}
+{"unit_id": "jinja-boundary-12--forward", "skipped": "not selected"}
+{"unit_id": "more-itertools-boundary-10--forward", "skipped": "not selected"}
+{"unit_id": "packaging-boundary-11--forward", "skipped": "not selected"}
+{"unit_id": "python-dotenv-boundary-08--forward", "skipped": "not selected"}
+{"unit_id": "urllib3-guard_raise-03--forward", "skipped": "not selected"}
+{"unit_id": "attrs-none_guard-14--forward", "skipped": "not selected"}
+{"unit_id": "click-guard_raise-03--forward", "skipped": "not selected"}
+{"unit_id": "itsdangerous-guard_raise-04--forward", "skipped": "not selected"}
+{"unit_id": "jinja-guard_raise-01--forward", "skipped": "not selected"}
+{"unit_id": "more-itertools-guard_raise-04--forward", "skipped": "not selected"}
+{"unit_id": "packaging-guard_raise-01--forward", "skipped": "not selected"}
+{"unit_id": "python-dotenv-guard_raise-01--forward", "skipped": "not selected"}
+{"unit_id": "urllib3-guard_raise-04--forward", "skipped": "not selected"}
+{"unit_id": "attrs-none_guard-15--forward", "skipped": "not selected"}
+{"unit_id": "click-guard_raise-05--forward", "skipped": "not selected"}
+{"unit_id": "itsdangerous-guard_raise-05--forward", "skipped": "not selected"}
+{"unit_id": "jinja-none_guard-13--forward", "skipped": "not selected"}
+{"unit_id": "more-itertools-guard_raise-05--forward", "skipped": "not selected"}
+{"unit_id": "packaging-guard_raise-06--forward", "skipped": "not selected"}
+{"unit_id": "python-dotenv-guard_raise-02--forward", "skipped": "not selected"}
+{"unit_id": "urllib3-none_guard-15--forward", "skipped": "not selected"}
+{"unit_id": "attrs-none_guard-17--forward", "skipped": "not selected"}
+{"unit_id": "click-none_guard-15--forward", "skipped": "not selected"}
+{"unit_id": "itsdangerous-guard_raise-06--forward", "skipped": "not selected"}
+{"unit_id": "jinja-none_guard-14--forward", "skipped": "not selected"}
+{"unit_id": "more-itertools-none_guard-17--forward", "skipped": "not selected"}
+{"protocol_sha256": "0e55dc01364dd55deca1d3c1dd25b78df8d8dccf53c88e39c1f05313ff671c16", "freeze_at": "2026-09-11T23:51:36.707365+00:00", "population": ["more-itertools/more-itertools", "pallets/click", "pallets/itsdangerous", "pallets/jinja", "pypa/packaging", "python-attrs/attrs", "theskumar/python-dotenv", "urllib3/urllib3"], "sampled_units": 40, "trials_recorded": 40, "reserved_usd": 1.5, "headroom_usd": 30.766803999999993}
+{"unit_id": "packaging-none_guard-13--forward", "task_id": "20260912-190048-548f9af7", "recorded_at": "2026-09-12T19:00:48.001155+00:00", "candidates": 1, "eligible": 1, "attempted": 1, "certified": 0, "would_publish": [], "behavior_changes_verified": 0, "behavior_changes_intent_unknown": 0, "failure_categories": {"probe did not reach the change": 1}, "units_read": 1, "units_planned": 1, "budget_limited": false, "deferred_reason": null, "spend_usd": 0.105252, "elapsed_s": 55.548, "executor_profile": "linux-container-v1"}
+{"unit_id": "python-dotenv-guard_raise-04--forward", "task_id": "20260912-190144-a34866c8", "recorded_at": "2026-09-12T19:01:44.700021+00:00", "candidates": 1, "eligible": 1, "attempted": 1, "certified": 1, "would_publish": ["111c5b954b"], "behavior_changes_verified": 0, "behavior_changes_intent_unknown": 0, "failure_categories": {}, "units_read": 1, "units_planned": 1, "budget_limited": false, "deferred_reason": null, "spend_usd": 0.049341, "elapsed_s": 26.57, "executor_profile": "linux-container-v1"}
+{"unit_id": "urllib3-none_guard-18--forward", "task_id": "20260912-190211-ad8993e9", "recorded_at": "2026-09-12T19:02:11.424573+00:00", "candidates": 1, "eligible": 1, "attempted": 1, "certified": 0, "would_publish": [], "behavior_changes_verified": 0, "behavior_changes_intent_unknown": 1, "failure_categories": {"behavior change, intent unknown": 1}, "units_read": 1, "units_planned": 1, "budget_limited": false, "deferred_reason": null, "spend_usd": 0.06486, "elapsed_s": 23.435, "executor_profile": "linux-container-v1"}
+cap $1.50; reservation $1.0000 per unit; started 3; refused 0; spent $0.219453
