@@ -57,6 +57,27 @@ Classes, counted:
 
 Over the run's **44 verification rows**: **2** probes would be refused before execution (attribute of an imported name 1, os.environ write 1), **0** differentials rest on a warning, **6** rows carry no test source to read the setup from (recordings that died before pytest reported) and are counted as unchanged. Classes after: 16 no receipt, 14 value class, 9 certified, 1 no receipt: withdrawn under D-235 ([evidence](evidence/2026-09-13-d235-replay.json)).
 
+## 1b. The eight environment cases, re-run after D-236
+
+**Run [`34699714069`](https://github.com/IcantFind-a-username/Attest/actions/runs/34699714069), `mutation-recall.yml` with `only` naming the 8 cases below, code from `main` after D-236 and D-237, $0.6082.** The denominator is forty; a case not named keeps its class from the original run and the D-235 replay. **6 of 8 cases now record a probe on the merge base** (none did before).
+
+| | before | after the re-run |
+|---|---|---|
+| certified | **9** | **10** |
+| point estimate | 22.5% | **25.0%** |
+| Wilson 95% | [12.3%, 37.5%] | **[14.2%, 40.2%]** |
+
+| case | before | after | recordings | verifications | lines | why now | spend |
+|---|---|---|---|---|---|---|---|
+| `urllib3-boundary-07--forward` | no receipt | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0814 |
+| `itsdangerous-guard_raise-01--forward` | no receipt | **no receipt** | 0 | 2 | none | working tree is dirty; differential evidence requires immutable revisions | $0.0252 |
+| `urllib3-guard_raise-03--forward` | no receipt | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0769 |
+| `attrs-none_guard-14--forward` | no receipt | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0565 |
+| `urllib3-guard_raise-04--forward` | no receipt | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0749 |
+| `urllib3-none_guard-15--forward` | no receipt | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0766 |
+| `click-none_guard-15--forward` | no receipt | **no receipt** | 0 | 1 | none | after 1 probe(s), probe generation failed: ProbeRefused: probe setup assigns an attribute of the imported name sys (sys.stdin = _fake_stdin); replacing part of  | $0.1533 |
+| `urllib3-none_guard-18--forward` | no receipt | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore  | $0.0635 |
+
 ## 2. By mutation class
 
 | class | what was injected | cases | certified | D-232 drawer | value class | other |
