@@ -472,3 +472,33 @@ def test_asserted_values_about_reads_only_tests_that_name_the_symbol(tmp_path: P
     assert asserted_values_about(tmp_path, ("total",)) == ("6",)
     assert asserted_values_about(tmp_path, ("nothing",)) == ()
     assert asserted_values_about(tmp_path, ()) == ()
+
+
+def test_a_raises_in_a_scope_naming_the_symbol_specifies_the_exception_type(
+    tmp_path: Path,
+) -> None:
+    """D-240 (b): `with pytest.raises(X)`, `raises(X, ...)` and `self.assertRaises(X)`
+    in a scope that names the symbol specify the string `X` a replay pins; the
+    same in a scope about something else specifies nothing."""
+    from attest.review.intent import specified_by
+
+    about = (
+        "import pytest\nfrom mod import mean\n\n\ndef test_empty():\n"
+        "    with pytest.raises(ZeroDivisionError, match='zero'):\n        mean([])\n"
+    )
+    elsewhere = (
+        "import pytest\n\n\ndef test_other():\n    with pytest.raises(ZeroDivisionError):\n"
+        "        1 / 0\n"
+    )
+    unittest_style = (
+        "import unittest\nimport mod\n\n\nclass T(unittest.TestCase):\n    def test_empty(self):\n"
+        "        self.assertRaises(ZeroDivisionError, mod.mean, [])\n"
+    )
+    pinned = (("str", "ZeroDivisionError"),)
+    path = Path("tests/test_mod.py")
+
+    assert specified_by(path, about, pinned, ("mean",)) == {"'ZeroDivisionError'"}
+    assert specified_by(path, elsewhere, pinned, ("mean",)) == set()
+    assert specified_by(path, unittest_style, pinned, ("mean",)) == {"'ZeroDivisionError'"}
+    # a pinned value that is not the type name is not specified by a raises
+    assert specified_by(path, about, (("str", "zero"),), ("mean",)) == set()

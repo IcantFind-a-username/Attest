@@ -1808,7 +1808,15 @@ def test_pr_family_policy_caps_publication_and_counts_a_defect_once(
     accepted = [
         row for row in rows if row["kind"] == "certification" and row["outcome"] == "accepted"
     ]
-    assert len(accepted) == 7  # every candidate holds a receipt ...
+    # every candidate holds a receipt; when one does not, say why it did not --
+    # the 2026-09-13 CI run of feat/boundary-and-raises lost one of seven and
+    # the assertion said only "6 == 7"
+    not_reproduced = [
+        (row["finding_id"], row["outcome"], row["reason"])
+        for row in rows
+        if row["kind"] == "verification" and row["outcome"] != "reproduced"
+    ]
+    assert len(accepted) == 7, not_reproduced
     policy = next(row for row in rows if row["kind"] == "publication_policy")
     assert policy["eligible_count"] == 7
     # the PR-wide bar is still recorded; D-125 no longer applies it
@@ -2150,7 +2158,7 @@ def test_a_new_rejection_the_base_tests_attest_publishes_as_a_behavior_change(
     assert intent["witnesses"] == [["the buyback plan raises the floor", "tests/test_app.py"]]
     receipt = json.loads((bundle / "receipt.json").read_text(encoding="utf-8"))
     assert receipt["evidence_class"] == "behavior_change"
-    assert receipt["intent_policy_version"] == INTENT_POLICY_VERSION == "attest.intent.v5"
+    assert receipt["intent_policy_version"] == INTENT_POLICY_VERSION == "attest.intent.v5.1"
     assert isinstance(verify_bundle(bundle), AcceptedReceipt)
 
     # the verifier re-judges the observation: a bundle whose every digest is

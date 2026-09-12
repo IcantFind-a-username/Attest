@@ -511,6 +511,9 @@ entry is made, and the rule is read under every recorded intent policy version, 
 refuses a bundle that certified one. The probe's setup is held to static hygiene rules before it
 runs (no `warnings`, `sys.modules`, mocks, `sys.setrecursionlimit`, `os.environ` writes, or
 assignment to an attribute of an imported name); a refusal is fed to the next probe (D-216).
+Since `attest.intent.v5.1` (D-240) a base test that expects an exception from the touched
+symbol (`pytest.raises`, `assertRaises`, in a scope that names it) specifies the type name a
+replay pins when the merge base raised; the value rule is otherwise unchanged.
 
 ### 8.4 Manual evidence
 

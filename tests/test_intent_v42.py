@@ -264,7 +264,7 @@ def test_the_policy_version_is_v5_and_registered(tmp_path: Path) -> None:
         head={"convert.py": CONV_HEAD, "tests/test_convert.py": ASSOCIATED_IMPORT},
     )
 
-    assert observed.policy_version == INTENT_POLICY_VERSION == "attest.intent.v5"
+    assert observed.policy_version == INTENT_POLICY_VERSION == "attest.intent.v5.1"
     assert INTENT_POLICY_VERSION in POLICY_FIELDS
 
 

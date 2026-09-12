@@ -364,6 +364,7 @@ maximum still fits under it, and a case the cap refuses is named. The eight-case
 | **step 2 re-measurement** — the same forty under the probe search v2, `trials-search-v2.jsonl`, $1.00 per case | $5.00 | **$2.744827**; $2.255173 released. Run [34700357580](https://github.com/IcantFind-a-username/Attest/actions/runs/34700357580): 40 of 40 cases run, 32 record a probe on the merge base (34 did before), **10 certified as before** -- `jinja-boundary-09` gained a receipt, `python-dotenv-guard_raise-04` lost one; 18 value class, 12 no receipt; `packaging-none_guard-13` refused again under D-235 |
 | **step 3** — a third natural-traffic batch of about thirty merged pull requests of public libraries, `e05-external.yml`, $1.00 per unit | $4.00 | — |
 | — | **dogfooding**: the self-reviews this window's pull requests buy | $1.00 | — |
+| **step 2b re-measurement** — the same forty under D-240 (the moved-conditions block and the `raises` specification, `attest.intent.v5.1`), `trials-search-v3.jsonl`, $1.00 per case; the step 2 row's release funds it inside the window's $12.00 | $3.50 | — |
 | — | **$12.00** | **$3.353048** so far (step 1 $0.608221, step 2 $2.744827) |
 
 ## Window 2026-09-13 (release) — two paid studies and one drill, reserved before the first call

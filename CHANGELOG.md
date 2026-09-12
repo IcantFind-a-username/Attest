@@ -11,6 +11,15 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The search is told which conditions the change moved, and a test that expects the exception
+  specifies it (D-240, `attest.intent.v5.1`).** `boundary` mutations certified 1 of 13: the change is
+  `x >= 13` becoming `x > 13` and the probe rarely tried 13. The first probe and every feedback now
+  name the comparisons the change altered ("the boundary is 13") and the guards it removed ("it
+  raised ValueError"), read from the two sources with no model. And a base test that expects an
+  exception from the touched symbol (`pytest.raises(X)`, `assertRaises(X)`) now specifies the type
+  name a replay pins when the merge base raised; 8 of the forty's 18 value-class rows were this
+  shape and every one was the drawer. **What it costs in trust:** the same standing an `assert`
+  already has; the ceiling measured offline is +2 of 40, with no exposure on the one null row.
 - **A dirty-tree refusal writes `git status` to the ledger (D-239).** `itsdangerous-guard_raise-01`
   was refused for a dirty working tree on two runs and a fresh clone, and the refusal said no more.
   The ledger row now names the paths; the author-visible reason is unchanged.

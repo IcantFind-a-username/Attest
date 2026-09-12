@@ -532,6 +532,56 @@ def associated_assertions(source: str, symbols: Sequence[str]) -> str | None:
     return ast.unparse(ast.Module(body=list(kept), type_ignores=[]))
 
 
+_RAISES_CALLEES = frozenset(
+    {"raises", "assertRaises", "assertRaisesRegex", "assertRaisesRegexp", "raises_exception"}
+)
+
+
+def associated_raises(source: str, symbols: Sequence[str]) -> tuple[str, ...]:
+    """The exception type names the tests of ``source`` expect **about
+    ``symbols``** -- `with pytest.raises(X)`, `raises(X, f, ...)`,
+    `self.assertRaises(X, ...)` -- in a scope that names an anchored symbol
+    (D-174's association rule). D-240 (b): a test that expects `X` from the
+    symbol specifies the string `X` a replay pins when the merge base raised.
+    Empty when the source cannot be parsed or nothing is associated."""
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return ()
+    if not symbols:
+        return ()
+    wanted = frozenset(symbols)
+    found: list[str] = []
+
+    def callee(node: ast.AST) -> str:
+        if isinstance(node, ast.Attribute):
+            return node.attr
+        if isinstance(node, ast.Name):
+            return node.id
+        return ""
+
+    def scan(node: ast.AST, scope: ast.AST, *, at_module: bool) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+                scan(child, child, at_module=False)
+                continue
+            if (
+                isinstance(child, ast.Call)
+                and callee(child.func) in _RAISES_CALLEES
+                and child.args
+                and isinstance(child.args[0], ast.Name | ast.Attribute)
+            ):
+                names = _referenced_names(scope, enter_scopes=not at_module)
+                if names & wanted:
+                    exc = ast.unparse(child.args[0]).rsplit(".", 1)[-1]
+                    if exc not in found:
+                        found.append(exc)
+            scan(child, scope, at_module=at_module)
+
+    scan(tree, tree, at_module=True)
+    return tuple(found)
+
+
 def is_spec_file(relative: Path) -> bool:
     """A base-tree file that can *specify* a value: a test module, which asserts
     it, or documentation, which writes it down. Narrower than a witness file --
@@ -588,6 +638,14 @@ def specified_by(
                 for kind, value in pinned
                 if (kind, repr(value)[:MAX_VALUE_CHARS]) in keys
             }
+        # D-240 (b), v5.1: a test that expects the exception from the symbol
+        # specifies the type name the replay pins when the merge base raised
+        expected = set(associated_raises(text, symbols))
+        found |= {
+            repr(value)[:MAX_VALUE_CHARS]
+            for kind, value in pinned
+            if kind == "str" and isinstance(value, str) and value in expected
+        }
         prose: tuple[str, ...] = tuple(
             body
             for owner, body in owned_docstrings(text)
