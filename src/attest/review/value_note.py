@@ -338,8 +338,6 @@ def _type_of_repr(text: str) -> str:
     """The type a `repr` announces in its first characters -- a heuristic read
     of the recorded text, named as such, never a claim about the object."""
     stripped = text.lstrip()
-    if not stripped:
-        return "value"
     first = stripped[0]
     if first == "[":
         return "list"
