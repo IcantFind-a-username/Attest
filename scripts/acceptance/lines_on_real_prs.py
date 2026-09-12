@@ -115,6 +115,8 @@ def _note_from_row(row: dict) -> ValueNote | None:
             specified_by=tuple((str(a), str(b)) for a, b in row["specified_by"]),
             drawer_reason=str(row["drawer_reason"]),
             candidate_id=str(row["candidate_id"]),
+            imports=str(row.get("imports", "")),
+            setup=str(row.get("setup", "")),
         )
     except (KeyError, TypeError, ValueError):
         return None

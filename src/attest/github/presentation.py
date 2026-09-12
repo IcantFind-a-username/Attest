@@ -482,9 +482,10 @@ def value_comments(
     instruction 4 of 2026-09-11).
 
     The collapsed block carries what the line could not: the whole expression
-    and both observations as recorded (less an object's ` at 0x…` address,
-    D-235 c; the ledger keeps it), the drawer's own reason, and what the intent
-    clause found pinned. The action clause names both ways to close it,
+    and how the call was built (D-241: the probe's imports and setup, as one
+    runnable block), both observations as recorded (less an object's ` at 0x…`
+    address, D-235 c; the ledger keeps it), the drawer's own reason, and what
+    the intent clause found pinned. The action clause names both ways to close it,
     because the level does not choose between them. With ``ask_for_reply``
     (D-227: the base-owned `intent_replies` switch) the clause ends by asking
     the author to reply `intended` or `unintended`, which the next review
@@ -500,8 +501,13 @@ def value_comments(
             "\n".join(f"- {value} is pinned at {site}" for value, site in note.specified_by)
             or "- nothing in the base tree pins either value"
         )
+        # D-241: one runnable block -- the probe's imports, its setup and the
+        # call -- so the author can reproduce the observation on either revision
+        built = "\n\n".join(part for part in (note.imports, note.setup, note.expression) if part)
         detail = (
             f"Expression: `{note.expression}`\n\n"
+            f"How the call was built (run it on either revision):\n\n"
+            f"```python\n{built}\n```\n\n"
             f"Merge base {base}, {note.base_runs}/{note.base_runs} runs:\n\n"
             f"```\n{note.base_shown}\n```\n\n"
             f"Head {head}, {note.head_runs}/{note.head_runs} runs:\n\n"

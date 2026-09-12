@@ -465,3 +465,14 @@ def test_an_object_address_is_stripped_from_the_line_and_not_from_the_note_id() 
         base_detail="[<A object at 0x7f00>, 1]", head_detail="[<A object at 0x7f00>, 2]"
     )
     assert " at 0x" not in render(paired) and "index 1" in render(paired)
+
+
+def test_how_the_call_was_built_travels_with_the_note_and_does_not_move_its_id() -> None:
+    """D-241: the note carries the probe's imports and setup for the collapsed
+    block; the id stays over the measurement, so a note re-read from an older
+    row keeps the name the report already uses."""
+    plain, built = _note(), _note(imports="import money", setup="acct = money.Account()")
+    assert plain is not None and built is not None
+    assert (built.imports, built.setup) == ("import money", "acct = money.Account()")
+    assert built.note_id() == plain.note_id()
+    assert render(built) == render(plain)

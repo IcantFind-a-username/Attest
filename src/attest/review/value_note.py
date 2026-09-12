@@ -54,7 +54,7 @@ from attest.review.output_contract import (
     strip_addresses,
 )
 
-VALUE_NOTE_POLICY_VERSION = "attest.value-note.v3"  # D-234
+VALUE_NOTE_POLICY_VERSION = "attest.value-note.v4"  # D-241
 
 # A measured value is quoted whole up to this many characters (owner
 # instruction 4 of 2026-09-11); over it, or when the line would still not fit
@@ -180,6 +180,27 @@ def first_difference(base: str, head: str) -> FirstDifference | None:
     return None
 
 
+# the fields the note's id is computed over: the measurement, as v1 to v3 named
+# it. D-241's `imports`/`setup` are how the call was built and do not move the id.
+_ID_FIELDS = frozenset(
+    {
+        "path",
+        "line",
+        "expression",
+        "base_kind",
+        "base_detail",
+        "head_kind",
+        "head_detail",
+        "head_runs",
+        "base_runs",
+        "pinned_values",
+        "specified_by",
+        "drawer_reason",
+        "candidate_id",
+    }
+)
+
+
 @dataclass(frozen=True)
 class ValueNote:
     """What the two revisions did, and what the tree says about it."""
@@ -200,6 +221,12 @@ class ValueNote:
     specified_by: tuple[tuple[str, str], ...]
     drawer_reason: str
     candidate_id: str
+    # D-241: how the probe built the call, for the collapsed block -- the
+    # model's imports block and setup statements. Not part of the note's id:
+    # the id names the measurement, and a note re-read from an older row keeps
+    # the name a report already uses.
+    imports: str = ""
+    setup: str = ""
 
     @property
     def nothing_pins_it(self) -> bool:
@@ -229,7 +256,7 @@ class ValueNote:
         means -- so the line cannot honestly end in one. It ends in the digest
         of the note itself, which an operator finds in the ledger by grep.
         """
-        body = {k: v for k, v in asdict(self).items() if k != "policy_version"}
+        body = {k: v for k, v in asdict(self).items() if k in _ID_FIELDS}
         return hashlib.sha256(
             json.dumps(body, sort_keys=True, default=list).encode("utf-8")
         ).hexdigest()[:12]
@@ -446,6 +473,8 @@ def note_from(
     reason: str,
     candidate_id: str,
     anchor_line: int,
+    imports: str = "",
+    setup: str = "",
 ) -> ValueNote | None:
     """The note for one drawered differential, or None when there is none.
 
@@ -480,4 +509,6 @@ def note_from(
         specified_by=tuple((str(a), str(b)) for a, b in intent.value_specified),
         drawer_reason=reason,
         candidate_id=candidate_id,
+        imports=imports,
+        setup=setup,
     )

@@ -303,6 +303,8 @@ def _author_visible_lines(
             "specified_by": list(note.specified_by),
             "drawer_reason": note.drawer_reason,
             "candidate_id": note.candidate_id,
+            "imports": note.imports,
+            "setup": note.setup,
         }
         for note in value_notes_for_task(ledger_rows, task_id, config)  # type: ignore[arg-type]
     ]

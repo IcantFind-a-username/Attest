@@ -11,6 +11,12 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The value line is reproducible (D-241, `attest.value-note.v4`).** Three of the seven lines on
+  real traffic were judged *true but not actionable*, all value lines: the line said what a call
+  returned and never how the arguments were built. The recording row and the note now keep the
+  probe's imports and setup, and the collapsed block opens with one runnable Python block the
+  author can paste on either revision. Note ids do not move; rows written before v4 read back
+  with the fields empty.
 - **The search is told which conditions the change moved, and a test that expects the exception
   specifies it (D-240, `attest.intent.v5.1`).** `boundary` mutations certified 1 of 13: the change is
   `x >= 13` becoming `x > 13` and the probe rarely tried 13. The first probe and every feedback now

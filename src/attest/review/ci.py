@@ -1358,6 +1358,9 @@ def value_notes_for_task(
                 ),
                 drawer_reason=str(row["drawer_reason"]),
                 candidate_id=str(row["candidate_id"]),
+                # D-241: absent from rows written before v4
+                imports=str(row.get("imports", "")),
+                setup=str(row.get("setup", "")),
             )
         except (KeyError, TypeError, ValueError):
             continue

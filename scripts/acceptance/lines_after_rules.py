@@ -198,6 +198,8 @@ def moved_note(rows: list[dict], verification: dict, replay_row: dict) -> ValueN
         reason=reason,
         candidate_id=finding_id,
         anchor_line=int(signal.get("line", 0) or 0),
+        imports=str(probe.get("imports", "")),
+        setup=str(probe.get("setup", "")),
     )
 
 

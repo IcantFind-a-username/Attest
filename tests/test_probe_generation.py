@@ -622,7 +622,7 @@ def test_the_second_probe_certifies_what_the_first_could_not_see(
     assert observed is not None
     assert observed.expression == "mod.first([])"
     row = next(r for r in Ledger(repo).entries() if r["kind"] == "probe_observation")
-    assert row["schema_version"] == "attest.probe-observation.v3"
+    assert row["schema_version"] == "attest.probe-observation.v4"  # D-241
     assert row["attempt_index"] == 2
     assert row["feedback_kind"] == "did-not-reach"
     # the head side of the screening run is recorded too: it is what a value
@@ -1108,3 +1108,24 @@ def test_a_base_test_that_expects_the_exception_specifies_it(tmp_path: Path) -> 
     assert run.execution.intent is not None
     assert run.execution.intent.policy_version == "attest.intent.v5.1"
     assert run.execution.intent.value_specified == (("'ZeroDivisionError'", "tests/test_mod.py"),)
+# --- D-241: the value line is reproducible ------------------------------------------
+
+SETUP_PROBE = {"imports": "import mod", "setup": "empty = []", "expression": "mod.mean(empty)"}
+
+
+def test_the_ledger_keeps_how_the_call_was_built(tmp_path: Path) -> None:
+    """D-241 RED: the value line said what a call returned and never how the
+    arguments were built, so 3 of the 7 lines on real traffic were "true but not
+    actionable". The recording row and the note row carry the probe's imports
+    and setup, so an author can run the same call."""
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_RAISES, HEAD_GUARDS)
+
+    run = verify(repo, base_sha, head_sha, ProbeProvider(SETUP_PROBE), candidate=stored(line=2))
+
+    assert "value change confirmed, intent unknown" in run.execution.reason
+    rows = Ledger(repo).entries()
+    probe = next(r for r in rows if r["kind"] == "probe_observation")
+    assert probe["schema_version"] == "attest.probe-observation.v4"
+    assert (probe["imports"], probe["setup"]) == ("import mod", "empty = []")
+    note = next(r for r in rows if r["kind"] == "value_observation_note")
+    assert (note["imports"], note["setup"]) == ("import mod", "empty = []")
