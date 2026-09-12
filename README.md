@@ -16,7 +16,7 @@ on a held-out defect corpus is **6.5%**; it is silent far more often than it spe
 silence from it is never evidence that your code is fine.
 
 <!-- receipts:begin -->
-On **44 merged pull requests** of **13 open-source Python libraries**, attest said **7 lines** on 6 of them; the owner adjudicated each by hand: **0 useful, 0 true but not actionable, 0 wrong**, **7 pending adjudication**. Every line and its receipt: [`docs/receipts.md`](docs/receipts.md). *(These numbers are written by `scripts/acceptance/receipts_page.py` from the reports' own adjudication columns; nothing here is typed.)*
+On **44 merged pull requests** of **13 open-source Python libraries**, attest said **7 lines** on 6 of them; the owner adjudicated each by hand: **4 useful, 3 true but not actionable, 0 wrong**. Every line and its receipt: [`docs/receipts.md`](docs/receipts.md). *(These numbers are written by `scripts/acceptance/receipts_page.py` from the reports' own adjudication columns; nothing here is typed.)*
 <!-- receipts:end -->
 
 ## What it says, in four levels
