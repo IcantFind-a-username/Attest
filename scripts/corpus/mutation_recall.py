@@ -204,8 +204,13 @@ def cmd_build(_args: argparse.Namespace) -> int:
     return 0 if built == len(sample) else 1
 
 
+def _only_units(raw: str) -> tuple[str, ...]:
+    """The case ids a `--only` names, in the order written, blanks dropped."""
+    return tuple(part.strip() for part in (raw or "").split(",") if part.strip())
+
+
 def cmd_run(args: argparse.Namespace) -> int:
-    from prospective_shadow import _author_visible_lines
+    from prospective_shadow import _author_visible_lines, _plan_units
 
     from attest.review.config import load_config
     from attest.review.proposer import ApiProvider
@@ -217,9 +222,14 @@ def cmd_run(args: argparse.Namespace) -> int:
     trials_path = STUDY / (args.trials_file or prospective.TRIALS_FILE)
     lines_path = STUDY / f"lines-{trials_path.stem}.jsonl"
     done = {row["unit_id"] for row in _read_jsonl(trials_path)}
-    pending = [row for row in sample if str(row["unit_id"]) not in done]
-    if args.limit:
-        pending = pending[: args.limit]
+    # `--only` re-runs named cases (a repair's re-measurement, D-236) in the
+    # frozen order; every other pending case is recorded as not selected, so the
+    # denominator of forty never quietly shrinks
+    pending, not_selected = _plan_units(
+        sample, done, only=_only_units(args.only), limit=args.limit
+    )
+    for unit_id in not_selected:
+        print(json.dumps({"unit_id": unit_id, "skipped": "not selected"}), flush=True)
     unit_budget = args.unit_budget or preregistration.per_pr_budget_usd
     reserve = args.reserve or len(pending) * unit_budget
     preflight = prospective.preflight_prospective(
@@ -391,6 +401,9 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--unit-budget", type=float, default=0.0)
     r.add_argument("--reserve", type=float, default=0.0)
     r.add_argument("--trials-file", default="")
+    r.add_argument("--only", default="",
+                   help="comma-separated case ids: run these alone, in the frozen order, and "
+                   "record every other pending case as skipped: not selected")
     r.set_defaults(func=cmd_run)
     t = sub.add_parser("table")
     t.add_argument("--trials-file", default="")
