@@ -3776,7 +3776,12 @@ SPAWNING_HEAD_MODULE = (
 # The D-217 shape with a real regression under it: both revisions reach for a
 # process at import inside try/except, and head's `add` also crashes (a crash,
 # not a changed value: the intent rule refuses an unspecified value change).
-CRASHING_MODULE = "def add(a, b):\n    parts = [a]\n    return parts[1] + b\n"
+# D-232: the regression under the contained attempt must be one the frame rule
+# keeps -- a guard deleted, so the crash lands on an unchanged line -- or the
+# differential is a behaviour change with unknown intent, which is the drawer
+# and not what this constraint is about.
+GUARDED_ADD_MODULE = "def add(a, b):\n    if b is None:\n        return a\n    return a + b\n"
+UNGUARDED_ADD_BODY = "import mod\n\ndef test_repro():\n    assert mod.add(2, None) == 2\n"
 SPAWNING_IMPORT = (
     "import subprocess\n"
     "import sys\n"
@@ -3829,18 +3834,20 @@ def test_a_symmetric_contained_attempt_still_lets_a_real_regression_certify(
 ) -> None:
     """The other half of the constraint, and the whole of what D-217 was for:
     the same refused creation on both revisions says nothing about the diff,
-    so a real regression underneath it certifies with the attempt disclosed."""
+    so a real regression underneath it certifies with the attempt disclosed.
+    The regression is a deleted `None` guard, so head's `TypeError` is raised
+    on an unchanged line: the shape D-232 keeps as red."""
     repo, base_sha, head_sha = two_commit_repo(
         tmp_path,
+        {"mod.py": SPAWNING_IMPORT + GUARDED_ADD_MODULE},
         {"mod.py": SPAWNING_IMPORT + GOOD_MODULE},
-        {"mod.py": SPAWNING_IMPORT + CRASHING_MODULE},
     )
     stored = candidate(file="mod.py", line=10)
 
     result = execute_differential(
         repo,
         stored,
-        ReproSpec(DIFFERENTIAL_BODY),
+        ReproSpec(UNGUARDED_ADD_BODY),
         ExecutorLimits(),
         base_sha=base_sha,
         head_sha=head_sha,
