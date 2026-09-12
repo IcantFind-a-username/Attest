@@ -1808,7 +1808,15 @@ def test_pr_family_policy_caps_publication_and_counts_a_defect_once(
     accepted = [
         row for row in rows if row["kind"] == "certification" and row["outcome"] == "accepted"
     ]
-    assert len(accepted) == 7  # every candidate holds a receipt ...
+    # every candidate holds a receipt; when one does not, say why it did not --
+    # the 2026-09-13 CI run of feat/boundary-and-raises lost one of seven and
+    # the assertion said only "6 == 7"
+    not_reproduced = [
+        (row["finding_id"], row["outcome"], row["reason"])
+        for row in rows
+        if row["kind"] == "verification" and row["outcome"] != "reproduced"
+    ]
+    assert len(accepted) == 7, not_reproduced
     policy = next(row for row in rows if row["kind"] == "publication_policy")
     assert policy["eligible_count"] == 7
     # the PR-wide bar is still recorded; D-125 no longer applies it
