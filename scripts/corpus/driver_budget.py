@@ -18,9 +18,11 @@ holds a review's: a unit may start only when its **maximum** cost still fits.
 
     spent + reserved + reservation <= cap
 
-The reservation is the per-review `--budget`, because that is exactly what one
-unit may cost -- the product's own hard ceiling, and the only number available
-before the unit runs. It is held while the unit runs and replaced by the actual
+The reservation was the per-review `--budget`, because that is exactly what one
+unit may cost -- the product's own hard ceiling. Since D-244 it is the 95th
+percentile of the most recent forty cases' spend, bounded by that ceiling: the
+ceiling refused the last three of forty at $2.53 of a $3.50 cap on 2026-09-13. It is
+held while the unit runs and replaced by the actual
 spend afterwards. Two consequences, both deliberate:
 
 * a run **stops one unit earlier** than it used to, and the units it did not
@@ -40,7 +42,47 @@ import math
 from dataclasses import dataclass, field
 
 # D-172. The overrun this replaces is on the record in DEVSPEND.md.
-DRIVER_CAP_POLICY_VERSION = "attest.driver-cap.reserve-maximum.v1"
+# D-244 (owner instruction of 2026-09-14): the reservation is the recent
+# history's 95th percentile, not the ceiling -- see `reservation_from_history`.
+DRIVER_CAP_POLICY_VERSION = "attest.driver-cap.reserve-p95.v2"
+HISTORY_CASES = 40  # the most recent cases whose spend the reservation is read from
+MINIMUM_HISTORY = 10  # fewer than this and the ceiling stands
+MINIMUM_RESERVATION = 0.01
+
+
+def reservation_from_history(spends: list[float], *, fallback: float) -> float:
+    """What one unit is reserved at: the 95th percentile of the most recent
+    ``HISTORY_CASES`` spends, bounded by a cent and by the ceiling (D-244).
+
+    D-172 reserved every unit at its ceiling, the per-review budget, because
+    that is what one unit *may* cost. Under a cumulative cap that reservation
+    is what admits the next unit, and on 2026-09-13 it refused the last three of
+    forty at $2.53 of a $3.50 cap when no case of the forty had cost more than
+    $0.18. The ceiling still binds what a unit may spend -- the review's own
+    `Budget` holds it -- so the cap can still be overshot by at most one unit's
+    distance between its p95 and its ceiling, and the run records which unit.
+    With fewer than ``MINIMUM_HISTORY`` cases of history the ceiling stands.
+    """
+    fallback = _finite(fallback, "fallback")
+    recent = [_finite(value, "spend") for value in spends][-HISTORY_CASES:]
+    if len(recent) < MINIMUM_HISTORY:
+        return fallback
+    ordered = sorted(recent)
+    # nearest-rank 95th percentile: the smallest value at or above 95% of the sample
+    rank = max(1, math.ceil(0.95 * len(ordered)))
+    p95 = ordered[rank - 1]
+    return max(MINIMUM_RESERVATION, min(fallback, p95))
+
+
+def recent_spends(rows: list[dict], *, limit: int = HISTORY_CASES) -> list[float]:
+    """The ``spend_usd`` of the most recent ``limit`` trial rows by ``recorded_at``."""
+    dated = [
+        (str(row.get("recorded_at") or ""), float(row.get("spend_usd") or 0.0))
+        for row in rows
+        if isinstance(row, dict)
+    ]
+    dated.sort()
+    return [spend for _at, spend in dated[-limit:]]
 
 
 def _finite(value: float, label: str, *, minimum: float = 0.0) -> float:
