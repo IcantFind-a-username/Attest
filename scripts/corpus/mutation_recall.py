@@ -66,9 +66,30 @@ FRAME_RULE_MARKERS = ("on a changed line", "reached through a changed line")
 
 
 def _git(repo: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True
-    ).stdout.strip()
+    done = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
+    if done.returncode != 0:
+        # the stderr is the reason; a CalledProcessError without it said nothing
+        # when the first paid dispatch died on the 19th case (run 34665205269)
+        raise RuntimeError(f"git {' '.join(args)} failed ({done.returncode}): {done.stderr.strip()[:400]}")
+    return done.stdout.strip()
+
+
+def _checkout_case(repo: Path, sha: str) -> str | None:
+    """Check the case's head out, restoring the tree first; the reason when it cannot.
+
+    The eight clones are shared by five cases each and the review leaves what
+    it leaves in the working tree. A case whose checkout fails is skipped **by
+    name** and the run goes on: the first paid dispatch aborted at its 19th
+    case on exactly this and recorded 18 of 40."""
+    for attempt in ("plain", "restored"):
+        try:
+            if attempt == "restored":
+                _git(repo, "checkout", "-q", "--", ".")
+            _git(repo, "checkout", "-q", "--detach", sha)
+            return None
+        except RuntimeError as exc:
+            reason = str(exc)
+    return reason
 
 
 def _read_jsonl(path: Path) -> list[dict]:
@@ -151,9 +172,9 @@ def cmd_build(_args: argparse.Namespace) -> int:
             print(json.dumps({"unit_id": row["unit_id"], "build": "no clone"}), flush=True)
             continue
         try:
-            _git(repo, "checkout", "-q", "--detach", str(row["tip"]))
             _git(repo, "checkout", "-q", "--", ".")
-        except subprocess.CalledProcessError as exc:
+            _git(repo, "checkout", "-q", "--detach", str(row["tip"]))
+        except RuntimeError as exc:
             print(json.dumps({"unit_id": row["unit_id"], "build": "tip not in clone",
                               "detail": str(exc)[:200]}), flush=True)
             continue
@@ -225,7 +246,11 @@ def cmd_run(args: argparse.Namespace) -> int:
             continue
         manifest = json.loads(case.read_text(encoding="utf-8"))
         repo = Path(manifest["repo_path"])
-        _git(repo, "checkout", "-q", "--detach", manifest["head_sha"])
+        failure = _checkout_case(repo, manifest["head_sha"])
+        if failure is not None:
+            print(json.dumps({"unit_id": unit_id, "skipped": "checkout failed",
+                              "detail": failure[:300]}), flush=True)
+            continue
         cap.start(unit_id)
         config = load_config(repo)
         config = config.__class__(**{
