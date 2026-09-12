@@ -28,10 +28,12 @@ Two guards make the recording admissible, and both are structural:
   head has (`TypeError: missing 2 required positional arguments`), an import
   that does not resolve, or -- the case D-140 case 20 actually produced -- its
   own pasted copy of the function. Refused, not recorded.
-- **the recording must be stable.** The probe runs twice on base and the two
-  observations must be identical. A clock, an address in a `repr`, an iteration
-  order: any of them would make the replay fail on base for a reason that has
-  nothing to do with the diff. Refused, not recorded.
+- **the recording must be stable.** The probe runs three times on base and the
+  observations must be identical. A clock, an iteration order: either would make
+  the replay fail on base for a reason that has nothing to do with the diff.
+  Refused, not recorded. An object's ` at 0x…` address is not part of the
+  recording (D-236): the probe body drops it and the replay compares the same
+  address-free `repr`, so a returned closure or context manager records stably.
 
 An observation is deliberately coarse -- `("value", repr(x))` or
 `("exception", type(x).__name__)`. It is not a semantic model of the code; it is
@@ -82,6 +84,10 @@ _MARKER_RE = re.compile(re.escape(MARKER) + r"\s+([A-Za-z0-9+/=]+)")
 PROBE_MAX_OUTPUT_TOKENS = 1_500
 PROBE_TEST_NAME = "test_attest_probe"
 WARNING_KIND = "warning"  # D-235: a Warning subclass raised under a filter
+# D-236: the one pattern the probe and the replay both strip from a `repr`. It is
+# the same rule the renderer applies (`output_contract.strip_addresses`), spelled
+# out here because the generated files must not import this package.
+ADDRESS_PATTERN = r" at 0x[0-9a-f]+"
 OBSERVATION_KINDS = frozenset({"value", "exception", WARNING_KIND})
 REPLAY_TEST_NAME = "test_attest_replay"
 
@@ -500,7 +506,7 @@ def probe_test_body(spec: ProbeSpec) -> str:
     return _render(
         name=PROBE_TEST_NAME,
         spec=spec,
-        preamble=("import base64", "import json", ""),
+        preamble=("import base64", "import json", "import re", ""),
         body=[
             "    try:",
             f"        _attest_value = {spec.expression}",
@@ -510,7 +516,10 @@ def probe_test_body(spec: ProbeSpec) -> str:
             "            'detail': type(_attest_error).__name__,",
             "        }",
             "    else:",
-            "        _attest_observed = {'kind': 'value', 'detail': repr(_attest_value)}",
+            "        _attest_observed = {",
+            "            'kind': 'value',",
+            f"            'detail': re.sub({ADDRESS_PATTERN!r}, '', repr(_attest_value)),",
+            "        }",
             "    _attest_payload = base64.b64encode(",
             "        json.dumps(_attest_observed, sort_keys=True).encode('utf-8')",
             "    ).decode('ascii')",
@@ -565,10 +574,14 @@ def replay_test_body(spec: ProbeSpec, observation: Observation) -> str:
         try:
             ast.literal_eval(observation.detail)
         except (ValueError, SyntaxError, MemoryError, RecursionError):
+            # D-236: the recording dropped the object's address, so the replay
+            # compares the same address-free repr -- a fresh object on either
+            # revision has a fresh address and the same value
             body = [
                 f"    _attest_value = {spec.expression}",
                 RECORDED_COMMENT,
-                f"    assert repr(_attest_value) == {observation.detail!r}",
+                f"    assert re.sub({ADDRESS_PATTERN!r}, '', repr(_attest_value)) == "
+                f"{observation.detail!r}",
             ]
         else:
             body = [
@@ -587,7 +600,7 @@ def replay_test_body(spec: ProbeSpec, observation: Observation) -> str:
             RECORDED_COMMENT,
             f"    assert _attest_raised == {observation.detail!r}",
         ]
-    return _render(name=REPLAY_TEST_NAME, spec=spec, body=body, preamble=())
+    return _render(name=REPLAY_TEST_NAME, spec=spec, body=body, preamble=("import re", ""))
 
 
 def _render(

@@ -22,7 +22,7 @@ rather than deleted — a backlog whose closed items vanish cannot be audited.
 
 <!-- entries below, newest first -->
 
-- **[P1] 2026-09-13 (D-197, D-199): the `T` channel has never fired, in any recorded review.**
+- **[P1 → DONE 2026-09-13 (D-237)] 2026-09-13 (D-197, D-199): the `T` channel has never fired, in any recorded review.** *Diagnosed and fixed:* the mutation run's ledgers already held two `("S", "T")` rows (194 of 196 committed review rows are `("S",)`), bought where the GitHub runner had `ruff` on PATH; on shipped traffic the Action executes `$ATTEST_VENV/bin/attest` without that `bin` on PATH and `shutil.which("ruff")` found nothing — hypothesis one, a configuration defect. `ruff_executable()` now falls back to the tool beside the running interpreter. Whether tier-0 adds anything to the ranking on shipped traffic is measurable from the next batch's `channels_bought` rows. The original text follows.
   Across all **2,589** `review` ledger rows in this repository `channels_bought` is `("S",)` and
   nothing else — not under the corpus drivers, which pass `tier0_commands=[]`, and not on shipped
   traffic: the 2026-09-12 external receipt ran from `@v0.1.0-rc.2` with the quickstart's defaults

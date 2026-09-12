@@ -310,3 +310,37 @@ def test_resolved_identifiers_record_no_ledger_row(git_repo: Path) -> None:
 
     assert len(run.results) == 1
     assert _ledger_rows(git_repo, "identifier_check") == []
+
+
+def test_run_ruff_finds_the_interpreter_s_own_ruff_when_path_has_none(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """D-237 RED: the Action runs `$ATTEST_VENV/bin/attest` without putting the
+    venv's `bin` on PATH, so `shutil.which("ruff")` was None on every production
+    review and the T channel never fired there, although the lock installs ruff
+    into that very venv. The tool beside the running interpreter counts."""
+    venv_bin = tmp_path / "venv" / "bin"
+    venv_bin.mkdir(parents=True)
+    (venv_bin / "python").write_text("", encoding="utf-8")
+    ruff = venv_bin / "ruff"
+    ruff.write_text("#!/bin/sh\n", encoding="utf-8")
+    ruff.chmod(0o755)
+    (tmp_path / "a.py").write_text("x = 1\n", encoding="utf-8")
+    monkeypatch.setattr(tier0.shutil, "which", lambda name: None)
+    monkeypatch.setattr(tier0.sys, "executable", str(venv_bin / "python"))
+    seen: list[list[str]] = []
+    diags = [{"filename": "a.py", "location": {"row": 1}, "code": "F401", "message": "unused"}]
+
+    def fake(cmd, **kwargs):
+        seen.append(list(cmd))
+        return SimpleNamespace(stdout=json.dumps(diags), returncode=0)
+
+    monkeypatch.setattr(tier0.subprocess, "run", fake)
+
+    signals = run_ruff(tmp_path, ["a.py"])
+
+    assert [s.message for s in signals] == ["F401: unused"]
+    assert seen and seen[0][0] == str(ruff)
+    # and with neither on PATH nor beside the interpreter, still nothing
+    ruff.unlink()
+    assert run_ruff(tmp_path, ["a.py"]) == []

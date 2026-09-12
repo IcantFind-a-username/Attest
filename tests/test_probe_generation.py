@@ -341,8 +341,9 @@ def test_a_replay_body_asserts_the_recording_and_carries_no_prose() -> None:
     assert body.count("def test_") == 1
 
     # a value whose repr is not a literal falls back to comparing the repr
+    # (D-236: the address-free form, the same one the recorder wrote down)
     opaque = replay_test_body(ProbeSpec(**PROBE), Observation(kind="value", detail="<Row id=3>"))
-    assert "assert repr(_attest_value) == '<Row id=3>'" in opaque
+    assert "re.sub(' at 0x[0-9a-f]+', '', repr(_attest_value)) == '<Row id=3>'" in opaque
 
     # and a recorded exception compares the type name
     raised = replay_test_body(
@@ -955,3 +956,52 @@ def test_a_warning_on_head_is_not_a_difference_and_the_search_says_so() -> None:
     assert "warning" in outcome.reason and "3 probes tried" in outcome.reason
     assert asked
     assert all("DeprecationWarning" in text and "not a rejection" in text for text in asked)
+
+
+# --- D-236: an object's address is not part of the recording ----------------------
+
+# base returns a closure; head returns nothing. `repr` of the closure carries the
+# process's address, which differed on every recording: two `attrs` cases and one
+# `click` case of the mutation run were refused as "not stable on base" for it.
+BASE_FACTORY = "def define(x):\n    def wrap():\n        return x\n    return wrap\n"
+HEAD_NO_FACTORY = "def define(x):\n    return None\n"
+FACTORY_PROBE = {"imports": "import mod", "setup": "", "expression": "mod.define(1)"}
+
+
+def test_a_value_whose_repr_carries_an_address_is_recorded_and_replayed_without_it(
+    tmp_path: Path,
+) -> None:
+    """D-236 RED: the recorder compares three recordings byte for byte, so a
+    `<function ... at 0x7f...>` was never stable. The address is the process's,
+    not the value's: the probe body records the `repr` without it and the replay
+    compares the same stripped form, so the differential is bought and the drawer
+    sees a changed value."""
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_FACTORY, HEAD_NO_FACTORY)
+
+    run = verify(repo, base_sha, head_sha, ProbeProvider(FACTORY_PROBE))
+
+    assert "not stable on base" not in run.execution.reason
+    assert run.execution.probe is not None
+    assert run.execution.probe.detail == "<function define.<locals>.wrap>"
+    assert [len(run.execution.head_runs), len(run.execution.base_runs)] == [3, 3]
+    assert "value change confirmed, intent unknown" in run.execution.reason
+    row = next(r for r in Ledger(repo).entries() if r["kind"] == "probe_observation")
+    assert " at 0x" not in row["observed_detail"]
+
+
+def test_the_probe_and_replay_bodies_strip_the_address_the_same_way() -> None:
+    body = probe_test_body(ProbeSpec(imports="", setup="", expression="object()"))
+    namespace: dict[str, Any] = {}
+    exec(compile(body, "<probe>", "exec"), namespace)
+    with pytest.raises(AssertionError) as caught:
+        namespace["test_attest_probe"]()
+    observed = parse_observation(str(caught.value))
+    assert observed == Observation(kind="value", detail="<object object>")
+
+    replay = replay_test_body(
+        ProbeSpec(imports="", setup="", expression="object()"), observed
+    )
+    assert "== '<object object>'" in replay  # the pattern itself names ` at 0x`; the value does not
+    replay_namespace: dict[str, Any] = {}
+    exec(compile(replay, "<replay>", "exec"), replay_namespace)
+    replay_namespace["test_attest_replay"]()  # a fresh object, another address: still equal

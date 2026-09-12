@@ -241,6 +241,80 @@ def scm_pretend_version(tree: Path, roots: list[ProjectRoot]) -> str | None:
     return "0.0.1"
 
 
+# D-236: the declared location of the generated version file, in the two
+# spellings the scm backends use. Only a relative `.py` path inside the tree,
+# whose directory already exists, is ever written.
+_VERSION_FILE_KEYS = (
+    (("tool", "hatch", "build", "hooks", "vcs"), "version-file"),
+    (("tool", "setuptools_scm"), "version_file"),
+    (("tool", "setuptools_scm"), "write_to"),
+)
+_SAFE_RELATIVE_RE = re.compile(r"\A[A-Za-z0-9_][A-Za-z0-9_./-]{0,255}\Z")
+
+
+def declared_version_file(tree: Path, roots: list[ProjectRoot]) -> Path | None:
+    """The version file a repository-versioned project's build would generate,
+    as `pyproject.toml` declares it, or None when nothing is declared."""
+    import tomllib
+
+    for root in roots:
+        base = tree / root.relative if root.relative else tree
+        path = base / "pyproject.toml"
+        if not path.is_file():
+            continue
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, tomllib.TOMLDecodeError):
+            continue
+        for keys, leaf in _VERSION_FILE_KEYS:
+            node: object = data
+            for key in keys:
+                node = node.get(key) if isinstance(node, dict) else None
+            value = node.get(leaf) if isinstance(node, dict) else None
+            if not isinstance(value, str) or not _SAFE_RELATIVE_RE.match(value):
+                continue
+            if value.endswith(".py") and ".." not in value.split("/") and not value.startswith("/"):
+                return base / value
+    return None
+
+
+def provision_scm_version_file(tree: Path) -> Path | None:
+    """Write the generated version file a repository-versioned tree lacks (D-236).
+
+    `hatch-vcs` and `setuptools_scm` write it at build time and the project's
+    own `__init__` imports it (`urllib3`: `from ._version import __version__`);
+    a worktree at a commit has no build step, so the package could not be
+    imported and every probe on such a tree recorded nothing. The content is a
+    fixed template around the pretend version the image build already uses --
+    nothing of it comes from the tree -- and it is written only when the file is
+    absent and its directory exists. Returns the path written, else None.
+    """
+    roots = discover_roots(tree)
+    version = scm_pretend_version(tree, roots)
+    if version is None:
+        return None
+    target = declared_version_file(tree, roots)
+    if target is None or target.exists() or not target.parent.is_dir():
+        return None
+    try:
+        target.resolve().relative_to(tree.resolve())
+    except ValueError:
+        return None
+    numbers = re.match(r"\d+(?:\.\d+)*", version)
+    parts = tuple(int(x) for x in numbers.group(0).split(".")) if numbers else (0, 0, 1)
+    text = (
+        "# written by attest into the reviewed worktree: this project versions itself from\n"
+        "# the repository and its build would generate this file (D-236)\n"
+        f"__version__ = version = {version!r}\n"
+        f"__version_tuple__ = version_tuple = {parts!r}\n"
+    )
+    try:
+        target.write_text(text, encoding="utf-8")
+    except OSError:
+        return None
+    return target
+
+
 def dockerfile(
     python_version: str,
     roots: list[ProjectRoot],
