@@ -1,0 +1,40 @@
+{
+  "schema_version": "attest.e04-prospective.v1",
+  "freeze_at": "2026-09-11T23:58:00.999233+00:00",
+  "prospective": false,
+  "population": [
+    "pallets/werkzeug",
+    "pallets/markupsafe",
+    "psf/requests",
+    "python-jsonschema/jsonschema",
+    "hukkin/tomli-w"
+  ],
+  "units_sampled": 20,
+  "units_run": 20,
+  "strata": {
+    "other": 15,
+    "feature": 2,
+    "fix": 2,
+    "docs": 1
+  },
+  "shadow_findings": 2,
+  "units_with_shadow_finding": 1,
+  "pr_any_shadow_finding_rate": 0.05,
+  "wrong_shadow_findings": 0,
+  "unadjudicated_shadow_findings": 2,
+  "behavior_changes_verified": 3,
+  "behavior_changes_intent_unknown": 12,
+  "deferred_units": 0,
+  "silent_audit_selected": 19,
+  "silent_audit_unresolved": 19,
+  "confirmed_eligible_opportunities": 0,
+  "eligible_detection": "INSUFFICIENT",
+  "semantic_precision": "INSUFFICIENT",
+  "safety_stop_reached": false,
+  "cost_usd_total": 2.280397,
+  "cost_usd_p50": 0.050107,
+  "cost_usd_p95": 0.317904,
+  "latency_s_p50": 9.484,
+  "latency_s_p95": 68.71,
+  "permitted_claim": "prospective shadow observation on the authorized population; no utility or precision claim until every shadow finding and every sampled silent unit is adjudicated product-blind and the preregistered minimum is met"
+}
