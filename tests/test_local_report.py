@@ -141,3 +141,35 @@ def test_a_verified_finding_is_one_contract_line_naming_its_receipt() -> None:
     assert first.startswith(LEVEL_MARKERS["red"])
     assert contract_check(first).admitted is True
     assert "pkg/a.py:10" in first and "receipt 3253ada5eff4" in first
+
+
+def test_a_certified_line_whose_claim_does_not_conform_falls_back_to_the_receipt() -> None:
+    """D-235 (d): the local report and the drivers' lines files rendered a red
+    line from the model's claim unadjudicated, so run C's two `werkzeug#3266`
+    lines carried 500-character claims `run_ci` would have replaced. The same
+    fallback applies here: the receipt's own sentence."""
+    from attest.review.report import _certified_line
+
+    receipt = SimpleNamespace(
+        candidate_id="cccccccccc",
+        evidence_class="behavior_change",
+        provenance_digest="3253ada5eff4aaaa",
+        head_runs=[1, 2, 3],
+        base_runs=[1, 2, 3],
+        test_node="t::test_attest_replay",
+    )
+    finding = SimpleNamespace(
+        accepted_receipt=SimpleNamespace(receipt=receipt),
+        anchors=[SimpleNamespace(path="pkg/a.py", line=10)],
+        claim="the header " + "is set unconditionally for GET and " * 20,
+    )
+
+    line = _certified_line(finding)
+
+    assert contract_check(line).admitted
+    assert (
+        "behavior change (intent to confirm): the generated test t::test_attest_replay fails "
+        "on head in 3/3 runs" in line
+    )
+    assert line.endswith("— receipt 3253ada5eff4")
+    assert "unconditionally" not in line

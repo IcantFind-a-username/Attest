@@ -501,7 +501,16 @@ published only when every rejected input occurs verbatim in the base tree's test
 examples or documentation, and then in words that say exactly that and ask the author to
 confirm. Without a witness the differential is a typed abstention in the drawer ("behavior
 change confirmed, intent unknown"). The offline verifier re-judges the observation; a
-behavior-change receipt without an intent policy fails closed.
+behavior-change receipt without an intent policy fails closed. Since D-232 the rejection is
+read off the exception's frame -- a changed line anywhere on its path through the anchored
+file -- rather than the statement that raised it. **A `Warning` subclass is never a rejection
+(D-235, owner authorisation of 2026-09-13):** a head that raises one where the merge base
+returned -- under the tree's own `filterwarnings = error` or a filter the probe installed -- is
+neither this class nor a regression; the differential does not hold, no receipt and no drawer
+entry is made, and the rule is read under every recorded intent policy version, so the verifier
+refuses a bundle that certified one. The probe's setup is held to static hygiene rules before it
+runs (no `warnings`, `sys.modules`, mocks, `sys.setrecursionlimit`, `os.environ` writes, or
+assignment to an attribute of an imported name); a refusal is fed to the next probe (D-216).
 
 ### 8.4 Manual evidence
 

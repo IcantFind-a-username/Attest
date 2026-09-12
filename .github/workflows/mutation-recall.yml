@@ -107,6 +107,7 @@ jobs:
       # paid run over a partial sample is refused: the denominator is forty.
       - name: Build the cases (free)
         run: |
+          set -o pipefail
           python -u scripts/corpus/mutation_recall.py build 2>&1 | tee build.log
 
       - name: Run (PAID)
@@ -114,6 +115,9 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ATTEST_ALLOW_PAID_API: "1"
         run: |
+          # the driver's exit status is the step's: the first paid dispatch
+          # died with a traceback behind `tee` and the job read as green
+          set -o pipefail
           python -u scripts/corpus/mutation_recall.py run \
             --allow-paid-api \
             --reserve "${{ inputs.cap_usd }}" \

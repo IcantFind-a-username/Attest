@@ -110,6 +110,24 @@ is the binding policy's hunk range with three context lines each side, under
 which every crash beside a deleted guard would read as raised on a changed
 line. A "changed line" in this rule is an added line.
 
+**A warning is never a rejection (D-235, owner authorisation of 2026-09-13, a §16
+evidence-class rule).** Under a `filterwarnings = error` configuration -- the
+tree's own `pytest` settings, or a `warnings.simplefilter("error")` the probe's
+setup installed -- `warnings.warn` raises, and on `pallets/werkzeug#3266` (run
+C, receipts `a410da71c6`, `05865ed1c5`, `58ea75a4f4`) a `DeprecationWarning`
+raised on a changed line was read as a new rejection, witnessed in the base
+tree's tests, and published red; on `werkzeug#3268` the same shape was the
+drawer and a yellow value line. A warning is a message about the code, not a
+behaviour of it: a head that warns where base did not has neither rejected an
+input nor regressed. So an escaped exception whose type is a `Warning` subclass
+-- judged by name, `Warning` or any type spelled `…Warning`, which is how the
+tracer records it -- is **neither red nor the drawer**: `intent_verdict` returns
+a verdict that carries no drawer label, `evidence_class_for` says
+``indeterminate``, the executor writes no value note, and the differential does
+not hold. Unlike the refinements below this rule is **not versioned**: it is a
+correction of what the evidence was, so it reaches every recorded policy
+version, and the offline verifier now refuses the three werkzeug bundles.
+
 A receipt is judged under the policy version **it records**, not under the one
 in force today (D-121). Bumping the version is a promise to future readers of
 the audit chain, not a way to void every receipt already issued: an observation
@@ -134,6 +152,11 @@ INTENT_POLICY_V41 = "attest.intent.v4.1"  # D-134, before D-174
 INTENT_POLICY_V42 = "attest.intent.v4.2"  # D-174, before D-232
 EVIDENCE_CLASS_REGRESSION = "regression_reproduced"
 EVIDENCE_CLASS_BEHAVIOR_CHANGE = "behavior_change"
+# D-235: what a warning-shaped "rejection" supports -- nothing; the executor's
+# own name for a differential that does not hold
+EVIDENCE_CLASS_INDETERMINATE = "indeterminate"
+WARNING_LABEL = "a warning is not a rejection"
+WARNING_LABEL_ZH = "警告不构成拒绝"
 INTENT_UNKNOWN_LABEL = "behavior change confirmed, intent unknown"
 INTENT_UNKNOWN_LABEL_ZH = "行为变化已证实，意图未知"
 CONSTANT_CHANGE_LABEL = "constant change confirmed, intent unknown"
@@ -309,6 +332,26 @@ _V42_RULE_VERSIONS = frozenset({INTENT_POLICY_V42, INTENT_POLICY_VERSION})
 _V5_RULE_VERSIONS = frozenset({INTENT_POLICY_VERSION})
 
 
+def is_warning_type(name: str) -> bool:
+    """Is this exception type name a `Warning` subclass, as far as a name can
+    say? (D-235)
+
+    The tracer records ``type(exc).__name__`` and nothing of the hierarchy, so
+    the rule reads the name: ``Warning`` itself, and every type spelled
+    ``…Warning`` -- which is every builtin subclass and the convention every
+    library follows. A subclass not spelled so escapes the rule and a
+    non-warning spelled so is refused by it; both are stated limits, and the
+    second errs toward silence."""
+    bare = name.rsplit(".", 1)[-1].strip()
+    return bare == "Warning" or (bare.endswith("Warning") and bare.isidentifier())
+
+
+def warning_rejection(observation: IntentObservation) -> bool:
+    """D-235: the head failure that would be a new rejection is a warning
+    escalated to an exception, so it is not one -- under every policy version."""
+    return observation.new_rejection and is_warning_type(observation.exception_type)
+
+
 def rejection_on_changed_frame(observation: IntentObservation) -> bool:
     """D-232: is a changed line of the anchored file on the failure's path --
     the line it was raised from, or an outer frame of the same file it
@@ -411,6 +454,8 @@ def value_change_reason(observation: IntentObservation) -> str | None:
 
 def evidence_class_for(observation: IntentObservation) -> str:
     """The evidence class the observation supports."""
+    if warning_rejection(observation):
+        return EVIDENCE_CLASS_INDETERMINATE
     return (
         EVIDENCE_CLASS_BEHAVIOR_CHANGE
         if observation.new_rejection
@@ -449,6 +494,15 @@ def intent_verdict(observation: IntentObservation) -> str | None:
         return "unknown intent policy"
     if observation.head_runs_observed < 1:
         return "no head run observed"
+    if warning_rejection(observation):
+        # D-235, before every rejection rule and under every version: this is
+        # not a rejection whose intent could be unknown, so it carries no drawer
+        # label and no value note is written from it
+        return (
+            f"{WARNING_LABEL}: head raised {observation.exception_type}, a Warning subclass "
+            "escalated to an exception by a warnings filter; a warning is not a behaviour of "
+            f"the code under review and the differential does not hold ({WARNING_LABEL_ZH})"
+        )
     if observation.new_rejection and observation.policy_version in _V5_RULE_VERSIONS:
         # D-232: the frame rule. The statement kind is recorded, not required.
         if not observation.exception_type or not rejection_on_changed_frame(observation):

@@ -38,6 +38,24 @@ An observation is deliberately coarse -- `("value", repr(x))` or
 the most that can be asserted about an arbitrary object without importing the
 project's own vocabulary into the test file, and the replay compares the pair as
 a whole so a value that becomes an exception, or the reverse, is a difference.
+
+A third kind, `("warning", type(x).__name__)`, is recorded and never replayed
+(D-235). Under a `filterwarnings = error` configuration -- the tree's own, or
+one a probe's setup installed -- `warnings.warn` raises, and until 2026-09-13
+the recorder wrote that down as an exception: `pallets/werkzeug#3266` certified
+three red receipts whose "rejection" was a `DeprecationWarning` the probe's
+`warnings.simplefilter("error")` had escalated. A warning is not a behaviour of
+the code under review, so a recording that is one is refused, a head run that
+raises one is not a difference, and the kernel never reads one as a rejection
+(:func:`attest.certification.intent.warning_rejection`).
+
+**Probe hygiene (D-235).** The setup builds arguments and nothing else. A setup
+that reaches for the interpreter -- `warnings`, `sys.modules`, the recursion
+limit, `os.environ` -- or that replaces part of the tree before the call --
+`unittest.mock`, `monkeypatch`, an assignment to an attribute of an imported
+name -- records the replacement, not the code. :func:`hygiene_refusal` refuses
+those shapes statically, before anything is paid for, and the reason travels to
+the next probe the search buys (D-216).
 """
 
 from __future__ import annotations
@@ -46,9 +64,11 @@ import ast
 import base64
 import json
 import re
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from pathlib import Path
+
+from attest.review.output_contract import strip_addresses
 
 PROBE_POLICY_VERSION = "attest.probe.record-replay.v1"
 
@@ -61,6 +81,8 @@ _MARKER_RE = re.compile(re.escape(MARKER) + r"\s+([A-Za-z0-9+/=]+)")
 
 PROBE_MAX_OUTPUT_TOKENS = 1_500
 PROBE_TEST_NAME = "test_attest_probe"
+WARNING_KIND = "warning"  # D-235: a Warning subclass raised under a filter
+OBSERVATION_KINDS = frozenset({"value", "exception", WARNING_KIND})
 REPLAY_TEST_NAME = "test_attest_replay"
 
 PROBE_SCHEMA: dict[str, object] = {
@@ -109,8 +131,11 @@ class ProbeSpec:
 class Observation:
     """What the base revision did when the probe called it.
 
-    ``kind`` is ``"value"`` or ``"exception"``; ``detail`` is ``repr(value)`` or
-    the exception's type name. Coarse on purpose -- see the module docstring."""
+    ``kind`` is ``"value"``, ``"exception"`` or ``"warning"``; ``detail`` is
+    ``repr(value)`` or the exception's type name. Coarse on purpose -- see the
+    module docstring. A ``"warning"`` is a `Warning` subclass raised as an
+    exception under a warnings filter (D-235); it is recorded so the reason can
+    name it and is never replayed."""
 
     kind: str
     detail: str
@@ -120,10 +145,14 @@ class Observation:
         return repr({"kind": self.kind, "detail": self.detail})
 
     def sentence(self) -> str:
-        """One clause naming what base did, for a reason string or a receipt."""
+        """One clause naming what base did, for a reason string or a receipt.
+        An object's address (` at 0x…`) is the process's, not the value's, and
+        is dropped from the prose (D-235 c)."""
+        if self.kind == WARNING_KIND:
+            return f"the merge base raised {self.detail}, a warning escalated to an exception"
         if self.kind == "exception":
             return f"the merge base raised {self.detail}"
-        return f"the merge base returned {self.detail}"
+        return f"the merge base returned {strip_addresses(self.detail)}"
 
 
 class ProbeRefused(ValueError):
@@ -170,7 +199,230 @@ def parse_probe(text: str) -> ProbeSpec:
         ast.parse(spec.setup or "pass")
     except SyntaxError as exc:
         raise ProbeRefused("probe setup does not parse") from exc
+    refusal = hygiene_refusal(spec)
+    if refusal is not None:
+        raise ProbeRefused(refusal)
     return spec
+
+
+# --- D-235: probe hygiene ----------------------------------------------------
+#
+# Owner authorisation of 2026-09-13. Each rule is a fact about the setup's text,
+# read from its AST, and each refusal names the rule and quotes the statement so
+# the next probe (D-216) knows what not to do. Names are resolved through the
+# import bindings of the imports block and of the setup itself: `import sys as
+# s` makes `s.modules` the same fact as `sys.modules`, and `from os import
+# environ` makes `environ[...] = ...` a write to `os.environ`. A name the setup
+# itself binds -- `mock = object()` -- is a local and reaches no rule.
+
+_SNIPPET_CHARS = 80
+_MOCK_MODULES = frozenset({"unittest.mock", "mock"})
+_ENVIRON_WRITERS = frozenset(
+    {"update", "setdefault", "pop", "popitem", "clear", "__setitem__", "__delitem__"}
+)
+_ENV_FUNCTIONS = frozenset({"os.putenv", "os.unsetenv"})
+
+
+def hygiene_refusal(spec: ProbeSpec) -> str | None:
+    """Why this probe's setup may not run, or ``None`` when it may (D-235).
+
+    Refused, each with its own sentence: the `warnings` module reached by any
+    route; `sys.modules` read or written; `unittest.mock`, the `mock`
+    distribution or pytest's `monkeypatch`; an assignment, augmented or
+    annotated assignment, deletion or `setattr`/`delattr` whose target root is a
+    name an import bound; `sys.setrecursionlimit`; a write to `os.environ`
+    (subscript assignment or deletion, a mutating method, `os.putenv`,
+    `os.unsetenv`). A read of `os.environ`, a local object's attribute and a
+    local named like a refused module are not refused. Shape errors are
+    `parse_probe`'s and return ``None`` here."""
+    try:
+        imports = ast.parse(spec.imports or "pass")
+        setup = ast.parse(spec.setup or "pass")
+    except SyntaxError:
+        return None
+    bound = _import_bindings((*imports.body, *setup.body))
+    local = _local_bindings(setup) - set(bound)
+
+    def canonical(node: ast.AST) -> str | None:
+        parts: list[str] = []
+        while isinstance(node, ast.Attribute):
+            parts.append(node.attr)
+            node = node.value
+        if not isinstance(node, ast.Name):
+            return None
+        if node.id in local:
+            return None
+        root = bound.get(node.id, node.id)
+        return ".".join([root, *reversed(parts)])
+
+    def snippet(node: ast.AST, source: str = spec.setup) -> str:
+        text = ast.get_source_segment(source, node) or ""
+        text = " ".join(text.split())
+        return text if len(text) <= _SNIPPET_CHARS else text[: _SNIPPET_CHARS - 1] + "…"
+
+    def root_name(node: ast.AST) -> str | None:
+        while isinstance(node, ast.Attribute | ast.Subscript):
+            node = node.value
+        return node.id if isinstance(node, ast.Name) else None
+
+    for node in ast.walk(setup):
+        # writes first: the target decides the sentence
+        targets: list[ast.AST] = []
+        if isinstance(node, ast.Assign):
+            targets = list(node.targets)
+        elif isinstance(node, ast.AugAssign | ast.AnnAssign):
+            targets = [node.target]
+        elif isinstance(node, ast.Delete):
+            targets = list(node.targets)
+        for target in targets:
+            if isinstance(target, ast.Subscript) and canonical(target.value) == "os.environ":
+                return (
+                    f"probe setup writes os.environ ({snippet(node)}); the code under review "
+                    "must read the environment the executor gives it (D-235)"
+                )
+            if isinstance(target, ast.Attribute):
+                root = root_name(target)
+                if root is not None and root in bound and root not in local:
+                    return (
+                        f"probe setup assigns an attribute of the imported name {root} "
+                        f"({snippet(node)}); replacing part of the tree before the call records "
+                        "the replacement, not the code (D-235)"
+                    )
+        if isinstance(node, ast.Call):
+            callee = canonical(node.func)
+            if callee in ("setattr", "delattr") and node.args:
+                root = root_name(node.args[0])
+                if root is not None and root in bound and root not in local:
+                    return (
+                        f"probe setup assigns an attribute of the imported name {root} "
+                        f"({snippet(node)}); replacing part of the tree before the call records "
+                        "the replacement, not the code (D-235)"
+                    )
+            if callee in _ENV_FUNCTIONS or (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr in _ENVIRON_WRITERS
+                and canonical(node.func.value) == "os.environ"
+            ):
+                return (
+                    f"probe setup writes os.environ ({snippet(node)}); the code under review "
+                    "must read the environment the executor gives it (D-235)"
+                )
+        if isinstance(node, ast.Name | ast.Attribute):
+            name = canonical(node)
+            if name is None:
+                continue
+            if name == "warnings" or name.startswith("warnings."):
+                return (
+                    f"probe setup uses the warnings module ({snippet(node)}); a recording made "
+                    "under a changed warnings filter measures the filter, not the code, and a "
+                    "warning is never a rejection (D-235)"
+                )
+            if name == "sys.modules" or name.startswith("sys.modules."):
+                return (
+                    f"probe setup touches sys.modules ({snippet(node)}); the recording must "
+                    "see the tree's own import state (D-235)"
+                )
+            if name == "sys.setrecursionlimit":
+                return (
+                    f"probe setup changes the recursion limit with sys.setrecursionlimit "
+                    f"({snippet(node)}); interpreter state is not an argument (D-235)"
+                )
+            if (
+                name in _MOCK_MODULES
+                or any(name.startswith(f"{module}.") for module in _MOCK_MODULES)
+                or name == "monkeypatch"
+                or name.startswith("monkeypatch.")
+            ):
+                what = "monkeypatch" if name.split(".", 1)[0] == "monkeypatch" else "mock"
+                return (
+                    f"probe setup mocks with {what} ({snippet(node)}); the code under review "
+                    "must run against its real dependencies (D-235)"
+                )
+    # the import statements last, so a refusal quotes the use rather than the
+    # import where there is one; an import nobody uses is still refused, because
+    # the module is refused however it is reached
+    for source, statements in ((spec.imports, imports.body), (spec.setup, setup.body)):
+        for node in statements:
+            modules: list[str] = []
+            if isinstance(node, ast.Import):
+                modules = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+                modules = [node.module, *(f"{node.module}.{alias.name}" for alias in node.names)]
+            for module in modules:
+                if module == "warnings" or module.startswith("warnings."):
+                    quoted = snippet(node, source) or module
+                    return (
+                        f"probe setup uses the warnings module ({quoted}); a recording made "
+                        "under a changed warnings filter measures the filter, not the code, and "
+                        "a warning is never a rejection (D-235)"
+                    )
+                if module in _MOCK_MODULES or any(
+                    module.startswith(f"{name}.") for name in _MOCK_MODULES
+                ):
+                    return (
+                        f"probe setup mocks ({snippet(node, source) or module}); the code under "
+                        "review must run against its real dependencies (D-235)"
+                    )
+    return None
+
+
+def _import_bindings(statements: Iterable[ast.AST]) -> dict[str, str]:
+    """Every name an import statement binds, mapped to what it names:
+    ``import os.path as p`` -> ``p: os.path``; ``from os import environ`` ->
+    ``environ: os.environ``; ``import a.b`` binds ``a``."""
+    bound: dict[str, str] = {}
+    for node in statements:
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.asname:
+                    bound[alias.asname] = alias.name
+                else:
+                    top = alias.name.split(".", 1)[0]
+                    bound[top] = top
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            for alias in node.names:
+                bound[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+    return bound
+
+
+def _local_bindings(tree: ast.AST) -> set[str]:
+    """Names the setup binds by anything other than an import: an assignment,
+    a def or class, a loop or `with` target, a walrus, an except clause, a
+    parameter of a def or lambda it declares."""
+    names: set[str] = set()
+
+    def bind(target: ast.AST) -> None:
+        if isinstance(target, ast.Name):
+            names.add(target.id)
+        elif isinstance(target, ast.Tuple | ast.List):
+            for element in target.elts:
+                bind(element)
+        elif isinstance(target, ast.Starred):
+            bind(target.value)
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                bind(target)
+        elif isinstance(
+            node, ast.AnnAssign | ast.AugAssign | ast.For | ast.AsyncFor | ast.NamedExpr
+        ):
+            bind(node.target)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            names.add(node.name)
+        elif isinstance(node, ast.With | ast.AsyncWith):
+            for item in node.items:
+                if item.optional_vars is not None:
+                    bind(item.optional_vars)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            names.add(node.name)
+        elif isinstance(node, ast.comprehension):
+            bind(node.target)
+        elif isinstance(node, ast.arg):
+            # a parameter of a def or lambda the setup declares: `self` in a
+            # helper class's method is the probe's own object, not the tree's
+            names.add(node.arg)
+    return names
 
 
 def reaches_the_tree(spec: ProbeSpec, tree_roots: Collection[str]) -> bool:
@@ -254,7 +506,7 @@ def probe_test_body(spec: ProbeSpec) -> str:
             f"        _attest_value = {spec.expression}",
             "    except BaseException as _attest_error:  # noqa: BLE001 - the type is the record",
             "        _attest_observed = {",
-            "            'kind': 'exception',",
+            "            'kind': 'warning' if isinstance(_attest_error, Warning) else 'exception',",
             "            'detail': type(_attest_error).__name__,",
             "        }",
             "    else:",
@@ -302,6 +554,13 @@ def replay_test_body(spec: ProbeSpec, observation: Observation) -> str:
     type name; both pin a string, and the unchanged value-class rule decides
     what that is worth.
     """
+    if observation.kind == WARNING_KIND:
+        # D-235: never reached through `execute_differential`, which refuses the
+        # recording; a caller that gets here has bypassed that rule
+        raise ValueError(
+            f"a warning observation ({observation.detail}) is not a behaviour of the code "
+            "under review and cannot be replayed (D-235)"
+        )
     if observation.kind == "value":
         try:
             ast.literal_eval(observation.detail)
@@ -366,7 +625,7 @@ def parse_observation(*texts: str) -> Observation | None:
                 continue
             if (
                 isinstance(payload, dict)
-                and payload.get("kind") in {"value", "exception"}
+                and payload.get("kind") in OBSERVATION_KINDS
                 and isinstance(payload.get("detail"), str)
             ):
                 return Observation(kind=payload["kind"], detail=payload["detail"])

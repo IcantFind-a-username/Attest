@@ -15,6 +15,10 @@ It is **experimental**, and the numbers below say exactly how experimental. Its 
 on a held-out defect corpus is **6.5%**; it is silent far more often than it speaks; and a
 silence from it is never evidence that your code is fine.
 
+<!-- receipts:begin -->
+On **44 merged pull requests** of **13 open-source Python libraries**, attest said **7 lines** on 6 of them; the owner adjudicated each by hand: **4 useful, 3 true but not actionable, 0 wrong**. Every line and its receipt: [`docs/receipts.md`](docs/receipts.md). *(These numbers are written by `scripts/acceptance/receipts_page.py` from the reports' own adjudication columns; nothing here is typed.)*
+<!-- receipts:end -->
+
 ## What it says, in four levels
 
 Every author-visible line is **one line** carrying a level marker, a coordinate, one sentence of
@@ -25,7 +29,9 @@ other's words, and never speak for each other:
 |---|---|---|---|
 | **red** | *this change broke something* — a generated test that fails on head and passes on the merge base, three runs each way, with an offline-verifiable receipt | yes | **live** |
 | **gate** | *this new code crashes on an input a pre-existing caller produces* — new code has no merge base, so it is admitted only through a caller outside the added lines | yes | **yellow, behind `gate_notes_visible`** (D-223): off everywhere by default, **enabled in the owner's own repositories**; through-caller witnesses only, at most one line per pull request, none when red published. On **0 of 445** recorded candidates before this window had it found a publishing-grade witness, so its noise floor on real traffic is not yet measured — see the report of the run that first switched it on |
-| **yellow** | *here is a hypothesis, and here are the premises I checked* — a checker verifies each premise separately and only the verified ones are said | (a) no; value: the run already paid for it | **(a) the impact scope is live**, ≤ 2 per pull request. **Two new classes, behind base-owned switches and enabled in the owner's own repositories only** (D-222, D-223): the **value class** — *the merge base returned A and head returns B for this call, three runs each side, and nothing in the base tree pins either* — and the **gate** line above. Noise floor for the value class: **4 notes over 780 control verification rows**, 3 over 11 forward pairs, 3 over 28 real pull requests ([report](docs/acceptance/2026-09-11-value-note-shadow.md)); its rendering rules and the 16-of-16 replay are in D-222. The null/Optional and exception-propagation classes were **deleted** on 2026-09-11 (D-224) |
+| **yellow (a)** | *this change moved an interface and reaches a caller no test names* — counts over the syntax tree: call sites, whether a test names each caller, and whether a parameter's name, count, order or default moved against the base (an annotation alone is not a move, D-233) | no | **live**, ≤ 2 per pull request; noise floor **1 of 68** null controls |
+| **yellow (value)** | *the merge base returned A and head returns B for this call, three runs each side, and nothing in the base tree pins either* — the drawer's own measurement, with coordinates; a container value is shown by the first element that differs (D-234) | no: the run already paid for it | **off by default.** A repository opens it at its merge base with `value_notes_visible = true` in `.attest.toml` (D-222); on in this project's own repositories. Noise floor: **4 notes over 780 control verification rows**, 3 over 11 forward pairs, 3 over 28 real pull requests ([report](docs/acceptance/2026-09-11-value-note-shadow.md)). Since D-232 this is also where a rejection raised on a line the change wrote goes |
+| **yellow (gate)** | *this new code crashes on an input a pre-existing caller produces* — the gate level above, spoken at yellow through a caller the diff did not add | yes | **off by default.** Opened with `gate_notes_visible = true` in `.attest.toml` (D-223); at most one line per pull request, none when red published; on **0 of 445** recorded candidates has it found a publishing-grade witness |
 | **green** | *this is structurally so* — computed with no model at all; today, the same implementation in two places | only to word it | **live** |
 
 ```text
@@ -78,7 +84,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Review pull request
-        uses: IcantFind-a-username/Attest@v0.1.0   # docs/operations/install-ref.md
+        uses: IcantFind-a-username/Attest@v0.2.0   # docs/operations/install-ref.md
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -98,6 +104,14 @@ secret**, with the Name exactly `ANTHROPIC_API_KEY` and your Anthropic API key a
 `GITHUB_TOKEN` needs nothing — Actions supplies it. That is the whole installation; if the
 secret is missing the run stops before any model call and the error says where to put it.
 
+What a red line looks like on a real pull request of this repository — a **planted-defect
+drill**: the empty-string guard of a helper was deleted on purpose in a throwaway pull request
+([#52](https://github.com/IcantFind-a-username/Attest/pull/52), closed unmerged) and the
+workflow above, running as it stands on `main`, said one red line with its reproduction and
+its receipt:
+
+![A red line from attest on a planted-defect drill: the deleted guard, the generated test that fails on head in 3/3 runs and passes on the merge base in 3/3, and the receipt to verify offline](docs/img/red-receipt.png)
+
 **Fork pull requests are never reviewed and never commented on.** Two independent gates
 skip them before any credential enters a runner step, and this repository uses no
 `pull_request_target` trigger anywhere. A skipped fork leaves **no comment, no review, no
@@ -111,7 +125,8 @@ the column on the right is the reason.
 
 | measurement | number | what it is **not** |
 |---|---|---|
-| **crash-class recall**, held-out SWE-bench Verified corpus whose projects declare a supported interpreter | **5 of 25 — 20.0%, Wilson 95% [8.9%, 39.1%]** (2026-09-11, [report](docs/acceptance/2026-09-11-heldout-after-search.md)). The previous measurement of the same population was **2 of 31 — 6.5% [1.8%, 20.7%]** (2026-09-10, [report](docs/acceptance/2026-09-10-heldout-remeasurement.md)); the entire difference is measurement repair (era-pinned dependencies, font cache, contained import-time process attempts), not a change in the reviewer; the denominator moved from 31 to 25 because 4 cases went unbought and 2 moved to the value class | not a precision figure. One of the five receipts depends on `contained_attempt_voids=false`, which is not the shipped default; under the default the figure is 4 of 25. On the cases-run denominator, where nothing was dropped, the movement is 2 of 39 → 5 of 35 |
+| **crash-class recall**, held-out SWE-bench Verified corpus whose projects declare a supported interpreter — **reversed by construction**: the pull request under review is the *fix*, so the generated reproduction is asked to fail on a repair (the structural penalty of D-158; see D-212 and the forward-corpus proposal) | **5 of 25 — 20.0%, Wilson 95% [8.9%, 39.1%]** (2026-09-11, [report](docs/acceptance/2026-09-11-heldout-after-search.md)). The previous measurement of the same population was **2 of 31 — 6.5% [1.8%, 20.7%]** (2026-09-10, [report](docs/acceptance/2026-09-10-heldout-remeasurement.md)); the entire difference is measurement repair (era-pinned dependencies, font cache, contained import-time process attempts), not a change in the reviewer; the denominator moved from 31 to 25 because 4 cases went unbought and 2 moved to the value class | not a precision figure. One of the five receipts depends on `contained_attempt_voids=false`, which is not the shipped default; under the default the figure is 4 of 25. On the cases-run denominator, where nothing was dropped, the movement is 2 of 39 → 5 of 35 |
+| **crash-class recall**, forty injected defects of eight public libraries, **forward** (head introduces the defect) | <!-- mutation-recall:begin -->**9 of 40 — 22.5%, Wilson 95% [12.3%, 37.5%]** (2026-09-13, [report](docs/acceptance/2026-09-13-mutation-recall.md) §1a; the run certified 10, and the D-235 replay withdrew one whose probe had replaced an attribute of the module under test); by class: guard deleted 4 of 17, boundary swapped 1 of 13, `None` guard deleted 4 of 10; **0 of 40** sent to the drawer by the frame rule of D-232, 14 read as a changed value the base tree does not pin<!-- mutation-recall:end --> | not natural traffic: the defects are injected under three stated rules (D-231); the same table says how many of the forty the frame rule of D-232 sends to the drawer instead of red |
 | **false publications**, prospective shadow over 28 real pull requests with 13 reproductions that actually executed | **0** ([report](docs/acceptance/2026-09-13-e04-shadow-v3.md)) | not a precision figure either — **nothing certified**, so precision is undefined and utility is unproven |
 | **false publications**, 68 independent null controls + 40 held-out controls, K=4 | **0** ([report](docs/acceptance/2026-09-05-g-null-001a-independent.md), [held-out](docs/acceptance/2026-09-03-e02-heldout.md)) | the last measured control arm is at **K=4**; the shipped `samples` is 5 and that arm has never been bought |
 | **yellow (a) noise floor**, 68 null controls, deterministic | **1 of 68 — 1.47%**, Wilson 95% **[0.26%, 7.87%]** ([report](docs/acceptance/2026-09-13-yellow.md)) | the one note is **true**; the level claims no defect and has never been shown to find one |
@@ -120,18 +135,20 @@ the column on the right is the reason.
 
 ## Known limitations, in the order they will bite you
 
-1. **Recall is 20.0%** — Wilson 95% [8.9%, 39.1%], 5 of 25, measured 2026-09-11 on the held-out
-   crash-class corpus, up from 6.5% on 2026-09-10 **entirely through measurement repair**, not a
-   better reviewer: 11 of the 18 cases whose probe never executed on the merge base now execute
-   one, and all three new receipts are among them. Where the evidence is lost now: **19** cases
-   end at the intent clause, 6 of them on a reversed-corpus artifact of clause (c); the probe
-   search bought 12 extra probes and added no certified case
-   ([report](docs/acceptance/2026-09-11-heldout-after-search.md)).
+1. **Recall is low, and it comes from two corpora with two denominators.** On the held-out
+   SWE-bench slice, **5 of 25 — 20.0%**, Wilson 95% [8.9%, 39.1%] (2026-09-11), a corpus that is
+   reversed by construction and penalises the reviewer structurally (D-158, D-212); on forty
+   injected forward defects of eight public libraries, the figure in the table above with its
+   own interval. Neither is the other, and neither is natural traffic. Where the held-out
+   evidence is lost: **19** cases end at the intent clause, 6 of them on a reversed-corpus
+   artifact of clause (c) ([report](docs/acceptance/2026-09-11-heldout-after-search.md)); since
+   D-232 a crash raised on the very line a change wrote is a yellow value line, not red.
 2. **Python only.** Python, pytest, Linux containers, interpreters **3.10–3.13**. Anything else
    gets one line naming the reason and exit 0 — never a traceback, never a silence that reads
    as *nothing found*.
-3. **The gate level and the value class speak only where a repository's own policy opens them**,
-   and that is the owner's repositories today (D-222, D-223). Everywhere else both are ledger
+3. **The gate level and the value class speak only where a repository's own policy opens them**
+   (`gate_notes_visible`, `value_notes_visible` in `.attest.toml` at the merge base; D-222,
+   D-223), and that is this project's own repositories today. Everywhere else both are ledger
    rows. Their noise floors on real traffic are measured by the run that first switched them on
    ([report](docs/acceptance/2026-09-12-e04-with-notes.md)) and adjudicated line by line by the
    owner; neither has a precision figure.

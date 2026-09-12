@@ -434,3 +434,34 @@ def test_the_element_form_still_digests_when_the_line_would_overflow(note_line_c
     assert admitted(note).admitted, admitted(note).reason
     assert "first differ" not in line and "sha256" in line
 
+
+
+def test_an_object_address_is_stripped_from_the_line_and_not_from_the_note_id() -> None:
+    """D-235 (c): `psf/requests#7505`'s line read `<… ReadProxy object at
+    0x7fb1ea6cfcb0>`; the address is the process's, not the value's. The
+    rendering drops ` at 0x…`; the note id is over the measurement and stays."""
+    note = _note(
+        base_kind="exception",
+        base_detail="TypeError",
+        head_kind="value",
+        head_detail="<test_repro.test_attest_probe.<locals>.ReadProxy object at 0x7fb1ea6cfcb0>",
+    )
+    line = render(note)
+    assert " at 0x" not in line
+    assert "<test_repro.test_attest_probe.<locals>.ReadProxy object>" in line
+    assert admitted(note).admitted
+    twin = _note(
+        base_kind="exception",
+        base_detail="TypeError",
+        head_kind="value",
+        head_detail="<test_repro.test_attest_probe.<locals>.ReadProxy object at 0x7f0000000001>",
+    )
+    # the same prose from a different address; the ids differ because the
+    # measurement -- the recorded `repr` -- differs
+    assert render(twin).split(" — note ")[0] == line.split(" — note ")[0]
+    assert twin.note_id() != note.note_id()
+    # the element form strips too
+    paired = _note(
+        base_detail="[<A object at 0x7f00>, 1]", head_detail="[<A object at 0x7f00>, 2]"
+    )
+    assert " at 0x" not in render(paired) and "index 1" in render(paired)

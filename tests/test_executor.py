@@ -3890,3 +3890,52 @@ def test_a_refused_probe_s_reason_is_fed_to_the_next_attempt(tmp_path: Path) -> 
     assert second_prompt.startswith(first_prompt)
     assert "probe output is not valid JSON" in second_prompt
     assert "probe output is not valid JSON" not in first_prompt
+
+
+# D-235: `pallets/werkzeug#3266`. Under the tree's own `filterwarnings = error` the
+# head revision's `warnings.warn` raises a DeprecationWarning on the changed line,
+# and the base revision returns. Until D-235 that was a new rejection with a
+# witness in the base tests -- a red receipt.
+WARNING_HEAD_MODULE = (
+    "import warnings\n"
+    "\n\n"
+    "def add(a, b):\n"
+    "    warnings.warn('add is deprecated', DeprecationWarning, stacklevel=2)\n"
+    "    return a + b\n"
+)
+PYTEST_ERROR_FILTERS = "[pytest]\nfilterwarnings = error\n"
+
+
+def test_a_warning_escalated_to_an_exception_is_neither_a_receipt_nor_the_drawer(
+    tmp_path: Path,
+) -> None:
+    """D-235 RED (b): the werkzeug#3266 shape. Head raises DeprecationWarning from
+    a line the change wrote, the input `2` is in the base tests -- under D-232 a
+    witnessed new rejection, i.e. red. A warning is not a rejection: the
+    differential is DEFERRED with no drawer label and no value note, and its
+    evidence class is indeterminate rather than behaviour change."""
+    stored = candidate(file="mod.py", line=5)
+    repo, base_sha, head_sha = two_commit_repo(
+        tmp_path,
+        {"mod.py": GOOD_MODULE, "pytest.ini": PYTEST_ERROR_FILTERS},
+        {"mod.py": WARNING_HEAD_MODULE, "pytest.ini": PYTEST_ERROR_FILTERS},
+    )
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(DIFFERENTIAL_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert [run.outcome.value for run in result.head_runs] == ["reproduced"] * 3
+    assert [run.outcome.value for run in result.base_runs] == ["not_reproduced"] * 3
+    assert result.outcome is ExecutionOutcome.DEFERRED, result.reason
+    assert result.evidence_class is EvidenceClass.INDETERMINATE
+    assert "a warning is not a rejection" in result.reason
+    assert "DeprecationWarning" in result.reason
+    assert "behavior change confirmed, intent unknown" not in result.reason
+    assert result.intent is not None and result.intent.exception_type == "DeprecationWarning"
+    assert_worktrees_cleaned(repo, stored)

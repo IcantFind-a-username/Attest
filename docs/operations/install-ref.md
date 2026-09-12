@@ -8,10 +8,10 @@ produced a receipt.
 
 | | |
 |---|---|
-| ref | **`v0.1.0`** (2026-09-13) · `v0.1.0-rc.2`, `v0.1.0-rc.1`, `v0.1.0-pilot.1` (previous, never moved) |
+| ref | **`v0.2.0`** (2026-09-13) · `v0.1.0`, `v0.1.0-rc.2`, `v0.1.0-rc.1`, `v0.1.0-pilot.1` (previous, never moved) |
 | kind | annotated tag; immutable |
-| commit | resolve with `git rev-parse v0.1.0^{commit}`. Every tag here is annotated and **none is ever moved** |
-| package version | wheel metadata `0.1.0`, and `attest.__version__` reads the installed metadata rather than a second hand-written literal, so the `0.1.0rc1`/`0.1.0rc2` disagreement `v0.1.0-rc.2` shipped cannot recur. **`pyproject.toml` is the one hand-written place** |
+| commit | resolve with `git rev-parse v0.2.0^{commit}`. Every tag here is annotated and **none is ever moved** |
+| package version | wheel metadata `0.2.0`, and `attest.__version__` reads the installed metadata rather than a second hand-written literal, so the `0.1.0rc1`/`0.1.0rc2` disagreement `v0.1.0-rc.2` shipped cannot recur. **`pyproject.toml` is the one hand-written place** |
 | interpreter | CPython 3.11 minimum, 3.12 primary (the Action pins 3.12.8); the **reproduction** image is built on 3.10–3.13 and a project declaring outside that range is refused by name (D-186) |
 | isolation backend | `linux-container-v1` (Docker/OCI); production never falls back to the host |
 | evidence schemas | run record, receipt, seal and bundle are versioned; an unknown version is rejected, never misread |
@@ -21,14 +21,32 @@ Install it exactly as [`quickstart.md`](quickstart.md) §1 does:
 ```bash
 git clone https://github.com/IcantFind-a-username/Attest.git
 cd Attest
-git checkout v0.1.0
+git checkout v0.2.0
 ```
 
 and pin the workflow the same way:
 
 ```yaml
-- uses: IcantFind-a-username/Attest@v0.1.0
+- uses: IcantFind-a-username/Attest@v0.2.0
 ```
+
+### What `v0.2.0` changes over `v0.1.0`
+
+**Three evidence-side rules and two more populations; no constant moved.** `alpha`, every
+likelihood ratio, `k_samples`, the hard cap, `budget-usd` and the supported interpreter range are
+unchanged.
+
+- **A new rejection is a frame on the exception's path, not a statement (D-232,
+  `attest.intent.v5`).** An escaped exception whose path through the anchored file crosses a line
+  the change wrote is a behaviour change with unknown intent, whatever raised it; red keeps the
+  merge-base-raised-head-does-not shape and a crash off every written line. Both `attrs#1603`
+  receipts of the first batch moved to the drawer; both held-out receipts stayed.
+- **A return-annotation-only change is not a yellow (a) claim (D-233); a container value on the
+  yellow line names the first element that moved (D-234, `attest.value-note.v3`).**
+- **Two more populations measured**: twenty merged pull requests of five libraries the free probe
+  kept, and forty injected forward defects with the first non-reversed recall figure.
+- **The README's adjudicated numbers are generated** from the reports' own columns
+  (`docs/receipts.md`).
 
 ### What `v0.1.0` changes over `v0.1.0-rc.2`
 
