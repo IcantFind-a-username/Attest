@@ -152,12 +152,19 @@ def parse_report(path: Path) -> Report:
             # a line that changed level (red → value) is adjudicated as shown now:
             # a verdict typed against the red wording does not carry to the yellow one
             carried = source if source is not None and source.level == after_level else None
+            # a §1b row may carry the three columns itself: that is where a line
+            # whose level changed is adjudicated as it is shown now
+            own = cells[6:9] if len(cells) >= 9 else ["", "", ""]
+            if any(cell.strip() for cell in own):
+                useful, tbu, wrong = own
+            else:
+                useful = carried.useful if carried else ""
+                tbu = carried.true_but_useless if carried else ""
+                wrong = carried.wrong if carried else ""
             report.lines.append(Line(
                 report=path.name, run=run, pull_request=pull, level=after_level, text=line_text,
                 evidence_id=evidence_id, withdrawn=withdrawn,
-                useful=carried.useful if carried else "",
-                true_but_useless=carried.true_but_useless if carried else "",
-                wrong=carried.wrong if carried else "",
+                useful=useful, true_but_useless=tbu, wrong=wrong,
             ))
     else:
         report.lines = adjudicated

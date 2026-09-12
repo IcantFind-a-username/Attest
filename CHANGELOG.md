@@ -11,6 +11,49 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+Nothing yet.
+
+## `v0.2.0` — 2026-09-13
+
+**The release whose README numbers were adjudicated by hand, line by line.** On the merged pull
+requests of open-source Python libraries this project does not own, every line the product said
+sits in a table with three columns the owner filled; the README's first screen carries those
+counts and is written by a script from the tables, never typed. Constants unchanged from
+`v0.1.0`: `alpha`, every likelihood ratio, `k_samples` 5, the hard cap 3, `budget-usd` $1.00,
+interpreters 3.10–3.13.
+
+- **A warning is never a rejection, and a probe's setup may not reach for the interpreter or
+  replace the tree (D-235, owner authorisation of 2026-09-13).** Run C's three red receipts on
+  `pallets/werkzeug#3266` were a `DeprecationWarning` raised as an exception -- by the probe's own
+  `warnings.simplefilter("error")` once, by the tree's `filterwarnings = error` twice -- and the
+  frame rule read it as a witnessed new rejection. Now a `Warning` subclass on the exception's
+  path is neither red nor the drawer, under every recorded policy version: the recorder refuses a
+  warning on base, the search screens one out on head, the kernel says `indeterminate`, and the
+  offline verifier refuses the three bundles. `parse_probe` also refuses a setup that touches
+  `warnings`, `sys.modules`, `unittest.mock`/`mock`/`monkeypatch`, `sys.setrecursionlimit`, writes
+  `os.environ`, or assigns an attribute of an imported name (`jsonschema#1416`'s
+  `validators.urlopen = _fake_urlopen`); the refusal names the statement and is fed to the next
+  probe. Rendered values drop the ` at 0x…` object address, and the local report shows a red line
+  whose model claim fails the contract with the receipt's own sentence, as the Action always did.
+  **Replayed over the 109 committed verification rows: 4 receipts and 2 notes withdrawn; the
+  eleven lines become seven (run B's four stand; run C's seven become three); the forward recall
+  becomes 9 of 40 — 22.5%, Wilson 95% [12.3%, 37.5%]**
+  ([evidence](docs/acceptance/evidence/2026-09-13-d235-replay.json)). **What it costs in
+  recall:** a probe that needs a mock, an environment variable or a warnings filter to reach the
+  edge cannot record it; a head that starts warning where base did not is silence, not a line.
+- **Twenty more real pull requests, five more libraries (e05-external-v2, run C).** The population
+  is the five of eight candidates whose free evaluability probe passed (build the reproduction
+  image, import the package inside it); 20 of 20 units for $2.28; **7 lines on 6 pull requests**
+  — 2 red, both witnessed behaviour changes worded *intent to confirm*, 5 value lines — every one
+  in [the report](docs/acceptance/2026-09-13-lines-on-real-prs-batch2.md) with three empty
+  columns. **What it costs in trust:** nothing here is a precision figure until the columns are
+  filled; the README says how many are pending.
+- **Forty injected defects, forward (mutations-v1-recall).** The first red-level recall figure on
+  a corpus that is not reversed by construction: five per library under a recorded seed,
+  re-created on the runner from their recorded sites. The figure, its Wilson interval and the
+  count D-232 sends to the drawer are in [the report](docs/acceptance/2026-09-13-mutation-recall.md).
+- **`docs/receipts.md`**: every line ever said on a real pull request, its receipt or note, the
+  owner's verdict; generated.
 - **A new rejection is a frame on the exception's path, not a statement (D-232, `attest.intent.v5`).**
   D-102 read the rejection off the syntax of the raising line, so `zip(…, strict=True)` raising on
   a changed line of `python-attrs/attrs#1603` certified two red receipts while the statement

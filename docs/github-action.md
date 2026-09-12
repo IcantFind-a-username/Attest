@@ -17,7 +17,7 @@ evidence bundles under `.attest/evidence/` as the run's artifact — the bundle 
 `attest verify --bundle … --require-seal` checks, so it has to outlive the runner.
 
 ```yaml
-- uses: IcantFind-a-username/Attest@v0.1.0   # docs/operations/install-ref.md
+- uses: IcantFind-a-username/Attest@v0.2.0   # docs/operations/install-ref.md
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
