@@ -768,3 +768,190 @@ def test_a_recording_whose_third_observation_disagrees_is_refused() -> None:
     assert "not stable on base" in recorded.reason
     assert "the merge base returned 6" in recorded.reason
     assert "then the merge base returned 7" in recorded.reason
+
+
+# --- D-235: probe hygiene -- what a setup may not do ----------------------------
+
+
+def _refused(setup: str, imports: str = "import mod", expression: str = "mod.total(items)") -> str:
+    """The refusal a probe with this setup earns, or "" when it is admitted."""
+    payload = {"imports": imports, "setup": setup, "expression": expression}
+    try:
+        parse_probe(json.dumps(payload))
+    except Exception as exc:  # noqa: BLE001 - the message is the assertion
+        return str(exc)
+    return ""
+
+
+def test_a_setup_that_touches_the_warnings_module_is_refused() -> None:
+    """D-235 RED (a.1): `werkzeug#3266` recorded under `warnings.simplefilter("error")`,
+    so the DeprecationWarning head emits became the "rejection" red certified. The
+    warnings module is refused however it is reached: imported in the imports block
+    and referenced in setup, imported in setup, or bound by a from-import."""
+    assert "warnings" in _refused(
+        'warnings.simplefilter("error")\nitems = [1]', "import mod\nimport warnings"
+    )
+    assert "warnings" in _refused("import warnings\nwarnings.simplefilter('error')")
+    assert "warnings" in _refused(
+        "ctx = catch_warnings(record=True)\nctx.__enter__()",
+        "import mod\nfrom warnings import catch_warnings",
+    )
+    assert "warnings" in _refused("import warnings as w\nw.filterwarnings('ignore')")
+
+
+def test_a_setup_that_reads_or_writes_sys_modules_is_refused() -> None:
+    """D-235 RED (a.2): `sys.modules["requests"] = None` and `sys.modules.pop(...)`
+    make the recording about the interpreter's import state, not the code."""
+    assert "sys.modules" in _refused('sys.modules["requests"] = None', "import mod\nimport sys")
+    assert "sys.modules" in _refused('sys.modules.pop("mod.sub", None)', "import mod\nimport sys")
+    assert "sys.modules" in _refused("m = sys.modules['mod']", "import mod\nimport sys")
+    assert "sys.modules" in _refused(
+        "modules['x'] = None", "import mod\nfrom sys import modules"
+    )
+
+
+def test_a_setup_that_mocks_is_refused() -> None:
+    """D-235 RED (a.3): `unittest.mock`, the `mock` distribution and pytest's
+    `monkeypatch` replace the code under review's dependencies before it runs."""
+    assert "mock" in _refused(
+        'patcher = mock.patch("urllib.request.urlopen", lambda u: None)\npatcher.start()',
+        "import mod\nfrom unittest import mock",
+    )
+    assert "mock" in _refused(
+        "p = patch('mod.helper')", "import mod\nfrom unittest.mock import patch"
+    )
+    assert "mock" in _refused("import mock\nmock.patch('x').start()")
+    assert "monkeypatch" in _refused("monkeypatch.setattr(mod, 'helper', lambda: 1)")
+
+
+def test_a_setup_that_assigns_an_attribute_of_an_imported_name_is_refused() -> None:
+    """D-235 RED (a.4): `jsonschema#1416`'s probe wrote `validators.urlopen = _fake`
+    on the imported module and recorded the mock's answer. Any assignment,
+    augmented assignment, annotated assignment, deletion or `setattr` whose target
+    root is a name an import bound is refused; a local object's attribute is not."""
+    assert "attribute" in _refused(
+        "validators.urlopen = lambda u: None", "import mod\nfrom jsonschema import validators"
+    )
+    assert "attribute" in _refused("mod.LIMIT += 1")
+    assert "attribute" in _refused("mod.LIMIT: int = 5")
+    assert "attribute" in _refused("del mod.helper")
+    assert "attribute" in _refused("setattr(mod, 'helper', lambda: 1)")
+    assert "attribute" in _refused(
+        "Response.autocorrect_location_header = True",
+        "import mod\nfrom werkzeug.wrappers import Response",
+    )
+    # a local instance is the probe's own argument, not the tree
+    assert _refused("v = mod.Validator()\nv.limit = 3") == ""
+
+
+def test_a_setup_that_changes_the_recursion_limit_is_refused() -> None:
+    """D-235 RED (a.5): the recursion limit is interpreter state."""
+    assert "setrecursionlimit" in _refused(
+        "sys.setrecursionlimit(10)", "import mod\nimport sys"
+    )
+    assert "setrecursionlimit" in _refused(
+        "setrecursionlimit(10)", "import mod\nfrom sys import setrecursionlimit"
+    )
+
+
+def test_a_setup_that_writes_the_environment_is_refused_and_a_read_is_not() -> None:
+    """D-235 RED (a.6): `os.environ["PAGER"] = ...` configures the code under
+    review from outside; reading a variable does not."""
+    assert "os.environ" in _refused('os.environ["PAGER"] = "none"', "import mod\nimport os")
+    assert "os.environ" in _refused('os.environ.update({"A": "1"})', "import mod\nimport os")
+    assert "os.environ" in _refused('os.environ.setdefault("A", "1")', "import mod\nimport os")
+    assert "os.environ" in _refused('del os.environ["A"]', "import mod\nimport os")
+    assert "os.environ" in _refused('os.putenv("A", "1")', "import mod\nimport os")
+    assert "os.environ" in _refused('environ["A"] = "1"', "import mod\nfrom os import environ")
+    assert (
+        _refused('home = os.environ.get("HOME", "")\nitems = [1]', "import mod\nimport os") == ""
+    )
+    assert _refused('home = os.environ["HOME"]', "import mod\nimport os") == ""
+
+
+def test_an_ordinary_setup_is_still_admitted_under_the_hygiene_rules() -> None:
+    """The rules refuse what they name and nothing else: locals, classes, files
+    in a temporary directory, a local named like a refused module."""
+    proxy = "items = [1, 2, 3]\nclass Proxy:\n    def read(self):\n        return b''\np = Proxy()"
+    assert _refused(proxy) == ""
+    files = "d = tempfile.mkdtemp()\npath = os.path.join(d, 'x')"
+    assert _refused(files, "import mod\nimport os\nimport tempfile") == ""
+    assert _refused("mock = object()\nkind = mock.__class__") == ""
+    assert _refused("version = sys.version_info[:2]", "import mod\nimport sys") == ""
+
+
+def test_a_probe_body_records_a_warning_escalated_to_an_exception_as_a_warning() -> None:
+    """D-235 RED (b): under a `filterwarnings = error` configuration the code's
+    `warnings.warn` raises, and the recorder used to write it down as an
+    exception -- the "rejection" of `werkzeug#3266`. It is a third kind."""
+    body = probe_test_body(
+        ProbeSpec(
+            imports="import warnings",
+            setup="",
+            expression="warnings.warn('gone', DeprecationWarning)",
+        )
+    )
+    namespace: dict[str, Any] = {}
+    exec(compile(body, "<probe>", "exec"), namespace)
+    import warnings as _warnings
+
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("error")
+        with pytest.raises(AssertionError) as caught:
+            namespace["test_attest_probe"]()
+    observed = parse_observation(str(caught.value))
+    assert observed == Observation(kind="warning", detail="DeprecationWarning")
+    assert "a warning" in observed.sentence() and "DeprecationWarning" in observed.sentence()
+
+
+def test_a_warning_recorded_on_base_is_refused_not_replayed() -> None:
+    """D-235 (b): a merge base that raises a warning under its own filters has
+    not shown a behaviour of the code; the recorder refuses it and the search
+    moves on with the reason."""
+    from attest.review.executor import _record_on_base
+
+    def run(index: int, body: str) -> Any:
+        del index, body
+        return _result(_observation_line("warning", "DeprecationWarning"))
+
+    recorded = _record_on_base(probe=ProbeSpec(**PROBE), reprobe=None, run=run, anchored="mod.py")
+    assert recorded.observation is None
+    assert "DeprecationWarning" in recorded.reason and "warning" in recorded.reason
+    with pytest.raises(ValueError):
+        replay_test_body(
+            ProbeSpec(**PROBE), Observation(kind="warning", detail="DeprecationWarning")
+        )
+
+
+def test_a_warning_on_head_is_not_a_difference_and_the_search_says_so() -> None:
+    """D-235 (b): head raising a warning where base returned is not a
+    differential to buy. The search screens the probe out with the warning
+    named, tries the next one, and ends without a note or a receipt."""
+    from attest.review.executor import _choose_probe, _Recording, _Screen
+
+    first = ProbeSpec(**PROBE)
+    asked: list[str] = []
+
+    def reprobe(feedback: str) -> ProbeSpec:
+        asked.append(feedback)
+        return first
+
+    outcome = _choose_probe(
+        model_probe=first,
+        reprobe=reprobe,
+        record=lambda spec: _Recording(spec, Observation("value", "6"), "", 1),
+        screen_on_head=lambda spec: _Screen(
+            observation=Observation("warning", "DeprecationWarning"),
+            executed_lines=(2,),
+            deferred=False,
+        ),
+        anchored="mod.py",
+        changed_lines=(2,),
+        head_source="def total(items):\n    return sum(items)\n",
+    )
+
+    assert isinstance(outcome, _Recording)
+    assert outcome.evidence_class is EvidenceClass.INDETERMINATE
+    assert "warning" in outcome.reason and "3 probes tried" in outcome.reason
+    assert asked
+    assert all("DeprecationWarning" in text and "not a rejection" in text for text in asked)

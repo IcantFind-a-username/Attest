@@ -425,3 +425,101 @@ def test_a_retired_policy_cannot_authorise_a_new_publication(
 
     assert not isinstance(verdict, AcceptedReceipt)
     assert RejectionCode.INTENT_POLICY_MISMATCH in verdict.codes
+
+
+# --- D-235: a warning is never a rejection ---------------------------------------
+
+
+def werkzeug_3266_observation(**overrides: object) -> IntentObservation:
+    """`pallets/werkzeug#3266`, receipt `58ea75a4f4` of run C, as the ledger
+    recorded it under v5: head "raises" `DeprecationWarning` from a changed line
+    because the probe's setup had turned warnings into errors, and the input is
+    witnessed in the base tree -- so it certified red."""
+    values: dict[str, object] = {
+        "policy_version": INTENT_POLICY_VERSION,
+        "path": "src/werkzeug/wrappers/response.py",
+        "changed_lines": tuple(range(485, 500)),
+        "origin_line": 490,
+        "origin_statement": "other",
+        "exception_type": "DeprecationWarning",
+        "new_rejection": True,
+        "rejected_inputs": ("/baz",),
+        "witnesses": (("/baz", "tests/middleware/test_http_proxy.py"),),
+        "head_runs_observed": 3,
+        "added_lines": (488, 489, 490, 491, 492),
+    }
+    values.update(overrides)
+    if values["policy_version"] != INTENT_POLICY_VERSION:
+        values.pop("added_lines", None)
+    return IntentObservation(**values)  # type: ignore[arg-type]
+
+
+def test_a_warning_escalated_to_an_exception_is_neither_red_nor_the_drawer() -> None:
+    """D-235 RED (b): the werkzeug#3266 shape no longer certifies, and it does not
+    go to the D-102 drawer either -- a warning is not a rejection, so there is no
+    behaviour change whose intent could be unknown. The differential does not hold."""
+    from attest.certification.intent import EVIDENCE_CLASS_INDETERMINATE, WARNING_LABEL
+
+    observation = werkzeug_3266_observation()
+
+    verdict = intent_verdict(observation)
+
+    assert verdict is not None and verdict.startswith(WARNING_LABEL)
+    assert "DeprecationWarning" in verdict
+    assert INTENT_UNKNOWN_LABEL not in verdict
+    assert evidence_class_for(observation) == EVIDENCE_CLASS_INDETERMINATE
+    # and without a witness the answer is the same: not the drawer
+    unwitnessed = intent_verdict(werkzeug_3266_observation(witnesses=()))
+    assert unwitnessed is not None and INTENT_UNKNOWN_LABEL not in unwitnessed
+
+
+def test_the_warning_rule_reaches_every_recorded_policy_version() -> None:
+    """Owner authorisation of 2026-09-13 (§16 evidence class): a Warning subclass
+    *never* constitutes a rejection. Unlike the rule refinements D-121 versions,
+    this is a correction of what the evidence was, so a v4.2 record is judged by
+    it too and the werkzeug bundle no longer verifies as a behaviour change."""
+    from attest.certification.intent import EVIDENCE_CLASS_INDETERMINATE, is_warning_type
+
+    older = werkzeug_3266_observation(policy_version=INTENT_POLICY_V42, origin_line=490)
+    assert intent_verdict(older) is not None
+    assert evidence_class_for(older) == EVIDENCE_CLASS_INDETERMINATE
+    # the name rule: the builtin hierarchy and any class spelled as a warning
+    assert all(
+        is_warning_type(name)
+        for name in ("Warning", "DeprecationWarning", "ResourceWarning", "MyLibDeprecationWarning")
+    )
+    assert not any(is_warning_type(name) for name in ("ValueError", "", "Warn", "warning_error"))
+    # a real rejection is untouched
+    sites = tuple((literal, "t.py") for literal in FABRICATED)
+    witnessed = natural_null_observation(witnesses=sites)
+    assert intent_verdict(witnessed) is None
+
+
+def test_the_verifier_refuses_the_werkzeug_bundle_it_once_accepted() -> None:
+    """D-235: `verify_bundle`'s intent step on the exact v5 record run C's ledger
+    holds for `58ea75a4f4` -- digest and policy still agree, and the verdict and
+    the evidence class no longer do. Withdrawn is what that means."""
+    from attest.certification.intent import EVIDENCE_CLASS_BEHAVIOR_CHANGE
+
+    observation = werkzeug_3266_observation(
+        changed_lines=tuple(range(119, 135)) + tuple(range(485, 500)),
+        added_lines=(122, 123, 124, 125, 131, 488, 489, 490, 491, 492, 493, 494, 495, 496),
+    )
+    record = {
+        **{
+            key: list(value) if isinstance(value, tuple) else value
+            for key, value in observation.__dict__.items()
+        },
+        "witnesses": [list(pair) for pair in observation.witnesses],
+    }
+
+    reasons = intent_reasons(
+        record,
+        receipt_policy_version=INTENT_POLICY_VERSION,
+        receipt_intent_digest=observation.digest(),
+        receipt_evidence_class=EVIDENCE_CLASS_BEHAVIOR_CHANGE,
+    )
+
+    assert any(r.startswith("intent observation forbids publication") for r in reasons)
+    assert "intent observation disagrees with the receipt evidence class" in reasons
+    assert not any("digest" in r or "policy differs" in r for r in reasons)
