@@ -1,0 +1,160 @@
+{
+  "recorded_at": "2026-09-12T19:50:52.968946+00:00",
+  "keep": 6,
+  "population": [
+    "python-babel/babel",
+    "pyparsing/pyparsing",
+    "Delgan/loguru",
+    "mahmoud/boltons",
+    "tkem/cachetools",
+    "marshmallow-code/marshmallow"
+  ],
+  "probe": [
+    {
+      "repository": "python-babel/babel",
+      "sha": "6ba6701e790f2f4b482ab5919cdf79f9cfef259b",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.15",
+      "image": "sha256:9017f03ccb6c1845ea939d68414c46cb6fea286468fd877b2b8cfd78ad8ce995",
+      "image_cached": false,
+      "stub_packages": [
+        "babel",
+        "project"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 16.3,
+      "kept": true
+    },
+    {
+      "repository": "pyparsing/pyparsing",
+      "sha": "efd56db4e59f36b1673ce0eb0823e3afaa9d1201",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.15; declared floor >= 3.9",
+      "image": "sha256:7cd61977365d2deb7dc060c9e0625c73d8afa6c7d595e41e2e6b3ff968c34656",
+      "image_cached": false,
+      "stub_packages": [
+        "examples",
+        "pyparsing"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 10.1,
+      "kept": true
+    },
+    {
+      "repository": "dateutil/dateutil",
+      "sha": "48bd1af97e71baf8e96fce5b663d589caac8f147",
+      "project_python": "3.12",
+      "project_python_reason": "classifiers up to 3.12",
+      "image": "sha256:01e3264292f9281ee6dfd6b470e6a1f89923dab71300c2d381632584b8ba4ef1",
+      "image_cached": false,
+      "stub_packages": [
+        "dateutil"
+      ],
+      "stage": "collect",
+      "exit_code": 1,
+      "collected": 0,
+      "ok": false,
+      "reason": "exit 1: \n  File \"/usr/local/lib/python3.12/site-packages/_pytest/assertion/__init__.py\", line 9, in <module>\n    from _pytest.assertion import rewrite\n  File \"/usr/local/lib/python3.12/site-packages/_pytest/assertion/rewrite.py\", line 7, in <module>\n    import imp\nModuleNotFoundError: No module named 'imp'\n",
+      "elapsed_s": 13.3,
+      "kept": false
+    },
+    {
+      "repository": "Delgan/loguru",
+      "sha": "48acf77ac2b3296acc67069511b99cc3ca3d0c41",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.14; declared floor >= 3.5",
+      "image": "sha256:eb0db5a6437a4d78fd2a7f9ea74aee51b5a4e52cdef557fccb20427edd5e8374",
+      "image_cached": false,
+      "stub_packages": [
+        "loguru"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 3.8,
+      "kept": true
+    },
+    {
+      "repository": "mahmoud/boltons",
+      "sha": "961dcff3f42e73b245aef65e377fe82763b257bb",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.14; declared floor >= 3.7",
+      "image": "sha256:ef84ff24174e28fd975725413c4eca97d6e0b6680b023a28c61850364d977b16",
+      "image_cached": false,
+      "stub_packages": [
+        "boltons"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 3.1,
+      "kept": true
+    },
+    {
+      "repository": "tkem/cachetools",
+      "sha": "4500e3d04288738d25acbb4973eb3c3e1bf41db9",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.14; declared floor >= 3.10",
+      "image": "sha256:38e33b400c02ba0ee90d3abd9019e29a2ed8a6d19a2ff09f5a211f2585f05918",
+      "image_cached": false,
+      "stub_packages": [
+        "cachetools"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 7.0,
+      "kept": true
+    },
+    {
+      "repository": "marshmallow-code/marshmallow",
+      "sha": "c54aa7292a09259e186fa8c20559c5df8aeb27f3",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.14; declared floor >= 3.10",
+      "image": "sha256:12472878989d3c786131863b990de9e97382f23cd7528aadece89bdedea83b24",
+      "image_cached": false,
+      "stub_packages": [
+        "marshmallow"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 3.2,
+      "kept": true
+    },
+    {
+      "repository": "jmespath/jmespath.py",
+      "sha": "2812594e69d43098ef60f81f4efc404c071b0418",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.14",
+      "image": "sha256:791b0b431ab9e3d4e53a7702b04861279303ca78a81cec7b1f854ec468098395",
+      "image_cached": false,
+      "stub_packages": [
+        "jmespath"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "passed, but the first 6 passing candidates were already kept",
+      "elapsed_s": 7.2,
+      "kept": false
+    }
+  ]
+}
