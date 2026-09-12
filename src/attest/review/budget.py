@@ -196,6 +196,53 @@ class Budget:
             )
         return actual
 
+    def breakdown(self) -> dict[str, dict[str, Any]]:
+        """Every settled call, grouped by the stage its label names (D-243).
+
+        ``sample-*`` is discovery, ``probe-*`` the probe search, ``verify-*`` the
+        reproduction generator, anything else ``other``. Each stage carries its
+        call count, its four token counts, its model and its cost; the stages
+        sum to ``spent_usd``. Written to the `review_run` row so that a run's
+        cost can be read by stage from the ledger, which until D-243 carried the
+        total and the discovery samples' tokens and nothing about the probes.
+        """
+        stages: dict[str, dict[str, Any]] = {}
+        with self._lock:
+            calls = list(self.calls)
+        for call in calls:
+            label = str(call.get("label") or "")
+            head = label.split("-", 1)[0]
+            stage = {
+                "sample": "discovery",
+                "probe": "probe",
+                "verify": "generation",  # generate_repro's labels
+                "repro": "generation",
+            }.get(head, "other")
+            entry = stages.setdefault(
+                stage,
+                {
+                    "calls": 0,
+                    "input_tokens": 0,
+                    "cache_creation_input_tokens": 0,
+                    "cache_read_input_tokens": 0,
+                    "output_tokens": 0,
+                    "cost_usd": 0.0,
+                    "model": str(call.get("model") or self.model),
+                },
+            )
+            entry["calls"] += 1
+            for key in (
+                "input_tokens",
+                "cache_creation_input_tokens",
+                "cache_read_input_tokens",
+                "output_tokens",
+            ):
+                entry[key] += int(call.get(key) or 0)
+            entry["cost_usd"] += float(call.get("cost_usd") or 0.0)
+        for entry in stages.values():
+            entry["cost_usd"] = round(entry["cost_usd"], 6)
+        return stages
+
     def cancel(self, reserved: float) -> None:
         with self._lock:
             self.reserved_usd = max(0.0, self.reserved_usd - reserved)

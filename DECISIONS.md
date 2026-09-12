@@ -2484,6 +2484,14 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Cost and reversal:** $0.00; one condition in `note_for`.
 - **Trace:** D-143, D-145, D-150, D-202, D-230.
 
+### D-243 — The run row says which stage bought what
+
+- **Date/status/scope:** 2026-09-13 · active · agent decision under `mainline.md` §5 (an instrument; no rule, cap or price moves) · `src/attest/review/budget.py` (`Budget.breakdown`), `src/attest/review/run.py` (the `review_run` row carries `spend_breakdown`); REDs `tests/test_budget_ledger.py::test_the_budget_breaks_its_calls_down_by_stage`, the breakdown assertions in `tests/test_review_run.py::test_local_review_runs_the_differential_stage_and_publishes_a_receipt`.
+- **Why.** The owner asked on 2026-09-13 why the account spends as fast as it does. The ledger could answer for discovery -- the `review_run` row keeps every sample's tokens, and they showed the cache doing its work: 369k cache-read tokens against 92k written over the forty -- and could not answer for the rest: verification was 63% to 73% of every measured run's cost (run B 67%, run C 73%, the forty 63%) and appeared as one number, the difference between two totals. The budget has always kept every call it settled, with label, model, tokens and cost; nothing wrote them down.
+- **The change.** `Budget.breakdown()` groups the settled calls by the stage their label names -- `sample-*` discovery, `probe-*` the probe search, `verify-*` the reproduction generator -- with each stage's calls, four token counts, model and cost, summing to `spent_usd`; the `review_run` row carries it as `spend_breakdown`. Read from the ledger, a run now says whether the probe stage's cost is output tokens (irreducible) or repeated input (cacheable), which is the fact the owner's two cost levers -- a cheaper first probe, and cache use across attempts -- both need before either is decided.
+- **Cost and reversal:** $0.00; a few hundred bytes per row. Reversal: drop the field.
+- **Trace:** D-115, D-146, D-216, D-238; `DEVSPEND.md`.
+
 ### D-242 — Tier-0 never writes: `ruff check --no-fix`
 
 - **Date/status/scope:** 2026-09-13 · active · a defect fix (0.3.0), found by D-239's instrument on its first paid run · `src/attest/review/tier0.py` (`run_ruff` passes `--no-fix`); RED `tests/test_tier0.py::test_run_ruff_never_rewrites_the_reviewed_tree`.

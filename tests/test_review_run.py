@@ -285,6 +285,12 @@ def test_local_review_runs_the_differential_stage_and_publishes_a_receipt(
     ]
     assert len(accepted) == 1
     assert not any("attest verify" in note for note in review.notes)
+    # D-243: the run row says which stage bought what, and the stages sum to the total
+    run_row = next(r for r in rows if r.get("kind") == "review_run")
+    breakdown = run_row["spend_breakdown"]
+    assert breakdown["discovery"]["calls"] == 2
+    assert breakdown["generation"]["cost_usd"] > 0
+    assert abs(sum(s["cost_usd"] for s in breakdown.values()) - run_row["spend_usd"]) < 1e-5
     text = render(
         review.outcome,
         review.alpha,
