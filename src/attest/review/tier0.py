@@ -16,9 +16,11 @@ import ast
 import builtins
 import json
 import keyword
+import os
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,8 +37,26 @@ class Tier0Signal:
     message: str
 
 
+def ruff_executable() -> str | None:
+    """`ruff` on PATH, or the one installed beside the running interpreter.
+
+    D-237: the Action runs `$ATTEST_VENV/bin/attest` without putting that `bin`
+    on PATH, so `shutil.which` found nothing on every production review and the
+    T channel never fired there -- although the toolchain lock installs ruff
+    into the same venv. The interpreter's own directory is read without
+    resolving symlinks: on a venv `sys.executable` is a link to the base
+    interpreter, and following it would look in the wrong place."""
+    found = shutil.which("ruff")
+    if found:
+        return found
+    sibling = Path(sys.executable).parent / ("ruff.exe" if os.name == "nt" else "ruff")
+    if sibling.is_file() and os.access(sibling, os.X_OK):
+        return str(sibling)
+    return None
+
+
 def run_ruff(repo: Path, files: list[str]) -> list[Tier0Signal]:
-    exe = shutil.which("ruff")
+    exe = ruff_executable()
     py_files = [f for f in files if f.endswith(".py") and (repo / f).is_file()]
     if not exe or not py_files:
         return []
