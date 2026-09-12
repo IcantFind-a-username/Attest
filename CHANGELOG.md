@@ -11,6 +11,9 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **A dirty-tree refusal writes `git status` to the ledger (D-239).** `itsdangerous-guard_raise-01`
+  was refused for a dirty working tree on two runs and a fresh clone, and the refusal said no more.
+  The ledger row now names the paths; the author-visible reason is unchanged.
 - **The probe search is told what the tests assert, and shown the hunk (D-238).** Fourteen of the
   forty mutation cases were the value class: the probe found the change and the drawer refused it
   because no base test asserted the value it pinned. The first probe now carries, after the cached

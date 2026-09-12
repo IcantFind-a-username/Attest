@@ -3892,6 +3892,39 @@ def test_a_refused_probe_s_reason_is_fed_to_the_next_attempt(tmp_path: Path) -> 
     assert "probe output is not valid JSON" not in first_prompt
 
 
+def test_a_dirty_tree_refusal_names_the_dirty_paths_in_the_ledger(tmp_path: Path) -> None:
+    """D-239 RED: `itsdangerous-guard_raise-01` was refused as *working tree is
+    dirty* on two runs and a fresh clone, and the refusal said no more, so the
+    cause is still unknown. The ledger -- never the author-visible reason --
+    now carries `git status --porcelain` for the refused verification."""
+    repo, base_sha, head_sha = differential_repo(tmp_path)
+    (repo / "mod.py").write_text("def add(a, b):\n    return 0\n", encoding="utf-8")
+    stored = candidate(file="mod.py", line=1)
+    provider = RecordingProvider(
+        ProviderResult(
+            text='{"test_body":"def test_repro(): pass"}', input_tokens=1, output_tokens=1
+        )
+    )
+
+    verification = verify_candidate(
+        repo,
+        stored,
+        original_gate(stored),
+        provider,
+        Budget(limit_usd=1.0, model=DEFAULT_MODEL),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+        probe_generation=False,
+    )
+
+    assert "working tree is dirty" in verification.execution.reason
+    assert "mod.py" not in verification.execution.reason  # D-091: the reason names no path
+    row = next(r for r in Ledger(repo).entries() if r["kind"] == "workspace_status")
+    assert row["finding_id"] == stored.finding.finding_id
+    assert row["porcelain"] == [" M mod.py"]
+
+
 # D-235: `pallets/werkzeug#3266`. Under the tree's own `filterwarnings = error` the
 # head revision's `warnings.warn` raises a DeprecationWarning on the changed line,
 # and the base revision returns. Until D-235 that was a new rejection with a

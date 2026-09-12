@@ -2484,6 +2484,12 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Cost and reversal:** $0.00; one condition in `note_for`.
 - **Trace:** D-143, D-145, D-150, D-202, D-230.
 
+### D-239 — A dirty-tree refusal writes `git status` to the ledger
+
+- **Date/status/scope:** 2026-09-13 · active · agent decision under `mainline.md` §5 (an instrument; no rule moves) · `src/attest/review/executor.py` (`_working_tree_status`, a `workspace_status` ledger row on the refusal, `MAX_STATUS_LINES`); RED `tests/test_executor.py::test_a_dirty_tree_refusal_names_the_dirty_paths_in_the_ledger`.
+- **Why.** `itsdangerous-guard_raise-01` was refused as *working tree is dirty; differential evidence requires immutable revisions* in the original run and again in the D-236 re-run on a fresh clone, so the cause is inside the case; rebuilding the case locally leaves a clean tree. The refusal named the fact and not the file, and two paid runs later nothing is known. The row carries the first twenty lines of `git status --porcelain --untracked-files=no` and whether it was cut; the author-visible reason is unchanged and names no path (D-091). Diagnosis only: a case refused this way is still a miss until the cause is found and fixed with its own RED.
+- **Cost and reversal:** $0.00; delete the row's `append`.
+- **Trace:** D-049, D-091, D-236; the 2026-09-13 mutation report §1b.
 ### D-238 — The probe search is told what the tests assert and shown the hunk
 
 - **Date/status/scope:** 2026-09-13 · active · 0.3.0 step 2 (owner authorisation 3 of the 0.3.0 plan: the search may use the base tests' asserted literals as inputs; the publication rule is unchanged) · `src/attest/review/intent.py` (`asserted_values_about`), `src/attest/review/executor.py` (`_asserted_block`, `_asserted_values_hint` after the cacheable prefix of the first probe; `_probe_feedback` carries the anchored file's hunk, `MAX_FEEDBACK_DIFF_CHARS`, and the same block; `_diff_text`); REDs `tests/test_probe_generation.py::test_the_first_probe_is_told_which_values_the_base_tests_assert`, `::test_the_feedback_carries_the_hunk_and_the_asserted_values`, `tests/test_intent_observer.py::test_asserted_values_about_reads_only_tests_that_name_the_symbol`.

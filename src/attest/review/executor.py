@@ -2055,11 +2055,24 @@ def _resolve_commit(repo: Path, ref: str) -> str | None:
 
 
 def _working_tree_clean(repo: Path) -> bool:
+    return _working_tree_status(repo) == []
+
+
+MAX_STATUS_LINES = 20  # D-239: how much of `git status --porcelain` the ledger keeps
+
+
+def _working_tree_status(repo: Path) -> list[str] | None:
+    """`git status --porcelain --untracked-files=no`, one line per tracked path
+    that differs from HEAD; ``[]`` when clean, ``None`` when git could not say.
+    D-239: kept for the ledger when a verification is refused for it, so that the
+    next `itsdangerous-guard_raise-01` names the file instead of the fact."""
     try:
         status = _git(repo, "status", "--porcelain", "--untracked-files=no")
     except (OSError, subprocess.SubprocessError):
-        return False
-    return status.returncode == 0 and not status.stdout.strip()
+        return None
+    if status.returncode != 0:
+        return None
+    return [line for line in status.stdout.splitlines() if line.strip()]
 
 
 def _bounded_reason(reason: str) -> str:
@@ -3198,12 +3211,15 @@ def verify_candidate(
     # differential evidence is only meaningful against immutable, reviewed
     # revisions: validate before spending any generation budget
     violation: str | None = None
+    dirty: list[str] | None = None
     if resolved_base is None or resolved_head is None:
         violation = "unresolvable base/head revision"
     elif _resolve_commit(repo, "HEAD") != resolved_head:
         violation = "workspace HEAD does not match the reviewed head"
-    elif not _working_tree_clean(repo):
-        violation = "working tree is dirty; differential evidence requires immutable revisions"
+    else:
+        dirty = _working_tree_status(repo)
+        if dirty != []:
+            violation = "working tree is dirty; differential evidence requires immutable revisions"
 
     if violation is not None:
         execution = deferred_execution(violation)
@@ -3266,6 +3282,19 @@ def verify_candidate(
             )
 
     journal = ledger if ledger is not None else Ledger(repo)
+    if dirty:
+        # D-239: what was dirty, in the ledger and nowhere else -- the reason an
+        # author reads names no path (D-091); an operator reading the row does
+        journal.append(
+            {
+                "kind": "workspace_status",
+                "schema_version": "attest.workspace-status.v1",
+                "task_id": candidate.task_id,
+                "finding_id": candidate.finding.finding_id,
+                "porcelain": dirty[:MAX_STATUS_LINES],
+                "truncated": len(dirty) > MAX_STATUS_LINES,
+            }
+        )
     journal.record_verification(
         task_id=candidate.task_id,
         finding_id=candidate.finding.finding_id,
