@@ -348,6 +348,24 @@ before the first call of each phase and settled after it, per phase.
 | 7 | **E-04 stratum v3, the same frozen 28-unit sample, re-run with `value_notes_visible` and `gate_notes_visible` on** (owner authorisation 3). `.github/workflows/e04-shadow.yml` on `ubuntu-latest`, **local review path only — no GitHub client is constructed, nothing is written to any repository**; `per_pr_budget_usd` $1.00, the shipped `k_samples` 5, `linux-container-v1`, `contained_attempt_voids` at the product default. The driver's cap is the reservation and a unit starts only if its $1.00 maximum still fits under it (D-172), so the run cannot overshoot; a unit the cap refuses is named. Measured basis: the 2026-09-13 runner re-take of the same sample cost $2.483001 for 28 units, before step 3 stopped the discovery share from truncating units, so the per-unit cost is expected higher and the cap, not the estimate, is what binds | **$3.00** | **$2.765980**; $0.234020 released. **9 of 28 units ran** before the cap refused the rest by name; **0 of 9 carried an author-visible line**; the same 9 cost $0.7676 on 2026-09-13 (D-221's whole-budget discovery, 3.6×). The ledgers were lost to the artifact upload's hidden-path default ([report](docs/acceptance/2026-09-12-e04-with-notes.md), D-225) |
 | — | **dogfooding**: the `attest` self-reviews the eight pull requests of this window buy (#40–#47). Not a study and not against any reservation; the cost of merging what the owner asked for | — | **$0.925113 so far** — $0.020659 ([#40](https://github.com/IcantFind-a-username/Attest/pull/40), run `34614084605`), $0.091862 ([#41](https://github.com/IcantFind-a-username/Attest/pull/41), run `34616278439`), $0.812592 ([#42](https://github.com/IcantFind-a-username/Attest/pull/42), run `34617821991` — the first self-review under D-221: read 10 of 20 units and named the other 10). The self-reviews of #43 and the step-8 pull request are not yet in this figure and are carried as a named lag |
 
+## Window 0.3.0 (2026-09-13, after the tag) — recall on the same forty, reserved before the first call
+
+**Owner authorisation of 2026-09-13 ("是" to the 0.3.0 plan): $12.00 in all**, against the $150
+cap and **$123.436273 settled before the release window's last self-reviews** (the self-reviews of
+#55 and #57 are named lag on the dogfooding line, about $0.11 each at this window's rate). Each
+study reservation is the driver's hard cumulative cap (D-172): a case starts only if its per-case
+maximum still fits under it, and a case the cap refuses is named. The eight-case re-run reuses
+`mutation-recall.yml`, whose artifact has twice been proven to carry ledgers, trials and lines
+(AGENTS.md §9), with `only` naming the cases and its own trials file.
+
+| item | reserved | settled |
+|---|---|---|
+| **step 1 re-measurement** — `mutation-recall.yml` with `only` = the eight environment cases of the 2026-09-13 run (`urllib3-boundary-07`, `urllib3-guard_raise-03`, `urllib3-guard_raise-04`, `urllib3-none_guard-15`, `urllib3-none_guard-18`, `attrs-none_guard-14`, `click-none_guard-15`, `itsdangerous-guard_raise-01`, all `--forward`), `trials-rerun-env.jsonl`, $1.00 per case, K=5, code from `main` after D-236/D-237 | $2.00 | — |
+| **step 2 re-measurement** — the same forty under the probe search v2, `trials-search-v2.jsonl`, $1.00 per case | $5.00 | — |
+| **step 3** — a third natural-traffic batch of about thirty merged pull requests of public libraries, `e05-external.yml`, $1.00 per unit | $4.00 | — |
+| — | **dogfooding**: the self-reviews this window's pull requests buy | $1.00 | — |
+| — | **$12.00** | — |
+
 ## Window 2026-09-13 (release) — two paid studies and one drill, reserved before the first call
 
 **Owner authorisation 2 of the 2026-09-13 work order:** e05-external-v2 (run C) **$3.50** with a

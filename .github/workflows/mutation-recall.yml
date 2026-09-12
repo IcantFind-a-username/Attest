@@ -45,6 +45,13 @@ on:
           smoke passes 0.30). Empty or 0 keeps the preregistered budget.
         type: string
         default: "0"
+      only:
+        description: >-
+          Comma-separated case ids to run alone, in the frozen order (a repair's
+          re-measurement, D-236); every other pending case is recorded as
+          skipped: not selected. Empty runs every case not yet in the trials file.
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -124,6 +131,7 @@ jobs:
             --limit "${{ inputs.limit }}" \
             --unit-budget "${{ inputs.unit_budget }}" \
             --trials-file "${{ inputs.trials_file }}" \
+            --only "${{ inputs.only }}" \
             2>&1 | tee recall-run.log
 
       - name: Table
