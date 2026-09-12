@@ -1,9 +1,11 @@
 name: e05-external
 
-# e05-external-v1: the frozen 24-pull-request sample of
-# `benchmarks/studies/e05-external-v1` -- eight public Python libraries this
-# project does not own -- reviewed on the declared CI platform with both
-# yellow switches on (owner authorisation 4 of 2026-09-12).
+# e05-external: a frozen sample of merged pull requests of public Python
+# libraries this project does not own -- v1 (owner authorisation 4 of
+# 2026-09-12, 24 units of eight libraries) and v2 (owner authorisation 2 of
+# 2026-09-13, 24 units of the six of eight candidates the free probe kept) --
+# reviewed on the declared CI platform with both yellow switches on. The
+# `study` input names the directory; `probe_only` runs v2's free probe alone.
 #
 # It runs only when asked (workflow_dispatch) and it is **paid** -- it calls the
 # model with this repository's own ANTHROPIC_API_KEY. Reserve in DEVSPEND.md
@@ -19,6 +21,20 @@ name: e05-external
 on:
   workflow_dispatch:
     inputs:
+      study:
+        description: >-
+          Study directory under benchmarks/studies. The population to clone is
+          read from its preregistration.json (or, for the probe, candidates.json).
+        type: string
+        default: "e05-external-v1"
+      probe_only:
+        description: >-
+          e05-external-v2: run only the free evaluability probe over the study's
+          candidates.json -- build the reproduction image for each clone's tip and
+          import its top-level package inside it -- upload probe.json, and stop
+          before any paid step. $0.00; no model is constructed.
+        type: boolean
+        default: false
       cap_usd:
         description: >-
           Hard cumulative spend cap for the run, in US dollars. The study's own
@@ -84,30 +100,67 @@ jobs:
           docker version --format 'docker {{.Server.Version}}'
 
       - name: Clone the population (read-only, public)
+        env:
+          STUDY: ${{ inputs.study }}
+          PROBE_ONLY: ${{ inputs.probe_only }}
         run: |
           set -eu
           mkdir -p .attest/corpora
-          # Eight public repositories, cloned with no credential at all: nothing
-          # this job holds could write to them. A clone that fails is reported
-          # by name and its units are skipped by name, never dropped silently.
-          for repo in more-itertools/more-itertools pallets/click pallets/itsdangerous \
-                      pallets/jinja pypa/packaging python-attrs/attrs \
-                      theskumar/python-dotenv urllib3/urllib3; do
-            dir=".attest/corpora/$(basename "$repo" | tr '[:upper:]' '[:lower:]')"
-            if git clone -q "https://github.com/${repo}.git" "$dir"; then
-              echo "cloned ${repo} at $(git -C "$dir" rev-parse --short HEAD)"
-            else
-              echo "SKIPPED ${repo}: clone failed"
-            fi
-          done
+          # Public repositories, cloned with no credential at all: nothing this
+          # job holds could write to them. A clone that fails is reported by
+          # name and its units are skipped by name, never dropped silently.
+          # The list is the study's own: candidates.json for the probe, the
+          # preregistration's population for a run -- never a list typed here.
+          python - <<'PY'
+          import json, os, pathlib, subprocess
+          study = pathlib.Path("benchmarks/studies") / os.environ["STUDY"]
+          if os.environ["PROBE_ONLY"] == "true":
+              repos = json.loads((study / "candidates.json").read_text())["candidates"]
+          else:
+              repos = json.loads((study / "preregistration.json").read_text())["population"]
+          assert repos, "the study names no repository"
+          for repo in repos:
+              name = repo.split("/")[-1].lower().lstrip("-")
+              target = pathlib.Path(".attest/corpora") / name
+              done = subprocess.run(["git", "clone", "-q", f"https://github.com/{repo}.git", str(target)])
+              if done.returncode == 0:
+                  sha = subprocess.run(["git", "-C", str(target), "rev-parse", "--short", "HEAD"],
+                                       capture_output=True, text=True).stdout.strip()
+                  print(f"cloned {repo} at {sha}")
+              else:
+                  print(f"SKIPPED {repo}: clone failed")
+          PY
+
+      # e05-external-v2: the free evaluability probe. Builds the reproduction
+      # image for every candidate's tip and imports its top-level package in it;
+      # the first `keep` that pass are the study's population. Nothing paid
+      # happens in this job when probe_only is set.
+      - name: Probe the candidates (free)
+        if: ${{ inputs.probe_only }}
+        run: |
+          python -u scripts/corpus/e05_probe.py --study "${{ inputs.study }}" \
+            --clones .attest/corpora 2>&1 | tee probe.log
+          test -s "benchmarks/studies/${{ inputs.study }}/probe.json"
+
+      - name: Upload the probe
+        if: ${{ inputs.probe_only }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.study }}-probe
+          path: |
+            benchmarks/studies/${{ inputs.study }}/probe.json
+            probe.log
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Run the shadow
+        if: ${{ ! inputs.probe_only }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ATTEST_ALLOW_PAID_API: "1"
         run: |
           python -u scripts/corpus/prospective_shadow.py \
-            --study e05-external-v1 run \
+            --study "${{ inputs.study }}" run \
             --allow-paid-api \
             --reserve "${{ inputs.cap_usd }}" \
             --limit "${{ inputs.limit }}" \
@@ -119,33 +172,33 @@ jobs:
             2>&1 | tee shadow-run.log
 
       - name: Report
-        if: always()
+        if: ${{ always() && ! inputs.probe_only }}
         run: |
-          python -u scripts/corpus/prospective_shadow.py --study e05-external-v1 report || true
+          python -u scripts/corpus/prospective_shadow.py --study "${{ inputs.study }}" report || true
 
       # AGENTS.md §9: a stage that reports zero of something first asserts its
       # input is non-empty. Run 34618040099 reported "0 lines" over ledgers that
       # never left the runner (D-225); the report reads the ledgers, so a run
       # that produced none is a failed job, not a quiet artifact.
       - name: Assert the ledgers and the lines file exist before anything is uploaded
-        if: always()
+        if: ${{ always() && ! inputs.probe_only }}
         run: |
           count="$(ls .attest/corpora/*/.attest/ledger.jsonl 2>/dev/null | wc -l)"
           echo "ledgers written: ${count}"
           test "${count}" -gt 0
-          lines="$(ls benchmarks/studies/e05-external-v1/lines-*.jsonl 2>/dev/null | wc -l)"
+          lines="$(ls benchmarks/studies/${{ inputs.study }}/lines-*.jsonl 2>/dev/null | wc -l)"
           echo "lines files written: ${lines}"
           test "${lines}" -gt 0
 
       - name: Upload the trials, the report and the log
-        if: always()
+        if: ${{ always() && ! inputs.probe_only }}
         uses: actions/upload-artifact@v4
         with:
-          name: e05-external-v1
+          name: ${{ inputs.study }}
           path: |
-            benchmarks/studies/e05-external-v1/trials*.jsonl
-            benchmarks/studies/e05-external-v1/lines-*.jsonl
-            benchmarks/studies/e05-external-v1/report.json
+            benchmarks/studies/${{ inputs.study }}/trials*.jsonl
+            benchmarks/studies/${{ inputs.study }}/lines-*.jsonl
+            benchmarks/studies/${{ inputs.study }}/report.json
             shadow-run.log
             .attest/corpora/*/.attest/ledger.jsonl
           # upload-artifact v4.4+ skips hidden paths unless told otherwise; run

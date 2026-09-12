@@ -1,0 +1,155 @@
+{
+  "recorded_at": "2026-09-11T23:50:09.643502+00:00",
+  "keep": 6,
+  "population": [
+    "psf/requests",
+    "python-jsonschema/jsonschema",
+    "hukkin/tomli-w"
+  ],
+  "probe": [
+    {
+      "repository": "pallets/werkzeug",
+      "sha": "f27af2652a798931aa00c2476a4de130f597c1d3",
+      "project_python": "3.13",
+      "project_python_reason": "declared floor >= 3.10",
+      "image": "sha256:e401f5f03902b52c1585b97e12bf4cf23f8ee7816b474a8ab7db91d39cbd0132",
+      "image_cached": false,
+      "stub_packages": [
+        "werkzeug"
+      ],
+      "stage": "collect",
+      "exit_code": 2,
+      "collected": 0,
+      "ok": false,
+      "reason": "exit 2: remove parentheses?\n=========================== short test summary info ============================\nERROR .attest-repro/test_repro.py - pytest.PytestAssertRewriteWarning: assert...\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\nno tests collected, 1 error in 0.17s\n",
+      "elapsed_s": 9.8,
+      "kept": false
+    },
+    {
+      "repository": "pallets/markupsafe",
+      "sha": "b2e4d9c7687be25695fffbe93a37622302b24fb1",
+      "project_python": "3.13",
+      "project_python_reason": "declared floor >= 3.10",
+      "image": "sha256:3e990beaeffad3cf16a04532c425a5fa67133654bdbf2629b681321d54e4ca21",
+      "image_cached": false,
+      "stub_packages": [
+        "markupsafe"
+      ],
+      "stage": "collect",
+      "exit_code": 2,
+      "collected": 0,
+      "ok": false,
+      "reason": "exit 2: remove parentheses?\n=========================== short test summary info ============================\nERROR .attest-repro/test_repro.py - pytest.PytestAssertRewriteWarning: assert...\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\nno tests collected, 1 error in 0.16s\n",
+      "elapsed_s": 4.4,
+      "kept": false
+    },
+    {
+      "repository": "psf/requests",
+      "sha": "dae7ef63b4df6eded86637f251fc4e3a06c3b479",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.15; declared floor >= 3.10",
+      "image": "sha256:da34c10b3df1d33e14ab2571a34de6475c98c38bdb4f5e17bfc095fbfd49f45a",
+      "image_cached": false,
+      "stub_packages": [
+        "requests"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 8.5,
+      "kept": true
+    },
+    {
+      "repository": "encode/httpx",
+      "sha": "b5addb64f0161ff6bfe94c124ef76f6a1fba5254",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.13; declared floor >= 3.9",
+      "image": "sha256:b1b5fb318dce54c74b19085b268d1f49128169e52fd2f6a9fc093cc75d042965",
+      "image_cached": false,
+      "stub_packages": [
+        "httpx"
+      ],
+      "stage": "collect",
+      "exit_code": 1,
+      "collected": 0,
+      "ok": false,
+      "reason": "exit 1: t filter module '{e.name}': {arg}\", PytestConfigWarning\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\npytest.PytestConfigWarning: Failed to import filter module 'trio': ignore: trio.MultiError is deprecated since Trio 0.22.0:trio.TrioDeprecationWarning\n",
+      "elapsed_s": 4.6,
+      "kept": false
+    },
+    {
+      "repository": "tox-dev/platformdirs",
+      "sha": "c5ef1edbb41eb7ad8aea2e75627ae474e796484c",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.15; declared floor >= 3.10",
+      "image": "sha256:800320b77e486d436eecb94467b82fa6ace1bed0107b505b4d554536acd15318",
+      "image_cached": false,
+      "stub_packages": [
+        "platformdirs"
+      ],
+      "stage": "collect",
+      "exit_code": 2,
+      "collected": 0,
+      "ok": false,
+      "reason": "exit 2: cs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nERROR .attest-repro/test_repro.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\nno tests collected, 1 error in 0.11s\n",
+      "elapsed_s": 6.9,
+      "kept": false
+    },
+    {
+      "repository": "python-jsonschema/jsonschema",
+      "sha": "865c27fc3df08a082740d7743583795235fdfe81",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.14; declared floor >= 3.10",
+      "image": "sha256:042cdf4d22cc77b9f7e7b91f823375a3f2bd3ea88d78eba1f400c375ca1d2f76",
+      "image_cached": false,
+      "stub_packages": [
+        "jsonschema"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 5.5,
+      "kept": true
+    },
+    {
+      "repository": "hukkin/tomli-w",
+      "sha": "1210bb6f5708a4dc084cc3deb4a3a3e3939f4d6d",
+      "project_python": "3.13",
+      "project_python_reason": "declared floor >= 3.10",
+      "image": "sha256:c281c9082c7bba21e5ff273f22577da232cecd0a0ed05a78bfc59b709f74a35c",
+      "image_cached": false,
+      "stub_packages": [
+        "tomli_w"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 5.7,
+      "kept": true
+    },
+    {
+      "repository": "agronholm/anyio",
+      "sha": "bd0d696ba69c6c76155e3829a3ec8a4ac4fe1514",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.15; declared floor >= 3.10",
+      "image": "sha256:2a42cfd13617d117c44e14928e0a0d8006b0ea782f7841ca968a0272478ce29a",
+      "image_cached": false,
+      "stub_packages": [
+        "anyio"
+      ],
+      "stage": "collect",
+      "exit_code": 1,
+      "collected": 0,
+      "ok": false,
+      "reason": "exit 1: ^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1395, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1324, in _find_and_load_unlocked\nImportError: Error importing plugin \"pytest_mock\": No module named 'pytest_mock'\n",
+      "elapsed_s": 4.8,
+      "kept": false
+    }
+  ]
+}

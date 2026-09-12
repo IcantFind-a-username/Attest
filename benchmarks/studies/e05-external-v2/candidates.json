@@ -1,0 +1,14 @@
+{
+  "what": "the candidate population of e05-external-v2, in the owner's order; the study's population is the first `keep` candidates whose free evaluability probe passes (build the reproduction image, import the top-level package inside it), recorded in probe.json before the protocol is frozen and before any unit is selected",
+  "keep": 6,
+  "candidates": [
+    "pallets/werkzeug",
+    "pallets/markupsafe",
+    "psf/requests",
+    "encode/httpx",
+    "tox-dev/platformdirs",
+    "python-jsonschema/jsonschema",
+    "hukkin/tomli-w",
+    "agronholm/anyio"
+  ]
+}
