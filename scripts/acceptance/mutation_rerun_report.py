@@ -46,26 +46,43 @@ def _cell(text: object) -> str:
     return str(text).replace("|", "\\|").replace("\n", " ")
 
 
-def original_classes() -> dict[str, tuple[str, str]]:
-    """Every case's class in the original run, from the committed evidence."""
-    trials = {r["unit_id"]: r for r in _read_jsonl(STUDY / "trials.jsonl")}
+def _classes_from(
+    trials_path: Path, ledger_dirs: list[Path]
+) -> dict[str, tuple[str, str, int]]:
+    """(class, why, probe recordings) per case of one run, from committed evidence."""
+    trials = {r["unit_id"]: r for r in _read_jsonl(trials_path)}
     ledgers: dict[str, list[dict]] = {}
-    for run in ("run-1", "run-2"):
+    for directory in ledger_dirs:
         for library in REPOSITORIES:
-            rows = _read_jsonl(EVIDENCE / run / f"{library}-ledger.jsonl")
+            rows = _read_jsonl(directory / f"{library}-ledger.jsonl")
             ledgers.setdefault(library, []).extend(rows)
-    out: dict[str, tuple[str, str]] = {}
+    out: dict[str, tuple[str, str, int]] = {}
     for row in _read_jsonl(STUDY / "sample.jsonl"):
         unit = str(row["unit_id"])
         trial = trials.get(unit)
         if trial is None:
-            out[unit] = ("not run", "")
             continue
-        mine = [e for e in ledgers[str(row["library"])] if e.get("task_id") == trial["task_id"]]
+        mine = [
+            e for e in ledgers.get(str(row["library"]), []) if e.get("task_id") == trial["task_id"]
+        ]
         klass, why = classify(mine, str(trial.get("deferred_reason") or ""))
-        if unit in WITHDRAWN_BEFORE:
-            klass, why = WITHDRAWN_BEFORE[unit], why
-        out[unit] = (klass, why)
+        recorded = sum(1 for e in mine if e.get("kind") == "probe_observation")
+        out[unit] = (klass, why, recorded)
+    return out
+
+
+def original_classes(baselines: list[str]) -> dict[str, tuple[str, str, int]]:
+    """Every case's class before this re-run: the original run, the D-235
+    withdrawal, then each earlier named re-run (`--baseline rerun-env`) laid over
+    it in order, so a case re-run twice is compared with its latest class."""
+    out = _classes_from(STUDY / "trials.jsonl", [EVIDENCE / "run-1", EVIDENCE / "run-2"])
+    for unit in _read_jsonl(STUDY / "sample.jsonl"):
+        out.setdefault(str(unit["unit_id"]), ("not run", "", 0))
+    for unit, klass in WITHDRAWN_BEFORE.items():
+        if unit in out:
+            out[unit] = (klass, out[unit][1], out[unit][2])
+    for name in baselines:
+        out.update(_classes_from(STUDY / f"trials-{name}.jsonl", [EVIDENCE / name]))
     return out
 
 
@@ -102,26 +119,48 @@ def rerun_classes(artifact: Path, trials_name: str) -> dict[str, dict]:
 
 
 def section(
-    title: str, run_id: str, before: dict[str, tuple[str, str]], after: dict[str, dict]
+    title: str,
+    run_id: str,
+    before: dict[str, tuple[str, str, int]],
+    after: dict[str, dict],
+    *,
+    number: str = "1b",
+    code: str = "code from `main` after D-236 and D-237",
 ) -> str:
     n = len(before)
-    certified_before = sum(1 for k, _w in before.values() if k == "certified")
+    certified_before = sum(1 for k, _w, _r in before.values() if k == "certified")
     merged = {
         unit: (after[unit]["class"] if unit in after else klass)
-        for unit, (klass, _w) in before.items()
+        for unit, (klass, _w, _r) in before.items()
     }
     certified_after = sum(1 for k in merged.values() if k == "certified")
+    recorded_before = sum(1 for unit in after if before.get(unit, ("", "", 0))[2] > 0)
     recorded = sum(1 for a in after.values() if a["recordings"] > 0)
+    gained = sorted(
+        u for u, a in after.items() if a["class"] == "certified" and before[u][0] != "certified"
+    )
+    lost = sorted(
+        u for u, a in after.items() if a["class"] != "certified" and before[u][0] == "certified"
+    )
     low_b, high_b = wilson(certified_before, n)
     low_a, high_a = wilson(certified_after, n)
     spend = sum(a["spend"] for a in after.values())
-    out = [f"## 1b. {title}", ""]
+    scope = (
+        f"with `only` naming the {len(after)} cases below"
+        if len(after) < n
+        else f"over all {len(after)} cases"
+    )
+    out = [f"## {number}. {title}", ""]
     out.append(
-        f"**Run [`{run_id}`]({RUNS}/{run_id}), `mutation-recall.yml` with `only` naming the "
-        f"{len(after)} cases below, code from `main` after D-236 and D-237, ${spend:.4f}.** The "
-        f"denominator is forty; a case not named keeps its class from the original run and the "
-        f"D-235 replay. **{recorded} of {len(after)} cases now record a probe on the merge base** "
-        f"(none did before)."
+        f"**Run [`{run_id}`]({RUNS}/{run_id}), `mutation-recall.yml` {scope}, {code}, "
+        f"${spend:.4f}.** The denominator is forty; a case not run keeps its latest class. "
+        f"**{recorded} of {len(after)} cases record a probe on the merge base** "
+        f"({recorded_before} did before). Cases newly certified: **{len(gained)}**"
+        + (f" ({', '.join(f'`{u}`' for u in gained)})" if gained else "")
+        + f"; cases that lost a receipt: **{len(lost)}**"
+        + (f" ({', '.join(f'`{u}`' for u in lost)})" if lost else "")
+        + ". Cases, never candidates: an extra receipt inside a case already certified counts "
+        "for nothing here."
     )
     out.append("")
     out.append("| | before | after the re-run |")
@@ -133,7 +172,7 @@ def section(
     out.append("| case | before | after | recordings | verifications | lines | why now | spend |")
     out.append("|---|---|---|---|---|---|---|---|")
     for unit, a in after.items():
-        klass_before = before.get(unit, ("not in the sample", ""))[0]
+        klass_before = before.get(unit, ("not in the sample", "", 0))[0]
         shown = ", ".join(f"{k} {v}" for k, v in a["lines"].items()) or "none"
         out.append(
             f"| `{unit}` | {klass_before} | **{a['class']}** | {a['recordings']} | "
@@ -162,11 +201,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--trials", required=True)
     parser.add_argument("--title", required=True)
     parser.add_argument("--report", required=True)
+    parser.add_argument("--section", default="1b", help="the section number to write, e.g. 1c")
+    parser.add_argument(
+        "--baseline", action="append", default=[],
+        help="an earlier named re-run whose classes are the 'before' (e.g. rerun-env); repeatable",
+    )
+    parser.add_argument("--code", default="code from `main` after D-236 and D-237")
     args = parser.parse_args(argv)
-    before = original_classes()
+    before = original_classes(args.baseline)
     after = rerun_classes(Path(args.artifact), args.trials)
-    text = section(args.title, args.run_id, before, after)
-    splice(Path(args.report), f"## 1b. {args.title}", text)
+    text = section(args.title, args.run_id, before, after, number=args.section, code=args.code)
+    splice(Path(args.report), f"## {args.section}. {args.title}", text)
     print(text)
     return 0
 
