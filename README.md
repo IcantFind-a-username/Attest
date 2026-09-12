@@ -104,6 +104,14 @@ secret**, with the Name exactly `ANTHROPIC_API_KEY` and your Anthropic API key a
 `GITHUB_TOKEN` needs nothing — Actions supplies it. That is the whole installation; if the
 secret is missing the run stops before any model call and the error says where to put it.
 
+What a red line looks like on a real pull request of this repository — a **planted-defect
+drill**: the empty-string guard of a helper was deleted on purpose in a throwaway pull request
+([#52](https://github.com/IcantFind-a-username/Attest/pull/52), closed unmerged) and the
+workflow above, running as it stands on `main`, said one red line with its reproduction and
+its receipt:
+
+![A red line from attest on a planted-defect drill: the deleted guard, the generated test that fails on head in 3/3 runs and passes on the merge base in 3/3, and the receipt to verify offline](docs/img/red-receipt.png)
+
 **Fork pull requests are never reviewed and never commented on.** Two independent gates
 skip them before any credential enters a runner step, and this repository uses no
 `pull_request_target` trigger anywhere. A skipped fork leaves **no comment, no review, no
