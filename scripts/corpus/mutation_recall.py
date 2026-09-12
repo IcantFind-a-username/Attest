@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import random
 import subprocess
@@ -43,6 +42,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
 
 from driver_budget import DriverCap  # noqa: E402
+from heldout_v2 import wilson  # noqa: E402  -- one Wilson interval, kept in one place
 from mutate import Site, _apply  # noqa: E402
 
 from attest.benchmark import prospective  # noqa: E402
@@ -268,16 +268,6 @@ def cmd_run(args: argparse.Namespace) -> int:
                           "spent_usd": round(cap.spent, 6)}), flush=True)
     print(cap.summary())
     return 0
-
-
-def wilson(successes: int, trials: int, z: float = 1.959963985) -> tuple[float, float]:
-    if trials == 0:
-        return (0.0, 1.0)
-    p = successes / trials
-    denominator = 1 + z * z / trials
-    centre = (p + z * z / (2 * trials)) / denominator
-    half = z * math.sqrt(p * (1 - p) / trials + z * z / (4 * trials * trials)) / denominator
-    return (max(0.0, centre - half), min(1.0, centre + half))
 
 
 def classify(rows: list[dict], deferred_reason: str) -> tuple[str, str]:
