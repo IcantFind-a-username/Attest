@@ -11,6 +11,10 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **A paid driver reserves each unit at the recent forty's 95th percentile, not at the ceiling
+  (D-244, owner instruction).** Reserving at the $1.00 ceiling refused the last three of forty at
+  $2.53 of a $3.50 cap; the unit's own budget still binds what it may spend. AGENTS.md §9 also
+  records what one re-run of the forty moves on its own: about ±2 cases.
 - **The run row says which stage bought what (D-243).** `review_run` carries `spend_breakdown`:
   discovery, probe and generation, each with its calls, tokens, model and cost, summing to the
   total. Until now verification was 63% to 73% of every measured run's spend and one number.

@@ -2484,6 +2484,14 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Cost and reversal:** $0.00; one condition in `note_for`.
 - **Trace:** D-143, D-145, D-150, D-202, D-230.
 
+### D-244 — A paid driver reserves each unit at the recent history's 95th percentile: `attest.driver-cap.reserve-p95.v2`
+
+- **Date/status/scope:** 2026-09-14 · active · **owner instruction of 2026-09-14** ("预留额度改按最近 40 例的 p95 而不是 $1.00 上限") · `scripts/corpus/driver_budget.py` (`reservation_from_history`, `recent_spends`, `HISTORY_CASES = 40`, `MINIMUM_HISTORY = 10`), `scripts/corpus/mutation_recall.py` and `scripts/corpus/prospective_shadow.py` (the reservation that admits a unit under the cap; the unit's own budget unchanged), `AGENTS.md` §9 (the rule, and the ±2-of-40 jitter rule beside it); REDs `tests/test_driver_budget.py::test_the_reservation_is_the_p95_of_recent_spend_and_falls_back_below_ten_cases`, `::test_the_cap_admits_the_tail_of_the_forty_under_the_p95_reservation`.
+- **What was wrong.** D-172 reserved every unit at its ceiling, the per-review budget, because that is what one unit *may* cost. Under a cumulative cap that reservation is what admits the next unit, and on 2026-09-13 run 34711985142 refused the last three of forty by name at $2.53 spent of a $3.50 cap, when no case of the forty had cost more than $0.18; a second dispatch with `only` bought them for $0.22. The ceiling was doing the cap's job twice.
+- **The rule.** The reservation is the nearest-rank 95th percentile of the most recent forty cases' `spend_usd` across the study's trials files, bounded below by a cent and above by the ceiling; with fewer than ten cases of history the ceiling stands. The unit's own `budget_usd` is untouched -- the review's `Budget` still binds what a unit may spend -- so a run may now overshoot its cap by at most one unit's distance between its p95 and its ceiling, and it records which unit and by how much. That is the trade the owner chose: a run that finishes its forty against one that stops three short.
+- **Cost and reversal:** $0.00. Reversal: `reservation_from_history` returning `fallback`.
+- **Trace:** D-172, D-225, D-240; `AGENTS.md` §9.
+
 ### D-243 — The run row says which stage bought what
 
 - **Date/status/scope:** 2026-09-13 · active · agent decision under `mainline.md` §5 (an instrument; no rule, cap or price moves) · `src/attest/review/budget.py` (`Budget.breakdown`), `src/attest/review/run.py` (the `review_run` row carries `spend_breakdown`); REDs `tests/test_budget_ledger.py::test_the_budget_breaks_its_calls_down_by_stage`, the breakdown assertions in `tests/test_review_run.py::test_local_review_runs_the_differential_stage_and_publishes_a_receipt`.
