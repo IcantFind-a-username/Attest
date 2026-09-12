@@ -131,7 +131,7 @@ This recomputes every digest and the controller seal from the bundle alone.
 
 Copy [`examples/pull-request.yml`](../../examples/pull-request.yml) into
 `.github/workflows/`, pin `uses:` to the same ref you installed
-(`IcantFind-a-username/Attest@v0.1.0`, see [`install-ref.md`](install-ref.md)), and
+(`IcantFind-a-username/Attest@v0.2.0`, see [`install-ref.md`](install-ref.md)), and
 set the two secrets the workflow names. Fork pull requests are skipped before any credential or head code is touched.
 The Action posts a running comment, then a final comment that is either the verified
 findings (each with its test) or an explicit abstention, always with a collapsed run status.
