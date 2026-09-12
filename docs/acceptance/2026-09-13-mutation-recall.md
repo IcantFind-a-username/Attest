@@ -131,6 +131,12 @@ Over the run's **44 verification rows**: **2** probes would be refused before ex
 | `python-dotenv-guard_raise-04--forward` | certified | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0506 |
 | `urllib3-none_guard-18--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore  | $0.0641 |
 
+## 1d. The forty under D-240 — aborted by the provider, not a measurement
+
+**Run [`34709160655`](https://github.com/IcantFind-a-username/Attest/actions/runs/34709160655), `mutation-recall.yml` over all forty, code from `main` after D-240 (the moved-conditions block and `attest.intent.v5.1`), $0.9271.** After 14 cases the model provider began answering every call with `invalid_request_error: Your credit balance is too low to access the Anthropic API`; 130 discovery samples failed, 26 of 40 cases recorded *all provider samples failed or were malformed* and never reached a probe, and the run ended green because a refused sample is a recorded outcome. **This is not a measurement of D-240** and its two receipts are not counted anywhere; the trials, lines and ledgers are kept under [`evidence/2026-09-13-mutation-recall/search-v3-aborted/`](evidence/2026-09-13-mutation-recall/search-v3-aborted/) as the record of what was bought. The re-run waits for the account's credit, into a new trials file.
+
+Two things the aborted run did establish, both free. The 14 cases that ran before the balance gave out show the D-240 code path working end to end (7 value-class drawers, 2 receipts, no crash). And D-239's `workspace_status` row named the dirty file of `itsdangerous-guard_raise-01` on its first paid run: ` M src/itsdangerous/signer.py`, the anchored file itself — the project sets `[tool.ruff] fix = true`, the injected mutation left an import unused, and tier-0's `ruff check` rewrote the file before the verification looked at it. Fixed as D-242 (`--no-fix`); the case is a miss on every run so far and needs the re-run to count.
+
 ## 2. By mutation class
 
 | class | what was injected | cases | certified | D-232 drawer | value class | other |
