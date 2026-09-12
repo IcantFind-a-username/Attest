@@ -299,24 +299,36 @@ def _summary(run: RunData, obs: list[Observation]) -> dict[str, object]:
     }
 
 
-def build(run_a: RunData, run_b: RunData | None) -> str:
-    runs = [run_a] + ([run_b] if run_b else [])
+DEFAULT_TITLE = (
+    "# Lines on real pull requests, 2026-09-12 — the owner's five and the eight "
+    "libraries' twenty-four"
+)
+DEFAULT_INTRO = (
+    "**Work order PR 3 f of the 2026-09-12 overnight window.** Two paid runs on the "
+    "declared CI platform, both on the local review path — no GitHub client, nothing "
+    "written to any repository — with `value_notes_visible` and `gate_notes_visible` on, "
+    "`per_pr_budget_usd` $1.00, K=5, `linux-container-v1`. **This time the ledgers came "
+    "back**, so every drawer observation that did not become a line is read to its "
+    "reason rather than guessed at (D-225 could not)."
+)
+
+
+def build(
+    run_a: RunData | None,
+    run_b: RunData | None,
+    *,
+    title: str = DEFAULT_TITLE,
+    intro: str = DEFAULT_INTRO,
+    comparison_heading: str = "## 4. The owner's five against the libraries' twenty-four",
+) -> str:
+    runs = [run for run in (run_a, run_b) if run is not None]
+    assert runs, "no run to report: the input is empty"
     obs = {run.name: observations(run) for run in runs}
     summaries = {run.name: _summary(run, obs[run.name]) for run in runs}
     out: list[str] = []
-    out.append(
-        "# Lines on real pull requests, 2026-09-12 — the owner's five and the eight "
-        "libraries' twenty-four"
-    )
+    out.append(title)
     out.append("")
-    out.append(
-        "**Work order PR 3 f of the 2026-09-12 overnight window.** Two paid runs on the "
-        "declared CI platform, both on the local review path — no GitHub client, nothing "
-        "written to any repository — with `value_notes_visible` and `gate_notes_visible` on, "
-        "`per_pr_budget_usd` $1.00, K=5, `linux-container-v1`. **This time the ledgers came "
-        "back**, so every drawer observation that did not become a line is read to its "
-        "reason rather than guessed at (D-225 could not)."
-    )
+    out.append(intro)
     out.append("")
     for run in runs:
         s = summaries[run.name]
@@ -410,7 +422,7 @@ def build(run_a: RunData, run_b: RunData | None) -> str:
     if not any(obs.values()):
         out.append("- none")
     out.append("")
-    out.append("## 4. The owner's five against the libraries' twenty-four")
+    out.append(comparison_heading)
     out.append("")
     out.append("| | " + " | ".join(run.name for run in runs) + " |")
     out.append("|---|" + "---|" * len(runs))
@@ -436,35 +448,46 @@ def build(run_a: RunData, run_b: RunData | None) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run-a", required=True)
-    parser.add_argument("--run-a-id", required=True)
+    parser.add_argument("--run-a", default="")
+    parser.add_argument("--run-a-id", default="")
     parser.add_argument("--run-a-trials", default="trials-runner-only5.jsonl")
     parser.add_argument("--run-a-study", default="e04-prospective-v3")
+    parser.add_argument("--run-a-name", default="run A (the owner's five)")
     parser.add_argument("--run-b", default="")
     parser.add_argument("--run-b-id", default="")
     parser.add_argument("--run-b-trials", default="trials.jsonl")
     parser.add_argument("--run-b-study", default="e05-external-v1")
+    parser.add_argument("--run-b-name", default="run B (eight libraries)")
+    parser.add_argument("--title", default=DEFAULT_TITLE, help="the report's first line")
+    parser.add_argument("--intro", default=DEFAULT_INTRO, help="the paragraph under it")
+    parser.add_argument(
+        "--comparison-heading", default="## 4. The owner's five against the libraries' twenty-four"
+    )
     parser.add_argument("--out", required=True)
     args = parser.parse_args(argv)
-    run_a = load_run(
-        "run A (the owner's five)",
-        Path(args.run_a),
-        args.run_a_id,
-        args.run_a_study,
-        args.run_a_trials,
+    if not args.run_a and not args.run_b:
+        raise SystemExit("name at least one run directory (--run-a or --run-b)")
+    run_a = (
+        load_run(
+            args.run_a_name, Path(args.run_a), args.run_a_id, args.run_a_study, args.run_a_trials
+        )
+        if args.run_a
+        else None
     )
     run_b = (
         load_run(
-            "run B (eight libraries)",
-            Path(args.run_b),
-            args.run_b_id,
-            args.run_b_study,
-            args.run_b_trials,
+            args.run_b_name, Path(args.run_b), args.run_b_id, args.run_b_study, args.run_b_trials
         )
         if args.run_b
         else None
     )
-    text = build(run_a, run_b)
+    text = build(
+        run_a,
+        run_b,
+        title=args.title,
+        intro=args.intro,
+        comparison_heading=args.comparison_heading,
+    )
     Path(args.out).write_text(text, encoding="utf-8")
     print(f"wrote {args.out}")
     return 0
