@@ -11,7 +11,15 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
-Nothing yet.
+- **Two environment losses repaired (D-236).** A project that versions itself from the
+  repository (`urllib3`: `hatch-vcs` writes `_version.py` at build time and the package imports
+  it) could not be imported from the reviewed worktree, so every probe on it recorded nothing —
+  5 of 5 mutation cases, 3 of 3 pull requests. The executor now writes the declared version file
+  into both worktrees, fixed content, only when it is absent. And an object's ` at 0x…` address
+  is no longer part of a recording: the probe body drops it and the replay compares the same
+  form, so a merge base that returns a closure or a context manager records stably instead of
+  being refused as unstable (three cases of the forty). **What it costs:** nothing in trust —
+  neither change reads an outcome — and no recall figure moves until the eight cases are re-run.
 
 ## `v0.2.0` — 2026-09-13
 

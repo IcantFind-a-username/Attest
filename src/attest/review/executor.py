@@ -30,6 +30,7 @@ from attest.certification.intent import (
     evidence_class_for,
     intent_verdict,
 )
+from attest.execution.container_images import provision_scm_version_file
 from attest.execution.controller import Controller, ExecutorAdapter
 from attest.execution.local_adapter import LocalDevelopmentAdapter
 from attest.execution.types import ResourceLimits
@@ -2566,6 +2567,9 @@ def execute_differential(
             if added.returncode != 0:
                 return deferred(f"could not create {side} worktree: {added.stderr.strip()}")
             created.append(trees_dir / side)
+            # D-236: a repository-versioned project's generated version file,
+            # identical on both sides, so the package imports from the worktree
+            provision_scm_version_file(trees_dir / side)
 
         # D-146: in probe mode the reproduction does not exist yet. Record what
         # the merge base does with the model's chosen call, and write the test

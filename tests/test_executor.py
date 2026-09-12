@@ -3939,3 +3939,68 @@ def test_a_warning_escalated_to_an_exception_is_neither_a_receipt_nor_the_drawer
     assert "behavior change confirmed, intent unknown" not in result.reason
     assert result.intent is not None and result.intent.exception_type == "DeprecationWarning"
     assert_worktrees_cleaned(repo, stored)
+
+
+# D-236: a project that takes its version from the repository does not commit its
+# version file -- hatch-vcs writes `src/urllib3/_version.py` at build time -- and the
+# package's own `__init__` imports it. The reviewed tree is a bare worktree, so
+# every import of the package failed, and urllib3 never recorded a single probe
+# (5 of 5 mutation cases, 3 of 3 run-B pull requests: "no JUnit artifact").
+SCM_PYPROJECT = (
+    "[build-system]\n"
+    'requires = ["hatchling", "hatch-vcs"]\n'
+    'build-backend = "hatchling.build"\n'
+    "\n"
+    "[project]\n"
+    'name = "pkg"\n'
+    'dynamic = ["version"]\n'
+    "\n"
+    "[tool.hatch.version]\n"
+    'source = "vcs"\n'
+    "\n"
+    "[tool.hatch.build.hooks.vcs]\n"
+    'version-file = "src/pkg/_version.py"\n'
+)
+SCM_INIT_BASE = "from ._version import __version__\n\n\ndef total(items):\n    return sum(items)\n"
+SCM_INIT_HEAD = SCM_INIT_BASE.replace("return sum(items)", "return sum(items) - 1")
+SCM_GITIGNORE = "src/pkg/_version.py\n"
+SCM_BODY = "import pkg\n\n\ndef test_repro():\n    assert pkg.total([1, 2, 3]) == 6\n"
+# the base tree states the value, which the value-class rule (D-132/D-174)
+# requires before a changed value may certify as a regression
+SCM_BASE_TEST = "import pkg\n\n\ndef test_total():\n    assert pkg.total([1, 2, 3]) == 6\n"
+
+
+def test_a_repository_versioned_project_gets_its_version_file_in_both_worktrees(
+    tmp_path: Path,
+) -> None:
+    """D-236 RED: without the generated version file the package cannot even be
+    imported from the reviewed tree, so collection fails and nothing about the
+    diff is ever measured. The differential provisions the declared file --
+    fixed content, the pretend version the image build already uses -- into head
+    and base alike, and the regression certifies."""
+    stored = candidate(file="src/pkg/__init__.py", line=5)
+    base_files = {
+        "pyproject.toml": SCM_PYPROJECT,
+        ".gitignore": SCM_GITIGNORE,
+        "src/pkg/__init__.py": SCM_INIT_BASE,
+        "tests/test_pkg.py": SCM_BASE_TEST,
+    }
+    head_files = {**base_files, "src/pkg/__init__.py": SCM_INIT_HEAD}
+    repo, base_sha, head_sha = two_commit_repo(tmp_path, base_files, head_files)
+
+    result = execute_differential(
+        repo,
+        stored,
+        ReproSpec(SCM_BODY),
+        ExecutorLimits(),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
+
+    assert result.outcome is ExecutionOutcome.REPRODUCED, result.reason
+    assert result.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    assert [run.outcome.value for run in result.head_runs] == ["reproduced"] * 3
+    assert [run.outcome.value for run in result.base_runs] == ["not_reproduced"] * 3
+    # the repository itself is untouched: the file lives only in the worktrees
+    assert not (repo / "src" / "pkg" / "_version.py").exists()
+    assert_worktrees_cleaned(repo, stored)

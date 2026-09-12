@@ -531,3 +531,69 @@ def test_the_container_job_is_told_where_its_font_cache_is(tmp_path: Path) -> No
     assert f"MPLCONFIGDIR={SCRATCH_MOUNT}/mpl" in argv
     assert f"ATTEST_MPL_SEED={MPL_SEED_DIR}" in argv
     assert argv[argv.index("-c") - 1 :][:2] == ["-I", "-c"]
+
+
+# --- D-236: the generated version file of a repository-versioned tree -----------
+
+
+def _scm_tree(tmp_path: Path, pyproject: str, *, version_file: str | None = None) -> Path:
+    tree = tmp_path / "tree"
+    (tree / "src" / "pkg").mkdir(parents=True)
+    (tree / "pyproject.toml").write_text(pyproject, encoding="utf-8")
+    (tree / "src" / "pkg" / "__init__.py").write_text(
+        "from ._version import __version__\n", encoding="utf-8"
+    )
+    if version_file is not None:
+        (tree / "src" / "pkg" / "_version.py").write_text(version_file, encoding="utf-8")
+    return tree
+
+
+HATCH_VCS = (
+    '[build-system]\nrequires = ["hatchling", "hatch-vcs"]\n'
+    '[project]\nname = "pkg"\ndynamic = ["version"]\n'
+    '[tool.hatch.version]\nsource = "vcs"\n'
+    '[tool.hatch.build.hooks.vcs]\nversion-file = "src/pkg/_version.py"\n'
+)
+
+
+def test_the_declared_version_file_is_written_once_with_the_pretend_version(
+    tmp_path: Path,
+) -> None:
+    from attest.execution.container_images import provision_scm_version_file
+
+    tree = _scm_tree(tmp_path, HATCH_VCS)
+
+    written = provision_scm_version_file(tree)
+
+    assert written == tree / "src" / "pkg" / "_version.py"
+    text = written.read_text(encoding="utf-8")
+    assert "__version__ = version = '0.0.1'" in text
+    assert "__version_tuple__ = version_tuple = (0, 0, 1)" in text
+    # a committed file is the tree's and is never overwritten
+    (tree / "src" / "pkg" / "_version.py").write_text("__version__ = '9.9'\n", encoding="utf-8")
+    assert provision_scm_version_file(tree) is None
+    kept = (tree / "src" / "pkg" / "_version.py").read_text(encoding="utf-8")
+    assert kept == "__version__ = '9.9'\n"
+
+
+def test_a_version_file_path_that_leaves_the_tree_or_names_no_python_file_is_not_written(
+    tmp_path: Path,
+) -> None:
+    from attest.execution.container_images import provision_scm_version_file
+
+    bad = ("../outside.py", "src/pkg/_version.txt", "/etc/passwd.py", "src/pkg/../../x.py")
+    for declared in bad:
+        pyproject = HATCH_VCS.replace(
+            'version-file = "src/pkg/_version.py"', f'version-file = "{declared}"'
+        )
+        tree = _scm_tree(tmp_path / declared.replace("/", "_").replace(".", "_"), pyproject)
+        assert provision_scm_version_file(tree) is None
+    # setuptools_scm's spelling, and a project that is not repository-versioned at all
+    scm = _scm_tree(
+        tmp_path / "scm",
+        '[build-system]\nrequires = ["setuptools", "setuptools_scm"]\n'
+        '[tool.setuptools_scm]\nwrite_to = "src/pkg/_version.py"\n',
+    )
+    assert provision_scm_version_file(scm) == scm / "src" / "pkg" / "_version.py"
+    plain = _scm_tree(tmp_path / "plain", '[project]\nname = "pkg"\nversion = "1.0"\n')
+    assert provision_scm_version_file(plain) is None
