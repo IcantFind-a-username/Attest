@@ -110,7 +110,10 @@ it. The quickstart's first screen is the workflow file itself, copyable whole.
    anchored file crosses a line the change wrote is a behaviour change with unknown intent,
    whatever raised it; red keeps the shapes where the merge base raised and head does not, or
    head raises off every written line (D-232, both `attrs#1603` receipts moved, both held-out
-   receipts kept).
+   receipts kept). A `Warning` subclass on that path is never a rejection and never a
+   regression -- the differential does not hold -- and a probe whose setup reaches for the
+   interpreter or replaces part of the tree is refused before it runs (D-235: the three
+   `werkzeug#3266` receipts and the `jsonschema#1416` line withdrawn on replay).
 2. **green** — first, because it costs **zero execution and near-zero API**: the measure is
    computed deterministically and the model is called once, after the evidence already holds. It
    is therefore the cheapest possible test of the whole architecture — *does "the LLM thinks, the
