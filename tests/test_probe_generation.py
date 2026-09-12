@@ -1129,3 +1129,22 @@ def test_the_ledger_keeps_how_the_call_was_built(tmp_path: Path) -> None:
     assert (probe["imports"], probe["setup"]) == ("import mod", "empty = []")
     note = next(r for r in rows if r["kind"] == "value_observation_note")
     assert (note["imports"], note["setup"]) == ("import mod", "empty = []")
+
+
+LITERALS_TESTS = (
+    "import mod\n\n\ndef test_clamp():\n    assert mod.clamp(20) == 13\n"
+    "    assert mod.clamp(0) == 0\n    assert mod.clamp(-1) == -1\n"
+)
+
+
+def test_the_first_probe_is_told_which_literals_the_tree_passes(tmp_path: Path) -> None:
+    """D-244 RED: the values the tree already passes to the changed symbol are
+    where a boundary probe looks first, and the probe was never told them."""
+    repo, base_sha, head_sha = two_revisions(tmp_path, BOUNDARY_BASE, BOUNDARY_HEAD, LITERALS_TESTS)
+    provider = PromptRecorder(BOUNDARY_PROBE)
+
+    verify(repo, base_sha, head_sha, provider, candidate=stored(line=2))
+
+    first = provider.prompts[0]
+    assert "Literal arguments the repository passes to `clamp`" in first
+    assert "`-1`" in first and "`0`" in first and "`20`" in first

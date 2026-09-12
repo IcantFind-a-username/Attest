@@ -252,3 +252,81 @@ def test_within_a_rank_the_largest_change_is_planned_first(tmp_path: Path) -> No
     plan = plan_review(repo, diff, "HEAD")
     ordered = [file for unit in plan.units for file in unit.files]
     assert ordered == ["src/z_large.py", "src/a_small.py", "docs.md"]
+
+
+def test_a_generic_method_name_still_finds_its_caller_through_the_index(tmp_path: Path) -> None:
+    """A changed method named `parse` used to get no callers at all: the name is
+    in the generic list, so the regex path refused to search it. The tree index
+    resolves the call through the import it was made with, so the caller in
+    `app.py` is context, and the same-named call on an unrelated object is not.
+    """
+    repo = tmp_path / "repo"
+    (repo / "src" / "pkg").mkdir(parents=True)
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "fixture@example.invalid")
+    _git(repo, "config", "user.name", "Fixture")
+    (repo / "src" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    (repo / "src" / "pkg" / "reader.py").write_text(
+        "class Reader:\n    def parse(self, text):\n        return text.strip()\n",
+        encoding="utf-8",
+    )
+    (repo / "src" / "pkg" / "app.py").write_text(
+        "from pkg.reader import Reader\n\n\n"
+        "def load(text):\n    return Reader().parse(text)\n",
+        encoding="utf-8",
+    )
+    (repo / "src" / "pkg" / "other.py").write_text(
+        "import json\n\n\ndef decode(text):\n    return json.JSONDecoder().parse(text)\n",
+        encoding="utf-8",
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "base")
+    base = _git(repo, "rev-parse", "HEAD")
+    (repo / "src" / "pkg" / "reader.py").write_text(
+        "class Reader:\n    def parse(self, text):\n        return text.strip().lower()\n",
+        encoding="utf-8",
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "head changes parse")
+
+    provider = PromptRecorder()
+    run_review(repo, base, ReviewConfig(k_samples=1, tier0_commands=[]), provider)
+
+    assert len(provider.prompts) == 1
+    prompt = provider.prompts[0]
+    assert "caller of `parse` outside the diff: src/pkg/app.py" in prompt
+    assert "Reader().parse(text)" in prompt
+    assert "src/pkg/other.py" not in prompt
+    assert "generic name parse not searched" not in prompt
+
+
+def test_package_block_puts_the_files_nearest_on_the_import_graph_first(tmp_path: Path) -> None:
+    """D-244: within the package, the file that imports the anchored module
+    comes before an alphabetically earlier file that never touches it, so a
+    block cut at its bound loses the far file, not the importer."""
+    from attest.review.planner import package_block
+
+    repo = tmp_path / "repo"
+    pkg = repo / "src" / "pkg"
+    pkg.mkdir(parents=True)
+    (repo / "tests").mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "mod.py").write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+    (pkg / "aaa_unrelated.py").write_text("Y = 2\n", encoding="utf-8")
+    (pkg / "zzz_user.py").write_text("from pkg.mod import add\n\nZ = add(1, 2)\n", encoding="utf-8")
+    (repo / "tests" / "test_aaa.py").write_text("def test_nothing():\n    pass\n", encoding="utf-8")
+    (repo / "tests" / "test_mod.py").write_text(
+        "from pkg.mod import add\n\n\ndef test_add():\n    assert add(1, 2) == 3\n",
+        encoding="utf-8",
+    )
+
+    block = package_block(repo, "src/pkg/mod.py")
+
+    order = [
+        block.index("### src/pkg/mod.py"),
+        block.index("### src/pkg/zzz_user.py"),
+        block.index("### src/pkg/aaa_unrelated.py"),
+        block.index("### tests/test_mod.py"),
+        block.index("### tests/test_aaa.py"),
+    ]
+    assert order == sorted(order)

@@ -11,6 +11,14 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The tree index (D-244).** A changed symbol's callers are resolved through the import that
+  bound the name, so a method named `parse` or `get` gets its callers like any other and a
+  same-named call on an unrelated object is not one; the shared package block is ordered by
+  import distance from the anchored file, so a bound cuts the farthest file rather than the
+  alphabetically last; and the first probe is told which literal arguments the tree already
+  passes to the changed symbols. Built with `ast` once per tree and cached under `.attest/index/`;
+  no model call. Recall on the forty and the real-PR batches is unmeasured under it as of this
+  entry.
 - **The run row says which stage bought what (D-243).** `review_run` carries `spend_breakdown`:
   discovery, probe and generation, each with its calls, tokens, model and cost, summing to the
   total. Until now verification was 63% to 73% of every measured run's spend and one number.
