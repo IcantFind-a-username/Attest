@@ -1011,3 +1011,35 @@ def test_a_stage_cannot_spend_more_than_its_share_of_the_review_budget() -> None
     with pytest.raises(BudgetExceeded) as spent:
         b.reserve("generation-22", 0, 3200)
     assert "exceeds budget" in spent.value.reason
+
+
+def test_the_budget_breaks_its_calls_down_by_stage() -> None:
+    """D-243 RED: the ledger recorded a review's total spend and its discovery
+    samples' tokens, and nothing about the probe calls -- 63% to 73% of every
+    measured run's cost was one number. The budget knows every call it settled;
+    it says which stage bought what."""
+    from attest.review.budget import Budget
+
+    budget = Budget(limit_usd=1.0, model="claude-sonnet-5")
+    for label, model, out in (
+        ("sample-0", None, 300),
+        ("sample-1", None, 280),
+        ("probe-abc-attempt-1", "claude-opus-5", 120),
+        ("probe-abc-attempt-2", "claude-opus-5", 140),
+        ("verify-abc-attempt-1", "claude-opus-5", 900),
+    ):
+        reservation = budget.reserve(label, 1_000, 1_000, model)
+        budget.settle(
+            label, reservation, 10, out, cache_creation_input_tokens=500,
+            cache_read_input_tokens=2_000, model=model,
+        )
+
+    breakdown = budget.breakdown()
+
+    assert set(breakdown) == {"discovery", "probe", "generation"}
+    assert breakdown["discovery"]["calls"] == 2
+    assert breakdown["discovery"]["output_tokens"] == 580
+    assert breakdown["probe"]["calls"] == 2
+    assert breakdown["probe"]["cache_read_input_tokens"] == 4_000
+    assert breakdown["probe"]["model"] == "claude-opus-5"
+    assert abs(sum(stage["cost_usd"] for stage in breakdown.values()) - budget.spent_usd) < 1e-9

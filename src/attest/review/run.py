@@ -160,6 +160,9 @@ def _review_run_entry(
         "task_id": task_id,
         "elapsed_s": round(elapsed_s, 2),
         "spend_usd": round(budget.spent_usd, 6),
+        # D-243: the same spend by stage -- discovery, probe, generation --
+        # with each stage's calls, tokens, model and cost
+        "spend_breakdown": budget.breakdown(),
         "model": config.model,
         "generation_model": config.generation_model,
         "alpha": alpha,

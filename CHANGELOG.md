@@ -11,6 +11,9 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The run row says which stage bought what (D-243).** `review_run` carries `spend_breakdown`:
+  discovery, probe and generation, each with its calls, tokens, model and cost, summing to the
+  total. Until now verification was 63% to 73% of every measured run's spend and one number.
 - **Tier-0 never writes (D-242).** `itsdangerous` sets `[tool.ruff] fix = true`, under which the
   tier-0 `ruff check` rewrote the anchored file of a reviewed tree, and every verification of that
   case was refused for a dirty working tree — three paid runs, named by D-239's ledger row on the
