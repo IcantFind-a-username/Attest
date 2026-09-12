@@ -137,6 +137,63 @@ Over the run's **44 verification rows**: **2** probes would be refused before ex
 
 Two things the aborted run did establish, both free. The 14 cases that ran before the balance gave out show the D-240 code path working end to end (7 value-class drawers, 2 receipts, no crash). And D-239's `workspace_status` row named the dirty file of `itsdangerous-guard_raise-01` on its first paid run: ` M src/itsdangerous/signer.py`, the anchored file itself — the project sets `[tool.ruff] fix = true`, the injected mutation left an import unused, and tier-0's `ruff check` rewrote the file before the verification looked at it. Fixed as D-242 (`--no-fix`); the case is a miss on every run so far and needs the re-run to count.
 
+## 1e. The forty under D-240, re-run after the credit top-up
+
+**Run [`34711985142`](https://github.com/IcantFind-a-username/Attest/actions/runs/34711985142), `mutation-recall.yml` over all 40 cases, code from `main` after D-240, D-241 and D-242, $2.7521.** The denominator is forty; a case not run keeps its latest class. **31 of 40 cases record a probe on the merge base** (32 did before). Cases newly certified: **4** (`packaging-guard_raise-01--forward`, `python-dotenv-guard_raise-04--forward`, `urllib3-guard_raise-04--forward`, `urllib3-none_guard-15--forward`); cases that lost a receipt: **2** (`jinja-boundary-09--forward`, `more-itertools-none_guard-17--forward`). Cases, never candidates: an extra receipt inside a case already certified counts for nothing here.
+
+| | before | after the re-run |
+|---|---|---|
+| certified | **10** | **12** |
+| point estimate | 25.0% | **30.0%** |
+| Wilson 95% | [14.2%, 40.2%] | **[18.1%, 45.4%]** |
+
+| case | before | after | recordings | verifications | lines | why now | spend |
+|---|---|---|---|---|---|---|---|
+| `attrs-boundary-09--forward` | no receipt | **no receipt** | 1 | 1 | none | binding: the reproduction exercises none of the changed lines of src/attr/_compat.py | $0.0562 |
+| `click-boundary-07--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0665 |
+| `itsdangerous-boundary-07--forward` | certified | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0597 |
+| `jinja-boundary-09--forward` | certified | **no reproduction attempted** | 0 | 0 | none |  | $0.0083 |
+| `more-itertools-boundary-08--forward` | no receipt | **no receipt** | 0 | 1 | none | 3 probes tried and none produced a differential: 3 reached the changed lines and observed no difference | $0.0883 |
+| `packaging-boundary-08--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0447 |
+| `python-dotenv-boundary-06--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0569 |
+| `urllib3-boundary-07--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0836 |
+| `attrs-guard_raise-03--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0849 |
+| `click-boundary-10--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0787 |
+| `itsdangerous-guard_raise-01--forward` | no receipt | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0568 |
+| `jinja-boundary-12--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0722 |
+| `more-itertools-boundary-10--forward` | no receipt | **no receipt** | 0 | 1 | none | 3 probes tried and none produced a differential: 1 reached the changed lines and observed no difference; 2 could not be executed on the head revision -- on the  | $0.0901 |
+| `packaging-boundary-11--forward` | no receipt | **no receipt** | 0 | 1 | none | 3 probes tried and none produced a differential: 3 reached the changed lines and observed no difference | $0.0947 |
+| `python-dotenv-boundary-08--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0396 |
+| `urllib3-guard_raise-03--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0788 |
+| `attrs-none_guard-14--forward` | certified | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0745 |
+| `click-guard_raise-03--forward` | no receipt | **no receipt** | 0 | 1 | impact 1 | 3 probes tried and none produced a differential: 3 reached the changed lines and observed no difference | $0.1208 |
+| `itsdangerous-guard_raise-04--forward` | no receipt | **no receipt** | 0 | 1 | none | 3 probes tried and none produced a differential: 3 reached the changed lines and observed no difference | $0.0882 |
+| `jinja-guard_raise-01--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0525 |
+| `more-itertools-guard_raise-04--forward` | no receipt | **no receipt** | 1 | 1 | none | intent: value change confirmed, no symbol to specify: this change touches no function or class of the anchored file, so no test, docstring or document can speci | $0.0619 |
+| `packaging-guard_raise-01--forward` | no receipt | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0687 |
+| `python-dotenv-guard_raise-01--forward` | certified | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0700 |
+| `urllib3-guard_raise-04--forward` | value class | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0784 |
+| `attrs-none_guard-15--forward` | certified | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0361 |
+| `click-guard_raise-05--forward` | value class | **value class** | 1 | 1 | impact 1, value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0970 |
+| `itsdangerous-guard_raise-05--forward` | certified | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0575 |
+| `jinja-none_guard-13--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0598 |
+| `more-itertools-guard_raise-05--forward` | no receipt | **no receipt** | 1 | 1 | none | intent: value change confirmed, no symbol to specify: this change touches no function or class of the anchored file, so no test, docstring or document can speci | $0.0701 |
+| `packaging-guard_raise-06--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0561 |
+| `python-dotenv-guard_raise-02--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base tes | $0.0462 |
+| `urllib3-none_guard-15--forward` | value class | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0778 |
+| `attrs-none_guard-17--forward` | certified | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0491 |
+| `click-none_guard-15--forward` | no receipt | **no receipt** | 0 | 1 | none | generation failed: ProbeRefused: probe setup assigns an attribute of the imported name tui (tui.isatty = lambda stream: True); replacing part of the tree before | $0.0932 |
+| `itsdangerous-guard_raise-06--forward` | certified | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0594 |
+| `jinja-none_guard-14--forward` | certified | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0702 |
+| `more-itertools-none_guard-17--forward` | certified | **no receipt** | 0 | 1 | none | 3 probes tried and none produced a differential: 2 reached the changed lines and observed no difference; 1 recorded nothing usable on the merge base -- probe ob | $0.0853 |
+| `packaging-none_guard-13--forward` | no receipt | **no receipt** | 0 | 1 | none | 3 probes tried and none produced a differential: 2 did not reach the changed lines; 1 reached the changed lines and observed no difference | $0.1053 |
+| `python-dotenv-guard_raise-04--forward` | value class | **certified** | 1 | 1 | red 1 | head FAIL 3/3, base PASS 3/3 | $0.0493 |
+| `urllib3-none_guard-18--forward` | value class | **value class** | 1 | 1 | value 1 | intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore  | $0.0649 |
+
+**Two dispatches, one trials file.** The first dispatch (run `34711985142`, cap $3.50) ran 37 cases for $2.5326 and the cap refused the last three by name -- `packaging-none_guard-13`, `python-dotenv-guard_raise-04`, `urllib3-none_guard-18` -- because a case starts only if its $1.00 maximum still fits; the follow-up run [`34712819526`](https://github.com/IcantFind-a-username/Attest/actions/runs/34712819526) ran exactly those three with `only` for $0.2195. The table above merges the two: 40 of 40 run, no case re-drawn or retried.
+
+**What moved it.** Of the four cases newly certified, three are D-240 (b): the replay pinned an exception type name and a base test expects it from the touched symbol -- `packaging-guard_raise-01` (`ELFInvalid`, `tests/test_elffile.py`), `urllib3-guard_raise-04` (`ValueError`, `test/with_dummyserver/test_connection.py`), `urllib3-none_guard-15` (`TypeError`, `test/test_collections.py`); the two urllib3 cases had never recorded a probe before D-236, so the offline census of 2026-09-13 (at most 2 of 40) could not see them. `python-dotenv-guard_raise-04` came back under the prose rule (`ValueError` in `CHANGELOG.md`), the same way it had certified on the original run. Of the two lost, `jinja-boundary-09` proposed no eligible candidate this time and `more-itertools-none_guard-17`'s three probes saw no difference -- discovery and search variance, both. The boundary class is still **1 of 13**: the moved-conditions block (D-240 a) named the boundary and the probes did not certify on it; the value class holds 16 of 40.
+
 ## 2. By mutation class
 
 | class | what was injected | cases | certified | D-232 drawer | value class | other |
