@@ -11,6 +11,12 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **Tier-0 never writes (D-242).** `itsdangerous` sets `[tool.ruff] fix = true`, under which the
+  tier-0 `ruff check` rewrote the anchored file of a reviewed tree, and every verification of that
+  case was refused for a dirty working tree — three paid runs, named by D-239's ledger row on the
+  first run after it landed. `ruff check --no-fix` now, whatever the project configures. Since
+  D-237 made ruff reachable on shipped reviews, this closes the one path by which a review could
+  have edited the repository it reviews.
 - **The value line is reproducible (D-241, `attest.value-note.v4`).** Three of the seven lines on
   real traffic were judged *true but not actionable*, all value lines: the line said what a call
   returned and never how the arguments were built. The recording row and the note now keep the

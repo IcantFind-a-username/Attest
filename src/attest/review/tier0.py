@@ -60,8 +60,13 @@ def run_ruff(repo: Path, files: list[str]) -> list[Tier0Signal]:
     py_files = [f for f in files if f.endswith(".py") and (repo / f).is_file()]
     if not exe or not py_files:
         return []
+    # D-242: tier-0 reads and never writes. `itsdangerous` sets `[tool.ruff]
+    # fix = true`, under which a bare `ruff check` rewrites the files it
+    # checks -- it rewrote the anchored file of a reviewed tree and every
+    # verification of that case was refused for a dirty tree. `--no-fix`
+    # overrides the project's configuration, whatever it says.
     proc = subprocess.run(
-        [exe, "check", "--output-format", "json", "--exit-zero", *py_files],
+        [exe, "check", "--no-fix", "--output-format", "json", "--exit-zero", *py_files],
         capture_output=True,
         text=True,
         encoding="utf-8",
