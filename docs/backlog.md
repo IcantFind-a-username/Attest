@@ -22,6 +22,15 @@ rather than deleted — a backlog whose closed items vanish cannot be audited.
 
 <!-- entries below, newest first -->
 
+- **2026-09-13: `tests/test_ci_flow.py::test_pr_family_policy_caps_publication_and_counts_a_defect_once`
+  lost one of seven receipts once, on the CI runner, in the first `checks` run of
+  `feat/boundary-and-raises` (run 34706811992: `assert 6 == 7`).** Three local runs and the CI
+  re-run passed; the log named no deferral reason because the assertion did not carry one. The
+  test now prints the non-reproduced verifications' reasons when it fails. Suspected, not shown:
+  seven concurrent verifications share one repository and a 20-second wall clock, so a git lock
+  or a deadline deferral on a slow runner would produce exactly this. Unreproduced (D-049); no
+  product change.
+
 - **[P1 → DONE 2026-09-13 (D-237)] 2026-09-13 (D-197, D-199): the `T` channel has never fired, in any recorded review.** *Diagnosed and fixed:* the mutation run's ledgers already held two `("S", "T")` rows (194 of 196 committed review rows are `("S",)`), bought where the GitHub runner had `ruff` on PATH; on shipped traffic the Action executes `$ATTEST_VENV/bin/attest` without that `bin` on PATH and `shutil.which("ruff")` found nothing — hypothesis one, a configuration defect. `ruff_executable()` now falls back to the tool beside the running interpreter. Whether tier-0 adds anything to the ranking on shipped traffic is measurable from the next batch's `channels_bought` rows. The original text follows.
   Across all **2,589** `review` ledger rows in this repository `channels_bought` is `("S",)` and
   nothing else — not under the corpus drivers, which pass `tier0_commands=[]`, and not on shipped
