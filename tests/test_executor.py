@@ -2662,7 +2662,8 @@ def test_verify_candidate_key_error_regression_certifies(
         assert verification.execution.evidence_class is EvidenceClass.BEHAVIOR_CHANGE
         assert verification.execution.outcome is ExecutionOutcome.DEFERRED
         assert "behavior change confirmed, intent unknown" in verification.execution.reason
-        assert "KeyError from a call or expression on a changed line" in verification.execution.reason
+        reason = verification.execution.reason
+        assert "KeyError from a call or expression on a changed line" in reason
         # nothing is bought: the caller's own gate result comes straight back
         assert [purchase.channel for purchase in verification.gate_result.purchases] == ["S"]
         assert verification.gate_result.wealth == 8.0

@@ -35,6 +35,7 @@
 
 The three empty columns of §1 are still the owner's; a line that changed level here is adjudicated as it is shown now, and a withdrawn line is not adjudicated at all.
 
+
 ## 2. One row per pull request
 
 ### run A (the owner's five)

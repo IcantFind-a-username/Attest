@@ -79,11 +79,18 @@ def _intent_from_row(raw: dict) -> IntentObservation:
     record["witnesses"] = tuple((str(a), str(b)) for a, b in record.get("witnesses", ()))
     for key in ("value_specified", "value_respecified"):
         record[key] = tuple((str(a), str(b)) for a, b in record.get(key, ()))
-    for key in ("pinned_values", "asserted_constants", "anchored_symbols", "path_lines",
-                "added_lines"):
+    for key in (
+        "pinned_values",
+        "asserted_constants",
+        "anchored_symbols",
+        "path_lines",
+        "added_lines",
+    ):
         if key in record:
             record[key] = tuple(record[key])
-    record["intent_evidence"] = tuple((str(a), str(b)) for a, b in record.get("intent_evidence", ()))
+    record["intent_evidence"] = tuple(
+        (str(a), str(b)) for a, b in record.get("intent_evidence", ())
+    )
     return IntentObservation(**record)
 
 
@@ -92,19 +99,25 @@ def moved_note(rows: list[dict], verification: dict, replay_row: dict) -> ValueN
     built the way `verify_candidate` builds it from the same ledger rows."""
     finding_id = str(verification["finding_id"])
     probe = next(
-        (r for r in rows if r.get("kind") == "probe_observation" and r.get("finding_id") == finding_id),
+        (
+            r
+            for r in rows
+            if r.get("kind") == "probe_observation" and r.get("finding_id") == finding_id
+        ),
         None,
     )
     signal = next(
-        (r for r in rows if r.get("kind") == "history_signal" and r.get("finding_id") == finding_id),
+        (
+            r
+            for r in rows
+            if r.get("kind") == "history_signal" and r.get("finding_id") == finding_id
+        ),
         None,
     )
     if probe is None or signal is None:
         return None
     intent = _intent_from_row(verification["intent"])
-    reason = (
-        f"intent: {INTENT_UNKNOWN_LABEL}: {replay_row['why']} ({INTENT_UNKNOWN_LABEL_ZH})"
-    )
+    reason = f"intent: {INTENT_UNKNOWN_LABEL}: {replay_row['why']} ({INTENT_UNKNOWN_LABEL_ZH})"
     return note_from(
         intent=intent,
         expression=str(probe.get("expression", "")),
@@ -121,11 +134,7 @@ def moved_note(rows: list[dict], verification: dict, replay_row: dict) -> ValueN
 
 
 def after_lines(run: RunData, replay: dict, samples: dict[str, dict]) -> list[dict]:
-    moved = {
-        (r["unit"], r["finding_id"]): r
-        for r in replay["rows"]
-        if r["after"] == "moved"
-    }
+    moved = {(r["unit"], r["finding_id"]): r for r in replay["rows"] if r["after"] == "moved"}
     out: list[dict] = []
     for trial in run.trials:
         unit_id = str(trial["unit_id"])
@@ -133,7 +142,8 @@ def after_lines(run: RunData, replay: dict, samples: dict[str, dict]) -> list[di
         rows = run.rows_for(task_id)
         entry = run.lines.get(unit_id, {}).get("lines", {})
         certified = {
-            str(r["finding_id"]) for r in rows
+            str(r["finding_id"])
+            for r in rows
             if r.get("kind") == "certification" and r.get("outcome") == "accepted"
         }
         # red: every certified receipt the frame rule does not move
@@ -141,8 +151,15 @@ def after_lines(run: RunData, replay: dict, samples: dict[str, dict]) -> list[di
             key = (unit_id, str(item.get("candidate_id")))
             if key in moved:
                 continue
-            out.append({"unit": unit_id, "level": "red", "before": item["line"],
-                        "after": item["line"], "what": "unchanged"})
+            out.append(
+                {
+                    "unit": unit_id,
+                    "level": "red",
+                    "before": item["line"],
+                    "after": item["line"],
+                    "what": "unchanged",
+                }
+            )
         # value: the notes the ledger holds, plus one for every moved receipt
         notes: list[ValueNote] = []
         for r in rows:
@@ -168,42 +185,88 @@ def after_lines(run: RunData, replay: dict, samples: dict[str, dict]) -> list[di
             repo = _clone(str(sample["repository"]), run.name)
             if (repo / ".git").is_dir():
                 was = _git(repo, "rev-parse", "HEAD").stdout.strip()
-                if _git(repo, "checkout", "-q", "--detach", str(sample["head_sha"])).returncode == 0:
+                if (
+                    _git(repo, "checkout", "-q", "--detach", str(sample["head_sha"])).returncode
+                    == 0
+                ):
                     try:
                         impact_after = [
                             impact_line(n)
                             for n in impact_notes(
-                                repo=repo, base_sha=str(sample["base_sha"]),
+                                repo=repo,
+                                base_sha=str(sample["base_sha"]),
                                 head_sha=str(sample["head_sha"]),
                             )
                         ]
                     finally:
                         _git(repo, "checkout", "-q", "--detach", was)
         for item in entry.get("impact", []):
-            out.append({"unit": unit_id, "level": "impact", "before": item["line"],
-                        "after": "", "what": "withdrawn by D-233: the return annotation moved and nothing else"})
+            out.append(
+                {
+                    "unit": unit_id,
+                    "level": "impact",
+                    "before": item["line"],
+                    "after": "",
+                    "what": "withdrawn by D-233: the return annotation moved and nothing else",
+                }
+            )
         for line in impact_after:
-            out.append({"unit": unit_id, "level": "impact", "before": "", "after": line,
-                        "what": "new under D-233"})
+            out.append(
+                {
+                    "unit": unit_id,
+                    "level": "impact",
+                    "before": "",
+                    "after": line,
+                    "what": "new under D-233",
+                }
+            )
         # the value lines share yellow's cap of two after (a), as run_ci applies it
         room = max(0, YELLOW_MAX_COMMENTS - len(impact_after))
         for note in visible(notes)[:room]:
             before = shown_before.get(note.candidate_id, "")
             if (unit_id, note.candidate_id) in moved:
                 red_line = next(
-                    (i["line"] for i in entry.get("red", []) if str(i.get("candidate_id")) == note.candidate_id),
+                    (
+                        i["line"]
+                        for i in entry.get("red", [])
+                        if str(i.get("candidate_id")) == note.candidate_id
+                    ),
                     "",
                 )
-                out.append({"unit": unit_id, "level": "value", "before": red_line,
-                            "after": render(note),
-                            "what": "was red; D-232 moves the receipt to the drawer and D-218 writes the note"})
+                out.append(
+                    {
+                        "unit": unit_id,
+                        "level": "value",
+                        "before": red_line,
+                        "after": render(note),
+                        "what": (
+                            "was red; D-232 moves the receipt to the drawer and D-218 "
+                            "writes the note"
+                        ),
+                    }
+                )
             else:
-                out.append({"unit": unit_id, "level": "value", "before": before,
-                            "after": render(note),
-                            "what": "re-rendered under D-234" if before != render(note) else "unchanged"})
+                out.append(
+                    {
+                        "unit": unit_id,
+                        "level": "value",
+                        "before": before,
+                        "after": render(note),
+                        "what": "re-rendered under D-234"
+                        if before != render(note)
+                        else "unchanged",
+                    }
+                )
         for item in entry.get("gate", []):
-            out.append({"unit": unit_id, "level": "gate", "before": item["line"],
-                        "after": item["line"], "what": "unchanged"})
+            out.append(
+                {
+                    "unit": unit_id,
+                    "level": "gate",
+                    "before": item["line"],
+                    "after": item["line"],
+                    "what": "unchanged",
+                }
+            )
     return out
 
 
@@ -223,7 +286,8 @@ def section(rows_a: list[dict], rows_b: list[dict], replay: dict) -> str:
     )
     lines.append("")
     lines.append(
-        "| # | run | pull request | level before → after | the line, as it would be shown now | what moved it |"
+        "| # | run | pull request | level before → after | "
+        "the line, as it would be shown now | what moved it |"
     )
     lines.append("|---|---|---|---|---|---|")
     n = 0
@@ -231,18 +295,26 @@ def section(rows_a: list[dict], rows_b: list[dict], replay: dict) -> str:
         for r in rows:
             n += 1
             if r["before"]:
-                before_kinds[r["level"] if r["what"] == "unchanged" or "re-rendered" in r["what"] else ("red" if "was red" in r["what"] else r["level"])] += 1
+                before_kinds[
+                    r["level"]
+                    if r["what"] == "unchanged" or "re-rendered" in r["what"]
+                    else ("red" if "was red" in r["what"] else r["level"])
+                ] += 1
             if r["after"]:
                 after_kinds[r["level"]] += 1
             level = (
-                f"red → value" if "was red" in r["what"]
-                else f"{r['level']} → (none)" if not r["after"]
-                else f"(none) → {r['level']}" if not r["before"]
+                "red → value"
+                if "was red" in r["what"]
+                else f"{r['level']} → (none)"
+                if not r["after"]
+                else f"(none) → {r['level']}"
+                if not r["before"]
                 else r["level"]
             )
             shown = r["after"] or f"*withdrawn* — was: {r['before']}"
+            cells = f"`{_cell(r['unit'])}` | {level} | {_cell(shown)} | {_cell(r['what'])}"
             lines.append(
-                f"| {n} | {name} | `{_cell(r['unit'])}` | {level} | {_cell(shown)} | {_cell(r['what'])} |"
+                f"| {n} | {name} | {cells} |"
             )
     lines.append("")
     total_after = sum(after_kinds.values())
@@ -275,10 +347,20 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     replay = json.loads(Path(args.replay).read_text(encoding="utf-8"))
     assert replay["rows"], "the replay carries no reproduced row: the input is empty"
-    run_a = load_run("run A (the owner's five)", EVIDENCE / "run-a", "34646556092",
-                     "e04-prospective-v3", "trials-runner-only5.jsonl")
-    run_b = load_run("run B (eight libraries)", EVIDENCE / "run-b", "34650336318",
-                     "e05-external-v1", "trials.jsonl")
+    run_a = load_run(
+        "run A (the owner's five)",
+        EVIDENCE / "run-a",
+        "34646556092",
+        "e04-prospective-v3",
+        "trials-runner-only5.jsonl",
+    )
+    run_b = load_run(
+        "run B (eight libraries)",
+        EVIDENCE / "run-b",
+        "34650336318",
+        "e05-external-v1",
+        "trials.jsonl",
+    )
     # the committed evidence directories hold only ledgers; trials and lines
     # files live in the study directories
     for run, study, trials, directory in (
@@ -288,15 +370,16 @@ def main(argv: list[str] | None = None) -> int:
         base = STUDIES / study
         run.trials = _read_jsonl(base / trials)
         run.lines = {
-            row["unit_id"]: row
-            for row in _read_jsonl(base / f"lines-{Path(trials).stem}.jsonl")
+            row["unit_id"]: row for row in _read_jsonl(base / f"lines-{Path(trials).stem}.jsonl")
         }
         # the committed evidence keeps one ledger per clone as <name>-ledger.jsonl
         run.ledgers = [
             row for path in sorted(directory.glob("*-ledger.jsonl")) for row in _read_jsonl(path)
         ]
     assert run_a.trials and run_b.trials and run_b.ledgers, "no trials or ledgers read"
-    samples_a = {r["unit_id"]: r for r in _read_jsonl(STUDIES / "e04-prospective-v3" / "sample.jsonl")}
+    samples_a = {
+        r["unit_id"]: r for r in _read_jsonl(STUDIES / "e04-prospective-v3" / "sample.jsonl")
+    }
     samples_b = {r["unit_id"]: r for r in _read_jsonl(STUDIES / "e05-external-v1" / "sample.jsonl")}
     rows_a = after_lines(run_a, replay, samples_a)
     rows_b = after_lines(run_b, replay, samples_b)
