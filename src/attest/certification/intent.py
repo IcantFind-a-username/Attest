@@ -110,6 +110,15 @@ is the binding policy's hunk range with three context lines each side, under
 which every crash beside a deleted guard would read as raised on a changed
 line. A "changed line" in this rule is an added line.
 
+``attest.intent.v5.1`` (D-240) adds one form of specification to the value rule
+and nothing else: a base test that **expects the exception** from the touched
+symbol -- ``with pytest.raises(X)``, ``raises(X, f, ...)``,
+``self.assertRaises(X, ...)`` in a scope that names it -- specifies the string
+``X`` a replay pins when the merge base raised and head does not. On the forty
+mutation cases of 2026-09-13, 8 of the 18 value-class rows pinned such a type
+name and every one was the drawer because ``pytest.raises`` is not an ``assert``.
+The fields are v5's; the version says which rule read them.
+
 **A warning is never a rejection (D-235, owner authorisation of 2026-09-13, a §16
 evidence-class rule).** Under a `filterwarnings = error` configuration -- the
 tree's own `pytest` settings, or a `warnings.simplefilter("error")` the probe's
@@ -143,7 +152,8 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
-INTENT_POLICY_VERSION = "attest.intent.v5"  # D-232
+INTENT_POLICY_VERSION = "attest.intent.v5.1"  # D-240
+INTENT_POLICY_V5 = "attest.intent.v5"  # D-232, before D-240
 INTENT_POLICY_V1 = "attest.intent.new-rejection.v1"  # D-102, before D-120
 INTENT_POLICY_V2 = "attest.intent.v2"  # D-120, before D-127
 INTENT_POLICY_V3 = "attest.intent.v3"  # D-127, before D-132
@@ -300,6 +310,10 @@ POLICY_FIELDS: dict[str, tuple[str, ...]] = {
     # digest and its own answer, and each version is a promise about the rule.
     INTENT_POLICY_V41: _V4_FIELDS,
     INTENT_POLICY_V42: _V4_FIELDS,
+    INTENT_POLICY_V5: _V5_FIELDS,
+    # v5.1 records exactly v5's fields: D-240 changes what counts as a
+    # specification of a pinned value (a base test that expects the exception),
+    # not what an observation is made of.
     INTENT_POLICY_VERSION: _V5_FIELDS,
 }
 _CONSTANT_RULE_VERSIONS = frozenset(
@@ -309,6 +323,7 @@ _CONSTANT_RULE_VERSIONS = frozenset(
         INTENT_POLICY_V4,
         INTENT_POLICY_V41,
         INTENT_POLICY_V42,
+        INTENT_POLICY_V5,
         INTENT_POLICY_VERSION,
     }
 )
@@ -318,18 +333,25 @@ _VALUE_RULE_VERSIONS = frozenset(
         INTENT_POLICY_V4,
         INTENT_POLICY_V41,
         INTENT_POLICY_V42,
+        INTENT_POLICY_V5,
         INTENT_POLICY_VERSION,
     }
 )
 # D-132 (b) and (c) arrived together and neither reaches a v1, v2 or v3 receipt.
 _V4_RULE_VERSIONS = frozenset(
-    {INTENT_POLICY_V4, INTENT_POLICY_V41, INTENT_POLICY_V42, INTENT_POLICY_VERSION}
+    {
+        INTENT_POLICY_V4,
+        INTENT_POLICY_V41,
+        INTENT_POLICY_V42,
+        INTENT_POLICY_V5,
+        INTENT_POLICY_VERSION,
+    }
 )
 # D-174's association rule reaches v4.2 and later, nothing earlier.
-_V42_RULE_VERSIONS = frozenset({INTENT_POLICY_V42, INTENT_POLICY_VERSION})
+_V42_RULE_VERSIONS = frozenset({INTENT_POLICY_V42, INTENT_POLICY_V5, INTENT_POLICY_VERSION})
 # D-232's frame rule reaches v5 and nothing earlier: under every version before
 # it a new rejection is a raise/assert *statement* on a changed line.
-_V5_RULE_VERSIONS = frozenset({INTENT_POLICY_VERSION})
+_V5_RULE_VERSIONS = frozenset({INTENT_POLICY_V5, INTENT_POLICY_VERSION})
 
 
 def is_warning_type(name: str) -> bool:

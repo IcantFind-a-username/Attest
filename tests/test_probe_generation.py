@@ -1048,3 +1048,63 @@ def test_the_feedback_carries_the_hunk_and_the_asserted_values() -> None:
     assert "-    return sum(items)" in text and "+    return sum(items) - 1" in text
     assert "\n- 6\n" in text and "\n- 'a'\n" in text
     assert "reached the changed lines" in text  # the D-216 sentence is still there
+
+
+# --- D-240: the conditions the change moved, and a raises() that specifies ----------
+
+BOUNDARY_BASE = "def clamp(x):\n    if x >= 13:\n        return 13\n    return x\n"
+BOUNDARY_HEAD = BOUNDARY_BASE.replace("if x >= 13:", "if x > 13:")
+BOUNDARY_TESTS = "import mod\n\n\ndef test_clamp():\n    assert mod.clamp(20) == 13\n"
+BOUNDARY_PROBE = {"imports": "import mod", "setup": "", "expression": "mod.clamp(13)"}
+
+
+def test_the_first_probe_is_told_which_conditions_the_change_moved(tmp_path: Path) -> None:
+    """D-240 (a) RED: the boundary is a fact of the two sources, and the probe was
+    never told it."""
+    repo, base_sha, head_sha = two_revisions(tmp_path, BOUNDARY_BASE, BOUNDARY_HEAD, BOUNDARY_TESTS)
+    provider = PromptRecorder(BOUNDARY_PROBE)
+
+    verify(repo, base_sha, head_sha, provider, candidate=stored(line=2))
+
+    first = provider.prompts[0]
+    assert "the comparison `x >= 13` became `x > 13` (the boundary is 13)" in first
+
+
+def test_the_feedback_carries_the_moved_conditions() -> None:
+    from attest.review.executor import _probe_feedback, _Screen
+
+    text = _probe_feedback(
+        kind="no-difference",
+        spec=ProbeSpec(**BOUNDARY_PROBE),
+        base=Observation("value", "13"),
+        screen=_Screen(Observation("value", "13"), (2,), False),
+        changed=(2,),
+        definitions=["clamp:1"],
+        anchored="mod.py",
+        conditions=("in `clamp`: the comparison `x >= 13` became `x > 13` (the boundary is 13)",),
+    )
+
+    assert "the comparison `x >= 13` became `x > 13`" in text
+    assert "boundary" in text
+
+
+RAISES_TESTS = (
+    "import pytest\n\nimport mod\n\n\ndef test_mean_of_nothing():\n"
+    "    with pytest.raises(ZeroDivisionError):\n        mod.mean([])\n"
+)
+
+
+def test_a_base_test_that_expects_the_exception_specifies_it(tmp_path: Path) -> None:
+    """D-240 (b) RED: 8 of the 18 value-class rows of the forty pinned an exception
+    type name that a base test expects with `pytest.raises`; under v5 that
+    specified nothing and the receipt was the drawer. Under v5.1 a `raises(X)`
+    in a scope that names the symbol specifies X, and the deleted guard certifies."""
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_RAISES, HEAD_GUARDS, RAISES_TESTS)
+
+    run = verify(repo, base_sha, head_sha, ProbeProvider(MEAN_PROBE), candidate=stored(line=2))
+
+    assert run.execution.outcome is ExecutionOutcome.REPRODUCED, run.execution.reason
+    assert run.execution.evidence_class is EvidenceClass.REGRESSION_REPRODUCED
+    assert run.execution.intent is not None
+    assert run.execution.intent.policy_version == "attest.intent.v5.1"
+    assert run.execution.intent.value_specified == (("'ZeroDivisionError'", "tests/test_mod.py"),)

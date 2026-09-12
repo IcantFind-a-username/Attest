@@ -34,6 +34,7 @@ from attest.execution.container_images import provision_scm_version_file
 from attest.execution.controller import Controller, ExecutorAdapter
 from attest.execution.local_adapter import LocalDevelopmentAdapter
 from attest.execution.types import ResourceLimits
+from attest.review.boundary import changed_conditions
 from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.diffs import parse_diff
@@ -45,7 +46,7 @@ from attest.review.intent import (
     parse_raise_record,
 )
 from attest.review.ledger import Ledger
-from attest.review.planner import generation_context
+from attest.review.planner import generation_context, show_file_at
 from attest.review.probe import (
     PROBE_MAX_OUTPUT_TOKENS,
     PROBE_POLICY_VERSION,
@@ -1020,7 +1021,7 @@ def generate_probe(
     shared = _generation_prompt(repo, candidate, base_ref)
     # D-238: what the tree's own tests assert about the changed symbols, and the
     # rule that makes it matter -- after the cacheable prefix, like the feedback
-    hint = _asserted_values_hint(repo, candidate)
+    hint = _asserted_values_hint(repo, candidate, base_ref)
     prompt = "\n\n".join(part for part in (shared, hint, feedback) if part)
     labels = [
         f"probe-{candidate.finding.finding_id}-attempt-{attempt}"
@@ -1144,9 +1145,26 @@ def _asserted_block(symbols: Sequence[str], values: Sequence[str]) -> str:
     )
 
 
-def _asserted_values_hint(repo: Path, candidate: StoredCandidate) -> str:
-    """The D-238 block for the first probe, read from the checked-out tree: the
-    definitions the anchor sits in, and what the tree's tests assert about them."""
+def _conditions_block(conditions: Sequence[str]) -> str:
+    """D-240 (a): the conditions the change removed or altered in the touched
+    definitions, and what that means for the choice of input. Facts of the two
+    sources, rendered by :mod:`attest.review.boundary`; the model still chooses."""
+    if not conditions:
+        return ""
+    listed = "\n".join(f"- {line}" for line in conditions)
+    return (
+        f"Conditions this change removed or altered:\n{listed}\n"
+        "An input that sits exactly on such a boundary, or one the removed guard used to "
+        "catch, is where the two revisions are most likely to differ."
+    )
+
+
+def _asserted_values_hint(
+    repo: Path, candidate: StoredCandidate, base_ref: str | None = None
+) -> str:
+    """The D-238/D-240 block for the first probe, read from the checked-out tree:
+    the conditions the change moved in the definitions the anchor sits in, and
+    what the tree's tests assert about those definitions."""
     try:
         source = (repo / candidate.finding.file).read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -1157,7 +1175,14 @@ def _asserted_values_hint(repo: Path, candidate: StoredCandidate) -> str:
     ]
     if not symbols:
         return ""
-    return _asserted_block(symbols, asserted_values_about(repo, symbols))
+    parts: list[str] = []
+    if base_ref is not None:
+        base_source = show_file_at(repo, base_ref, candidate.finding.file)
+        if base_source is not None:
+            changed = _changed_lines(repo, base_ref, "HEAD", candidate.finding.file)
+            parts.append(_conditions_block(changed_conditions(base_source, source, changed)))
+    parts.append(_asserted_block(symbols, asserted_values_about(repo, symbols)))
+    return "\n\n".join(part for part in parts if part)
 
 
 def _refusal_feedback(refusals: Sequence[str]) -> str:
@@ -2288,6 +2313,7 @@ def _probe_feedback(
     anchored: str,
     diff_text: str = "",
     asserted: Sequence[str] = (),
+    conditions: Sequence[str] = (),
 ) -> str:
     """What the last probe did, in the words the next one needs (D-216).
 
@@ -2309,6 +2335,9 @@ def _probe_feedback(
     if diff_text:
         shown = diff_text[:MAX_FEEDBACK_DIFF_CHARS]
         header += f"The diff of {anchored}:\n```\n{shown}\n```\n"
+    block = _conditions_block(conditions)
+    if block:
+        header += block + "\n"
     header += _asserted_block([d.rsplit(":", 1)[0] for d in definitions], asserted) + "\n"
     if kind == "did-not-reach":
         executed = (
@@ -2363,6 +2392,7 @@ def _choose_probe(
     head_source: str = "",
     diff_text: str = "",
     asserted: Sequence[str] = (),
+    conditions: Sequence[str] = (),
 ) -> _Chosen | _Recording:
     """Try the free probes first, then **search** with the paid one (D-206, D-216).
 
@@ -2428,6 +2458,7 @@ def _choose_probe(
                         anchored=anchored,
                         diff_text=diff_text,
                         asserted=asserted,
+                        conditions=conditions,
                     )
                     if feedback_kind
                     else ""
@@ -2735,6 +2766,12 @@ def execute_differential(
                 name.rsplit(":", 1)[0]
                 for name in _changed_definitions(head_text, changed_for_probe)
             ]
+            try:
+                base_text = (trees_dir / "base" / candidate.finding.file).read_text(
+                    encoding="utf-8", errors="replace"
+                )
+            except OSError:
+                base_text = ""
             outcome = _choose_probe(
                 model_probe=probe,
                 reprobe=reprobe,
@@ -2745,6 +2782,7 @@ def execute_differential(
                 head_source=head_text,
                 diff_text=_diff_text(repo_root, base_sha, head_sha, candidate.finding.file),
                 asserted=asserted_values_about(trees_dir / "base", touched) if touched else (),
+                conditions=changed_conditions(base_text, head_text, changed_for_probe),
             )
             if isinstance(outcome, _Recording):
                 if outcome.exhausted_deadline:
