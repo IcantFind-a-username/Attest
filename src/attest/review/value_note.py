@@ -29,7 +29,8 @@ inside a measured literal does not refuse the line; and a note anchored inside
 at most ``MAX_DIFF_ELEMENTS`` elements, the line names the **first element
 that differs** -- ``first differ at index i (3/3 and 3/3 runs): base <element> →
 head <element>`` -- and digests only when an element is too long to quote or the
-line would still not fit the contract.
+line would still not fit the contract. D-235 (c) drops an object's ` at 0x…`
+address from the rendered `repr`: it is the process's, not the value's.
 """
 
 from __future__ import annotations
@@ -45,7 +46,13 @@ from attest.certification.intent import (
     VALUE_CHANGE_LABEL,
     IntentObservation,
 )
-from attest.review.output_contract import MAX_LINE_CHARS, ContractVerdict, check, claim_line
+from attest.review.output_contract import (
+    MAX_LINE_CHARS,
+    ContractVerdict,
+    check,
+    claim_line,
+    strip_addresses,
+)
 
 VALUE_NOTE_POLICY_VERSION = "attest.value-note.v3"  # D-234
 
@@ -198,12 +205,22 @@ class ValueNote:
     def nothing_pins_it(self) -> bool:
         return not self.specified_by
 
+    @property
+    def base_shown(self) -> str:
+        """The recorded base `repr` as the line shows it (D-235 c: no address)."""
+        return strip_addresses(self.base_detail)
+
+    @property
+    def head_shown(self) -> str:
+        """The recorded head `repr` as the line shows it (D-235 c: no address)."""
+        return strip_addresses(self.head_detail)
+
     def difference(self) -> FirstDifference | None:
         """D-234: the first differing element, when both revisions returned a
         container this line can name an element of."""
         if self.base_kind != "value" or self.head_kind != "value":
             return None
-        return first_difference(self.base_detail, self.head_detail)
+        return first_difference(self.base_shown, self.head_shown)
 
     def note_id(self) -> str:
         """A stable name for this note, so the line can point at the row.
@@ -261,12 +278,8 @@ class ValueNote:
                 f"base {difference.base or absent} → head {difference.head or absent}; "
                 f"{short_pins}"
             )
-        base_detail = (
-            value_digest(self.base_detail) if "base" in digested else self.base_detail
-        )
-        head_detail = (
-            value_digest(self.head_detail) if "head" in digested else self.head_detail
-        )
+        base_detail = value_digest(self.base_detail) if "base" in digested else self.base_shown
+        head_detail = value_digest(self.head_detail) if "head" in digested else self.head_shown
         base = (
             f"raised {base_detail}" if self.base_kind == "exception" else f"returned {base_detail}"
         )
@@ -290,12 +303,12 @@ class ValueNote:
             "base": (
                 0
                 if self.base_kind == "exception"
-                else len(difference.base) if difference is not None else len(self.base_detail)
+                else len(difference.base) if difference is not None else len(self.base_shown)
             ),
             "head": (
                 0
                 if self.head_kind == "exception"
-                else len(difference.head) if difference is not None else len(self.head_detail)
+                else len(difference.head) if difference is not None else len(self.head_shown)
             ),
         }
         caps = {
@@ -329,8 +342,8 @@ class ValueNote:
         if difference is not None:
             return (difference.base, difference.head)
         return (
-            value_digest(self.base_detail) if "base" in digested else self.base_detail,
-            value_digest(self.head_detail) if "head" in digested else self.head_detail,
+            value_digest(self.base_detail) if "base" in digested else self.base_shown,
+            value_digest(self.head_detail) if "head" in digested else self.head_shown,
         )
 
 

@@ -377,6 +377,11 @@ buy are dogfooding and are settled below.
 the previous window's lag of $0.101900. **Cumulative: $123.436273 of the $150 cap** before the
 two remaining self-reviews.
 
+**The 2026-09-13 fix window (`release/probe-hygiene`, D-235): $0.00 paid.** The probe-hygiene
+rules, the warning rule, the rendering fixes and the replay over 109 committed verification rows
+ran no model and no container. Named lag: the self-review its pull request buys, on the dogfooding
+line, about $0.11 at this window's rate.
+
 ## Window 2026-09-12 (overnight) — three paid dispatches, reserved before the first call
 
 **Owner authorisation 1 of the 2026-09-12 overnight work order:** run A $1.50, the smoke

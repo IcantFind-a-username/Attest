@@ -311,6 +311,28 @@ def _check_silence(line: str) -> ContractVerdict:
     )
 
 
+# D-235 (c): an object's `repr` carries the address of the process that made it
+# (`<ReadProxy object at 0x7fb1ea6cfcb0>`); the address is not a measurement of
+# the value and differs on every run, so it is dropped wherever a recorded
+# `repr` is rendered into prose. The ledger keeps the `repr` as recorded.
+_OBJECT_ADDRESS = re.compile(r" at 0x[0-9a-f]+")
+
+
+def strip_addresses(text: str) -> str:
+    """`text` with every ` at 0x<hex>` object address removed."""
+    return _OBJECT_ADDRESS.sub("", text)
+
+
+def receipt_sentence(*, test_node: str, head_runs: int, base_runs: int) -> str:
+    """What a receipt says on its own, with no model in it: the floor under every
+    red line (D-142). A certified finding whose model claim does not pass the
+    contract is rendered with this sentence instead, wherever it is rendered."""
+    return (
+        f"the generated test {test_node} fails on head in {head_runs}/{head_runs} runs and "
+        f"passes on the merge base in {base_runs}/{base_runs}"
+    )
+
+
 def claim_line(
     level: str,
     *,

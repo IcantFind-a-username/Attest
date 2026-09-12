@@ -41,6 +41,22 @@ Classes, counted:
 - **14** — value class
 - **10** — certified
 
+## 1a. The same forty under D-235
+
+**Replayed on 2026-09-13 from the committed ledgers of both dispatches, under the probe-hygiene rules and the warning rule (D-235).** A case whose certifying probe would now be refused before execution -- its setup reached for the interpreter or replaced part of the tree -- loses its receipt: what the next probe would have found cannot be known offline and is not guessed. The table in §1 is what the run showed; this is what the same ledgers say now. The denominator is forty either way.
+
+| | before | after D-235 |
+|---|---|---|
+| certified | **10** | **9** |
+| point estimate | 25.0% | **22.5%** |
+| Wilson 95% | [14.2%, 40.2%] | **[12.3%, 37.5%]** |
+
+| case | before | after | why |
+|---|---|---|---|
+| `packaging-none_guard-13--forward` | certified | **no receipt: withdrawn under D-235** | probe setup assigns an attribute of the imported name _manylinux (_manylinux._glibc_version_string = lambda: None); replacing part of the tree before the call records the replacement, not the code (D-235) |
+
+Over the run's **44 verification rows**: **2** probes would be refused before execution (attribute of an imported name 1, os.environ write 1), **0** differentials rest on a warning, **6** rows carry no test source to read the setup from (recordings that died before pytest reported) and are counted as unchanged. Classes after: 16 no receipt, 14 value class, 9 certified, 1 no receipt: withdrawn under D-235 ([evidence](evidence/2026-09-13-d235-replay.json)).
+
 ## 2. By mutation class
 
 | class | what was injected | cases | certified | D-232 drawer | value class | other |

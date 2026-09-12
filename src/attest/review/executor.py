@@ -45,6 +45,7 @@ from attest.review.probe import (
     PROBE_POLICY_VERSION,
     PROBE_SCHEMA,
     PROBE_SYSTEM,
+    WARNING_KIND,
     Observation,
     ProbeRefused,
     ProbeSpec,
@@ -402,7 +403,7 @@ class ProbeObservation:
 
     policy_version: str
     expression: str
-    kind: str  # "value" | "exception"
+    kind: str  # "value" | "exception" | "warning" (D-235; never a chosen probe's)
     detail: str  # repr(value), or the exception's type name
     recordings: int  # how many identical observations base produced
     attempts: int  # how many probes were bought before one recorded
@@ -2089,6 +2090,15 @@ def _record_on_base(
             if observed is None:
                 reason = "probe reported no observation on base"
                 break
+            if observed.kind == WARNING_KIND:
+                # D-235: a merge base that raises a warning under its own filters
+                # has shown a message about the code, not a behaviour of it
+                reason = (
+                    f"probe observation on base is a warning escalated to an exception "
+                    f"({observed.detail}); a warning is not a behaviour of the code under "
+                    "review and cannot anchor a differential (D-235)"
+                )
+                break
             if not result.executed_lines:
                 reason = (
                     f"probe did not execute {anchored} on base, so it recorded the behaviour "
@@ -2139,7 +2149,15 @@ class _Screen:
     reason: str = ""
 
     def differs_from(self, base: Observation) -> bool:
-        return self.observation is not None and self.observation != base
+        # D-235: a warning on head is not a difference this process records
+        return (
+            self.observation is not None
+            and self.observation.kind != WARNING_KIND
+            and self.observation != base
+        )
+
+    def warned(self) -> bool:
+        return self.observation is not None and self.observation.kind == WARNING_KIND
 
     def reached(self, changed: Collection[int]) -> bool:
         return bool(set(self.executed_lines) & set(changed))
@@ -2227,6 +2245,19 @@ def _probe_feedback(
         return header + (
             "That call recorded on the merge base but could not be executed on the head "
             "revision at all. Choose a call that both revisions can run."
+        )
+    if kind == "head-warning":
+        seen = (
+            screen.observation.detail
+            if screen is not None and screen.observation is not None
+            else "a warning"
+        )
+        return header + (
+            f"That call recorded on the merge base, but on the head revision it raised {seen}, "
+            "a warning escalated to an exception by the tree's own warning filters. A warning "
+            "is not a rejection and not a difference this process records (D-235). Choose a "
+            "call whose result the changed code returns or raises without going through a "
+            "warning."
         )
     return header + (
         f"That call recorded nothing usable on the merge base: {screen and ''}"
@@ -2352,6 +2383,15 @@ def _choose_probe(
             feedback_kind = "head-deferred"
             if screen.reason:
                 notes.append(f"on the head revision: {screen.reason}")
+        elif screen.warned():
+            # D-235: head raised a Warning subclass under its filters; that is
+            # not a rejection and not a difference, and the reason names it
+            feedback_kind = "head-warning"
+            detail = screen.observation.detail if screen.observation is not None else "a warning"
+            notes.append(
+                f"on the head revision the call raised {detail}, a warning escalated to an "
+                "exception; a warning is not a rejection (D-235)"
+            )
         elif changed_lines and not screen.reached(changed_lines):
             feedback_kind = "did-not-reach"
         else:
@@ -2367,12 +2407,17 @@ def _choose_probe(
         "did-not-reach": "did not reach the changed lines",
         "no-difference": "reached the changed lines and observed no difference",
         "head-deferred": "could not be executed on the head revision",
+        "head-warning": "raised only a warning on the head revision",
         "unrecorded": "recorded nothing usable on the merge base",
     }
     tally = "; ".join(
         f"{tried.count(kind)} {sentence}" for kind, sentence in outcomes.items() if kind in tried
     )
-    kinds = {"did-not-reach": EvidenceClass.UNBOUND, "no-difference": EvidenceClass.NOT_REPRODUCED}
+    kinds = {
+        "did-not-reach": EvidenceClass.UNBOUND,
+        "no-difference": EvidenceClass.NOT_REPRODUCED,
+        "head-warning": EvidenceClass.INDETERMINATE,
+    }
     prefix = f"{screened} derived probe(s) screened out first; " if screened else ""
     reason = f"{prefix}{bought} probes tried and none produced a differential: {tally}"
     if notes:

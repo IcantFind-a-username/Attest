@@ -32,7 +32,13 @@ from collections.abc import Mapping, Sequence
 from attest.certification.types import CertifiedFinding
 from attest.review.finding_evidence import FindingEvidence, render_text
 from attest.review.gate import GateOutcome, GateResult
-from attest.review.output_contract import budget_unverified, claim_line, silence_line
+from attest.review.output_contract import (
+    budget_unverified,
+    check,
+    claim_line,
+    receipt_sentence,
+    silence_line,
+)
 from attest.review.status import RunStatus
 
 
@@ -71,6 +77,8 @@ DRAWER_REASON_PREFIXES = (
     ("intent: behavior change confirmed", "behavior-change-intent-unknown"),
     ("intent: value change confirmed", "value-change-intent-unknown"),
     ("intent: constant change confirmed", "constant-change-intent-unknown"),
+    # D-235: a warning escalated to an exception; neither red nor a drawer
+    ("intent: a warning is not a rejection", "warning-not-a-rejection"),
     ("intent:", "intent-other"),
     # D-215: the two halves of what used to be one "it passed on head"
     ("probe did not reach the changed lines", "probe-did-not-reach"),
@@ -223,7 +231,12 @@ def render(
 
 
 def _certified_line(finding: CertifiedFinding) -> str:
-    """One certified finding as one D-142 contract line, with its receipt as evidence."""
+    """One certified finding as one D-142 contract line, with its receipt as evidence.
+
+    Adjudicated here as `run_ci` adjudicates it (D-235 d): a model claim that does
+    not pass the contract -- run C's two `werkzeug#3266` lines carried
+    500-character claims -- is replaced by the receipt's own sentence, so the local
+    report and the drivers' lines files show the line an author would have seen."""
     receipt = finding.accepted_receipt.receipt
     anchor = finding.anchors[0]
     label = (
@@ -231,10 +244,21 @@ def _certified_line(finding: CertifiedFinding) -> str:
         if receipt.evidence_class == "behavior_change"
         else ""
     )
+    evidence = f"receipt {receipt.provenance_digest[:12]}"
+    line = claim_line(
+        "red", path=anchor.path, line=anchor.line, fact=f"{label}{finding.claim}", evidence=evidence
+    )
+    if check(line):
+        return line
     return claim_line(
         "red",
         path=anchor.path,
         line=anchor.line,
-        fact=f"{label}{finding.claim}",
-        evidence=f"receipt {receipt.provenance_digest[:12]}",
+        fact=label
+        + receipt_sentence(
+            test_node=receipt.test_node,
+            head_runs=len(receipt.head_runs),
+            base_runs=len(receipt.base_runs),
+        ),
+        evidence=evidence,
     )
