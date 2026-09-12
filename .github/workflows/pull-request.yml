@@ -13,12 +13,49 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Owner instruction of 2026-09-14: `attest` is a required check of the main
+  # branch's protection, so it must be *reported* on every push -- a job that is
+  # never triggered would leave the pull request unmergeable. It is therefore
+  # gated, not filtered: this job decides from `git diff` whether the push
+  # touched code the review can say anything about, and `attest` runs only
+  # then. A skipped required job counts as passed. On 2026-09-12/13 the
+  # self-review ran 27 times, most of them on rebases, lint fixes and
+  # documentation pushes that changed no reviewable line.
+  changes:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - id: diff
+        name: Did this push change reviewable code?
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -eu
+          git fetch -q origin "$BASE" || true
+          changed="$(git diff --name-only "$BASE...HEAD" -- src scripts tests pyproject.toml action.yml || true)"
+          if [ -n "$changed" ]; then
+            echo "reviewable code changed:"; echo "$changed"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "no reviewable code changed: the review is skipped and the check reports skipped"
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   attest:
     # Same-repository branches only. The action's own gate (scripts/action-gate.sh)
     # already refuses a fork before any credential is introduced; this keeps the
     # job from starting at all, so a fork pull request never reaches a runner
     # step that has the secret in its environment.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    needs: changes
+    if: >-
+      needs.changes.outputs.code == 'true' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Check out pull request
