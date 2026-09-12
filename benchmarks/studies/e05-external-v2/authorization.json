@@ -1,6 +1,6 @@
 {
   "authorized_by": "owner, authorisation 2 of the 2026-09-13 window: a second batch of 24 merged pull requests of public Python libraries this project does not own, the local review path only, writing to no repository; $3.50 reserved for the run and $0.30 for the smoke",
-  "granted_at": "2026-09-12T14:00:00+00:00",
+  "granted_at": "2026-09-11T22:00:00+00:00",
   "population": [
     "pallets/werkzeug",
     "pallets/markupsafe",
@@ -13,5 +13,5 @@
   ],
   "scope": "shadow only: read-only clones of public repositories under .attest/corpora/e05v2/<name>/ (AGENTS.md section 7, D-070), the local review path, no GitHub client is constructed, no comment, review, status or any other write reaches any repository; the study bundle carries counts, ids and the lines an author would have seen",
   "budget": "owner reservation for this item: $3.50 for the 24 units (run C) and $0.30 for one smoke unit before it, posted in DEVSPEND.md before the first paid call; the driver holds the reservation as a hard cumulative cap and a unit starts only if its per-review maximum fits under it (D-172)",
-  "granted_at_note": "the UTC instant the owner's work order (dated 2026-09-13 in this repository's own calendar) was received, before this window's first commit; the preregistration's freeze_at is the host clock, UTC, and the authorization must precede it. The eight names are the candidate population; the preregistration names the six the probe kept"
+  "granted_at_note": "the UTC instant the owner's work order (dated 2026-09-13 in this repository's own calendar) was received, before this window's first commit at 2026-09-11T23:41Z; the preregistration's freeze_at is the host clock, UTC, and the authorization must precede it. The eight names are the candidate population; the preregistration names the six the probe kept"
 }

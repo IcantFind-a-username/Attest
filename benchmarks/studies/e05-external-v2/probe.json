@@ -1,0 +1,157 @@
+{
+  "recorded_at": "2026-09-11T23:55:28.130145+00:00",
+  "keep": 6,
+  "population": [
+    "pallets/werkzeug",
+    "pallets/markupsafe",
+    "psf/requests",
+    "python-jsonschema/jsonschema",
+    "hukkin/tomli-w"
+  ],
+  "probe": [
+    {
+      "repository": "pallets/werkzeug",
+      "sha": "f27af2652a798931aa00c2476a4de130f597c1d3",
+      "project_python": "3.13",
+      "project_python_reason": "declared floor >= 3.10",
+      "image": "sha256:44b62a98c61c4a80effc9ff69ca104a5b375bbc666bff1116a17007db52503a5",
+      "image_cached": false,
+      "stub_packages": [
+        "werkzeug"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 10.8,
+      "kept": true
+    },
+    {
+      "repository": "pallets/markupsafe",
+      "sha": "b2e4d9c7687be25695fffbe93a37622302b24fb1",
+      "project_python": "3.13",
+      "project_python_reason": "declared floor >= 3.10",
+      "image": "sha256:5776d71b1e39035345b4051279124dd6a6f00dea6275bd4396bf39ec9923af02",
+      "image_cached": false,
+      "stub_packages": [
+        "markupsafe"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 4.2,
+      "kept": true
+    },
+    {
+      "repository": "psf/requests",
+      "sha": "dae7ef63b4df6eded86637f251fc4e3a06c3b479",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.15; declared floor >= 3.10",
+      "image": "sha256:c6157a7b6a9c20e3bb03a931b1995590faafe3fda1171cdcef36bfb992cf7050",
+      "image_cached": false,
+      "stub_packages": [
+        "requests"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 9.6,
+      "kept": true
+    },
+    {
+      "repository": "encode/httpx",
+      "sha": "b5addb64f0161ff6bfe94c124ef76f6a1fba5254",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.13; declared floor >= 3.9",
+      "image": "sha256:ad29b62a20077db729b702e7bb0754b6a7190610e50c56762e68d0495fbe1f0d",
+      "image_cached": false,
+      "stub_packages": [
+        "httpx"
+      ],
+      "stage": "collect",
+      "exit_code": 1,
+      "collected": 0,
+      "ok": false,
+      "reason": "exit 1: t filter module '{e.name}': {arg}\", PytestConfigWarning\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\npytest.PytestConfigWarning: Failed to import filter module 'trio': ignore: trio.MultiError is deprecated since Trio 0.22.0:trio.TrioDeprecationWarning\n",
+      "elapsed_s": 5.3,
+      "kept": false
+    },
+    {
+      "repository": "tox-dev/platformdirs",
+      "sha": "c5ef1edbb41eb7ad8aea2e75627ae474e796484c",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.15; declared floor >= 3.10",
+      "image": "sha256:47eb023b699185586e33ecb99ca62930b362230ac6b079ac20d55e3a363a7e3d",
+      "image_cached": false,
+      "stub_packages": [
+        "platformdirs"
+      ],
+      "stage": "collect",
+      "exit_code": 2,
+      "collected": 0,
+      "ok": false,
+      "reason": "exit 2: __\nE   ModuleNotFoundError: No module named 'platformdirs.version'\n=========================== short test summary info ============================\nERROR .attest-repro/test_repro.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\nno tests collected, 1 error in 0.10s\n",
+      "elapsed_s": 7.6,
+      "kept": false
+    },
+    {
+      "repository": "python-jsonschema/jsonschema",
+      "sha": "865c27fc3df08a082740d7743583795235fdfe81",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.14; declared floor >= 3.10",
+      "image": "sha256:733e3ff4e57c42cc7d596ba553ae91420e46cee9d4a64a7798b847e9aba88959",
+      "image_cached": false,
+      "stub_packages": [
+        "jsonschema"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 6.5,
+      "kept": true
+    },
+    {
+      "repository": "hukkin/tomli-w",
+      "sha": "1210bb6f5708a4dc084cc3deb4a3a3e3939f4d6d",
+      "project_python": "3.13",
+      "project_python_reason": "declared floor >= 3.10",
+      "image": "sha256:3d7dc4345f32a10e54336519cf962f477abd8fa769c4e6de0a470c59f9e41b4c",
+      "image_cached": false,
+      "stub_packages": [
+        "tomli_w"
+      ],
+      "stage": "collect",
+      "exit_code": 0,
+      "collected": 1,
+      "ok": true,
+      "reason": "",
+      "elapsed_s": 6.5,
+      "kept": true
+    },
+    {
+      "repository": "agronholm/anyio",
+      "sha": "bd0d696ba69c6c76155e3829a3ec8a4ac4fe1514",
+      "project_python": "3.13",
+      "project_python_reason": "classifiers up to 3.15; declared floor >= 3.10",
+      "image": "sha256:02b6ab371d8b3ee3be9aa2e84c3b5c3b12de1ee0fc416221369612522a5d6a72",
+      "image_cached": false,
+      "stub_packages": [
+        "anyio"
+      ],
+      "stage": "collect",
+      "exit_code": 1,
+      "collected": 0,
+      "ok": false,
+      "reason": "exit 1: ^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1395, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1324, in _find_and_load_unlocked\nImportError: Error importing plugin \"pytest_mock\": No module named 'pytest_mock'\n",
+      "elapsed_s": 5.0,
+      "kept": false
+    }
+  ]
+}

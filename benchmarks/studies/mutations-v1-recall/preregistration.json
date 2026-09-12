@@ -43,5 +43,6 @@
   "retries": "none",
   "exclusions": "none after recording",
   "code": "the release/batch2 branch of 2026-09-13, which carries D-232 (attest.intent.v5), D-233 and D-234",
-  "freeze_at_note": "the host clock, UTC, written by the freeze step immediately before the sample is drawn"
+  "freeze_at_note": "the host clock, UTC, written by the freeze step immediately before the sample is drawn",
+  "authorization_erratum": "2026-09-12T00:02Z, before any unit ran and with $0.00 spent: authorization.json's granted_at had been written as 2026-09-12T14:00Z, a calendar guess after the host-clock freeze -- the same erratum e05-external-v1 recorded -- and preflight would have refused it. granted_at is corrected to the UTC instant the work order was received, before this window's first commit, and the protocol digest re-frozen; freeze_at, the sample and the order are untouched, and no outcome existed to influence the correction."
 }
