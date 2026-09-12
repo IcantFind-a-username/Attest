@@ -32,7 +32,12 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   is no longer part of a recording: the probe body drops it and the replay compares the same
   form, so a merge base that returns a closure or a context manager records stably instead of
   being refused as unstable (three cases of the forty). **What it costs:** nothing in trust —
-  neither change reads an outcome — and no recall figure moves until the eight cases are re-run.
+  neither change reads an outcome. **Measured** by re-running exactly the eight environment cases
+  ($0.61): 6 of 8 now record a probe on the merge base, none did before; the forward recall is
+  **10 of 40 — 25.0%, Wilson 95% [14.2%, 40.2%]** (`attrs-none_guard-14` certifies; the five
+  urllib3 cases are the value class), one case is refused three times by the probe-hygiene rules
+  (`sys.stdin = …`), and `itsdangerous-guard_raise-01` is still refused for a dirty working tree
+  on a fresh clone — open.
 
 ## `v0.2.0` — 2026-09-13
 
