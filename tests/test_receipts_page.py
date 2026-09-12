@@ -56,6 +56,6 @@ def test_a_verdict_typed_on_the_re_rendered_line_is_read_and_the_old_one_is_not(
     report = module.parse_report(path)
     by_id = {line.evidence_id: line for line in report.lines}
     # red → value: §1 said useful against the red wording; §1b says true-but-useless as shown now
-    assert by_id["fedcbafedcba"].verdict() == "true but not actionable"
+    assert by_id["fedcbafedcba"].verdict == "true but not actionable"
     # unchanged level: §1's verdict carries by id
-    assert by_id["abcdefabcdef"].verdict() == "true but not actionable"
+    assert by_id["abcdefabcdef"].verdict == "true but not actionable"
