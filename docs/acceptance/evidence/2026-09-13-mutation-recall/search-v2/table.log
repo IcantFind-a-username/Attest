@@ -1,0 +1,33 @@
+{
+  "denominator": 40,
+  "run": 40,
+  "certified": 10,
+  "point": 0.25,
+  "wilson95": [
+    0.1419,
+    0.4019
+  ],
+  "classes": {
+    "no receipt": 12,
+    "value class": 18,
+    "certified": 10
+  },
+  "by_kind": {
+    "boundary": {
+      "no receipt": 4,
+      "value class": 7,
+      "certified": 2
+    },
+    "guard_raise": {
+      "value class": 8,
+      "no receipt": 6,
+      "certified": 3
+    },
+    "none_guard": {
+      "certified": 5,
+      "value class": 3,
+      "no receipt": 2
+    }
+  },
+  "spend_usd": 2.744827
+}

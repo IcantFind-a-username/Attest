@@ -17,7 +17,11 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   prefix, the values the repository's own tests assert about the definitions the anchor sits in and
   the rule that makes it matter; the second and third carry the same block from the base worktree
   and the anchored file's diff. No publication rule moves. **What it costs:** a few hundred more
-  characters per probe attempt; whether it moves recall is the re-run of the forty.
+  characters per probe attempt. **Measured** by re-running the forty ($2.74): **10 of 40 certified,
+  as before** — one case gained a receipt (`jinja-boundary-09`, the probe now pins a value the
+  tests assert), one lost one (`python-dotenv-guard_raise-04`), 18 are the value class. The hint
+  moved nothing net on this population; the value class is the wall, and it is a rule, not a
+  search.
 - **The T channel fires in production (D-237).** It was never dead code: the mutation run's
   ledgers hold two `("S", "T")` rows, bought where the runner had `ruff` on PATH. The Action runs
   `$ATTEST_VENV/bin/attest` without that `bin` on PATH, so `shutil.which("ruff")` found nothing on
