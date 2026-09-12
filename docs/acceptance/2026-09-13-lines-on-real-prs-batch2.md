@@ -18,6 +18,21 @@
 | 6 | run C (five libraries) | `pallets/werkzeug#3266` | red | [red] src/werkzeug/wrappers/response.py:488 — behavior change (intent to confirm): The deprecation warning is only emitted when `autocorrect_location_header` is truthy inside `get_wsgi_headers`, but since the class default is now `None` (falsy) instead of `False`, any code path or third-party subclass that never sets this attribute will never see the deprecation warning even though the docstring says the feature itself is deprecated for 3.3 removal, creating an inconsistent deprecation signal only surfacing for opt-in users. — receipt 8e5cf74f6155 | receipt 8e5cf74f6155, behavior_change | | | |
 | 7 | run C (five libraries) | `python-jsonschema/jsonschema#1416` | value | [yellow] jsonschema/validators.py:1227 — for resolver.resolve_remote(uri), base and head mappings of 1 first differ at index 0 (3/3 and 3/3 runs): base 'foo': 'patched-module-level' → head 'foo': 'real'; nothing in the base tree pins it — note 0a62a2045088 | note 0a62a2045088 — `resolver.resolve_remote(uri)`; base value: {'foo': 'patched-module-level'}; head value: {'foo': 'real'}; 3/3 head, 3/3 base; drawer: intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知) | | | |
 
+## 1a. The frame rule on this run, read from the ledgers
+
+D-232 was in force for the first time on traffic the product had never seen. Over the run's
+**26 verification rows**: **3 reproduced**, all three `behavior_change` receipts with a base-tree
+witness -- `pallets/werkzeug#3266` raises `DeprecationWarning` from a changed line
+(`src/werkzeug/wrappers/response.py:490`) on `'/foo'` and `'/baz'`, inputs the base tree's own
+tests use -- published as red with the *intent to confirm* wording D-102 gives a witnessed
+rejection (two lines shown; the third receipt is the same defect family). **12 behaviour-change
+drawers**, of which **3 are the frame rule's** -- `head raises … from a call or expression on a
+changed line` on `werkzeug#3268` (`DeprecationWarning` at import), `jsonschema#1300`
+(`IndexError`) and `werkzeug#3267` (`TypeError`), each shown as a value line under D-218 -- **0 by
+a `raise`/`assert` statement and 0 reached through a changed line**; the other 9 are the value
+class and *intent stated in the change itself* (§3). Under v4.2 those three would have certified
+as regressions and published red. No `contained_attempts`, no asymmetric void.
+
 ## 2. One row per pull request
 
 ### run C (five libraries)
