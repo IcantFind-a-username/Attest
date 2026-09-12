@@ -150,3 +150,51 @@ def test_inline_comments_keep_caller_order_anchors_and_receipt(certified_factory
     assert "Verified: the generated test failed on head in 3/3 runs" in body
     assert f"Receipt: {receipt.provenance_digest}" in body
     assert "wealth" not in body.lower()
+
+
+def test_the_value_comment_shows_how_the_call_was_built() -> None:
+    """D-241: the collapsed block carries the imports, the setup and the
+    expression as one runnable block, so the author can reproduce the call."""
+    from attest.certification.intent import INTENT_POLICY_VERSION, IntentObservation
+    from attest.github.presentation import value_comments
+    from attest.review.value_note import note_from
+
+    intent = IntentObservation(
+        policy_version=INTENT_POLICY_VERSION,
+        path="pkg/money.py",
+        changed_lines=(40, 41, 42),
+        origin_line=0,
+        origin_statement="",
+        exception_type="",
+        new_rejection=False,
+        rejected_inputs=(),
+        witnesses=(),
+        head_runs_observed=3,
+        value_mismatch=True,
+        pinned_values=("Decimal('1.05')",),
+        failing_assertion_line=5,
+        anchored_symbols=("rate",),
+        added_lines=(41,),
+    )
+    note = note_from(
+        intent=intent,
+        expression="money.rate('EUR')",
+        base_kind="value",
+        base_detail="Decimal('1.05')",
+        head_kind="value",
+        head_detail="Decimal('1.10')",
+        head_runs=3,
+        base_runs=3,
+        reason="intent: value change confirmed, intent unknown: the base tree does not specify it",
+        candidate_id="cafe1234ab",
+        anchor_line=41,
+        imports="import money",
+        setup="money.configure(precision=2)",
+    )
+    assert note is not None
+
+    (comment,) = value_comments([note], {"pkg/money.py": {41}})
+
+    body = str(comment["body"])
+    built = "```python\nimport money\n\nmoney.configure(precision=2)\n\nmoney.rate('EUR')\n```"
+    assert built in body

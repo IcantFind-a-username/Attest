@@ -430,6 +430,10 @@ class ProbeObservation:
     # Empty when the probe was never screened on head.
     head_kind: str = ""
     head_detail: str = ""
+    # D-241: how the call was built -- the model's imports block and setup --
+    # so the value line's collapsed block can show a runnable reproduction
+    imports: str = ""
+    setup: str = ""
 
 
 @dataclass(frozen=True)
@@ -2795,6 +2799,8 @@ def execute_differential(
                 ProbeObservation(
                     policy_version=PROBE_POLICY_VERSION,
                     expression=outcome.probe.expression,
+                    imports=outcome.probe.imports,
+                    setup=outcome.probe.setup,
                     kind=outcome.observation.kind,
                     detail=outcome.observation.detail[:MAX_REASON_CHARS],
                     recordings=PROBE_RECORDINGS,
@@ -3359,7 +3365,7 @@ def verify_candidate(
         journal.append(
             {
                 "kind": "probe_observation",
-                "schema_version": "attest.probe-observation.v3",
+                "schema_version": "attest.probe-observation.v4",
                 "task_id": candidate.task_id,
                 "finding_id": candidate.finding.finding_id,
                 # spelled out rather than splatted: the observation has a `kind`
@@ -3380,6 +3386,9 @@ def verify_candidate(
                 "feedback_kind": execution.probe.feedback_kind,
                 "head_kind": execution.probe.head_kind,
                 "head_detail": execution.probe.head_detail,
+                # D-241: how the call was built
+                "imports": execution.probe.imports,
+                "setup": execution.probe.setup,
             }
         )
     # D-218, shadow: what the two revisions did on a differential the intent
@@ -3399,6 +3408,8 @@ def verify_candidate(
             reason=execution.reason,
             candidate_id=candidate.finding.finding_id,
             anchor_line=candidate.finding.line,
+            imports=execution.probe.imports,
+            setup=execution.probe.setup,
         )
         if note is not None:
             journal.append(
