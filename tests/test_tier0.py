@@ -1,8 +1,10 @@
 import ast
 import inspect
 import json
+import shutil
 import socket
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -344,3 +346,24 @@ def test_run_ruff_finds_the_interpreter_s_own_ruff_when_path_has_none(
     # and with neither on PATH nor beside the interpreter, still nothing
     ruff.unlink()
     assert run_ruff(tmp_path, ["a.py"]) == []
+
+
+def test_run_ruff_never_rewrites_the_reviewed_tree(tmp_path: Path) -> None:
+    """D-242 RED: `itsdangerous` sets `[tool.ruff] fix = true`, so `ruff check` on
+    the reviewed tree rewrote the anchored file (the deleted guard left an unused
+    import) and every verification of that case was refused for a dirty tree --
+    three paid runs, first named by D-239's `workspace_status` row. Tier-0 reads;
+    it never writes, whatever the project's configuration says."""
+    exe = shutil.which("ruff") or str(Path(sys.executable).parent / "ruff")
+    if not Path(exe).is_file():
+        pytest.skip("ruff is not installed beside this interpreter")
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.ruff]\nfix = true\n[tool.ruff.lint]\nselect = ["F"]\n', encoding="utf-8"
+    )
+    source = "import os\n\n\ndef f():\n    return 1\n"
+    (tmp_path / "a.py").write_text(source, encoding="utf-8")
+
+    signals = run_ruff(tmp_path, ["a.py"])
+
+    assert (tmp_path / "a.py").read_text(encoding="utf-8") == source
+    assert any(s.message.startswith("F401") for s in signals)
