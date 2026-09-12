@@ -70,7 +70,8 @@ def _git(repo: Path, *args: str) -> str:
     if done.returncode != 0:
         # the stderr is the reason; a CalledProcessError without it said nothing
         # when the first paid dispatch died on the 19th case (run 34665205269)
-        raise RuntimeError(f"git {' '.join(args)} failed ({done.returncode}): {done.stderr.strip()[:400]}")
+        detail = done.stderr.strip()[:400]
+        raise RuntimeError(f"git {' '.join(args)} failed ({done.returncode}): {detail}")
     return done.stdout.strip()
 
 
