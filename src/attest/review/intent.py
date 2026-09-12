@@ -605,6 +605,62 @@ def specified_by(
     return found
 
 
+def asserted_values_about(
+    tree: Path, symbols: Sequence[str], *, limit: int = MAX_VALUES
+) -> tuple[str, ...]:
+    """The distinctive values the tree's test modules assert **about ``symbols``**,
+    as ``repr`` strings in a deterministic order (D-238).
+
+    Read with D-174's association rule -- an ``assert`` counts when its scope
+    names the symbol -- and D-132's generic-constant rule, so that what comes
+    back is exactly the set a recorded value must fall in for the value class
+    to certify. Told to the model before it chooses a probe, as a fact about the
+    tree and a fact about the process; the merge base still decides what the
+    call does. Bounded like the specification walk.
+    """
+    if not symbols:
+        return ()
+    found: dict[str, None] = {}
+    files_seen = 0
+    bytes_seen = 0
+    root = tree.resolve()
+    for current, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(name for name in dirnames if name not in SKIPPED_DIRS)
+        for filename in sorted(filenames):
+            path = Path(current) / filename
+            try:
+                relative = path.relative_to(root)
+            except ValueError:
+                continue
+            if relative.suffix != ".py" or not is_spec_file(relative):
+                continue
+            files_seen += 1
+            if files_seen > MAX_WITNESS_FILES:
+                return tuple(found)
+            try:
+                if path.is_symlink():
+                    continue
+                size = path.stat().st_size
+                if size > MAX_WITNESS_FILE_BYTES:
+                    continue
+                bytes_seen += size
+                if bytes_seen > MAX_WITNESS_TOTAL_BYTES:
+                    return tuple(found)
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            associated = associated_assertions(text, symbols)
+            pinned = assertion_pinned_values(associated) if associated else None
+            for _kind, value in pinned or ():
+                shown = repr(value)[:MAX_VALUE_CHARS]
+                if shown in GENERIC_VALUE_REPRS:
+                    continue
+                found.setdefault(shown, None)
+                if len(found) >= limit:
+                    return tuple(found)
+    return tuple(found)
+
+
 def find_specifications(
     *,
     base_tree: Path,
