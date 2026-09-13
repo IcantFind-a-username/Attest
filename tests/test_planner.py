@@ -382,3 +382,94 @@ def test_a_call_inside_the_defining_module_on_an_untyped_receiver_is_a_caller(
     prompt = provider.prompts[0]
     assert "caller of `read_regex` outside the diff: src/pkg/parser.py" in prompt
     assert "reader.read_regex('key')" in prompt
+
+
+def _bigfile(chars: int) -> str:
+    return "".join(f"X_{i} = {i}\n" for i in range(chars // 12))
+
+
+def test_the_plan_row_says_which_files_the_package_block_bound_cut(tmp_path: Path) -> None:
+    """D-246 RED (step 3b): the shared package block is cut at its bound and the
+    ledger never said which files fell off it, so whether the bound binds on
+    real traffic was a recomputation. The plan row carries the anchor, the
+    characters kept and the files omitted, by name."""
+    from attest.review.ledger import Ledger
+    from attest.review.planner import MAX_PACKAGE_BLOCK_CHARS, MAX_PACKAGE_FILE_CHARS
+
+    repo = tmp_path / "repo"
+    pkg = repo / "src" / "pkg"
+    pkg.mkdir(parents=True)
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "fixture@example.invalid")
+    _git(repo, "config", "user.name", "Fixture")
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "mod.py").write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+    for name in ("big_a", "big_b", "big_c"):
+        (pkg / f"{name}.py").write_text(_bigfile(MAX_PACKAGE_FILE_CHARS + 5_000), encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "base")
+    base = _git(repo, "rev-parse", "HEAD")
+    (pkg / "mod.py").write_text("def add(a, b):\n    return a + b + 1\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "head")
+
+    run_review(
+        repo, base, ReviewConfig(k_samples=1, tier0_commands=[], context_strategy="package-cache"),
+        PromptRecorder(),
+    )
+
+    row = next(r for r in Ledger(repo).entries() if r["kind"] == "review_plan")
+    assert row["schema_version"] == "attest.review-plan.v2"
+    block = row["package_block"]
+    assert block["anchor"] == "src/pkg/mod.py"
+    assert block["bound"] == MAX_PACKAGE_BLOCK_CHARS
+    assert 0 < block["chars"] <= MAX_PACKAGE_BLOCK_CHARS
+    assert block["files"][0] == "src/pkg/mod.py"
+    assert "src/pkg/big_a.py" in block["files"] and "src/pkg/big_b.py" in block["files"]
+    assert block["omitted"] == ["src/pkg/big_c.py"]
+
+
+def test_the_plan_row_records_each_caller_snippet_with_its_resolution(tmp_path: Path) -> None:
+    """D-246 RED (step 3c): the plan row counted caller snippets and never said
+    how each was resolved, so *exact through an import* and *attribute on an
+    untyped receiver* were one number. Each snippet travels with its level."""
+    from attest.review.ledger import Ledger
+
+    repo = tmp_path / "repo"
+    (repo / "src" / "pkg").mkdir(parents=True)
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "fixture@example.invalid")
+    _git(repo, "config", "user.name", "Fixture")
+    (repo / "src" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    # the untyped caller sits beyond the hunk's three context lines, so the
+    # changed symbol the planner reads is `parse` and not its neighbour
+    tail = "\n\n# module helpers\n\n\ndef load_untyped(r):\n    return r.parse('x')\n"
+    (repo / "src" / "pkg" / "reader.py").write_text(
+        "class Reader:\n    def parse(self, text):\n        return text.strip()\n" + tail,
+        encoding="utf-8",
+    )
+    (repo / "src" / "pkg" / "app.py").write_text(
+        "from pkg.reader import Reader\n\n\ndef load(text):\n    return Reader().parse(text)\n",
+        encoding="utf-8",
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "base")
+    base = _git(repo, "rev-parse", "HEAD")
+    (repo / "src" / "pkg" / "reader.py").write_text(
+        "class Reader:\n    def parse(self, text):\n        return text.strip().lower()\n" + tail,
+        encoding="utf-8",
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "head changes parse")
+
+    run_review(repo, base, ReviewConfig(k_samples=1, tier0_commands=[]), PromptRecorder())
+
+    row = next(r for r in Ledger(repo).entries() if r["kind"] == "review_plan")
+    (unit,) = row["units"]
+    callers = {(c["path"], c["symbol"], c["resolution"]) for c in unit["callers"]}
+    assert callers == {
+        ("src/pkg/app.py", "parse", "exact"),
+        ("src/pkg/reader.py", "parse", "attribute"),
+    }
+    assert all(c["start"] <= c["end"] for c in unit["callers"])
+    assert unit["context"]["caller"] == 2

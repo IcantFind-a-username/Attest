@@ -17,7 +17,11 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   Free, measured on the forty rebuilt trees ([the report](docs/acceptance/2026-09-14-index-repair.md)):
   caller snippets 34 → 51, `python-dotenv-guard_raise-04` 0 → 4; of the 76 snippets the regex era
   had, the 31 the repaired index still leaves out are 27 noise and 4 undecidable, 0 real callers.
-  Recall under it is unmeasured.
+  Recall under it is unmeasured. The context is now a ledger fact rather than a recomputation:
+  the probe row carries the literals block its prompt held (`attest.probe-observation.v5`), the plan
+  row carries every caller snippet with its resolution and the shared package block's anchor, size
+  and the files its bound cut (`attest.review-plan.v2`) -- and says `null` for the block, because
+  the shipped `context_strategy` is `r01` and nothing measured has ever built one.
 - **The tree index (D-245).** A changed symbol's callers are resolved through the import that
   bound the name, so a method named `parse` or `get` gets its callers like any other and a
   same-named call on an unrelated object is not one; the shared package block is ordered by

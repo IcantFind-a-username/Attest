@@ -435,6 +435,8 @@ class ProbeObservation:
     # so the value line's collapsed block can show a runnable reproduction
     imports: str = ""
     setup: str = ""
+    # D-246: the literals block the probe's prompt carried, verbatim or ""
+    literals_hint: str = ""
 
 
 @dataclass(frozen=True)
@@ -1026,7 +1028,7 @@ def generate_probe(
     shared = _generation_prompt(repo, candidate, base_ref)
     # D-238: what the tree's own tests assert about the changed symbols, and the
     # rule that makes it matter -- after the cacheable prefix, like the feedback
-    hint = _asserted_values_hint(repo, candidate, base_ref)
+    hint, literals_hint = _probe_hint(repo, candidate, base_ref)
     prompt = "\n\n".join(part for part in (shared, hint, feedback) if part)
     labels = [
         f"probe-{candidate.finding.finding_id}-attempt-{attempt}"
@@ -1115,7 +1117,9 @@ def generate_probe(
             continue
         for unused in reservations[index + 1 :]:
             budget.cancel(unused)
-        return spec
+        # D-246: the literals block travels with the probe into its ledger row,
+        # as the prompt carried it, so the fact needs no recomputation
+        return replace(spec, literals_hint=literals_hint)
 
     if last_error is None:  # pragma: no cover - fixed positive attempt count
         raise RuntimeError("probe generation made no attempts")
@@ -1183,22 +1187,25 @@ def _conditions_block(conditions: Sequence[str]) -> str:
     )
 
 
-def _asserted_values_hint(
+def _probe_hint(
     repo: Path, candidate: StoredCandidate, base_ref: str | None = None
-) -> str:
-    """The D-238/D-240 block for the first probe, read from the checked-out tree:
-    the conditions the change moved in the definitions the anchor sits in, and
-    what the tree's tests assert about those definitions."""
+) -> tuple[str, str]:
+    """The D-238/D-240/D-245 block for the first probe, read from the checked-out
+    tree: the conditions the change moved in the definitions the anchor sits
+    in, what the tree's tests assert about those definitions, and the literals
+    the tree passes them. Returns the whole block and, on its own, the literals
+    part as the prompt carries it -- "" when there is none -- because D-246
+    writes that part to the probe's ledger row."""
     try:
         source = (repo / candidate.finding.file).read_text(encoding="utf-8", errors="replace")
     except OSError:
-        return ""
+        return "", ""
     symbols = [
         name.rsplit(":", 1)[0]
         for name in _changed_definitions(source, [candidate.finding.line])
     ]
     if not symbols:
-        return ""
+        return "", ""
     parts: list[str] = []
     if base_ref is not None:
         base_source = show_file_at(repo, base_ref, candidate.finding.file)
@@ -1207,8 +1214,9 @@ def _asserted_values_hint(
             parts.append(_conditions_block(changed_conditions(base_source, source, changed)))
     parts.append(_asserted_block(symbols, asserted_values_about(repo, symbols)))
     literals = _literal_arguments(repo, candidate.finding.file, symbols)
-    parts.append(_literals_block(symbols, literals))
-    return "\n\n".join(part for part in parts if part)
+    literals_hint = _literals_block(symbols, literals)
+    parts.append(literals_hint)
+    return "\n\n".join(part for part in parts if part), literals_hint
 
 
 def _literal_arguments(repo: Path, file: str, symbols: Sequence[str]) -> list[str]:
@@ -2840,6 +2848,8 @@ def execute_differential(
                     expression=outcome.probe.expression,
                     imports=outcome.probe.imports,
                     setup=outcome.probe.setup,
+                    # D-246: what the prompt told it about the tree's literals
+                    literals_hint=outcome.probe.literals_hint,
                     kind=outcome.observation.kind,
                     detail=outcome.observation.detail[:MAX_REASON_CHARS],
                     recordings=PROBE_RECORDINGS,
@@ -3404,7 +3414,7 @@ def verify_candidate(
         journal.append(
             {
                 "kind": "probe_observation",
-                "schema_version": "attest.probe-observation.v4",
+                "schema_version": "attest.probe-observation.v5",
                 "task_id": candidate.task_id,
                 "finding_id": candidate.finding.finding_id,
                 # spelled out rather than splatted: the observation has a `kind`
@@ -3428,6 +3438,8 @@ def verify_candidate(
                 # D-241: how the call was built
                 "imports": execution.probe.imports,
                 "setup": execution.probe.setup,
+                # D-246: the literals block the prompt carried, verbatim or ""
+                "literals_hint": execution.probe.literals_hint,
             }
         )
     # D-218, shadow: what the two revisions did on a differential the intent

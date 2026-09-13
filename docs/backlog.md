@@ -22,6 +22,8 @@ rather than deleted — a backlog whose closed items vanish cannot be audited.
 
 <!-- entries below, newest first -->
 
+- **2026-09-14: `src/attest/review/planner.py::_enclosing_definitions` names the wrong symbol when a hunk's context lines touch a neighbouring definition of the same length.** It takes the innermost definition touching the *whole hunk range* (context lines included), ties broken by `ast.walk` order, which is breadth-first: a one-line change inside `Reader.parse` whose three trailing context lines reach `def load_untyped` is attributed to `load_untyped` (top level, walked before the nested method), and the callers retrieved are that neighbour's. Found while writing D-246's step-3 fixture, which works around it by spacing the two apart. The fix is to span the changed lines rather than the hunk, and to prefer the innermost by nesting rather than by length; not done here because it changes every plan's symbols and therefore every discovery prompt on the forty.
+
 - **2026-09-13: `tests/test_ci_flow.py::test_pr_family_policy_caps_publication_and_counts_a_defect_once`
   lost one of seven receipts once, on the CI runner, in the first `checks` run of
   `feat/boundary-and-raises` (run 34706811992: `assert 6 == 7`).** Three local runs and the CI
