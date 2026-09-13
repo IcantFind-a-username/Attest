@@ -143,8 +143,8 @@ def rule(arms: dict[str, dict]) -> str:
                 )
             if not verdict:
                 verdict.append(
-                    f"gains {gain} against A at {wall:.1f}× its wall clock; eligible if each gained "
-                    "case's mechanism is named from the ledgers (a person's reading)"
+                    f"gains {gain} against A at {wall:.1f}× its wall clock; eligible if each "
+                    "gained case's mechanism is named from the ledgers (a person's reading)"
                 )
             lines.append(f"- **arm {f['arm']} against A**: " + "; ".join(verdict) + ".")
     return "\n".join(lines)
