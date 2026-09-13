@@ -1,0 +1,19 @@
+{
+  "what": "the candidate population of e05-external-v3, in the agent's order (owner instruction 2 of 2026-09-14: libraries outside the thirteen the first two batches reviewed); the study's population is the first `keep` candidates whose free evaluability probe passes (build the reproduction image, import the top-level package inside it), recorded in probe.json before the protocol is frozen and before any unit is selected",
+  "keep": 6,
+  "excluded_by_construction": [
+    "the thirteen libraries of e05-external-v1 and v2 (attrs, click, itsdangerous, jinja, more-itertools, packaging, python-dotenv, urllib3, werkzeug, markupsafe, requests, jsonschema, tomli-w)",
+    "repositories of the SWE-bench held-out slice and of the mutation corpus",
+    "libraries whose package is a dependency of the reproduction image itself (pytest, pluggy)"
+  ],
+  "candidates": [
+    "python-babel/babel",
+    "pyparsing/pyparsing",
+    "dateutil/dateutil",
+    "Delgan/loguru",
+    "mahmoud/boltons",
+    "tkem/cachetools",
+    "marshmallow-code/marshmallow",
+    "jmespath/jmespath.py"
+  ]
+}

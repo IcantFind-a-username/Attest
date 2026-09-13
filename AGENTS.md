@@ -261,6 +261,17 @@ Violating one is rework, not a small regression.
   (trials, lines, ledgers, log). A stage that reports zero of anything first asserts its
   input is non-empty and fails the job when it is not: run 34618040099 reported "0 lines"
   over ledgers that never left the runner (D-225).
+- **A single re-run of a forty-case corpus moves about ±2 cases on its own.** Measured on
+  2026-09-13: the same forty under the same code twice gave 10 and 10 with one case gained and
+  one lost; the next change gave 12 with four gained and two lost. A change is not shown to
+  move recall by a re-run alone; it is shown when the gained cases are attributed to it case
+  by case in the ledgers, or when the movement clears that jitter. Report both the net count
+  and the gained/lost lists, never the net alone.
+- **A paid driver reserves each unit at the 95th percentile of the most recent forty cases'
+  spend, not at the per-unit budget** (owner instruction of 2026-09-14). The budget is the
+  product's hard ceiling and still binds each unit; the reservation is what admits a unit
+  under the run's cap. Reserving at the ceiling refused the last three of forty at $2.53 of
+  a $3.50 cap on 2026-09-13; fewer than ten cases of history fall back to the budget.
 
 ## 10. Work-order selection
 

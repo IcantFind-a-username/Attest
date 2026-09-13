@@ -30,11 +30,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
 STUDIES = ROOT / "benchmarks" / "studies"
 # stratum v1 stays the default so every recorded command keeps meaning what it
 # meant; `--study` selects another stratum (v2 is the 100-unit run of 2026-09-04)
 STUDY = STUDIES / "e04-prospective-v1"
 CORPORA = ROOT / ".attest" / "corpora"
+
+from driver_budget import recent_spends, reservation_from_history  # noqa: E402
 
 from attest.benchmark import prospective  # noqa: E402
 
@@ -423,17 +426,25 @@ def cmd_run(args: argparse.Namespace) -> int:
         if args.reserve
         else preregistration.cost_cap_usd
     )
+    # D-244: the reservation that admits a unit is the recent history's p95 of
+    # this study's trials, bounded by the ceiling; the ceiling still binds the unit
+    history = [
+        r for path in sorted(study.glob("trials*.jsonl")) for r in prospective._read_jsonl(path)
+    ]
+    reservation = reservation_from_history(recent_spends(history), fallback=unit_budget)
+    print(json.dumps({"reservation_usd": round(reservation, 6), "history_cases": len(history),
+                      "ceiling_usd": unit_budget}), flush=True)
     skipped: list[str] = []
     unbought: list[str] = []
     for row in pending:
-        if spent + unit_budget > cap:
+        if spent + reservation > cap:
             print(
                 json.dumps({
                     "unit_id": str(row["unit_id"]),
                     "skipped": "cap",
                     "detail": f"cumulative cap: ${spent:.4f} spent, reserving "
-                    f"${unit_budget:.4f} for this unit would project "
-                    f"${spent + unit_budget:.4f} past the ${cap:.2f} cap",
+                    f"${reservation:.4f} for this unit would project "
+                    f"${spent + reservation:.4f} past the ${cap:.2f} cap",
                 }),
                 flush=True,
             )

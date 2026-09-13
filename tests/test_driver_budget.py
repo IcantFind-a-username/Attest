@@ -132,3 +132,41 @@ def test_a_cap_that_cannot_bound_anything_is_refused_at_construction(
 ) -> None:
     with pytest.raises(ValueError):
         driver_budget.DriverCap(**kwargs)
+
+
+# --- D-244: the reservation is the recent history's 95th percentile, not the ceiling ---
+
+
+def test_the_reservation_is_the_p95_of_recent_spend_and_falls_back_below_ten_cases() -> None:
+    """Owner instruction of 2026-09-14. Reserving every unit at the $1.00 ceiling
+    refused the last three of forty at $2.53 of a $3.50 cap on 2026-09-13, when
+    no case of the forty had cost more than $0.18. The reservation is what admits
+    a unit under the cap; the budget still binds what the unit may spend."""
+    reservation_from_history = _module().reservation_from_history
+
+    spends = [0.05, 0.06, 0.07, 0.07, 0.08, 0.08, 0.09, 0.10, 0.11, 0.12, 0.15, 0.18]
+    reserve = reservation_from_history(spends, fallback=1.0)
+    assert 0.15 <= reserve <= 0.18  # the 95th percentile of the twelve, not the maximum
+    assert reserve < 1.0
+    # fewer than ten cases of history: the ceiling, as before
+    assert reservation_from_history(spends[:9], fallback=1.0) == 1.0
+    assert reservation_from_history([], fallback=1.0) == 1.0
+    # never above the ceiling, never below a cent
+    assert reservation_from_history([5.0] * 12, fallback=1.0) == 1.0
+    assert reservation_from_history([0.0] * 12, fallback=1.0) == 0.01
+
+
+def test_the_cap_admits_the_tail_of_the_forty_under_the_p95_reservation() -> None:
+    """The 2026-09-13 shape: 37 cases at about $0.068 each under a $3.50 cap.
+    At a $1.00 reservation the 38th is refused; at the p95 of the same history it
+    is admitted, and the cap still holds because the reservation is held while
+    the unit runs."""
+    module = _module()
+    DriverCap, reservation_from_history = module.DriverCap, module.reservation_from_history
+
+    history = [0.068] * 40
+    ceiling = DriverCap(cap=3.50, reservation_usd=1.0, spent=2.532637)
+    assert ceiling.refusal("case-38") is not None
+    reservation = reservation_from_history(history, fallback=1.0)
+    p95 = DriverCap(cap=3.50, reservation_usd=reservation, spent=2.532637)
+    assert p95.refusal("case-38") is None

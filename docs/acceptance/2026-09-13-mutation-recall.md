@@ -194,6 +194,34 @@ Two things the aborted run did establish, both free. The 14 cases that ran befor
 
 **What moved it.** Of the four cases newly certified, three are D-240 (b): the replay pinned an exception type name and a base test expects it from the touched symbol -- `packaging-guard_raise-01` (`ELFInvalid`, `tests/test_elffile.py`), `urllib3-guard_raise-04` (`ValueError`, `test/with_dummyserver/test_connection.py`), `urllib3-none_guard-15` (`TypeError`, `test/test_collections.py`); the two urllib3 cases had never recorded a probe before D-236, so the offline census of 2026-09-13 (at most 2 of 40) could not see them. `python-dotenv-guard_raise-04` came back under the prose rule (`ValueError` in `CHANGELOG.md`), the same way it had certified on the original run. Of the two lost, `jinja-boundary-09` proposed no eligible candidate this time and `more-itertools-none_guard-17`'s three probes saw no difference -- discovery and search variance, both. The boundary class is still **1 of 13**: the moved-conditions block (D-240 a) named the boundary and the probes did not certify on it; the value class holds 16 of 40.
 
+## 1f. Did the probes try the boundary? Read from the D-240 run's ledgers, free
+
+The owner's question after §1e: the boundary class is still 1 of 13 after the moved-conditions
+block named the boundary to every probe -- did the model *try* the boundary value? A boundary
+swap (`>=` to `>`) changes the two revisions' behaviour on exactly one input, the one that sits on
+the boundary; so a probe whose head observation differs from its base observation has hit it, and a
+probe that "reached the changed lines and observed no difference" has not. Read from the 13
+boundary cases' `probe_observation` and `verification` rows of run 34711985142:
+
+| | cases |
+|---|---|
+| a probe made the two revisions differ (the boundary was hit) | **9 of 13** |
+| of those, certified | 1 (`itsdangerous-boundary-07`) |
+| of those, the value class -- hit, and the base tree pins no value for it | **7** |
+| of those, unbound -- the probe compared a module-level constant computed at import | 1 (`attrs-boundary-09`) |
+| no probe made the revisions differ | 3 (`more-itertools-boundary-08`, `more-itertools-boundary-10`, `packaging-boundary-11`) |
+| no eligible candidate proposed | 1 (`jinja-boundary-09`) |
+
+**The search is not the wall on this class either.** Nine of thirteen probes found the input on
+which the mutation changes behaviour; seven of the nine were then drawered because the value they
+observed -- `pb.format_eta()`, `_parse_musl_version(output)`, `list(parse_stream(stream))`,
+`(len(c), sorted(c.keys()))`, a chunk list, a variables list -- is one no base test asserts about
+the touched symbol. That is the same rule that holds 16 of 40 overall (D-127, D-174, D-240 b), and
+D-240 (b) cannot reach it: a boundary swap does not raise, so no `pytest.raises` specifies its
+value. The three misses are the search's; the attrs case is a binding question (the probe read
+`PY_3_13_PLUS`, a constant evaluated at import, so the changed line ran at import and not under the
+probe). No model was called for this table.
+
 ## 2. By mutation class
 
 | class | what was injected | cases | certified | D-232 drawer | value class | other |

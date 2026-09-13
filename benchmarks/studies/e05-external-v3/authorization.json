@@ -1,0 +1,17 @@
+{
+  "authorized_by": "owner, instruction 2 of 2026-09-14: a third batch of merged pull requests of public Python libraries outside the thirteen already reviewed, the local review path only, writing to no repository; the owner adjudicates every line by hand, in the same three columns as the first two batches; $4.00 may be spent, smoke included",
+  "granted_at": "2026-09-12T19:44:02+00:00",
+  "population": [
+    "python-babel/babel",
+    "pyparsing/pyparsing",
+    "dateutil/dateutil",
+    "Delgan/loguru",
+    "mahmoud/boltons",
+    "tkem/cachetools",
+    "marshmallow-code/marshmallow",
+    "jmespath/jmespath.py"
+  ],
+  "scope": "shadow only: read-only clones of public repositories under .attest/corpora/e05v3/<name>/ (AGENTS.md section 7, D-070), the local review path, no GitHub client is constructed, no comment, review, status or any other write reaches any repository; the study bundle carries counts, ids and the lines an author would have seen",
+  "budget": "owner reservation for this item: $4.00 in all -- $0.30 for one smoke unit and $3.70 for the run -- posted in DEVSPEND.md before the first paid call; the driver holds the run's reservation as a hard cumulative cap and admits a unit at the recent forty cases' p95 spend under it (D-244), the unit's own $1.00 budget unchanged",
+  "granted_at_note": "the UTC instant this file was written, after the owner's instruction of 2026-09-14 and before the protocol is frozen; the eight names are the candidate population, the preregistration names the ones the probe keeps"
+}

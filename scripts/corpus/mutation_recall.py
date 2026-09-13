@@ -41,7 +41,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
 
-from driver_budget import DriverCap  # noqa: E402
+from driver_budget import DriverCap, recent_spends, reservation_from_history  # noqa: E402
 from heldout_v2 import wilson  # noqa: E402  -- one Wilson interval, kept in one place
 from mutate import Site, _apply  # noqa: E402
 
@@ -237,10 +237,16 @@ def cmd_run(args: argparse.Namespace) -> int:
         allow_paid_api=args.allow_paid_api, reserve_usd=reserve,
     )
     print(json.dumps(preflight.to_json_dict()), flush=True)
+    # D-244: a unit is admitted under the cap at the recent history's p95, not
+    # at its ceiling; the history is every trials file of this study
+    history = [row for path in sorted(STUDY.glob("trials*.jsonl")) for row in _read_jsonl(path)]
+    reservation = reservation_from_history(recent_spends(history), fallback=unit_budget)
+    print(json.dumps({"reservation_usd": round(reservation, 6), "history_cases": len(history),
+                      "ceiling_usd": unit_budget}), flush=True)
     cap = DriverCap(
         cap=min(preregistration.cost_cap_usd, args.reserve) if args.reserve
         else preregistration.cost_cap_usd,
-        reservation_usd=unit_budget,
+        reservation_usd=reservation,
         spent=sum(float(r.get("spend_usd", 0.0)) for r in _read_jsonl(trials_path)),
     )
     unbought: list[str] = []
