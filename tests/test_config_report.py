@@ -2,7 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from attest.review.config import ReviewConfig, load_config, load_pricing
+from attest.review.config import (
+    PROBE_EFFORT_DEFAULT,
+    ReviewConfig,
+    load_config,
+    load_pricing,
+)
 from attest.review.gate import apply_gate, evaluate_finding
 from attest.review.report import render
 from attest.review.schema import Finding
@@ -16,10 +21,14 @@ def test_factory_defaults() -> None:
     assert c.k_samples == 5
     assert c.max_findings == 3
     assert c.model == load_pricing()["default_model"]
-    # D-115: the reproduction generator has its own model, also from the
-    # versioned pricing table, and it is not the proposal model
+    # D-115: the stage has its own model entry in the versioned pricing table.
+    # D-248 (2026-09-14) supersedes that entry's "and it is not the proposal
+    # model": under the shipped `probe_generation = true` this model serves the
+    # probe alone, and what separates the probe from the proposals is how each
+    # is asked -- stage, thinking, effort -- not which model answers, so the two
+    # may now name the same model.
     assert c.generation_model == load_pricing()["generation_model"]
-    assert c.generation_model != c.model
+    assert c.probe_effort == PROBE_EFFORT_DEFAULT == "medium"
 
 
 def test_config_validation() -> None:
@@ -144,3 +153,30 @@ def test_render_silence_zero_candidates_is_distinct() -> None:
     assert "candidates 0, drawer 0" in text
     assert "checked" not in text
     assert "verified 0, discarded 0" in text
+
+
+def test_a_model_with_no_price_in_the_table_is_refused_with_one_line() -> None:
+    """D-248: the Action lets an operator name the probe's model, and a model the
+    pricing table does not price cannot be charged for, reserved against, or
+    reconciled. It is refused when the configuration is built -- before a
+    provider exists and before anything is bought -- and the line says what to
+    do about it."""
+    priced = sorted(load_pricing()["models"])
+    with pytest.raises(ValueError) as refused:
+        ReviewConfig(generation_model="claude-not-a-model")
+    assert "claude-not-a-model" in str(refused.value)
+    assert "pricing" in str(refused.value)
+    for name in priced:
+        assert name in str(refused.value)
+    with pytest.raises(ValueError, match="claude-also-not-a-model"):
+        ReviewConfig(model="claude-also-not-a-model")
+    # every model the table prices is accepted
+    for name in priced:
+        ReviewConfig(model=name, generation_model=name)
+
+
+def test_probe_effort_is_validated_against_the_supported_levels() -> None:
+    with pytest.raises(ValueError, match="probe_effort"):
+        ReviewConfig(probe_effort="enormous")
+    for level in ("low", "medium", "high", "xhigh", "max"):
+        ReviewConfig(probe_effort=level)

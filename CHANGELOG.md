@@ -11,6 +11,14 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The default probe call is arm C (D-248, owner decision).** The probe -- the one call that
+  chooses what to execute on both revisions -- now runs on `claude-sonnet-5` with thinking adaptive
+  at effort `medium` and an 8,000-token bound; the proposal stage keeps `thinking: disabled` and its
+  own bound, and the stage and effort are part of the attempt-cache identity. Chosen on 40 cases x
+  3 arms ([report](docs/acceptance/2026-09-14-probe-arms.md)), which are **indistinguishable on
+  recall** (12, 14 and 13 of 40): the rule was cost per certified case, $0.15 against $0.23 and
+  $0.22. Two new Action inputs, `probe-model` and `probe-effort`; a model the pricing table does
+  not price is refused before anything is bought. **No recall improvement is claimed.**
 - **The tree index repaired (D-246).** The defining module is always its own importer, a parameter
   annotated with an in-tree class is a typed receiver, a typed receiver whose class only inherits the
   method keeps the attribute rule, and a same-module call made above the definition still resolves.

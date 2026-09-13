@@ -3598,13 +3598,19 @@ def test_the_reproduction_generator_runs_on_its_own_model_and_is_priced_there(
     provider = ModelRecordingProvider()
     budget = Budget(limit_usd=10.0, model=DEFAULT_MODEL)
 
-    generate_repro(repo, candidate(), provider, budget, model=GENERATION_MODEL)
-
+    # D-248 made the configuration's two model entries the same model, so the
+    # override is taken from the pricing table rather than from that difference:
+    # what this test is about is that a named model is the one asked and the one
+    # charged, whichever the factory happens to default to.
     prices = load_pricing()["models"]
-    assert GENERATION_MODEL != DEFAULT_MODEL
-    assert provider.models == [GENERATION_MODEL]
-    assert budget.calls[-1]["model"] == GENERATION_MODEL
-    assert budget.spent_usd == pytest.approx(float(prices[GENERATION_MODEL]["input_per_mtok"]))
+    override = next(name for name in sorted(prices) if name != DEFAULT_MODEL)
+
+    generate_repro(repo, candidate(), provider, budget, model=override)
+
+    assert override != DEFAULT_MODEL
+    assert provider.models == [override]
+    assert budget.calls[-1]["model"] == override
+    assert budget.spent_usd == pytest.approx(float(prices[override]["input_per_mtok"]))
     assert budget.spent_usd != pytest.approx(float(prices[DEFAULT_MODEL]["input_per_mtok"]))
 
 

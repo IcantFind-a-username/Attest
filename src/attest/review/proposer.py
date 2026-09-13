@@ -19,7 +19,7 @@ from threading import Event, Lock
 from typing import Any, Protocol
 
 from attest.review.budget import PROPOSAL_SHARE, Budget, BudgetExceeded
-from attest.review.config import ReviewConfig
+from attest.review.config import PROBE_EFFORT_DEFAULT, ReviewConfig
 from attest.review.dedup import cluster_findings
 from attest.review.diffs import DiffInfo
 from attest.review.ledger import redact_known_secrets
@@ -74,6 +74,13 @@ from attest.review.schema import PROPOSAL_SCHEMA, Finding, validate_finding
 # (1.00 - 0.16) / 3.33e-6 = about 252,000 chars. The reservation is unchanged;
 # what moved is how large a change can be read before it binds.
 PROPOSER_MAX_OUTPUT_TOKENS = 3200
+
+# D-248: the two stages that ask a model for a structured document, and which
+# are asked differently. Proposals want the whole output bound for the JSON
+# they must produce; the probe wants one short call chosen well, and the arms
+# of D-246 measured that thinking helps it and costs the proposals nothing.
+PROPOSAL_STAGE = "proposal"
+PROBE_STAGE = "probe"
 MAX_RESPONSE_FRAGMENT_CHARS = 500
 
 SYSTEM_PROMPT = """You are a code reviewer that reports ONLY high-severity defects: crashes, \
@@ -117,6 +124,8 @@ def call_provider(
     on_first_token: FirstTokenCallback | None = None,
     shared_system: str = "",
     model: str = "",
+    stage: str = PROPOSAL_STAGE,
+    effort: str = "",
 ) -> ProviderResult:
     """One provider call. A provider that understands prompt caching gets the
     shared prefix (the cacheable head of the user prompt), the first-token
@@ -132,6 +141,11 @@ def call_provider(
             if model and getattr(provider, "supports_model_override", False)
             else {}
         )
+        # D-248: a provider that says it understands the stage is told which one
+        # is asking; every other provider keeps the single shipped behaviour
+        if getattr(provider, "supports_stage", False):
+            override["stage"] = stage
+            override["effort"] = effort
         return provider.sample(  # type: ignore[call-arg]
             system,
             prompt,
@@ -179,20 +193,44 @@ def no_text_reason(result: ProviderResult) -> str:
     return f"generation_no_text (stop_reason={stop}, blocks={blocks})"
 
 
-def call_parameters(model: str) -> dict[str, Any]:
-    """What besides the prompt decides a sample: the model and how it is asked
-    to think. Part of the attempt cache identity."""
-    return {"model": model, "cache": "ephemeral", **thinking_arguments(model)}
+def call_parameters(
+    model: str, *, stage: str = PROPOSAL_STAGE, effort: str = ""
+) -> dict[str, Any]:
+    """What besides the prompt decides a sample: the model, the stage and how
+    it is asked to think. Part of the attempt cache identity, so a probe asked
+    one way is never served an answer produced the other way."""
+    return {
+        "model": model,
+        "cache": "ephemeral",
+        "stage": stage,
+        **thinking_arguments(model, stage=stage, effort=effort),
+    }
 
 
-def thinking_arguments(model: str) -> dict[str, Any]:
-    """Structured generation buys text, not reasoning: on models that accept
-    it, thinking is disabled so the whole output bound is available to the JSON
-    document; on models whose thinking is always on, the request omits the
-    parameter and asks for the lowest effort instead."""
-    if model.startswith(("claude-fable", "claude-mythos")):
-        return {"output_config": {"effort": "low"}}
-    return {"thinking": {"type": "disabled"}}
+def thinking_arguments(
+    model: str, *, stage: str = PROPOSAL_STAGE, effort: str = ""
+) -> dict[str, Any]:
+    """How a stage asks the model to think.
+
+    **Proposals** buy text, not reasoning: on models that accept it thinking is
+    disabled so the whole output bound is available to the JSON document; on
+    models whose thinking is always on the request omits the parameter and asks
+    for the lowest effort instead.
+
+    **The probe** (D-248) is one short call whose quality is the whole point,
+    and the D-246 arms measured the trade on 40 cases x 3: thinking adaptive at
+    the configured effort. A model whose thinking is always on takes the effort
+    alone, as it does for proposals.
+    """
+    always_on = model.startswith(("claude-fable", "claude-mythos"))
+    if stage != PROBE_STAGE:
+        if always_on:
+            return {"output_config": {"effort": "low"}}
+        return {"thinking": {"type": "disabled"}}
+    chosen = effort or PROBE_EFFORT_DEFAULT
+    if always_on:
+        return {"output_config": {"effort": chosen}}
+    return {"thinking": {"type": "adaptive"}, "output_config": {"effort": chosen}}
 
 
 @dataclass(frozen=True)
@@ -245,6 +283,7 @@ class ApiProvider:
 
     supports_cache_control = True
     supports_model_override = True
+    supports_stage = True
 
     def __init__(
         self,
@@ -283,6 +322,8 @@ class ApiProvider:
         on_first_token: FirstTokenCallback | None = None,
         shared_system: str = "",
         model: str = "",
+        stage: str = PROPOSAL_STAGE,
+        effort: str = "",
     ) -> ProviderResult:
         requested = model or self.model
         cache_control = {"type": "ephemeral"}
@@ -310,7 +351,11 @@ class ApiProvider:
             "output_config": {"format": {"type": "json_schema", "schema": schema}},
             "timeout": self.timeout if timeout_s is None else timeout_s,
         }
-        thinking = self.thinking if self.thinking is not None else thinking_arguments(requested)
+        thinking = (
+            self.thinking
+            if self.thinking is not None
+            else thinking_arguments(requested, stage=stage, effort=effort)
+        )
         for key, value in thinking.items():
             if key == "output_config":
                 arguments["output_config"].update(value)

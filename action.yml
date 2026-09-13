@@ -22,6 +22,19 @@ inputs:
     description: Shared verification time limit, in seconds.
     required: false
     default: "600"
+  probe-model:
+    description: >-
+      Model for the probe -- the one call that chooses what to execute on both
+      revisions. Must be priced in the product's pricing table, or the review
+      refuses before it buys anything. The default is the one D-246's three
+      arms measured as the cheapest per certified case.
+    required: false
+    default: "claude-sonnet-5"
+  probe-effort:
+    description: >-
+      How hard that one call thinks: low, medium, high, xhigh or max.
+    required: false
+    default: "medium"
   install-ref:
     description: >-
       Which attest to install. Empty (the default) installs the checkout this
@@ -78,4 +91,6 @@ runs:
         INPUT_BUDGET_USD: ${{ inputs.budget-usd }}
         INPUT_SAMPLES: ${{ inputs.samples }}
         INPUT_VERIFICATION_TIMEOUT: ${{ inputs.verification-timeout }}
+        INPUT_PROBE_MODEL: ${{ inputs.probe-model }}
+        INPUT_PROBE_EFFORT: ${{ inputs.probe-effort }}
       run: sh "${{ github.action_path }}/scripts/action-entrypoint.sh"

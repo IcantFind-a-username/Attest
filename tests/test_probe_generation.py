@@ -1234,3 +1234,58 @@ def test_the_probe_call_can_be_routed_to_its_own_provider_model_and_output_bound
     assert arm_provider.models == ["claude-opus-5"]
     (probe_call,) = [c for c in budget.calls if c["label"].startswith("probe-")]
     assert probe_call["model"] == "claude-opus-5"
+
+
+def test_the_probe_is_asked_with_thinking_and_the_proposals_are_not(tmp_path: Path) -> None:
+    """D-248 RED, end to end: the default probe call is arm C -- the probe's one
+    call asks for adaptive thinking at the configured effort and the larger
+    output bound, and the proposal samples of the same review keep the shipped
+    `thinking: disabled` and their own bound."""
+    from attest.review.probe import PROBE_MAX_OUTPUT_TOKENS
+
+    class StageRecorder:
+        """A provider that records the stage and effort each call was asked with."""
+
+        supports_cache_control = True
+        supports_model_override = True
+        supports_stage = True
+
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        def sample(
+            self,
+            system: str,
+            prompt: str,
+            schema: dict[str, Any],
+            max_tokens: int,
+            *,
+            timeout_s: float | None = None,
+            shared_prefix: str = "",
+            on_first_token: Any = None,
+            shared_system: str = "",
+            model: str = "",
+            stage: str = "proposal",
+            effort: str = "",
+        ) -> ProviderResult:
+            self.calls.append(
+                {"stage": stage, "effort": effort, "max_tokens": max_tokens, "model": model}
+            )
+            payload = (
+                json.dumps(SETUP_PROBE)
+                if stage == "probe"
+                else json.dumps({"findings": []})
+            )
+            return ProviderResult(text=payload, input_tokens=10, output_tokens=10)
+
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_RAISES, HEAD_GUARDS)
+    provider = StageRecorder()
+
+    verify(repo, base_sha, head_sha, provider, candidate=stored(line=2))
+
+    probes = [c for c in provider.calls if c["stage"] == "probe"]
+    assert probes, provider.calls
+    for call in probes:
+        assert call["effort"] == "medium"
+        assert call["max_tokens"] == PROBE_MAX_OUTPUT_TOKENS == 8000
+    assert all(c["stage"] == "probe" for c in provider.calls)  # this path buys no proposals

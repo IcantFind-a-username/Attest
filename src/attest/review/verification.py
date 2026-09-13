@@ -231,6 +231,7 @@ def run_verification_stage(
             contained_attempt_voids=config.contained_attempt_voids,
             ledger=journal,
             probe_call=probe_call,
+            probe_effort=config.probe_effort,
         )
 
     # D-157: reproductions of *different* candidates may overlap; the three

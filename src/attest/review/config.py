@@ -14,6 +14,12 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+# D-248: how hard the probe's one call thinks. Defined here rather than in the
+# proposer because the configuration is what validates it and the proposer
+# reaches this module through the budget already.
+PROBE_EFFORT_DEFAULT = "medium"
+PROBE_EFFORTS = ("low", "medium", "high", "xhigh", "max")
+
 POLICY_FILE = ".attest.toml"
 POLICY_SOURCE_BASE_FILE = "base:.attest.toml"
 POLICY_SOURCE_FACTORY = "factory-defaults"
@@ -45,6 +51,10 @@ class ReviewConfig:
     # its tests directory as one cache_control shared block reused by every
     # proposal sample, the reproduction generation and its repair
     context_strategy: str = "r01"
+    # D-248: how hard the probe's one call thinks. The probe model is
+    # `generation_model`, which under the shipped `probe_generation = true` is
+    # the only stage that model serves.
+    probe_effort: str = PROBE_EFFORT_DEFAULT
     # L-01 kill switch: false on the base branch stops every review of pull
     # requests into it before any model call or head-code execution; the head
     # of a pull request cannot flip it because CI reads the base's policy
@@ -159,6 +169,21 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError("tier0_commands must be a list of strings")
     if config.context_strategy not in CONTEXT_STRATEGIES:
         raise ValueError(f"context_strategy must be one of {sorted(CONTEXT_STRATEGIES)}")
+    if config.probe_effort not in PROBE_EFFORTS:
+        raise ValueError(f"probe_effort must be one of {sorted(PROBE_EFFORTS)}")
+    # D-248: the Action lets an operator name the probe's model. A model the
+    # pricing table does not price cannot be reserved against, charged or
+    # reconciled, so it is refused here -- before a provider exists and before
+    # anything is bought -- rather than mid-review at the first settlement.
+    priced = sorted(load_pricing()["models"])
+    for field_name in ("model", "generation_model"):
+        named = getattr(config, field_name)
+        if named and named not in priced:
+            raise ValueError(
+                f"{field_name} {named!r} is not in the pricing table, so its calls could not "
+                f"be priced or reserved; name one of {priced} or add its prices to "
+                "src/attest/data/pricing.toml"
+            )
     if type(config.enabled) is not bool:
         raise ValueError("enabled must be a boolean")
     if type(config.probe_generation) is not bool:
@@ -195,6 +220,7 @@ _KNOWN_POLICY_KEYS = {
     "budget_usd",
     "model",
     "generation_model",
+    "probe_effort",
     "k_samples",
     "max_findings",
     "auto_tighten_alpha",

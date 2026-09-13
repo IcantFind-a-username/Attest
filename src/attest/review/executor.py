@@ -65,6 +65,8 @@ from attest.review.probe import (
     tree_roots,
 )
 from attest.review.proposer import (
+    PROBE_EFFORT_DEFAULT,
+    PROBE_STAGE,
     Provider,
     call_provider,
     effective_model,
@@ -1025,6 +1027,7 @@ def generate_probe(
     model: str = "",
     feedback: str = "",
     call: ProbeCall | None = None,
+    effort: str = PROBE_EFFORT_DEFAULT,
 ) -> ProbeSpec:
     """One probe: what to call, never what it should do (D-146).
 
@@ -1091,6 +1094,8 @@ def generate_probe(
                 shared_prefix=shared,
                 shared_system=shared_system,
                 model=model,
+                stage=PROBE_STAGE,
+                effort=effort,
             )
         except Exception:
             for unused in reservations[index:]:
@@ -3289,6 +3294,7 @@ def verify_candidate(
     contained_attempt_voids: bool = False,
     ledger: Ledger | None = None,
     probe_call: ProbeCall | None = None,
+    probe_effort: str = PROBE_EFFORT_DEFAULT,
 ) -> VerificationRun:
     """Generate a reproduction and run it on both revisions.
 
@@ -3367,6 +3373,7 @@ def verify_candidate(
                 model=generation_model,
                 feedback=feedback,
                 call=probe_call,
+                effort=probe_effort,
             )
 
         try:
