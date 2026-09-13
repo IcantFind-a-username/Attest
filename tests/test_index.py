@@ -174,3 +174,100 @@ def test_the_index_is_cached_under_attest_index_and_invalidated_by_a_change(
     os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000))
     assert tree_key(tmp_path) != first.key
     assert tree_index(tmp_path).key != first.key
+
+
+def test_a_parameter_annotated_with_an_in_tree_class_is_a_typed_receiver(tmp_path: Path) -> None:
+    """D-246 (b) RED: `def parse_key(reader: Reader)` then `reader.read_regex(...)`
+    used to be an attribute match on a receiver the index could not type. The
+    annotation names the class, so the call is exact -- whether `Reader` is
+    defined in the same module or bound by a `from` import."""
+    _write(tmp_path, "src/pkg/__init__.py", "")
+    _write(
+        tmp_path,
+        "src/pkg/parser.py",
+        "class Reader:\n"
+        "    def read_regex(self, regex):\n"
+        "        return regex\n\n\n"
+        "def parse_key(reader: Reader):\n"
+        "    return reader.read_regex('key')\n",
+    )
+    _write(
+        tmp_path,
+        "src/pkg/user.py",
+        "from pkg.parser import Reader\n\n\n"
+        "def go(r: Reader, other):\n"
+        "    other.read_regex('x')\n"
+        "    return r.read_regex('value')\n",
+    )
+    index = build_index(tmp_path)
+
+    sites = {(c.path, c.line, c.callee, c.resolution) for c in index.calls}
+    assert ("src/pkg/parser.py", 7, "pkg.parser:Reader.read_regex", EXACT) in sites
+    assert ("src/pkg/user.py", 6, "pkg.parser:Reader.read_regex", EXACT) in sites
+    # a parameter with no annotation is still a receiver the index cannot type
+    assert ("src/pkg/user.py", 5, "", ATTRIBUTE) in sites
+    callers = index.callers_of("pkg.parser", "read_regex")
+    assert [(c.path, c.line, c.resolution) for c in callers] == [
+        ("src/pkg/parser.py", 7, EXACT),
+        ("src/pkg/user.py", 6, EXACT),
+        ("src/pkg/user.py", 5, ATTRIBUTE),  # user.py imports pkg.parser
+    ]
+    assert index.literal_arguments("pkg.parser", "read_regex")[:2] == ["'key'", "'value'"]
+
+
+def test_a_typed_receiver_whose_class_inherits_the_method_is_still_a_caller(tmp_path: Path) -> None:
+    """D-246 RED, found by the census: `conn: HTTPSConnection` then
+    `conn.set_tunnel(...)` resolved to `HTTPSConnection.set_tunnel`, which no
+    class defines -- the method is `HTTPConnection`'s, inherited -- so the
+    caller D-245 had counted at the attribute level vanished. A typed receiver
+    whose class does not itself define the method is a receiver the index
+    cannot type, and the attribute rule applies to it as before."""
+    _write(tmp_path, "src/pkg/__init__.py", "")
+    _write(
+        tmp_path,
+        "src/pkg/conn.py",
+        "class HTTPConnection:\n"
+        "    def set_tunnel(self, host):\n"
+        "        return host\n\n\n"
+        "class HTTPSConnection(HTTPConnection):\n"
+        "    pass\n",
+    )
+    _write(
+        tmp_path,
+        "src/pkg/pool.py",
+        "from pkg.conn import HTTPSConnection\n\n\n"
+        "def prepare(conn: HTTPSConnection):\n"
+        "    conn.set_tunnel('h')\n",
+    )
+    index = build_index(tmp_path)
+
+    callers = index.callers_of("pkg.conn", "set_tunnel")
+
+    assert [(c.path, c.line, c.resolution) for c in callers] == [("src/pkg/pool.py", 5, ATTRIBUTE)]
+    assert index.literal_arguments("pkg.conn", "set_tunnel") == ["'h'"]
+
+
+def test_a_same_module_call_made_before_the_definition_is_exact(tmp_path: Path) -> None:
+    """D-246 RED, found by the census: `rewrite_traceback_stack` calls
+    `get_template_locals`, defined further down the same file, and the index
+    dropped the call because it had not yet seen the definition. A module's
+    top-level names are known before its body is read."""
+    _write(tmp_path, "src/pkg/__init__.py", "")
+    _write(
+        tmp_path,
+        "src/pkg/debug.py",
+        "def rewrite(tb):\n"
+        "    return locals_of(tb)\n\n\n"
+        "def use(reader: Reader):\n"
+        "    return reader.read('x')\n\n\n"
+        "def locals_of(tb):\n"
+        "    return {}\n\n\n"
+        "class Reader:\n"
+        "    def read(self, key):\n"
+        "        return key\n",
+    )
+    index = build_index(tmp_path)
+
+    sites = {(c.path, c.line, c.callee, c.resolution) for c in index.calls}
+    assert ("src/pkg/debug.py", 2, "pkg.debug:locals_of", EXACT) in sites
+    assert ("src/pkg/debug.py", 6, "pkg.debug:Reader.read", EXACT) in sites
