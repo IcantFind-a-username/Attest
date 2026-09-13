@@ -8,8 +8,7 @@ call, nothing bought. The two holes are the ones the [2026-09-14 report](2026-09
 untyped receiver only from a file that *imports* the defining module, and the defining module never
 imports itself; and a parameter annotated `reader: Reader` was a receiver the index could not type.
 Both are repaired in D-246, with two more defects the free census below turned up. Sections 1 and 2
-are the census over the forty; section 4, the package block on the 68 real pull requests, is added by
-the step that computes it. Reproduce with `scripts/acceptance/index_repair_census.py`; the facts are
+are the census over the forty; section 4 is the package block on the 68 real pull requests. Reproduce with `scripts/acceptance/index_repair_census.py`; the facts are
 in [`evidence/2026-09-14-index-repair/census.json`](evidence/2026-09-14-index-repair/census.json).
 
 ## 1. The two holes, and what the forty say before and after
@@ -207,3 +206,126 @@ the D-245 literals hint does not read; that is an observation, not a proposal. T
 (33 the index confirms and 7 it now restores) and 36 noise-or-undecidable, with the signal capped at
 four per symbol and the rest named in an omission; the repaired plans' 51 carry those, eleven more
 real callers the regex era never had in a plan, and six noise snippets named in §1b.
+
+## 4. The package block's bound on real traffic: does it bind, and on what
+
+**The first fact is that no measured run ever built the block.** `package_block` is called only
+under `context_strategy = "package-cache"`, a comparison arm of owner instruction 4 (2026-09-03);
+the shipped default is `r01`, and no `.attest.toml` in this repository or in any measured corpus
+selects the other. So the forty under D-245, the three real-PR batches and every self-review ran
+without a shared block, and D-245's ordering of it by import distance has run in no measured review.
+Step 3's `package_block` field will read `null` until one does.
+
+**The second is what the bound would do if the block were built.** For each of the 68 pull requests
+of the three natural-traffic batches (`e05-external-v1` 24, `-v2` 20, `-v3` 24), on the clone at the
+pull request's head, `package_block_report` was called on every file a review would have built the
+block on -- the discovery anchor (the first planned unit's first file) and the anchored file of every
+candidate that reached verification, read from the committed ledgers: 93 anchored files (48 pull
+requests with one, 16 with two, 3 with three, 1 with four). *Bound hit* means at least one file the
+order would have included did not fit under 120,000 characters (each file is itself cut at 40,000, so a
+large package fits about three); *files cut* counts them; the last column names the cut files that
+import the changed module, which are the ones the D-245 ordering exists to keep. Reproduce with
+`scripts/acceptance/package_block_census.py`; the facts are in
+[`evidence/2026-09-14-index-repair/package-block.json`](evidence/2026-09-14-index-repair/package-block.json).
+
+| pull request | batch | anchored files (discovery, verified) | largest block, chars (bound 120,000) | bound hit | files cut | cut files that import the changed module |
+|---|---|---|---|---|---|---|
+| `more-itertools/more-itertools#1270` | v1 | `more_itertools/more.py`, `tests/test_more.py` | 80,319 | **yes** | 3 (0 source, 3 test) | — |
+| `pallets/click#3861` | v1 | `src/click/core.py` | 111,702 | **yes** | 68 (8 source, 60 test) | `src/click/shell_completion.py`, `src/click/testing.py`, `src/click/types.py`, `tests/test_context.py`, `tests/test_defaults.py`, `tests/test_deprecations.py`, `tests/test_shell_completion.py` |
+| `pallets/itsdangerous#406` | v1 | `src/itsdangerous/__init__.py` | 58,309 | no | — | — |
+| `pallets/jinja#2099` | v1 | `scripts/generate_identifier_pattern.py`, `src/jinja2/_identifier.py` | 110,244 | **yes** | 44 (19 source, 25 test) | — |
+| `pypa/packaging#611` | v1 | `tests/test_tags.py` | 113,387 | **yes** | 29 (0 source, 29 test) | — |
+| `python-attrs/attrs#1606` | v1 | `tests/test_functional.py` | 109,975 | **yes** | 18 (0 source, 18 test) | — |
+| `theskumar/python-dotenv#680` | v1 | `src/dotenv/main.py`, `src/dotenv/parser.py`, `tests/test_parser.py` | 96,680 | no | — | — |
+| `urllib3/urllib3#5239` | v1 | `dummyserver/app.py` | 42,859 | no | — | — |
+| `more-itertools/more-itertools#1266` | v1 | `more_itertools/more.py` | 80,319 | **yes** | 3 (0 source, 3 test) | — |
+| `pallets/click#3858` | v1 | `src/click/types.py` | 115,180 | **yes** | 71 (11 source, 60 test) | `src/click/termui.py`, `tests/test_info_dict.py`, `tests/test_shell_completion.py` |
+| `pallets/itsdangerous#405` | v1 | `src/itsdangerous/serializer.py` | 58,883 | no | — | — |
+| `pallets/jinja#2098` | v1 | `src/jinja2/__init__.py` | 101,726 | **yes** | 44 (19 source, 25 test) | `src/jinja2/ext.py`, `src/jinja2/idtracking.py`, `src/jinja2/meta.py`, `src/jinja2/nativetypes.py`, `src/jinja2/optimizer.py`, `src/jinja2/parser.py`, `tests/conftest.py`, `tests/test_api.py`, `tests/test_async.py`, `tests/test_async_filters.py`, `tests/test_bytecode_cache.py`, `tests/test_compile.py`, `tests/test_core_tags.py`, `tests/test_debug.py`, `tests/test_ext.py`, `tests/test_filters.py`, `tests/test_idtracking.py`, `tests/test_inheritance.py`, `tests/test_lexnparse.py`, `tests/test_loader.py`, `tests/test_regression.py`, `tests/test_runtime.py`, `tests/test_security.py`, `tests/test_tests.py` |
+| `pypa/packaging#1392` | v1 | `tests/test_ranges.py` | 111,634 | **yes** | 27 (0 source, 27 test) | — |
+| `python-attrs/attrs#1603` | v1 | `src/attr/_make.py`, `tests/test_make.py` | 115,288 | **yes** | 32 (1 source, 31 test) | `src/attr/validators.py`, `tests/test_annotations.py`, `tests/test_dunders.py`, `tests/test_functional.py`, `tests/test_make.py`, `tests/test_next_gen.py`, `tests/utils.py` |
+| `theskumar/python-dotenv#638` | v1 | `tests/test_main.py` | 61,090 | no | — | — |
+| `urllib3/urllib3#5212` | v1 | `test/test_ssl.py` | 117,707 | **yes** | 31 (0 source, 31 test) | — |
+| `more-itertools/more-itertools#1261` | v1 | `more_itertools/more.py` | 80,319 | **yes** | 3 (0 source, 3 test) | — |
+| `pallets/click#3851` | v1 | `tests/test_types/test_Path.py` | 115,137 | **yes** | 50 (0 source, 50 test) | — |
+| `pallets/itsdangerous#378` | v1 | `src/itsdangerous/signer.py`, `tests/test_itsdangerous/test_serializer.py` | 58,954 | no | — | — |
+| `pallets/jinja#2096` | v1 | `src/jinja2/environment.py` | 108,281 | **yes** | 42 (17 source, 25 test) | `src/jinja2/ext.py`, `src/jinja2/filters.py`, `src/jinja2/lexer.py`, `src/jinja2/loaders.py`, `src/jinja2/meta.py`, `src/jinja2/nativetypes.py`, `src/jinja2/nodes.py`, `src/jinja2/optimizer.py`, `src/jinja2/parser.py`, `src/jinja2/runtime.py`, `src/jinja2/sandbox.py`, `src/jinja2/tests.py`, `src/jinja2/utils.py`, `tests/conftest.py`, `tests/test_compile.py`, `tests/test_imports.py` |
+| `pypa/packaging#1384` | v1 | `src/packaging/specifiers.py` | 97,641 | **yes** | 52 (17 source, 35 test) | `src/packaging/metadata.py`, `src/packaging/pylock.py`, `src/packaging/ranges.py`, `src/packaging/requirements.py`, `tests/property/strategies.py`, `tests/property/test_ranges_cross_epoch.py`, `tests/property/test_ranges_pep440_extended.py`, `tests/property/test_ranges_pubgrub.py`, `tests/property/test_ranges_set_algebra.py`, `tests/property/test_ranges_set_relations.py`, `tests/property/test_ranges_to_specifier_set.py`, `tests/property/test_specifier_comparison.py`, `tests/property/test_specifier_extended.py`, `tests/property/test_specifier_implied.py`, `tests/property/test_specifier_matching.py`, `tests/property/test_version_releases.py`, `tests/test_metadata.py`, `tests/test_pylock.py`, `tests/test_pylock_select.py`, `tests/test_ranges.py`, `tests/test_requirements.py`, `tests/test_specifiers.py` |
+| `python-attrs/attrs#1571` | v1 | `src/attr/validators.py` | 95,408 | **yes** | 35 (4 source, 31 test) | `tests/test_dunders.py`, `tests/test_funcs.py`, `tests/test_setattr.py`, `tests/test_validators.py` |
+| `theskumar/python-dotenv#640` | v1 | `src/dotenv/parser.py`, `tests/test_parser.py` | 92,992 | no | — | — |
+| `urllib3/urllib3#5221` | v1 | `src/urllib3/util/url.py`, `test/test_util.py` | 114,406 | **yes** | 63 (30 source, 33 test) | `src/urllib3/contrib/socks.py`, `src/urllib3/poolmanager.py`, `src/urllib3/util/__init__.py`, `src/urllib3/util/proxy.py`, `src/urllib3/util/ssl_.py` |
+| `hukkin/tomli-w#79` | v2 | `tests/test_valid.py` | 10,674 | no | — | — |
+| `pallets/markupsafe#499` | v2 | `src/markupsafe/__init__.py` | 24,139 | no | — | — |
+| `pallets/werkzeug#3268` | v2 | `src/werkzeug/testapp.py` | 111,488 | **yes** | 78 (45 source, 33 test) | — |
+| `psf/requests#7505` | v2 | `src/requests/models.py`, `tests/test_requests.py` | 105,896 | **yes** | 26 (11 source, 15 test) | `src/requests/cookies.py`, `src/requests/exceptions.py`, `src/requests/hooks.py`, `src/requests/sessions.py`, `src/requests/utils.py`, `tests/test_requests.py` |
+| `python-jsonschema/jsonschema#1300` | v2 | `jsonschema/exceptions.py`, `jsonschema/tests/test_exceptions.py` | 108,055 | **yes** | 34 (20 source, 14 test) | `jsonschema/tests/test_cli.py`, `jsonschema/tests/test_deprecations.py`, `jsonschema/tests/test_exceptions.py`, `jsonschema/tests/test_format.py`, `jsonschema/tests/test_types.py`, `jsonschema/tests/test_validators.py`, `jsonschema/validators.py` |
+| `hukkin/tomli-w#65` | v2 | `src/tomli_w/_writer.py` | 17,912 | no | — | — |
+| `pallets/markupsafe#497` | v2 | `src/markupsafe/__init__.py` | 23,829 | no | — | — |
+| `pallets/werkzeug#3267` | v2 | `src/werkzeug/datastructures/cache_control.py` | 118,454 | **yes** | 76 (42 source, 34 test) | — |
+| `psf/requests#7502` | v2 | `src/requests/models.py`, `tests/test_requests.py` | 105,896 | **yes** | 26 (11 source, 15 test) | `src/requests/cookies.py`, `src/requests/exceptions.py`, `src/requests/hooks.py`, `src/requests/sessions.py`, `src/requests/utils.py`, `tests/test_requests.py` |
+| `python-jsonschema/jsonschema#1482` | v2 | `jsonschema/_utils.py` | 109,122 | **yes** | 31 (17 source, 14 test) | `jsonschema/tests/test_utils.py` |
+| `hukkin/tomli-w#70` | v2 | `src/tomli_w/__init__.py` | 17,912 | no | — | — |
+| `pallets/markupsafe#496` | v2 | `setup.py` | 39,129 | no | — | — |
+| `pallets/werkzeug#3266` | v2 | `src/werkzeug/wrappers/response.py`, `tests/middleware/test_proxy_fix.py`, `tests/test_test.py` | 108,380 | **yes** | 79 (45 source, 34 test) | `src/werkzeug/routing/exceptions.py`, `src/werkzeug/test.py`, `src/werkzeug/testapp.py`, `src/werkzeug/utils.py`, `src/werkzeug/wrappers/__init__.py` |
+| `psf/requests#7497` | v2 | `src/requests/models.py` | 103,118 | **yes** | 26 (11 source, 15 test) | `src/requests/cookies.py`, `src/requests/exceptions.py`, `src/requests/hooks.py`, `src/requests/sessions.py`, `src/requests/utils.py`, `tests/test_requests.py` |
+| `python-jsonschema/jsonschema#1444` | v2 | `jsonschema/exceptions.py` | 97,033 | **yes** | 28 (14 source, 14 test) | `jsonschema/tests/test_cli.py`, `jsonschema/tests/test_deprecations.py`, `jsonschema/tests/test_exceptions.py`, `jsonschema/tests/test_format.py`, `jsonschema/tests/test_types.py`, `jsonschema/tests/test_validators.py`, `jsonschema/validators.py` |
+| `hukkin/tomli-w#69` | v2 | `src/tomli_w/_writer.py` | 17,912 | no | — | — |
+| `pallets/markupsafe#469` | v2 | `src/markupsafe/__init__.py` | 22,849 | no | — | — |
+| `pallets/werkzeug#3255` | v2 | `src/werkzeug/http.py` | 112,612 | **yes** | 73 (39 source, 34 test) | `src/werkzeug/datastructures/structures.py`, `src/werkzeug/debug/__init__.py`, `src/werkzeug/exceptions.py`, `src/werkzeug/formparser.py`, `src/werkzeug/middleware/http_proxy.py`, `src/werkzeug/middleware/lint.py`, `src/werkzeug/middleware/proxy_fix.py`, `src/werkzeug/middleware/shared_data.py`, `src/werkzeug/sansio/http.py`, `src/werkzeug/sansio/multipart.py`, `src/werkzeug/sansio/request.py`, `src/werkzeug/sansio/response.py`, `src/werkzeug/sansio/utils.py`, `src/werkzeug/serving.py`, `src/werkzeug/test.py`, `src/werkzeug/wrappers/response.py`, `tests/test_datastructures.py`, `tests/test_http.py`, `tests/test_send_file.py`, `tests/test_utils.py`, `tests/test_wrappers.py` |
+| `psf/requests#7498` | v2 | `src/requests/models.py` | 103,451 | **yes** | 26 (11 source, 15 test) | `src/requests/cookies.py`, `src/requests/exceptions.py`, `src/requests/hooks.py`, `src/requests/sessions.py`, `src/requests/utils.py`, `tests/test_requests.py` |
+| `python-jsonschema/jsonschema#1416` | v2 | `jsonschema/benchmarks/import_benchmark.py`, `jsonschema/tests/test_validators.py`, `jsonschema/validators.py` | 119,955 | **yes** | 36 (22 source, 14 test) | `jsonschema/protocols.py`, `jsonschema/tests/_suite.py`, `jsonschema/tests/test_cli.py`, `jsonschema/tests/test_deprecations.py`, `jsonschema/tests/test_exceptions.py`, `jsonschema/tests/test_format.py`, `jsonschema/tests/test_types.py`, `jsonschema/tests/test_validators.py`, `jsonschema/tests/typing/test_all_concrete_validators_match_protocol.py` |
+| `Delgan/loguru#1510` | v3 | `loguru/_logger.py`, `tests/exceptions/source/modern/exception_formatting_async_generator_throw.py` | 117,751 | **yes** | 158 (6 source, 152 test) | — |
+| `mahmoud/boltons#481` | v3 | `boltons/cacheutils.py`, `boltons/jsonutils.py`, `tests/test_cacheutils.py`, `tests/test_namedutils.py` | 116,951 | **yes** | 58 (27 source, 31 test) | `tests/test_cacheutils.py`, `tests/test_jsonutils.py` |
+| `marshmallow-code/marshmallow#3034` | v3 | `src/marshmallow/fields.py` | 118,474 | **yes** | 24 (5 source, 19 test) | `tests/base.py`, `tests/foo_serializer.py`, `tests/mypy_test_cases/test_schema.py`, `tests/test_context.py`, `tests/test_decorators.py`, `tests/test_deserialization.py`, `tests/test_fields.py`, `tests/test_options.py`, `tests/test_registry.py`, `tests/test_schema.py`, `tests/test_serialization.py`, `tests/test_utils.py` |
+| `pyparsing/pyparsing#653` | v3 | `pyparsing/helpers.py`, `tests/test_unit.py` | 117,636 | **yes** | 26 (12 source, 14 test) | `tests/test_pre_pep8_deprecation_warnings.py` |
+| `python-babel/babel#1318` | v3 | `babel/messages/catalog.py`, `tests/messages/test_pofile_write.py` | 100,490 | **yes** | 91 (24 source, 67 test) | `babel/messages/__init__.py`, `babel/messages/checkers.py`, `babel/messages/frontend.py`, `babel/messages/mofile.py`, `babel/messages/pofile.py`, `tests/messages/test_catalog.py`, `tests/messages/test_checkers.py`, `tests/messages/test_pofile.py` |
+| `tkem/cachetools#413` | v3 | `tests/__init__.py` | 104,078 | no | — | — |
+| `Delgan/loguru#1504` | v3 | `loguru/_string_parsers.py`, `tests/test_filesink_rotation.py` | 119,359 | **yes** | 157 (6 source, 151 test) | — |
+| `mahmoud/boltons#434` | v3 | `boltons/timeutils.py` | 106,556 | **yes** | 54 (23 source, 31 test) | `tests/test_timeutils.py` |
+| `marshmallow-code/marshmallow#3004` | v3 | `src/marshmallow/fields.py` | 118,468 | **yes** | 24 (5 source, 19 test) | `tests/base.py`, `tests/foo_serializer.py`, `tests/mypy_test_cases/test_schema.py`, `tests/test_context.py`, `tests/test_decorators.py`, `tests/test_deserialization.py`, `tests/test_fields.py`, `tests/test_options.py`, `tests/test_registry.py`, `tests/test_schema.py`, `tests/test_serialization.py`, `tests/test_utils.py` |
+| `pyparsing/pyparsing#645` | v3 | `pyparsing/results.py`, `tests/test_unit.py` | 117,636 | **yes** | 24 (10 source, 14 test) | `tests/test_pre_pep8_deprecation_warnings.py` |
+| `python-babel/babel#1319` | v3 | `babel/messages/frontend.py` | 92,050 | **yes** | 89 (22 source, 67 test) | `babel/messages/setuptools_frontend.py`, `tests/interop/test_jinja2_interop.py`, `tests/messages/frontend/test_cli.py`, `tests/messages/frontend/test_compile.py`, `tests/messages/frontend/test_concat.py`, `tests/messages/frontend/test_extract.py`, `tests/messages/frontend/test_frontend.py`, `tests/messages/frontend/test_init.py`, `tests/messages/frontend/test_merge.py`, `tests/messages/test_setuptools_frontend.py`, `tests/messages/test_toml_config.py` |
+| `tkem/cachetools#386` | v3 | `tests/test_tlru.py` | 93,969 | no | — | — |
+| `Delgan/loguru#1508` | v3 | `loguru/_datetime.py`, `tests/test_datetime.py` | 119,546 | **yes** | 156 (5 source, 151 test) | — |
+| `mahmoud/boltons#475` | v3 | `tests/test_strutils.py` | 117,035 | **yes** | 20 (0 source, 20 test) | — |
+| `marshmallow-code/marshmallow#3024` | v3 | `src/marshmallow/utils.py` | 109,249 | **yes** | 22 (3 source, 19 test) | `tests/test_utils.py` |
+| `pyparsing/pyparsing#649` | v3 | `tests/test_unit.py` | 119,559 | **yes** | 1 (0 source, 1 test) | — |
+| `python-babel/babel#1161` | v3 | `tests/messages/frontend/test_concat.py` | 108,046 | **yes** | 54 (0 source, 54 test) | — |
+| `tkem/cachetools#365` | v3 | `src/cachetools/func.py` | 107,637 | no | — | — |
+| `Delgan/loguru#1507` | v3 | `tests/test_datetime.py` | 118,633 | **yes** | 40 (0 source, 40 test) | — |
+| `mahmoud/boltons#467` | v3 | `boltons/statsutils.py`, `tests/test_statsutils.py` | 118,776 | **yes** | 54 (23 source, 31 test) | `tests/test_statsutils.py`, `tests/test_statsutils_histogram.py` |
+| `marshmallow-code/marshmallow#3016` | v3 | `tests/test_validate.py` | 87,887 | **yes** | 11 (0 source, 11 test) | — |
+| `pyparsing/pyparsing#648` | v3 | `tests/test_unit.py` | 119,559 | **yes** | 1 (0 source, 1 test) | — |
+| `python-babel/babel#1291` | v3 | `babel/dates.py` | 92,729 | **yes** | 87 (22 source, 65 test) | `babel/messages/catalog.py`, `babel/support.py`, `babel/util.py`, `tests/benchmarks/benchmark_dates.py`, `tests/messages/frontend/test_cli.py`, `tests/messages/frontend/test_extract.py`, `tests/messages/frontend/test_init.py`, `tests/messages/test_catalog.py`, `tests/messages/test_checkers.py`, `tests/test_date_intervals.py`, `tests/test_dates.py`, `tests/test_day_periods.py`, `tests/test_smoke.py` |
+| `tkem/cachetools#340` | v3 | `src/cachetools/__init__.py` | 99,473 | no | — | — |
+| **68 pull requests** | | | | **49 hit the bound** | | **29 cut an importer** |
+
+|  | v1 (24) | v2 (20) | v3 (24) | all (68) |
+|---|---|---|---|---|
+| bound hit | 17 | 12 | 20 | **49** |
+| a cut file imports the changed module | 8 | 10 | 11 | **29** |
+| never hit | 7 | 8 | 4 | 19 |
+
+Block sizes over the 93 anchored files: smallest 10,674 characters, median 105,896, largest 119,955.
+The 19 that never hit are the small packages -- `tomli-w` (4 of 4), `markupsafe` (4), `cachetools`
+(4), `itsdangerous` (3), `python-dotenv` (3) and one `urllib3` pull request whose anchor sits in a
+small subpackage; every pull request of the nine larger libraries hits it, `click` and `werkzeug`
+cutting 68 to 79 files each.
+
+**Reading.**
+
+- **The lever has had no chance to act, and not because the bound is slack.** Under the shipped
+  strategy the block is never built, so on every measured corpus the D-245 ordering cannot have
+  produced a difference; that is the sentence the owner asked for, and it holds for a reason the
+  instruction did not anticipate. Were the strategy switched on, the bound would bind on 49 of 68
+  real pull requests and, even ordered by import distance, cut a file that imports the changed
+  module on 29 of 68 -- on a large package the distance-one files alone exceed three files' worth
+  -- so the ordering would then decide *which* importers survive rather than whether any does.
+- **No paid measurement is scheduled for it.** Switching `package-cache` on is a cost decision (a
+  block near 100k characters cached per review, on every sample and generation) and an owner item;
+  under `r01` there is nothing to measure. If the owner ever turns it on, the `package_block` field
+  of the plan row (step 3) says on each review what was cut, without this census.
+- **One defect in the block itself, for the backlog, not fixed here:** when a project's tests live
+  inside the package (`jsonschema/tests/`), `package_block` lists them twice -- once under the
+  package walk and once under the tests walk -- and a file that fits is added twice, spending the
+  bound on a copy; the cut lists above show the duplicates.

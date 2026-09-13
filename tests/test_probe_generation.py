@@ -622,7 +622,7 @@ def test_the_second_probe_certifies_what_the_first_could_not_see(
     assert observed is not None
     assert observed.expression == "mod.first([])"
     row = next(r for r in Ledger(repo).entries() if r["kind"] == "probe_observation")
-    assert row["schema_version"] == "attest.probe-observation.v4"  # D-241
+    assert row["schema_version"] == "attest.probe-observation.v5"  # D-241, D-246
     assert row["attempt_index"] == 2
     assert row["feedback_kind"] == "did-not-reach"
     # the head side of the screening run is recorded too: it is what a value
@@ -1125,8 +1125,10 @@ def test_the_ledger_keeps_how_the_call_was_built(tmp_path: Path) -> None:
     assert "value change confirmed, intent unknown" in run.execution.reason
     rows = Ledger(repo).entries()
     probe = next(r for r in rows if r["kind"] == "probe_observation")
-    assert probe["schema_version"] == "attest.probe-observation.v4"
+    assert probe["schema_version"] == "attest.probe-observation.v5"
     assert (probe["imports"], probe["setup"]) == ("import mod", "empty = []")
+    # D-246: nothing in the tree passes `mean` a literal, and the row says so
+    assert probe["literals_hint"] == ""
     note = next(r for r in rows if r["kind"] == "value_observation_note")
     assert (note["imports"], note["setup"]) == ("import mod", "empty = []")
 
@@ -1148,3 +1150,24 @@ def test_the_first_probe_is_told_which_literals_the_tree_passes(tmp_path: Path) 
     first = provider.prompts[0]
     assert "Literal arguments the repository passes to `clamp`" in first
     assert "`-1`" in first and "`0`" in first and "`20`" in first
+
+
+def test_the_ledger_keeps_the_literals_the_probe_was_told(tmp_path: Path) -> None:
+    """D-246 RED (step 3a): the literals block is a fact of the prompt the probe
+    answered, and the row that records the probe never said whether it was
+    there. It travels with the recording, verbatim, or as the empty string."""
+    # a swap whose two sides differ at 13, so the probe records and the row exists
+    base_source = BOUNDARY_BASE.replace("return 13", "return 99")
+    head_source = base_source.replace("if x >= 13:", "if x > 13:")
+    repo, base_sha, head_sha = two_revisions(tmp_path, base_source, head_source, LITERALS_TESTS)
+    provider = PromptRecorder(BOUNDARY_PROBE)
+
+    run = verify(repo, base_sha, head_sha, provider, candidate=stored(line=2))
+
+    assert run.execution.probe is not None
+    rows = Ledger(repo).entries()
+    probe = next(r for r in rows if r["kind"] == "probe_observation")
+    assert probe["schema_version"] == "attest.probe-observation.v5"
+    assert probe["literals_hint"].startswith("Literal arguments the repository passes to `clamp`")
+    assert "`20`" in probe["literals_hint"] and "`-1`" in probe["literals_hint"]
+    assert probe["literals_hint"] in provider.prompts[0]

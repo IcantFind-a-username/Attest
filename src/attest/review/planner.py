@@ -24,7 +24,7 @@ from pathlib import Path
 from attest.review.diffs import DiffInfo, parse_diff
 from attest.review.index import TreeIndex, tree_index
 
-PLAN_SCHEMA_VERSION = "attest.review-plan.v1"
+PLAN_SCHEMA_VERSION = "attest.review-plan.v2"
 
 MAX_UNIT_CHARS = 30_000  # diff + context handed to one proposer unit
 MAX_CONTEXT_CHARS = 10_000  # context appendix per unit
@@ -99,6 +99,9 @@ class ContextSnippet:
     start: int
     end: int
     text: str
+    # D-246: for a caller, how the index resolved the call -- "exact" through
+    # a binding, "attribute" on a receiver it could not type; "" otherwise
+    resolution: str = ""
 
     def render(self) -> str:
         if self.kind == "test":
@@ -140,7 +143,13 @@ class ReviewPlan:
     units: tuple[PlanUnit, ...]
     digest: str
 
-    def to_ledger_row(self, task_id: str) -> dict[str, object]:
+    def to_ledger_row(
+        self, task_id: str, package_block: PackageBlock | None = None
+    ) -> dict[str, object]:
+        """The plan as the ledger keeps it. D-246: every caller snippet with its
+        resolution, and the shared package block's facts -- the anchor, the
+        characters kept and the files the bound cut -- when one was built
+        (``None`` when the context strategy builds none)."""
         return {
             "kind": "review_plan",
             "schema_version": self.schema_version,
@@ -156,10 +165,22 @@ class ReviewPlan:
                         kind: sum(1 for s in unit.context if s.kind == kind)
                         for kind in ("imports", "definition", "caller", "old_side", "test")
                     },
+                    "callers": [
+                        {
+                            "path": s.path,
+                            "start": s.start,
+                            "end": s.end,
+                            "symbol": s.symbol,
+                            "resolution": s.resolution,
+                        }
+                        for s in unit.context
+                        if s.kind == "caller"
+                    ],
                     "omissions": list(unit.omissions),
                 }
                 for unit in self.units
             ],
+            "package_block": None if package_block is None else package_block.facts(),
         }
 
 
@@ -405,6 +426,7 @@ def _callers(
                 start=start,
                 end=end,
                 text="\n".join(lines[start - 1 : end]),
+                resolution=site.resolution,
             )
         )
     # exact resolutions first (the index already orders them), then by place;
@@ -644,11 +666,40 @@ def _tests_dir_for(repo: Path, package_dir: Path) -> Path | None:
     return None
 
 
+@dataclass(frozen=True)
+class PackageBlock:
+    """The shared package block and the facts of how it was cut (D-246): what
+    the ledger keeps so whether the bound binds is read, not recomputed."""
+
+    text: str
+    anchor: str
+    files: tuple[str, ...]  # kept, in the order the block holds them
+    omitted: tuple[str, ...]  # cut by the bound, in the order they would have come
+    chars: int  # of the sections kept, what the bound counts
+    bound: int = MAX_PACKAGE_BLOCK_CHARS
+
+    def facts(self) -> dict[str, object]:
+        return {
+            "anchor": self.anchor,
+            "chars": self.chars,
+            "bound": self.bound,
+            "files": list(self.files),
+            "omitted": list(self.omitted),
+        }
+
+
 def package_block(repo: Path, path: str) -> str:
     """One shared, cacheable block: the anchored module's package sources and
     its project's tests directory, bounded, in a deterministic order."""
+    return package_block_report(repo, path).text
+
+
+def package_block_report(repo: Path, path: str) -> PackageBlock:
+    """The block, and which files it holds and which the bound cut."""
     package_dir = _package_dir(repo, path)
     sections: list[str] = []
+    kept: list[str] = []
+    omitted: list[str] = []
     used = 0
 
     def add(file: Path) -> bool:
@@ -664,6 +715,7 @@ def package_block(repo: Path, path: str) -> str:
             sections.append(f"### [omitted: {rel} and later files, block bound reached]")
             return False
         sections.append(text)
+        kept.append(rel)
         used += len(text)
         return True
 
@@ -694,14 +746,18 @@ def package_block(repo: Path, path: str) -> str:
         ordered.extend(
             sorted((file for file in tests_dir.rglob("*.py") if not skipped(file)), key=by_distance)
         )
-    for file in ordered:
+    for position, file in enumerate(ordered):
         if not add(file):
+            omitted.extend(f.relative_to(repo).as_posix() for f in ordered[position:])
             break
-    if not sections:
-        return ""
-    return (
-        "Shared repository context (the anchored module's package and its tests; "
-        "read-only):\n\n" + "\n\n".join(sections)
+    text = ""
+    if sections:
+        text = (
+            "Shared repository context (the anchored module's package and its tests; "
+            "read-only):\n\n" + "\n\n".join(sections)
+        )
+    return PackageBlock(
+        text=text, anchor=path, files=tuple(kept), omitted=tuple(omitted), chars=used
     )
 
 

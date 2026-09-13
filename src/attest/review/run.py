@@ -26,7 +26,7 @@ from attest.review.history import (
     inspect_history_signal,
 )
 from attest.review.ledger import REVIEW_AUTHORITY_RANKING, Ledger
-from attest.review.planner import package_block, plan_review
+from attest.review.planner import package_block_report, plan_review
 from attest.review.proposer import Provider, budget_shortfall_note, propose_plan
 from attest.review.status import RunStatus, status_from_rows
 from attest.review.support import provider_defer_reason
@@ -358,14 +358,18 @@ def run_review(
         # R-01: stable change units with bounded retrieved context; the plan
         # and every omission are recorded before any sample is bought
         plan = plan_review(repo, diff, base or "HEAD")
-        ledger.append(plan.to_ledger_row(task_id))
-        phase = "proposal"
         shared_system = ""
+        block = None
         if config.context_strategy == "package-cache" and plan.units:
             # owner instruction 4 (comparison only): one cached block for the
             # whole PR -- the package of the first unit's first changed file
             # and its tests -- reused by every sample, generation and repair
-            shared_system = package_block(repo, plan.units[0].files[0])
+            block = package_block_report(repo, plan.units[0].files[0])
+            shared_system = block.text
+        # D-246: the plan row carries the block's facts, so it is written after
+        # the block is built and still before any sample is bought
+        ledger.append(plan.to_ledger_row(task_id, package_block=block))
+        phase = "proposal"
         # D-111: the share that keeps breadth from starving verification is
         # applied per unit inside propose_plan -- the first unit is bought
         # against the whole budget, every unit after it inside the share.
