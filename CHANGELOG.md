@@ -11,6 +11,13 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The tree index repaired (D-246).** The defining module is always its own importer, a parameter
+  annotated with an in-tree class is a typed receiver, a typed receiver whose class only inherits the
+  method keeps the attribute rule, and a same-module call made above the definition still resolves.
+  Free, measured on the forty rebuilt trees ([the report](docs/acceptance/2026-09-14-index-repair.md)):
+  caller snippets 34 → 51, `python-dotenv-guard_raise-04` 0 → 4; of the 76 snippets the regex era
+  had, the 31 the repaired index still leaves out are 27 noise and 4 undecidable, 0 real callers.
+  Recall under it is unmeasured.
 - **The tree index (D-245).** A changed symbol's callers are resolved through the import that
   bound the name, so a method named `parse` or `get` gets its callers like any other and a
   same-named call on an unrelated object is not one; the shared package block is ordered by
