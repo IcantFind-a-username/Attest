@@ -131,6 +131,10 @@ class ProbeSpec:
     imports: str
     setup: str
     expression: str
+    # D-246: the literals block the prompt carried when this probe was asked
+    # for, verbatim, or "" when the tree passed the changed symbols no literal
+    # (and for a derived probe, which is asked of no model)
+    literals_hint: str = ""
 
 
 @dataclass(frozen=True)
