@@ -348,6 +348,24 @@ before the first call of each phase and settled after it, per phase.
 | 7 | **E-04 stratum v3, the same frozen 28-unit sample, re-run with `value_notes_visible` and `gate_notes_visible` on** (owner authorisation 3). `.github/workflows/e04-shadow.yml` on `ubuntu-latest`, **local review path only — no GitHub client is constructed, nothing is written to any repository**; `per_pr_budget_usd` $1.00, the shipped `k_samples` 5, `linux-container-v1`, `contained_attempt_voids` at the product default. The driver's cap is the reservation and a unit starts only if its $1.00 maximum still fits under it (D-172), so the run cannot overshoot; a unit the cap refuses is named. Measured basis: the 2026-09-13 runner re-take of the same sample cost $2.483001 for 28 units, before step 3 stopped the discovery share from truncating units, so the per-unit cost is expected higher and the cap, not the estimate, is what binds | **$3.00** | **$2.765980**; $0.234020 released. **9 of 28 units ran** before the cap refused the rest by name; **0 of 9 carried an author-visible line**; the same 9 cost $0.7676 on 2026-09-13 (D-221's whole-budget discovery, 3.6×). The ledgers were lost to the artifact upload's hidden-path default ([report](docs/acceptance/2026-09-12-e04-with-notes.md), D-225) |
 | — | **dogfooding**: the `attest` self-reviews the eight pull requests of this window buy (#40–#47). Not a study and not against any reservation; the cost of merging what the owner asked for | — | **$0.925113 so far** — $0.020659 ([#40](https://github.com/IcantFind-a-username/Attest/pull/40), run `34614084605`), $0.091862 ([#41](https://github.com/IcantFind-a-username/Attest/pull/41), run `34616278439`), $0.812592 ([#42](https://github.com/IcantFind-a-username/Attest/pull/42), run `34617821991` — the first self-review under D-221: read 10 of 20 units and named the other 10). The self-reviews of #43 and the step-8 pull request are not yet in this figure and are carried as a named lag |
 
+## Window 0.3.0, step 4 (2026-09-14) — the same forty under D-245, reserved before the first call
+
+**Owner instruction of 2026-09-14, after D-245 merged as [PR #74](https://github.com/IcantFind-a-username/Attest/pull/74):
+dispatch `mutation-recall.yml` over the same forty trials, $1.00 per case, the D-244 p95 reservation,
+only the code changed and not the corpus; reserve first, settle after.** The reservation is **$5.00** —
+the preregistration's own `cost_cap_usd`, held by the driver as the hard cumulative cap (D-172; the
+smaller of the two binds) — against the $150 cap and **$134.909834 settled before it** (the header
+line the preflight reads). It sits outside the 0.3.0 window's $12.00 of 2026-09-13, of which
+$0.194839 is unspent, and is authorised by the instruction above. A case starts only if the p95 of
+the most recent forty trials' spend still fits under the cap (D-244); a case the cap refuses is
+named; the $1.00 ceiling still binds what any one case may spend. Read-only clones of the eight
+public repositories, the local review path only, nothing written to any repository.
+
+| item | reserved | settled |
+|---|---|---|
+| **step 4 re-measurement** — `mutation-recall.yml` over all forty cases into `trials-with-index.jsonl`, $1.00 per case, K=5, cap $5.00, the code of `main` at `a16312a` (D-245: the tree index, the package block by import distance, the literals hint), dispatched from `docs/forty-with-index`, which adds only this reservation | $5.00 | *pending* |
+| — | **$5.00** | — |
+
 ## Window 0.3.0 (2026-09-13, after the tag) — recall on the same forty, reserved before the first call
 
 **Owner authorisation of 2026-09-13 ("是" to the 0.3.0 plan): $12.00 in all**, against the $150
