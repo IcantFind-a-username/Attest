@@ -17,8 +17,11 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   import distance from the anchored file, so a bound cuts the farthest file rather than the
   alphabetically last; and the first probe is told which literal arguments the tree already
   passes to the changed symbols. Built with `ast` once per tree and cached under `.attest/cache/index/`;
-  no model call. Recall on the forty and the real-PR batches is unmeasured under it as of this
-  entry.
+  no model call. **Measured** on the forty ($2.82, [the report](docs/acceptance/2026-09-14-forty-with-index.md)):
+  **11 of 40 certified, from 12** -- one gained, two lost, inside the ±2 a re-run moves on its own;
+  the boundary class 1 of 13 as before. The index reports fewer callers than the regex did (76 → 34
+  snippets over the forty): a call on an untyped parameter inside the defining module is not one, and
+  that bound cost one of the two receipts lost. The real-PR batches are unmeasured under it.
 - **A paid driver reserves each unit at the recent forty's 95th percentile, not at the ceiling
   (D-244, owner instruction).** Reserving at the $1.00 ceiling refused the last three of forty at
   $2.53 of a $3.50 cap; the unit's own budget still binds what it may spend. AGENTS.md §9 also
