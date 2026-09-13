@@ -20,6 +20,9 @@ Cumulative cap raised from $110 to **$150** on 2026-09-11 (owner authorisation 4
 drawer window); from that window on, the self-reviews this repository's own workflow buys
 are settled on their own **dogfooding** line and no longer count against a research
 reservation. Cumulative before the drawer window: **$108.691267**.
+Cumulative cap raised from $150 to **$160** on 2026-09-14 (owner authorisation of 2026-09-14,
+"上限再提10", given after the index-repair window closed at $145.457111 so the context A/B of
+D-247 has room to reserve). Cumulative before the raise: **$145.457111**; headroom **$14.54**.
 
 ## API spend (counts against the cap)
 
@@ -163,7 +166,7 @@ product and not a saving to be pleased about; there is no lag carried into the n
 (nine self-review runs). Every other item of this window — the value-note census, the baseline
 re-analysis, the era-pin verification and every document — cost **$0.00**.
 
-**Total API spend: $145.457111 of $150.00.** — $117.733196 through the 2026-09-12 overnight window, $5.269577 for the 2026-09-13 release window without its superseded dogfooding estimate ($5.601177 − $0.331600), $0.101900 the overnight window's lag settled there, $11.805161 for the 0.3.0 window, $2.824511 for its step 4 (the forty under D-245, settled 2026-09-14), $2.711616 for arm A of the 2026-09-14 window (settled 2026-09-14, before arm C was dispatched), $1.993743 for arm C (settled before arm B was dispatched), and $3.017407 for arm B (settled 2026-09-14). The header had stood at $117.733196 since the overnight window while three windows settled below it; corrected 2026-09-14 (D-244 window), and the preflight reads this line.
+**Total API spend: $145.457111 of $160.00.** — $117.733196 through the 2026-09-12 overnight window, $5.269577 for the 2026-09-13 release window without its superseded dogfooding estimate ($5.601177 − $0.331600), $0.101900 the overnight window's lag settled there, $11.805161 for the 0.3.0 window, $2.824511 for its step 4 (the forty under D-245, settled 2026-09-14), $2.711616 for arm A of the 2026-09-14 window (settled 2026-09-14, before arm C was dispatched), $1.993743 for arm C (settled before arm B was dispatched), and $3.017407 for arm B (settled 2026-09-14). The header had stood at $117.733196 since the overnight window while three windows settled below it; corrected 2026-09-14 (D-244 window), and the preflight reads this line.
 
 > **Erratum, 2026-09-13.** This line read *"$52.226537 of $90.00", the figure at the end of the 2026-09-05c window*, and it had not moved since. It is the **only machine-readable line in this file** — `attest.benchmark.live.read_devspend` parses it, and every paid preflight since 2026-09-05c has therefore checked its headroom against a total **$38 low and a cap $20 low**. No run was actually over the real cap, because every window since has also carried its own driver-enforced cumulative cap and the owner's per-item ceiling; but the guard that exists to catch that was not the thing catching it. The figure above is the 2026-09-12b handoff's settled cumulative ($90.009721) plus this window's [PR #19](https://github.com/IcantFind-a-username/Attest/pull/19) self-review ($0.125900), against the $110 cap D-192 declined to raise. **It is updated at the end of every window from now on**, and the per-window prose totals below stay as the audit trail they always were.
 
@@ -347,6 +350,28 @@ before the first call of each phase and settled after it, per phase.
 |---|---|---|---|
 | 7 | **E-04 stratum v3, the same frozen 28-unit sample, re-run with `value_notes_visible` and `gate_notes_visible` on** (owner authorisation 3). `.github/workflows/e04-shadow.yml` on `ubuntu-latest`, **local review path only — no GitHub client is constructed, nothing is written to any repository**; `per_pr_budget_usd` $1.00, the shipped `k_samples` 5, `linux-container-v1`, `contained_attempt_voids` at the product default. The driver's cap is the reservation and a unit starts only if its $1.00 maximum still fits under it (D-172), so the run cannot overshoot; a unit the cap refuses is named. Measured basis: the 2026-09-13 runner re-take of the same sample cost $2.483001 for 28 units, before step 3 stopped the discovery share from truncating units, so the per-unit cost is expected higher and the cap, not the estimate, is what binds | **$3.00** | **$2.765980**; $0.234020 released. **9 of 28 units ran** before the cap refused the rest by name; **0 of 9 carried an author-visible line**; the same 9 cost $0.7676 on 2026-09-13 (D-221's whole-budget discovery, 3.6×). The ledgers were lost to the artifact upload's hidden-path default ([report](docs/acceptance/2026-09-12-e04-with-notes.md), D-225) |
 | — | **dogfooding**: the `attest` self-reviews the eight pull requests of this window buy (#40–#47). Not a study and not against any reservation; the cost of merging what the owner asked for | — | **$0.925113 so far** — $0.020659 ([#40](https://github.com/IcantFind-a-username/Attest/pull/40), run `34614084605`), $0.091862 ([#41](https://github.com/IcantFind-a-username/Attest/pull/41), run `34616278439`), $0.812592 ([#42](https://github.com/IcantFind-a-username/Attest/pull/42), run `34617821991` — the first self-review under D-221: read 10 of 20 units and named the other 10). The self-reviews of #43 and the step-8 pull request are not yet in this figure and are carried as a named lag |
+
+## Window 2026-09-14b (the context A/B) — reserved before the first call, not dispatched
+
+**Owner authorisation of 2026-09-14 ("上限再提10"), raising the cumulative cap from $150 to $160
+after the index-repair window settled at $145.457111.** The reservation below is posted before any
+call; **nothing has been dispatched** and a dispatch waits on the owner's word. The question is the
+one D-247 leaves open: the evidence chain is repaired, and whether any verdict moves under it is
+unmeasured. Design, denominators and the rule for reading the result:
+[the plan](docs/implementation/2026-09-14-context-ab-plan.md).
+
+| item | reserved | settled |
+|---|---|---|
+| **arm `old`** — `mutation-recall.yml` with `context: old`, the same forty, `trials-context-old.jsonl`, $1.00 per case, K=5, cap $5.00, the D-244 p95 reservation, `linux-container-v1`, the local review path, read-only clones, nothing written anywhere. The first probe's hint as it stood before D-247 | $5.00 | — |
+| **arm `new`** — the same dispatch with `context: new`: the hint carrying the routes into the changed code and the merge base's specification of them | $5.00 | — |
+| — | **$10.00** | — |
+
+**Only the first probe's hint differs between the arms** (`ProbeCall.include_routes`, recorded in
+every trial row); model, K, budget, verification count, certification, intent and publication rules
+are the shipped ones in both. Each arm is settled here before the next is dispatched, as the three
+probe arms of the index-repair window were, so every preflight's headroom check is mechanical.
+**AGENTS.md §9 binds the reading**: one re-run of this corpus moves about ±2 cases on its own, so a
+difference of two or fewer decides nothing and every difference is attributed case by case.
 
 ## Window 2026-09-14 (index repair) — four free steps, and the A/B/C probe arms reserved before the first call and not yet dispatched
 

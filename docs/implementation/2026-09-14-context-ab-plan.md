@@ -1,10 +1,10 @@
 # The next experiment: the same forty, old context against new (prepared, not run)
 
-**Prepared under D-247 on 2026-09-14. Nothing here has been dispatched, and this plan authorises
-nothing**: a paid run needs an owner instruction and a DEVSPEND reservation posted before the
-first call, and the cumulative cap has **$4.54** of headroom, which is less than one arm of this
-design. The question it answers is the only one D-247 leaves open: **does the repaired evidence
-chain change any verdict?**
+**Prepared under D-247 on 2026-09-14; the switch and the reservation exist and nothing has been
+dispatched.** The owner raised the cumulative cap to **$160** on 2026-09-14, and **$10.00** is
+reserved for the two arms in `DEVSPEND.md`; the dispatch itself waits on the owner's word, as
+every paid run does. The question it answers is the only one D-247 leaves open: **does the
+repaired evidence chain change any verdict?**
 
 ## The comparison
 
@@ -18,10 +18,18 @@ first probe's context.
 | population | `benchmarks/studies/mutations-v1-recall`, the same forty, rebuilt from the frozen sample, not re-drawn | identical |
 | trials file | `trials-context-old.jsonl` | `trials-context-new.jsonl` |
 
-**How the old arm is obtained.** Not by deleting code: `_probe_hint` assembles its blocks in a
-priority order, so the driver passes a switch that omits the routes block, exactly as the arms of
-D-246 step 5 pass a `ProbeCall`. The switch must be recorded in every trial row, as `probe_call`
-is, so an arm is legible from its own file.
+**How the old arm is obtained.** Not by deleting code and not by checking out an older commit:
+`ProbeCall(include_routes=False)` asks for the hint as it stood before D-247, so both arms run one
+build and differ in one field. The driver takes `--context new|old` (the workflow input `context`),
+writes `trials-context-<context>.jsonl`, and records `context` and `include_routes` in **every**
+trial row, so an arm is legible from its own file. One caveat on the record, checked rather than
+assumed: the old arm is not byte-identical to pre-D-247. Compared case by case on the forty rebuilt
+trees, the two hints differ on 39 of 40 **only** in `_asserted_block`'s revision label (*the
+repository's own tests* → *the head revision's own tests*); the fortieth produces no hint in either;
+and the `literals_hint` the ledger records is identical on 40 of 40.
+
+    python scripts/corpus/mutation_recall.py run --allow-paid-api --context old --reserve 5.00
+    python scripts/corpus/mutation_recall.py run --allow-paid-api --context new --reserve 5.00
 
 ## What is recorded, per case
 
@@ -48,6 +56,7 @@ was quoted and whether the receipt cites it; spend; wall clock; the probe stage'
 ## Cost, to be reserved before any call
 
 Three arms' worth of history says a forty-case pass costs **$2.0 to $3.0** at $1.00 per case with
-the D-244 p95 reservation admitting each case. Two arms is **$4 to $6**, and the reservation posted
-in `DEVSPEND.md` should be **$5.00 per arm** as the mutation study's own `cost_cap_usd` already is.
-The present headroom does not cover it.
+the D-244 p95 reservation admitting each case (A $2.71, B $3.02, C $1.99 on 2026-09-14). Two arms
+is **$4 to $6**; **$5.00 per arm, $10.00 in all, is reserved** in `DEVSPEND.md` (window 2026-09-14b),
+which is also the mutation study's own `cost_cap_usd` per dispatch. Settled after each arm, before
+the next is dispatched, as the three probe arms were.

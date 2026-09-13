@@ -212,8 +212,25 @@ def cmd_build(_args: argparse.Namespace) -> int:
 # proposals and the reproduction generator stay as they are. Prepared on
 # 2026-09-14; dispatched only on the owner's word.
 ARMS = ("A", "B", "C")
+# D-247 step: the first probe's context. "new" is the shipped hint with the routes
+# into the changed code and the merge base's specification of them; "old" asks for
+# the hint as it stood before D-247. Both arms run the same code and differ only in
+# this switch, so the comparison is of the context and not of two commits.
+CONTEXTS = ("new", "old")
 PROBE_ARM_MAX_OUTPUT_TOKENS = 8_000
 PROBE_ARM_THINKING = {"thinking": {"type": "adaptive"}, "output_config": {"effort": "medium"}}
+
+
+def probe_context(context: str, call: object | None) -> tuple[object, dict[str, object]]:
+    """The `ProbeCall` for a context arm and what the trial row records of it."""
+    from dataclasses import replace as _replace
+
+    from attest.review.executor import ProbeCall
+
+    base = call if call is not None else ProbeCall()
+    include = context != "old"
+    return _replace(base, include_routes=include), {"context": context or "new",
+                                                    "include_routes": include}
 
 
 def probe_arm(arm: str, config: object) -> tuple[object | None, dict[str, object]]:
@@ -259,9 +276,15 @@ def cmd_run(args: argparse.Namespace) -> int:
     assert sample, "the sample is empty"
     arm = str(getattr(args, "arm", "") or "")
     assert arm in ("", *ARMS), f"unknown arm {arm!r}"
+    context = str(getattr(args, "context", "") or "")
+    assert context in ("", *CONTEXTS), f"unknown context {context!r}"
     # an arm's trials carry its name in the file, so no arm is ever mistaken
     # for the shipped call's history when the report is read
-    default_trials = f"trials-arm-{arm}.jsonl" if arm else prospective.TRIALS_FILE
+    default_trials = prospective.TRIALS_FILE
+    if arm:
+        default_trials = f"trials-arm-{arm}.jsonl"
+    if context:
+        default_trials = f"trials-context-{context}.jsonl"
     trials_path = STUDY / (args.trials_file or default_trials)
     lines_path = STUDY / f"lines-{trials_path.stem}.jsonl"
     done = {row["unit_id"] for row in _read_jsonl(trials_path)}
@@ -321,6 +344,9 @@ def cmd_run(args: argparse.Namespace) -> int:
             "gate_notes_visible": True,
         })
         probe_call, probe_parameters = probe_arm(arm, config)
+        if context:
+            probe_call, context_parameters = probe_context(context, probe_call)
+            probe_parameters = {**probe_parameters, **context_parameters}
         started = datetime.now(UTC)
         review = run_review(
             repo, manifest["base_sha"], config, ApiProvider(config.model),
@@ -455,6 +481,10 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--only", default="",
                    help="comma-separated case ids: run these alone, in the frozen order, and "
                    "record every other pending case as skipped: not selected")
+    r.add_argument("--context", default="", choices=["", *CONTEXTS],
+                   help="D-247: the first probe's context -- new is the shipped hint with the "
+                   "routes and the merge-base specification, old is the hint as it stood before "
+                   "D-247; the trials file is trials-context-<context>.jsonl unless --trials-file")
     r.add_argument("--arm", default="", choices=["", *ARMS],
                    help="D-246 step 5: the probe arm -- A the shipped call, B the generation "
                    "model with adaptive thinking at effort medium, C the proposal model the "

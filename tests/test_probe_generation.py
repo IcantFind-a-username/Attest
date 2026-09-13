@@ -1451,3 +1451,35 @@ def test_a_nested_override_in_a_test_is_not_the_specification_of_the_tree(tmp_pa
     # body; that is a head reference and never the merge base's specification
     assert "```python\n    class Loud" not in first
     assert "def test_a_subclass_may_override_the_reader" not in first
+
+
+def test_the_routes_block_can_be_switched_off_for_a_context_comparison(tmp_path: Path) -> None:
+    """D-247 RED: comparing the old context against the new needs the old one to
+    be *asked for*, not deleted -- an arm that reaches the driver as a switch,
+    like `ProbeCall`'s model does, so both arms run the same code. With the
+    routes off the request is the hint as it stood before D-247: the moved
+    conditions, the certification rule and the literal list, and no route and no
+    merge-base quotation."""
+    from attest.review.executor import ProbeCall
+
+    repo, base_sha, head_sha = cross_file_revisions(tmp_path)
+    off = PromptRecorder(BOUNDARY_PROBE)
+
+    verify(
+        repo,
+        base_sha,
+        head_sha,
+        off,
+        candidate=stored(**CROSS_FILE_CANDIDATE),
+        probe_call=ProbeCall(include_routes=False),
+    )
+
+    request = off.prompts[0]
+    assert "Routes into" not in request
+    assert "No route into" not in request
+    assert "What the merge base specifies" not in request
+    assert "No test of the merge base names" not in request
+    # what the hint carried before D-247 is still there
+    assert "Conditions this change removed or altered:" in request
+    assert "No test of the head revision asserts a value about" in request
+    assert "Literal arguments the repository passes to" in request

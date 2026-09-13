@@ -105,6 +105,10 @@ class ProbeCall:
     provider: Provider | None = None
     model: str = ""
     max_output_tokens: int = PROBE_MAX_OUTPUT_TOKENS
+    # D-247: the routes into the changed code and the merge base's specification
+    # of them. False asks for the hint as it stood before D-247, which is how the
+    # two arms of a context comparison run the same code rather than two commits.
+    include_routes: bool = True
 # D-216: how many probes the **search** may buy for one candidate. D-206 gave
 # the derived probes a screen-and-eliminate loop; the model probe had exactly
 # one candidate and stopped, so a first guess that missed the changed code ended
@@ -1052,7 +1056,9 @@ def generate_probe(
     shared = _generation_prompt(repo, candidate, base_ref)
     # D-238: what the tree's own tests assert about the changed symbols, and the
     # rule that makes it matter -- after the cacheable prefix, like the feedback
-    hint, literals_hint = _probe_hint(repo, candidate, base_ref)
+    hint, literals_hint = _probe_hint(
+        repo, candidate, base_ref, include_routes=call.include_routes
+    )
     prompt = "\n\n".join(part for part in (shared, hint, feedback) if part)
     labels = [
         f"probe-{candidate.finding.finding_id}-attempt-{attempt}"
@@ -1272,7 +1278,11 @@ def _conditions_block(conditions: Sequence[str]) -> str:
 
 
 def _probe_hint(
-    repo: Path, candidate: StoredCandidate, base_ref: str | None = None
+    repo: Path,
+    candidate: StoredCandidate,
+    base_ref: str | None = None,
+    *,
+    include_routes: bool = True,
 ) -> tuple[str, str]:
     """The D-238/D-240/D-245 block for the first probe, read from the checked-out
     tree: the conditions the change moved in the definitions the anchor sits
@@ -1299,15 +1309,17 @@ def _probe_hint(
     # D-247: the routes the planner already resolves for discovery, and what the
     # merge base specifies about them, read at `base_ref` so a test this change
     # added cannot pose as the tree's existing specification
-    paths = call_paths_into(repo, candidate.finding.file, symbols)
-    entries = [path.entry for path in paths if path.entry]
-    specifications: list[tuple[str, str]] = []
-    unspecified: list[str] = list(symbols)
-    if base_ref is not None:
-        specifications, unspecified = base_specifications_for(
-            repo, base_ref, [*entries, *symbols]
-        )
-    routes = _call_paths_block(symbols, paths, specifications, unspecified)
+    routes = ""
+    if include_routes:
+        paths = call_paths_into(repo, candidate.finding.file, symbols)
+        entries = [path.entry for path in paths if path.entry]
+        specifications: list[tuple[str, str]] = []
+        unspecified: list[str] = list(symbols)
+        if base_ref is not None:
+            specifications, unspecified = base_specifications_for(
+                repo, base_ref, [*entries, *symbols]
+            )
+        routes = _call_paths_block(symbols, paths, specifications, unspecified)
     asserted = _asserted_block(symbols, asserted_values_about(repo, symbols))
     literals_hint = _literals_block(
         symbols, _literal_arguments(repo, candidate.finding.file, symbols)

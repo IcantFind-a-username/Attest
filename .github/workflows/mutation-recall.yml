@@ -52,6 +52,14 @@ on:
           skipped: not selected. Empty runs every case not yet in the trials file.
         type: string
         default: ""
+      context:
+        description: >-
+          D-247, the first probe's context: new is the shipped hint with the
+          routes into the changed code and the merge base's specification of
+          them, old is the hint as it stood before D-247. Empty is new without
+          a context-named trials file. Only the first probe's hint moves.
+        type: string
+        default: ""
       arm:
         description: >-
           D-246 step 5, the probe arm: A the shipped call, B the generation
@@ -141,6 +149,7 @@ jobs:
             --trials-file "${{ inputs.trials_file }}" \
             --only "${{ inputs.only }}" \
             --arm "${{ inputs.arm }}" \
+            --context "${{ inputs.context }}" \
             2>&1 | tee recall-run.log
 
       - name: Table
