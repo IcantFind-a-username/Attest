@@ -22,6 +22,8 @@ rather than deleted — a backlog whose closed items vanish cannot be audited.
 
 <!-- entries below, newest first -->
 
+- **2026-09-14: `src/attest/review/planner.py::package_block_report` lists a test file twice when the project's tests live inside the package** (`jsonschema/tests/`): the package walk and the tests walk both yield it, a file that fits is added twice and spends the bound on a copy, and the cut list names it twice. Seen in the D-246 step-4 census on the four `jsonschema` pull requests; not fixed, because the block is built under no shipped configuration (`context_strategy = r01`).
+
 - **2026-09-14: `src/attest/review/planner.py::_enclosing_definitions` names the wrong symbol when a hunk's context lines touch a neighbouring definition of the same length.** It takes the innermost definition touching the *whole hunk range* (context lines included), ties broken by `ast.walk` order, which is breadth-first: a one-line change inside `Reader.parse` whose three trailing context lines reach `def load_untyped` is attributed to `load_untyped` (top level, walked before the nested method), and the callers retrieved are that neighbour's. Found while writing D-246's step-3 fixture, which works around it by spacing the two apart. The fix is to span the changed lines rather than the hunk, and to prefer the innermost by nesting rather than by length; not done here because it changes every plan's symbols and therefore every discovery prompt on the forty.
 
 - **2026-09-13: `tests/test_ci_flow.py::test_pr_family_policy_caps_publication_and_counts_a_defect_once`

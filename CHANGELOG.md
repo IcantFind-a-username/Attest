@@ -21,7 +21,9 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   the probe row carries the literals block its prompt held (`attest.probe-observation.v5`), the plan
   row carries every caller snippet with its resolution and the shared package block's anchor, size
   and the files its bound cut (`attest.review-plan.v2`) -- and says `null` for the block, because
-  the shipped `context_strategy` is `r01` and nothing measured has ever built one.
+  the shipped `context_strategy` is `r01` and nothing measured has ever built one. Were it built,
+  the 120k bound would bind on 49 of the 68 real pull requests reviewed so far and cut an importer
+  of the changed module on 29; the lever has had no chance to act, and no paid run is scheduled for it.
 - **The tree index (D-245).** A changed symbol's callers are resolved through the import that
   bound the name, so a method named `parse` or `get` gets its callers like any other and a
   same-named call on an unrelated object is not one; the shared package block is ordered by
