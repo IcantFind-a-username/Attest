@@ -330,3 +330,55 @@ def test_package_block_puts_the_files_nearest_on_the_import_graph_first(tmp_path
         block.index("### tests/test_aaa.py"),
     ]
     assert order == sorted(order)
+
+
+def test_a_call_inside_the_defining_module_on_an_untyped_receiver_is_a_caller(
+    tmp_path: Path,
+) -> None:
+    """D-246 (a) RED: `parser.py` calls `reader.read_regex(...)` from its own
+    module-level functions on a parameter the index cannot type; the attribute
+    rule counted such a call only from a file that *imports* the defining
+    module, and the defining module never imports itself. Twelve callers of
+    `python-dotenv-guard_raise-04` vanished that way. The defining module is
+    always its own importer, so the caller snippet is context."""
+    repo = tmp_path / "repo"
+    (repo / "src" / "pkg").mkdir(parents=True)
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "fixture@example.invalid")
+    _git(repo, "config", "user.name", "Fixture")
+    (repo / "src" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    (repo / "src" / "pkg" / "parser.py").write_text(
+        "class Reader:\n"
+        "    def read_regex(self, regex):\n"
+        "        if regex is None:\n"
+        "            raise ValueError('no regex')\n"
+        "        return regex\n"
+        "\n"
+        "\n"
+        "def parse_key(reader):\n"
+        "    return reader.read_regex('key')\n",
+        encoding="utf-8",
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "base")
+    base = _git(repo, "rev-parse", "HEAD")
+    (repo / "src" / "pkg" / "parser.py").write_text(
+        "class Reader:\n"
+        "    def read_regex(self, regex):\n"
+        "        return regex\n"
+        "\n"
+        "\n"
+        "def parse_key(reader):\n"
+        "    return reader.read_regex('key')\n",
+        encoding="utf-8",
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "head deletes the guard")
+
+    provider = PromptRecorder()
+    run_review(repo, base, ReviewConfig(k_samples=1, tier0_commands=[]), provider)
+
+    assert len(provider.prompts) == 1
+    prompt = provider.prompts[0]
+    assert "caller of `read_regex` outside the diff: src/pkg/parser.py" in prompt
+    assert "reader.read_regex('key')" in prompt

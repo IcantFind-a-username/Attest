@@ -19,10 +19,13 @@ decides anything.
 Resolution is deliberately shallow and honest about it. A call is **exact**
 when the name it uses is bound by an import of an in-tree module or defined in
 the same module (``self.method()`` inside a class counts, through the enclosing
-class); it is an **attribute** match when the receiver is a variable whose type
-the index does not know, and then the caller's file importing the defining
-module is the evidence that ranks it. A bare name match on a generic name is
-never reported as a caller.
+class), or when its receiver is a parameter annotated with an in-tree class
+(D-246: ``def f(reader: Reader)`` then ``reader.x()`` is ``Reader.x``); it is
+an **attribute** match when the receiver is a variable whose type the index
+does not know, and then the caller's file importing the defining module -- or
+*being* the defining module, which is always its own importer (D-246) -- is
+the evidence that ranks it. A bare name match on a generic name is never
+reported as a caller.
 """
 
 from __future__ import annotations
@@ -34,11 +37,11 @@ import os
 import warnings
 from collections import Counter, deque
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-INDEX_SCHEMA_VERSION = "attest.tree-index.v1"
+INDEX_SCHEMA_VERSION = "attest.tree-index.v2"
 INDEX_DIR = ".attest/cache/index"
 
 MAX_INDEXED_FILES = 4_000
@@ -88,6 +91,7 @@ class TreeIndex:
     calls: tuple[CallSite, ...]
     _by_module: dict[str, list[Definition]] = field(default_factory=dict, repr=False)
     _paths: dict[str, str] = field(default_factory=dict, repr=False)
+    _defined: set[str] = field(default_factory=set, repr=False)
 
     # ------------------------------------------------------------ lookups
 
@@ -107,6 +111,13 @@ class TreeIndex:
                 self._by_module.setdefault(definition.module, []).append(definition)
         return [d for d in self._by_module.get(module, []) if d.name == name]
 
+    def is_defined(self, callee: str) -> bool:
+        """Whether ``callee`` (``module:qualname``) names a definition the
+        index holds."""
+        if not self._defined:
+            self._defined.update(f"{d.module}:{d.qualname}" for d in self.definitions)
+        return callee in self._defined
+
     def callers_of(self, module: str, name: str) -> list[CallSite]:
         """Call sites reaching a definition named ``name`` in ``module``, exact
         ones first, then attribute calls from files that import ``module``.
@@ -114,16 +125,26 @@ class TreeIndex:
         The attribute rule is the honest bound of a static index: a call on a
         receiver whose type it cannot know is a caller *if* the file could have
         got the object from the changed module. A same-named call in a file
-        that never imports it is not reported."""
-        targets = {f"{module}:{d.qualname}" for d in self.definitions_named(module, name)}
+        that never imports it is not reported. The defining module is always
+        its own importer (D-246): a module-level function calling a method on
+        an untyped parameter of its own class is where such a call most often
+        lives, and a module never imports itself. A typed receiver whose class
+        does not itself define ``name`` -- the method is inherited, or the
+        binding is not a class -- is a receiver the index cannot type, and the
+        attribute rule applies to it (D-246)."""
+        definitions = self.definitions_named(module, name)
+        targets = {f"{module}:{d.qualname}" for d in definitions}
         if not targets:
             return []
         exact = [c for c in self.calls if c.resolution == EXACT and c.callee in targets]
         importers = {path for path, imported in self.imports.items() if module in imported}
+        importers.update(d.path for d in definitions)
         attribute = [
-            c
+            c if c.resolution == ATTRIBUTE else replace(c, callee="", resolution=ATTRIBUTE)
             for c in self.calls
-            if c.resolution == ATTRIBUTE and c.name == name and c.path in importers
+            if c.name == name
+            and c.path in importers
+            and (c.resolution == ATTRIBUTE or not self.is_defined(c.callee))
         ]
         return sorted(exact, key=_site_order) + sorted(attribute, key=_site_order)
 
@@ -279,6 +300,19 @@ class _FileIndexer(ast.NodeVisitor):
         self.bindings: dict[str, str] = {}
         self.local_names: set[str] = set()
         self._class_stack: list[str] = []
+        # D-246 (b): per enclosing function, the parameters annotated with an
+        # in-tree class -> "module:Class"; innermost function last
+        self._parameter_stack: list[dict[str, str]] = []
+
+    def visit_Module(self, node: ast.Module) -> None:
+        # D-246: a module's top-level names are known before its body is read,
+        # so a call made above the definition still resolves to it
+        self.local_names.update(
+            child.name
+            for child in node.body
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        )
+        self.generic_visit(node)
 
     # -- imports
 
@@ -337,11 +371,50 @@ class _FileIndexer(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._define(node)
+        self._parameter_stack.append(self._typed_parameters(node))
         self.generic_visit(node)
+        self._parameter_stack.pop()
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._define(node)
+        self._parameter_stack.append(self._typed_parameters(node))
         self.generic_visit(node)
+        self._parameter_stack.pop()
+
+    def _class_binding(self, name: str) -> str | None:
+        """``"module:Class"`` when ``name`` is bound by a ``from`` import of an
+        in-tree definition or defined at the top of this module, else None."""
+        bound = self.bindings.get(name)
+        if bound and ":" in bound:
+            return bound
+        if bound is None and name in self.local_names:
+            return f"{self.module}:{name}"
+        return None
+
+    def _typed_parameters(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> dict[str, str]:
+        """D-246 (b): the parameters whose annotation is a bare name bound to an
+        in-tree class. ``Optional[Reader]``, a quoted forward reference, a
+        dotted ``mod.Reader``, the return annotation and ``self.attr``
+        annotations are not read; a parameter with no annotation stays a
+        receiver the index cannot type."""
+        typed: dict[str, str] = {}
+        arguments = node.args
+        for argument in [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]:
+            annotation = argument.annotation
+            if not isinstance(annotation, ast.Name):
+                continue
+            binding = self._class_binding(annotation.id)
+            if binding is not None:
+                typed[argument.arg] = binding
+        return typed
+
+    def _parameter_type(self, name: str) -> str | None:
+        for scope in reversed(self._parameter_stack):
+            if name in scope:
+                return scope[name]
+        return None
 
     # -- calls
 
@@ -367,6 +440,10 @@ class _FileIndexer(ast.NodeVisitor):
         name = func.attr
         receiver = func.value
         if isinstance(receiver, ast.Name):
+            typed = self._parameter_type(receiver.id)
+            if typed is not None:
+                # D-246 (b): a parameter annotated with an in-tree class
+                return CallSite(self.rel, node.lineno, name, f"{typed}.{name}", EXACT, literals)
             bound = self.bindings.get(receiver.id)
             if bound and ":" not in bound and bound in self.tree_modules:
                 return CallSite(self.rel, node.lineno, name, f"{bound}:{name}", EXACT, literals)
