@@ -360,7 +360,7 @@ NAMESPACE_BODY = (
     "    assert escaped == [], escaped\n"
 )
 
-REGRESSION_BODY = "import mod\n\ndef test_repro():\n    assert mod.add(2, 2) == 4"
+REGRESSION_BODY = "import mod\n\ndef test_repro():\n    assert mod.add(2, None) == 2"
 
 
 @dataclass
@@ -394,7 +394,8 @@ def _git(repo: Path, *args: str) -> str:
 
 
 def _repo(root: Path) -> tuple[Path, str, str]:
-    """base: `add` is correct. head: `add` raises. A real regression.
+    """base: `add` coerces `None`. head: it does not, and `add` raises. A real
+    regression.
 
     **The control must be a crash, not a changed value.** On 2026-09-07 the
     control was `a + b` becoming `a - b`, and it stopped certifying — not
@@ -403,16 +404,30 @@ def _repo(root: Path) -> tuple[Path, str, str]:
     tree does not state. A matrix whose control fails for a reason unrelated to
     the boundary reports FAIL about the wrong thing. The crash class is the
     class this product certifies, so the control is one.
+
+    **And the crash must not be raised on a line the change wrote.** On
+    2026-09-13 the control was `return a + b` becoming `parts = [a]; return
+    parts[1] + b`, and the first dispatch after `attest.intent.v5` broke it the
+    same way: D-232 reads an exception raised on a written line as a behaviour
+    change of unknown intent and sends it to the drawer, so the control
+    deferred and the matrix reported FAIL about the wrong thing again
+    (run 34784037696 — all thirteen attack rows were `ok` in that same run).
+    The control is now the class D-232 leaves to red and the one the mutation
+    corpus certifies: the changed line executes, and the exception is raised on
+    an unchanged line below it with no written line on its path.
     """
     repo = root / "repo"
     repo.mkdir()
     _git(repo, "init", "--initial-branch=main")
-    (repo / "mod.py").write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+    (repo / "mod.py").write_text(
+        "def add(a, b):\n    b = 0 if b is None else b\n    return a + b\n", encoding="utf-8"
+    )
     _git(repo, "add", "mod.py")
     _git(repo, "commit", "-m", "base")
     base = _git(repo, "rev-parse", "HEAD")
     (repo / "mod.py").write_text(
-        "def add(a, b):\n    parts = [a]\n    return parts[1] + b\n", encoding="utf-8"
+        "def add(a, b):\n    b = int(b) if isinstance(b, str) else b\n    return a + b\n",
+        encoding="utf-8",
     )
     _git(repo, "commit", "-am", "head")
     return repo, base, _git(repo, "rev-parse", "HEAD")
