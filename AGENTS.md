@@ -527,6 +527,7 @@ not call a safe abstention a completed quality result.
 
 ```text
 src/attest/review       current discovery, fixed S/T/V review flow, executor and ledger
+src/attest/review/index.py  the per-tree ast index: definitions, imports, resolved call sites (D-245)
 src/attest/core         research binary-judge engine; generic decide helper reused today
 src/attest/benchmark    corpus, receipts, replay/live/stability/experiments/reporting
 src/attest/github       GitHub context, API client and presentation

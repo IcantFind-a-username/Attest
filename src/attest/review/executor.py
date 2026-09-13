@@ -39,6 +39,7 @@ from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.diffs import parse_diff
 from attest.review.gate import GateResult, apply_verification
+from attest.review.index import tree_index
 from attest.review.intent import (
     RaiseOrigin,
     asserted_values_about,
@@ -1125,6 +1126,8 @@ def generate_probe(
 REFUSAL_FEEDBACK_CHARS = 600
 # D-238: the most of the anchored file's diff a probe's feedback quotes
 MAX_FEEDBACK_DIFF_CHARS = 1_500
+# D-245: the most literal arguments the probe prompt lists for the changed symbols
+MAX_LITERAL_HINTS = 12
 
 
 def _asserted_block(symbols: Sequence[str], values: Sequence[str]) -> str:
@@ -1146,6 +1149,23 @@ def _asserted_block(symbols: Sequence[str], values: Sequence[str]) -> str:
         "certified as a regression; a value nothing in the repository asserts cannot, and is "
         "shown only as a changed value with unknown intent. Prefer an input whose merge-base "
         "result is one of the values above, when the change is about such an input."
+    )
+
+
+def _literals_block(symbols: Sequence[str], literals: Sequence[str]) -> str:
+    """D-245: the literal arguments the tree's own code and tests pass to the
+    changed symbols, from the tree index, most frequent first. A fact about
+    the tree: these are the inputs it already treats as inputs, and the ones
+    next to a moved boundary are where a probe looks first. The model still
+    chooses the call."""
+    if not literals:
+        return ""
+    names = ", ".join(f"`{name}`" for name in symbols) or "the changed code"
+    return (
+        f"Literal arguments the repository passes to {names}, most frequent first: "
+        + ", ".join(f"`{value}`" for value in literals)
+        + ". An input the tree already uses, or the value one step past it, is where a "
+        "probe reaches the change with the least guessing."
     )
 
 
@@ -1186,7 +1206,26 @@ def _asserted_values_hint(
             changed = _changed_lines(repo, base_ref, "HEAD", candidate.finding.file)
             parts.append(_conditions_block(changed_conditions(base_source, source, changed)))
     parts.append(_asserted_block(symbols, asserted_values_about(repo, symbols)))
+    literals = _literal_arguments(repo, candidate.finding.file, symbols)
+    parts.append(_literals_block(symbols, literals))
     return "\n\n".join(part for part in parts if part)
+
+
+def _literal_arguments(repo: Path, file: str, symbols: Sequence[str]) -> list[str]:
+    """The tree index's literal census for ``symbols`` of ``file``, or nothing
+    when the tree cannot be indexed -- the hint is a fact or it is absent."""
+    try:
+        index = tree_index(repo)
+    except OSError:
+        return []
+    module = index.module_of(file)
+    if not module:
+        return []
+    found: dict[str, None] = {}
+    for name in symbols:
+        for literal in index.literal_arguments(module, name):
+            found.setdefault(literal, None)
+    return list(found)[:MAX_LITERAL_HINTS]
 
 
 def _refusal_feedback(refusals: Sequence[str]) -> str:

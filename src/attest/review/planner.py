@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from attest.review.diffs import DiffInfo, parse_diff
+from attest.review.index import TreeIndex, tree_index
 
 PLAN_SCHEMA_VERSION = "attest.review-plan.v1"
 
@@ -368,37 +369,54 @@ def _definition_source(source: str, name: str) -> tuple[int, int, str] | None:
 
 
 def _callers(
-    corpus: _Corpus, symbol: ChangedSymbol, diff: DiffInfo
+    corpus: _Corpus, index: TreeIndex, symbol: ChangedSymbol, diff: DiffInfo
 ) -> tuple[list[ContextSnippet], int]:
-    """Call sites of ``symbol`` outside the diff hunks, bounded; returns (kept, dropped)."""
-    pattern = re.compile(rf"(?<![\w.]){re.escape(symbol.name)}\s*\(")
-    method = re.compile(rf"\.{re.escape(symbol.name)}\s*\(")
+    """Call sites of ``symbol`` outside the diff hunks, bounded; returns (kept, dropped).
+
+    D-245: the sites come from the tree index, which resolves a call through
+    the import that bound its name, so a generic name is searched like any
+    other and a same-named call on an unrelated object is not a caller. Test
+    files are retrieved separately as references."""
+    module = index.module_of(symbol.path)
+    if not module:
+        return [], 0
+    by_path = dict(corpus.sources())
     hits: list[ContextSnippet] = []
-    for rel, source in corpus.sources():
-        if "test" in rel.lower():
-            continue  # tests are retrieved separately as references
+    for site in index.callers_of(module, symbol.name):
+        if "test" in site.path.lower():
+            continue
+        if site.path == symbol.path and diff.anchor_in_hunk(site.path, site.line):
+            continue  # already visible in the diff
+        source = by_path.get(site.path)
+        if source is None:
+            continue
         lines = source.splitlines()
-        for index, line in enumerate(lines, start=1):
-            if not (pattern.search(line) or method.search(line)):
-                continue
-            if _DEF_RE.match("+" + line.strip()):
-                continue  # the definition itself
-            if rel == symbol.path and diff.anchor_in_hunk(rel, index):
-                continue  # already visible in the diff
-            start = max(1, index - CALLER_CONTEXT_LINES)
-            end = min(len(lines), index + CALLER_CONTEXT_LINES)
-            hits.append(
-                ContextSnippet(
-                    kind="caller",
-                    symbol=symbol.name,
-                    path=rel,
-                    start=start,
-                    end=end,
-                    text="\n".join(lines[start - 1 : end]),
-                )
+        if site.line < 1 or site.line > len(lines):
+            continue
+        if _DEF_RE.match("+" + lines[site.line - 1].strip()):
+            continue  # the definition itself
+        start = max(1, site.line - CALLER_CONTEXT_LINES)
+        end = min(len(lines), site.line + CALLER_CONTEXT_LINES)
+        hits.append(
+            ContextSnippet(
+                kind="caller",
+                symbol=symbol.name,
+                path=site.path,
+                start=start,
+                end=end,
+                text="\n".join(lines[start - 1 : end]),
             )
-    hits.sort(key=lambda s: (s.path, s.start))
-    return hits[:MAX_CALLERS_PER_SYMBOL], max(0, len(hits) - MAX_CALLERS_PER_SYMBOL)
+        )
+    # exact resolutions first (the index already orders them), then by place;
+    # the same window reached by two calls is one snippet
+    seen: set[tuple[str, int]] = set()
+    unique = []
+    for hit in hits:
+        if (hit.path, hit.start) in seen:
+            continue
+        seen.add((hit.path, hit.start))
+        unique.append(hit)
+    return unique[:MAX_CALLERS_PER_SYMBOL], max(0, len(unique) - MAX_CALLERS_PER_SYMBOL)
 
 
 def _test_references(corpus: _Corpus, names: list[str]) -> tuple[list[ContextSnippet], int]:
@@ -433,7 +451,13 @@ def _import_block(source: str) -> tuple[int, int, str] | None:
 
 
 def _file_context(
-    repo: Path, corpus: _Corpus, base_ref: str, path: str, block: str, diff: DiffInfo
+    repo: Path,
+    corpus: _Corpus,
+    index: TreeIndex,
+    base_ref: str,
+    path: str,
+    block: str,
+    diff: DiffInfo,
 ) -> tuple[list[ContextSnippet], list[str]]:
     snippets: list[ContextSnippet] = []
     omissions: list[str] = []
@@ -458,10 +482,7 @@ def _file_context(
             if found is not None:
                 start, end, text = found
                 snippets.append(ContextSnippet("old_side", symbol.name, path, start, end, text))
-            if not _searchable(symbol.name):
-                omissions.append(f"callers of generic name {symbol.name} not searched")
-                continue
-            callers, dropped = _callers(corpus, symbol, diff)
+            callers, dropped = _callers(corpus, index, symbol, diff)
             snippets.extend(callers)
             if dropped:
                 omissions.append(f"{dropped} further caller(s) of {symbol.name} omitted")
@@ -538,11 +559,14 @@ def plan_review(repo: Path, diff: DiffInfo, base_ref: str) -> ReviewPlan:
     """Stable units over the merge-base diff, each with bounded retrieved context."""
     blocks = split_diff_by_file(diff.text)
     corpus = _Corpus(repo)
+    index = tree_index(repo)
     per_file: list[tuple[str, list[ContextSnippet], list[str]]] = []
     for path in sorted(blocks, key=lambda name: _unit_order(name, blocks[name])):
         if path not in diff.hunks:
             continue  # no anchorable new-file lines (binary, mode-only)
-        snippets, omissions = _file_context(repo, corpus, base_ref, path, blocks[path], diff)
+        snippets, omissions = _file_context(
+            repo, corpus, index, base_ref, path, blocks[path], diff
+        )
         per_file.append((path, snippets, omissions))
 
     units: list[PlanUnit] = []
@@ -649,12 +673,27 @@ def package_block(repo: Path, path: str) -> str:
     def skipped(file: Path) -> bool:
         return any(part in _SKIP_DIRS for part in file.relative_to(repo).parts)
 
+    # D-245: within the package and within the tests, the files nearest the
+    # anchored module on the import graph come first, so what the bound cuts
+    # is the farthest file, not the alphabetically last one
+    distance = tree_index(repo).import_distance(path)
+    far = len(distance) + 1
+
+    def by_distance(file: Path) -> tuple[int, str]:
+        rel = file.relative_to(repo).as_posix()
+        return (distance.get(rel, far), rel)
+
     ordered.extend(
-        file for file in sorted(package_dir.rglob("*.py")) if file != anchored and not skipped(file)
+        sorted(
+            (file for file in package_dir.rglob("*.py") if file != anchored and not skipped(file)),
+            key=by_distance,
+        )
     )
     tests_dir = _tests_dir_for(repo, package_dir)
     if tests_dir is not None:
-        ordered.extend(file for file in sorted(tests_dir.rglob("*.py")) if not skipped(file))
+        ordered.extend(
+            sorted((file for file in tests_dir.rglob("*.py") if not skipped(file)), key=by_distance)
+        )
     for file in ordered:
         if not add(file):
             break
