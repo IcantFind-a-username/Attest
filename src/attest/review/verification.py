@@ -39,6 +39,7 @@ from attest.review.config import ReviewConfig
 from attest.review.executor import (
     ExecutionOutcome,
     ExecutorLimits,
+    ProbeCall,
     VerificationRun,
     verify_candidate,
 )
@@ -95,6 +96,7 @@ def run_verification_stage(
     clock: Callable[[], float] = time.monotonic,
     adapter: ExecutorAdapter | None = None,
     production: bool = True,
+    probe_call: ProbeCall | None = None,
 ) -> VerificationStage:
     ledger = Ledger(repo)
     verification_started = clock()
@@ -228,6 +230,7 @@ def run_verification_stage(
             probe_generation=config.probe_generation,
             contained_attempt_voids=config.contained_attempt_voids,
             ledger=journal,
+            probe_call=probe_call,
         )
 
     # D-157: reproductions of *different* candidates may overlap; the three

@@ -540,3 +540,32 @@ def test_a_provider_error_never_carries_a_credential_into_author_visible_text(
     assert secret not in detail
     assert "401 authentication_error" in detail
     assert len(redacted_error(RuntimeError("x" * 5000))) < 600
+
+
+def test_a_provider_built_with_thinking_arguments_sends_them() -> None:
+    """D-246 step 5 RED: an A/B/C arm changes how the probe is asked for --
+    thinking adaptive at a chosen effort -- and nothing else; the provider it
+    is asked through must send those arguments in place of the shipped
+    `thinking: disabled`, beside the structured-output format."""
+    provider = ApiProvider(
+        "claude-sonnet-5",
+        thinking={"thinking": {"type": "adaptive"}, "output_config": {"effort": "medium"}},
+    )
+    captured: dict[str, Any] = {}
+    response = SimpleNamespace(
+        content=[SimpleNamespace(type="text", text='{"findings": []}')],
+        usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+        stop_reason="end_turn",
+    )
+
+    def create(**kwargs: Any) -> Any:
+        captured.update(kwargs)
+        return response
+
+    provider.client = SimpleNamespace(messages=SimpleNamespace(create=create))
+    provider.sample("system", "prompt", {"type": "object"}, 8000)
+
+    assert captured["thinking"] == {"type": "adaptive"}
+    assert captured["output_config"]["effort"] == "medium"
+    assert captured["output_config"]["format"]["type"] == "json_schema"
+    assert captured["max_tokens"] == 8000

@@ -1171,3 +1171,66 @@ def test_the_ledger_keeps_the_literals_the_probe_was_told(tmp_path: Path) -> Non
     assert probe["literals_hint"].startswith("Literal arguments the repository passes to `clamp`")
     assert "`20`" in probe["literals_hint"] and "`-1`" in probe["literals_hint"]
     assert probe["literals_hint"] in provider.prompts[0]
+
+
+def test_the_probe_call_can_be_routed_to_its_own_provider_model_and_output_bound(
+    tmp_path: Path,
+) -> None:
+    """D-246 step 5 RED: an A/B/C arm changes the probe's one call -- its
+    provider, its model and its output bound -- and leaves the proposals and
+    the reproduction generator on the review's own provider."""
+    from attest.review.executor import ProbeCall
+
+    class ArmRecorder(PromptRecorder):
+        """A provider that understands the model override and keeps what it was asked."""
+
+        supports_cache_control = True
+        supports_model_override = True
+
+        def __init__(self, *payloads: dict[str, str]) -> None:
+            super().__init__(*payloads)
+            self.max_tokens_seen: list[int] = []
+            self.models: list[str] = []
+
+        def sample(  # type: ignore[override]
+            self,
+            system: str,
+            prompt: str,
+            schema: dict[str, Any],
+            max_tokens: int,
+            *,
+            timeout_s: float | None = None,
+            shared_prefix: str = "",
+            on_first_token: Any = None,
+            shared_system: str = "",
+            model: str = "",
+        ) -> ProviderResult:
+            self.max_tokens_seen.append(max_tokens)
+            self.models.append(model)
+            return super().sample(system, prompt, schema, max_tokens, timeout_s=timeout_s)
+
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_RAISES, HEAD_GUARDS)
+    review_provider = PromptRecorder(SETUP_PROBE)
+    arm_provider = ArmRecorder(SETUP_PROBE)
+    budget = Budget(limit_usd=1.0, model=DEFAULT_MODEL)
+    candidate = stored(line=2)
+
+    run = verify_candidate(
+        repo,
+        candidate,
+        gate_for(candidate),
+        review_provider,
+        budget,
+        ExecutorLimits(wall_timeout_s=90),
+        base_sha=base_sha,
+        head_sha=head_sha,
+        probe_generation=True,
+        probe_call=ProbeCall(provider=arm_provider, model="claude-opus-5", max_output_tokens=8000),
+    )
+
+    assert run.execution.probe is not None
+    assert arm_provider.prompts and not review_provider.prompts
+    assert arm_provider.max_tokens_seen == [8000]
+    assert arm_provider.models == ["claude-opus-5"]
+    (probe_call,) = [c for c in budget.calls if c["label"].startswith("probe-")]
+    assert probe_call["model"] == "claude-opus-5"

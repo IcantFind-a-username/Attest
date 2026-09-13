@@ -24,6 +24,11 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   the shipped `context_strategy` is `r01` and nothing measured has ever built one. Were it built,
   the 120k bound would bind on 49 of the 68 real pull requests reviewed so far and cut an importer
   of the changed module on 29; the lever has had no chance to act, and no paid run is scheduled for it.
+  The probe's one call can be routed to its own provider, model and output bound (`ProbeCall`),
+  which is how the A/B/C thinking arms were run on the forty ($7.72, [the report](docs/acceptance/2026-09-14-probe-arms.md)):
+  A 12, B 14, C 13 of 40, one re-run apart; the pre-registered rule names C (the proposal model,
+  thinking adaptive at effort medium) on cost per certified case, $0.15 against A's $0.23. Nothing
+  in the shipped call moved; the switch is the owner's.
 - **The tree index (D-245).** A changed symbol's callers are resolved through the import that
   bound the name, so a method named `parse` or `get` gets its callers like any other and a
   same-named call on an unrelated object is not one; the shared package block is ordered by
