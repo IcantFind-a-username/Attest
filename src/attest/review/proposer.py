@@ -246,9 +246,19 @@ class ApiProvider:
     supports_cache_control = True
     supports_model_override = True
 
-    def __init__(self, model: str, timeout: float = 120.0):
+    def __init__(
+        self,
+        model: str,
+        timeout: float = 120.0,
+        *,
+        thinking: dict[str, Any] | None = None,
+    ):
         self.model = model
         self.timeout = timeout
+        # D-246 step 5: an arm asks its one call with its own thinking
+        # arguments (`thinking`, `output_config.effort`) in place of the
+        # shipped `thinking_arguments(model)`; None keeps the shipped ones
+        self.thinking = thinking
         self.client: Any | None = None
         self._client_lock = Lock()
 
@@ -300,7 +310,8 @@ class ApiProvider:
             "output_config": {"format": {"type": "json_schema", "schema": schema}},
             "timeout": self.timeout if timeout_s is None else timeout_s,
         }
-        for key, value in thinking_arguments(requested).items():
+        thinking = self.thinking if self.thinking is not None else thinking_arguments(requested)
+        for key, value in thinking.items():
             if key == "output_config":
                 arguments["output_config"].update(value)
             else:

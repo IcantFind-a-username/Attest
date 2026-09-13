@@ -52,6 +52,14 @@ on:
           skipped: not selected. Empty runs every case not yet in the trials file.
         type: string
         default: ""
+      arm:
+        description: >-
+          D-246 step 5, the probe arm: A the shipped call, B the generation
+          model with adaptive thinking at effort medium and 8000 output tokens,
+          C the proposal model the same way. Empty is A without an arm-named
+          trials file. Only the probe's one call moves.
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -132,6 +140,7 @@ jobs:
             --unit-budget "${{ inputs.unit_budget }}" \
             --trials-file "${{ inputs.trials_file }}" \
             --only "${{ inputs.only }}" \
+            --arm "${{ inputs.arm }}" \
             2>&1 | tee recall-run.log
 
       - name: Table

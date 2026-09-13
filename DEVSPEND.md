@@ -163,7 +163,7 @@ product and not a saving to be pleased about; there is no lag carried into the n
 (nine self-review runs). Every other item of this window — the value-note census, the baseline
 re-analysis, the era-pin verification and every document — cost **$0.00**.
 
-**Total API spend: $137.734345 of $150.00.** — $117.733196 through the 2026-09-12 overnight window, $5.269577 for the 2026-09-13 release window without its superseded dogfooding estimate ($5.601177 − $0.331600), $0.101900 the overnight window's lag settled there, $11.805161 for the 0.3.0 window, and $2.824511 for its step 4 (the forty under D-245, settled 2026-09-14). The header had stood at $117.733196 since the overnight window while three windows settled below it; corrected 2026-09-14 (D-244 window), and the preflight reads this line.
+**Total API spend: $140.445961 of $150.00.** — $117.733196 through the 2026-09-12 overnight window, $5.269577 for the 2026-09-13 release window without its superseded dogfooding estimate ($5.601177 − $0.331600), $0.101900 the overnight window's lag settled there, $11.805161 for the 0.3.0 window, $2.824511 for its step 4 (the forty under D-245, settled 2026-09-14), and $2.711616 for arm A of the 2026-09-14 window (settled 2026-09-14, before arm C was dispatched). The header had stood at $117.733196 since the overnight window while three windows settled below it; corrected 2026-09-14 (D-244 window), and the preflight reads this line.
 
 > **Erratum, 2026-09-13.** This line read *"$52.226537 of $90.00", the figure at the end of the 2026-09-05c window*, and it had not moved since. It is the **only machine-readable line in this file** — `attest.benchmark.live.read_devspend` parses it, and every paid preflight since 2026-09-05c has therefore checked its headroom against a total **$38 low and a cap $20 low**. No run was actually over the real cap, because every window since has also carried its own driver-enforced cumulative cap and the owner's per-item ceiling; but the guard that exists to catch that was not the thing catching it. The figure above is the 2026-09-12b handoff's settled cumulative ($90.009721) plus this window's [PR #19](https://github.com/IcantFind-a-username/Attest/pull/19) self-review ($0.125900), against the $110 cap D-192 declined to raise. **It is updated at the end of every window from now on**, and the per-window prose totals below stay as the audit trail they always were.
 
@@ -347,6 +347,55 @@ before the first call of each phase and settled after it, per phase.
 |---|---|---|---|
 | 7 | **E-04 stratum v3, the same frozen 28-unit sample, re-run with `value_notes_visible` and `gate_notes_visible` on** (owner authorisation 3). `.github/workflows/e04-shadow.yml` on `ubuntu-latest`, **local review path only — no GitHub client is constructed, nothing is written to any repository**; `per_pr_budget_usd` $1.00, the shipped `k_samples` 5, `linux-container-v1`, `contained_attempt_voids` at the product default. The driver's cap is the reservation and a unit starts only if its $1.00 maximum still fits under it (D-172), so the run cannot overshoot; a unit the cap refuses is named. Measured basis: the 2026-09-13 runner re-take of the same sample cost $2.483001 for 28 units, before step 3 stopped the discovery share from truncating units, so the per-unit cost is expected higher and the cap, not the estimate, is what binds | **$3.00** | **$2.765980**; $0.234020 released. **9 of 28 units ran** before the cap refused the rest by name; **0 of 9 carried an author-visible line**; the same 9 cost $0.7676 on 2026-09-13 (D-221's whole-budget discovery, 3.6×). The ledgers were lost to the artifact upload's hidden-path default ([report](docs/acceptance/2026-09-12-e04-with-notes.md), D-225) |
 | — | **dogfooding**: the `attest` self-reviews the eight pull requests of this window buy (#40–#47). Not a study and not against any reservation; the cost of merging what the owner asked for | — | **$0.925113 so far** — $0.020659 ([#40](https://github.com/IcantFind-a-username/Attest/pull/40), run `34614084605`), $0.091862 ([#41](https://github.com/IcantFind-a-username/Attest/pull/41), run `34616278439`), $0.812592 ([#42](https://github.com/IcantFind-a-username/Attest/pull/42), run `34617821991` — the first self-review under D-221: read 10 of 20 units and named the other 10). The self-reviews of #43 and the step-8 pull request are not yet in this figure and are carried as a named lag |
+
+## Window 2026-09-14 (index repair) — four free steps, and the A/B/C probe arms reserved before the first call and not yet dispatched
+
+**Owner instruction of 2026-09-14, after the forty under D-245.** Steps 0–4 call no model:
+the index repair and its census, the ledger facts, the package-block census over the 68 real
+pull requests. Step 5 is prepared and **not dispatched**: the owner's word is the dispatch.
+Cumulative before this window: **$137.734345** (the header line, which the preflight reads),
+against the $150 cap; the self-reviews the four pull requests buy are dogfooding, settled from
+the ledgers as the 0.3.0 window did.
+
+| step | item | reserved | settled |
+|---|---|---|---|
+| 1–2 | the index repaired (D-246), the census over the forty rebuilt trees under three retrievals, the regex snippets read one by one — `ast` and `git` over trees on disk, [PR #76](https://github.com/IcantFind-a-username/Attest/pull/76) | $0.00 | **$0.000000** |
+| 3 | the context as ledger facts — the probe row's literals block, each caller's resolution, the package block's cut, [PR #77](https://github.com/IcantFind-a-username/Attest/pull/77) | $0.00 | **$0.000000** |
+| 4 | the package block's bound on the 68 real pull requests, offline on the clones, [PR #78](https://github.com/IcantFind-a-username/Attest/pull/78) | $0.00 | **$0.000000** |
+| 5 | **the A/B/C probe arms — dispatched one at a time on the owner's "跑" of 2026-09-14, each settled here before the next is dispatched so the preflight's headroom check is mechanical** (below) | **$15.00** | arm A **$2.711616**; arms C and B follow |
+| — | **dogfooding**: the self-reviews the pull requests of this window buy (#76–#79), settled from the ledgers when read | — | named lag, about $0.10 each at the 0.3.0 window's rate |
+
+### Step 5, the arms: what is reserved and what the default rule is, written before any call
+
+**Three dispatches of `mutation-recall.yml`, the same forty trials each, $1.00 per case, K=5,
+`linux-container-v1`, the local review path, read-only clones, nothing written anywhere.** Each
+arm is admitted at the D-244 p95 reservation (the study's own trials history, which includes the
+shipped arm's; a unit may overshoot the cap by at most one unit's distance between its p95 and
+its $1.00 ceiling, as D-244 accepts) and capped by the driver at **$5.00 per arm** (the study's
+`cost_cap_usd`; `cap_usd` input 5.00). **Only the probe's one call differs** between arms
+(`generate_probe`'s provider, model and output bound; `ProbeCall`, D-246 step 5); the proposals
+and the reproduction generator are the shipped ones in all three.
+
+| arm | trials file | the probe's call | reserved | settled |
+|---|---|---|---|---|
+| **A** | `trials-arm-A.jsonl` | the shipped call: the generation model, thinking disabled, the probe's output bound (the same call as the 11/40 and 12/40 runs; a third run of it is the jitter control) | $5.00 | **$2.711616**; $2.288384 released. Run [34751464512](https://github.com/IcantFind-a-username/Attest/actions/runs/34751464512), dispatched from `feat/probe-arms` on the owner's "跑" of 2026-09-14: **40 of 40 cases ran**, the D-244 reservation $0.1035 per case (p95 of 209 trials), 0 refused, 18 minutes |
+| **B** | `trials-arm-B.jsonl` | the generation model, thinking adaptive at effort medium, 8,000 output tokens | $5.00 | — |
+| **C** | `trials-arm-C.jsonl` | the proposal model, thinking adaptive at effort medium, 8,000 output tokens | $5.00 | — |
+| — | | **in all** | **$15.00** | — |
+
+**Recorded per arm, from the artifact:** certified cases and the boundary thirteen's certified
+cases (the trials file and the ledgers' `certification` rows), per-case spend (`spend_usd`),
+per-case wall clock (`elapsed_s`), the probe stage's cost from `review_run.spend_breakdown`
+(D-243), the arm's parameters in every trial row (`probe_call`), and every case the cap or the
+budget refused, by name. The reading script is `scripts/acceptance/probe_arms_report.py`; the
+report goes to [docs/acceptance/2026-09-14-probe-arms.md](docs/acceptance/2026-09-14-probe-arms.md).
+
+**The default rule, pre-registered:** the default probe call is the arm with the best
+**cost per certified case**; a dearer arm becomes the default only if it certifies **at least
+three more cases** than the cheaper one **and** each gained case's mechanism can be named from
+its ledger (the probe, the recording, the reason); an arm whose median per-case wall clock is
+**more than twice A's** is not the default whatever it certifies. AGENTS.md §9's ±2 jitter
+applies: a difference of two cases or fewer decides nothing.
 
 ## Window 0.3.0, step 4 (2026-09-14) — the same forty under D-245, reserved before the first call
 
