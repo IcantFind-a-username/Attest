@@ -84,7 +84,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Review pull request
-        uses: IcantFind-a-username/Attest@v0.2.0   # docs/operations/install-ref.md
+        uses: IcantFind-a-username/Attest@v0.3.0   # docs/operations/install-ref.md
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
