@@ -1234,3 +1234,220 @@ def test_the_probe_call_can_be_routed_to_its_own_provider_model_and_output_bound
     assert arm_provider.models == ["claude-opus-5"]
     (probe_call,) = [c for c in budget.calls if c["label"].startswith("probe-")]
     assert probe_call["model"] == "claude-opus-5"
+
+
+# --- the call path into the changed code, and what the merge base says about it ---
+
+CROSS_FILE_READER_BASE = (
+    "class Reader:\n"
+    "    def __init__(self, stream):\n"
+    "        self.stream = stream\n"
+    "\n"
+    "    def read_regex(self, regex):\n"
+    "        if regex is None:\n"
+    "            raise ValueError('regex required')\n"
+    "        return [self.stream]\n"
+)
+CROSS_FILE_READER_HEAD = CROSS_FILE_READER_BASE.replace(
+    "        if regex is None:\n            raise ValueError('regex required')\n", ""
+)
+CROSS_FILE_PARSER = (
+    "from pkg.reader import Reader\n"
+    "\n"
+    "\n"
+    "def parse_stream(stream):\n"
+    "    reader = Reader(stream)\n"
+    "    return reader.read_regex('key')\n"
+)
+# a module-level function of the same name in a file that never imports pkg.reader
+CROSS_FILE_UNRELATED = "def read_regex(regex):\n    return regex\n"
+# a call on a receiver the index cannot type, in a file that does import pkg.reader
+CROSS_FILE_LOOSE = (
+    "from pkg import reader as _reader\n"
+    "\n"
+    "\n"
+    "def drain(obj):\n"
+    "    return obj.read_regex('loose')\n"
+)
+CROSS_FILE_BASE_TEST = (
+    "import pytest\n"
+    "\n"
+    "from pkg.parser import parse_stream\n"
+    "\n"
+    "\n"
+    "def test_parse_stream_rejects_a_missing_regex():\n"
+    "    with pytest.raises(ValueError):\n"
+    "        parse_stream(None)\n"
+)
+
+
+def cross_file_revisions(
+    tmp_path: Path, *, base_test: str = CROSS_FILE_BASE_TEST, head_test: str | None = None
+) -> tuple[Path, str, str]:
+    """A repository whose changed method is reached from another module.
+
+    `pkg.parser.parse_stream` builds a `Reader` and calls the changed
+    `Reader.read_regex`; `pkg.other` defines an unrelated function of the same
+    name and imports nothing; `pkg.loose` calls the name on a receiver the
+    index cannot type. `base_test` is the merge base's specification;
+    `head_test`, when given, is what the change does to that test file.
+    """
+    repo = tmp_path / "repo"
+    (repo / "src" / "pkg").mkdir(parents=True)
+    (repo / "tests").mkdir()
+    run_git(repo, "init", "--initial-branch=main")
+    (repo / "src" / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    (repo / "src" / "pkg" / "reader.py").write_text(CROSS_FILE_READER_BASE, encoding="utf-8")
+    (repo / "src" / "pkg" / "parser.py").write_text(CROSS_FILE_PARSER, encoding="utf-8")
+    (repo / "src" / "pkg" / "other.py").write_text(CROSS_FILE_UNRELATED, encoding="utf-8")
+    (repo / "src" / "pkg" / "loose.py").write_text(CROSS_FILE_LOOSE, encoding="utf-8")
+    if base_test:
+        (repo / "tests" / "test_parser.py").write_text(base_test, encoding="utf-8")
+    run_git(repo, "add", "--all")
+    run_git(repo, "commit", "-m", "base")
+    base_sha = run_git(repo, "rev-parse", "HEAD")
+    (repo / "src" / "pkg" / "reader.py").write_text(CROSS_FILE_READER_HEAD, encoding="utf-8")
+    if head_test is not None:
+        (repo / "tests" / "test_parser.py").write_text(head_test, encoding="utf-8")
+    run_git(repo, "add", "--all")
+    run_git(repo, "commit", "-m", "head deletes the guard")
+    return repo, base_sha, run_git(repo, "rev-parse", "HEAD")
+
+
+CROSS_FILE_CANDIDATE = dict(file="src/pkg/reader.py", line=5)
+
+
+def test_the_first_probe_is_told_the_call_path_and_the_merge_base_specification(
+    tmp_path: Path,
+) -> None:
+    """RED: the planner resolves `parse_stream` as the caller of the changed
+    `Reader.read_regex` and puts its snippet in the *discovery* context, and the
+    first probe's request never sees it -- nor the merge-base test that pins
+    what that path does. The probe is left to call the changed method directly,
+    on an input no base test specifies, which is the value class by
+    construction. Both facts must reach the request the probe answers."""
+    repo, base_sha, head_sha = cross_file_revisions(tmp_path)
+    provider = PromptRecorder(BOUNDARY_PROBE)
+
+    verify(repo, base_sha, head_sha, provider, candidate=stored(**CROSS_FILE_CANDIDATE))
+
+    first = provider.prompts[0]
+    # the call path: the entry point, the call site, and the changed definition
+    assert "parse_stream" in first
+    assert "src/pkg/parser.py:6" in first  # reader.read_regex('key')
+    assert "reader = Reader(stream)" in first  # how the receiver is built there
+    # the merge base's specification for that path, with its provenance
+    assert "tests/test_parser.py" in first
+    assert "test_parse_stream_rejects_a_missing_regex" in first
+    assert "ValueError" in first
+
+
+def test_an_unrelated_same_named_function_is_never_offered_as_a_route(tmp_path: Path) -> None:
+    """`pkg.other` defines a module-level `read_regex` and imports nothing, so it
+    is not a caller at all; `pkg.loose` calls the name on a receiver the index
+    cannot type, so it is a *possible* route and must be marked as one. A route
+    the index cannot confirm may never be written as a certain call."""
+    repo, base_sha, head_sha = cross_file_revisions(tmp_path)
+    provider = PromptRecorder(BOUNDARY_PROBE)
+
+    verify(repo, base_sha, head_sha, provider, candidate=stored(**CROSS_FILE_CANDIDATE))
+
+    first = provider.prompts[0]
+    assert "src/pkg/other.py" not in first
+    for line in first.splitlines():
+        if "src/pkg/loose.py" in line:
+            assert "unconfirmed" in line
+    # the one route shown carries its own uncertainty, and nothing is called certain
+    routes = [line for line in first.splitlines() if line.startswith(("1. ", "2. "))]
+    assert routes
+    for line in routes:
+        if "src/pkg/parser.py:6" in line:
+            assert "unconfirmed" in line  # a receiver assigned from a constructor
+
+
+def test_a_test_the_change_added_is_not_the_merge_base_specification(tmp_path: Path) -> None:
+    """The change rewrites the test file to assert the behaviour it introduces.
+    The merge-base block is read at `base_ref` through `git show`, so what it
+    quotes is the specification that existed *before* the change; the test the
+    change wrote is not the tree's existing specification and never appears as
+    one."""
+    head_test = (
+        "from pkg.parser import parse_stream\n"
+        "\n"
+        "\n"
+        "def test_parse_stream_allows_a_missing_regex_now():\n"
+        "    assert parse_stream(None) == [None]\n"
+    )
+    repo, base_sha, head_sha = cross_file_revisions(tmp_path, head_test=head_test)
+    provider = PromptRecorder(BOUNDARY_PROBE)
+
+    verify(repo, base_sha, head_sha, provider, candidate=stored(**CROSS_FILE_CANDIDATE))
+
+    first = provider.prompts[0]
+    assert "test_parse_stream_rejects_a_missing_regex" in first  # the merge base's
+    assert "test_parse_stream_allows_a_missing_regex_now" not in first  # the change's own
+    assert "pytest.raises(ValueError)" in first
+
+
+def test_a_merge_base_that_specifies_nothing_is_said_to_specify_nothing(tmp_path: Path) -> None:
+    """With no test at the merge base there is no specification to quote. The
+    hint says so and quotes none: material that is absent is named as absent
+    rather than left for the model to supply."""
+    repo, base_sha, head_sha = cross_file_revisions(tmp_path, base_test="")
+    provider = PromptRecorder(BOUNDARY_PROBE)
+
+    verify(repo, base_sha, head_sha, provider, candidate=stored(**CROSS_FILE_CANDIDATE))
+
+    first = provider.prompts[0]
+    assert "No test of the merge base names" in first
+    assert "What the **merge base** specifies" not in first
+    assert "def test_" not in first  # nothing is quoted that does not exist
+    assert "src/pkg/parser.py:6" in first  # the route is still there to be used
+
+
+def test_a_change_with_no_resolved_caller_says_so_instead_of_inventing_one(
+    tmp_path: Path,
+) -> None:
+    """The single-module fixture has no caller outside the change. The hint says
+    no route was resolved rather than presenting the anchored file itself as
+    one."""
+    repo, base_sha, head_sha = two_revisions(tmp_path, BASE_RAISES, HEAD_GUARDS)
+    provider = PromptRecorder(SETUP_PROBE)
+
+    verify(repo, base_sha, head_sha, provider, candidate=stored(line=2))
+
+    first = provider.prompts[0]
+    assert "No route into" in first
+    assert "Nothing is claimed about how the tree reaches it." in first
+
+
+def test_a_nested_override_in_a_test_is_not_the_specification_of_the_tree(tmp_path: Path) -> None:
+    """A merge-base test that defines its own subclass overriding the changed
+    name, and calls that override, specifies nothing about the tree's
+    definition. Quoting it would put an unrelated body in front of the probe as
+    though it were the route's specification, so only the calls a test makes
+    itself are read."""
+    base_test = (
+        "from pkg.reader import Reader\n"
+        "\n"
+        "\n"
+        "def test_a_subclass_may_override_the_reader():\n"
+        "    class Loud(Reader):\n"
+        "        def read_regex(self, regex):\n"
+        "            return super().read_regex(regex)\n"
+        "\n"
+        "    assert Loud('s') is not None\n"
+    )
+    repo, base_sha, head_sha = cross_file_revisions(tmp_path, base_test=base_test)
+    provider = PromptRecorder(BOUNDARY_PROBE)
+
+    verify(repo, base_sha, head_sha, provider, candidate=stored(**CROSS_FILE_CANDIDATE))
+
+    first = provider.prompts[0]
+    # nothing is quoted as the merge base's specification
+    assert "What the merge base specifies" not in first
+    assert "No test of the merge base names" in first
+    # the older head-read listing still names the test, by name and without its
+    # body; that is a head reference and never the merge base's specification
+    assert "```python\n    class Loud" not in first
+    assert "def test_a_subclass_may_override_the_reader" not in first

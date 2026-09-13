@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 import warnings
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -759,6 +760,238 @@ def package_block_report(repo: Path, path: str) -> PackageBlock:
     return PackageBlock(
         text=text, anchor=path, files=tuple(kept), omitted=tuple(omitted), chars=used
     )
+
+
+# D-247: the route from the tree into a changed definition, and what the merge
+# base says about that route -- both read for the *first probe*, which until now
+# saw neither. Bounded hard: this is a hint, not a second context.
+MAX_CALL_PATHS = 2  # routes shown, exact resolutions first
+MAX_BASE_SPECIFICATIONS = 1  # merge-base test functions quoted
+MAX_SPECIFICATION_LINES = 8  # lines of each quoted merge-base test
+MAX_SPECIFICATION_FILES = 8  # merge-base test files opened, each two `git` reads
+
+
+@dataclass(frozen=True)
+class CallPath:
+    """One route the tree takes into a changed definition, read from the head
+    revision's index (D-247).
+
+    ``resolution`` is the index's own: ``exact`` means the name was bound by an
+    import or a same-module definition, ``attribute`` that the receiver's type
+    is unknown and this is a *possible* call, never a certain one. ``setup``
+    is the statement that built the receiver at that call site, when the same
+    function builds it, so the probe can construct the object the way the tree
+    does."""
+
+    symbol: str
+    entry: str  # the definition enclosing the call site, "" when at module level
+    path: str
+    line: int
+    call: str  # the call line, stripped
+    resolution: str
+    setup: str = ""  # the receiver-building statement, stripped
+    setup_line: int = 0
+
+
+def _receiver_setup(
+    lines: list[str], call_line: int, call_text: str, symbol: str
+) -> tuple[str, int]:
+    """The statement that bound the call's receiver, searched upwards from the
+    call inside a bounded window. ``obj.symbol(...)`` -> the nearest
+    ``obj = ...`` above it; nothing found is nothing claimed."""
+    match = re.search(rf"([A-Za-z_][A-Za-z0-9_]*)\s*\.\s*{re.escape(symbol)}\s*\(", call_text)
+    if match is None or match.group(1) in ("self", "cls"):
+        return "", 0
+    receiver = match.group(1)
+    assignment = re.compile(rf"^\s*{re.escape(receiver)}\s*(?::[^=]+)?=\s*\S")
+    start = max(1, call_line - MAX_DEFINITION_LINES)
+    for number in range(call_line - 1, start - 1, -1):
+        line = lines[number - 1]
+        if assignment.match(line):
+            return line.strip(), number
+    return "", 0
+
+
+def call_paths_into(repo: Path, path: str, symbols: Sequence[str]) -> list[CallPath]:
+    """Routes into ``symbols`` of ``path``, exact resolutions first, bounded.
+
+    Reuses the tree index (D-245/D-246) and builds nothing of its own. Test
+    files are excluded: a probe may not import a test module (D-114), so a test
+    is a *specification* here, never an entry point. A call inside the changed
+    definition's own hunks is not a route into it from elsewhere."""
+    try:
+        index = tree_index(repo)
+    except OSError:
+        return []
+    module = index.module_of(path)
+    if not module:
+        return []
+    # only the files the index names are read: the corpus walk the planner does
+    # at planning time costs up to MAX_SCANNED_FILES reads, and this runs once
+    # per candidate at verification time
+    sources: dict[str, str | None] = {}
+
+    def source_of(rel: str) -> str | None:
+        if rel not in sources:
+            sources[rel] = _read(repo / rel)
+        return sources[rel]
+
+    found: list[CallPath] = []
+    seen: set[tuple[str, int]] = set()
+    # the definition the anchor sits in comes before the class that encloses it:
+    # the method is what changed, and how its receiver was built is the setup
+    # line of that route rather than a route of its own
+    ranked = sorted(
+        symbols,
+        key=lambda name: any(
+            definition.kind == "class" for definition in index.definitions_named(module, name)
+        ),
+    )
+    for symbol in ranked:
+        for site in index.callers_of(module, symbol):
+            if "test" in site.path.lower() or (site.path, site.line) in seen:
+                continue
+            source = source_of(site.path)
+            if source is None:
+                continue
+            lines = source.splitlines()
+            if site.line < 1 or site.line > len(lines):
+                continue
+            call = lines[site.line - 1].strip()
+            if _DEF_RE.match("+" + call):
+                continue
+            setup, setup_line = _receiver_setup(lines, site.line, call, symbol)
+            enclosing = sorted(_enclosing_definitions(source, [(site.line, site.line)]))
+            seen.add((site.path, site.line))
+            if any(
+                other.path == site.path and other.setup_line == site.line for other in found
+            ):
+                continue  # already shown as the receiver-building line of an earlier route
+            found.append(
+                CallPath(
+                    symbol=symbol,
+                    entry=enclosing[0] if enclosing else "",
+                    path=site.path,
+                    line=site.line,
+                    call=call,
+                    resolution=site.resolution,
+                    setup=setup,
+                    setup_line=setup_line,
+                )
+            )
+    return found[:MAX_CALL_PATHS]
+
+
+def _quoted_specification(source: str, node: ast.AST, wanted: Sequence[str]) -> str:
+    """The test, bounded, **around the call that made it relevant**.
+
+    Quoting the first lines instead would routinely cut off that very call: the
+    match is made over the whole function, so a specification whose call sits
+    below the bound would be shown without it and read as unrelated."""
+    lines = source.splitlines()
+    first = getattr(node, "lineno", 1)
+    last = getattr(node, "end_lineno", first) or first
+    call_line = next(
+        (call.lineno for call in _own_calls(node) if _call_name(call) in wanted), first
+    )
+    if last - first + 1 <= MAX_SPECIFICATION_LINES:
+        return "\n".join(lines[first - 1 : last])
+    window = MAX_SPECIFICATION_LINES - 2  # the signature line and the elision marker
+    start = max(first + 1, call_line - window // 2)
+    end = min(last, start + window - 1)
+    kept = [lines[first - 1]]
+    if start > first + 1:
+        kept.append("    # [...]")
+    kept.extend(lines[start - 1 : end])
+    if end < last:
+        kept.append("    # [...]")
+    return "\n".join(kept)
+
+
+def _own_calls(node: ast.AST) -> list[ast.Call]:
+    """The calls a test function makes **itself**, not descending into a class
+    or function it defines inside its own body. A test that defines a subclass
+    overriding the changed name and calls that override specifies nothing about
+    the tree's definition, and quoting it would put an unrelated body in front
+    of the probe as the route's specification."""
+    found: list[ast.Call] = []
+    stack: list[ast.AST] = list(ast.iter_child_nodes(node))
+    while stack:
+        child = stack.pop()
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            continue
+        if isinstance(child, ast.Call):
+            found.append(child)
+        stack.extend(ast.iter_child_nodes(child))
+    return found
+
+
+def _call_name(call: ast.Call) -> str:
+    func = call.func
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return ""
+
+
+def _names_called_in(node: ast.AST, wanted: Sequence[str]) -> set[str]:
+    """Which of ``wanted`` this test function actually **calls**. A test that
+    merely mentions a name in a string or a comparison does not specify what
+    calling it does, and quoting it would put an unrelated test in front of the
+    probe as though it were the route's specification."""
+    return {_call_name(call) for call in _own_calls(node) if _call_name(call) in wanted}
+
+
+def base_specifications_for(
+    repo: Path, base_ref: str, names: Sequence[str]
+) -> tuple[list[tuple[str, str]], list[str]]:
+    """What the **merge base** specifies about ``names``: (provenance, source)
+    per test function, and the names nothing in the merge base specifies.
+
+    Every file is read at ``base_ref`` through ``git show`` (`show_file_at`), so
+    a test the change itself added or rewrote cannot enter: at the merge base
+    that file either does not exist or holds its old bytes. The candidate files
+    come from the head index and at most ``MAX_SPECIFICATION_FILES`` are opened
+    -- bounds this states rather than hides; a test file the change *deleted*
+    is not looked for."""
+    try:
+        index = tree_index(repo)
+    except OSError:
+        return [], list(names)
+    wanted = list(dict.fromkeys(name for name in names if name))
+    if not wanted:
+        return [], []
+    candidates: list[str] = []
+    for site in index.calls:
+        if "test" not in site.path.lower() or site.name not in wanted:
+            continue
+        if site.path not in candidates:
+            candidates.append(site.path)
+    specifications: list[tuple[str, str]] = []
+    specified: set[str] = set()
+    for rel in sorted(candidates)[:MAX_SPECIFICATION_FILES]:
+        source = show_file_at(repo, base_ref, rel)
+        if source is None:
+            continue  # added by this change: not the merge base's specification
+        tree = _parse(source)
+        if tree is None:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if not node.name.startswith("test"):
+                continue
+            called = _names_called_in(node, wanted)
+            if not called:
+                continue
+            specifications.append(
+                (f"{rel}::{node.name}", _quoted_specification(source, node, wanted))
+            )
+            specified.update(called)
+            if len(specifications) >= MAX_BASE_SPECIFICATIONS:
+                return specifications, [n for n in wanted if n not in specified]
+    return specifications, [n for n in wanted if n not in specified]
 
 
 MAX_SIGNATURE_LINES = 60  # signatures of the anchored module shown to the generator

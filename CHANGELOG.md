@@ -11,6 +11,18 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
+- **The first probe is told how the tree reaches the changed code, and what the merge base says
+  about that route (D-247).** The planner had resolved a changed symbol's callers for the
+  *discovery* prompt only; the probe's own request carried no call site and no merge-base
+  specification, so its cheapest move was to call the changed definition directly, on an input
+  nothing specifies -- the value class by construction. It now carries up to two routes (entry
+  point, call line, `file:line`, how the receiver is built, an unconfirmed resolution marked as
+  unconfirmed) and at most one merge-base test, read at the base revision so a test the change
+  itself added cannot pose as the tree's existing specification. What is missing is named as
+  missing. Measured free on the forty trees: the whole first-probe request grows **4.1%**, a route
+  is resolved in 34 of 40 cases and a merge-base specification quoted in 36. **This repairs the
+  evidence chain; recall and precision are unmeasured under it** and no rule, model, budget or cap
+  moves.
 - **The tree index repaired (D-246).** The defining module is always its own importer, a parameter
   annotated with an in-tree class is a typed receiver, a typed receiver whose class only inherits the
   method keeps the attribute rule, and a same-module call made above the definition still resolves.

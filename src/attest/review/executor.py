@@ -39,7 +39,7 @@ from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.diffs import parse_diff
 from attest.review.gate import GateResult, apply_verification
-from attest.review.index import tree_index
+from attest.review.index import EXACT, tree_index
 from attest.review.intent import (
     RaiseOrigin,
     asserted_values_about,
@@ -47,7 +47,13 @@ from attest.review.intent import (
     parse_raise_record,
 )
 from attest.review.ledger import Ledger
-from attest.review.planner import generation_context, show_file_at
+from attest.review.planner import (
+    CallPath,
+    base_specifications_for,
+    call_paths_into,
+    generation_context,
+    show_file_at,
+)
 from attest.review.probe import (
     PROBE_MAX_OUTPUT_TOKENS,
     PROBE_POLICY_VERSION,
@@ -1150,6 +1156,10 @@ REFUSAL_FEEDBACK_CHARS = 600
 MAX_FEEDBACK_DIFF_CHARS = 1_500
 # D-245: the most literal arguments the probe prompt lists for the changed symbols
 MAX_LITERAL_HINTS = 12
+# D-247: the whole first-probe hint. The blocks are assembled in reading order
+# and dropped from the least useful end when they do not fit, so a richer hint
+# re-prioritises the same budget instead of enlarging it.
+MAX_PROBE_HINT_CHARS = 1_800
 
 
 def _asserted_block(symbols: Sequence[str], values: Sequence[str]) -> str:
@@ -1159,14 +1169,14 @@ def _asserted_block(symbols: Sequence[str], values: Sequence[str]) -> str:
     names = ", ".join(f"`{name}`" for name in symbols) or "the changed code"
     if not values:
         return (
-            f"No test in the repository asserts a value about {names}. A recorded value can "
+            f"No test of the head revision asserts a value about {names}. A recorded value can "
             "then be certified only where a docstring or documentation states it; an input "
             "on which the merge base raises, or one whose result a docstring states, is "
             "what the certification rule can use."
         )
     listed = "\n".join(f"- {value}" for value in values)
     return (
-        f"Values the repository's own tests assert about {names}:\n{listed}\n"
+        f"Values the head revision's own tests assert about {names}:\n{listed}\n"
         "A recorded value that one of these tests asserts about the changed code can be "
         "certified as a regression; a value nothing in the repository asserts cannot, and is "
         "shown only as a changed value with unknown intent. Prefer an input whose merge-base "
@@ -1189,6 +1199,62 @@ def _literals_block(symbols: Sequence[str], literals: Sequence[str]) -> str:
         + ". An input the tree already uses, or the value one step past it, is where a "
         "probe reaches the change with the least guessing."
     )
+
+
+def _call_paths_block(
+    symbols: Sequence[str],
+    paths: Sequence[CallPath],
+    specifications: Sequence[tuple[str, str]],
+    unspecified: Sequence[str],
+) -> str:
+    """D-247: how the tree reaches the changed code, and what the merge base
+    says about those routes.
+
+    The planner resolved these routes for the *discovery* prompt and the probe
+    never saw them, so a probe's cheapest move was to call the changed
+    definition directly -- on an input the merge base specifies nothing about,
+    which is the value class by construction. Facts only, each with its file
+    and line: an `attribute` resolution is rendered as a possible call and never
+    a certain one, and what is not found is said to be not found. The model
+    still chooses the call, and the merge base still decides what it does."""
+    named = ", ".join(f"`{name}`" for name in symbols) or "the changed code"
+    lines: list[str] = []
+    if paths:
+        lines.append(
+            f"Routes into {named} (head revision; the merge base decides what a call does):"
+        )
+        for position, path in enumerate(paths, start=1):
+            where = f"{path.path}:{path.line}"
+            entry = f"`{path.entry}` -> " if path.entry else ""
+            certainty = (
+                ""
+                if path.resolution == EXACT
+                else " -- a possible call: the index cannot type the receiver, so this route is "
+                "unconfirmed"
+            )
+            lines.append(f"{position}. {entry}`{path.call}` ({where}){certainty}")
+            if path.setup:
+                lines.append(
+                    f"   the receiver is built there: `{path.setup}` "
+                    f"({path.path}:{path.setup_line})"
+                )
+    else:
+        lines.append(
+            f"No route into {named} from elsewhere was resolved: the index found no caller "
+            "outside the change. Nothing is claimed about how the tree reaches it."
+        )
+    if specifications:
+        lines.append("What the merge base specifies about these routes:")
+        for provenance, body in specifications:
+            lines.append(f"- {provenance} (merge base):\n```python\n{body}\n```")
+    if unspecified:
+        listed = ", ".join(f"`{name}`" for name in unspecified)
+        directly = " directly" if specifications else ""
+        lines.append(
+            f"No test of the merge base names{directly}: {listed} (tests this change added or "
+            "rewrote are not read here; one it deleted is not looked for)."
+        )
+    return "\n".join(lines)
 
 
 def _conditions_block(conditions: Sequence[str]) -> str:
@@ -1224,17 +1290,39 @@ def _probe_hint(
     ]
     if not symbols:
         return "", ""
-    parts: list[str] = []
+    conditions = ""
     if base_ref is not None:
         base_source = show_file_at(repo, base_ref, candidate.finding.file)
         if base_source is not None:
             changed = _changed_lines(repo, base_ref, "HEAD", candidate.finding.file)
-            parts.append(_conditions_block(changed_conditions(base_source, source, changed)))
-    parts.append(_asserted_block(symbols, asserted_values_about(repo, symbols)))
-    literals = _literal_arguments(repo, candidate.finding.file, symbols)
-    literals_hint = _literals_block(symbols, literals)
-    parts.append(literals_hint)
-    return "\n\n".join(part for part in parts if part), literals_hint
+            conditions = _conditions_block(changed_conditions(base_source, source, changed))
+    # D-247: the routes the planner already resolves for discovery, and what the
+    # merge base specifies about them, read at `base_ref` so a test this change
+    # added cannot pose as the tree's existing specification
+    paths = call_paths_into(repo, candidate.finding.file, symbols)
+    entries = [path.entry for path in paths if path.entry]
+    specifications: list[tuple[str, str]] = []
+    unspecified: list[str] = list(symbols)
+    if base_ref is not None:
+        specifications, unspecified = base_specifications_for(
+            repo, base_ref, [*entries, *symbols]
+        )
+    routes = _call_paths_block(symbols, paths, specifications, unspecified)
+    asserted = _asserted_block(symbols, asserted_values_about(repo, symbols))
+    literals_hint = _literals_block(
+        symbols, _literal_arguments(repo, candidate.finding.file, symbols)
+    )
+    # reading order, and the order they are dropped in when the budget binds:
+    # the literal list first (the routes carry literals at their call sites),
+    # then the certification-rule block, then the moved conditions. The routes
+    # are what this hint is for and are bounded by the planner instead.
+    ordered = [conditions, routes, asserted, literals_hint]
+    droppable = [3, 2, 0]
+    while sum(len(part) + 2 for part in ordered if part) > MAX_PROBE_HINT_CHARS and droppable:
+        ordered[droppable.pop(0)] = ""
+    if not ordered[3]:
+        literals_hint = ""
+    return "\n\n".join(part for part in ordered if part), literals_hint
 
 
 def _literal_arguments(repo: Path, file: str, symbols: Sequence[str]) -> list[str]:
