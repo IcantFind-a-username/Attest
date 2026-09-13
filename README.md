@@ -126,12 +126,26 @@ the column on the right is the reason.
 | measurement | number | what it is **not** |
 |---|---|---|
 | **crash-class recall**, held-out SWE-bench Verified corpus whose projects declare a supported interpreter — **reversed by construction**: the pull request under review is the *fix*, so the generated reproduction is asked to fail on a repair (the structural penalty of D-158; see D-212 and the forward-corpus proposal) | **5 of 25 — 20.0%, Wilson 95% [8.9%, 39.1%]** (2026-09-11, [report](docs/acceptance/2026-09-11-heldout-after-search.md)). The previous measurement of the same population was **2 of 31 — 6.5% [1.8%, 20.7%]** (2026-09-10, [report](docs/acceptance/2026-09-10-heldout-remeasurement.md)); the entire difference is measurement repair (era-pinned dependencies, font cache, contained import-time process attempts), not a change in the reviewer; the denominator moved from 31 to 25 because 4 cases went unbought and 2 moved to the value class | not a precision figure. One of the five receipts depends on `contained_attempt_voids=false`, which is not the shipped default; under the default the figure is 4 of 25. On the cases-run denominator, where nothing was dropped, the movement is 2 of 39 → 5 of 35 |
-| **crash-class recall**, forty injected defects of eight public libraries, **forward** (head introduces the defect) | <!-- mutation-recall:begin -->**12 of 40 — 30.0%, Wilson 95% [18.1%, 45.4%]** (2026-09-13, [report](docs/acceptance/2026-09-13-mutation-recall.md) §1e: the original run certified 10, the D-235 replay withdrew one, the D-236 re-run of the eight environment cases gained one, the D-238 hint moved nothing net, and the D-240 re-run gained four and lost two — three of the four by a base test that expects the exception); by class: guard deleted 6 of 17, boundary swapped 1 of 13, `None` guard deleted 5 of 10; **0 of 40** sent to the drawer by the frame rule of D-232, 16 read as a changed value the base tree does not pin<!-- mutation-recall:end --> | not natural traffic: the defects are injected under three stated rules (D-231); the same table says how many of the forty the frame rule of D-232 sends to the drawer instead of red |
+| **crash-class recall**, forty injected defects of eight public libraries, **forward** (head introduces the defect) | <!-- mutation-recall:begin -->**13 of 40 — 32.5%, Wilson 95% [20.1%, 48.0%]** (2026-09-14, [report](docs/acceptance/2026-09-14-probe-arms.md), arm C). **The default probe call changed in D-248, and this is the first measurement under the new default**: the boundary class is 2 of 13, 16 cases are read as a changed value the base tree does not pin, and 11 have no receipt. The shipped call before D-248 scored 12, 12 and 11 of 40 on the same forty over three runs<!-- mutation-recall:end --> | not natural traffic: the defects are injected under three stated rules (D-231); the same table says how many of the forty the frame rule of D-232 sends to the drawer instead of red |
 | **false publications**, prospective shadow over 28 real pull requests with 13 reproductions that actually executed | **0** ([report](docs/acceptance/2026-09-13-e04-shadow-v3.md)) | not a precision figure either — **nothing certified**, so precision is undefined and utility is unproven |
 | **false publications**, 68 independent null controls + 40 held-out controls, K=4 | **0** ([report](docs/acceptance/2026-09-05-g-null-001a-independent.md), [held-out](docs/acceptance/2026-09-03-e02-heldout.md)) | the last measured control arm is at **K=4**; the shipped `samples` is 5 and that arm has never been bought |
 | **yellow (a) noise floor**, 68 null controls, deterministic | **1 of 68 — 1.47%**, Wilson 95% **[0.26%, 7.87%]** ([report](docs/acceptance/2026-09-13-yellow.md)) | the one note is **true**; the level claims no defect and has never been shown to find one |
 | **red-team attack classes** dispatched on the production backend, all marked and never certified | **13 of 13** ([matrix](docs/acceptance/2026-09-13-redteam-thirteen.md)) | observed from **inside** the product for 11 of the 13; an external kernel observer has watched seven syscalls, once |
 | **cost of a review** | mean **$0.22**, hard cap `budget-usd` (default $1.00) | — |
+
+**How the default probe call was chosen (D-248).** The probe is the one call that decides what to
+execute on both revisions. Three arms, the same forty injected defects, the same everything else
+([report](docs/acceptance/2026-09-14-probe-arms.md)):
+
+| the probe's call | certified of 40 | boundary of 13 | cost per case | wall clock per case |
+|---|---|---|---|---|
+| `claude-opus-5`, thinking disabled, 1500 output tokens (the call before D-248) | 12 | 1 | $0.0678 | 21 s |
+| `claude-opus-5`, thinking adaptive at effort medium, 8000 output tokens | 14 | 1 | $0.0754 | 23 s |
+| **`claude-sonnet-5`, thinking adaptive at effort medium, 8000 output tokens** (the default since D-248) | **13** | **2** | **$0.0498** | **20 s** |
+
+The three are **indistinguishable on recall** — 12, 14 and 13 of 40, intervals overlapping, and one
+re-run of this corpus moves about ±2 cases on its own — so the default is the cheapest per certified
+case. Cost per case is each arm's own total over the forty; the wall clock is its median.
 
 ## Known limitations, in the order they will bite you
 
@@ -152,15 +166,21 @@ the column on the right is the reason.
    rows. Their noise floors on real traffic are measured by the run that first switched them on
    ([report](docs/acceptance/2026-09-12-e04-with-notes.md)) and adjudicated line by line by the
    owner; neither has a precision figure.
-4. **Two things are known untested, for budget and not because they do not matter**
+4. **Three things are known untested, for budget and not because they do not matter**
    ([decision](DECISIONS.md)): the red control arm at the shipped **K=5** (126 controls, ≈$126),
-   and `G-NULL-001`'s full natural-null population (≈$53). Every control number above is a K=4
+   `G-NULL-001`'s full natural-null population (≈$53), and **every model outside the pricing
+   table's three**. The probe accepts any model that table prices, and the always-on-thinking
+   families — Claude Fable 5.1 among them — have a code path here that **has never been
+   measured on any corpus**: no arm, no recall figure, no cost figure. Naming one in
+   `probe-model` is running an unmeasured configuration. Every control number above is a K=4
    number and says so.
 5. **A silence is never a true negative.** Nothing here licenses *"attest found nothing, so it
    is fine"*.
 
-A review costs about **$0.22** on average and is hard-capped by `budget-usd` (default
-$1.00). **Do not lower it below $0.54**: at the default `samples: "5"` the discovery share is
+A review costs about **$0.22** on average and is hard-capped by `budget-usd` (default $1.00); on
+the forty injected defects the probe-and-verify path under the D-248 default costs **$0.05 a case
+on average, $0.02 to $0.18 across them** (arm C's own ledger). **Do not lower `budget-usd` below
+$0.54**: at the default `samples: "5"` the discovery share is
 $0.16 of output tokens alone, so a smaller budget defers the review before it reads anything
 (measured 2026-09-09). See [`docs/github-action.md`](docs/github-action.md) and the
 [support matrix](docs/operations/support-matrix.md) — GitHub-hosted `ubuntu-*` runners only.

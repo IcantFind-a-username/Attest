@@ -569,3 +569,52 @@ def test_a_provider_built_with_thinking_arguments_sends_them() -> None:
     assert captured["output_config"]["effort"] == "medium"
     assert captured["output_config"]["format"]["type"] == "json_schema"
     assert captured["max_tokens"] == 8000
+
+
+def test_the_probe_stage_thinks_and_the_proposal_stage_does_not() -> None:
+    """D-248 RED: the default probe call becomes arm C -- thinking adaptive at
+    effort medium -- and the proposal stage must not follow it there. One
+    provider, two stages, two sets of call parameters."""
+    from attest.review.proposer import PROBE_STAGE, PROPOSAL_STAGE
+
+    provider = ApiProvider("claude-sonnet-5")
+    captured: list[dict[str, Any]] = []
+    response = SimpleNamespace(
+        content=[SimpleNamespace(type="text", text='{"findings": []}')],
+        usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+        stop_reason="end_turn",
+    )
+
+    def create(**kwargs: Any) -> Any:
+        captured.append(kwargs)
+        return response
+
+    provider.client = SimpleNamespace(messages=SimpleNamespace(create=create))
+    provider.sample("system", "prompt", {"type": "object"}, 3200, stage=PROPOSAL_STAGE)
+    provider.sample("system", "prompt", {"type": "object"}, 8000, stage=PROBE_STAGE,
+                    effort="medium")
+
+    proposal, probe = captured
+    assert proposal["thinking"] == {"type": "disabled"}
+    assert "effort" not in proposal["output_config"]
+    assert proposal["max_tokens"] == 3200
+    assert probe["thinking"] == {"type": "adaptive"}
+    assert probe["output_config"]["effort"] == "medium"
+    assert probe["max_tokens"] == 8000
+
+
+def test_the_attempt_cache_identity_separates_the_two_stages() -> None:
+    """D-248 RED: a cached answer is replayed when the identity matches, so the
+    stage and its effort have to be part of that identity -- otherwise a probe
+    asked one way could be served an answer produced the other way."""
+    from attest.review.proposer import PROBE_STAGE, PROPOSAL_STAGE, call_parameters
+
+    proposal = call_parameters("claude-sonnet-5", stage=PROPOSAL_STAGE)
+    probe_medium = call_parameters("claude-sonnet-5", stage=PROBE_STAGE, effort="medium")
+    probe_high = call_parameters("claude-sonnet-5", stage=PROBE_STAGE, effort="high")
+
+    assert proposal != probe_medium
+    assert probe_medium != probe_high
+    assert proposal["thinking"] == {"type": "disabled"}
+    assert probe_medium["thinking"] == {"type": "adaptive"}
+    assert probe_medium["output_config"]["effort"] == "medium"

@@ -112,4 +112,6 @@ exec "$ATTEST_VENV/bin/attest" --repo "$GITHUB_WORKSPACE" ci \
     --event-path "$GITHUB_EVENT_PATH" \
     --budget "${INPUT_BUDGET_USD:-0.25}" \
     --k "${INPUT_SAMPLES:-5}" \
-    --verification-timeout "${INPUT_VERIFICATION_TIMEOUT:-600}"
+    --verification-timeout "${INPUT_VERIFICATION_TIMEOUT:-600}" \
+    --probe-model "${INPUT_PROBE_MODEL:-}" \
+    --probe-effort "${INPUT_PROBE_EFFORT:-}"

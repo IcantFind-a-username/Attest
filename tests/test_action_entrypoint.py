@@ -197,7 +197,59 @@ def test_trusted_event_forwards_only_ci_arguments_to_attest(tmp_path: Path) -> N
         "5",
         "--verification-timeout",
         "600",
+        # D-248: the probe's model and effort are Action inputs, forwarded
+        # empty when the workflow names neither so the factory default stands
+        "--probe-model",
+        "",
+        "--probe-effort",
+        "",
     ]
+
+
+def test_the_probe_model_and_effort_inputs_reach_the_review_configuration(
+    tmp_path: Path,
+) -> None:
+    """D-248 RED: the two Action inputs must arrive as `attest ci` arguments and
+    become the review's configuration -- the probe's model and how hard its one
+    call thinks -- not be dropped between the workflow and the product."""
+    event_path = tmp_path / "trusted-event.json"
+    _event(event_path)
+    venv, args_path = _fake_attest(tmp_path)
+
+    result = _run_entrypoint(
+        tmp_path,
+        event_path,
+        venv,
+        args_path,
+        INPUT_PROBE_MODEL="claude-haiku-4-5",
+        INPUT_PROBE_EFFORT="high",
+    )
+
+    assert result.returncode == 0, result.stderr
+    forwarded = args_path.read_text(encoding="utf-8").splitlines()
+    assert forwarded[forwarded.index("--probe-model") + 1] == "claude-haiku-4-5"
+    assert forwarded[forwarded.index("--probe-effort") + 1] == "high"
+
+    # and the product's own mapping turns those arguments into the review's
+    # configuration: the probe's model is the configuration's generation_model
+    from argparse import Namespace
+
+    from attest.cli.main import ci_overrides
+    from attest.review.config import ReviewConfig
+
+    overrides = ci_overrides(
+        Namespace(
+            alpha=None,
+            budget=None,
+            model=None,
+            k=None,
+            probe_model="claude-haiku-4-5",
+            probe_effort="high",
+        )
+    )
+    config = ReviewConfig(**overrides)
+    assert config.generation_model == "claude-haiku-4-5"
+    assert config.probe_effort == "high"
 
 
 def test_missing_event_file_fails_without_running_attest(tmp_path: Path) -> None:

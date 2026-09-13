@@ -81,7 +81,10 @@ PROBE_POLICY_VERSION = "attest.probe.record-replay.v1"
 MARKER = "ATTEST-PROBE-OBSERVATION"
 _MARKER_RE = re.compile(re.escape(MARKER) + r"\s+([A-Za-z0-9+/=]+)")
 
-PROBE_MAX_OUTPUT_TOKENS = 1_500
+# D-248: the probe thinks (arm C of D-246), and thinking is billed inside the
+# output bound, so the bound is the arms' 8,000 rather than the 1,500 a
+# non-thinking three-field answer needed.
+PROBE_MAX_OUTPUT_TOKENS = 8_000
 PROBE_TEST_NAME = "test_attest_probe"
 WARNING_KIND = "warning"  # D-235: a Warning subclass raised under a filter
 # D-236: the one pattern the probe and the replay both strip from a `repr`. It is

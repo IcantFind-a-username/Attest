@@ -253,6 +253,28 @@ def _head_sha(repo: Path) -> str:
     return done.stdout.strip() if done.returncode == 0 else ""
 
 
+def ci_overrides(args: argparse.Namespace) -> dict[str, Any]:
+    """The protected Action inputs, as ``ReviewConfig`` keyword arguments.
+
+    D-248: `--probe-model` is the probe's model, which the configuration holds
+    as ``generation_model`` -- under the shipped ``probe_generation = true``
+    that is the only stage the field reaches. Kept apart from `cmd_ci` so the
+    mapping from an Action input to the review's configuration is testable
+    without running a review."""
+    return {
+        key: value
+        for key, value in [
+            ("alpha", args.alpha),
+            ("budget_usd", args.budget),
+            ("model", args.model),
+            ("k_samples", args.k),
+            ("generation_model", args.probe_model),
+            ("probe_effort", args.probe_effort),
+        ]
+        if value is not None
+    }
+
+
 def cmd_ci(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     token = os.environ.get("GITHUB_TOKEN", "").strip()
@@ -268,16 +290,7 @@ def cmd_ci(args: argparse.Namespace) -> int:
     # CI policy is base-owned: run_ci resolves the merge-base and reads the
     # committed .attest.toml there. The head checkout's file is never loaded.
     # Only the protected Action inputs are applied on top, validated here.
-    overrides = {
-        key: value
-        for key, value in [
-            ("alpha", args.alpha),
-            ("budget_usd", args.budget),
-            ("model", args.model),
-            ("k_samples", args.k),
-        ]
-        if value is not None
-    }
+    overrides = ci_overrides(args)
     try:
         protected = ReviewConfig(**overrides)
     except ValueError as exc:
@@ -289,6 +302,7 @@ def cmd_ci(args: argparse.Namespace) -> int:
     # the reproduction stage at an unpriced model.
     overrides["model"] = protected.model
     overrides["generation_model"] = protected.generation_model
+    overrides["probe_effort"] = protected.probe_effort
 
     provider: Provider
     if args.mock is not None:
@@ -669,6 +683,11 @@ def main(argv: list[str] | None = None) -> int:
     p_ci.add_argument("--alpha", type=float, default=None)
     p_ci.add_argument("--budget", type=float, default=None, help="USD cap for this review")
     p_ci.add_argument("--model", default=None)
+    # D-248: the probe's model and how hard its one call thinks. Protected
+    # Action inputs like `--model`: a head that could name them could point the
+    # probe at an unpriced model or at an effort the operator never chose.
+    p_ci.add_argument("--probe-model", default=None)
+    p_ci.add_argument("--probe-effort", default=None)
     p_ci.add_argument("--k", type=int, default=None, help="proposer samples")
     p_ci.add_argument(
         "--mock",
