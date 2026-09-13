@@ -20,9 +20,12 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   unconfirmed) and at most one merge-base test, read at the base revision so a test the change
   itself added cannot pose as the tree's existing specification. What is missing is named as
   missing. Measured free on the forty trees: the whole first-probe request grows **4.1%**, a route
-  is resolved in 34 of 40 cases and a merge-base specification quoted in 36. **This repairs the
-  evidence chain; recall and precision are unmeasured under it** and no rule, model, budget or cap
-  moves.
+  is resolved in 34 of 40 cases and a merge-base specification quoted in 36. **Measured on the same
+  forty, old context against new ($5.74, [the report](docs/acceptance/2026-09-14-context-ab.md)):
+  12 of 40 in both arms.** The chain is repaired and **recall did not move**; the case this was
+  built for certified in the old arm and drawered in the new, because the probe copied the nearest
+  route the block advertised instead of the entry the merge base specifies two hops up. Two defects
+  in which material the block selects are named there. No rule, model, budget or cap moves.
 - **The tree index repaired (D-246).** The defining module is always its own importer, a parameter
   annotated with an in-tree class is a typed receiver, a typed receiver whose class only inherits the
   method keeps the attribute rule, and a same-module call made above the definition still resolves.

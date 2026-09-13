@@ -1,0 +1,25 @@
+{
+  "denominator": 40,
+  "run": 40,
+  "certified": 0,
+  "point": 0.0,
+  "wilson95": [
+    0.0,
+    0.0876
+  ],
+  "classes": {
+    "no reproduction attempted": 40
+  },
+  "by_kind": {
+    "boundary": {
+      "no reproduction attempted": 13
+    },
+    "guard_raise": {
+      "no reproduction attempted": 17
+    },
+    "none_guard": {
+      "no reproduction attempted": 10
+    }
+  },
+  "spend_usd": 2.92418
+}
