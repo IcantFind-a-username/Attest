@@ -16,7 +16,7 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   same-named call on an unrelated object is not one; the shared package block is ordered by
   import distance from the anchored file, so a bound cuts the farthest file rather than the
   alphabetically last; and the first probe is told which literal arguments the tree already
-  passes to the changed symbols. Built with `ast` once per tree and cached under `.attest/index/`;
+  passes to the changed symbols. Built with `ast` once per tree and cached under `.attest/cache/index/`;
   no model call. Recall on the forty and the real-PR batches is unmeasured under it as of this
   entry.
 - **A paid driver reserves each unit at the recent forty's 95th percentile, not at the ceiling

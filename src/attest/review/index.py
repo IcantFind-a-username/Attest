@@ -11,7 +11,7 @@ exactly: a call resolves through the import that bound its name, and a file's
 distance from the anchored module is a walk over the import graph.
 
 Everything here is computed from the checked-out tree with the standard
-library, once per tree, and cached on disk under ``.attest/index/`` keyed by
+library, once per tree, and cached on disk under ``.attest/cache/index/`` keyed by
 the paths, sizes and modification times of the Python files it read. No model
 is called and nothing is bought. The index describes the tree; it never
 decides anything.
@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any
 
 INDEX_SCHEMA_VERSION = "attest.tree-index.v1"
-INDEX_DIR = ".attest/index"
+INDEX_DIR = ".attest/cache/index"
 
 MAX_INDEXED_FILES = 4_000
 MAX_INDEXED_FILE_BYTES = 400_000
@@ -479,7 +479,7 @@ def _from_json(payload: dict[str, Any], key: str) -> TreeIndex | None:
 
 
 def tree_index(root: Path) -> TreeIndex:
-    """The index of ``root``, from memory or ``.attest/index/`` when the tree
+    """The index of ``root``, from memory or ``.attest/cache/index/`` when the tree
     it was built from is unchanged, else built and written.
 
     A cache that cannot be written is not an error: the index is still
