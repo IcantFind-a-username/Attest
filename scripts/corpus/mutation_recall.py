@@ -204,6 +204,44 @@ def cmd_build(_args: argparse.Namespace) -> int:
     return 0 if built == len(sample) else 1
 
 
+# --- D-246 step 5: the A/B/C probe arms -------------------------------------
+# A is the shipped probe call: the review's own provider, the generation model,
+# thinking disabled, the probe's own output bound. B asks the same model with
+# thinking adaptive at effort medium and 8,000 output tokens; C asks the
+# review's proposal model the same way. Only the probe's one call moves: the
+# proposals and the reproduction generator stay as they are. Prepared on
+# 2026-09-14; dispatched only on the owner's word.
+ARMS = ("A", "B", "C")
+PROBE_ARM_MAX_OUTPUT_TOKENS = 8_000
+PROBE_ARM_THINKING = {"thinking": {"type": "adaptive"}, "output_config": {"effort": "medium"}}
+
+
+def probe_arm(arm: str, config: object) -> tuple[object | None, dict[str, object]]:
+    """The ``ProbeCall`` for ``arm`` (None for A, the shipped call) and the
+    parameters the trial row records so the arm is legible from its file."""
+    from attest.review.executor import ProbeCall
+    from attest.review.probe import PROBE_MAX_OUTPUT_TOKENS
+    from attest.review.proposer import ApiProvider
+
+    generation_model = str(getattr(config, "generation_model", ""))
+    proposal_model = str(getattr(config, "model", ""))
+    if arm in ("", "A"):
+        return None, {
+            "arm": "A", "model": generation_model, "thinking": "disabled", "effort": "",
+            "max_output_tokens": PROBE_MAX_OUTPUT_TOKENS,
+        }
+    model = {"B": generation_model, "C": proposal_model}[arm]
+    call = ProbeCall(
+        provider=ApiProvider(model, thinking=PROBE_ARM_THINKING),
+        model=model,
+        max_output_tokens=PROBE_ARM_MAX_OUTPUT_TOKENS,
+    )
+    return call, {
+        "arm": arm, "model": model, "thinking": "adaptive", "effort": "medium",
+        "max_output_tokens": PROBE_ARM_MAX_OUTPUT_TOKENS,
+    }
+
+
 def _only_units(raw: str) -> tuple[str, ...]:
     """The case ids a `--only` names, in the order written, blanks dropped."""
     return tuple(part.strip() for part in (raw or "").split(",") if part.strip())
@@ -219,7 +257,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     preregistration = prospective.load_preregistration(STUDY)
     sample = _read_jsonl(STUDY / "sample.jsonl")
     assert sample, "the sample is empty"
-    trials_path = STUDY / (args.trials_file or prospective.TRIALS_FILE)
+    arm = str(getattr(args, "arm", "") or "")
+    assert arm in ("", *ARMS), f"unknown arm {arm!r}"
+    # an arm's trials carry its name in the file, so no arm is ever mistaken
+    # for the shipped call's history when the report is read
+    default_trials = f"trials-arm-{arm}.jsonl" if arm else prospective.TRIALS_FILE
+    trials_path = STUDY / (args.trials_file or default_trials)
     lines_path = STUDY / f"lines-{trials_path.stem}.jsonl"
     done = {row["unit_id"] for row in _read_jsonl(trials_path)}
     # `--only` re-runs named cases (a repair's re-measurement, D-236) in the
@@ -242,7 +285,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     history = [row for path in sorted(STUDY.glob("trials*.jsonl")) for row in _read_jsonl(path)]
     reservation = reservation_from_history(recent_spends(history), fallback=unit_budget)
     print(json.dumps({"reservation_usd": round(reservation, 6), "history_cases": len(history),
-                      "ceiling_usd": unit_budget}), flush=True)
+                      "ceiling_usd": unit_budget, "arm": arm or "A"}), flush=True)
     cap = DriverCap(
         cap=min(preregistration.cost_cap_usd, args.reserve) if args.reserve
         else preregistration.cost_cap_usd,
@@ -277,10 +320,11 @@ def cmd_run(args: argparse.Namespace) -> int:
             "value_notes_visible": True,
             "gate_notes_visible": True,
         })
+        probe_call, probe_parameters = probe_arm(arm, config)
         started = datetime.now(UTC)
         review = run_review(
             repo, manifest["base_sha"], config, ApiProvider(config.model),
-            verify=True, verification_timeout_s=900.0,
+            verify=True, verification_timeout_s=900.0, probe_call=probe_call,
         )
         ledger_path = repo / ".attest" / "ledger.jsonl"
         ledger_rows = _read_jsonl(ledger_path) if ledger_path.exists() else []
@@ -293,9 +337,10 @@ def cmd_run(args: argparse.Namespace) -> int:
             deferred_reason=review.deferred_reason, spend_usd=review.budget.spent_usd,
             elapsed_s=review.elapsed_s,
         )
-        prospective._append_jsonl(trials_path, trial.to_json_dict())
+        trial_row = {**trial.to_json_dict(), "probe_call": probe_parameters}
+        prospective._append_jsonl(trials_path, trial_row)
         cap.settle(trial.spend_usd)
-        print(json.dumps(trial.to_json_dict(), ensure_ascii=False), flush=True)
+        print(json.dumps(trial_row, ensure_ascii=False), flush=True)
         lines = _author_visible_lines(
             repo, review, ledger_rows, config,
             base_sha=manifest["base_sha"], head_sha=manifest["head_sha"],
@@ -410,6 +455,10 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--only", default="",
                    help="comma-separated case ids: run these alone, in the frozen order, and "
                    "record every other pending case as skipped: not selected")
+    r.add_argument("--arm", default="", choices=["", *ARMS],
+                   help="D-246 step 5: the probe arm -- A the shipped call, B the generation "
+                   "model with adaptive thinking at effort medium, C the proposal model the "
+                   "same way; the trials file is trials-arm-<arm>.jsonl unless --trials-file")
     r.set_defaults(func=cmd_run)
     t = sub.add_parser("table")
     t.add_argument("--trials-file", default="")
