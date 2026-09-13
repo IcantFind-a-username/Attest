@@ -6,11 +6,51 @@ the same forty trials, **$1.00 per case, K=5, `linux-container-v1`, the local re
 clones, nothing written anywhere**, each admitted at the D-244 p95 reservation ($0.1035 per case)
 and capped by the driver at $5.00, dispatched one at a time and settled in
 [DEVSPEND](../../DEVSPEND.md) before the next. **Only the first probe's hint differs**
-(`ProbeCall.include_routes`, recorded in every trial row); model, budget, K, verification count,
-certification, intent and publication rules are the shipped ones in both. Runs
+(`ProbeCall.include_routes`, recorded in every trial row); the probe call itself is the **shipped**
+one in both arms -- `claude-opus-5`, thinking disabled, 1,500 output tokens -- and so are the models,
+budget, K, verification count, certification, intent and publication rules (§0). Arm `C` of the
+probe-arms run was **not** adopted: switching the default probe call is an owner decision that has
+not been taken. Runs
 [34766961021](https://github.com/IcantFind-a-username/Attest/actions/runs/34766961021) (`old`) and
 [34767960012](https://github.com/IcantFind-a-username/Attest/actions/runs/34767960012) (`new`);
 **$5.738869** of the $10.00 reserved; 40 of 40 cases ran in both arms and none was refused.
+
+## 0. The configuration both arms ran, and which earlier figures share it
+
+An earlier draft of this report left this out, and it is what decides whether this 12 and the
+earlier ones are the same yardstick. Read from the 40 trial rows of each arm (one distinct
+`probe_call` per arm) and from the `review_run` rows of the eight ledgers:
+
+| | both arms |
+|---|---|
+| probe call | **`claude-opus-5`, thinking disabled, 1,500 output tokens** — the shipped call, arm `A` of the D-246 step-5 vocabulary |
+| proposal model | `claude-sonnet-5` (the shipped `default_model`) |
+| reproduction generator | `claude-opus-5` (the shipped `generation_model`) |
+| K, budget, alpha | 5, $1.00 per case, 0.1 |
+| corpus | the frozen forty of `mutations-v1-recall`, rebuilt, not re-drawn |
+| difference between the arms | `include_routes` only, recorded in every trial row |
+
+**Arm `C` of the probe-arms run was not adopted.** The rule of that run named it on cost per
+certified case, and switching the default probe call is an owner decision that has not been taken:
+no pull request, no configuration change, and `ProbeCall`'s defaults are untouched. **These two arms
+are therefore not comparable with that run's B (14) and C (13)**, which asked a different probe
+call (adaptive thinking at effort medium, 8,000 output tokens, and for C a different model).
+
+What *is* comparable is the series that holds the probe call fixed and varies the retrieval:
+
+| run | probe call | retrieval / context | certified of 40 |
+|---|---|---|---|
+| D-240 run (2026-09-13) | shipped | callers by regex, before the tree index | 12 |
+| D-245 run (2026-09-14) | shipped | the tree index as introduced | 11 |
+| probe arms, arm `A` (2026-09-14) | shipped | the index repaired (D-246) | 12 |
+| **context A/B, arm `old`** | shipped | the same, D-247's routes **off** | **12** |
+| **context A/B, arm `new`** | shipped | the same, D-247's routes **on** | **12** |
+
+The last two are the tightest pair in the table: one build of the code, one switch apart, and their
+hints differ on 39 of 40 cases only in `_asserted_block`'s revision label. Arm `old` against arm `A`
+of the probe-arms run is the next tightest — same probe call, same index, different day — and both
+are 12. The D-240 and D-245 figures share the probe call but not the retrieval, so they belong in
+this column and not in a claim about D-247.
 
 ## 1. The two arms
 
