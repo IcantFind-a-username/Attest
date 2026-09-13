@@ -301,7 +301,7 @@ def test_a_generic_method_name_still_finds_its_caller_through_the_index(tmp_path
 
 
 def test_package_block_puts_the_files_nearest_on_the_import_graph_first(tmp_path: Path) -> None:
-    """D-244: within the package, the file that imports the anchored module
+    """D-245: within the package, the file that imports the anchored module
     comes before an alphabetically earlier file that never touches it, so a
     block cut at its bound loses the far file, not the importer."""
     from attest.review.planner import package_block

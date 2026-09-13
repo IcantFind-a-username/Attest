@@ -1126,7 +1126,7 @@ def generate_probe(
 REFUSAL_FEEDBACK_CHARS = 600
 # D-238: the most of the anchored file's diff a probe's feedback quotes
 MAX_FEEDBACK_DIFF_CHARS = 1_500
-# D-244: the most literal arguments the probe prompt lists for the changed symbols
+# D-245: the most literal arguments the probe prompt lists for the changed symbols
 MAX_LITERAL_HINTS = 12
 
 
@@ -1153,7 +1153,7 @@ def _asserted_block(symbols: Sequence[str], values: Sequence[str]) -> str:
 
 
 def _literals_block(symbols: Sequence[str], literals: Sequence[str]) -> str:
-    """D-244: the literal arguments the tree's own code and tests pass to the
+    """D-245: the literal arguments the tree's own code and tests pass to the
     changed symbols, from the tree index, most frequent first. A fact about
     the tree: these are the inputs it already treats as inputs, and the ones
     next to a moved boundary are where a probe looks first. The model still

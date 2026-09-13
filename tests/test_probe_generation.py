@@ -1138,7 +1138,7 @@ LITERALS_TESTS = (
 
 
 def test_the_first_probe_is_told_which_literals_the_tree_passes(tmp_path: Path) -> None:
-    """D-244 RED: the values the tree already passes to the changed symbol are
+    """D-245 RED: the values the tree already passes to the changed symbol are
     where a boundary probe looks first, and the probe was never told them."""
     repo, base_sha, head_sha = two_revisions(tmp_path, BOUNDARY_BASE, BOUNDARY_HEAD, LITERALS_TESTS)
     provider = PromptRecorder(BOUNDARY_PROBE)

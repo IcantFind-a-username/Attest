@@ -1,4 +1,4 @@
-"""D-244: the tree index resolves calls through imports, orders files by import
+"""D-245: the tree index resolves calls through imports, orders files by import
 distance, and lists the literals the tree passes to a symbol."""
 
 from __future__ import annotations

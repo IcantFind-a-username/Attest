@@ -373,7 +373,7 @@ def _callers(
 ) -> tuple[list[ContextSnippet], int]:
     """Call sites of ``symbol`` outside the diff hunks, bounded; returns (kept, dropped).
 
-    D-244: the sites come from the tree index, which resolves a call through
+    D-245: the sites come from the tree index, which resolves a call through
     the import that bound its name, so a generic name is searched like any
     other and a same-named call on an unrelated object is not a caller. Test
     files are retrieved separately as references."""
@@ -673,7 +673,7 @@ def package_block(repo: Path, path: str) -> str:
     def skipped(file: Path) -> bool:
         return any(part in _SKIP_DIRS for part in file.relative_to(repo).parts)
 
-    # D-244: within the package and within the tests, the files nearest the
+    # D-245: within the package and within the tests, the files nearest the
     # anchored module on the import graph come first, so what the bound cuts
     # is the farthest file, not the alphabetically last one
     distance = tree_index(repo).import_distance(path)

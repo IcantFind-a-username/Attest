@@ -1,5 +1,5 @@
 """The tree index: where every definition lives, what every module imports,
-and which definition each call site reaches (D-244).
+and which definition each call site reaches (D-245).
 
 The planner used to find a changed symbol's callers by grepping for its name,
 which has two known holes. A short or common name -- ``get``, ``parse``,

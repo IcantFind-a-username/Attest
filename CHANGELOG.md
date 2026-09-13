@@ -11,7 +11,7 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ## Unreleased
 
-- **The tree index (D-244).** A changed symbol's callers are resolved through the import that
+- **The tree index (D-245).** A changed symbol's callers are resolved through the import that
   bound the name, so a method named `parse` or `get` gets its callers like any other and a
   same-named call on an unrelated object is not one; the shared package block is ordered by
   import distance from the anchored file, so a bound cuts the farthest file rather than the
