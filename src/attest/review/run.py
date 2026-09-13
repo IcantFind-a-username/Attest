@@ -34,7 +34,7 @@ from attest.review.tier0 import collect_signals, signals_near, unresolved_identi
 
 if TYPE_CHECKING:
     from attest.execution.controller import ExecutorAdapter
-    from attest.review.executor import ExecutorLimits
+    from attest.review.executor import ExecutorLimits, ProbeCall
 
 LOCAL_REPOSITORY_ID = "local"
 
@@ -234,6 +234,7 @@ def run_review(
     limits: ExecutorLimits | None = None,
     verification_timeout_s: float = 600.0,
     adapter: ExecutorAdapter | None = None,
+    probe_call: ProbeCall | None = None,
 ) -> ReviewRun:
     """One review of ``base``..working tree. With ``verify`` the same
     differential reproduction stage CI runs follows the ranking: the head is
@@ -543,6 +544,7 @@ def run_review(
                     clock=clock,
                     adapter=adapter,
                     production=False,
+                    probe_call=probe_call,
                 )
                 results = list(stage.results_by_id.values())
                 certified = list(stage.certified_by_id.values())

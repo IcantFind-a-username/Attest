@@ -85,6 +85,20 @@ MAX_REPRO_ATTEMPTS = 2
 COLLECTION_REGENERATIONS = 1
 # D-146: how many probes one candidate may buy before the recording is given up
 MAX_PROBE_ATTEMPTS = 2
+
+
+@dataclass(frozen=True)
+class ProbeCall:
+    """How the probe is asked for when not as the review's own call (D-246
+    step 5, the A/B/C arms): another provider, carrying its own thinking
+    arguments; another model; and the output bound the reservation and the
+    request both use. ``None`` / ``""`` keep the review's own. It changes the
+    probe's one call and nothing else -- proposals and the reproduction
+    generator stay on the review's provider."""
+
+    provider: Provider | None = None
+    model: str = ""
+    max_output_tokens: int = PROBE_MAX_OUTPUT_TOKENS
 # D-216: how many probes the **search** may buy for one candidate. D-206 gave
 # the derived probes a screen-and-eliminate loop; the model probe had exactly
 # one candidate and stopped, so a first guess that missed the changed code ended
@@ -1010,6 +1024,7 @@ def generate_probe(
     shared_system: str = "",
     model: str = "",
     feedback: str = "",
+    call: ProbeCall | None = None,
 ) -> ProbeSpec:
     """One probe: what to call, never what it should do (D-146).
 
@@ -1024,7 +1039,10 @@ def generate_probe(
     and what the two revisions produced. It is appended after the cacheable
     prompt, so the shared prefix stays the shared prefix and the second question
     costs the same cached tokens as the first."""
-    model = effective_model(provider, model)
+    call = call or ProbeCall()
+    provider = call.provider or provider
+    model = effective_model(provider, call.model or model)
+    max_output_tokens = call.max_output_tokens
     shared = _generation_prompt(repo, candidate, base_ref)
     # D-238: what the tree's own tests assert about the changed symbols, and the
     # rule that makes it matter -- after the cacheable prefix, like the feedback
@@ -1044,7 +1062,7 @@ def generate_probe(
                     # (bounded to REFUSAL_FEEDBACK_CHARS), so every attempt is
                     # reserved at the length the last one could reach
                     len(PROBE_SYSTEM) + len(prompt) + REFUSAL_FEEDBACK_CHARS,
-                    PROBE_MAX_OUTPUT_TOKENS,
+                    max_output_tokens,
                     model or None,
                 )
             )
@@ -1068,7 +1086,7 @@ def generate_probe(
                 PROBE_SYSTEM,
                 attempt_prompt,
                 cast(dict[str, Any], PROBE_SCHEMA),
-                PROBE_MAX_OUTPUT_TOKENS,
+                max_output_tokens,
                 timeout_s=timeout_s,
                 shared_prefix=shared,
                 shared_system=shared_system,
@@ -3270,6 +3288,7 @@ def verify_candidate(
     probe_generation: bool = True,
     contained_attempt_voids: bool = False,
     ledger: Ledger | None = None,
+    probe_call: ProbeCall | None = None,
 ) -> VerificationRun:
     """Generate a reproduction and run it on both revisions.
 
@@ -3347,6 +3366,7 @@ def verify_candidate(
                 shared_system=shared_system,
                 model=generation_model,
                 feedback=feedback,
+                call=probe_call,
             )
 
         try:
