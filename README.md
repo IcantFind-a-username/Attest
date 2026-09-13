@@ -131,7 +131,7 @@ the column on the right is the reason.
 | **false publications**, 68 independent null controls + 40 held-out controls, K=4 | **0** ([report](docs/acceptance/2026-09-05-g-null-001a-independent.md), [held-out](docs/acceptance/2026-09-03-e02-heldout.md)) | the last measured control arm is at **K=4**; the shipped `samples` is 5 and that arm has never been bought |
 | **yellow (a) noise floor**, 68 null controls, deterministic | **1 of 68 — 1.47%**, Wilson 95% **[0.26%, 7.87%]** ([report](docs/acceptance/2026-09-13-yellow.md)) | the one note is **true**; the level claims no defect and has never been shown to find one |
 | **red-team attack classes** dispatched on the production backend, all marked and never certified | **13 of 13** ([matrix](docs/acceptance/2026-09-13-redteam-thirteen.md)) | observed from **inside** the product for 11 of the 13; an external kernel observer has watched seven syscalls, once |
-| **cost of a review** | mean **$0.22**, hard cap `budget-usd` (default $1.00) | — |
+| **cost of a review**, the forty injected defects under the D-248 default probe call (arm C's own ledger, 40 units) | median **$0.046**, p95 **$0.076**, range $0.024–$0.182; hard cap `budget-usd` (default $1.00) ([report](docs/acceptance/2026-09-14-probe-arms.md) §1, [ledger](docs/acceptance/evidence/2026-09-14-probe-arms/arm-C/)) | not the cost of a review on natural traffic: these forty are single-unit injected-defect trials, most of them one change unit, so a real pull request with more units costs more |
 
 **How the default probe call was chosen (D-248).** The probe is the one call that decides what to
 execute on both revisions. Three arms, the same forty injected defects, the same everything else
@@ -145,7 +145,9 @@ execute on both revisions. Three arms, the same forty injected defects, the same
 
 The three are **indistinguishable on recall** — 12, 14 and 13 of 40, intervals overlapping, and one
 re-run of this corpus moves about ±2 cases on its own — so the default is the cheapest per certified
-case. Cost per case is each arm's own total over the forty; the wall clock is its median.
+case. Cost per case is each arm's own total over the forty; the wall clock is its median. **No other
+model has been measured on any arm**: Claude Fable 5.1 and every other always-on-thinking family
+have a code path here and no recall, cost or wall-clock figure at all (limitation 4).
 
 ## Known limitations, in the order they will bite you
 
@@ -177,9 +179,12 @@ case. Cost per case is each arm's own total over the forty; the wall clock is it
 5. **A silence is never a true negative.** Nothing here licenses *"attest found nothing, so it
    is fine"*.
 
-A review costs about **$0.22** on average and is hard-capped by `budget-usd` (default $1.00); on
-the forty injected defects the probe-and-verify path under the D-248 default costs **$0.05 a case
-on average, $0.02 to $0.18 across them** (arm C's own ledger). **Do not lower `budget-usd` below
+A review is hard-capped by `budget-usd` (default $1.00). On the forty injected defects under the
+D-248 default the whole path costs a **median $0.046 a case, p95 $0.076**, $0.024 to $0.182 across
+them (arm C's own ledger, [report](docs/acceptance/2026-09-14-probe-arms.md)); the six-library
+batch of 24 real pull requests, which carry more change units each, cost $2.3848 in all
+([report](docs/acceptance/2026-09-14-lines-on-real-prs-batch3.md)) under the call before D-248.
+**Do not lower `budget-usd` below
 $0.54**: at the default `samples: "5"` the discovery share is
 $0.16 of output tokens alone, so a smaller budget defers the review before it reads anything
 (measured 2026-09-09). See [`docs/github-action.md`](docs/github-action.md) and the
