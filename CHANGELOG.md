@@ -39,8 +39,20 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   all 23 contracts it found for an input or an entry the probe did not use, and admits 0 of the
   real-PR value lines ([report](docs/acceptance/2026-09-15-v6-pairing.md)).
 
+- **v6's contract must stand at head and bind its receiver (D-253).** A contract whose test the
+  same change removes no longer specifies anything, and a method call's receiver construction is
+  part of its input. **What it costs in recall or in trust:** it stops one false publication the
+  container run constructed (an intended change that drops a test naming only the public caller);
+  it adds nothing to the shipped rule. `execute_differential` and `certification_policy` accept an
+  intent policy name for harnesses; both default to `v5.1` and no product path passes one.
+
 ### Measured, not adopted
 
+- **The container pairing (D-253, [report](docs/acceptance/2026-09-15-container-pairing.md)),
+  $0.00, kernel receipts.** On arm C's frozen probes the shipped rule certifies **16 of 40**, three
+  more than recorded, all D-249's, none lost. Contract probes derived from the base tests by a
+  fixed rule, under v6, certify **3 more**, each needing both the probe and v6; 0 of 12
+  intended-change counterexamples and 0 of 8 real-PR control executions certify.
 - **D-249's recovered certifications, on their own**: 3 of the 4 `more.py` cases publish under
   the shipped rule when re-judged from arm C's frozen probes on the rebuilt trees; classes on the
   recorded evidence, not receipts, until re-executed

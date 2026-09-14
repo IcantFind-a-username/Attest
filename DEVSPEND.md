@@ -359,6 +359,8 @@ venv on the development host, over the forty case trees rebuilt under
 reads is unchanged. Named lag: the self-review the pull request of this branch will buy, on the
 dogfooding line. Phase 1's one paid re-run of the forty (about $3 at arm C's rate) is **not
 reserved**: it waits on decisions B and C of the plan's §8.
+The same window's container work (D-253: the full gate under Docker, 130 executions of frozen and
+contract probes, counterexamples and controls) called no model: **$0.000000**.
 
 ## Window 2026-09-14 (index repair) — four free steps, and the A/B/C probe arms reserved before the first call and not yet dispatched
 
