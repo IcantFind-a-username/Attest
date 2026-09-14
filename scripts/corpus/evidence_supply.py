@@ -474,16 +474,27 @@ def _pytest(python: Path, repo: Path, files: list[str], junit: Path, timeout: fl
     except subprocess.TimeoutExpired:
         return {"exit": None, "timed_out": True, "elapsed_s": round(time.monotonic() - started, 1),
                 "failed": [], "collected": 0}
-    failed: list[str] = []
-    collected = 0
+    statuses: dict[str, str] = {}
     if junit.is_file():
         for case in ET.parse(junit).getroot().iter("testcase"):
-            collected += 1
-            if any(child.tag in ("failure", "error") for child in case):
-                failed.append(f"{case.get('classname')}::{case.get('name')}")
+            node = f"{case.get('classname')}::{case.get('name')}"
+            tags = {child.tag for child in case}
+            if "failure" in tags or "error" in tags:
+                statuses[node] = "failed"
+            elif "skipped" in tags:
+                statuses[node] = "skipped"
+            else:
+                statuses[node] = "passed"
+    failed = sorted(node for node, status in statuses.items() if status == "failed")
     return {"exit": done.returncode, "timed_out": False,
-            "elapsed_s": round(time.monotonic() - started, 1), "failed": sorted(failed),
-            "collected": collected, "tail": done.stdout[-300:]}
+            "elapsed_s": round(time.monotonic() - started, 1), "failed": failed,
+            "collected": len(statuses), "statuses": statuses}
+
+
+def _python_version(python: Path) -> str:
+    done = subprocess.run([str(python), "-c", "import sys; print(sys.version.split()[0])"],
+                          capture_output=True, text=True)
+    return done.stdout.strip()
 
 
 def cmd_dynamic(args: argparse.Namespace) -> int:
@@ -512,9 +523,31 @@ def cmd_dynamic(args: argparse.Namespace) -> int:
         head = _pytest(python, repo, files, junit_dir / f"{unit_id}-head.xml", args.timeout)
         _checkout(repo, record["base_sha"])
         base = _pytest(python, repo, files, junit_dir / f"{unit_id}-base.xml", args.timeout)
-        detecting = sorted(set(head["failed"]) - set(base["failed"]))
-        entry.update({"head": head, "base": base, "detecting": detecting[:MAX_LISTED],
-                      "detecting_count": len(detecting)})
+        # a detecting node is one and the same test id that FAILED on head and
+        # PASSED on base -- not merely absent or skipped there -- in the same
+        # venv, interpreter, cwd and command
+        head.pop("statuses", None)
+        base_statuses = base.pop("statuses", {})
+        nodes = [
+            {"node": node, "head": "failed", "base": base_statuses.get(node, "absent")}
+            for node in head["failed"]
+        ]
+        detecting = [n["node"] for n in nodes if n["base"] == "passed"]
+        excluded = [n for n in nodes if n["base"] != "passed"]
+        entry.update({
+            "head": head, "base": base,
+            "detecting": detecting[:MAX_LISTED], "detecting_count": len(detecting),
+            "detecting_nodes": [n for n in nodes if n["base"] == "passed"][:40],
+            "excluded_nodes": excluded[:40],
+            "environment": {
+                "python": _python_version(python),
+                "venv": str(python.parent.parent.relative_to(ROOT)),
+                "cwd": str(repo.relative_to(ROOT)),
+                "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= "
+                           "-W ignore --junitxml=<junit> <files naming a touched symbol>",
+                "same_on_both_revisions": True,
+            },
+        })
         if head["timed_out"] or base["timed_out"]:
             entry["outcome"] = "timed out"
         elif head["collected"] == 0:

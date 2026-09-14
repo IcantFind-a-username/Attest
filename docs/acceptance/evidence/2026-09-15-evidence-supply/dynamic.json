@@ -32,6 +32,21 @@
     },
     "detecting": [],
     "detecting_count": 0,
+    "detecting_nodes": [],
+    "excluded_nodes": [
+      {
+        "node": "::tests.typing.typing_progressbar",
+        "head": "failed",
+        "base": "failed"
+      }
+    ],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/click/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/click/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests pass on the mutant"
   },
   {
@@ -58,6 +73,15 @@
     },
     "detecting": [],
     "detecting_count": 0,
+    "detecting_nodes": [],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/itsdangerous/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/itsdangerous/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests pass on the mutant"
   },
   {
@@ -82,6 +106,15 @@
     },
     "detecting": [],
     "detecting_count": 0,
+    "detecting_nodes": [],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/jinja/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/jinja/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests pass on the mutant"
   },
   {
@@ -93,7 +126,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 3.7,
+      "elapsed_s": 3.6,
       "failed": [
         ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.PeekableTests::test_slicing_error"
       ],
@@ -102,7 +135,7 @@
     "base": {
       "exit": 0,
       "timed_out": false,
-      "elapsed_s": 3.6,
+      "elapsed_s": 3.5,
       "failed": [],
       "collected": 604
     },
@@ -110,6 +143,21 @@
       ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.PeekableTests::test_slicing_error"
     ],
     "detecting_count": 1,
+    "detecting_nodes": [
+      {
+        "node": ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.PeekableTests::test_slicing_error",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/more-itertools/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/more-itertools/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -121,7 +169,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 1.1,
+      "elapsed_s": 0.6,
       "failed": [
         "tests.test_musllinux::test_get_musl_version[aarch64]",
         "tests.test_musllinux::test_get_musl_version[i386]",
@@ -148,6 +196,46 @@
       "tests.test_musllinux::test_parse_musl_version[i386-1.2.1]"
     ],
     "detecting_count": 6,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_musllinux::test_get_musl_version[aarch64]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_musllinux::test_get_musl_version[i386]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_musllinux::test_get_musl_version[x86_64]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_musllinux::test_parse_musl_version[aarch64-1.1.24]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_musllinux::test_parse_musl_version[amd64-1.2.2]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_musllinux::test_parse_musl_version[i386-1.2.1]",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/packaging/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/packaging/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -171,7 +259,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 3.6,
+      "elapsed_s": 2.6,
       "failed": [
         "tests.test_make.TestKeywordOnlyAttributes::test_attr_level_kw_only_and_class_level_kw_only",
         "tests.test_make.TestKeywordOnlyAttributes::test_kw_only_inheritance",
@@ -200,6 +288,51 @@
       "tests.test_make.TestMatchArgs::test_match_args_kw_only"
     ],
     "detecting_count": 7,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_make.TestKeywordOnlyAttributes::test_attr_level_kw_only_and_class_level_kw_only",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_make.TestKeywordOnlyAttributes::test_kw_only_inheritance",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_make.TestKeywordOnlyAttributes::test_kw_only_inheritance_force_kw_only",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_make.TestMatchArgs::test_explicit_match_args",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_make.TestMatchArgs::test_match_args",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_make.TestMatchArgs::test_match_args_argument",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_make.TestMatchArgs::test_match_args_kw_only",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/attrs/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/attrs/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -229,6 +362,21 @@
     },
     "detecting": [],
     "detecting_count": 0,
+    "detecting_nodes": [],
+    "excluded_nodes": [
+      {
+        "node": "::tests.typing.typing_progressbar",
+        "head": "failed",
+        "base": "failed"
+      }
+    ],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/click/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/click/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests pass on the mutant"
   },
   {
@@ -263,6 +411,31 @@
       "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_invalid_separator"
     ],
     "detecting_count": 3,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_itsdangerous.test_signer.TestSigner::test_invalid_separator",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_itsdangerous.test_timed.TestSigner::test_invalid_separator",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_invalid_separator",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/itsdangerous/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/itsdangerous/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -280,7 +453,7 @@
     "head": {
       "exit": 0,
       "timed_out": false,
-      "elapsed_s": 3.6,
+      "elapsed_s": 4.1,
       "failed": [],
       "collected": 604
     },
@@ -293,6 +466,15 @@
     },
     "detecting": [],
     "detecting_count": 0,
+    "detecting_nodes": [],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/more-itertools/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/more-itertools/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests pass on the mutant"
   },
   {
@@ -312,12 +494,21 @@
     "base": {
       "exit": 0,
       "timed_out": false,
-      "elapsed_s": 2.0,
+      "elapsed_s": 2.1,
       "failed": [],
       "collected": 2367
     },
     "detecting": [],
     "detecting_count": 0,
+    "detecting_nodes": [],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/packaging/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/packaging/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests pass on the mutant"
   },
   {
@@ -352,6 +543,36 @@
       "tests.test_variables::test_parse_variables[-expected0]"
     ],
     "detecting_count": 4,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_variables::test_parse_variables[${a:-b}-expected3]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_variables::test_parse_variables[${a}${b}-expected4]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_variables::test_parse_variables[${a}-expected2]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_variables::test_parse_variables[-expected0]",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/python-dotenv/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/python-dotenv/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -364,7 +585,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 37.9,
+      "elapsed_s": 41.9,
       "failed": [
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_basic_proxy",
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_cross_protocol_redirect",
@@ -395,7 +616,7 @@
     "base": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 37.4,
+      "elapsed_s": 37.5,
       "failed": [
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_basic_proxy",
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_cross_protocol_redirect",
@@ -425,6 +646,131 @@
     },
     "detecting": [],
     "detecting_count": 0,
+    "detecting_nodes": [],
+    "excluded_nodes": [
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_basic_proxy",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_cross_protocol_redirect",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_forwarding_non_https_proxy_ssl_context_fallback",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_headers",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_http_and_https_kwarg_ca_cert_data_proxy",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_headers",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_proxy",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_proxy_with_proxy_ssl_context",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_http_proxy_to_https_target",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_https_proxy_to_https_target",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_oldapi",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_https_fqdn",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_pooling",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_verified",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_scheme_host_case_insensitive",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_fingerprint_md5",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[127.0.0.1]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[::1]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[localhost]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_ipv4_san",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_ipv6_san",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_no_san_hostname_checks_common_name",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestIPv6HTTPProxyManager::test_basic_ipv6_proxy",
+        "head": "failed",
+        "base": "failed"
+      }
+    ],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/urllib3/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/urllib3/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests pass on the mutant"
   },
   {
@@ -448,7 +794,7 @@
     "head": {
       "exit": 2,
       "timed_out": false,
-      "elapsed_s": 1.1,
+      "elapsed_s": 1.0,
       "failed": [
         "::bench.test_benchmarks"
       ],
@@ -465,6 +811,21 @@
     },
     "detecting": [],
     "detecting_count": 0,
+    "detecting_nodes": [],
+    "excluded_nodes": [
+      {
+        "node": "::bench.test_benchmarks",
+        "head": "failed",
+        "base": "failed"
+      }
+    ],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/attrs/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/attrs/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests pass on the mutant"
   },
   {
@@ -493,7 +854,7 @@
     "base": {
       "exit": 0,
       "timed_out": false,
-      "elapsed_s": 0.3,
+      "elapsed_s": 0.4,
       "failed": [],
       "collected": 159
     },
@@ -501,6 +862,21 @@
       "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_malformed_timestamp"
     ],
     "detecting_count": 1,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_malformed_timestamp",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/itsdangerous/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/itsdangerous/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -512,7 +888,7 @@
     "head": {
       "exit": 0,
       "timed_out": false,
-      "elapsed_s": 0.3,
+      "elapsed_s": 1.5,
       "failed": [],
       "collected": 3
     },
@@ -525,6 +901,15 @@
     },
     "detecting": [],
     "detecting_count": 0,
+    "detecting_nodes": [],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/jinja/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/jinja/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests pass on the mutant"
   },
   {
@@ -537,7 +922,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 11.9,
+      "elapsed_s": 12.0,
       "failed": [
         ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.FirstTests::test_empty"
       ],
@@ -554,6 +939,21 @@
       ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.FirstTests::test_empty"
     ],
     "detecting_count": 1,
+    "detecting_nodes": [
+      {
+        "node": ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.FirstTests::test_empty",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/more-itertools/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/more-itertools/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -567,7 +967,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 0.9,
+      "elapsed_s": 0.8,
       "failed": [
         "tests.test_manylinux::test_parse_elf_bad_executable[invalid-magic]"
       ],
@@ -584,6 +984,21 @@
       "tests.test_manylinux::test_parse_elf_bad_executable[invalid-magic]"
     ],
     "detecting_count": 1,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_manylinux::test_parse_elf_bad_executable[invalid-magic]",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/packaging/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/packaging/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -602,12 +1017,21 @@
     "base": {
       "exit": 0,
       "timed_out": false,
-      "elapsed_s": 0.4,
+      "elapsed_s": 0.3,
       "failed": [],
       "collected": 136
     },
     "detecting": [],
     "detecting_count": 0,
+    "detecting_nodes": [],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/python-dotenv/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/python-dotenv/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests pass on the mutant"
   },
   {
@@ -626,7 +1050,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 19.7,
+      "elapsed_s": 19.5,
       "failed": [
         "test.with_dummyserver.test_connection::test_invalid_tunnel_scheme",
         "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_alpn_default[h11]",
@@ -648,7 +1072,7 @@
     "base": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 18.8,
+      "elapsed_s": 19.0,
       "failed": [
         "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_alpn_default[h11]",
         "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_alpn_default[h2]",
@@ -670,6 +1094,87 @@
       "test.with_dummyserver.test_connection::test_invalid_tunnel_scheme"
     ],
     "detecting_count": 1,
+    "detecting_nodes": [
+      {
+        "node": "test.with_dummyserver.test_connection::test_invalid_tunnel_scheme",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [
+      {
+        "node": "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_alpn_default[h11]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_alpn_default[h2]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_client_intermediate",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_client_key_password",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_http2_probe_result_is_cached[h11]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_http2_probe_result_is_cached[h2]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_alpn_default[h11]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_alpn_default[h2]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_client_intermediate",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_client_key_password",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_http2_probe_result_is_cached[h11]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_http2_probe_result_is_cached[h2]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_socketlevel.TestSSL::test_ssl_failed_fingerprint_verification",
+        "head": "failed",
+        "base": "failed"
+      }
+    ],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/urllib3/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/urllib3/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -706,6 +1211,32 @@
       "tests.test_converters.TestOptionalPipe::test_optional"
     ],
     "detecting_count": 2,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_converters.TestOptionalPipe::test_instance",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_converters.TestOptionalPipe::test_optional",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [
+      {
+        "node": "tests.test_converters.TestPipe::test_wrapped_annotation",
+        "head": "failed",
+        "base": "failed"
+      }
+    ],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/attrs/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/attrs/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -744,6 +1275,26 @@
       "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_max_age"
     ],
     "detecting_count": 2,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_itsdangerous.test_timed.TestTimedSerializer::test_max_age",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_max_age",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/itsdangerous/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/itsdangerous/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -756,7 +1307,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 5.0,
+      "elapsed_s": 4.6,
       "failed": [
         "tests.test_async.TestAsyncForLoop::test_awaitable_property_slicing",
         "tests.test_async.TestAsyncForLoop::test_bare_async",
@@ -970,7 +1521,7 @@
     "base": {
       "exit": 0,
       "timed_out": false,
-      "elapsed_s": 0.5,
+      "elapsed_s": 0.4,
       "failed": [],
       "collected": 208
     },
@@ -985,6 +1536,216 @@
       "tests.test_async.TestAsyncForLoop::test_context_vars[iter]"
     ],
     "detecting_count": 206,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_awaitable_property_slicing",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_bare_async",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_call_in_loop",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_changed",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_context_vars[<lambda>0]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_context_vars[<lambda>1]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_context_vars[auto_aiter]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_context_vars[iter]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_context_vars[reversed]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_cycling",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_else",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_empty_blocks",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_lookaround",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_loop_errors[asyncio]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_loop_errors[trio]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_loop_filter",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_looploop",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_noniter",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_nonrecursive_loop_filter",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_recursive",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_recursive_depth",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_recursive_depth0",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_recursive_empty_loop_iter",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_recursive_lookaround",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_recursive_loop_filter",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_reversed_bug",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_scope",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_scoped_loop_var",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_scoped_special_var",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_scoping_bug",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_simple",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_unpacking",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncForLoop::test_varlen",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncImports::test_context_imports",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncImports::test_exports[asyncio]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncImports::test_exports[trio]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncImports::test_from_import_with_globals",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncImports::test_import_with_globals",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncImports::test_import_with_globals_override",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_async.TestAsyncImports::test_trailing_comma",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/jinja/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/jinja/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -997,7 +1758,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 12.3,
+      "elapsed_s": 12.6,
       "failed": [
         ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.LastTests::test_empty",
         ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.NthOrLastTests::test_empty_iterable_no_default"
@@ -1007,7 +1768,7 @@
     "base": {
       "exit": 0,
       "timed_out": false,
-      "elapsed_s": 12.3,
+      "elapsed_s": 12.2,
       "failed": [],
       "collected": 749
     },
@@ -1016,6 +1777,26 @@
       ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.NthOrLastTests::test_empty_iterable_no_default"
     ],
     "detecting_count": 2,
+    "detecting_nodes": [
+      {
+        "node": ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.LastTests::test_empty",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.NthOrLastTests::test_empty_iterable_no_default",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/more-itertools/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/more-itertools/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -1037,7 +1818,7 @@
     "base": {
       "exit": 0,
       "timed_out": false,
-      "elapsed_s": 0.6,
+      "elapsed_s": 0.5,
       "failed": [],
       "collected": 111
     },
@@ -1045,6 +1826,21 @@
       "tests.test_direct_url::test_validate_archive_info_hashes"
     ],
     "detecting_count": 1,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_direct_url::test_validate_archive_info_hashes",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/packaging/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/packaging/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -1066,7 +1862,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 49.4,
+      "elapsed_s": 50.5,
       "failed": [
         "test.test_collections.TestHTTPHeaderDict::test_union_with_unsupported_type",
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_basic_proxy",
@@ -1099,7 +1895,7 @@
     "base": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 50.0,
+      "elapsed_s": 50.8,
       "failed": [
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_basic_proxy",
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_cross_protocol_redirect",
@@ -1113,6 +1909,7 @@
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_https_proxy_to_https_target",
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_oldapi",
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_https_fqdn",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_https_target_tls_error[http]",
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_pooling",
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_verified",
         "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_scheme_host_case_insensitive",
@@ -1132,6 +1929,142 @@
       "test.test_collections.TestHTTPHeaderDict::test_union_with_unsupported_type"
     ],
     "detecting_count": 1,
+    "detecting_nodes": [
+      {
+        "node": "test.test_collections.TestHTTPHeaderDict::test_union_with_unsupported_type",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_basic_proxy",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_cross_protocol_redirect",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_forwarding_non_https_proxy_ssl_context_fallback",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_headers",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_http_and_https_kwarg_ca_cert_data_proxy",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_headers",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_proxy",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_proxy_with_proxy_ssl_context",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_http_proxy_to_https_target",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_https_proxy_to_https_target",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_oldapi",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_https_fqdn",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_pooling",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_verified",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_scheme_host_case_insensitive",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_fingerprint_md5",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[127.0.0.1]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[::1]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[localhost]",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_ipv4_san",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_ipv6_san",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_no_san_hostname_checks_common_name",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_proxy_poolmanager.TestIPv6HTTPProxyManager::test_basic_ipv6_proxy",
+        "head": "failed",
+        "base": "failed"
+      },
+      {
+        "node": "test.with_dummyserver.test_socketlevel.TestSSL::test_ssl_failed_fingerprint_verification",
+        "head": "failed",
+        "base": "failed"
+      }
+    ],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/urllib3/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/urllib3/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -1147,7 +2080,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 3.3,
+      "elapsed_s": 3.1,
       "failed": [
         "tests.test_converters.TestPipe::test_wrapped_annotation",
         "tests.test_validators.TestDeepIterable::test_fail_invalid_member[member_validator0]",
@@ -1174,7 +2107,7 @@
     "base": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 2.9,
+      "elapsed_s": 2.7,
       "failed": [
         "tests.test_converters.TestPipe::test_wrapped_annotation"
       ],
@@ -1191,6 +2124,112 @@
       "tests.test_validators.TestDeepIterable::test_success_member_only[member_validator2]"
     ],
     "detecting_count": 18,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_validators.TestDeepIterable::test_fail_invalid_member[member_validator0]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepIterable::test_fail_invalid_member[member_validator1]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepIterable::test_fail_invalid_member[member_validator2]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepIterable::test_repr_member_only",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepIterable::test_repr_member_only_sequence",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepIterable::test_success_member_only[member_validator0]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepIterable::test_success_member_only[member_validator1]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepIterable::test_success_member_only[member_validator2]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepMapping::test_fail_invalid_key",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepMapping::test_fail_invalid_member",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepMapping::test_key_validator_can_be_none",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepMapping::test_noncallable_validators[None-42-None]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepMapping::test_repr",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepMapping::test_success",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestDeepMapping::test_value_validator_can_be_none",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestOptional::test_success_with_none[validator0]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestOptional::test_success_with_none[validator1]",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_validators.TestOptional::test_success_with_none[validator2]",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [
+      {
+        "node": "tests.test_converters.TestPipe::test_wrapped_annotation",
+        "head": "failed",
+        "base": "failed"
+      }
+    ],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/attrs/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/attrs/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -1202,7 +2241,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 1.2,
+      "elapsed_s": 1.6,
       "failed": [
         "tests.test_termui::test_echo_via_pager_tty_pager_missing",
         "tests.test_termui::test_get_pager_file_close_does_not_close_borrowed_stream",
@@ -1227,6 +2266,41 @@
       "tests.test_termui::test_get_pager_file_pager_unset_falls_back_when_no_default"
     ],
     "detecting_count": 5,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_termui::test_echo_via_pager_tty_pager_missing",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_termui::test_get_pager_file_close_does_not_close_borrowed_stream",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_termui::test_get_pager_file_missing_pager_keeps_borrowed_stream_open",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_termui::test_get_pager_file_pager_missing_binary_falls_back",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_termui::test_get_pager_file_pager_unset_falls_back_when_no_default",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/click/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/click/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -1257,6 +2331,21 @@
       "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_future_age"
     ],
     "detecting_count": 1,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_future_age",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/itsdangerous/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/itsdangerous/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -1275,7 +2364,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 12.5,
+      "elapsed_s": 11.9,
       "failed": [
         ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_recipes.RepeatfuncTests::test_simple_repeat"
       ],
@@ -1284,7 +2373,7 @@
     "base": {
       "exit": 0,
       "timed_out": false,
-      "elapsed_s": 12.4,
+      "elapsed_s": 12.1,
       "failed": [],
       "collected": 749
     },
@@ -1292,6 +2381,21 @@
       ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_recipes.RepeatfuncTests::test_simple_repeat"
     ],
     "detecting_count": 1,
+    "detecting_nodes": [
+      {
+        "node": ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_recipes.RepeatfuncTests::test_simple_repeat",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/more-itertools/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/more-itertools/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -1323,6 +2427,26 @@
       "tests.test_manylinux::test_glibc_version_string_none"
     ],
     "detecting_count": 2,
+    "detecting_nodes": [
+      {
+        "node": "tests.test_manylinux::test_glibc_version_string_fail",
+        "head": "failed",
+        "base": "passed"
+      },
+      {
+        "node": "tests.test_manylinux::test_glibc_version_string_none",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/packaging/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/packaging/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   },
   {
@@ -1343,7 +2467,7 @@
     "head": {
       "exit": 1,
       "timed_out": false,
-      "elapsed_s": 1.1,
+      "elapsed_s": 1.2,
       "failed": [
         "test.test_poolmanager.TestPoolManager::test_pool_manager_no_url_absolute_form"
       ],
@@ -1360,6 +2484,21 @@
       "test.test_poolmanager.TestPoolManager::test_pool_manager_no_url_absolute_form"
     ],
     "detecting_count": 1,
+    "detecting_nodes": [
+      {
+        "node": "test.test_poolmanager.TestPoolManager::test_pool_manager_no_url_absolute_form",
+        "head": "failed",
+        "base": "passed"
+      }
+    ],
+    "excluded_nodes": [],
+    "environment": {
+      "python": "3.12.2",
+      "venv": ".attest/corpora/mutations-v1-recall/urllib3/.venv",
+      "cwd": ".attest/corpora/mutations-v1-recall/urllib3/repo",
+      "command": "python -m pytest -q --no-header -p no:cacheprovider -o addopts= -W ignore --junitxml=<junit> <files naming a touched symbol>",
+      "same_on_both_revisions": true
+    },
     "outcome": "own tests catch the mutant"
   }
 ]

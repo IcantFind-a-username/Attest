@@ -55,6 +55,33 @@ the review asked to keep apart — and **missed 14 that the library's own tests 
 The full suites were not run (only the files naming a touched symbol), so *catch* is a lower bound
 and *pass* an upper bound on the library's own detection.
 
+### 0b. The three lists aligned, and why "13 − 7" is not "5"
+
+*Added 2026-09-15 on the owner's instruction, after the own-tests pass was re-run at node level.*
+
+| list | n | cases |
+|---|---:|---|
+| certified by arm C | 13 | `attrs-none_guard-14`, `attrs-none_guard-15`, `attrs-none_guard-17`, `itsdangerous-boundary-07`, `itsdangerous-guard_raise-05`, `itsdangerous-guard_raise-06`, `jinja-boundary-09`, `jinja-none_guard-14`, `packaging-guard_raise-01`, `python-dotenv-guard_raise-01`, `python-dotenv-guard_raise-04`, `urllib3-guard_raise-04`, `urllib3-none_guard-15` |
+| caught by the library's own tests naming a touched symbol | 21 | the 14 misses named in §0 and §3, plus the 7 below |
+| **intersection** | **7** | `packaging-guard_raise-01`, `urllib3-guard_raise-04`, `attrs-none_guard-15`, `itsdangerous-guard_raise-05`, `urllib3-none_guard-15`, `attrs-none_guard-17`, `itsdangerous-guard_raise-06` |
+| certified, not caught: 13 − 7 | **6** | own tests **pass** on the mutant: `itsdangerous-boundary-07`, `jinja-boundary-09`, `python-dotenv-guard_raise-01` · **no test names** a touched symbol: `jinja-none_guard-14`, `python-dotenv-guard_raise-04` · **inconclusive**: `attrs-none_guard-14` (the only naming file is `bench/test_benchmarks.py`, which fails to collect on both revisions) |
+| caught, not certified: 21 − 7 | **14** | the misses of §0's second table |
+
+**"13 − 7 = 6" counts every certified case the naming tests did not catch; "5" counted only
+those where the own-tests column gave a reading.** The sixth, `attrs-none_guard-14`, is neither
+caught nor known to pass: its naming file does not collect, so the column says nothing about it.
+The honest sentence is *5 certified defects the naming tests demonstrably do not catch, and a
+sixth the column cannot read*.
+
+**Node-level confirmation.** The own-tests pass was re-run so that a *detecting* node is one and
+the same test id that **passed on base and failed on head** -- not merely absent or skipped on
+base -- under the same venv, interpreter (CPython 3.12.2 for all eight libraries), working
+directory and command on both revisions. `dynamic.json` carries, per case, every detecting node
+with its base and head status (`detecting_nodes`), the head failures it excluded because base
+did not pass them (`excluded_nodes`: dummy-server proxy tests, a typing fixture, a benchmark
+module -- environmental on both sides), and the environment record. Under this stricter
+reading the 21 stand: no case's detecting set changed.
+
 ## 1. D-249 — the symbol bound, replayed statically
 
 `symbol_ranges` returned `None` for a file of more than 200 definitions and `anchored_symbols`
