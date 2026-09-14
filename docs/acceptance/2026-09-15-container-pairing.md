@@ -16,7 +16,7 @@ bundle path). **Status: measurement; no gate is claimed by it.**
 | asked | result |
 |---|---|
 | restore container execution | **done.** Every `docker build` had hung on `docker-credential-desktop get` (BuildKit asking the macOS credential helper for registry credentials, which never answered). The harness runs docker with `DOCKER_CONFIG` pointing at a config with no `credsStore`; the operator's `~/.docker` is untouched, and `docker run` keeps the adapter's credential-free environment. A two-line build takes 3 s |
-| the full gate under Docker | **passes** on `f655afc`: 2,396 tests, 0 failed, 0 skipped; kernel and execution coverage **93.33%** (floor 90%) ([log](evidence/2026-09-15-container-pairing/full-gate-f655afc.log)). The nine host failures of the previous window were the missing daemon. Re-run on the D-253 tree: §6 |
+| the full gate under Docker | **passes** on `f655afc`: 2,396 tests, 0 failed, 0 skipped; kernel and execution coverage **93.33%** (floor 90%) ([log](evidence/2026-09-15-container-pairing/full-gate-f655afc.log)). The nine host failures of the previous window were the missing daemon. Re-run on the D-253 tree `48ab23a`: **passes**, 2,402 tests, 93.34% (§6) |
 | D-249's actual new receipts | **+3, −0.** On arm C's frozen probes, v5.1 certifies **16 of 40** against arm C's recorded 13; the three gained are exactly the `more_itertools/more.py` cases, and a counterfactual re-judgement of each receipt's own observation under the pre-D-249 symbol rule returns *no symbol to specify* for all three (§1) |
 | contract probes, by a fixed rule, for the five cases | **4 of 5 constructible, 20 probes; 1 not constructible** (`attrs-guard_raise-03`: its input is a class the test defines in its own body). 2 further contract sites of `packaging-guard_raise-06` are not constructible (fixtures) (§2) |
 | the 2×2 pairing, and what each new certification depends on | **+3 correct certifications, −0**: `packaging-boundary-08`, `packaging-guard_raise-06`, `urllib3-none_guard-18` certify **only** as contract probe × v6 -- each needs *both* the contract probe and v6's admission. Frozen × v6 gains nothing over frozen × v5.1 (16 = 16); contract × v5.1 certifies nothing (§3) |
@@ -158,7 +158,10 @@ before D-241 without their probe), as the offline pairing already recorded.
   `Grid(width=2).cell(p)` are different inputs even when they return the same value -- D-252
   compared arguments alone and would have admitted that. Six REDs, each failing on the D-252
   source (`tests/test_intent_v6.py`, now 17 tests).
-- The gate on the D-253 tree is recorded in its commit's handoff (the same command, under Docker).
+- **The full gate on the D-253 tree `48ab23a` passes under Docker**: 2,402 tests, 0 failed, 0 skipped,
+  kernel and execution coverage **93.34%**
+  ([log](evidence/2026-09-15-container-pairing/full-gate-48ab23a.log)); ruff, mypy and
+  `git diff --check` clean.
 
 ## 7. What is and is not claimed
 
