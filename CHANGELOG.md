@@ -26,8 +26,25 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   classifier had counted any accepted receipt in the case, wherever it sat. Recounted over every
   recorded run of the forty: **0 receipts elsewhere**, every published count stands.
 
+### Experimental, off by default
+
+- **`attest.intent.v6` (D-252).** A base test's object-valued expected side, a `parametrize`
+  row, or an exception expected through a caller of the touched symbol may specify a pinned value
+  -- only when it binds the probe's concrete input, a value the observer derives mechanically and
+  the same entry or caller, and every contract found is recorded with the binding it lacks.
+  Selected by name; no product path selects it, and `INTENT_POLICY_VERSION` stays `v5.1`. Bundle
+  and ledger writers now write exactly the recorded version's fields (`IntentObservation.record()`,
+  D-121 made explicit). **What it costs in recall or in trust:** nothing yet in either -- paired
+  offline against the shipped rule on arm C's 33 frozen probes it gains 0 and loses 0, refusing
+  all 23 contracts it found for an input or an entry the probe did not use, and admits 0 of the
+  real-PR value lines ([report](docs/acceptance/2026-09-15-v6-pairing.md)).
+
 ### Measured, not adopted
 
+- **D-249's recovered certifications, on their own**: 3 of the 4 `more.py` cases publish under
+  the shipped rule when re-judged from arm C's frozen probes on the rebuilt trees; classes on the
+  recorded evidence, not receipts, until re-executed
+  ([report](docs/acceptance/2026-09-15-v6-pairing.md)).
 - **The evidence-supply audit over the forty (D-251,
   [report](docs/acceptance/2026-09-15-evidence-supply.md))**, Phase 0 of
   [the contract-evidence plan](docs/design/contract-evidence-plan.md), $0.00: of the 27 cases arm C
