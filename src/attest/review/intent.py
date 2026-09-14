@@ -1349,6 +1349,7 @@ def observe_intent(
 
             contracts = find_contracts(
                 base_tree=base_tree,
+                head_tree=head_tree,
                 anchored=path,
                 symbols=symbols,
                 pinned=tuple(repr(value)[:MAX_VALUE_CHARS] for _kind, value in pinned),

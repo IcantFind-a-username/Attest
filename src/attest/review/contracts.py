@@ -42,7 +42,7 @@ import ast
 import os
 import re
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from attest.certification.intent import ContractRecord
@@ -77,20 +77,29 @@ class Call:
     callee: str  # "f" or "Cls.method" or "Cls" (a constructor)
     args: tuple[str, ...] | None
     kwargs: tuple[tuple[str, str], ...] | None
+    # D-253: how the object the method is called on was built, as canonical text
+    # (`pkg.mod.Grid(width=2)`); "" for a function or a class-level call, None when
+    # the construction is not bound. Part of the input: `Grid(width=5).cell(p)` and
+    # `Grid(width=2).cell(p)` are different calls even when they return the same value.
+    receiver: str | None = ""
 
     @property
     def input(self) -> str:
-        if self.args is None or self.kwargs is None:
+        if self.args is None or self.kwargs is None or self.receiver is None:
             return "<unbound>"
         parts = list(self.args) + [f"{k}={v}" for k, v in self.kwargs]
-        return ", ".join(parts)
+        text = ", ".join(parts)
+        return f"{self.receiver} :: {text}" if self.receiver else text
 
     def same_input(self, other: Call) -> bool:
         return (
             self.args is not None
             and other.args is not None
+            and self.receiver is not None
+            and other.receiver is not None
             and self.args == other.args
             and self.kwargs == other.kwargs
+            and self.receiver == other.receiver
         )
 
 
@@ -116,7 +125,8 @@ def _bindings(tree: ast.Module) -> _Scope:
                 scope.module_alias[alias.asname or alias.name] = alias.name
         elif isinstance(node, ast.Assign) and len(node.targets) == 1:
             target = node.targets[0]
-            if isinstance(target, ast.Name) and _is_literal(node.value):
+            if isinstance(target, ast.Name):
+                # any value: the binding reader decides whether it is bound (D-253)
                 scope.constants[target.id] = node.value
     return scope
 
@@ -129,16 +139,73 @@ def _is_literal(node: ast.AST) -> bool:
     return True
 
 
-def _literal_repr(node: ast.AST, scope: _Scope, row: dict[str, ast.AST]) -> str | None:
-    """The canonical repr of a literal argument, following one level of names."""
+MAX_BINDING_DEPTH = 8
+
+
+def _qualified(func: ast.AST, scope: _Scope) -> str:
+    """``pkg.mod.Name`` for a callee bound by an import, "" otherwise."""
+    if isinstance(func, ast.Name) and func.id in scope.from_module:
+        module, attr = scope.from_module[func.id]
+        return f"{module}.{attr}"
+    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+        if func.value.id in scope.module_alias:
+            return f"{scope.module_alias[func.value.id]}.{func.attr}"
+        if func.value.id in scope.from_module:
+            module, owner = scope.from_module[func.value.id]
+            return f"{module}.{owner}.{func.attr}"
+    return ""
+
+
+def _literal_repr(
+    node: ast.AST, scope: _Scope, row: dict[str, ast.AST], depth: int = 0
+) -> str | None:
+    """The canonical text of a bound argument (D-253), or None.
+
+    Bound means: a literal; a name that resolves -- through the parametrize row,
+    the function's own assignments, or the module's -- to something bound, however
+    many names deep up to ``MAX_BINDING_DEPTH`` (the probe and the source are read
+    by the same rule, so ``output = MUSL_AMD64`` binds on either side); a
+    construction of an *imported* callee whose arguments are all bound, written as
+    ``pkg.mod.Url('http://example.com')``; or a list or tuple of bound elements."""
+    if depth > MAX_BINDING_DEPTH:
+        return None
     if isinstance(node, ast.Name):
-        node = row.get(node.id) or scope.locals.get(node.id) or scope.constants.get(node.id) or node
-        if isinstance(node, ast.Name):
+        bound = (
+            row.get(node.id)
+            or scope.locals.get(node.id)
+            or scope.calls.get(node.id)
+            or scope.constants.get(node.id)
+        )
+        return None if bound is None else _literal_repr(bound, scope, row, depth + 1)
+    if isinstance(node, ast.Call):
+        qualified = _qualified(node.func, scope)
+        if not qualified:
             return None
+        parts: list[str] = []
+        for arg in node.args:
+            shown = _literal_repr(arg, scope, row, depth + 1)
+            if shown is None:
+                return None
+            parts.append(shown)
+        for keyword in sorted(node.keywords, key=lambda k: k.arg or ""):
+            if keyword.arg is None:
+                return None
+            shown = _literal_repr(keyword.value, scope, row, depth + 1)
+            if shown is None:
+                return None
+            parts.append(f"{keyword.arg}={shown}")
+        return f"{qualified}({', '.join(parts)})"
     try:
         return repr(ast.literal_eval(node))
     except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
-        return None
+        pass
+    if isinstance(node, ast.List | ast.Tuple):
+        elements = [_literal_repr(e, scope, row, depth + 1) for e in node.elts]
+        if any(e is None for e in elements):
+            return None
+        inner = ", ".join(e for e in elements if e is not None)
+        return f"[{inner}]" if isinstance(node, ast.List) else f"({inner},)"
+    return None
 
 
 def _resolve_call(
@@ -171,6 +238,7 @@ def _resolve_call(
     func = current.func
     module = ""
     callee = ""
+    receiver_text: str | None = ""
     if isinstance(func, ast.Name):
         bound = scope.from_module.get(func.id)
         if bound is not None:
@@ -189,10 +257,12 @@ def _resolve_call(
                 )
                 if inner is not None and inner.callee and "." not in inner.callee:
                     module, callee = inner.module, f"{inner.callee}.{func.attr}"
+                    receiver_text = _literal_repr(scope.calls[receiver.id], scope, row)
         elif isinstance(receiver, ast.Call):
             inner = _resolve_call(receiver, scope, row, anchored_module, seen)
             if inner is not None and inner.callee and "." not in inner.callee:
                 module, callee = inner.module, f"{inner.callee}.{func.attr}"
+                receiver_text = _literal_repr(receiver, scope, row)
     if not module:
         return None
     args: list[str] = []
@@ -216,6 +286,7 @@ def _resolve_call(
         callee=callee,
         args=tuple(args) if all_literal else None,
         kwargs=tuple(sorted(kwargs)) if all_literal else None,
+        receiver=receiver_text,
     )
 
 
@@ -236,10 +307,11 @@ def probe_call(test_source: str, anchored_module: str) -> Call | None:
                 target = statement.targets[0]
                 if isinstance(target, ast.Name) and target.id == "_attest_value":
                     expression = statement.value
-                elif isinstance(target, ast.Name) and _is_literal(statement.value):
-                    scope.locals[target.id] = statement.value
                 elif isinstance(target, ast.Name) and isinstance(statement.value, ast.Call):
                     scope.calls[target.id] = statement.value
+                elif isinstance(target, ast.Name):
+                    # a literal, or a name that leads to one (D-253)
+                    scope.locals[target.id] = statement.value
         if expression is not None:
             return _resolve_call(expression, scope, {}, anchored_module)
     return None
@@ -420,6 +492,7 @@ def _enclosing_definitions(source: str, line: int) -> list[str]:
 def find_contracts(
     *,
     base_tree: Path,
+    head_tree: Path | None,
     anchored: str,
     symbols: Sequence[str],
     pinned: Sequence[str],
@@ -428,9 +501,45 @@ def find_contracts(
     """Every contract the base tree holds about ``symbols`` for the values the
     replay pins, each bound to the probe's own call and admitted or refused
     with its reason. Empty when the tree has none, or when the replay's call
-    cannot be read."""
-    if not symbols or not pinned:
+    cannot be read.
+
+    D-253: a contract is admitted only while it **stands at head** -- the same
+    kind, symbol, input and derived value is found in ``head_tree`` too. Without a
+    head tree nothing can be shown to stand, and nothing is admitted."""
+    base = _contracts_in(base_tree, anchored, symbols, pinned, test_source)
+    if not base:
         return ()
+    standing: set[tuple[str, str, str, str]] = set()
+    if head_tree is not None:
+        standing = {
+            (c.kind, c.symbol, c.input, c.derived)
+            for c in _contracts_in(head_tree, anchored, symbols, pinned, test_source)
+        }
+    out: list[ContractRecord] = []
+    for c in base:
+        stands = (c.kind, c.symbol, c.input, c.derived) in standing
+        if c.admitted and not stands:
+            c = replace(
+                c, admitted=False, standing_at_head=False,
+                reason="the change removes or rewrites this contract at head",
+            )
+        else:
+            c = replace(c, standing_at_head=stands)
+        out.append(c)
+    out.sort(key=lambda c: (not c.admitted, c.source, c.kind))
+    return tuple(out[:MAX_CONTRACTS])
+
+
+def _contracts_in(
+    base_tree: Path,
+    anchored: str,
+    symbols: Sequence[str],
+    pinned: Sequence[str],
+    test_source: str,
+) -> list[ContractRecord]:
+    """The contracts one tree holds, before the standing check."""
+    if not symbols or not pinned:
+        return []
     root = base_tree.resolve()
     try:
         index: TreeIndex | None = tree_index(root)
@@ -439,7 +548,7 @@ def find_contracts(
     anchored_module = _module_name(anchored, index)
     probe = probe_call(test_source, anchored_module)
     if probe is None:
-        return ()
+        return []
     wanted = frozenset(symbols)
     pinned_set = frozenset(pinned)
     classes = _Classes()
@@ -479,8 +588,7 @@ def find_contracts(
             )
             if len(found) >= MAX_CONTRACTS * 4:
                 break
-    found.sort(key=lambda c: (not c.admitted, c.source, c.kind))
-    return tuple(found[:MAX_CONTRACTS])
+    return found
 
 
 def _assertion_contracts(
@@ -498,11 +606,16 @@ def _assertion_contracts(
         module_alias=dict(file_scope.module_alias),
         constants=dict(file_scope.constants),
     )
-    for statement in ast.walk(node):
-        if isinstance(statement, ast.Assign) and len(statement.targets) == 1:
-            target = statement.targets[0]
-            if isinstance(target, ast.Name) and isinstance(statement.value, ast.Call):
-                scope.calls[target.id] = statement.value
+    assignments = sorted(
+        (s for s in ast.walk(node) if isinstance(s, ast.Assign) and len(s.targets) == 1),
+        key=lambda s: s.lineno,
+    )
+    for assignment in assignments:
+        target = assignment.targets[0]
+        if isinstance(target, ast.Name) and isinstance(assignment.value, ast.Call):
+            scope.calls[target.id] = assignment.value
+        elif isinstance(target, ast.Name):
+            scope.locals[target.id] = assignment.value
     rows = _parametrize(node)
     out: list[ContractRecord] = []
     for statement in ast.walk(node):

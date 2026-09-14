@@ -26,6 +26,7 @@ from attest.certification.binding import (
     binding_verdict,
 )
 from attest.certification.intent import (
+    INTENT_POLICY_VERSION,
     IntentObservation,
     evidence_class_for,
     intent_verdict,
@@ -2644,6 +2645,7 @@ def execute_differential(
     probe: ProbeSpec | None = None,
     reprobe: Callable[[str], ProbeSpec] | None = None,
     contained_attempt_voids: bool = False,
+    intent_policy: str = INTENT_POLICY_VERSION,
 ) -> DifferentialExecution:
     """Run the same reproduction repeatedly against detached head/base
     worktrees. Only a deterministic head failure that shows the code
@@ -3104,6 +3106,9 @@ def execute_differential(
             truncated=any(run.raise_origins_truncated for run in head_runs),
             base_tree=trees_dir / "base",
             head_tree=trees_dir / "head",
+            # D-253: the shipped rule unless a harness names another one; no
+            # product caller passes this
+            policy_version=intent_policy,
         )
         if isinstance(observed, str):
             return deferred(f"intent: {observed}")

@@ -352,3 +352,155 @@ def test_parse():
     observed = _observe(tmp_path, tests=tests, test=test, longrepr=longrepr,
                         policy=INTENT_POLICY_V6)
     assert observed.contracts == ()
+
+
+# --- D-253: a contract stands at head, or it is not admitted ------------------------
+
+
+def test_a_change_that_removes_the_contract_at_head_is_not_specified_by_it(
+    tmp_path: Path,
+) -> None:
+    """The caller contract of `public` is admitted while the test that states it
+    stands. A head that removes that test -- which names `public`, not the touched
+    `parse`, so D-132 (c) reads no intent in it -- has said what it meant: the
+    contract is recorded as not standing and specifies nothing."""
+    test, longrepr = _replay_raises("from pkg.geo import public", 'public("")', "ValueError")
+    base = _tree(tmp_path / "base", {"pkg/__init__.py": "", "pkg/geo.py": GEO_BASE,
+                                     "tests/test_geo.py": TESTS_CALLER})
+    head = _tree(tmp_path / "head", {"pkg/__init__.py": "", "pkg/geo.py": GEO_HEAD,
+                                     "tests/test_geo.py": "import pytest\n"})
+    observed = observe_intent(
+        path="pkg/geo.py", changed_lines=PARSE_LINES, head_source=GEO_HEAD,
+        base_source=GEO_BASE, test_source=test, head_origins=[(), (), ()],
+        head_failures=["AssertionError"] * 3, head_failure_details=[longrepr] * 3,
+        base_tree=base, head_tree=head, changed_files=("pkg/geo.py", "tests/test_geo.py"),
+        policy_version=INTENT_POLICY_V6,
+    )
+    assert isinstance(observed, IntentObservation)
+    assert observed.intent_evidence == ()  # the removed test never names `parse`
+    assert len(observed.contracts) == 1
+    contract = observed.contracts[0]
+    assert contract.input_bound and contract.evaluated and contract.path_bound
+    assert not contract.standing_at_head and not contract.admitted
+    assert "removes or rewrites this contract at head" in contract.reason
+    verdict = intent_verdict(observed)
+    assert verdict is not None and "does not specify" in verdict
+
+
+def test_an_admitted_contract_records_that_it_stands_at_head(tmp_path: Path) -> None:
+    test, longrepr = _replay("from pkg.geo import parse", 'parse("1,2")', "Point(x=1, y=2)")
+    observed = _observe(tmp_path, tests=TESTS_ROWS, test=test, longrepr=longrepr,
+                        policy=INTENT_POLICY_V6)
+    admitted = [c for c in observed.contracts if c.admitted]
+    assert admitted and all(c.standing_at_head for c in admitted)
+
+
+def test_without_a_head_tree_no_contract_is_admitted(tmp_path: Path) -> None:
+    test, longrepr = _replay("from pkg.geo import parse", 'parse("1,2")', "Point(x=1, y=2)")
+    base = _tree(tmp_path / "base", {"pkg/__init__.py": "", "pkg/geo.py": GEO_BASE,
+                                     "tests/test_geo.py": TESTS_ROWS})
+    observed = observe_intent(
+        path="pkg/geo.py", changed_lines=PARSE_LINES, head_source=GEO_HEAD,
+        base_source=GEO_BASE, test_source=test, head_origins=[(), (), ()],
+        head_failures=["AssertionError"] * 3, head_failure_details=[longrepr] * 3,
+        base_tree=base, head_tree=None, policy_version=INTENT_POLICY_V6,
+    )
+    assert isinstance(observed, IntentObservation)
+    assert observed.contracts and not any(c.admitted for c in observed.contracts)
+    assert intent_verdict(observed) is not None
+
+
+# --- D-253: a constructed argument, a receiver, and a name chain are inputs too -------
+
+GRID = '''
+
+class Grid:
+    def __init__(self, width=1):
+        self.width = width
+
+    def cell(self, point):
+        return point.x * self.width + point.y
+'''
+GRID_HEAD = GRID.replace("return point.x * self.width + point.y",
+                         "return point.x * self.width + point.y + 1")
+GRID_BASE_FILE = GEO_BASE + GRID
+GRID_HEAD_FILE = GEO_HEAD + GRID_HEAD
+# the `cell` body on head, after GEO_HEAD's own lines
+CELL_LINES = tuple(range(GEO_HEAD.count("\n") + 7, GEO_HEAD.count("\n") + 10))
+
+
+def _observe_grid(tmp_path: Path, *, tests: str, setup: str, expression: str,
+                  pinned: str) -> IntentObservation:
+    source = (
+        "from pkg.geo import Grid, Point\n\n\n"
+        "def test_attest_replay():\n"
+        f"    {setup}\n"
+        f"    _attest_value = {expression}\n"
+        "    # recorded\n"
+        f"    assert _attest_value == {pinned}\n"
+    )
+    longrepr = (f"    def test_attest_replay():\n>       assert _attest_value == {pinned}\n"
+                "E       AssertionError\n\n.attest-repro/test_repro.py:8: AssertionError")
+    files = {"pkg/__init__.py": "", "tests/test_geo.py": tests}
+    base = _tree(tmp_path / "base", {**files, "pkg/geo.py": GRID_BASE_FILE})
+    head = _tree(tmp_path / "head", {**files, "pkg/geo.py": GRID_HEAD_FILE})
+    observed = observe_intent(
+        path="pkg/geo.py", changed_lines=CELL_LINES, head_source=GRID_HEAD_FILE,
+        base_source=GRID_BASE_FILE, test_source=source, head_origins=[(), (), ()],
+        head_failures=["AssertionError"] * 3, head_failure_details=[longrepr] * 3,
+        base_tree=base, head_tree=head, changed_files=("pkg/geo.py",),
+        policy_version=INTENT_POLICY_V6,
+    )
+    assert isinstance(observed, IntentObservation), observed
+    return observed
+
+
+def test_a_constructed_argument_and_receiver_bind_when_both_sides_build_them_alike(
+    tmp_path: Path,
+) -> None:
+    tests = ("from pkg.geo import Grid, Point\n\n\ndef test_cell():\n"
+             "    g = Grid(width=2)\n    assert g.cell(Point(1, 2)) == 4\n")
+    observed = _observe_grid(tmp_path, tests=tests, setup="g = Grid(width=2)",
+                             expression="g.cell(Point(1, 2))", pinned="4")
+    admitted = [c for c in observed.contracts if c.admitted]
+    assert len(admitted) == 1
+    assert admitted[0].input == "pkg.geo.Grid(width=2) :: pkg.geo.Point(1, 2)"
+
+
+def test_the_same_argument_and_value_on_a_receiver_built_otherwise_is_another_input(
+    tmp_path: Path,
+) -> None:
+    """`Grid(width=5).cell(Point(0, 3))` and `Grid(width=2).cell(Point(0, 3))` both
+    return 3: the value and the argument agree and the contract is still about
+    another object. D-252 compared the arguments alone and would have admitted it."""
+    tests = ("from pkg.geo import Grid, Point\n\n\ndef test_cell():\n"
+             "    g = Grid(width=5)\n    assert g.cell(Point(0, 3)) == 3\n")
+    observed = _observe_grid(tmp_path, tests=tests, setup="g = Grid(width=2)",
+                             expression="g.cell(Point(0, 3))", pinned="3")
+    assert len(observed.contracts) == 1
+    contract = observed.contracts[0]
+    assert contract.evaluated and contract.path_bound and not contract.input_bound
+    assert not contract.admitted
+    assert "pkg.geo.Grid(width=5)" in contract.reason
+    assert "pkg.geo.Grid(width=2)" in contract.reason
+
+
+def test_a_name_chain_binds_on_the_probe_side_as_on_the_source_side(tmp_path: Path) -> None:
+    rows = TESTS_ROWS.replace('("1,2", Point(1, 2))', '(ONE_TWO, Point(1, 2))').replace(
+        "from pkg.geo import Point, parse\n",
+        'from pkg.geo import Point, parse\n\nONE_TWO = "1,2"\n',
+    )
+    source = (
+        "import re\nfrom pkg.geo import parse\n\n\n"
+        "def test_attest_replay():\n"
+        "    ONE_TWO = '1,2'\n"
+        "    text = ONE_TWO\n"
+        "    _attest_value = parse(text)\n"
+        "    # recorded\n"
+        "    assert re.sub(' at 0x[0-9a-f]+', '', repr(_attest_value)) == 'Point(x=1, y=2)'\n"
+    )
+    longrepr = (">       assert ...\nE       AssertionError\n\n"
+                ".attest-repro/test_repro.py:10: AssertionError")
+    observed = _observe(tmp_path, tests=rows, test=source, longrepr=longrepr,
+                        policy=INTENT_POLICY_V6)
+    assert [c.input for c in observed.contracts if c.admitted] == ["'1,2'"]

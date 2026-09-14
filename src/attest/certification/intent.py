@@ -239,6 +239,10 @@ class ContractRecord:
     path_bound: bool
     admitted: bool
     reason: str
+    # D-253: the same contract -- kind, symbol, input and derived value -- is still
+    # in the head tree. A change that removes or rewrites the test a contract stands
+    # on has said what it meant, whether or not that test names the touched symbol.
+    standing_at_head: bool = False
 
 
 def admitted_contract_values(observation: IntentObservation) -> frozenset[str]:
