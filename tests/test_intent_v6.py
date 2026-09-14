@@ -334,3 +334,21 @@ def test_the_default_is_still_v51_and_records_no_contract(tmp_path: Path) -> Non
     assert isinstance(observed, IntentObservation)
     assert observed.policy_version == INTENT_POLICY_VERSION
     assert observed.contracts == ()
+
+
+def test_a_name_assigned_from_itself_does_not_send_the_reader_in_circles(tmp_path: Path) -> None:
+    """`s = s.get()` names itself; the reader follows a name through the test's
+    assignments once and stops -- boltons' statistics tests did this and the
+    first draft never came back."""
+    tests = '''from pkg.geo import parse
+
+
+def test_parse():
+    s = parse("1,2")
+    s = s.next()
+    assert s.count() == 2
+'''
+    test, longrepr = _replay("from pkg.geo import parse", 'parse("1,2")', "Point(x=1, y=2)")
+    observed = _observe(tmp_path, tests=tests, test=test, longrepr=longrepr,
+                        policy=INTENT_POLICY_V6)
+    assert observed.contracts == ()

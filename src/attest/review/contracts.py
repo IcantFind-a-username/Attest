@@ -142,10 +142,16 @@ def _literal_repr(node: ast.AST, scope: _Scope, row: dict[str, ast.AST]) -> str 
 
 
 def _resolve_call(
-    node: ast.AST, scope: _Scope, row: dict[str, ast.AST], anchored_module: str
+    node: ast.AST,
+    scope: _Scope,
+    row: dict[str, ast.AST],
+    anchored_module: str,
+    seen: frozenset[str] = frozenset(),
 ) -> Call | None:
     """Unwrap ``list(sorted(f(x)))`` to the innermost call that resolves to a
-    module of the tree, keeping the wrapper chain."""
+    module of the tree, keeping the wrapper chain. ``seen`` is the names already
+    followed through ``scope.calls``: ``s = s.next()`` names itself, and a
+    reader that followed it again would never come back."""
     wrappers: list[str] = []
     current = node
     while isinstance(current, ast.Call):
@@ -156,6 +162,9 @@ def _resolve_call(
             continue
         break
     if isinstance(current, ast.Name) and current.id in scope.calls:
+        if current.id in seen:
+            return None
+        seen = seen | {current.id}
         current = scope.calls[current.id]
     if not isinstance(current, ast.Call):
         return None
@@ -174,12 +183,14 @@ def _resolve_call(
             elif receiver.id in scope.from_module:
                 owner_module, owner = scope.from_module[receiver.id]
                 module, callee = owner_module, f"{owner}.{func.attr}"
-            elif receiver.id in scope.calls:
-                inner = _resolve_call(scope.calls[receiver.id], scope, row, anchored_module)
+            elif receiver.id in scope.calls and receiver.id not in seen:
+                inner = _resolve_call(
+                    scope.calls[receiver.id], scope, row, anchored_module, seen | {receiver.id}
+                )
                 if inner is not None and inner.callee and "." not in inner.callee:
                     module, callee = inner.module, f"{inner.callee}.{func.attr}"
         elif isinstance(receiver, ast.Call):
-            inner = _resolve_call(receiver, scope, row, anchored_module)
+            inner = _resolve_call(receiver, scope, row, anchored_module, seen)
             if inner is not None and inner.callee and "." not in inner.callee:
                 module, callee = inner.module, f"{inner.callee}.{func.attr}"
     if not module:
