@@ -1,0 +1,300 @@
+[
+  {
+    "library": "more-itertools",
+    "batch": "2026-09-12-lines-on-real-prs",
+    "note": "85d0b40bda6d",
+    "path": "more_itertools/more.py",
+    "line": 4955,
+    "expression": "list(g)",
+    "pinned": [],
+    "pull_request": "more-itertools/more-itertools#1270",
+    "pairing": "not paired: a rejection row (the value rule never reads it)"
+  },
+  {
+    "library": "python-dotenv",
+    "batch": "2026-09-12-lines-on-real-prs",
+    "note": "3ea6ff202b82",
+    "path": "src/dotenv/parser.py",
+    "line": 71,
+    "expression": "list(parse_stream(stream))",
+    "pinned": [
+      "\"[Binding(key='\\\\ufeffFOO', value='bar', original=Original(string='\\\\ufeffFOO=bar\\\\n', line=1), error=False), Binding(key='BAZ', value='qux', original=Original(string='BAZ=qux\\\\n', line=2), error=False)]\""
+    ],
+    "pull_request": "theskumar/python-dotenv#640",
+    "pairing": "not paired: the note carries no probe (before D-241)"
+  },
+  {
+    "library": "python-dotenv",
+    "batch": "2026-09-12-lines-on-real-prs",
+    "note": "52ea2ec8a631",
+    "path": "src/dotenv/parser.py",
+    "line": 71,
+    "expression": "list(parse_stream(stream))",
+    "pinned": [
+      "\"[Binding(key='\\\\ufeffKEY', value='value', original=Original(string='\\\\ufeffKEY=value\\\\n', line=1), error=False)]\""
+    ],
+    "pull_request": "theskumar/python-dotenv#640",
+    "pairing": "not paired: the note carries no probe (before D-241)"
+  },
+  {
+    "library": "jsonschema",
+    "batch": "2026-09-13-lines-on-real-prs-batch2",
+    "note": "48521e761d5c",
+    "path": "jsonschema/exceptions.py",
+    "line": 511,
+    "expression": "exceptions.best_match([parent])",
+    "pinned": [],
+    "pull_request": "python-jsonschema/jsonschema#1300",
+    "pairing": "not paired: a rejection row (the value rule never reads it)"
+  },
+  {
+    "library": "jsonschema",
+    "batch": "2026-09-13-lines-on-real-prs-batch2",
+    "note": "0a62a2045088",
+    "path": "jsonschema/validators.py",
+    "line": 1227,
+    "expression": "resolver.resolve_remote(uri)",
+    "pinned": [
+      "'patched-module-level'"
+    ],
+    "pull_request": "python-jsonschema/jsonschema#1416",
+    "pairing": "not paired: the note carries no probe (before D-241)"
+  },
+  {
+    "library": "requests",
+    "batch": "2026-09-13-lines-on-real-prs-batch2",
+    "note": "8505f39303a8",
+    "path": "src/requests/models.py",
+    "line": 238,
+    "expression": "RequestEncodingMixin._encode_params(proxy)",
+    "pinned": [
+      "'TypeError'"
+    ],
+    "pull_request": "psf/requests#7505",
+    "pairing": "not paired: the note carries no probe (before D-241)"
+  },
+  {
+    "library": "werkzeug",
+    "batch": "2026-09-13-lines-on-real-prs-batch2",
+    "note": "1bd48ba8a4c6",
+    "path": "src/werkzeug/testapp.py",
+    "line": 19,
+    "expression": "importlib.import_module(\"werkzeug.testapp\")",
+    "pinned": [],
+    "pull_request": "pallets/werkzeug#3268",
+    "pairing": "not paired: a rejection row (the value rule never reads it)"
+  },
+  {
+    "library": "werkzeug",
+    "batch": "2026-09-13-lines-on-real-prs-batch2",
+    "note": "031d036d5740",
+    "path": "src/werkzeug/datastructures/cache_control.py",
+    "line": 143,
+    "expression": "_CacheControl.from_header(\"max-age=60\").to_header()",
+    "pinned": [],
+    "pull_request": "pallets/werkzeug#3267",
+    "pairing": "not paired: a rejection row (the value rule never reads it)"
+  },
+  {
+    "library": "boltons",
+    "batch": "2026-09-14-lines-on-real-prs-batch3",
+    "note": "8b21aa6e8626",
+    "path": "boltons/statsutils.py",
+    "line": 564,
+    "expression": "s.get_histogram_counts()",
+    "pinned": [
+      "'ZeroDivisionError'"
+    ],
+    "pull_request": "mahmoud/boltons#467",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'ZeroDivisionError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "Stats",
+          "_get_bin_bounds"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'ZeroDivisionError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "Stats",
+          "_get_bin_bounds"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer"
+  },
+  {
+    "library": "boltons",
+    "batch": "2026-09-14-lines-on-real-prs-batch3",
+    "note": "65a74eb579fd",
+    "path": "boltons/statsutils.py",
+    "line": 563,
+    "expression": "s.get_histogram_counts()",
+    "pinned": [
+      "'ZeroDivisionError'"
+    ],
+    "pull_request": "mahmoud/boltons#467",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'ZeroDivisionError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "Stats",
+          "_get_bin_bounds"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'ZeroDivisionError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "Stats",
+          "_get_bin_bounds"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer"
+  },
+  {
+    "library": "boltons",
+    "batch": "2026-09-14-lines-on-real-prs-batch3",
+    "note": "3b750bb997b9",
+    "path": "boltons/statsutils.py",
+    "line": 563,
+    "expression": "s._get_bin_bounds()",
+    "pinned": [
+      "'ZeroDivisionError'"
+    ],
+    "pull_request": "mahmoud/boltons#467",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'ZeroDivisionError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "Stats",
+          "_get_bin_bounds"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'ZeroDivisionError'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "Stats",
+          "_get_bin_bounds"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer"
+  },
+  {
+    "library": "loguru",
+    "batch": "2026-09-14-lines-on-real-prs-batch3",
+    "note": "b83ef8427231",
+    "path": "loguru/_string_parsers.py",
+    "line": 198,
+    "expression": "_string_parsers.parse_duration('1e400s')",
+    "pinned": [],
+    "pull_request": "Delgan/loguru#1504",
+    "pairing": "not paired: a rejection row (the value rule never reads it)"
+  },
+  {
+    "library": "loguru",
+    "batch": "2026-09-14-lines-on-real-prs-batch3",
+    "note": "7472fb676667",
+    "path": "loguru/_datetime.py",
+    "line": 114,
+    "expression": "format(dt, 'x')",
+    "pinned": [
+      "'-500000'"
+    ],
+    "pull_request": "Delgan/loguru#1508",
+    "verdicts": {
+      "attest.intent.v5.1": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'-500000'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "_compile_format"
+        ]
+      },
+      "attest.intent.v6": {
+        "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+        "publishes": false,
+        "pinned": [
+          "'-500000'"
+        ],
+        "specified": [],
+        "anchored_symbols": [
+          "_compile_format"
+        ],
+        "contracts": []
+      }
+    },
+    "pairing": "unchanged: drawer"
+  },
+  {
+    "library": "marshmallow",
+    "batch": "2026-09-14-lines-on-real-prs-batch3",
+    "note": "b205e48ce0b7",
+    "path": "src/marshmallow/utils.py",
+    "line": 97,
+    "expression": "utils.get_value(obj, 1)",
+    "pinned": [],
+    "pull_request": "marshmallow-code/marshmallow#3024",
+    "pairing": "not paired: a rejection row (the value rule never reads it)"
+  },
+  {
+    "library": "marshmallow",
+    "batch": "2026-09-14-lines-on-real-prs-batch3",
+    "note": "2c14b8263a28",
+    "path": "src/marshmallow/utils.py",
+    "line": 108,
+    "expression": "utils.get_value(obj, key)",
+    "pinned": [],
+    "pull_request": "marshmallow-code/marshmallow#3024",
+    "pairing": "not paired: a rejection row (the value rule never reads it)"
+  },
+  {
+    "library": "marshmallow",
+    "batch": "2026-09-14-lines-on-real-prs-batch3",
+    "note": "e6453ddab7ce",
+    "path": "src/marshmallow/utils.py",
+    "line": 106,
+    "expression": "utils.get_value(obj, 0)",
+    "pinned": [],
+    "pull_request": "marshmallow-code/marshmallow#3024",
+    "pairing": "not paired: a rejection row (the value rule never reads it)"
+  }
+]
