@@ -2484,6 +2484,15 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Cost and reversal:** $0.00; one condition in `note_for`.
 - **Trace:** D-143, D-145, D-150, D-202, D-230.
 
+### D-250 — A mutation case is certified only by a receipt on its own hunk: `classify` takes the site
+
+- **Date/status/scope:** 2026-09-15 · active · a measurement instrument and nothing in the product · `scripts/corpus/mutation_recall.py` (`classify(rows, deferred_reason, site=None)`, `_anchor_of`; `cmd_table` passes each case's `(path, line)`); REDs `tests/test_mutation_recall_driver.py::test_a_receipt_anchored_off_the_mutation_site_is_not_a_hit`, `::test_a_receipt_on_the_mutation_hunk_is_a_hit`, `::test_without_a_site_the_old_reading_stands`; Phase 0 item 0.2 of the contract-evidence plan.
+- **What was wrong.** A case counted as *certified* when any accepted certification row existed in it, wherever the receipt sat -- the 2026-09-15 review named the gap: the classifier never asked whether the diagnosis was of the planted defect.
+- **The rule.** With the mutation's site, an accepted receipt counts only when its verification anchors the mutated file and the mutation's line lies inside the hunk the binding read (`intent.path`, `intent.changed_lines`); any other accepted receipt is **`certified elsewhere`**, its own class, never added to the numerator. Without a site the reading every report before this date used stands, so old tables re-read unchanged.
+- **Measured, free.** Recounted over every recorded run of the forty -- the original (10), rerun-env (1 of 8), D-238 (10), D-240 (12), D-245 (11), arms A/B/C (12/14/13): **0 receipts elsewhere; every count stands.** Whether a receipt's failure names the planted *mechanism* (the deleted guard's own exception, the boundary's own input) is not decided by a location and stays a human column of the audit report.
+- **Cost and reversal:** $0.00; drop the `site` argument.
+- **Trace:** D-231, D-246 step 5; the plan §1.1.
+
 ### D-249 — A bound is not a verdict: `symbol_ranges` reads any file whole, and `anchored_symbols` bounds what it records
 
 - **Date/status/scope:** 2026-09-15 · active · agent decision under `mainline.md` §5 (a defect in what the observer *records*; no rule, cap or price moves, and the recorded field keeps its meaning, so no intent policy version moves and every receipt keeps its verdict under D-121) · `src/attest/review/intent.py` (`symbol_ranges`, `anchored_symbols`, `MAX_SYMBOLS`); RED `tests/test_intent_v42.py::test_a_file_with_more_than_two_hundred_definitions_still_anchors_its_symbol`; Phase 0 item 0.1 of [`docs/design/contract-evidence-plan.md`](docs/design/contract-evidence-plan.md), on the owner's "开始" of 2026-09-15.

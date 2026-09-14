@@ -357,15 +357,52 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
-def classify(rows: list[dict], deferred_reason: str) -> tuple[str, str]:
-    """One case's class from its own ledger rows, and the wording that decided it."""
+def _anchor_of(rows: list[dict], finding_id: object) -> tuple[str, list[int]] | None:
+    """(anchored file, the hunk lines the binding read) of a finding's verification."""
+    for r in rows:
+        if r.get("kind") == "verification" and r.get("finding_id") == finding_id:
+            intent = r.get("intent") or {}
+            if isinstance(intent, dict) and intent.get("path"):
+                lines = [int(n) for n in intent.get("changed_lines") or ()]
+                return str(intent["path"]), lines
+    return None
+
+
+def classify(
+    rows: list[dict], deferred_reason: str, site: tuple[str, int] | None = None
+) -> tuple[str, str]:
+    """One case's class from its own ledger rows, and the wording that decided it.
+
+    D-250: with ``site`` -- the mutation's ``(path, line)`` -- an accepted
+    receipt counts as *certified* only when its verification anchors that file
+    and the mutation's line lies inside the hunk the binding read; an accepted
+    receipt anywhere else is ``certified elsewhere``, a certification of
+    something other than the planted defect. Without a site the reading is the
+    one every report before 2026-09-15 used."""
     from attest.certification.intent import INTENT_UNKNOWN_LABEL, VALUE_CHANGE_LABEL
 
     certified = [
         r for r in rows if r.get("kind") == "certification" and r.get("outcome") == "accepted"
     ]
-    if certified:
+    if certified and site is None:
         return "certified", str(certified[0].get("reason", ""))
+    if certified:
+        elsewhere: list[str] = []
+        for c in certified:
+            anchor = _anchor_of(rows, c.get("finding_id"))
+            if anchor is not None:
+                path, lines = anchor
+                if path == site[0] and lines and min(lines) <= site[1] <= max(lines):
+                    return "certified", str(c.get("reason", ""))
+                where = f"{path}:{min(lines)}-{max(lines)}" if lines else path
+            else:
+                where = "no verification row"
+            elsewhere.append(where)
+        return (
+            "certified elsewhere",
+            f"accepted receipt anchored at {', '.join(elsewhere)}; the mutation is at "
+            f"{site[0]}:{site[1]}",
+        )
     verifications = [r for r in rows if r.get("kind") == "verification"]
     reasons = [str(r.get("reason", "")) for r in verifications] + [deferred_reason or ""]
     for reason in reasons:
@@ -409,7 +446,10 @@ def cmd_table(args: argparse.Namespace) -> int:
                         "class": "not run", "site": site})
             continue
         mine = [e for e in ledgers[str(row["library"])] if e.get("task_id") == trial["task_id"]]
-        klass, why = classify(mine, str(trial.get("deferred_reason") or ""))
+        klass, why = classify(
+            mine, str(trial.get("deferred_reason") or ""),
+            site=(str(row["mutation"]["path"]), int(row["mutation"]["line"])),
+        )
         out.append({"case": unit_id, "library": row["library"], "kind": row["stratum"],
                     "site": f"{row['mutation']['path']}:{row['mutation']['line']}",
                     "class": klass, "why": why[:300], "candidates": trial.get("candidates"),
