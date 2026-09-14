@@ -27,7 +27,7 @@ git checkout v0.2.0
 and pin the workflow the same way:
 
 ```yaml
-- uses: IcantFind-a-username/Attest@v0.2.0
+- uses: IcantFind-a-username/Attest@v0.3.0
 ```
 
 ### What `v0.2.0` changes over `v0.1.0`

@@ -17,7 +17,7 @@ evidence bundles under `.attest/evidence/` as the run's artifact — the bundle 
 `attest verify --bundle … --require-seal` checks, so it has to outlive the runner.
 
 ```yaml
-- uses: IcantFind-a-username/Attest@v0.2.0   # docs/operations/install-ref.md
+- uses: IcantFind-a-username/Attest@v0.3.0   # docs/operations/install-ref.md
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     model-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -31,6 +31,22 @@ built with `python -m venv` and `pip`, pinned by `requirements-toolchain.lock`; 
 not install a published package. *(Corrected 2026-09-09: this said `uv`, which the action
 does not use.)* `budget-usd`, `samples`, and
 `verification-timeout` shown above are the defaults.
+
+Two further inputs arrived in `v0.3.0` and are shown here at their defaults; neither needs to be
+set:
+
+```yaml
+    probe-model: "claude-sonnet-5"
+    probe-effort: "medium"
+```
+
+`probe-model` is the model for the probe — the one call that chooses what to execute on both
+revisions (D-248) — and `probe-effort` is how hard that call thinks (`low`, `medium`, `high`,
+`xhigh`, `max`). A model the product's pricing table does not price is refused before the review
+buys anything. **The defaults are the only measured configuration**: the three arms of
+[the 2026-09-14 report](acceptance/2026-09-14-probe-arms.md) are the whole evidence, and naming any
+other model here — an always-on-thinking family such as Claude Fable 5.1 among them — runs a code
+path with no recall, cost or wall-clock figure on any corpus.
 
 **Typical cost per review.** `budget-usd` is a hard cap, not a price. Measured over the
 2026-09-03 real-traffic corpus (43 reviews), a review's mean spend was **$0.22**: about **$0.31**

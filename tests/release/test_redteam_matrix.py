@@ -107,26 +107,53 @@ def test_the_external_observer_item_stays_insufficient(redteam: dict) -> None:
     assert "auditd/seccomp-notify" in source
 
 
-def test_the_positive_control_is_a_crash_not_a_changed_value(redteam: dict) -> None:
-    """On 2026-09-07 the matrix reported FAIL, and the failing row was the
-    *control*: `a + b` becoming `a - b` is a value change, and
-    `attest.intent.v4.1` refuses a value change whose intended value the base
-    tree does not state. Nothing about the isolation boundary had moved.
+def test_the_positive_control_is_a_crash_the_publication_rule_still_certifies(
+    redteam: dict,
+) -> None:
+    """The control has now broken twice for reasons that had nothing to do with
+    the isolation boundary, and each time the matrix reported FAIL about the
+    wrong thing.
 
-    A control that can fail for a reason unrelated to the boundary makes the
-    whole matrix report FAIL about the wrong thing, so the control is a crash
-    -- the class this product certifies."""
+    2026-09-07: `a + b` becoming `a - b` is a *value* change, and
+    `attest.intent.v4.1` refuses a value change whose intended value the base
+    tree does not state. 2026-09-13: `return parts[1] + b` raises on a line the
+    change wrote, and `attest.intent.v5` (D-232) reads that as a behaviour
+    change of unknown intent and sends it to the drawer -- run 34784037696
+    deferred the control while all thirteen attack rows passed.
+
+    So this test pins both properties the control needs under the current rule:
+    it is a crash and not a value change, and the crash is raised on a line the
+    change did **not** write, which is the shape D-232 leaves to red and the
+    mutation corpus certifies."""
     import inspect
 
     source = inspect.getsource(redteam["_repo"])
-    head = source.split('base = _git(repo, "rev-parse", "HEAD")')[1]
+    base_side, head_side = source.split('base = _git(repo, "rev-parse", "HEAD")')
 
-    assert "a - b" not in head, "the control is a value change again"
-    assert "parts[1]" in head
-    # the head really does raise where the base does not
-    def head_add(a: int, b: int) -> int:
-        parts = [a]
-        return parts[1] + b
+    assert "a - b" not in head_side, "the control is a value change again"
 
-    with pytest.raises(IndexError):
-        head_add(2, 2)
+    # the two trees, exactly as the fixture writes them
+    def base_add(a, b):  # noqa: ANN001, ANN202
+        b = 0 if b is None else b
+        return a + b
+
+    def head_add(a, b):  # noqa: ANN001, ANN202
+        b = int(b) if isinstance(b, str) else b
+        return a + b
+
+    body = redteam["REGRESSION_BODY"]
+    assert "mod.add(2, None) == 2" in body, "the probe must exercise the coercion"
+
+    # base passes what head raises on: a real regression, and a crash
+    assert base_add(2, None) == 2
+    with pytest.raises(TypeError):
+        head_add(2, None)
+
+    # the changed line is line 2 and it executes; the exception comes from line
+    # 3, which both trees write identically -- no written line on its path
+    base_lines = [line for line in base_side.splitlines() if "b = " in line]
+    head_lines = [line for line in head_side.splitlines() if "b = " in line]
+    assert base_lines and head_lines and base_lines != head_lines
+    assert "return a + b" in base_side and "return a + b" in head_side, (
+        "the raising line must be identical on both sides, or D-232 drawers the control"
+    )

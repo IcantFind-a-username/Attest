@@ -9,81 +9,49 @@ live under [`docs/acceptance/`](docs/acceptance/). This file is the index, not t
 
 Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
-## Unreleased
+## `v0.3.0` — 2026-09-15
 
-- **The default probe call is arm C (D-248, owner decision).** The probe -- the one call that
-  chooses what to execute on both revisions -- now runs on `claude-sonnet-5` with thinking adaptive
-  at effort `medium` and an 8,000-token bound; the proposal stage keeps `thinking: disabled` and its
-  own bound, and the stage and effort are part of the attempt-cache identity. Chosen on 40 cases x
-  3 arms ([report](docs/acceptance/2026-09-14-probe-arms.md)), which are **indistinguishable on
-  recall** (12, 14 and 13 of 40): the rule was cost per certified case, $0.15 against $0.23 and
-  $0.22. Two new Action inputs, `probe-model` and `probe-effort`; a model the pricing table does
-  not price is refused before anything is bought. **No recall improvement is claimed.**
-- **The tree index repaired (D-246).** The defining module is always its own importer, a parameter
-  annotated with an in-tree class is a typed receiver, a typed receiver whose class only inherits the
-  method keeps the attribute rule, and a same-module call made above the definition still resolves.
-  Free, measured on the forty rebuilt trees ([the report](docs/acceptance/2026-09-14-index-repair.md)):
-  caller snippets 34 → 51, `python-dotenv-guard_raise-04` 0 → 4; of the 76 snippets the regex era
-  had, the 31 the repaired index still leaves out are 27 noise and 4 undecidable, 0 real callers.
-  Recall under it is unmeasured. The context is now a ledger fact rather than a recomputation:
-  the probe row carries the literals block its prompt held (`attest.probe-observation.v5`), the plan
-  row carries every caller snippet with its resolution and the shared package block's anchor, size
-  and the files its bound cut (`attest.review-plan.v2`) -- and says `null` for the block, because
-  the shipped `context_strategy` is `r01` and nothing measured has ever built one. Were it built,
-  the 120k bound would bind on 49 of the 68 real pull requests reviewed so far and cut an importer
-  of the changed module on 29; the lever has had no chance to act, and no paid run is scheduled for it.
-  The probe's one call can be routed to its own provider, model and output bound (`ProbeCall`),
-  which is how the A/B/C thinking arms were run on the forty ($7.72, [the report](docs/acceptance/2026-09-14-probe-arms.md)):
-  A 12, B 14, C 13 of 40, one re-run apart; the pre-registered rule names C (the proposal model,
-  thinking adaptive at effort medium) on cost per certified case, $0.15 against A's $0.23. Nothing
-  in the shipped call moved; the switch is the owner's.
-- **The tree index (D-245).** A changed symbol's callers are resolved through the import that
-  bound the name, so a method named `parse` or `get` gets its callers like any other and a
-  same-named call on an unrelated object is not one; the shared package block is ordered by
-  import distance from the anchored file, so a bound cuts the farthest file rather than the
-  alphabetically last; and the first probe is told which literal arguments the tree already
-  passes to the changed symbols. Built with `ast` once per tree and cached under `.attest/cache/index/`;
-  no model call. **Measured** on the forty ($2.82, [the report](docs/acceptance/2026-09-14-forty-with-index.md)):
-  **11 of 40 certified, from 12** -- one gained, two lost, inside the ±2 a re-run moves on its own;
-  the boundary class 1 of 13 as before. The index reports fewer callers than the regex did (76 → 34
-  snippets over the forty): a call on an untyped parameter inside the defining module is not one, and
-  that bound cost one of the two receipts lost. The real-PR batches are unmeasured under it.
-- **A paid driver reserves each unit at the recent forty's 95th percentile, not at the ceiling
-  (D-244, owner instruction).** Reserving at the $1.00 ceiling refused the last three of forty at
-  $2.53 of a $3.50 cap; the unit's own budget still binds what it may spend. AGENTS.md §9 also
-  records what one re-run of the forty moves on its own: about ±2 cases.
-- **The run row says which stage bought what (D-243).** `review_run` carries `spend_breakdown`:
-  discovery, probe and generation, each with its calls, tokens, model and cost, summing to the
-  total. Until now verification was 63% to 73% of every measured run's spend and one number.
-- **Tier-0 never writes (D-242).** `itsdangerous` sets `[tool.ruff] fix = true`, under which the
-  tier-0 `ruff check` rewrote the anchored file of a reviewed tree, and every verification of that
-  case was refused for a dirty working tree — three paid runs, named by D-239's ledger row on the
-  first run after it landed. `ruff check --no-fix` now, whatever the project configures. Since
-  D-237 made ruff reachable on shipped reviews, this closes the one path by which a review could
-  have edited the repository it reviews.
-- **The value line is reproducible (D-241, `attest.value-note.v4`).** Three of the seven lines on
-  real traffic were judged *true but not actionable*, all value lines: the line said what a call
-  returned and never how the arguments were built. The recording row and the note now keep the
-  probe's imports and setup, and the collapsed block opens with one runnable Python block the
-  author can paste on either revision. Note ids do not move; rows written before v4 read back
-  with the fields empty.
-- **The search is told which conditions the change moved, and a test that expects the exception
-  specifies it (D-240, `attest.intent.v5.1`).** `boundary` mutations certified 1 of 13: the change is
-  `x >= 13` becoming `x > 13` and the probe rarely tried 13. The first probe and every feedback now
-  name the comparisons the change altered ("the boundary is 13") and the guards it removed ("it
-  raised ValueError"), read from the two sources with no model. And a base test that expects an
-  exception from the touched symbol (`pytest.raises(X)`, `assertRaises(X)`) now specifies the type
-  name a replay pins when the merge base raised; 8 of the forty's 18 value-class rows were this
-  shape and every one was the drawer. **What it costs in trust:** the same standing an `assert`
-  already has; the ceiling measured offline was +2 of 40, with no exposure on the one null row.
-  **Measured** by re-running the forty ($3.68 including a run the provider's credit balance
-  aborted): **12 of 40 — 30.0%, Wilson 95% [18.1%, 45.4%]**, up from 10; four cases gained a
-  receipt, three of them because a base test expects the exception (two of those had never
-  recorded before D-236), two lost one to discovery and search variance. The boundary class is
-  still 1 of 13: the moved-conditions block named the boundary and the probes did not certify on it.
-- **A dirty-tree refusal writes `git status` to the ledger (D-239).** `itsdangerous-guard_raise-01`
-  was refused for a dirty working tree on two runs and a fresh clone, and the refusal said no more.
-  The ledger row now names the paths; the author-visible reason is unchanged.
+**The release that stopped a reviewer from writing to the repository it reviews, and made the one
+call that chooses what to execute cheaper without losing recall.** Constants unchanged from
+`v0.2.0`: `alpha`, every likelihood ratio, `k_samples` 5, the hard cap 3, `budget-usd` $1.00,
+interpreters 3.10–3.13. Forward crash-class recall is **13 of 40 — 32.5%, Wilson 95%
+[20.1%, 48.0%]** under the new default probe call, which is the same corpus the `v0.2.0` figure
+came from but **not the same instrument**: see *What is not claimed* at the end.
+
+### Security
+
+- **Tier-0 never writes (D-242). `v0.2.0` users are affected.** `itsdangerous` sets
+  `[tool.ruff] fix = true`, under which the tier-0 `ruff check` **rewrote the anchored file of the
+  tree it was reviewing**, and every verification of that case was then refused for a dirty working
+  tree -- three paid runs, named by D-239's ledger row on the first run after it landed. The
+  command is `ruff check --no-fix` now, whatever the project configures. Since D-237 (below) made
+  ruff reachable on shipped reviews for the first time, this is the one path by which a review
+  could have edited the repository it reviews, and it is closed. **What it means for trust:** a
+  reviewer that can modify its subject cannot be trusted about it; no receipt is known to have
+  been produced through this path, and the effect observed was refusal, not a false claim.
+
+### The reviewed repository's environment
+
+- **Two environment losses repaired (D-236).** A project that versions itself from the repository
+  (`urllib3`: `hatch-vcs` writes `_version.py` at build time and the package imports it) could not
+  be imported from the reviewed worktree, so every probe on it recorded nothing -- 5 of 5 mutation
+  cases, 3 of 3 pull requests. The executor now writes the declared version file into both
+  worktrees, fixed content, only when it is absent. And an object's ` at 0x…` address is no longer
+  part of a recording: the probe body drops it and the replay compares the same form, so a merge
+  base that returns a closure or a context manager records stably instead of being refused as
+  unstable (three cases of the forty). **What it costs in trust:** nothing -- neither change reads
+  an outcome. **Measured** by re-running exactly the eight environment cases ($0.61): 6 of 8 now
+  record a probe on the merge base, none did before; forward recall **10 of 40 — 25.0%, Wilson 95%
+  [14.2%, 40.2%]** at that point in the window.
+- **The T channel fires in production (D-237).** It was never dead code: the mutation run's ledgers
+  hold two `("S", "T")` rows, bought where the runner had `ruff` on PATH. The Action runs
+  `$ATTEST_VENV/bin/attest` without that `bin` on PATH, so `shutil.which("ruff")` found nothing on
+  every shipped review. `ruff` beside the running interpreter now counts. **What it changes:** a
+  certified finding beside a ruff diagnostic may be ordered ahead of another under the cap; under
+  D-199 the score orders and never publishes, so **no publication decision moves**.
+
+### What the probe is told, and which call makes it
+
 - **The probe search is told what the tests assert, and shown the hunk (D-238).** Fourteen of the
   forty mutation cases were the value class: the probe found the change and the drawer refused it
   because no base test asserted the value it pinned. The first probe now carries, after the cached
@@ -91,30 +59,116 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   the rule that makes it matter; the second and third carry the same block from the base worktree
   and the anchored file's diff. No publication rule moves. **What it costs:** a few hundred more
   characters per probe attempt. **Measured** by re-running the forty ($2.74): **10 of 40 certified,
-  as before** — one case gained a receipt (`jinja-boundary-09`, the probe now pins a value the
-  tests assert), one lost one (`python-dotenv-guard_raise-04`), 18 are the value class. The hint
-  moved nothing net on this population; the value class is the wall, and it is a rule, not a
-  search.
-- **The T channel fires in production (D-237).** It was never dead code: the mutation run's
-  ledgers hold two `("S", "T")` rows, bought where the runner had `ruff` on PATH. The Action runs
-  `$ATTEST_VENV/bin/attest` without that `bin` on PATH, so `shutil.which("ruff")` found nothing on
-  every shipped review. `ruff` beside the running interpreter now counts. **What it changes:** a
-  certified finding beside a ruff diagnostic may be ordered ahead of another under the cap; under
-  D-199 the score orders and never publishes, so no publication decision moves.
-- **Two environment losses repaired (D-236).** A project that versions itself from the
-  repository (`urllib3`: `hatch-vcs` writes `_version.py` at build time and the package imports
-  it) could not be imported from the reviewed worktree, so every probe on it recorded nothing —
-  5 of 5 mutation cases, 3 of 3 pull requests. The executor now writes the declared version file
-  into both worktrees, fixed content, only when it is absent. And an object's ` at 0x…` address
-  is no longer part of a recording: the probe body drops it and the replay compares the same
-  form, so a merge base that returns a closure or a context manager records stably instead of
-  being refused as unstable (three cases of the forty). **What it costs:** nothing in trust —
-  neither change reads an outcome. **Measured** by re-running exactly the eight environment cases
-  ($0.61): 6 of 8 now record a probe on the merge base, none did before; the forward recall is
-  **10 of 40 — 25.0%, Wilson 95% [14.2%, 40.2%]** (`attrs-none_guard-14` certifies; the five
-  urllib3 cases are the value class), one case is refused three times by the probe-hygiene rules
-  (`sys.stdin = …`), and `itsdangerous-guard_raise-01` is still refused for a dirty working tree
-  on a fresh clone — open.
+  as before** -- one case gained a receipt, one lost one, 18 are the value class. The hint moved
+  nothing net on this population; the value class is the wall, and it is a rule, not a search.
+- **The search is told which conditions the change moved, and a test that expects the exception
+  specifies it (D-240, `attest.intent.v5.1`).** `boundary` mutations certified 1 of 13: the change
+  is `x >= 13` becoming `x > 13` and the probe rarely tried 13. The first probe and every feedback
+  now name the comparisons the change altered ("the boundary is 13") and the guards it removed
+  ("it raised ValueError"), read from the two sources with no model. And a base test that expects
+  an exception from the touched symbol (`pytest.raises(X)`, `assertRaises(X)`) now specifies the
+  type name a replay pins when the merge base raised; 8 of the forty's 18 value-class rows were
+  this shape and every one was the drawer. **What it costs in trust:** the same standing an
+  `assert` already has; the ceiling measured offline was +2 of 40, with no exposure on the one null
+  row. **Measured** by re-running the forty ($3.68 including a run the provider's credit balance
+  aborted): **12 of 40 — 30.0%, Wilson 95% [18.1%, 45.4%]**, up from 10; four cases gained a
+  receipt, two lost one to discovery and search variance. The boundary class is still 1 of 13.
+- **The default probe call is arm C (D-248, owner decision).** The probe -- the one call that
+  chooses what to execute on both revisions -- now runs on `claude-sonnet-5` with thinking adaptive
+  at effort `medium` and an 8,000-token bound; the proposal stage keeps `thinking: disabled` and
+  its own bound, and the stage and effort are part of the attempt-cache identity. Chosen on 40
+  cases x 3 arms ([report](docs/acceptance/2026-09-14-probe-arms.md)), which are **indistinguishable
+  on recall** (12, 14 and 13 of 40): the pre-registered rule was cost per certified case, $0.15
+  against $0.23 and $0.22. Two new Action inputs, `probe-model` and `probe-effort`; a model the
+  pricing table does not price is refused before anything is bought. **What it means for recall:
+  no improvement is claimed** -- the three arms are one re-run apart, and the whole case for the
+  change is price.
+
+### What the probe is shown: the tree index
+
+- **The tree index (D-245).** A changed symbol's callers are resolved through the import that bound
+  the name, so a method named `parse` or `get` gets its callers like any other and a same-named
+  call on an unrelated object is not one; the shared package block is ordered by import distance
+  from the anchored file, so a bound cuts the farthest file rather than the alphabetically last;
+  and the first probe is told which literal arguments the tree already passes to the changed
+  symbols. Built with `ast` once per tree and cached under `.attest/cache/index/`; no model call.
+  **Measured** on the forty ($2.82, [the report](docs/acceptance/2026-09-14-forty-with-index.md)):
+  **11 of 40 certified, from 12** -- one gained, two lost, inside the ±2 a re-run moves on its own;
+  the boundary class 1 of 13 as before. The index reports fewer callers than the regex did (76 → 34
+  snippets over the forty): a call on an untyped parameter inside the defining module is not one,
+  and that bound cost one of the two receipts lost.
+- **The tree index repaired (D-246).** The defining module is always its own importer, a parameter
+  annotated with an in-tree class is a typed receiver, a typed receiver whose class only inherits
+  the method keeps the attribute rule, and a same-module call made above the definition still
+  resolves. Free, measured on the forty rebuilt trees
+  ([the report](docs/acceptance/2026-09-14-index-repair.md)): caller snippets 34 → 51,
+  `python-dotenv-guard_raise-04` 0 → 4; of the 76 snippets the regex era had, the 31 the repaired
+  index still leaves out are 27 noise and 4 undecidable, **0 real callers**. **What it means for
+  recall:** unmeasured on its own -- the arm study that followed it changed the probe call at the
+  same time, so no run isolates the repair. The context is now a ledger fact rather than a
+  recomputation: the probe row carries the literals block its prompt held
+  (`attest.probe-observation.v5`), the plan row every caller snippet with its resolution and the
+  shared package block's anchor, size and the files its bound cut (`attest.review-plan.v2`).
+
+### The ledger, and the tools that read it
+
+- **A dirty-tree refusal writes `git status` to the ledger (D-239).** `itsdangerous-guard_raise-01`
+  was refused for a dirty working tree on two runs and a fresh clone, and the refusal said no more.
+  The ledger row now names the paths; the author-visible reason is unchanged. **What it means for
+  trust:** this row is what identified D-242 above.
+- **The value line is reproducible (D-241, `attest.value-note.v4`).** Three of the seven lines on
+  real traffic were judged *true but not actionable*, all value lines: the line said what a call
+  returned and never how the arguments were built. The recording row and the note now keep the
+  probe's imports and setup, and the collapsed block opens with one runnable Python block the
+  author can paste on either revision. Note ids do not move; rows written before v4 read back with
+  the fields empty. **What it means for trust:** a line the reader can run is a line the reader can
+  refute.
+- **The run row says which stage bought what (D-243).** `review_run` carries `spend_breakdown`:
+  discovery, probe and generation, each with its calls, tokens, model and cost, summing to the
+  total. Until now verification was 63% to 73% of every measured run's spend and one number. This
+  is what made the arm study's cost-per-certified-case rule computable.
+- **A paid driver reserves each unit at the recent forty's 95th percentile, not at the ceiling
+  (D-244, owner instruction).** Reserving at the $1.00 ceiling refused the last three of forty at
+  $2.53 of a $3.50 cap; the unit's own budget still binds what it may spend. AGENTS.md §9 also
+  records what one re-run of the forty moves on its own: about ±2 cases. Development tooling only:
+  **nothing a user of the Action can observe**.
+
+### Measured, not adopted
+
+Three things were bought or computed in this window and changed nothing that ships. They are listed
+because the measurement is the deliverable and a reader deciding whether to point a repository at
+this tag should know what was tried and declined.
+
+- **Probe arms A and B** ([report](docs/acceptance/2026-09-14-probe-arms.md)). The shipped call
+  re-run as a jitter control (A, 12 of 40) and the generation model thinking at effort medium
+  (B, 14 of 40). **Net effect on the product: 0.** B's +2 against A is inside the ±2 a re-run moves
+  and short of the three cases the pre-registered rule asks of a **dearer** arm ($3.02 against
+  $2.71); both of B's gained cases have a named mechanism, each one case. A is the default no
+  longer, but only on price (D-248), not because B or C was shown to certify more.
+- **The shared package block** ([report](docs/acceptance/2026-09-14-index-repair.md) §4). D-245
+  ordered it by import distance so that a bound cuts the farthest file. **Net effect on the
+  product: 0 -- it has never been built.** The shipped `context_strategy` is `r01` and no measured
+  run has ever assembled a package block, so the ordering rule has had no chance to act. The census
+  is free and says what it would do if it were: over the 68 real pull requests reviewed so far the
+  120k bound would bind on **49 of 68** and would cut an importer of the changed module on **29**.
+  No paid run is scheduled for it and no decision has been taken on it. (There is no `D-247`: the
+  decision numbering skips from D-246 to D-248, and this work is recorded under D-245/D-246 and the
+  report above.)
+- **The probe's ceiling on the forty** (same report, and
+  [the arm report](docs/acceptance/2026-09-14-probe-arms.md) §4). Eleven of the forty certify under
+  all three arms and the union of the three is fifteen; the boundary class stands at 1, 1 and 2 of
+  13 while the probes reached the boundary in 9, 12 and 11 of them. **Net effect: 0** -- recall on
+  this corpus has sat between 10 and 14 across six runs and four changes, and the mechanism that
+  holds it there is the value-class rule, not the search.
+
+### What is not claimed
+
+The forward figure moved from 9 of 40 in `v0.2.0` to 13 of 40 here, and **that is not a
+demonstrated improvement of 4 cases.** One re-run of this corpus moves about ±2 on its own
+(AGENTS.md §9), the default probe call changed underneath the measurement (D-248), and part of the
+`v0.2.0` figure was a replay withdrawal rather than a run. The three batches of real pull requests
+are unmeasured under the new default. No precision figure exists at any level: nothing has been
+certified on natural traffic, so precision is undefined.
 
 ## `v0.2.0` — 2026-09-13
 
