@@ -151,8 +151,17 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass
+from typing import Any
 
-INTENT_POLICY_VERSION = "attest.intent.v5.1"  # D-240
+INTENT_POLICY_VERSION = "attest.intent.v5.1"  # D-240; the shipped rule
+# D-252 (2026-09-15): experimental, selected only by a caller that asks for it --
+# never the default. A specification may also be a *contract*: a base test's
+# object-valued expected side, a parametrize row, or an exception a test
+# expects through a caller of the touched symbol, admitted only when it binds
+# the probe's concrete input, a value the observer can derive mechanically,
+# and a call path that resolves to the anchored module. Every contract found
+# is recorded with why it was or was not admitted.
+INTENT_POLICY_V6 = "attest.intent.v6"
 INTENT_POLICY_V5 = "attest.intent.v5"  # D-232, before D-240
 INTENT_POLICY_V1 = "attest.intent.new-rejection.v1"  # D-102, before D-120
 INTENT_POLICY_V2 = "attest.intent.v2"  # D-120, before D-127
@@ -200,6 +209,44 @@ GENERIC_VALUE_REPRS = frozenset(
         "{}",
     }
 )
+
+
+@dataclass(frozen=True)
+class ContractRecord:
+    """One specification the observer found and bound to the probe's own call
+    under `attest.intent.v6`. Recorded whether or not it is admitted, so that a
+    reader of the ledger sees the contract that exists and the link it lacks.
+
+    A contract is admitted only when all three bindings hold: the source states
+    the *same concrete input* the probe called with (``input_bound``), the
+    expected side is a value the observer *derived mechanically* -- a literal, or
+    a ``NamedTuple``/``dataclass`` constructor of the tree with literal fields,
+    never a guess (``evaluated``) -- and the source's call and the probe's call
+    *resolve to the same entry* of the anchored module, or through the same
+    caller (``path_bound``); and then only when the derived value is one the
+    failing assertion pins (``pinned``)."""
+
+    kind: str  # "bound_assertion" | "parametrize_row" | "caller_raises"
+    symbol: str  # the touched symbol the contract is about
+    input: str  # the concrete input the source states, as source text
+    expected: str  # the expected side as source text, or the exception type name
+    derived: str  # the repr the observer derived from `expected`; "" when it could not
+    pinned: str  # the pinned value this contract covers; "" when it covers none
+    source: str  # path:line of the specification in the base tree
+    call_path: str  # how the source reaches the symbol: its own call, or via a caller
+    input_bound: bool
+    evaluated: bool
+    path_bound: bool
+    admitted: bool
+    reason: str
+
+
+def admitted_contract_values(observation: IntentObservation) -> frozenset[str]:
+    """The pinned values an admitted contract covers; empty under every version
+    before v6, because no such record exists there."""
+    return frozenset(
+        c.pinned for c in observation.contracts if c.admitted and c.pinned
+    )
 
 
 @dataclass(frozen=True)
@@ -252,15 +299,41 @@ class IntentObservation:
     # range the binding policy uses (three context lines each side, since
     # V-02); the frame rule is read against these.
     added_lines: tuple[int, ...] = ()
+    # D-252 (v6): every contract the observer found for the pinned values, admitted
+    # or not, with the binding it has and the one it lacks. Empty under every
+    # earlier version, which never looked.
+    contracts: tuple[ContractRecord, ...] = ()
+
+    def __post_init__(self) -> None:
+        # a reader rebuilding the observation from JSON hands the contracts back
+        # as dictionaries; the rule reads attributes, so they are records again
+        if any(not isinstance(c, ContractRecord) for c in self.contracts):
+            object.__setattr__(
+                self,
+                "contracts",
+                tuple(
+                    c if isinstance(c, ContractRecord) else ContractRecord(**c)
+                    for c in self.contracts
+                ),
+            )
+
+    def record(self) -> dict[str, Any]:
+        """The observation as a bundle or ledger writes it: exactly the fields
+        the recorded policy version defines (D-121), so that a field a later
+        version added -- v6's ``contracts`` -- never reaches an older record,
+        whose reader would rightly call it malformed. An unknown version is
+        written whole; it cannot publish either way."""
+        values = asdict(self)
+        fields = POLICY_FIELDS.get(self.policy_version)
+        if fields is not None:
+            values = {name: values[name] for name in values if name in fields}
+        return values
 
     def digest(self) -> str:
         """Over exactly the fields the recorded policy version defines, so that a
         receipt's digest never moves when a later version adds a field. An
         unknown version is digested whole; it cannot publish either way."""
-        values = asdict(self)
-        fields = POLICY_FIELDS.get(self.policy_version)
-        if fields is not None:
-            values = {name: values[name] for name in values if name in fields}
+        values = self.record()
         return hashlib.sha256(
             json.dumps(
                 values, sort_keys=True, separators=(",", ":"), ensure_ascii=False
@@ -299,6 +372,8 @@ _V4_FIELDS = (
 )
 # D-232: v5 records the exception's path through the anchored file.
 _V5_FIELDS = (*_V4_FIELDS, "path_lines", "added_lines")
+# D-252: v6 records the contracts the observer found and how each was bound.
+_V6_FIELDS = (*_V5_FIELDS, "contracts")
 POLICY_FIELDS: dict[str, tuple[str, ...]] = {
     INTENT_POLICY_V1: _V1_FIELDS,
     INTENT_POLICY_V2: _V2_FIELDS,
@@ -315,6 +390,7 @@ POLICY_FIELDS: dict[str, tuple[str, ...]] = {
     # specification of a pinned value (a base test that expects the exception),
     # not what an observation is made of.
     INTENT_POLICY_VERSION: _V5_FIELDS,
+    INTENT_POLICY_V6: _V6_FIELDS,
 }
 _CONSTANT_RULE_VERSIONS = frozenset(
     {
@@ -325,6 +401,7 @@ _CONSTANT_RULE_VERSIONS = frozenset(
         INTENT_POLICY_V42,
         INTENT_POLICY_V5,
         INTENT_POLICY_VERSION,
+        INTENT_POLICY_V6,
     }
 )
 _VALUE_RULE_VERSIONS = frozenset(
@@ -335,6 +412,7 @@ _VALUE_RULE_VERSIONS = frozenset(
         INTENT_POLICY_V42,
         INTENT_POLICY_V5,
         INTENT_POLICY_VERSION,
+        INTENT_POLICY_V6,
     }
 )
 # D-132 (b) and (c) arrived together and neither reaches a v1, v2 or v3 receipt.
@@ -345,13 +423,18 @@ _V4_RULE_VERSIONS = frozenset(
         INTENT_POLICY_V42,
         INTENT_POLICY_V5,
         INTENT_POLICY_VERSION,
+        INTENT_POLICY_V6,
     }
 )
 # D-174's association rule reaches v4.2 and later, nothing earlier.
-_V42_RULE_VERSIONS = frozenset({INTENT_POLICY_V42, INTENT_POLICY_V5, INTENT_POLICY_VERSION})
+_V42_RULE_VERSIONS = frozenset(
+    {INTENT_POLICY_V42, INTENT_POLICY_V5, INTENT_POLICY_VERSION, INTENT_POLICY_V6}
+)
 # D-232's frame rule reaches v5 and nothing earlier: under every version before
 # it a new rejection is a raise/assert *statement* on a changed line.
-_V5_RULE_VERSIONS = frozenset({INTENT_POLICY_V5, INTENT_POLICY_VERSION})
+_V5_RULE_VERSIONS = frozenset({INTENT_POLICY_V5, INTENT_POLICY_VERSION, INTENT_POLICY_V6})
+# D-252: the contract rule reaches v6 and nothing earlier.
+_V6_RULE_VERSIONS = frozenset({INTENT_POLICY_V6})
 
 
 def is_warning_type(name: str) -> bool:
@@ -408,8 +491,18 @@ def distinctive_pinned_values(observation: IntentObservation) -> tuple[str, ...]
     """
     if observation.policy_version not in _V4_RULE_VERSIONS:
         return observation.pinned_values
+    # D-252 (v6): a contract holds by (symbol, input, relation), so a generic
+    # constant an admitted contract covers is a specified value, not a
+    # coincidence of vocabulary
+    covered = (
+        admitted_contract_values(observation)
+        if observation.policy_version in _V6_RULE_VERSIONS
+        else frozenset()
+    )
     return tuple(
-        value for value in observation.pinned_values if value not in GENERIC_VALUE_REPRS
+        value
+        for value in observation.pinned_values
+        if value not in GENERIC_VALUE_REPRS or value in covered
     )
 
 

@@ -192,7 +192,7 @@ def write_bundle(
     if binding is not None:
         put("binding.json", canonical_bytes(asdict(binding)))
     if intent is not None:
-        put("intent.json", canonical_bytes(asdict(intent)))
+        put("intent.json", canonical_bytes(intent.record()))
     for side, index, run, revision in runs:
         record = run_record(side, index, run, revision_sha=revision)
         run_id = str(record["run_id"])

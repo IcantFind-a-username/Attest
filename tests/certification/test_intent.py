@@ -505,10 +505,12 @@ def test_the_verifier_refuses_the_werkzeug_bundle_it_once_accepted() -> None:
         changed_lines=tuple(range(119, 135)) + tuple(range(485, 500)),
         added_lines=(122, 123, 124, 125, 131, 488, 489, 490, 491, 492, 493, 494, 495, 496),
     )
+    # the record as the bundle writes it: the recorded version's own fields
+    # (D-121; a later version's field never reaches an older record)
     record = {
         **{
             key: list(value) if isinstance(value, tuple) else value
-            for key, value in observation.__dict__.items()
+            for key, value in observation.record().items()
         },
         "witnesses": [list(pair) for pair in observation.witnesses],
     }

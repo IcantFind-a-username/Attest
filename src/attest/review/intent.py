@@ -33,7 +33,9 @@ from pathlib import Path
 
 from attest.certification.intent import (
     GENERIC_VALUE_REPRS,
+    INTENT_POLICY_V6,
     INTENT_POLICY_VERSION,
+    ContractRecord,
     IntentObservation,
 )
 from attest.review.vocabulary import is_common_english
@@ -1243,9 +1245,16 @@ def observe_intent(
     changed_files: tuple[str, ...] = (),
     truncated: bool = False,
     added_lines: tuple[int, ...] | None = None,
+    policy_version: str = INTENT_POLICY_VERSION,
 ) -> IntentObservation | str:
     """The intent observation for one differential, or the reason it cannot be
     made (a string; the caller DEFERs and buys nothing).
+
+    ``policy_version`` is the rule the observation is written under -- the
+    shipped one unless a caller asks for `attest.intent.v6` (D-252,
+    experimental), under which the base tree's *contracts* about the pinned
+    values are read as well (:mod:`attest.review.contracts`) and recorded with
+    their bindings; an admitted contract specifies the value it covers.
 
     ``changed_lines`` is the binding policy's hunk range (context included) and
     is what D-132's anchored symbols are read against, as before. D-232's frame
@@ -1332,6 +1341,27 @@ def observe_intent(
             if distinctive
             else ((), ())
         )
+        # D-252 (v6): the contracts the base tree holds about the pinned values,
+        # bound to the probe's own call; an admitted one specifies what it covers
+        contracts: tuple[ContractRecord, ...] = ()
+        if policy_version == INTENT_POLICY_V6 and pinned and symbols:
+            from attest.review.contracts import find_contracts
+
+            contracts = find_contracts(
+                base_tree=base_tree,
+                anchored=path,
+                symbols=symbols,
+                pinned=tuple(repr(value)[:MAX_VALUE_CHARS] for _kind, value in pinned),
+                test_source=test_source,
+            )
+            already = {value for value, _site in specified}
+            extra = {
+                (c.pinned, c.source.rsplit(":", 1)[0])
+                for c in contracts
+                if c.admitted and c.pinned and c.pinned not in already
+            }
+            if extra:
+                specified = tuple(sorted({*specified, *extra}))
         # D-132 (c): what the same diff says about the symbols it touched
         evidence = (
             find_intent_evidence(
@@ -1349,7 +1379,7 @@ def observe_intent(
         )
         first = head_origins[0][0] if head_origins and head_origins[0] else None
         return IntentObservation(
-            policy_version=INTENT_POLICY_VERSION,
+            policy_version=policy_version,
             path=path,
             changed_lines=tuple(changed_lines),
             origin_line=first.line if first is not None else 0,
@@ -1371,6 +1401,7 @@ def observe_intent(
             anchored_symbols=symbols,
             intent_evidence=evidence,
             added_lines=tuple(sorted(written)),
+            contracts=contracts,
         )
     signatures = {(origin.line, origin.exception_type, origin.path) for origin in present}
     if len(signatures) != 1:
@@ -1383,7 +1414,7 @@ def observe_intent(
         identified = found if identified is None else identified & found
     rejected = tuple(sorted(identified or ()))
     return IntentObservation(
-        policy_version=INTENT_POLICY_VERSION,
+        policy_version=policy_version,
         path=path,
         changed_lines=tuple(changed_lines),
         origin_line=origin.line,

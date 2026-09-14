@@ -3431,7 +3431,7 @@ def verify_candidate(
         repeats=execution.repeats,
         evidence_class=execution.evidence_class.value,
         run_evidence=_differential_run_evidence(execution),
-        intent=None if execution.intent is None else asdict(execution.intent),
+        intent=None if execution.intent is None else execution.intent.record(),
         contained_attempts=list(execution.contained_attempts) or None,
     )
     if execution.probe is not None:
