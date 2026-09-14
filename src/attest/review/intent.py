@@ -68,6 +68,10 @@ WITNESS_DIRS = frozenset(
 DOC_SUFFIXES = (".md", ".rst")  # documentation anywhere in the tree
 MAX_INTENT_FILES = 500  # changed files read for D-132's intent evidence
 MAX_INTENT_EVIDENCE = 16  # sites recorded; the rule needs one
+# D-249: a bound on the anchored-symbol *record*, never on the file it is read
+# from. Until then `symbol_ranges` refused any file holding more than this many
+# definitions, and on such a file every value receipt was drawered as *no symbol
+# to specify* (4 of the 40 mutation cases, all in `more_itertools/more.py`, 225).
 MAX_SYMBOLS = 200
 MIN_SYMBOL_CHARS = 3  # a name shorter than this matches prose by accident
 MIN_BARE_SYMBOL_CHARS = 8  # D-134: a bare name shorter than this is vocabulary
@@ -847,8 +851,11 @@ def assertion_pinned_values_at(
 
 def symbol_ranges(source: str) -> tuple[tuple[str, int, int], ...] | None:
     """Every def/class of ``source`` as (name, first line, last line); ``None``
-    when it cannot be parsed. Plain names, not qualified ones: a changelog entry
-    or a docstring names a function the way a reader does."""
+    only when it cannot be parsed. Plain names, not qualified ones: a changelog
+    entry or a docstring names a function the way a reader does.
+
+    Not bounded in the number of definitions (D-249): a file is read whole or
+    not at all, and what is *recorded* from it is bounded by the caller."""
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
@@ -857,8 +864,6 @@ def symbol_ranges(source: str) -> tuple[tuple[str, int, int], ...] | None:
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
             found.append((node.name, node.lineno, node.end_lineno or node.lineno))
-            if len(found) > MAX_SYMBOLS:
-                return None
     return tuple(sorted(found))
 
 
@@ -868,21 +873,32 @@ def anchored_symbols(
     """D-132 (c): the def/class names this change touched in the anchored file --
     those whose head body spans a changed line, plus those the change removed
     from the file outright. A deletion has no head node to intersect, and a
-    deleted symbol is exactly what the shadow findings are about."""
+    deleted symbol is exactly what the shadow findings are about.
+
+    At most ``MAX_SYMBOLS`` names are recorded, in name order, the touched ones
+    before the removed ones (D-249): a change that deletes a file of hundreds of
+    definitions records the first ``MAX_SYMBOLS`` and says nothing of the rest.
+    Below the bound the record is the sorted set, as it always was."""
     head = symbol_ranges(head_source)
     base = symbol_ranges(base_source)
     changed = frozenset(changed_lines)
-    names: set[str] = set()
+    touched: set[str] = set()
+    removed: set[str] = set()
     if head is not None:
         head_names = {name for name, _start, _end in head}
-        names |= {
+        touched = {
             name
             for name, start, end in head
             if any(start <= line <= end for line in changed)
         }
         if base is not None:
-            names |= {name for name, _start, _end in base if name not in head_names}
-    return tuple(sorted(names))
+            removed = {name for name, _start, _end in base if name not in head_names}
+    names = touched | removed
+    if len(names) <= MAX_SYMBOLS:
+        return tuple(sorted(names))
+    kept = sorted(touched)[:MAX_SYMBOLS]
+    kept += sorted(removed - touched)[: MAX_SYMBOLS - len(kept)]
+    return tuple(kept)
 
 
 def prose_lines(source: str) -> frozenset[str]:
