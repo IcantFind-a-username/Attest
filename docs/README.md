@@ -86,6 +86,13 @@ match the bug.
   level's §7 registry exclusion would cost to lift, and measures that lifting it would newly
   admit **0 of 224** recorded new-code candidates and **1 of 53** replay bundles. Its
   recommendation is to keep §7.
+  [`design/contract-evidence-plan.md`](design/contract-evidence-plan.md) answers the owner's
+  architecture review of 2026-09-15: keep the kernel, the isolation and the receipt, and move
+  the work to *correctness grounds* -- behaviour contracts as evidence objects, one evidence
+  packet carried from discovery to certification, targeted counterexample search -- in four
+  phases with exit conditions. Its free Phase 0 is done (D-249, D-250, D-251; the
+  [evidence-supply report](acceptance/2026-09-15-evidence-supply.md)); everything after it
+  waits on the three owner decisions in its §8.
 
 ## Evidence and historical documents
 

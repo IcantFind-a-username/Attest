@@ -1,0 +1,1365 @@
+[
+  {
+    "unit_id": "attrs-boundary-09--forward",
+    "library": "attrs",
+    "files": [],
+    "outcome": "no test names a touched symbol"
+  },
+  {
+    "unit_id": "click-boundary-07--forward",
+    "library": "click",
+    "files": [
+      "tests/test_termui.py",
+      "tests/typing/typing_progressbar.py"
+    ],
+    "head": {
+      "exit": 2,
+      "timed_out": false,
+      "elapsed_s": 0.3,
+      "failed": [
+        "::tests.typing.typing_progressbar"
+      ],
+      "collected": 1
+    },
+    "base": {
+      "exit": 2,
+      "timed_out": false,
+      "elapsed_s": 0.3,
+      "failed": [
+        "::tests.typing.typing_progressbar"
+      ],
+      "collected": 1
+    },
+    "detecting": [],
+    "detecting_count": 0,
+    "outcome": "own tests pass on the mutant"
+  },
+  {
+    "unit_id": "itsdangerous-boundary-07--forward",
+    "library": "itsdangerous",
+    "files": [
+      "tests/test_itsdangerous/test_serializer.py",
+      "tests/test_itsdangerous/test_signer.py",
+      "tests/test_itsdangerous/test_timed.py"
+    ],
+    "head": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.4,
+      "failed": [],
+      "collected": 159
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.3,
+      "failed": [],
+      "collected": 159
+    },
+    "detecting": [],
+    "detecting_count": 0,
+    "outcome": "own tests pass on the mutant"
+  },
+  {
+    "unit_id": "jinja-boundary-09--forward",
+    "library": "jinja",
+    "files": [
+      "tests/test_debug.py"
+    ],
+    "head": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.3,
+      "failed": [],
+      "collected": 7
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.2,
+      "failed": [],
+      "collected": 7
+    },
+    "detecting": [],
+    "detecting_count": 0,
+    "outcome": "own tests pass on the mutant"
+  },
+  {
+    "unit_id": "more-itertools-boundary-08--forward",
+    "library": "more-itertools",
+    "files": [
+      "tests/test_more.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 3.7,
+      "failed": [
+        ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.PeekableTests::test_slicing_error"
+      ],
+      "collected": 604
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 3.6,
+      "failed": [],
+      "collected": 604
+    },
+    "detecting": [
+      ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.PeekableTests::test_slicing_error"
+    ],
+    "detecting_count": 1,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "packaging-boundary-08--forward",
+    "library": "packaging",
+    "files": [
+      "tests/test_musllinux.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 1.1,
+      "failed": [
+        "tests.test_musllinux::test_get_musl_version[aarch64]",
+        "tests.test_musllinux::test_get_musl_version[i386]",
+        "tests.test_musllinux::test_get_musl_version[x86_64]",
+        "tests.test_musllinux::test_parse_musl_version[aarch64-1.1.24]",
+        "tests.test_musllinux::test_parse_musl_version[amd64-1.2.2]",
+        "tests.test_musllinux::test_parse_musl_version[i386-1.2.1]"
+      ],
+      "collected": 10
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.5,
+      "failed": [],
+      "collected": 10
+    },
+    "detecting": [
+      "tests.test_musllinux::test_get_musl_version[aarch64]",
+      "tests.test_musllinux::test_get_musl_version[i386]",
+      "tests.test_musllinux::test_get_musl_version[x86_64]",
+      "tests.test_musllinux::test_parse_musl_version[aarch64-1.1.24]",
+      "tests.test_musllinux::test_parse_musl_version[amd64-1.2.2]",
+      "tests.test_musllinux::test_parse_musl_version[i386-1.2.1]"
+    ],
+    "detecting_count": 6,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "python-dotenv-boundary-06--forward",
+    "library": "python-dotenv",
+    "files": [],
+    "outcome": "no test names a touched symbol"
+  },
+  {
+    "unit_id": "urllib3-boundary-07--forward",
+    "library": "urllib3",
+    "files": [],
+    "outcome": "no test names a touched symbol"
+  },
+  {
+    "unit_id": "attrs-guard_raise-03--forward",
+    "library": "attrs",
+    "files": [
+      "tests/test_make.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 3.6,
+      "failed": [
+        "tests.test_make.TestKeywordOnlyAttributes::test_attr_level_kw_only_and_class_level_kw_only",
+        "tests.test_make.TestKeywordOnlyAttributes::test_kw_only_inheritance",
+        "tests.test_make.TestKeywordOnlyAttributes::test_kw_only_inheritance_force_kw_only",
+        "tests.test_make.TestMatchArgs::test_explicit_match_args",
+        "tests.test_make.TestMatchArgs::test_match_args",
+        "tests.test_make.TestMatchArgs::test_match_args_argument",
+        "tests.test_make.TestMatchArgs::test_match_args_kw_only"
+      ],
+      "collected": 280
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 2.4,
+      "failed": [],
+      "collected": 280
+    },
+    "detecting": [
+      "tests.test_make.TestKeywordOnlyAttributes::test_attr_level_kw_only_and_class_level_kw_only",
+      "tests.test_make.TestKeywordOnlyAttributes::test_kw_only_inheritance",
+      "tests.test_make.TestKeywordOnlyAttributes::test_kw_only_inheritance_force_kw_only",
+      "tests.test_make.TestMatchArgs::test_explicit_match_args",
+      "tests.test_make.TestMatchArgs::test_match_args",
+      "tests.test_make.TestMatchArgs::test_match_args_argument",
+      "tests.test_make.TestMatchArgs::test_match_args_kw_only"
+    ],
+    "detecting_count": 7,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "click-boundary-10--forward",
+    "library": "click",
+    "files": [
+      "tests/test_termui.py",
+      "tests/typing/typing_progressbar.py"
+    ],
+    "head": {
+      "exit": 2,
+      "timed_out": false,
+      "elapsed_s": 0.3,
+      "failed": [
+        "::tests.typing.typing_progressbar"
+      ],
+      "collected": 1
+    },
+    "base": {
+      "exit": 2,
+      "timed_out": false,
+      "elapsed_s": 0.3,
+      "failed": [
+        "::tests.typing.typing_progressbar"
+      ],
+      "collected": 1
+    },
+    "detecting": [],
+    "detecting_count": 0,
+    "outcome": "own tests pass on the mutant"
+  },
+  {
+    "unit_id": "itsdangerous-guard_raise-01--forward",
+    "library": "itsdangerous",
+    "files": [
+      "tests/test_itsdangerous/test_serializer.py",
+      "tests/test_itsdangerous/test_signer.py",
+      "tests/test_itsdangerous/test_timed.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 0.4,
+      "failed": [
+        "tests.test_itsdangerous.test_signer.TestSigner::test_invalid_separator",
+        "tests.test_itsdangerous.test_timed.TestSigner::test_invalid_separator",
+        "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_invalid_separator"
+      ],
+      "collected": 159
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.3,
+      "failed": [],
+      "collected": 159
+    },
+    "detecting": [
+      "tests.test_itsdangerous.test_signer.TestSigner::test_invalid_separator",
+      "tests.test_itsdangerous.test_timed.TestSigner::test_invalid_separator",
+      "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_invalid_separator"
+    ],
+    "detecting_count": 3,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "jinja-boundary-12--forward",
+    "library": "jinja",
+    "files": [],
+    "outcome": "no test names a touched symbol"
+  },
+  {
+    "unit_id": "more-itertools-boundary-10--forward",
+    "library": "more-itertools",
+    "files": [
+      "tests/test_more.py"
+    ],
+    "head": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 3.6,
+      "failed": [],
+      "collected": 604
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 3.6,
+      "failed": [],
+      "collected": 604
+    },
+    "detecting": [],
+    "detecting_count": 0,
+    "outcome": "own tests pass on the mutant"
+  },
+  {
+    "unit_id": "packaging-boundary-11--forward",
+    "library": "packaging",
+    "files": [
+      "tests/test_ranges.py",
+      "tests/test_specifiers.py"
+    ],
+    "head": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 2.1,
+      "failed": [],
+      "collected": 2367
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 2.0,
+      "failed": [],
+      "collected": 2367
+    },
+    "detecting": [],
+    "detecting_count": 0,
+    "outcome": "own tests pass on the mutant"
+  },
+  {
+    "unit_id": "python-dotenv-boundary-08--forward",
+    "library": "python-dotenv",
+    "files": [
+      "tests/test_variables.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 0.2,
+      "failed": [
+        "tests.test_variables::test_parse_variables[${a:-b}-expected3]",
+        "tests.test_variables::test_parse_variables[${a}${b}-expected4]",
+        "tests.test_variables::test_parse_variables[${a}-expected2]",
+        "tests.test_variables::test_parse_variables[-expected0]"
+      ],
+      "collected": 6
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.1,
+      "failed": [],
+      "collected": 6
+    },
+    "detecting": [
+      "tests.test_variables::test_parse_variables[${a:-b}-expected3]",
+      "tests.test_variables::test_parse_variables[${a}${b}-expected4]",
+      "tests.test_variables::test_parse_variables[${a}-expected2]",
+      "tests.test_variables::test_parse_variables[-expected0]"
+    ],
+    "detecting_count": 4,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "urllib3-guard_raise-03--forward",
+    "library": "urllib3",
+    "files": [
+      "test/with_dummyserver/test_poolmanager.py",
+      "test/with_dummyserver/test_proxy_poolmanager.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 37.9,
+      "failed": [
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_basic_proxy",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_cross_protocol_redirect",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_forwarding_non_https_proxy_ssl_context_fallback",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_headers",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_http_and_https_kwarg_ca_cert_data_proxy",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_headers",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_proxy",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_proxy_with_proxy_ssl_context",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_http_proxy_to_https_target",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_https_proxy_to_https_target",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_oldapi",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_https_fqdn",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_pooling",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_verified",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_scheme_host_case_insensitive",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_fingerprint_md5",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[127.0.0.1]",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[::1]",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[localhost]",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_ipv4_san",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_ipv6_san",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_no_san_hostname_checks_common_name",
+        "test.with_dummyserver.test_proxy_poolmanager.TestIPv6HTTPProxyManager::test_basic_ipv6_proxy"
+      ],
+      "collected": 160
+    },
+    "base": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 37.4,
+      "failed": [
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_basic_proxy",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_cross_protocol_redirect",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_forwarding_non_https_proxy_ssl_context_fallback",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_headers",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_http_and_https_kwarg_ca_cert_data_proxy",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_headers",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_proxy",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_proxy_with_proxy_ssl_context",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_http_proxy_to_https_target",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_https_proxy_to_https_target",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_oldapi",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_https_fqdn",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_pooling",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_verified",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_scheme_host_case_insensitive",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_fingerprint_md5",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[127.0.0.1]",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[::1]",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[localhost]",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_ipv4_san",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_ipv6_san",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_no_san_hostname_checks_common_name",
+        "test.with_dummyserver.test_proxy_poolmanager.TestIPv6HTTPProxyManager::test_basic_ipv6_proxy"
+      ],
+      "collected": 160
+    },
+    "detecting": [],
+    "detecting_count": 0,
+    "outcome": "own tests pass on the mutant"
+  },
+  {
+    "unit_id": "attrs-none_guard-14--forward",
+    "library": "attrs",
+    "files": [
+      "bench/test_benchmarks.py",
+      "tests/test_abc.py",
+      "tests/test_annotations.py",
+      "tests/test_cmp.py",
+      "tests/test_forward_references.py",
+      "tests/test_funcs.py",
+      "tests/test_functional.py",
+      "tests/test_init_subclass.py",
+      "tests/test_make.py",
+      "tests/test_next_gen.py",
+      "tests/test_pattern_matching.py",
+      "tests/test_pyright.py",
+      "tests/test_setattr.py"
+    ],
+    "head": {
+      "exit": 2,
+      "timed_out": false,
+      "elapsed_s": 1.1,
+      "failed": [
+        "::bench.test_benchmarks"
+      ],
+      "collected": 1
+    },
+    "base": {
+      "exit": 2,
+      "timed_out": false,
+      "elapsed_s": 0.9,
+      "failed": [
+        "::bench.test_benchmarks"
+      ],
+      "collected": 1
+    },
+    "detecting": [],
+    "detecting_count": 0,
+    "outcome": "own tests pass on the mutant"
+  },
+  {
+    "unit_id": "click-guard_raise-03--forward",
+    "library": "click",
+    "files": [],
+    "outcome": "no test names a touched symbol"
+  },
+  {
+    "unit_id": "itsdangerous-guard_raise-04--forward",
+    "library": "itsdangerous",
+    "files": [
+      "tests/test_itsdangerous/test_serializer.py",
+      "tests/test_itsdangerous/test_signer.py",
+      "tests/test_itsdangerous/test_timed.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 0.4,
+      "failed": [
+        "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_malformed_timestamp"
+      ],
+      "collected": 159
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.3,
+      "failed": [],
+      "collected": 159
+    },
+    "detecting": [
+      "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_malformed_timestamp"
+    ],
+    "detecting_count": 1,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "jinja-guard_raise-01--forward",
+    "library": "jinja",
+    "files": [
+      "tests/test_bytecode_cache.py"
+    ],
+    "head": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.3,
+      "failed": [],
+      "collected": 3
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.2,
+      "failed": [],
+      "collected": 3
+    },
+    "detecting": [],
+    "detecting_count": 0,
+    "outcome": "own tests pass on the mutant"
+  },
+  {
+    "unit_id": "more-itertools-guard_raise-04--forward",
+    "library": "more-itertools",
+    "files": [
+      "tests/test_more.py",
+      "tests/test_recipes.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 11.9,
+      "failed": [
+        ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.FirstTests::test_empty"
+      ],
+      "collected": 749
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 12.0,
+      "failed": [],
+      "collected": 749
+    },
+    "detecting": [
+      ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.FirstTests::test_empty"
+    ],
+    "detecting_count": 1,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "packaging-guard_raise-01--forward",
+    "library": "packaging",
+    "files": [
+      "tests/test_elffile.py",
+      "tests/test_manylinux.py",
+      "tests/test_tags.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 0.9,
+      "failed": [
+        "tests.test_manylinux::test_parse_elf_bad_executable[invalid-magic]"
+      ],
+      "collected": 285
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.7,
+      "failed": [],
+      "collected": 285
+    },
+    "detecting": [
+      "tests.test_manylinux::test_parse_elf_bad_executable[invalid-magic]"
+    ],
+    "detecting_count": 1,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "python-dotenv-guard_raise-01--forward",
+    "library": "python-dotenv",
+    "files": [
+      "tests/test_main.py"
+    ],
+    "head": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.4,
+      "failed": [],
+      "collected": 136
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.4,
+      "failed": [],
+      "collected": 136
+    },
+    "detecting": [],
+    "detecting_count": 0,
+    "outcome": "own tests pass on the mutant"
+  },
+  {
+    "unit_id": "urllib3-guard_raise-04--forward",
+    "library": "urllib3",
+    "files": [
+      "test/test_connection.py",
+      "test/test_connectionpool.py",
+      "test/test_exceptions.py",
+      "test/contrib/emscripten/test_emscripten.py",
+      "test/with_dummyserver/test_connection.py",
+      "test/with_dummyserver/test_connectionpool.py",
+      "test/with_dummyserver/test_https.py",
+      "test/with_dummyserver/test_socketlevel.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 19.7,
+      "failed": [
+        "test.with_dummyserver.test_connection::test_invalid_tunnel_scheme",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_alpn_default[h11]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_alpn_default[h2]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_client_intermediate",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_client_key_password",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_http2_probe_result_is_cached[h11]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_http2_probe_result_is_cached[h2]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_alpn_default[h11]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_alpn_default[h2]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_client_intermediate",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_client_key_password",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_http2_probe_result_is_cached[h11]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_http2_probe_result_is_cached[h2]",
+        "test.with_dummyserver.test_socketlevel.TestSSL::test_ssl_failed_fingerprint_verification"
+      ],
+      "collected": 967
+    },
+    "base": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 18.8,
+      "failed": [
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_alpn_default[h11]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_alpn_default[h2]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_client_intermediate",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_client_key_password",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_http2_probe_result_is_cached[h11]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_2::test_http2_probe_result_is_cached[h2]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_alpn_default[h11]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_alpn_default[h2]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_client_intermediate",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_client_key_password",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_http2_probe_result_is_cached[h11]",
+        "test.with_dummyserver.test_https.TestHTTPS_TLSv1_3::test_http2_probe_result_is_cached[h2]",
+        "test.with_dummyserver.test_socketlevel.TestSSL::test_ssl_failed_fingerprint_verification"
+      ],
+      "collected": 967
+    },
+    "detecting": [
+      "test.with_dummyserver.test_connection::test_invalid_tunnel_scheme"
+    ],
+    "detecting_count": 1,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "attrs-none_guard-15--forward",
+    "library": "attrs",
+    "files": [
+      "tests/test_annotations.py",
+      "tests/test_converters.py",
+      "tests/test_next_gen.py",
+      "tests/test_validators.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 0.9,
+      "failed": [
+        "tests.test_converters.TestOptionalPipe::test_instance",
+        "tests.test_converters.TestOptionalPipe::test_optional",
+        "tests.test_converters.TestPipe::test_wrapped_annotation"
+      ],
+      "collected": 292
+    },
+    "base": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 0.8,
+      "failed": [
+        "tests.test_converters.TestPipe::test_wrapped_annotation"
+      ],
+      "collected": 292
+    },
+    "detecting": [
+      "tests.test_converters.TestOptionalPipe::test_instance",
+      "tests.test_converters.TestOptionalPipe::test_optional"
+    ],
+    "detecting_count": 2,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "click-guard_raise-05--forward",
+    "library": "click",
+    "files": [],
+    "outcome": "no test names a touched symbol"
+  },
+  {
+    "unit_id": "itsdangerous-guard_raise-05--forward",
+    "library": "itsdangerous",
+    "files": [
+      "tests/test_itsdangerous/test_serializer.py",
+      "tests/test_itsdangerous/test_signer.py",
+      "tests/test_itsdangerous/test_timed.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 0.4,
+      "failed": [
+        "tests.test_itsdangerous.test_timed.TestTimedSerializer::test_max_age",
+        "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_max_age"
+      ],
+      "collected": 159
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.3,
+      "failed": [],
+      "collected": 159
+    },
+    "detecting": [
+      "tests.test_itsdangerous.test_timed.TestTimedSerializer::test_max_age",
+      "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_max_age"
+    ],
+    "detecting_count": 2,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "jinja-none_guard-13--forward",
+    "library": "jinja",
+    "files": [
+      "tests/test_async.py",
+      "tests/test_filters.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 5.0,
+      "failed": [
+        "tests.test_async.TestAsyncForLoop::test_awaitable_property_slicing",
+        "tests.test_async.TestAsyncForLoop::test_bare_async",
+        "tests.test_async.TestAsyncForLoop::test_call_in_loop",
+        "tests.test_async.TestAsyncForLoop::test_changed",
+        "tests.test_async.TestAsyncForLoop::test_context_vars[<lambda>0]",
+        "tests.test_async.TestAsyncForLoop::test_context_vars[<lambda>1]",
+        "tests.test_async.TestAsyncForLoop::test_context_vars[auto_aiter]",
+        "tests.test_async.TestAsyncForLoop::test_context_vars[iter]",
+        "tests.test_async.TestAsyncForLoop::test_context_vars[reversed]",
+        "tests.test_async.TestAsyncForLoop::test_cycling",
+        "tests.test_async.TestAsyncForLoop::test_else",
+        "tests.test_async.TestAsyncForLoop::test_empty_blocks",
+        "tests.test_async.TestAsyncForLoop::test_lookaround",
+        "tests.test_async.TestAsyncForLoop::test_loop_errors[asyncio]",
+        "tests.test_async.TestAsyncForLoop::test_loop_errors[trio]",
+        "tests.test_async.TestAsyncForLoop::test_loop_filter",
+        "tests.test_async.TestAsyncForLoop::test_looploop",
+        "tests.test_async.TestAsyncForLoop::test_noniter",
+        "tests.test_async.TestAsyncForLoop::test_nonrecursive_loop_filter",
+        "tests.test_async.TestAsyncForLoop::test_recursive",
+        "tests.test_async.TestAsyncForLoop::test_recursive_depth",
+        "tests.test_async.TestAsyncForLoop::test_recursive_depth0",
+        "tests.test_async.TestAsyncForLoop::test_recursive_empty_loop_iter",
+        "tests.test_async.TestAsyncForLoop::test_recursive_lookaround",
+        "tests.test_async.TestAsyncForLoop::test_recursive_loop_filter",
+        "tests.test_async.TestAsyncForLoop::test_reversed_bug",
+        "tests.test_async.TestAsyncForLoop::test_scope",
+        "tests.test_async.TestAsyncForLoop::test_scoped_loop_var",
+        "tests.test_async.TestAsyncForLoop::test_scoped_special_var",
+        "tests.test_async.TestAsyncForLoop::test_scoping_bug",
+        "tests.test_async.TestAsyncForLoop::test_simple",
+        "tests.test_async.TestAsyncForLoop::test_unpacking",
+        "tests.test_async.TestAsyncForLoop::test_varlen",
+        "tests.test_async.TestAsyncImports::test_context_imports",
+        "tests.test_async.TestAsyncImports::test_exports[asyncio]",
+        "tests.test_async.TestAsyncImports::test_exports[trio]",
+        "tests.test_async.TestAsyncImports::test_from_import_with_globals",
+        "tests.test_async.TestAsyncImports::test_import_with_globals",
+        "tests.test_async.TestAsyncImports::test_import_with_globals_override",
+        "tests.test_async.TestAsyncImports::test_trailing_comma",
+        "tests.test_async.TestAsyncIncludes::test_choice_includes",
+        "tests.test_async.TestAsyncIncludes::test_context_include",
+        "tests.test_async.TestAsyncIncludes::test_context_include_with_overrides",
+        "tests.test_async.TestAsyncIncludes::test_include_ignoring_missing",
+        "tests.test_async.TestAsyncIncludes::test_unoptimized_scopes",
+        "tests.test_async.TestAsyncIncludes::test_unoptimized_scopes_autoescape",
+        "tests.test_async::test_async_blocks[asyncio]",
+        "tests.test_async::test_async_blocks[trio]",
+        "tests.test_async::test_async_extend[asyncio]",
+        "tests.test_async::test_async_extend[trio]",
+        "tests.test_async::test_async_generate",
+        "tests.test_async::test_async_iteration_in_templates",
+        "tests.test_async::test_async_iteration_in_templates_extended",
+        "tests.test_async::test_await_and_macros[asyncio]",
+        "tests.test_async::test_await_and_macros[trio]",
+        "tests.test_async::test_await_on_calls[asyncio]",
+        "tests.test_async::test_await_on_calls[trio]",
+        "tests.test_async::test_await_on_calls_normal_render",
+        "tests.test_async::test_basic_async[asyncio]",
+        "tests.test_async::test_basic_async[trio]",
+        "tests.test_async::test_basic_generate_async[asyncio]",
+        "tests.test_async::test_basic_generate_async[trio]",
+        "tests.test_async::test_blocks_generate_async[asyncio]",
+        "tests.test_async::test_blocks_generate_async[trio]",
+        "tests.test_async::test_chainable_undefined_aiter[asyncio]",
+        "tests.test_async::test_chainable_undefined_aiter[trio]",
+        "tests.test_async::test_getitem_after_call",
+        "tests.test_async::test_getitem_after_filter",
+        "tests.test_async::test_include_generate_async[asyncio]",
+        "tests.test_async::test_include_generate_async[trio]",
+        "tests.test_async::test_namespace_awaitable[asyncio]",
+        "tests.test_async::test_namespace_awaitable[trio]",
+        "tests.test_async::test_native_async[asyncio]",
+        "tests.test_async::test_native_async[trio]",
+        "tests.test_async::test_native_list_async[asyncio]",
+        "tests.test_async::test_native_list_async[trio]",
+        "tests.test_filters.TestFilter::test_abs",
+        "tests.test_filters.TestFilter::test_attribute_map",
+        "tests.test_filters.TestFilter::test_batch",
+        "tests.test_filters.TestFilter::test_block",
+        "tests.test_filters.TestFilter::test_bool_reject",
+        "tests.test_filters.TestFilter::test_bool_select",
+        "tests.test_filters.TestFilter::test_capitalize",
+        "tests.test_filters.TestFilter::test_center",
+        "tests.test_filters.TestFilter::test_chaining",
+        "tests.test_filters.TestFilter::test_default",
+        "tests.test_filters.TestFilter::test_dictsort[-[('aa', 0), ('AB', 3), ('b', 1), ('c', 2)]]",
+        "tests.test_filters.TestFilter::test_dictsort[by=\"value\"-[('aa', 0), ('b', 1), ('c', 2), ('AB', 3)]]",
+        "tests.test_filters.TestFilter::test_dictsort[reverse=true-[('c', 2), ('b', 1), ('AB', 3), ('aa', 0)]]",
+        "tests.test_filters.TestFilter::test_dictsort[true-[('AB', 3), ('aa', 0), ('b', 1), ('c', 2)]]",
+        "tests.test_filters.TestFilter::test_empty_map",
+        "tests.test_filters.TestFilter::test_escape",
+        "tests.test_filters.TestFilter::test_filesizeformat",
+        "tests.test_filters.TestFilter::test_filesizeformat_issue59",
+        "tests.test_filters.TestFilter::test_filter_undefined_in_condexpr",
+        "tests.test_filters.TestFilter::test_filter_undefined_in_elif",
+        "tests.test_filters.TestFilter::test_filter_undefined_in_else",
+        "tests.test_filters.TestFilter::test_filter_undefined_in_if",
+        "tests.test_filters.TestFilter::test_filter_undefined_in_nested_if",
+        "tests.test_filters.TestFilter::test_filtertag",
+        "tests.test_filters.TestFilter::test_first",
+        "tests.test_filters.TestFilter::test_float[32.32-32.32]",
+        "tests.test_filters.TestFilter::test_float[42-42.0]",
+        "tests.test_filters.TestFilter::test_float[abc-0.0]",
+        "tests.test_filters.TestFilter::test_float_default",
+        "tests.test_filters.TestFilter::test_forceescape",
+        "tests.test_filters.TestFilter::test_format",
+        "tests.test_filters.TestFilter::test_func_reject_attr",
+        "tests.test_filters.TestFilter::test_func_select_attr",
+        "tests.test_filters.TestFilter::test_groupby",
+        "tests.test_filters.TestFilter::test_groupby_case[False-a: 1, 3\\nb: 2\\n]",
+        "tests.test_filters.TestFilter::test_groupby_case[True-A: 3\\na: 1\\nb: 2\\n]",
+        "tests.test_filters.TestFilter::test_groupby_default",
+        "tests.test_filters.TestFilter::test_groupby_multidot",
+        "tests.test_filters.TestFilter::test_groupby_tuple_index",
+        "tests.test_filters.TestFilter::test_indent",
+        "tests.test_filters.TestFilter::test_indent_markup_input",
+        "tests.test_filters.TestFilter::test_indent_width_string",
+        "tests.test_filters.TestFilter::test_int[12345678901234567890-12345678901234567890]",
+        "tests.test_filters.TestFilter::test_int[1e10000-0]",
+        "tests.test_filters.TestFilter::test_int[32.32-32]",
+        "tests.test_filters.TestFilter::test_int[42-42]",
+        "tests.test_filters.TestFilter::test_int[abc-0]",
+        "tests.test_filters.TestFilter::test_int_base[011-8-9]",
+        "tests.test_filters.TestFilter::test_int_base[0x33Z-16-0]",
+        "tests.test_filters.TestFilter::test_int_base[0x4d32-16-19762]",
+        "tests.test_filters.TestFilter::test_int_default",
+        "tests.test_filters.TestFilter::test_int_special_method",
+        "tests.test_filters.TestFilter::test_items",
+        "tests.test_filters.TestFilter::test_items_undefined",
+        "tests.test_filters.TestFilter::test_join",
+        "tests.test_filters.TestFilter::test_join_attribute",
+        "tests.test_filters.TestFilter::test_json_dump",
+        "tests.test_filters.TestFilter::test_last",
+        "tests.test_filters.TestFilter::test_length",
+        "tests.test_filters.TestFilter::test_lower",
+        "tests.test_filters.TestFilter::test_map_default",
+        "tests.test_filters.TestFilter::test_map_sum",
+        "tests.test_filters.TestFilter::test_min_max[{{ [\"a\", \"B\"]|max }}-B]",
+        "tests.test_filters.TestFilter::test_min_max[{{ [\"a\", \"B\"]|max(case_sensitive=true) }}-a]",
+        "tests.test_filters.TestFilter::test_min_max[{{ [\"a\", \"B\"]|min }}-a]",
+        "tests.test_filters.TestFilter::test_min_max[{{ [\"a\", \"B\"]|min(case_sensitive=true) }}-B]",
+        "tests.test_filters.TestFilter::test_min_max[{{ []|max }}-]",
+        "tests.test_filters.TestFilter::test_min_max[{{ []|min }}-]",
+        "tests.test_filters.TestFilter::test_min_max_attribute[max-9]",
+        "tests.test_filters.TestFilter::test_min_max_attribute[min-1]",
+        "tests.test_filters.TestFilter::test_pprint",
+        "tests.test_filters.TestFilter::test_random",
+        "tests.test_filters.TestFilter::test_replace",
+        "tests.test_filters.TestFilter::test_reverse",
+        "tests.test_filters.TestFilter::test_round_negative",
+        "tests.test_filters.TestFilter::test_round_positive",
+        "tests.test_filters.TestFilter::test_safe",
+        "tests.test_filters.TestFilter::test_simple_map",
+        "tests.test_filters.TestFilter::test_simple_reject",
+        "tests.test_filters.TestFilter::test_simple_reject_attr",
+        "tests.test_filters.TestFilter::test_simple_select",
+        "tests.test_filters.TestFilter::test_simple_select_attr",
+        "tests.test_filters.TestFilter::test_slice",
+        "tests.test_filters.TestFilter::test_sort1",
+        "tests.test_filters.TestFilter::test_sort2",
+        "tests.test_filters.TestFilter::test_sort3",
+        "tests.test_filters.TestFilter::test_sort4",
+        "tests.test_filters.TestFilter::test_sort5",
+        "tests.test_filters.TestFilter::test_sort6",
+        "tests.test_filters.TestFilter::test_sort7",
+        "tests.test_filters.TestFilter::test_sort8",
+        "tests.test_filters.TestFilter::test_string",
+        "tests.test_filters.TestFilter::test_striptags",
+        "tests.test_filters.TestFilter::test_sum",
+        "tests.test_filters.TestFilter::test_sum_attributes",
+        "tests.test_filters.TestFilter::test_sum_attributes_nested",
+        "tests.test_filters.TestFilter::test_sum_attributes_tuple",
+        "tests.test_filters.TestFilter::test_title",
+        "tests.test_filters.TestFilter::test_trim[ .-stays]",
+        "tests.test_filters.TestFilter::test_trim[.-  ..stays]",
+        "tests.test_filters.TestFilter::test_trim[None-..stays..]",
+        "tests.test_filters.TestFilter::test_truncate",
+        "tests.test_filters.TestFilter::test_truncate_end_length",
+        "tests.test_filters.TestFilter::test_truncate_very_short",
+        "tests.test_filters.TestFilter::test_unique",
+        "tests.test_filters.TestFilter::test_unique_attribute",
+        "tests.test_filters.TestFilter::test_unique_case_sensitive",
+        "tests.test_filters.TestFilter::test_upper",
+        "tests.test_filters.TestFilter::test_urlencode[Hello, world!-Hello%2C%20world%21]",
+        "tests.test_filters.TestFilter::test_urlencode[Hello, world\\u203d-Hello%2C%20world%E2%80%BD]",
+        "tests.test_filters.TestFilter::test_urlencode[a b/c-a%20b/c]",
+        "tests.test_filters.TestFilter::test_urlencode[value2-f=1]",
+        "tests.test_filters.TestFilter::test_urlencode[value3-f=1&amp;z=2]",
+        "tests.test_filters.TestFilter::test_urlencode[value4-%E2%80%BD=1]",
+        "tests.test_filters.TestFilter::test_urlencode[value5-0=1]",
+        "tests.test_filters.TestFilter::test_urlencode[value6-a+b%2Fc=a+b%2Fc]",
+        "tests.test_filters.TestFilter::test_urlize",
+        "tests.test_filters.TestFilter::test_urlize_extra_schemes_parameter",
+        "tests.test_filters.TestFilter::test_urlize_rel_policy",
+        "tests.test_filters.TestFilter::test_urlize_target_parameter",
+        "tests.test_filters.TestFilter::test_wordcount",
+        "tests.test_filters.TestFilter::test_wordwrap",
+        "tests.test_filters.TestFilter::test_xmlattr",
+        "tests.test_filters.TestFilter::test_xmlattr_key_invalid[ ]",
+        "tests.test_filters.TestFilter::test_xmlattr_key_invalid[/]",
+        "tests.test_filters.TestFilter::test_xmlattr_key_invalid[=]",
+        "tests.test_filters.TestFilter::test_xmlattr_key_invalid[>]",
+        "tests.test_filters.TestFilter::test_xmlattr_key_invalid[\\n]",
+        "tests.test_filters.TestFilter::test_xmlattr_key_invalid[\\t]",
+        "tests.test_filters.TestFilter::test_xmlattr_key_invalid[\\x0c]"
+      ],
+      "collected": 208
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.5,
+      "failed": [],
+      "collected": 208
+    },
+    "detecting": [
+      "tests.test_async.TestAsyncForLoop::test_awaitable_property_slicing",
+      "tests.test_async.TestAsyncForLoop::test_bare_async",
+      "tests.test_async.TestAsyncForLoop::test_call_in_loop",
+      "tests.test_async.TestAsyncForLoop::test_changed",
+      "tests.test_async.TestAsyncForLoop::test_context_vars[<lambda>0]",
+      "tests.test_async.TestAsyncForLoop::test_context_vars[<lambda>1]",
+      "tests.test_async.TestAsyncForLoop::test_context_vars[auto_aiter]",
+      "tests.test_async.TestAsyncForLoop::test_context_vars[iter]"
+    ],
+    "detecting_count": 206,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "more-itertools-guard_raise-05--forward",
+    "library": "more-itertools",
+    "files": [
+      "tests/test_more.py",
+      "tests/test_recipes.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 12.3,
+      "failed": [
+        ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.LastTests::test_empty",
+        ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.NthOrLastTests::test_empty_iterable_no_default"
+      ],
+      "collected": 749
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 12.3,
+      "failed": [],
+      "collected": 749
+    },
+    "detecting": [
+      ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.LastTests::test_empty",
+      ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_more.NthOrLastTests::test_empty_iterable_no_default"
+    ],
+    "detecting_count": 2,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "packaging-guard_raise-06--forward",
+    "library": "packaging",
+    "files": [
+      "tests/test_direct_url.py",
+      "tests/test_pylock.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 0.7,
+      "failed": [
+        "tests.test_direct_url::test_validate_archive_info_hashes"
+      ],
+      "collected": 111
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.6,
+      "failed": [],
+      "collected": 111
+    },
+    "detecting": [
+      "tests.test_direct_url::test_validate_archive_info_hashes"
+    ],
+    "detecting_count": 1,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "python-dotenv-guard_raise-02--forward",
+    "library": "python-dotenv",
+    "files": [],
+    "outcome": "no test names a touched symbol"
+  },
+  {
+    "unit_id": "urllib3-none_guard-15--forward",
+    "library": "urllib3",
+    "files": [
+      "test/test_collections.py",
+      "test/with_dummyserver/test_connectionpool.py",
+      "test/with_dummyserver/test_poolmanager.py",
+      "test/with_dummyserver/test_proxy_poolmanager.py",
+      "test/with_dummyserver/test_socketlevel.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 49.4,
+      "failed": [
+        "test.test_collections.TestHTTPHeaderDict::test_union_with_unsupported_type",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_basic_proxy",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_cross_protocol_redirect",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_forwarding_non_https_proxy_ssl_context_fallback",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_headers",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_http_and_https_kwarg_ca_cert_data_proxy",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_headers",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_proxy",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_proxy_with_proxy_ssl_context",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_http_proxy_to_https_target",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_https_proxy_to_https_target",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_oldapi",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_https_fqdn",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_pooling",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_verified",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_scheme_host_case_insensitive",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_fingerprint_md5",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[127.0.0.1]",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[::1]",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[localhost]",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_ipv4_san",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_ipv6_san",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_no_san_hostname_checks_common_name",
+        "test.with_dummyserver.test_proxy_poolmanager.TestIPv6HTTPProxyManager::test_basic_ipv6_proxy",
+        "test.with_dummyserver.test_socketlevel.TestSSL::test_ssl_failed_fingerprint_verification"
+      ],
+      "collected": 464
+    },
+    "base": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 50.0,
+      "failed": [
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_basic_proxy",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_cross_protocol_redirect",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_forwarding_non_https_proxy_ssl_context_fallback",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_headers",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_http_and_https_kwarg_ca_cert_data_proxy",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_headers",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_proxy",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_https_proxy_with_proxy_ssl_context",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_http_proxy_to_https_target",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_is_verified_https_proxy_to_https_target",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_oldapi",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_https_fqdn",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_pooling",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_proxy_verified",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPProxyManager::test_scheme_host_case_insensitive",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_fingerprint_md5",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[127.0.0.1]",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[::1]",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_assert_hostname[localhost]",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_ipv4_san",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_ipv6_san",
+        "test.with_dummyserver.test_proxy_poolmanager.TestHTTPSProxyVerification::test_https_proxy_no_san_hostname_checks_common_name",
+        "test.with_dummyserver.test_proxy_poolmanager.TestIPv6HTTPProxyManager::test_basic_ipv6_proxy",
+        "test.with_dummyserver.test_socketlevel.TestSSL::test_ssl_failed_fingerprint_verification"
+      ],
+      "collected": 464
+    },
+    "detecting": [
+      "test.test_collections.TestHTTPHeaderDict::test_union_with_unsupported_type"
+    ],
+    "detecting_count": 1,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "attrs-none_guard-17--forward",
+    "library": "attrs",
+    "files": [
+      "tests/test_converters.py",
+      "tests/test_dunders.py",
+      "tests/test_make.py",
+      "tests/test_slots.py",
+      "tests/test_validators.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 3.3,
+      "failed": [
+        "tests.test_converters.TestPipe::test_wrapped_annotation",
+        "tests.test_validators.TestDeepIterable::test_fail_invalid_member[member_validator0]",
+        "tests.test_validators.TestDeepIterable::test_fail_invalid_member[member_validator1]",
+        "tests.test_validators.TestDeepIterable::test_fail_invalid_member[member_validator2]",
+        "tests.test_validators.TestDeepIterable::test_repr_member_only",
+        "tests.test_validators.TestDeepIterable::test_repr_member_only_sequence",
+        "tests.test_validators.TestDeepIterable::test_success_member_only[member_validator0]",
+        "tests.test_validators.TestDeepIterable::test_success_member_only[member_validator1]",
+        "tests.test_validators.TestDeepIterable::test_success_member_only[member_validator2]",
+        "tests.test_validators.TestDeepMapping::test_fail_invalid_key",
+        "tests.test_validators.TestDeepMapping::test_fail_invalid_member",
+        "tests.test_validators.TestDeepMapping::test_key_validator_can_be_none",
+        "tests.test_validators.TestDeepMapping::test_noncallable_validators[None-42-None]",
+        "tests.test_validators.TestDeepMapping::test_repr",
+        "tests.test_validators.TestDeepMapping::test_success",
+        "tests.test_validators.TestDeepMapping::test_value_validator_can_be_none",
+        "tests.test_validators.TestOptional::test_success_with_none[validator0]",
+        "tests.test_validators.TestOptional::test_success_with_none[validator1]",
+        "tests.test_validators.TestOptional::test_success_with_none[validator2]"
+      ],
+      "collected": 639
+    },
+    "base": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 2.9,
+      "failed": [
+        "tests.test_converters.TestPipe::test_wrapped_annotation"
+      ],
+      "collected": 639
+    },
+    "detecting": [
+      "tests.test_validators.TestDeepIterable::test_fail_invalid_member[member_validator0]",
+      "tests.test_validators.TestDeepIterable::test_fail_invalid_member[member_validator1]",
+      "tests.test_validators.TestDeepIterable::test_fail_invalid_member[member_validator2]",
+      "tests.test_validators.TestDeepIterable::test_repr_member_only",
+      "tests.test_validators.TestDeepIterable::test_repr_member_only_sequence",
+      "tests.test_validators.TestDeepIterable::test_success_member_only[member_validator0]",
+      "tests.test_validators.TestDeepIterable::test_success_member_only[member_validator1]",
+      "tests.test_validators.TestDeepIterable::test_success_member_only[member_validator2]"
+    ],
+    "detecting_count": 18,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "click-none_guard-15--forward",
+    "library": "click",
+    "files": [
+      "tests/test_termui.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 1.2,
+      "failed": [
+        "tests.test_termui::test_echo_via_pager_tty_pager_missing",
+        "tests.test_termui::test_get_pager_file_close_does_not_close_borrowed_stream",
+        "tests.test_termui::test_get_pager_file_missing_pager_keeps_borrowed_stream_open",
+        "tests.test_termui::test_get_pager_file_pager_missing_binary_falls_back",
+        "tests.test_termui::test_get_pager_file_pager_unset_falls_back_when_no_default"
+      ],
+      "collected": 282
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 1.1,
+      "failed": [],
+      "collected": 282
+    },
+    "detecting": [
+      "tests.test_termui::test_echo_via_pager_tty_pager_missing",
+      "tests.test_termui::test_get_pager_file_close_does_not_close_borrowed_stream",
+      "tests.test_termui::test_get_pager_file_missing_pager_keeps_borrowed_stream_open",
+      "tests.test_termui::test_get_pager_file_pager_missing_binary_falls_back",
+      "tests.test_termui::test_get_pager_file_pager_unset_falls_back_when_no_default"
+    ],
+    "detecting_count": 5,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "itsdangerous-guard_raise-06--forward",
+    "library": "itsdangerous",
+    "files": [
+      "tests/test_itsdangerous/test_serializer.py",
+      "tests/test_itsdangerous/test_signer.py",
+      "tests/test_itsdangerous/test_timed.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 0.4,
+      "failed": [
+        "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_future_age"
+      ],
+      "collected": 159
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.3,
+      "failed": [],
+      "collected": 159
+    },
+    "detecting": [
+      "tests.test_itsdangerous.test_timed.TestTimestampSigner::test_future_age"
+    ],
+    "detecting_count": 1,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "jinja-none_guard-14--forward",
+    "library": "jinja",
+    "files": [],
+    "outcome": "no test names a touched symbol"
+  },
+  {
+    "unit_id": "more-itertools-none_guard-17--forward",
+    "library": "more-itertools",
+    "files": [
+      "tests/test_more.py",
+      "tests/test_recipes.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 12.5,
+      "failed": [
+        ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_recipes.RepeatfuncTests::test_simple_repeat"
+      ],
+      "collected": 749
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 12.4,
+      "failed": [],
+      "collected": 749
+    },
+    "detecting": [
+      ".attest.corpora.mutations-v1-recall.more-itertools.repo.tests.test_recipes.RepeatfuncTests::test_simple_repeat"
+    ],
+    "detecting_count": 1,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "packaging-none_guard-13--forward",
+    "library": "packaging",
+    "files": [
+      "tests/test_manylinux.py",
+      "tests/test_tags.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 0.8,
+      "failed": [
+        "tests.test_manylinux::test_glibc_version_string_fail",
+        "tests.test_manylinux::test_glibc_version_string_none"
+      ],
+      "collected": 270
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.8,
+      "failed": [],
+      "collected": 270
+    },
+    "detecting": [
+      "tests.test_manylinux::test_glibc_version_string_fail",
+      "tests.test_manylinux::test_glibc_version_string_none"
+    ],
+    "detecting_count": 2,
+    "outcome": "own tests catch the mutant"
+  },
+  {
+    "unit_id": "python-dotenv-guard_raise-04--forward",
+    "library": "python-dotenv",
+    "files": [],
+    "outcome": "no test names a touched symbol"
+  },
+  {
+    "unit_id": "urllib3-none_guard-18--forward",
+    "library": "urllib3",
+    "files": [
+      "test/test_poolmanager.py",
+      "test/test_proxymanager.py",
+      "test/contrib/emscripten/test_emscripten.py",
+      "test/with_dummyserver/test_poolmanager.py"
+    ],
+    "head": {
+      "exit": 1,
+      "timed_out": false,
+      "elapsed_s": 1.1,
+      "failed": [
+        "test.test_poolmanager.TestPoolManager::test_pool_manager_no_url_absolute_form"
+      ],
+      "collected": 119
+    },
+    "base": {
+      "exit": 0,
+      "timed_out": false,
+      "elapsed_s": 0.9,
+      "failed": [],
+      "collected": 119
+    },
+    "detecting": [
+      "test.test_poolmanager.TestPoolManager::test_pool_manager_no_url_absolute_form"
+    ],
+    "detecting_count": 1,
+    "outcome": "own tests catch the mutant"
+  }
+]

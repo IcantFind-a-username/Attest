@@ -9,6 +9,35 @@ live under [`docs/acceptance/`](docs/acceptance/). This file is the index, not t
 
 Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
+## Unreleased
+
+### Fixes
+
+- **A file of more than 200 definitions anchors its changed symbol again (D-249).**
+  `symbol_ranges` refused such a file whole, so every value receipt on it was drawered as *no
+  symbol to specify*: **4 of the 40** injected defects, all in `more_itertools/more.py` (225
+  definitions), could never certify on any probe arm. The bound now sits on the record, not on the
+  read. **What it costs in recall or in trust:** nothing in trust -- the rule and the recorded field
+  keep their meaning, no intent policy version moves and every existing receipt keeps its verdict
+  (D-121); in recall, re-judged statically on arm C's own recordings, **3 of the 4** are specified
+  by the shipped rule once anchored, and a receipt still needs a paid re-run. On the 95 verification
+  rows of the three real-PR batches the refusal never fired.
+- **A mutation case counts as certified only by a receipt on its own hunk (D-250).** The corpus
+  classifier had counted any accepted receipt in the case, wherever it sat. Recounted over every
+  recorded run of the forty: **0 receipts elsewhere**, every published count stands.
+
+### Measured, not adopted
+
+- **The evidence-supply audit over the forty (D-251,
+  [report](docs/acceptance/2026-09-15-evidence-supply.md))**, Phase 0 of
+  [the contract-evidence plan](docs/design/contract-evidence-plan.md), $0.00: of the 27 cases arm C
+  did not certify, **9** hold a specification the product cannot read today (the symbol bound,
+  object-valued expected sides, exceptions expected through a public caller or a helper), **5**
+  hold a discriminating input in their own tests that the search never tried, **13** hold nothing.
+  The libraries' own tests naming the mutated symbol catch **21 of 40** mutants, 14 of them misses;
+  the reviewer certified **5** those tests do not catch. Nothing adopted: `attest.intent.v6` and
+  the paid re-run are the owner's decisions B and C in the plan's §8.
+
 ## `v0.3.0` — 2026-09-15
 
 **The release that stopped a reviewer from writing to the repository it reviews, and made the one

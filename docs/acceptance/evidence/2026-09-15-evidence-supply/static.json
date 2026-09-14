@@ -1,0 +1,2817 @@
+[
+  {
+    "unit_id": "attrs-boundary-09--forward",
+    "library": "attrs",
+    "stratum": "boundary",
+    "site": "src/attr/_compat.py:13",
+    "mutation": ">= -> > at src/attr/_compat.py:13: PY_3_13_PLUS = sys.version_info[:2] >= (3, 13)",
+    "base_sha": "8f767776326faaed11e6c2974798787f6e19b343",
+    "head_sha": "304ecf598284cefef2fad8ebf63769b2d0cd30da",
+    "changed_head_lines": [
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+    ],
+    "definitions_in_file": 9,
+    "symbols_before_d249": [],
+    "symbols_after_d249": [],
+    "supply": {
+      "test_files_naming": [],
+      "tests_naming": 0,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "no receipt",
+      "why": "3 probes tried and none produced a differential: 3 recorded nothing usable on the merge base -- probe did not execute src/attr/_compat.py on base, so it recorded the behaviour of something other than ",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "",
+      "value_mismatch": null,
+      "probes": [],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.036747
+    },
+    "pinned_now_specified": [],
+    "reading": "search: no probe made the revisions differ, or the recording was refused"
+  },
+  {
+    "unit_id": "click-boundary-07--forward",
+    "library": "click",
+    "stratum": "boundary",
+    "site": "src/click/_termui_impl.py:183",
+    "mutation": "> -> >= at src/click/_termui_impl.py:183: if t > 0:",
+    "base_sha": "6aabf099bfdd4c1e75fe8d0e0d4241372b988ab1",
+    "head_sha": "140b1db1b3a8275216a93297bfda43a90697c41c",
+    "changed_head_lines": [
+      180,
+      181,
+      182,
+      183,
+      184,
+      185,
+      186
+    ],
+    "definitions_in_file": 48,
+    "symbols_before_d249": [
+      "ProgressBar",
+      "format_eta"
+    ],
+    "symbols_after_d249": [
+      "ProgressBar",
+      "format_eta"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_termui.py",
+        "tests/typing/typing_progressbar.py"
+      ],
+      "tests_naming": 3,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 7,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 5,
+      "changelog_files": [
+        "CHANGES.md"
+      ]
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "'01:01:01'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "ProgressBar",
+        "format_eta"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "progress.format_eta()"
+      ],
+      "expression": "progress.format_eta()",
+      "base": "value:'01:01:01'",
+      "head": "value:'0d 01:01:01'",
+      "spend_usd": 0.041331
+    },
+    "pinned_now_specified": [],
+    "reading": "changelog names the symbol but does not quote the value"
+  },
+  {
+    "unit_id": "itsdangerous-boundary-07--forward",
+    "library": "itsdangerous",
+    "stratum": "boundary",
+    "site": "src/itsdangerous/timed.py:141",
+    "mutation": "> -> >= at src/itsdangerous/timed.py:141: if age > max_age:",
+    "base_sha": "672971d66a2ef9f85151e53283113f33d642dabd",
+    "head_sha": "05063143a050ce49fee05b8c7f3681895547b921",
+    "changed_head_lines": [
+      138,
+      139,
+      140,
+      141,
+      142,
+      143,
+      144
+    ],
+    "definitions_in_file": 12,
+    "symbols_before_d249": [
+      "TimestampSigner",
+      "unsign"
+    ],
+    "symbols_after_d249": [
+      "TimestampSigner",
+      "unsign"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_itsdangerous/test_serializer.py",
+        "tests/test_itsdangerous/test_signer.py",
+        "tests/test_itsdangerous/test_timed.py"
+      ],
+      "tests_naming": 16,
+      "literal_values": [
+        "b'b'",
+        "b'my string'",
+        "b'value'",
+        "'Malformed'",
+        "'missing'"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 8,
+      "parametrize_object_rows": 3,
+      "raises": [
+        "BadSignature",
+        "SignatureExpired",
+        "BadTimeSignature"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 3,
+      "changelog_files": [
+        "CHANGES.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "SignatureExpired",
+      "value_mismatch": false,
+      "probes": [
+        "fixed_signer.unsign(signed, max_age=10)"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.051217
+    },
+    "pinned_now_specified": [],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "jinja-boundary-09--forward",
+    "library": "jinja",
+    "stratum": "boundary",
+    "site": "src/jinja2/debug.py:162",
+    "mutation": "< -> <= at src/jinja2/debug.py:162: if cur_depth < depth:",
+    "base_sha": "5ef70112a1ff19c05324ff889dd30405b1002044",
+    "head_sha": "150f3e9a036106754075eb66bbb4818ca974c7ee",
+    "changed_head_lines": [
+      159,
+      160,
+      161,
+      162,
+      163,
+      164,
+      165
+    ],
+    "definitions_in_file": 3,
+    "symbols_before_d249": [
+      "get_template_locals"
+    ],
+    "symbols_after_d249": [
+      "get_template_locals"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_debug.py"
+      ],
+      "tests_naming": 1,
+      "literal_values": [
+        "13",
+        "99"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [
+        "13"
+      ],
+      "value_specified": [
+        [
+          "13",
+          "tests/test_debug.py"
+        ]
+      ],
+      "anchored_symbols_recorded": [
+        "get_template_locals"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "get_template_locals(real_locals)"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.040751
+    },
+    "pinned_now_specified": [
+      [
+        "13",
+        "tests/test_debug.py"
+      ]
+    ],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "more-itertools-boundary-08--forward",
+    "library": "more-itertools",
+    "stratum": "boundary",
+    "site": "more_itertools/more.py:453",
+    "mutation": "> -> >= at more_itertools/more.py:453: if step > 0:",
+    "base_sha": "9ed3dbb0ae527230cd156d91d0af305478558fba",
+    "head_sha": "bb42da5f42856146bbcd53c482f44ddade69d7a5",
+    "changed_head_lines": [
+      450,
+      451,
+      452,
+      453,
+      454,
+      455,
+      456
+    ],
+    "definitions_in_file": 225,
+    "symbols_before_d249": [],
+    "symbols_after_d249": [
+      "_get_slice",
+      "peekable"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_more.py"
+      ],
+      "tests_naming": 19,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "IndexError",
+        "ValueError",
+        "StopIteration"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "no receipt",
+      "why": "intent: value change confirmed, no symbol to specify: this change touches no function or class of the anchored file, so no test, docstring or document can specify the value for it (返回值变化已证实，无可关联符号)",
+      "pinned_values": [
+        "'ValueError'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "RuntimeError",
+      "value_mismatch": true,
+      "probes": [
+        "p[2:5:0]"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.083035
+    },
+    "pinned_now_specified": [
+      [
+        "'ValueError'",
+        "more_itertools/more.py"
+      ]
+    ],
+    "reading": "symbol bound (D-249); the shipped rule now specifies every pinned value -> certifies"
+  },
+  {
+    "unit_id": "packaging-boundary-08--forward",
+    "library": "packaging",
+    "stratum": "boundary",
+    "site": "src/packaging/_musllinux.py:28",
+    "mutation": "< -> <= at src/packaging/_musllinux.py:28: if len(lines) < 2 or lines[0][:4] != \"musl\":",
+    "base_sha": "10590c194edb33c82f84a127883d6097c56b7840",
+    "head_sha": "fdf901a03a24589cc6a43dc2b76bbc46e8cb0ac6",
+    "changed_head_lines": [
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31
+    ],
+    "definitions_in_file": 4,
+    "symbols_before_d249": [
+      "_parse_musl_version"
+    ],
+    "symbols_after_d249": [
+      "_parse_musl_version"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_musllinux.py"
+      ],
+      "tests_naming": 1,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 5,
+      "parametrize_object_rows": 3,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "'_MuslVersion(major=1, minor=2)'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "_parse_musl_version"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "_parse_musl_version('musl libc (x86_64)\\nVersion 1.2.3\\n')"
+      ],
+      "expression": "_parse_musl_version('musl libc (x86_64)\\nVersion 1.2.3\\n')",
+      "base": "value:_MuslVersion(major=1, minor=2)",
+      "head": "value:None",
+      "spend_usd": 0.032404
+    },
+    "pinned_now_specified": [],
+    "reading": "object-valued expected sides exist (a form the rule cannot read; whether one covers a discriminating input is the own-tests column)"
+  },
+  {
+    "unit_id": "python-dotenv-boundary-06--forward",
+    "library": "python-dotenv",
+    "stratum": "boundary",
+    "site": "src/dotenv/parser.py:164",
+    "mutation": "> -> >= at src/dotenv/parser.py:164: if len(equal_sign) > 1 and reader.peek(1) == \"#\":",
+    "base_sha": "a00cb2eed0704cd6d2071b2004c37e95ccc86ee5",
+    "head_sha": "5be4cd2b329b40663a7b3762203028b9caad9590",
+    "changed_head_lines": [
+      161,
+      162,
+      163,
+      164,
+      165,
+      166,
+      167
+    ],
+    "definitions_in_file": 24,
+    "symbols_before_d249": [
+      "parse_binding"
+    ],
+    "symbols_after_d249": [
+      "parse_binding"
+    ],
+    "supply": {
+      "test_files_naming": [],
+      "tests_naming": 0,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "'#novalue'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "parse_binding"
+      ],
+      "exception_type": "GeneratorExit",
+      "value_mismatch": true,
+      "probes": [
+        "next(parse_stream(stream)).value"
+      ],
+      "expression": "next(parse_stream(stream)).value",
+      "base": "value:'#novalue'",
+      "head": "value:''",
+      "spend_usd": 0.038304
+    },
+    "pinned_now_specified": [],
+    "reading": "nothing in the tree specifies this input's outcome; head raised GeneratorExit"
+  },
+  {
+    "unit_id": "urllib3-boundary-07--forward",
+    "library": "urllib3",
+    "stratum": "boundary",
+    "site": "src/urllib3/_collections.py:114",
+    "mutation": "> -> >= at src/urllib3/_collections.py:114: if len(self._container) > self._maxsize:",
+    "base_sha": "5f2a6a843d0100d1351c3f94d58581ca98d17267",
+    "head_sha": "fb5eef2f2972c3b8cd4126946d768ad79bfac5e2",
+    "changed_head_lines": [
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117
+    ],
+    "definitions_in_file": 47,
+    "symbols_before_d249": [
+      "RecentlyUsedContainer",
+      "__setitem__"
+    ],
+    "symbols_after_d249": [
+      "RecentlyUsedContainer",
+      "__setitem__"
+    ],
+    "supply": {
+      "test_files_naming": [],
+      "tests_naming": 0,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 2,
+      "changelog_files": [
+        "CHANGES.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "RecentlyUsedContainer",
+        "__setitem__"
+      ],
+      "exception_type": "KeyError",
+      "value_mismatch": true,
+      "probes": [
+        "sorted(c.keys())"
+      ],
+      "expression": "sorted(c.keys())",
+      "base": "value:[0, 1, 2, 3, 4]",
+      "head": "value:[1, 2, 3, 4]",
+      "spend_usd": 0.048269
+    },
+    "pinned_now_specified": [],
+    "reading": "changelog names the symbol but does not quote the value; head raised KeyError"
+  },
+  {
+    "unit_id": "attrs-guard_raise-03--forward",
+    "library": "attrs",
+    "stratum": "guard_raise",
+    "site": "src/attr/_make.py:423",
+    "mutation": "delete the guard at src/attr/_make.py:423: if unannotated:",
+    "base_sha": "8f767776326faaed11e6c2974798787f6e19b343",
+    "head_sha": "7e2f44513f5843f2a452c5526e0bbdbbfa7e99a8",
+    "changed_head_lines": [
+      420,
+      421,
+      422,
+      423,
+      424,
+      425,
+      426
+    ],
+    "definitions_in_file": 122,
+    "symbols_before_d249": [
+      "_transform_attrs"
+    ],
+    "symbols_after_d249": [
+      "_transform_attrs"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_make.py"
+      ],
+      "tests_naming": 7,
+      "literal_values": [
+        "3",
+        "\"No mandatory attributes allowed after an attribute with a default value or fact",
+        "'x'",
+        "'y'",
+        "'z'"
+      ],
+      "object_comparators": [
+        "_Attributes((), [], {})"
+      ],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "ValueError"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "'UnannotatedAttributeError'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "_transform_attrs"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "_transform_attrs(C, None, True, ClassProps.KeywordOnly.NO, True, None)"
+      ],
+      "expression": "_transform_attrs(C, None, True, ClassProps.KeywordOnly.NO, True, None)",
+      "base": "exception:UnannotatedAttributeError",
+      "head": "value:_Attributes(attrs=(Attribute(name='x', default=NOTHING, vali",
+      "spend_usd": 0.051986
+    },
+    "pinned_now_specified": [],
+    "reading": "base tests expect ['ValueError'] about the symbol, not ['UnannotatedAttributeError']; object-valued expected sides exist (a form the rule cannot read; whether one covers a discriminating input is the own-tests column)"
+  },
+  {
+    "unit_id": "click-boundary-10--forward",
+    "library": "click",
+    "stratum": "boundary",
+    "site": "src/click/_termui_impl.py:339",
+    "mutation": ">= -> > at src/click/_termui_impl.py:339: if self._completed_intervals >= self.update_min_steps:",
+    "base_sha": "6aabf099bfdd4c1e75fe8d0e0d4241372b988ab1",
+    "head_sha": "154c469be162ece0b378786bae0f961abc5d8657",
+    "changed_head_lines": [
+      336,
+      337,
+      338,
+      339,
+      340,
+      341,
+      342
+    ],
+    "definitions_in_file": 48,
+    "symbols_before_d249": [
+      "ProgressBar",
+      "update"
+    ],
+    "symbols_after_d249": [
+      "ProgressBar",
+      "update"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_termui.py",
+        "tests/typing/typing_progressbar.py"
+      ],
+      "tests_naming": 5,
+      "literal_values": [
+        "20",
+        "3",
+        "5",
+        "'20/20'",
+        "'Custom 0'",
+        "'Custom 2'",
+        "'Custom 4'"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 8,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 6,
+      "changelog_files": [
+        "CHANGES.md"
+      ]
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+      "pinned_values": [
+        "1"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "ProgressBar",
+        "update"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "(pb.update(1), pb.pos)[1]"
+      ],
+      "expression": "(pb.update(1), pb.pos)[1]",
+      "base": "value:1",
+      "head": "value:0",
+      "spend_usd": 0.051524
+    },
+    "pinned_now_specified": [],
+    "reading": "only generic constants pinned; a (symbol, input, relation) contract would not exclude them by value; changelog names the symbol but does not quote the value"
+  },
+  {
+    "unit_id": "itsdangerous-guard_raise-01--forward",
+    "library": "itsdangerous",
+    "stratum": "guard_raise",
+    "site": "src/itsdangerous/signer.py:146",
+    "mutation": "delete the guard at src/itsdangerous/signer.py:146: if self.sep in _base64_alphabet:",
+    "base_sha": "672971d66a2ef9f85151e53283113f33d642dabd",
+    "head_sha": "6301cf180a3effed40acd72f2c6ee01551aab7a4",
+    "changed_head_lines": [
+      143,
+      144,
+      145,
+      146,
+      147,
+      148,
+      149
+    ],
+    "definitions_in_file": 19,
+    "symbols_before_d249": [
+      "Signer",
+      "__init__"
+    ],
+    "symbols_after_d249": [
+      "Signer",
+      "__init__"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_itsdangerous/test_serializer.py",
+        "tests/test_itsdangerous/test_signer.py",
+        "tests/test_itsdangerous/test_timed.py"
+      ],
+      "tests_naming": 4,
+      "literal_values": [
+        "b'my string'",
+        "'Malformed'",
+        "'missing'"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "BadTimeSignature"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 1,
+      "changelog_files": [
+        "CHANGES.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "'ValueError'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "Signer",
+        "__init__"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "Signer('secret-key', sep='a')"
+      ],
+      "expression": "Signer('secret-key', sep='a')",
+      "base": "exception:ValueError",
+      "head": "value:<itsdangerous.signer.Signer object>",
+      "spend_usd": 0.038268
+    },
+    "pinned_now_specified": [],
+    "reading": "base tests expect ['BadTimeSignature'] about the symbol, not ['ValueError']; changelog names the symbol but does not quote the value"
+  },
+  {
+    "unit_id": "jinja-boundary-12--forward",
+    "library": "jinja",
+    "stratum": "boundary",
+    "site": "src/jinja2/environment.py:1637",
+    "mutation": "< -> <= at src/jinja2/environment.py:1637: while c_size < size:",
+    "base_sha": "5ef70112a1ff19c05324ff889dd30405b1002044",
+    "head_sha": "fd3cb08239bb51d31af1f78cd9883594d896917d",
+    "changed_head_lines": [
+      1634,
+      1635,
+      1636,
+      1637,
+      1638,
+      1639,
+      1640
+    ],
+    "definitions_in_file": 78,
+    "symbols_before_d249": [
+      "TemplateStream",
+      "_buffered_generator"
+    ],
+    "symbols_after_d249": [
+      "TemplateStream",
+      "_buffered_generator"
+    ],
+    "supply": {
+      "test_files_naming": [],
+      "tests_naming": 0,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 1,
+      "changelog_files": [
+        "CHANGES.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "3"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "TemplateStream",
+        "_buffered_generator"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "len(next(stream))"
+      ],
+      "expression": "len(next(stream))",
+      "base": "value:3",
+      "head": "value:4",
+      "spend_usd": 0.045574
+    },
+    "pinned_now_specified": [],
+    "reading": "changelog names the symbol but does not quote the value"
+  },
+  {
+    "unit_id": "more-itertools-boundary-10--forward",
+    "library": "more-itertools",
+    "stratum": "boundary",
+    "site": "more_itertools/more.py:464",
+    "mutation": "< -> <= at more_itertools/more.py:464: if (start < 0) or (stop < 0):",
+    "base_sha": "9ed3dbb0ae527230cd156d91d0af305478558fba",
+    "head_sha": "2675969e658422c556e5a4d824dfd5fd12225cd7",
+    "changed_head_lines": [
+      461,
+      462,
+      463,
+      464,
+      465,
+      466,
+      467
+    ],
+    "definitions_in_file": 225,
+    "symbols_before_d249": [],
+    "symbols_after_d249": [
+      "_get_slice",
+      "peekable"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_more.py"
+      ],
+      "tests_naming": 19,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "IndexError",
+        "ValueError",
+        "StopIteration"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "no receipt",
+      "why": "intent: value change confirmed, no symbol to specify: this change touches no function or class of the anchored file, so no test, docstring or document can specify the value for it (返回值变化已证实，无可关联符号)",
+      "pinned_values": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "6"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "(p[0:5], len(p._cache))"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.055877
+    },
+    "pinned_now_specified": [],
+    "reading": "symbol bound (D-249)"
+  },
+  {
+    "unit_id": "packaging-boundary-11--forward",
+    "library": "packaging",
+    "stratum": "boundary",
+    "site": "src/packaging/_ranges.py:152",
+    "mutation": "< -> <= at src/packaging/_ranges.py:152: if not (self.version < other):",
+    "base_sha": "10590c194edb33c82f84a127883d6097c56b7840",
+    "head_sha": "1187bf7988e81cecc5105b2e0d57e8a20f9a8f49",
+    "changed_head_lines": [
+      149,
+      150,
+      151,
+      152,
+      153,
+      154,
+      155
+    ],
+    "definitions_in_file": 45,
+    "symbols_before_d249": [
+      "BoundaryVersion",
+      "__lt__"
+    ],
+    "symbols_after_d249": [
+      "BoundaryVersion",
+      "__lt__"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_ranges.py",
+        "tests/test_specifiers.py"
+      ],
+      "tests_naming": 3,
+      "literal_values": [],
+      "object_comparators": [
+        "BoundaryVersion(Version('1.0'), BoundaryKind.AFTER_LOCALS)",
+        "Version('1.0')"
+      ],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "no receipt",
+      "why": "3 probes tried and none produced a differential: 3 reached the changed lines and observed no difference",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "",
+      "value_mismatch": null,
+      "probes": [],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.181593
+    },
+    "pinned_now_specified": [],
+    "reading": "search: no probe made the revisions differ, or the recording was refused"
+  },
+  {
+    "unit_id": "python-dotenv-boundary-08--forward",
+    "library": "python-dotenv",
+    "stratum": "boundary",
+    "site": "src/dotenv/variables.py:85",
+    "mutation": "< -> <= at src/dotenv/variables.py:85: if cursor < length:",
+    "base_sha": "a00cb2eed0704cd6d2071b2004c37e95ccc86ee5",
+    "head_sha": "cd8d0de9ce32fe807584d31de4b148c8dc2589e2",
+    "changed_head_lines": [
+      82,
+      83,
+      84,
+      85,
+      86
+    ],
+    "definitions_in_file": 16,
+    "symbols_before_d249": [
+      "parse_variables"
+    ],
+    "symbols_after_d249": [
+      "parse_variables"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_variables.py"
+      ],
+      "tests_naming": 1,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 6,
+      "parametrize_object_rows": 5,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "'[Variable(name=FOO, default=None)]'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "parse_variables"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "list(parse_variables('${FOO}'))"
+      ],
+      "expression": "list(parse_variables('${FOO}'))",
+      "base": "value:[Variable(name=FOO, default=None)]",
+      "head": "value:[Variable(name=FOO, default=None), Literal(value=)]",
+      "spend_usd": 0.031694
+    },
+    "pinned_now_specified": [],
+    "reading": "object-valued expected sides exist (a form the rule cannot read; whether one covers a discriminating input is the own-tests column)"
+  },
+  {
+    "unit_id": "urllib3-guard_raise-03--forward",
+    "library": "urllib3",
+    "stratum": "guard_raise",
+    "site": "src/urllib3/_request_methods.py:258",
+    "mutation": "delete the guard at src/urllib3/_request_methods.py:258: if \"body\" in urlopen_kw:",
+    "base_sha": "5f2a6a843d0100d1351c3f94d58581ca98d17267",
+    "head_sha": "3f7f4d522691150f0b6ceae9b3c2a938450d994d",
+    "changed_head_lines": [
+      255,
+      256,
+      257,
+      258,
+      259,
+      260,
+      261
+    ],
+    "definitions_in_file": 6,
+    "symbols_before_d249": [
+      "RequestMethods",
+      "request_encode_body"
+    ],
+    "symbols_after_d249": [
+      "RequestMethods",
+      "request_encode_body"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "test/with_dummyserver/test_poolmanager.py",
+        "test/with_dummyserver/test_proxy_poolmanager.py"
+      ],
+      "tests_naming": 4,
+      "literal_values": [
+        "'bar'",
+        "'quux'",
+        "':'",
+        "'dickory'"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 2,
+      "changelog_files": [
+        "CHANGES.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "'TypeError'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "RequestMethods",
+        "request_encode_body"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "d.request_encode_body('POST', 'http://example.com', fields={'a':'b'}, body=b'raw')"
+      ],
+      "expression": "d.request_encode_body('POST', 'http://example.com', fields={'a':'b'}, body=b'raw')",
+      "base": "exception:TypeError",
+      "head": "value:{'headers': HTTPHeaderDict({'Content-Type': 'multipart/form-",
+      "spend_usd": 0.052954
+    },
+    "pinned_now_specified": [],
+    "reading": "deleted guard: no test, docstring or changelog names its exception; changelog names the symbol but does not quote the value"
+  },
+  {
+    "unit_id": "attrs-none_guard-14--forward",
+    "library": "attrs",
+    "stratum": "none_guard",
+    "site": "src/attr/_next_gen.py:424",
+    "mutation": "delete the None guard at src/attr/_next_gen.py:424: if maybe_cls is None:",
+    "base_sha": "8f767776326faaed11e6c2974798787f6e19b343",
+    "head_sha": "c01da6f6a120c0b8d555785fb5f1d81f7003b540",
+    "changed_head_lines": [
+      421,
+      422,
+      423,
+      424,
+      425,
+      426,
+      427
+    ],
+    "definitions_in_file": 7,
+    "symbols_before_d249": [
+      "define"
+    ],
+    "symbols_after_d249": [
+      "define"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "bench/test_benchmarks.py",
+        "tests/test_abc.py",
+        "tests/test_annotations.py",
+        "tests/test_cmp.py",
+        "tests/test_forward_references.py",
+        "tests/test_funcs.py",
+        "tests/test_functional.py",
+        "tests/test_init_subclass.py",
+        "tests/test_make.py",
+        "tests/test_next_gen.py",
+        "tests/test_pattern_matching.py",
+        "tests/test_pyright.py",
+        "tests/test_setattr.py"
+      ],
+      "tests_naming": 52,
+      "literal_values": [
+        "'self.x = x'",
+        "'self.y = y'",
+        "'setattr'",
+        "200",
+        "3",
+        "410",
+        "84",
+        "'__match_args__'"
+      ],
+      "object_comparators": [
+        "B(1, 2)",
+        "C(1, 2, 3)",
+        "C(2)",
+        "C(23)",
+        "C(42)",
+        "C(x='42')",
+        "ClassProps(is_exception=False, is_slotted=False, is_frozen=True, kw_only=ClassPr",
+        "Concrete(1)"
+      ],
+      "parametrize_rows": 2,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "TypeError",
+        "UnannotatedAttributeError",
+        "ValueError",
+        "E",
+        "FrozenInstanceError",
+        "MyException"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 19,
+      "changelog_files": [
+        "CHANGELOG.md"
+      ]
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "AttributeError",
+      "value_mismatch": false,
+      "probes": [
+        "attr.define()"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.049413
+    },
+    "pinned_now_specified": [],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "click-guard_raise-03--forward",
+    "library": "click",
+    "stratum": "guard_raise",
+    "site": "src/click/_compat.py:400",
+    "mutation": "delete the guard at src/click/_compat.py:400: if \"a\" in mode:",
+    "base_sha": "6aabf099bfdd4c1e75fe8d0e0d4241372b988ab1",
+    "head_sha": "b92747ab8119a7a157f6612e6b42b7c99caf4149",
+    "changed_head_lines": [
+      397,
+      398,
+      399,
+      400,
+      401,
+      402,
+      403
+    ],
+    "definitions_in_file": 50,
+    "symbols_before_d249": [
+      "open_stream"
+    ],
+    "symbols_after_d249": [
+      "open_stream"
+    ],
+    "supply": {
+      "test_files_naming": [],
+      "tests_naming": 0,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "no receipt",
+      "why": "3 probes tried and none produced a differential: 3 reached the changed lines and observed no difference",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "",
+      "value_mismatch": null,
+      "probes": [],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.075061
+    },
+    "pinned_now_specified": [],
+    "reading": "search: no probe made the revisions differ, or the recording was refused"
+  },
+  {
+    "unit_id": "itsdangerous-guard_raise-04--forward",
+    "library": "itsdangerous",
+    "stratum": "guard_raise",
+    "site": "src/itsdangerous/timed.py:134",
+    "mutation": "delete the guard at src/itsdangerous/timed.py:134: if ts_int is None:",
+    "base_sha": "672971d66a2ef9f85151e53283113f33d642dabd",
+    "head_sha": "62b063fccf8138feedaa3238f025799ab3234834",
+    "changed_head_lines": [
+      131,
+      132,
+      133,
+      134,
+      135,
+      136,
+      137
+    ],
+    "definitions_in_file": 12,
+    "symbols_before_d249": [
+      "TimestampSigner",
+      "unsign"
+    ],
+    "symbols_after_d249": [
+      "TimestampSigner",
+      "unsign"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_itsdangerous/test_serializer.py",
+        "tests/test_itsdangerous/test_signer.py",
+        "tests/test_itsdangerous/test_timed.py"
+      ],
+      "tests_naming": 16,
+      "literal_values": [
+        "b'b'",
+        "b'my string'",
+        "b'value'",
+        "'Malformed'",
+        "'missing'"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 8,
+      "parametrize_object_rows": 3,
+      "raises": [
+        "BadSignature",
+        "SignatureExpired",
+        "BadTimeSignature"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 3,
+      "changelog_files": [
+        "CHANGES.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "no receipt",
+      "why": "3 probes tried and none produced a differential: 3 reached the changed lines and observed no difference",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "",
+      "value_mismatch": null,
+      "probes": [],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.059188
+    },
+    "pinned_now_specified": [],
+    "reading": "search: no probe made the revisions differ, or the recording was refused"
+  },
+  {
+    "unit_id": "jinja-guard_raise-01--forward",
+    "library": "jinja",
+    "stratum": "guard_raise",
+    "site": "src/jinja2/bccache.py:84",
+    "mutation": "delete the guard at src/jinja2/bccache.py:84: if self.code is None:",
+    "base_sha": "5ef70112a1ff19c05324ff889dd30405b1002044",
+    "head_sha": "8b21d5bef9a84f9b4c6d3567d0dd6f64605de8d7",
+    "changed_head_lines": [
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87
+    ],
+    "definitions_in_file": 31,
+    "symbols_before_d249": [
+      "Bucket",
+      "write_bytecode"
+    ],
+    "symbols_after_d249": [
+      "Bucket",
+      "write_bytecode"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_bytecode_cache.py"
+      ],
+      "tests_naming": 2,
+      "literal_values": [
+        "'code'",
+        "'jinja2/bytecode/key'"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "Error"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "'TypeError'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "Bucket",
+        "write_bytecode"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "bucket.write_bytecode(f)"
+      ],
+      "expression": "bucket.write_bytecode(f)",
+      "base": "exception:TypeError",
+      "head": "value:None",
+      "spend_usd": 0.038206
+    },
+    "pinned_now_specified": [],
+    "reading": "base tests expect ['Error'] about the symbol, not ['TypeError']"
+  },
+  {
+    "unit_id": "more-itertools-guard_raise-04--forward",
+    "library": "more-itertools",
+    "stratum": "guard_raise",
+    "site": "more_itertools/more.py:272",
+    "mutation": "delete the guard at more_itertools/more.py:272: if default is _marker:",
+    "base_sha": "9ed3dbb0ae527230cd156d91d0af305478558fba",
+    "head_sha": "cf264a42a78d69654de55cabc016f74952ec03e2",
+    "changed_head_lines": [
+      269,
+      270,
+      271,
+      272,
+      273,
+      274,
+      275
+    ],
+    "definitions_in_file": 225,
+    "symbols_before_d249": [],
+    "symbols_after_d249": [
+      "first",
+      "last"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_more.py",
+        "tests/test_recipes.py"
+      ],
+      "tests_naming": 18,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "ValueError"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "no receipt",
+      "why": "intent: value change confirmed, no symbol to specify: this change touches no function or class of the anchored file, so no test, docstring or document can specify the value for it (返回值变化已证实，无可关联符号)",
+      "pinned_values": [
+        "'ValueError'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "mi.first([])"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.037732
+    },
+    "pinned_now_specified": [
+      [
+        "'ValueError'",
+        "more_itertools/more.py"
+      ]
+    ],
+    "reading": "symbol bound (D-249); the shipped rule now specifies every pinned value -> certifies"
+  },
+  {
+    "unit_id": "packaging-guard_raise-01--forward",
+    "library": "packaging",
+    "stratum": "guard_raise",
+    "site": "src/packaging/_elffile.py:53",
+    "mutation": "delete the guard at src/packaging/_elffile.py:53: if magic != b\"\\x7fELF\":",
+    "base_sha": "10590c194edb33c82f84a127883d6097c56b7840",
+    "head_sha": "fc08c2ef0780d4845efe30b0589b2a84ad802b1d",
+    "changed_head_lines": [
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56
+    ],
+    "definitions_in_file": 8,
+    "symbols_before_d249": [
+      "ELFFile",
+      "__init__"
+    ],
+    "symbols_after_d249": [
+      "ELFFile",
+      "__init__"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_elffile.py",
+        "tests/test_manylinux.py",
+        "tests/test_tags.py"
+      ],
+      "tests_naming": 9,
+      "literal_values": [
+        "'.so.1'",
+        "'/lib/ld-musl-'"
+      ],
+      "object_comparators": [
+        "ELFFile(io.BytesIO(data))",
+        "io.BytesIO(data)"
+      ],
+      "parametrize_rows": 14,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "ELFInvalid"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 1,
+      "changelog_files": [
+        "CHANGELOG.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [
+        "'ELFInvalid'"
+      ],
+      "value_specified": [
+        [
+          "'ELFInvalid'",
+          "tests/test_elffile.py"
+        ]
+      ],
+      "anchored_symbols_recorded": [
+        "ELFFile",
+        "__init__"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "ELFFile(io.BytesIO(data))"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.052296
+    },
+    "pinned_now_specified": [
+      [
+        "'ELFInvalid'",
+        "tests/test_elffile.py"
+      ]
+    ],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "python-dotenv-guard_raise-01--forward",
+    "library": "python-dotenv",
+    "stratum": "guard_raise",
+    "site": "src/dotenv/main.py:211",
+    "mutation": "delete the guard at src/dotenv/main.py:211: if quote_mode not in (\"always\", \"auto\", \"never\"):",
+    "base_sha": "a00cb2eed0704cd6d2071b2004c37e95ccc86ee5",
+    "head_sha": "487337a955a2128e6a17e6eb341e453b61cf464a",
+    "changed_head_lines": [
+      208,
+      209,
+      210,
+      211,
+      212,
+      213,
+      214
+    ],
+    "definitions_in_file": 21,
+    "symbols_before_d249": [
+      "set_key"
+    ],
+    "symbols_after_d249": [
+      "set_key"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_main.py"
+      ],
+      "tests_naming": 10,
+      "literal_values": [
+        "384",
+        "\"a='x'\\n\"",
+        "\"a='y'\"",
+        "\"a='y'\\n\"",
+        "\"a='é'\\n\"",
+        "'a'",
+        "'a=x\\n'",
+        "'bar'"
+      ],
+      "object_comparators": [
+        "stat.S_IMODE(symlink.stat().st_mode)"
+      ],
+      "parametrize_rows": 26,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "PermissionError"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 20,
+      "changelog_files": [
+        "CHANGELOG.md",
+        "docs/changelog.md"
+      ]
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [
+        "'ValueError'"
+      ],
+      "value_specified": [
+        [
+          "'ValueError'",
+          "CHANGELOG.md"
+        ]
+      ],
+      "anchored_symbols_recorded": [
+        "set_key"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "dotenv.set_key(path, 'a', 'x', quote_mode='sometimes')"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.046458
+    },
+    "pinned_now_specified": [
+      [
+        "'ValueError'",
+        "CHANGELOG.md"
+      ]
+    ],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "urllib3-guard_raise-04--forward",
+    "library": "urllib3",
+    "stratum": "guard_raise",
+    "site": "src/urllib3/connection.py:269",
+    "mutation": "delete the guard at src/urllib3/connection.py:269: if scheme not in (\"http\", \"https\"):",
+    "base_sha": "5f2a6a843d0100d1351c3f94d58581ca98d17267",
+    "head_sha": "9e144d5b207d4c3ae98938f2421b9e3699368bde",
+    "changed_head_lines": [
+      266,
+      267,
+      268,
+      269,
+      270,
+      271,
+      272
+    ],
+    "definitions_in_file": 38,
+    "symbols_before_d249": [
+      "HTTPConnection",
+      "set_tunnel"
+    ],
+    "symbols_after_d249": [
+      "HTTPConnection",
+      "set_tunnel"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "test/test_connection.py",
+        "test/test_connectionpool.py",
+        "test/test_exceptions.py",
+        "test/contrib/emscripten/test_emscripten.py",
+        "test/with_dummyserver/test_connection.py",
+        "test/with_dummyserver/test_connectionpool.py",
+        "test/with_dummyserver/test_https.py",
+        "test/with_dummyserver/test_socketlevel.py"
+      ],
+      "tests_naming": 46,
+      "literal_values": [
+        "'Accept-Encoding'",
+        "'Host'",
+        "'User-Agent'",
+        "'http://google.com:80/'",
+        "17825792",
+        "2",
+        "32768",
+        "404"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 44,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "ResponseNotReady",
+        "ReadTimeoutError",
+        "HTTPException",
+        "InvalidHeader",
+        "MaxRetryError",
+        "TimeoutError",
+        "ValueError",
+        "NotImplementedError"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 16,
+      "changelog_files": [
+        "CHANGES.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [
+        "'ValueError'"
+      ],
+      "value_specified": [
+        [
+          "'ValueError'",
+          "test/with_dummyserver/test_connection.py"
+        ]
+      ],
+      "anchored_symbols_recorded": [
+        "HTTPConnection",
+        "set_tunnel"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "conn.set_tunnel('example.com', scheme='socks')"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.0471
+    },
+    "pinned_now_specified": [
+      [
+        "'ValueError'",
+        "test/with_dummyserver/test_connection.py"
+      ]
+    ],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "attrs-none_guard-15--forward",
+    "library": "attrs",
+    "stratum": "none_guard",
+    "site": "src/attr/converters.py:37",
+    "mutation": "delete the None guard at src/attr/converters.py:37: if val is None:",
+    "base_sha": "8f767776326faaed11e6c2974798787f6e19b343",
+    "head_sha": "6d40dbcb93df5cf364bf17451d2382f8e4c628a7",
+    "changed_head_lines": [
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40
+    ],
+    "definitions_in_file": 7,
+    "symbols_before_d249": [
+      "optional",
+      "optional_converter"
+    ],
+    "symbols_after_d249": [
+      "optional",
+      "optional_converter"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_annotations.py",
+        "tests/test_converters.py",
+        "tests/test_next_gen.py",
+        "tests/test_validators.py"
+      ],
+      "tests_naming": 16,
+      "literal_values": [
+        "42",
+        "\"'test' must be <class 'int'> (got '42' that is a <class 'str'>).\"",
+        "'42'"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "ValueError",
+        "TypeError"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 8,
+      "changelog_files": [
+        "CHANGELOG.md"
+      ]
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "TypeError",
+      "value_mismatch": false,
+      "probes": [
+        "conv.converter(None, None, None)"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.027804
+    },
+    "pinned_now_specified": [],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "click-guard_raise-05--forward",
+    "library": "click",
+    "stratum": "guard_raise",
+    "site": "src/click/_compat.py:409",
+    "mutation": "delete the guard at src/click/_compat.py:409: if \"w\" not in mode:",
+    "base_sha": "6aabf099bfdd4c1e75fe8d0e0d4241372b988ab1",
+    "head_sha": "cd0115f5ea27694cdc6b85f1ce8636af03bcbf0a",
+    "changed_head_lines": [
+      406,
+      407,
+      408,
+      409,
+      410,
+      411,
+      412
+    ],
+    "definitions_in_file": 50,
+    "symbols_before_d249": [
+      "open_stream"
+    ],
+    "symbols_after_d249": [
+      "open_stream"
+    ],
+    "supply": {
+      "test_files_naming": [],
+      "tests_naming": 0,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "'ValueError'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "open_stream"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "open_stream(fname, mode='r', atomic=True)"
+      ],
+      "expression": "open_stream(fname, mode='r', atomic=True)",
+      "base": "exception:ValueError",
+      "head": "value:(<_io.TextIOWrapper name=11 mode='r' encoding='UTF-8'>, True",
+      "spend_usd": 0.059466
+    },
+    "pinned_now_specified": [],
+    "reading": "deleted guard: no test, docstring or changelog names its exception"
+  },
+  {
+    "unit_id": "itsdangerous-guard_raise-05--forward",
+    "library": "itsdangerous",
+    "stratum": "guard_raise",
+    "site": "src/itsdangerous/timed.py:141",
+    "mutation": "delete the guard at src/itsdangerous/timed.py:141: if age > max_age:",
+    "base_sha": "672971d66a2ef9f85151e53283113f33d642dabd",
+    "head_sha": "ca10996271266201ddf75f3523bdb27eca450bc2",
+    "changed_head_lines": [
+      138,
+      139,
+      140,
+      141,
+      142,
+      143,
+      144
+    ],
+    "definitions_in_file": 12,
+    "symbols_before_d249": [
+      "TimestampSigner",
+      "unsign"
+    ],
+    "symbols_after_d249": [
+      "TimestampSigner",
+      "unsign"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_itsdangerous/test_serializer.py",
+        "tests/test_itsdangerous/test_signer.py",
+        "tests/test_itsdangerous/test_timed.py"
+      ],
+      "tests_naming": 16,
+      "literal_values": [
+        "b'b'",
+        "b'my string'",
+        "b'value'",
+        "'Malformed'",
+        "'missing'"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 8,
+      "parametrize_object_rows": 3,
+      "raises": [
+        "BadSignature",
+        "SignatureExpired",
+        "BadTimeSignature"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 3,
+      "changelog_files": [
+        "CHANGES.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [
+        "'SignatureExpired'"
+      ],
+      "value_specified": [
+        [
+          "'SignatureExpired'",
+          "CHANGES.rst"
+        ]
+      ],
+      "anchored_symbols_recorded": [
+        "TimestampSigner",
+        "unsign"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "future_signer.unsign(signed, max_age=10)"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.041057
+    },
+    "pinned_now_specified": [
+      [
+        "'SignatureExpired'",
+        "CHANGES.rst"
+      ]
+    ],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "jinja-none_guard-13--forward",
+    "library": "jinja",
+    "stratum": "none_guard",
+    "site": "src/jinja2/compiler.py:119",
+    "mutation": "delete the None guard at src/jinja2/compiler.py:119: if stream is None:",
+    "base_sha": "5ef70112a1ff19c05324ff889dd30405b1002044",
+    "head_sha": "18a3cf8fac4d030f2f5c0f715eb296dd6da349e6",
+    "changed_head_lines": [
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122
+    ],
+    "definitions_in_file": 126,
+    "symbols_before_d249": [
+      "generate"
+    ],
+    "symbols_after_d249": [
+      "generate"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_async.py",
+        "tests/test_filters.py"
+      ],
+      "tests_naming": 4,
+      "literal_values": [
+        "'/11/22/3'",
+        "'0'",
+        "'1'",
+        "'2'",
+        "'3'"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 1,
+      "changelog_files": [
+        "CHANGES.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "\"from jinja2.runtime import LoopContext, Macro, Markup, Namespace, TemplateNotFound, TemplateReference, TemplateRuntimeError, Undefined, escape, identity, internalcode, markup_join, missing, str_join\\nname = None\\n\\ndef root(context, missing=missing, environment=environment):\\n    resolve = context.resolve_or_missing\\n    undefined = environment.undefined\\n    concat = environment.concat\\n    cond_expr_undefined = Undefined\\n    if 0: yield None\\n    pass\\n    yield '2'\\n\\nblocks = {}\\ndebug_inf"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "generate"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "env.compile('{{ 1 + 1 }}', raw=True)"
+      ],
+      "expression": "env.compile('{{ 1 + 1 }}', raw=True)",
+      "base": "value:\"from jinja2.runtime import LoopContext, Macro, Markup, Name",
+      "head": "value:None",
+      "spend_usd": 0.039248
+    },
+    "pinned_now_specified": [],
+    "reading": "changelog names the symbol but does not quote the value"
+  },
+  {
+    "unit_id": "more-itertools-guard_raise-05--forward",
+    "library": "more-itertools",
+    "stratum": "guard_raise",
+    "site": "more_itertools/more.py:297",
+    "mutation": "delete the guard at more_itertools/more.py:297: if default is _marker:",
+    "base_sha": "9ed3dbb0ae527230cd156d91d0af305478558fba",
+    "head_sha": "07b9b0168d2ef4f9cae3e9eff897cc24b85baf08",
+    "changed_head_lines": [
+      294,
+      295,
+      296,
+      297,
+      298,
+      299,
+      300
+    ],
+    "definitions_in_file": 225,
+    "symbols_before_d249": [],
+    "symbols_after_d249": [
+      "last",
+      "nth_or_last"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_more.py",
+        "tests/test_recipes.py"
+      ],
+      "tests_naming": 12,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "ValueError"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "no receipt",
+      "why": "intent: value change confirmed, no symbol to specify: this change touches no function or class of the anchored file, so no test, docstring or document can specify the value for it (返回值变化已证实，无可关联符号)",
+      "pinned_values": [
+        "'ValueError'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "StopIteration",
+      "value_mismatch": true,
+      "probes": [
+        "mi.last([])"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.04873
+    },
+    "pinned_now_specified": [
+      [
+        "'ValueError'",
+        "more_itertools/more.py"
+      ]
+    ],
+    "reading": "symbol bound (D-249); the shipped rule now specifies every pinned value -> certifies"
+  },
+  {
+    "unit_id": "packaging-guard_raise-06--forward",
+    "library": "packaging",
+    "stratum": "guard_raise",
+    "site": "src/packaging/direct_url.py:182",
+    "mutation": "delete the guard at src/packaging/direct_url.py:182: if hashes is not None and not all(isinstance(h, str) for h in hashe",
+    "base_sha": "10590c194edb33c82f84a127883d6097c56b7840",
+    "head_sha": "6cab81d38bab58f64966e614b1d048b1198c5d3b",
+    "changed_head_lines": [
+      179,
+      180,
+      181,
+      182,
+      183,
+      184,
+      185
+    ],
+    "definitions_in_file": 26,
+    "symbols_before_d249": [
+      "ArchiveInfo",
+      "_from_dict"
+    ],
+    "symbols_after_d249": [
+      "ArchiveInfo",
+      "_from_dict"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_direct_url.py",
+        "tests/test_pylock.py"
+      ],
+      "tests_naming": 6,
+      "literal_values": [
+        "40",
+        "'f'",
+        "'hash'",
+        "'sha256='",
+        "\"Name 'Example' is not normalized in 'name'\"",
+        "'path or url must be provided'"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 3,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "PylockValidationError"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "'DirectUrlValidationError'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "ArchiveInfo",
+        "_from_dict"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "ArchiveInfo._from_dict({'hashes': {'sha256': 123}})"
+      ],
+      "expression": "ArchiveInfo._from_dict({'hashes': {'sha256': 123}})",
+      "base": "exception:DirectUrlValidationError",
+      "head": "value:ArchiveInfo(hashes={'sha256': 123})",
+      "spend_usd": 0.037929
+    },
+    "pinned_now_specified": [],
+    "reading": "base tests expect ['PylockValidationError'] about the symbol, not ['DirectUrlValidationError']"
+  },
+  {
+    "unit_id": "python-dotenv-guard_raise-02--forward",
+    "library": "python-dotenv",
+    "stratum": "guard_raise",
+    "site": "src/dotenv/main.py:323",
+    "mutation": "delete the guard at src/dotenv/main.py:323: if not os.path.exists(path):",
+    "base_sha": "a00cb2eed0704cd6d2071b2004c37e95ccc86ee5",
+    "head_sha": "96ed178add1a7f8df57030b8c580716abd262561",
+    "changed_head_lines": [
+      320,
+      321,
+      322,
+      323,
+      324,
+      325,
+      326
+    ],
+    "definitions_in_file": 21,
+    "symbols_before_d249": [
+      "_walk_to_root"
+    ],
+    "symbols_after_d249": [
+      "_walk_to_root"
+    ],
+    "supply": {
+      "test_files_naming": [],
+      "tests_naming": 0,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+      "pinned_values": [
+        "'OSError'"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "_walk_to_root"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "list(_walk_to_root('/nonexistent/path/that/does/not/exist_xyz123'))"
+      ],
+      "expression": "list(_walk_to_root('/nonexistent/path/that/does/not/exist_xyz123'))",
+      "base": "exception:OSError",
+      "head": "value:['/nonexistent/path/that/does/not/exist_xyz123', '/nonexiste",
+      "spend_usd": 0.024128
+    },
+    "pinned_now_specified": [],
+    "reading": "deleted guard: no test, docstring or changelog names its exception"
+  },
+  {
+    "unit_id": "urllib3-none_guard-15--forward",
+    "library": "urllib3",
+    "stratum": "none_guard",
+    "site": "src/urllib3/_collections.py:486",
+    "mutation": "delete the None guard at src/urllib3/_collections.py:486: if maybe_constructable is None:",
+    "base_sha": "5f2a6a843d0100d1351c3f94d58581ca98d17267",
+    "head_sha": "b30224aa843d6cc9bff2bebb612f459bc0802f75",
+    "changed_head_lines": [
+      483,
+      484,
+      485,
+      486,
+      487,
+      488
+    ],
+    "definitions_in_file": 47,
+    "symbols_before_d249": [
+      "HTTPHeaderDict",
+      "__ror__"
+    ],
+    "symbols_after_d249": [
+      "HTTPHeaderDict",
+      "__ror__"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "test/test_collections.py",
+        "test/with_dummyserver/test_connectionpool.py",
+        "test/with_dummyserver/test_poolmanager.py",
+        "test/with_dummyserver/test_proxy_poolmanager.py",
+        "test/with_dummyserver/test_socketlevel.py"
+      ],
+      "tests_naming": 54,
+      "literal_values": [
+        "b'Content-Type'",
+        "b'X-Not-There'",
+        "2",
+        "3",
+        "4",
+        "'1'",
+        "'100'",
+        "'100, 200, 300'"
+      ],
+      "object_comparators": [
+        "HTTPHeaderDict(d)",
+        "HTTPHeaderDict(data['headers'])",
+        "HTTPHeaderDict(hdict)",
+        "HTTPHeaderDict({'Cookie': 'foo, bar'})",
+        "HTTPHeaderDict({'Cookie': 'foo, bar, tim-tam'})",
+        "HTTPHeaderDict({'Cookie': 'tim-tam, foo, bar'})"
+      ],
+      "parametrize_rows": 21,
+      "parametrize_object_rows": 1,
+      "raises": [
+        "TypeError",
+        "KeyError",
+        "Exception"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 7,
+      "changelog_files": [
+        "CHANGES.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [
+        "'TypeError'"
+      ],
+      "value_specified": [
+        [
+          "'TypeError'",
+          "test/test_collections.py"
+        ]
+      ],
+      "anchored_symbols_recorded": [
+        "HTTPHeaderDict",
+        "__ror__"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "5 | h"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.046771
+    },
+    "pinned_now_specified": [
+      [
+        "'TypeError'",
+        "test/test_collections.py"
+      ]
+    ],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "attrs-none_guard-17--forward",
+    "library": "attrs",
+    "stratum": "none_guard",
+    "site": "src/attr/validators.py:206",
+    "mutation": "delete the None guard at src/attr/validators.py:206: if value is None:",
+    "base_sha": "8f767776326faaed11e6c2974798787f6e19b343",
+    "head_sha": "6f872041a5b464f8332f72298fa2cb00f5c1db91",
+    "changed_head_lines": [
+      203,
+      204,
+      205,
+      206,
+      207,
+      208,
+      209
+    ],
+    "definitions_in_file": 59,
+    "symbols_before_d249": [
+      "_OptionalValidator",
+      "__call__",
+      "__repr__"
+    ],
+    "symbols_after_d249": [
+      "_OptionalValidator",
+      "__call__",
+      "__repr__"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_converters.py",
+        "tests/test_dunders.py",
+        "tests/test_make.py",
+        "tests/test_slots.py",
+        "tests/test_validators.py"
+      ],
+      "tests_naming": 27,
+      "literal_values": [
+        "42",
+        "'C(x=1)'",
+        "'hi'"
+      ],
+      "object_comparators": [
+        "C(1)",
+        "C(42)",
+        "_AnnotationExtractor(attr.fields(C).x.converter.__call__)"
+      ],
+      "parametrize_rows": 11,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 6,
+      "changelog_files": [
+        "CHANGELOG.md"
+      ]
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "TypeError",
+      "value_mismatch": false,
+      "probes": [
+        "v(c, attr_obj, None)"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.034041
+    },
+    "pinned_now_specified": [],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "click-none_guard-15--forward",
+    "library": "click",
+    "stratum": "none_guard",
+    "site": "src/click/_termui_impl.py:484",
+    "mutation": "delete the None guard at src/click/_termui_impl.py:484: if resolved is None:",
+    "base_sha": "6aabf099bfdd4c1e75fe8d0e0d4241372b988ab1",
+    "head_sha": "8db7098228770edf3230633c7aae14aae7861579",
+    "changed_head_lines": [
+      481,
+      482,
+      483,
+      484,
+      485,
+      486,
+      487
+    ],
+    "definitions_in_file": 48,
+    "symbols_before_d249": [
+      "_pager_contextmanager"
+    ],
+    "symbols_after_d249": [
+      "_pager_contextmanager"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_termui.py"
+      ],
+      "tests_naming": 2,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "no receipt",
+      "why": "generation failed: ProbeRefused: probe setup assigns an attribute of the imported name sys (sys.stdin = FakeTTY()); replacing part of the tree before the call records the replacement, not the code (D-",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "",
+      "value_mismatch": null,
+      "probes": [],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.06762
+    },
+    "pinned_now_specified": [],
+    "reading": "search: no probe made the revisions differ, or the recording was refused"
+  },
+  {
+    "unit_id": "itsdangerous-guard_raise-06--forward",
+    "library": "itsdangerous",
+    "stratum": "guard_raise",
+    "site": "src/itsdangerous/timed.py:148",
+    "mutation": "delete the guard at src/itsdangerous/timed.py:148: if age < 0:",
+    "base_sha": "672971d66a2ef9f85151e53283113f33d642dabd",
+    "head_sha": "6ea09aa28dff46437fee03733a60b48c7b237651",
+    "changed_head_lines": [
+      145,
+      146,
+      147,
+      148,
+      149,
+      150,
+      151
+    ],
+    "definitions_in_file": 12,
+    "symbols_before_d249": [
+      "TimestampSigner",
+      "unsign"
+    ],
+    "symbols_after_d249": [
+      "TimestampSigner",
+      "unsign"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_itsdangerous/test_serializer.py",
+        "tests/test_itsdangerous/test_signer.py",
+        "tests/test_itsdangerous/test_timed.py"
+      ],
+      "tests_naming": 16,
+      "literal_values": [
+        "b'b'",
+        "b'my string'",
+        "b'value'",
+        "'Malformed'",
+        "'missing'"
+      ],
+      "object_comparators": [],
+      "parametrize_rows": 8,
+      "parametrize_object_rows": 3,
+      "raises": [
+        "BadSignature",
+        "SignatureExpired",
+        "BadTimeSignature"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 3,
+      "changelog_files": [
+        "CHANGES.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [
+        "'SignatureExpired'"
+      ],
+      "value_specified": [
+        [
+          "'SignatureExpired'",
+          "CHANGES.rst"
+        ]
+      ],
+      "anchored_symbols_recorded": [
+        "TimestampSigner",
+        "unsign"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "signer.unsign(signed_value, max_age=10)"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.043499
+    },
+    "pinned_now_specified": [
+      [
+        "'SignatureExpired'",
+        "CHANGES.rst"
+      ]
+    ],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "jinja-none_guard-14--forward",
+    "library": "jinja",
+    "stratum": "none_guard",
+    "site": "src/jinja2/environment.py:100",
+    "mutation": "delete the None guard at src/jinja2/environment.py:100: if cache is None:",
+    "base_sha": "5ef70112a1ff19c05324ff889dd30405b1002044",
+    "head_sha": "853403dc486013e6c6c0da447828c9a63023deb2",
+    "changed_head_lines": [
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103
+    ],
+    "definitions_in_file": 78,
+    "symbols_before_d249": [
+      "copy_cache"
+    ],
+    "symbols_after_d249": [
+      "copy_cache"
+    ],
+    "supply": {
+      "test_files_naming": [],
+      "tests_naming": 0,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "AttributeError",
+      "value_mismatch": false,
+      "probes": [
+        "env.overlay()"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.04398
+    },
+    "pinned_now_specified": [],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "more-itertools-none_guard-17--forward",
+    "library": "more-itertools",
+    "stratum": "none_guard",
+    "site": "more_itertools/recipes.py:336",
+    "mutation": "delete the None guard at more_itertools/recipes.py:336: if times is None:",
+    "base_sha": "9ed3dbb0ae527230cd156d91d0af305478558fba",
+    "head_sha": "f81fd8b4450d4a3318a37460be91bba0a62b2b40",
+    "changed_head_lines": [
+      333,
+      334,
+      335,
+      336,
+      337,
+      338,
+      339
+    ],
+    "definitions_in_file": 70,
+    "symbols_before_d249": [
+      "pairwise",
+      "repeatfunc"
+    ],
+    "symbols_after_d249": [
+      "pairwise",
+      "repeatfunc"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_more.py",
+        "tests/test_recipes.py"
+      ],
+      "tests_naming": 6,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [
+        "StopIteration"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "no receipt",
+      "why": "3 probes tried and none produced a differential: 3 recorded nothing usable on the merge base -- probe observation is not stable on base: the merge base returned [1, 5, 1, 4, 8, 1], then the merge base",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "",
+      "value_mismatch": null,
+      "probes": [],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.049288
+    },
+    "pinned_now_specified": [],
+    "reading": "search: no probe made the revisions differ, or the recording was refused"
+  },
+  {
+    "unit_id": "packaging-none_guard-13--forward",
+    "library": "packaging",
+    "stratum": "none_guard",
+    "site": "src/packaging/_manylinux.py:178",
+    "mutation": "delete the None guard at src/packaging/_manylinux.py:178: if version_str is None:",
+    "base_sha": "10590c194edb33c82f84a127883d6097c56b7840",
+    "head_sha": "a0be076fa06201fdab4457121c3d929d4526b67e",
+    "changed_head_lines": [
+      175,
+      176,
+      177,
+      178,
+      179,
+      180,
+      181
+    ],
+    "definitions_in_file": 13,
+    "symbols_before_d249": [
+      "_get_glibc_version"
+    ],
+    "symbols_after_d249": [
+      "_get_glibc_version"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "tests/test_manylinux.py",
+        "tests/test_tags.py"
+      ],
+      "tests_naming": 5,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 5,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "no receipt",
+      "why": "3 probes tried and none produced a differential: 2 did not reach the changed lines; 1 reached the changed lines and observed no difference",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "",
+      "value_mismatch": null,
+      "probes": [],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.062399
+    },
+    "pinned_now_specified": [],
+    "reading": "search: no probe made the revisions differ, or the recording was refused"
+  },
+  {
+    "unit_id": "python-dotenv-guard_raise-04--forward",
+    "library": "python-dotenv",
+    "stratum": "guard_raise",
+    "site": "src/dotenv/parser.py:101",
+    "mutation": "delete the guard at src/dotenv/parser.py:101: if match is None:",
+    "base_sha": "a00cb2eed0704cd6d2071b2004c37e95ccc86ee5",
+    "head_sha": "207e07554ab4c5afc893dfbb136584959e3c65f3",
+    "changed_head_lines": [
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104
+    ],
+    "definitions_in_file": 24,
+    "symbols_before_d249": [
+      "Reader",
+      "read_regex"
+    ],
+    "symbols_after_d249": [
+      "Reader",
+      "read_regex"
+    ],
+    "supply": {
+      "test_files_naming": [],
+      "tests_naming": 0,
+      "literal_values": [],
+      "object_comparators": [],
+      "parametrize_rows": 0,
+      "parametrize_object_rows": 0,
+      "raises": [],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 0,
+      "changelog_files": []
+    },
+    "arm_c": {
+      "class": "certified",
+      "why": "head FAIL 3/3, base PASS 3/3",
+      "pinned_values": [],
+      "value_specified": [],
+      "anchored_symbols_recorded": [],
+      "exception_type": "AttributeError",
+      "value_mismatch": false,
+      "probes": [
+        "list(parse_stream(stream))"
+      ],
+      "expression": "",
+      "base": "",
+      "head": "",
+      "spend_usd": 0.037682
+    },
+    "pinned_now_specified": [],
+    "reading": "certified"
+  },
+  {
+    "unit_id": "urllib3-none_guard-18--forward",
+    "library": "urllib3",
+    "stratum": "none_guard",
+    "site": "src/urllib3/poolmanager.py:418",
+    "mutation": "delete the None guard at src/urllib3/poolmanager.py:418: if self.proxy is None:",
+    "base_sha": "5f2a6a843d0100d1351c3f94d58581ca98d17267",
+    "head_sha": "fa1c18f47968e06ce0d09190d4956d020ad2ee59",
+    "changed_head_lines": [
+      415,
+      416,
+      417,
+      418,
+      419,
+      420,
+      421
+    ],
+    "definitions_in_file": 21,
+    "symbols_before_d249": [
+      "PoolManager",
+      "_proxy_requires_url_absolute_form"
+    ],
+    "symbols_after_d249": [
+      "PoolManager",
+      "_proxy_requires_url_absolute_form"
+    ],
+    "supply": {
+      "test_files_naming": [
+        "test/test_poolmanager.py",
+        "test/test_proxymanager.py",
+        "test/contrib/emscripten/test_emscripten.py",
+        "test/with_dummyserver/test_poolmanager.py"
+      ],
+      "tests_naming": 67,
+      "literal_values": [
+        "100",
+        "2",
+        "5",
+        "80",
+        "8080",
+        "'a::b%zone'",
+        "'a::b'",
+        "'example.com'"
+      ],
+      "object_comparators": [
+        "HTTPHeaderDict(data['headers'])",
+        "Url('http://example.com')",
+        "Url('https://example.com')"
+      ],
+      "parametrize_rows": 36,
+      "parametrize_object_rows": 8,
+      "raises": [
+        "LocationValueError",
+        "AttributeError",
+        "ConnectionError",
+        "MaxRetryError",
+        "URLSchemeUnknown"
+      ],
+      "docstring_raises": [],
+      "changelog_paragraphs_naming": 23,
+      "changelog_files": [
+        "CHANGES.rst"
+      ]
+    },
+    "arm_c": {
+      "class": "value class",
+      "why": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+      "pinned_values": [
+        "False"
+      ],
+      "value_specified": [],
+      "anchored_symbols_recorded": [
+        "PoolManager",
+        "_proxy_requires_url_absolute_form"
+      ],
+      "exception_type": "",
+      "value_mismatch": true,
+      "probes": [
+        "pm._proxy_requires_url_absolute_form(u)"
+      ],
+      "expression": "pm._proxy_requires_url_absolute_form(u)",
+      "base": "value:False",
+      "head": "value:True",
+      "spend_usd": 0.043119
+    },
+    "pinned_now_specified": [
+      [
+        "False",
+        "test/test_poolmanager.py"
+      ]
+    ],
+    "reading": "only generic constants pinned; a (symbol, input, relation) contract would not exclude them by value; object-valued expected sides exist (a form the rule cannot read; whether one covers a discriminating input is the own-tests column)"
+  }
+]
