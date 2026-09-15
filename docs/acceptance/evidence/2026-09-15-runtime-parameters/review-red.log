@@ -1,0 +1,55 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_parameter_rows_bind_by_identity_and_keep_all_outcomes[parameter_changed_ids] _
+
+observations = {'cache_clear_fixture': {'label': 'cache_clear_fixture', 'base_sha': '042af51048a6d0cae467bbd96d9b3c18a37edd00', 'head...227c53c', 'head_sha': 'f0b65ec6e2a50ef4081fed41c208ffb51e8d25ad', 'changed': {'geo.py': ('Label', 'parse')}, ...}, ...}
+name = 'parameter_changed_ids'
+
+    @pytest.mark.parametrize("name", PARAMETER_NAMES)
+    def test_parameter_rows_bind_by_identity_and_keep_all_outcomes(
+        observations: dict[str, Any],
+        name: str,
+    ) -> None:
+        result = observations[name]["sites"][0]["verdict"]
+        positive = name in ("parameter_regression", "parameter_reordered")
+        assert result["status"] == ("binding_observed" if positive else "defer"), result
+        assert result["receipt_eligible"] is False
+        if positive:
+            nodes = result["nodes"]
+            assert len(nodes) == 2
+            assert [n["node"].split("[")[-1] for n in nodes] == ["first]", "second]"]
+            assert [n["status"] for n in nodes] == ["binding_observed", "defer"]
+            assert all(n["receipt_eligible"] is False for n in nodes)
+>       reports = result["node_reports"]
+                  ^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'node_reports'
+
+tests/test_runtime_contract.py:181: KeyError
+_ test_parameter_rows_bind_by_identity_and_keep_all_outcomes[parameter_skipped] _
+
+observations = {'cache_clear_fixture': {'label': 'cache_clear_fixture', 'base_sha': '042af51048a6d0cae467bbd96d9b3c18a37edd00', 'head...227c53c', 'head_sha': 'f0b65ec6e2a50ef4081fed41c208ffb51e8d25ad', 'changed': {'geo.py': ('Label', 'parse')}, ...}, ...}
+name = 'parameter_skipped'
+
+    @pytest.mark.parametrize("name", PARAMETER_NAMES)
+    def test_parameter_rows_bind_by_identity_and_keep_all_outcomes(
+        observations: dict[str, Any],
+        name: str,
+    ) -> None:
+        result = observations[name]["sites"][0]["verdict"]
+        positive = name in ("parameter_regression", "parameter_reordered")
+        assert result["status"] == ("binding_observed" if positive else "defer"), result
+        assert result["receipt_eligible"] is False
+        if positive:
+            nodes = result["nodes"]
+            assert len(nodes) == 2
+            assert [n["node"].split("[")[-1] for n in nodes] == ["first]", "second]"]
+            assert [n["status"] for n in nodes] == ["binding_observed", "defer"]
+            assert all(n["receipt_eligible"] is False for n in nodes)
+>       reports = result["node_reports"]
+                  ^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'node_reports'
+
+tests/test_runtime_contract.py:181: KeyError
+=========================== short test summary info ============================
+FAILED tests/test_runtime_contract.py::test_parameter_rows_bind_by_identity_and_keep_all_outcomes[parameter_changed_ids]
+FAILED tests/test_runtime_contract.py::test_parameter_rows_bind_by_identity_and_keep_all_outcomes[parameter_skipped]

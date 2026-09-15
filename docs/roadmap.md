@@ -780,6 +780,14 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-16 — runtime parameter binding complete in shadow (D-259).** Code/driver
+  `a4efbca` aligns complete node populations and retains refused-node reports. All 15 prior
+  synthetic verdicts remain; six added parameter scenarios meet their declared outcomes.
+  Historical shadow bindings 0/3→1/3, gaining `packaging-boundary-08`; no product receipt
+  restored or recall estimate. Gate: 2,555 passed, no failures/skips, 93.42% boundary coverage;
+  one review's reporting omission fixed. [Evidence](acceptance/2026-09-15-runtime-parameters.md).
+  Same-process trust remains open; production/defaults/release gates remain unchanged.
+
 - **2026-09-15 — runtime contract shadow experiment complete (D-258).** Code/driver
   `47dd7b5` retains original fixture context: 3/3 synthetic positives observed, all 12
   development controls abstained. None of the three historical gains has a supported

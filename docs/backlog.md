@@ -312,9 +312,10 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   A first differential that cannot certify stops search. Design a precommitted allocation
   and evaluate gains/losses before changing selection; do not add outcome-aware gate hunting.
 - **Runtime contract shadow promotion blockers (D-258).** Same-process observations are
-  forgeable and omit hidden globals/defaults/transitive state. The prototype also refuses
-  multiple collected parameter nodes and has no raises/helper binding; refusal detail can
-  be crowded out by unrelated assertions. Specify the trust contract and exact node/assertion
-  association before another implementation or certification proposal. This is a decision
-  package input, not authority to promote or extend the prototype.
-  [Evidence](acceptance/2026-09-15-runtime-contract-shadow.md).
+  forgeable and omit hidden globals/defaults/transitive state. D-259 resolves bounded
+  parameter-node consistency in shadow, including refused-node reports; raises/helper
+  binding remains unsupported and unrelated assertions can crowd out discovery reasons.
+  Specify a trusted-observation contract and threat model, including a well-formed forgery
+  reproduction, before a certification proposal. This is a decision package input, not
+  authority to promote the prototype. [D-258 evidence](acceptance/2026-09-15-runtime-contract-shadow.md),
+  [D-259 evidence](acceptance/2026-09-15-runtime-parameters.md).

@@ -13,6 +13,13 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ### Fixes
 
+- **Parameter rows retain their own runtime bindings in shadow (D-259).** Match complete
+  node sets and per-node outcomes, including reordered parameters and refused-node reports.
+  One historical development case regains a shadow observation; all 15 prior synthetic
+  verdicts remain. **Cost in recall or trust:** no product certification or recall gain;
+  same-process records remain forgeable. Default v5.1 is unchanged.
+  [Report](docs/acceptance/2026-09-15-runtime-parameters.md).
+
 - **Runtime contract observations remain shadow-only (D-258).** Preserve original test
   fixtures while recording typed call/assertion bindings through the existing executor.
   Three synthetic positives are observed and twelve development controls abstain; none of

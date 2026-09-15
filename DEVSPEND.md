@@ -531,3 +531,8 @@ implementation, one independent review, synthetic/three historical container mea
 and the single final portable gate used no paid provider calls or remote writes.
 No product/default promotion or release occurred. The approved cap and settled paid total
 are unchanged.
+
+**2026-09-16 — D-259 runtime parameter binding: $0.00 Attest model/API spend.** Frozen
+synthetic and historical container replays, local implementation/review and the final gate
+used no paid provider calls or remote writes. Product defaults and the approved development
+cap/settled paid total remain unchanged.

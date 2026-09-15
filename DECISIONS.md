@@ -2732,3 +2732,11 @@ is active only when the owning architecture/acceptance document changes with it.
 - One independent review's numeric-type and null-field defects reproduced and fixed; gate 2,542 passed, no failures/skips, 93.42% boundary coverage. API spend $0; no remote writes.
 - Same-process forgery, hidden state and exact parameter-node binding remain open; keep shadow-only. Reversal: remove isolated modules/driver, no receipt migration. D-257 refusals remain in force.
 - Trace: `INV-CERT-001`, `INV-TRUTH-001`, `G-CODE-001`; `review/contract_runtime.py`, `review/_contract_observer.py`, frozen runtime scripts/tests. No target invariant or acceptance threshold changed.
+
+### D-259 — Pair complete parameter populations in runtime shadow
+- 2026-09-16 · completed experiment, promotion blocked · owner-directed; protocol `652ff89`, code/driver `a4efbca`; default v5.1 unchanged.
+- Pair node identity sets and per-node original/overlay outcomes; retain all supported rows and refusal censuses. No failed-row selection, model call or certification consumer.
+- [Evidence](docs/acceptance/2026-09-15-runtime-parameters.md): 21 synthetic scenarios (5 positives, 16 expected refusals), all prior verdicts retained; historical shadow bindings 0/3→1/3, gaining only packaging-boundary-08. No product recall/FPR claim.
+- One review's census omission reproduced and fixed; gate 2,555 passed, no failures/skips, 93.42% boundary coverage; API spend $0 and no remote writes.
+- Same-process forgery/hidden state remain open; v3 is shadow-only. Reversal uses new revert commits; historical v2/v3 evidence stays. D-257 product refusals remain in force.
+- Trace: `INV-CERT-001`, `INV-TRUTH-001`, `G-CODE-001`; two runtime review modules, existing driver/cases/tests. No target invariant or acceptance threshold changed.
