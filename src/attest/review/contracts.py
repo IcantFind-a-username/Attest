@@ -444,6 +444,29 @@ def _point_scope(file_scope: _Scope, point: ProgramPoint | None) -> _Scope:
     return scope
 
 
+def _wide_scope(file_scope: _Scope, func: ast.FunctionDef | ast.AsyncFunctionDef) -> _Scope:
+    """Every assignment of the function, the last one winning -- D-254's reading. Used
+    only to *recognise* a contract site whose call resolves through a name not in force
+    at its program point, so that the site is refused with its reason instead of being
+    silently skipped; never to bind an input."""
+    scope = _point_scope(file_scope, None)
+    for node in sorted(
+        (n for n in ast.walk(func) if isinstance(n, ast.Assign) and len(n.targets) == 1),
+        key=lambda n: n.lineno,
+    ):
+        target = node.targets[0]
+        if isinstance(target, ast.Name) and isinstance(node.value, ast.Call):
+            scope.calls[target.id] = node.value
+        elif isinstance(target, ast.Name):
+            scope.locals[target.id] = node.value
+    return scope
+
+
+_NOT_IN_FORCE = (
+    "the call resolves only through an assignment that is not in force at line {line}"
+)
+
+
 def _root_name(node: ast.AST) -> str:
     while isinstance(node, ast.Attribute | ast.Subscript | ast.Call):
         node = node.func if isinstance(node, ast.Call) else node.value
@@ -1032,6 +1055,7 @@ def _assertion_contracts(
         # D-255: the names the assertion sees are the ones in force where it runs
         point = program_point(node, statement)
         scope = _point_scope(file_scope, point)
+        wide: _Scope | None = None
         flows: dict[int, str] = {}
         for row in rows:
             for call_side, expected_side in (
@@ -1039,6 +1063,13 @@ def _assertion_contracts(
                 (compare.comparators[0], compare.left),
             ):
                 call = _resolve_call(call_side, scope, row, anchored_module)
+                in_force = call is not None
+                if call is None:
+                    # recognised through a name not in force here: recorded, input unbound
+                    wide = wide or _wide_scope(file_scope, node)
+                    call = _resolve_call(call_side, wide, row, anchored_module)
+                    if call is not None:
+                        call = replace(call, args=None, kwargs=None, receiver=None)
                 if call is None or call.module != anchored_module:
                     continue
                 if call.callee.rsplit(".", 1)[-1] not in wanted and call.callee not in wanted:
@@ -1048,7 +1079,7 @@ def _assertion_contracts(
                 if id(call_side) not in flows:
                     flows[id(call_side)] = flow_refusal(
                         point, node, call_side, owner=owner, module=module
-                    )
+                    ) or ("" if in_force else _NOT_IN_FORCE.format(line=statement.lineno))
                 out.append(
                     _record(
                         kind=kind, symbol=call.callee, probe=probe, call=call,
@@ -1439,40 +1470,49 @@ def contract_probes(
             for statement in ast.walk(func):
                 if not isinstance(statement, ast.stmt):
                     continue
-                scope = _point_scope(file_scope, program_point(func, statement))
-                sites: list[tuple[str, ast.AST]] = []
-                if isinstance(statement, ast.Assert) and isinstance(statement.test, ast.Compare):
-                    compare = statement.test
-                    if len(compare.ops) == 1 and isinstance(compare.ops[0], ast.Eq | ast.Is):
-                        for side in (compare.left, compare.comparators[0]):
-                            resolved = _resolve_call(side, scope, rows[0], module)
+                point_scope = _point_scope(file_scope, program_point(func, statement))
+                sites: list[tuple[str, ast.AST, bool]] = []
+                # D-255: recognised at the program point first; a site whose call resolves
+                # only through a name not in force there is still a site, refused below
+                for scope, in_force in ((point_scope, True), (None, False)):
+                    if sites:
+                        break
+                    if scope is None:
+                        scope = _wide_scope(file_scope, func)
+                    if isinstance(statement, ast.Assert) and isinstance(
+                        statement.test, ast.Compare
+                    ):
+                        compare = statement.test
+                        if len(compare.ops) == 1 and isinstance(compare.ops[0], ast.Eq | ast.Is):
+                            for side in (compare.left, compare.comparators[0]):
+                                resolved = _resolve_call(side, scope, rows[0], module)
+                                if (
+                                    resolved is not None
+                                    and resolved.module == module
+                                    and (
+                                        resolved.callee in wanted
+                                        or resolved.callee.rsplit(".", 1)[-1] in wanted
+                                    )
+                                ):
+                                    sites.append((kind_rows, side, in_force))
+                                    break
+                    elif isinstance(statement, ast.With) and _expected_exception(statement):
+                        names = {c.callee.rsplit(".", 1)[-1] for c in callers}
+                        modules = {c.module for c in callers}
+                        for inner in (n for s in statement.body for n in ast.walk(s)):
+                            if not isinstance(inner, ast.Call):
+                                continue
+                            resolved = _resolve_call(inner, scope, rows[0], "")
                             if (
                                 resolved is not None
-                                and resolved.module == module
-                                and (
-                                    resolved.callee in wanted
-                                    or resolved.callee.rsplit(".", 1)[-1] in wanted
-                                )
+                                and resolved.module in modules
+                                and resolved.callee.rsplit(".", 1)[-1] in names
                             ):
-                                sites.append((kind_rows, side))
+                                sites.append(("caller_raises", inner, in_force))
                                 break
-                elif isinstance(statement, ast.With) and _expected_exception(statement):
-                    names = {c.callee.rsplit(".", 1)[-1] for c in callers}
-                    modules = {c.module for c in callers}
-                    for inner in (n for s in statement.body for n in ast.walk(s)):
-                        if not isinstance(inner, ast.Call):
-                            continue
-                        resolved = _resolve_call(inner, scope, rows[0], "")
-                        if (
-                            resolved is not None
-                            and resolved.module in modules
-                            and resolved.callee.rsplit(".", 1)[-1] in names
-                        ):
-                            sites.append(("caller_raises", inner))
-                            break
                 if not sites:
                     continue
-                kind, call = sites[0]
+                kind, call, in_force = sites[0]
                 site = f"{relative.as_posix()}:{statement.lineno}"
                 # D-255: a contract whose program point the rule cannot read is no probe
                 flow = flow_refusal(
@@ -1480,7 +1520,7 @@ def contract_probes(
                         func, call, container="raises" if kind == "caller_raises" else ""
                     ),
                     func, call, owner=owners.get(id(func)), module=tree_file,
-                )
+                ) or ("" if in_force else _NOT_IN_FORCE.format(line=statement.lineno))
                 if flow:
                     refused.extend((f"{site}#{number}", flow) for number in range(len(rows)))
                     continue

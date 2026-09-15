@@ -416,3 +416,28 @@ def test_v6_is_no_longer_selectable_and_v61_is() -> None:
     validate_review_config(ReviewConfig(intent_policy=intent_rules.INTENT_POLICY_V61))
     with pytest.raises(ValueError, match="intent_policy must be one of"):
         validate_review_config(ReviewConfig(intent_policy=INTENT_POLICY_V6))
+
+
+def test_a_site_whose_receiver_is_bound_inside_a_block_is_refused_not_dropped(
+    tmp_path: Path,
+) -> None:
+    """Recognised through D-254's function-wide reading, bound through D-255's: the site is
+    reported with its reason by the search and recorded unbound by the reader."""
+    from binding_cases import GEO_BASE
+
+    from attest.review.contracts import contract_probes
+
+    (tmp_path / "geo.py").write_text(GEO_BASE, encoding="utf-8")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_geo.py").write_text(
+        "from geo import Grid, Point\nimport contextlib\n\n\n"
+        "def test_cell():\n"
+        "    with contextlib.nullcontext():\n"
+        "        g = Grid(width=2)\n"
+        "    assert g.cell(Point(1, 2)) == Point(2, 2)\n",
+        encoding="utf-8",
+    )
+    search = contract_probes(tmp_path, "geo.py", ["cell"])
+    assert search.probes == ()
+    reason = dict(search.refused)["tests/test_geo.py:8#0"]
+    assert "'g' is assigned in test_cell at line 7" in reason
