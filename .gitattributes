@@ -1,0 +1,6 @@
+# Captured pytest output is byte-for-byte evidence, including padded error lines.
+# Keep ordinary whitespace checks on source, tests and hand-written reports.
+docs/acceptance/evidence/2026-09-15-readable-comments/full-gate-*.log whitespace=-blank-at-eol
+docs/acceptance/evidence/2026-09-15-readable-comments/before/*.md whitespace=-blank-at-eol
+docs/acceptance/evidence/2026-09-15-readable-comments/after/*.md whitespace=-blank-at-eol
+docs/acceptance/evidence/2026-09-15-readable-comments/final/*.md whitespace=-blank-at-eol
