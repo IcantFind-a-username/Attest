@@ -541,3 +541,8 @@ cap/settled paid total remain unchanged.
 Pinned corpus metadata, read-only development source exploration and one independent review;
 no project execution, model/provider calls, evaluation dispatch or remote writes.
 The approved development cap and settled paid total remain unchanged.
+
+**2026-09-16 — D-261 development environment prerequisite: $0.00 Attest model/API spend.**
+Five development metadata checks, two official PyPI metadata reads and one independent
+review; no project execution, paid provider calls or remote writes. The approved cap and
+settled paid total remain unchanged.

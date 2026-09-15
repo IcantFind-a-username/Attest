@@ -780,6 +780,14 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-16 — development environment prerequisite measured (D-261).** Committed
+  driver `04a2554`, r2: all five Keras candidates record Python 3.7.3 outside product
+  3.10–3.13; both pinned TensorFlow releases lack matching wheels/source distributions.
+  Four exact environment signatures; 0 project executions or qualified cases. Invalid r1
+  retained; one review found no unresolved issue. [Evidence](acceptance/2026-09-16-development-environment.md).
+  Next prerequisite is a separately qualified historical oracle environment; held-out
+  access, paid dispatch, product interpreter/default changes and phase gates remain closed.
+
 - **2026-09-16 — repository-disjoint candidate preparation complete (D-260).** Split
   `a3e62f9` freezes five development candidates in Keras and 20 held-out candidates across
   four other repositories before source exploration. One Keras revision inspected read-only;

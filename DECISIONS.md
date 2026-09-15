@@ -2747,3 +2747,10 @@ is active only when the owning architecture/acceptance document changes with it.
 - [Evidence](docs/acceptance/2026-09-16-repository-holdout.md): one read-only development revision explored; 0 qualified defects, 0 controls, 0 product trials. One review P2 corrected append-only; selection unchanged.
 - Cost $0; no product/default/remote changes. Before dispatch require outcome-blind truth/environment/control qualification and a frozen product protocol; paid opt-in remains separate.
 - Reversal: visibly invalidate a compromised split, retain its records and keep explored repositories development. Trace: `INV-TRUTH-001`, `G-DOC-001`; study artifacts, report and roadmap only; no acceptance threshold changed.
+
+### D-261 — Stop development qualification at the historical environment prerequisite
+- 2026-09-16 · prerequisite measured, execution blocked · E-02 owner-directed preparation; baseline `1bc7b68`, driver/protocol `04a2554`.
+- [Evidence](docs/acceptance/2026-09-16-development-environment.md): 5/5 frozen Keras candidates record Python 3.7.3 outside product 3.10–3.13; two pinned TensorFlow releases have no matching wheels or sdist. Four requirements signatures, 0 executions/qualified defects.
+- Retain invalid parser run r1 and repaired r2; one independent review, no unresolved findings. Reuse shared artifact helpers and packaging parsers; no product changes or empirical recall claim.
+- Resolve historical oracle execution before paid discovery; do not change pins or replace frozen cases to hide the blocker. API spend $0; no remote/default changes. G-CORPUS-001 remains open.
+- Reversal: new qualified environment evidence may remove this prerequisite; preserve old records. Trace `INV-TRUTH-001`, `G-CORPUS-001`; preflight script, study artifacts, report and roadmap only.
