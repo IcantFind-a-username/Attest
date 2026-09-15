@@ -592,3 +592,7 @@ No provider API call, paid reservation or remote write; approved cap/paid total 
 Twenty frozen heads attempted: seven collect-only executions, eight image build refusals,
 five harness export refusals. One independent review, no paid call/reservation or remote
 write. Approved cap and settled paid total unchanged.
+
+**2026-09-16 — D-268 paired oracle qualification: $0.00 Attest model/API spend.**
+Seven fixed/buggy pairs, 14 free container jobs; no model call, paid reservation, remote write
+or push. Zero eligible witnesses; no paid dispatch. Approved cap and settled total unchanged.

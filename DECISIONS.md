@@ -2796,3 +2796,10 @@ is active only when the owning architecture/acceptance document changes with it.
 - Evidence: [report](docs/acceptance/2026-09-16-heldout-runtime.md); source/tests unchanged, one review and final artifact checks; no recall or qualified-defect claim (INV-TRUTH-001, G-MEASURE-004).
 - Two driver limitations retained: override enforcement and unbounded archive; environment check found overrides absent, all rows completed. Fix before unattended reuse.
 - Reversal requires new frozen evidence; historical failures remain. Oracle, direction, semantic/control and paid-protocol qualification still required. Supersedes none.
+
+### D-268 — held-out paired oracle qualification (2026-09-16)
+- Accepted prerequisite evidence, E-02; baseline b70afb3, measured 8eb5d63, repair ffa1ae5; no product/default changes.
+- All 20 frozen rows retained; 13 prior refusals, seven paired attempts / 14 jobs, all collection exit 4, zero defect witnesses, actual API spend $0.
+- [Evidence](docs/acceptance/2026-09-16-heldout-oracle.md); one review found malformed-JUnit checkpoint ordering, repaired and fault-checked; no outcome rerun.
+- INV-TRUTH-001/G-MEASURE-004/G-CORPUS-001 remain unsatisfied; no recall, control-safety or release claim. No superseded result.
+- Paid dispatch blocked by missing independent truth/control population; separate SWE-bench Verified study proposed for owner decision under AGENTS §16, no replacement authorized here.

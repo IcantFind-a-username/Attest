@@ -780,6 +780,12 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-16 — paired held-out oracle qualification found no witness (D-268).** Driver
+  `8eb5d63`: seven fixed/buggy pairs all fail during collection; all 20 candidate rows retained.
+  [Evidence](acceptance/2026-09-16-heldout-oracle.md). Paid evaluation blocked by missing
+  independent truth/control population. Separate SWE-bench Verified study proposed for owner
+  decision; no silent sample replacement, product/default change or phase promotion.
+
 - **2026-09-16 — held-out runtime preflight complete (D-267).** Frozen driver `91214dd`
   attempted all 20 heads: seven import/collection successes, eight build refusals and five
   harness symlink refusals. [Evidence](acceptance/2026-09-16-heldout-runtime.md). No qualified
