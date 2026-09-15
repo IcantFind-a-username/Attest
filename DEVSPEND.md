@@ -572,3 +572,8 @@ the authoritative total before dispatch and account for any intervening reservat
 No paid run is reserved or dispatched by this entry. Freeze its protocol and feasible
 minimum sample first, then precharge and checkpoint every paid call. No remote publication,
 push, product default or isolation-policy change is authorized by this spending entry.
+
+Owner stop instruction: after this development round's final paid evaluation report is
+delivered, stop. Do not tune on that evaluation or start another round. If mandatory
+prerequisites or the approved headroom prevent dispatch, retain the evidence and report
+the blocker instead of treating the stop instruction as authority to bypass a gate.

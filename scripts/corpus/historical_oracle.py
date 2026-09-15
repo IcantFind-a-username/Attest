@@ -32,7 +32,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--work", type=Path, required=True)
     parser.add_argument("--recovered-dependencies", action="store_true")
+    parser.add_argument("--serial-oracle", action="store_true")
     args = parser.parse_args()
+    if args.serial_oracle and not args.recovered_dependencies:
+        parser.error("--serial-oracle requires --recovered-dependencies")
     work = args.work.resolve()
     if not work.is_relative_to(ROOT / ".attest/corpora") or work.exists():
         raise ValueError("work must be a fresh directory under .attest/corpora")
@@ -55,13 +58,16 @@ def main() -> None:
             (
                 STUDY
                 / (
-                    "recovered-environment.md"
+                    "serial-oracle.md"
+                    if args.serial_oracle
+                    else "recovered-environment.md"
                     if args.recovered_dependencies
                     else "historical-oracle.md"
                 )
             ).read_bytes()
         ),
         "recovered_dependencies": args.recovered_dependencies,
+        "serial_oracle": args.serial_oracle,
         "model_api_spend_usd": 0,
         "product_evaluations": 0,
         "receipt_eligible": False,
@@ -160,98 +166,116 @@ def main() -> None:
             oracle_sha256=sha256_bytes(test),
             requirements_sha256=sha256_bytes(requirements),
         )
-        base_tag = "python:3.7.3" if args.recovered_dependencies else "python:3.7.3-slim"
-        command(
-            "pull",
-            ["docker", "pull", "--platform", "linux/amd64", base_tag],
-            300 if args.recovered_dependencies else 180,
-            docker=True,
-        )
-        info = json.loads(
-            command("base-image", ["docker", "image", "inspect", base_tag], 30, docker=True)
-        )[0]
-        record["base_image"] = {key: info[key] for key in ("Id", "RepoDigests", "Architecture")}
-        context = work / "build"
-        context.mkdir()
-        (context / "requirements.txt").write_bytes(requirements)
-        install = "RUN python -m pip install -r /requirements.txt\n"
-        if args.recovered_dependencies:
-            manifest = (STUDY / "recovered-environment-evidence/dependencies.json").read_bytes()
-            record["dependency_manifest_sha256"] = sha256_bytes(manifest)
-            dependencies = json.loads(manifest)
-            archives = context / "archives"
-            archives.mkdir()
-            for dependency in dependencies["files"]:
-                name = dependency["name"]
-                if Path(name).name != name:
-                    raise ValueError("dependency archive name is not a basename")
-                payload = (
-                    ROOT / ".attest/corpora/recovered-dependencies-keras8" / name
-                ).read_bytes()
-                if (
-                    len(payload) != dependency["size_bytes"]
-                    or sha256_bytes(payload) != dependency["sha256"]
-                ):
-                    raise ValueError("recovered dependency drift: " + name)
-                (archives / name).write_bytes(payload)
-            (context / "verify-pins.py").write_text(
-                "from pathlib import Path\nimport pkg_resources\n"
-                "pins = Path('/requirements.txt').read_text().splitlines()\n"
-                "assert pins and all(line.count('==') == 1 for line in pins)\n"
-                "for line in pins:\n"
-                "    pkg_resources.require(line)\n"
-                "print('Verified original exact pins:', len(pins), flush=True)\n"
+        if args.serial_oracle:
+            prior_bytes = (STUDY / "recovered-environment-evidence/r1/result.json").read_bytes()
+            prior = json.loads(prior_bytes)
+            if not any(s["label"] == "build" and s["status"] == "ok" for s in prior["stages"]):
+                raise ValueError("prior dependency build did not succeed")
+            for key in ("case", "revisions", "oracle_sha256", "requirements_sha256"):
+                if prior[key] != record[key]:
+                    raise ValueError("serial arm input drift: " + key)
+            record["prior_result_sha256"] = sha256_bytes(prior_bytes)
+            record["dependency_manifest_sha256"] = prior["dependency_manifest_sha256"]
+            tag = prior["image"]["tag"]
+            reference = prior["image"]["reference"]
+            image_info = json.loads(
+                command("image", ["docker", "image", "inspect", reference], 30, docker=True)
+            )[0]
+            if image_info["Id"] != reference:
+                raise ValueError("serial arm image identity drift")
+        else:
+            base_tag = "python:3.7.3" if args.recovered_dependencies else "python:3.7.3-slim"
+            command(
+                "pull",
+                ["docker", "pull", "--platform", "linux/amd64", base_tag],
+                300 if args.recovered_dependencies else 180,
+                docker=True,
             )
-            install = (
-                "RUN python -m pip install Cython==0.29.19\n"
-                "ENV NPY_NUM_BUILD_JOBS=2\nCOPY archives /archives\n"
-                "RUN python -m pip wheel --no-deps --no-build-isolation "
-                "/archives/numpy-1.19.0rc2.tar.gz --wheel-dir /wheels "
-                "&& sha256sum /wheels/*\n"
-                "RUN python -m pip install --no-index --no-deps --find-links=/wheels "
-                "numpy==1.19.0rc2\n"
-                "RUN python -m pip install --no-build-isolation --find-links=/archives "
-                "-r /requirements.txt\n"
-                "COPY verify-pins.py /verify-pins.py\n"
-                "RUN python /verify-pins.py\n"
-                "RUN (python --version; gcc --version; dpkg-query -W; sha256sum /wheels/*) "
-                "> /build-environment.txt && cat /build-environment.txt\n"
+            info = json.loads(
+                command("base-image", ["docker", "image", "inspect", base_tag], 30, docker=True)
+            )[0]
+            record["base_image"] = {key: info[key] for key in ("Id", "RepoDigests", "Architecture")}
+            context = work / "build"
+            context.mkdir()
+            (context / "requirements.txt").write_bytes(requirements)
+            install = "RUN python -m pip install -r /requirements.txt\n"
+            if args.recovered_dependencies:
+                manifest = (STUDY / "recovered-environment-evidence/dependencies.json").read_bytes()
+                record["dependency_manifest_sha256"] = sha256_bytes(manifest)
+                dependencies = json.loads(manifest)
+                archives = context / "archives"
+                archives.mkdir()
+                for dependency in dependencies["files"]:
+                    name = dependency["name"]
+                    if Path(name).name != name:
+                        raise ValueError("dependency archive name is not a basename")
+                    payload = (
+                        ROOT / ".attest/corpora/recovered-dependencies-keras8" / name
+                    ).read_bytes()
+                    if (
+                        len(payload) != dependency["size_bytes"]
+                        or sha256_bytes(payload) != dependency["sha256"]
+                    ):
+                        raise ValueError("recovered dependency drift: " + name)
+                    (archives / name).write_bytes(payload)
+                (context / "verify-pins.py").write_text(
+                    "from pathlib import Path\nimport pkg_resources\n"
+                    "pins = Path('/requirements.txt').read_text().splitlines()\n"
+                    "assert pins and all(line.count('==') == 1 for line in pins)\n"
+                    "for line in pins:\n"
+                    "    pkg_resources.require(line)\n"
+                    "print('Verified original exact pins:', len(pins), flush=True)\n"
+                )
+                install = (
+                    "RUN python -m pip install Cython==0.29.19\n"
+                    "ENV NPY_NUM_BUILD_JOBS=2\nCOPY archives /archives\n"
+                    "RUN python -m pip wheel --no-deps --no-build-isolation "
+                    "/archives/numpy-1.19.0rc2.tar.gz --wheel-dir /wheels "
+                    "&& sha256sum /wheels/*\n"
+                    "RUN python -m pip install --no-index --no-deps --find-links=/wheels "
+                    "numpy==1.19.0rc2\n"
+                    "RUN python -m pip install --no-build-isolation --find-links=/archives "
+                    "-r /requirements.txt\n"
+                    "COPY verify-pins.py /verify-pins.py\n"
+                    "RUN python /verify-pins.py\n"
+                    "RUN (python --version; gcc --version; dpkg-query -W; sha256sum /wheels/*) "
+                    "> /build-environment.txt && cat /build-environment.txt\n"
+                )
+            dockerfile = (
+                f"FROM --platform=linux/amd64 {info['RepoDigests'][0]}\n"
+                "ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1\n"
+                "RUN python -m pip install pip==20.1.1 setuptools==46.4.0 wheel==0.34.2\n"
+                "COPY requirements.txt /requirements.txt\n"
+                + install
+                + "RUN python -m pip check && python -m pip freeze > /environment.txt\n"
             )
-        dockerfile = (
-            f"FROM --platform=linux/amd64 {info['RepoDigests'][0]}\n"
-            "ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1\n"
-            "RUN python -m pip install pip==20.1.1 setuptools==46.4.0 wheel==0.34.2\n"
-            "COPY requirements.txt /requirements.txt\n"
-            + install
-            + "RUN python -m pip check && python -m pip freeze > /environment.txt\n"
-        )
-        (context / "Dockerfile").write_text(dockerfile)
-        tag = (
-            "attest-historical:"
-            + sha256_bytes(
-                dockerfile.encode()
-                + requirements
-                + record.get("dependency_manifest_sha256", "").encode()
-            )[:16]
-        )
-        command(
-            "build",
-            [
-                "docker",
+            (context / "Dockerfile").write_text(dockerfile)
+            tag = (
+                "attest-historical:"
+                + sha256_bytes(
+                    dockerfile.encode()
+                    + requirements
+                    + record.get("dependency_manifest_sha256", "").encode()
+                )[:16]
+            )
+            command(
                 "build",
-                "--platform",
-                "linux/amd64",
-                "-t",
-                tag,
-                str(context),
-            ],
-            1800 if args.recovered_dependencies else 900,
-            docker=True,
-        )
-        image_info = json.loads(
-            command("image", ["docker", "image", "inspect", tag], 30, docker=True)
-        )[0]
-        image = ContainerImage(image_info["Id"], image_info["Id"], tag)
+                [
+                    "docker",
+                    "build",
+                    "--platform",
+                    "linux/amd64",
+                    "-t",
+                    tag,
+                    str(context),
+                ],
+                1800 if args.recovered_dependencies else 900,
+                docker=True,
+            )
+            image_info = json.loads(
+                command("image", ["docker", "image", "inspect", tag], 30, docker=True)
+            )[0]
+        image = ContainerImage(image_info["Id"], image_info["Id"], tag, cached=args.serial_oracle)
         record["image"] = asdict(image)
         adapter = ContainerAdapter(image)
         bootstrap = (
@@ -281,6 +305,7 @@ def main() -> None:
                         "-c",
                         bootstrap,
                         argv[1],
+                        *(("-n", "0") if args.serial_oracle else ()),
                         "--junitxml={outputs}/junit.xml",
                     ),
                     environment={
