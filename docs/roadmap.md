@@ -780,6 +780,12 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-16 — six independent heads fail default runtime build (D-270).** Driver
+  `4bd4bf6`, all six frozen candidates retained: three missing setuptools.dep_util, three
+  missing gcc; zero collection executions. [Evidence](acceptance/2026-09-16-swebench-runtime.md).
+  No qualified defect/control minimum or paid dispatch. A separate free build-compatibility
+  experiment is proposed for owner decision; no further sample replacement or phase promotion.
+
 - **2026-09-16 — separate study authorized and six candidates frozen (D-269).** Owner
   approves D-268 proposal. Two repositories pass scoped exposure audit; six contemporary
   prior-heldout instances frozen before source access; immutable data projection matches.

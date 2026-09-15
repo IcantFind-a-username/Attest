@@ -602,3 +602,7 @@ Owner “允许” authorizes the separate SWE-bench Verified study proposed in 
 population remains intact; existing paid opt-in, cumulative cap and report-then-stop boundary
 continue. Six candidates frozen; no model call or paid reservation. Remaining headroom must
 be re-read/reconciled before dispatch; this entry does not increase it.
+
+**2026-09-16 — D-270 independent default-runtime preflight: $0.00 API spend.**
+Six image build refusals, read-only retained BuildKit-log retrieval and one independent
+review. No model call, paid reservation, remote write or push. Cap and paid total unchanged.

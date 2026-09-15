@@ -2810,3 +2810,10 @@ is active only when the owning architecture/acceptance document changes with it.
 - One independent audit validates aliases/split/order; supplemental pinned-Parquet check df70991 matches all500 metadata rows, closing server-cache provenance uncertainty without changing the sample.
 - No product change or recall/precision claim; INV-TRUTH-001/G-MEASURE-004/G-CORPUS-001 remain qualification gates. No historical evidence superseded.
 - Next: runtime/oracle/forward-direction/control qualification, then feasible paid protocol and free artifact smoke. Below minimum3+3/two repositories means no dispatch, not silent replacement.
+
+### D-270 — six-case default-runtime feasibility (2026-09-16)
+- Accepted E-02 diagnostic; baseline2321d0d, measured4bd4bf6; no product/default/receipt/isolation change.
+- All six frozen heads attempted once, zero builds/collection jobs; first errors: three missing setuptools.dep_util, three missing gcc. Existing BuildKit logs read without rerun; actual API spend $0.
+- [Evidence](docs/acceptance/2026-09-16-swebench-runtime.md), one independent review/no findings, final artifact checks/Ruff pass; source/tests unchanged.
+- No recall/FPR claim (INV-TRUTH-001/G-MEASURE-004); qualified minimum remains unmet. Original denominator and all prior records retained; supersedes none.
+- One free build-compatibility experiment proposed for owner decision under AGENTS §16; not implemented, no paid dispatch. Successful assisted runtime must remain separate from default0/6.
