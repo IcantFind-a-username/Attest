@@ -59,3 +59,12 @@ units and limitations, conditional eligibility and source-population attrition s
 
 One independent audit of this metadata/split task, script Ruff and artifact consistency;
 no product-code change or full product gate claimed by the freeze itself.
+
+## Provenance verification after metadata review, before project source
+
+The review notes that stable dataset HEAD around the dataset-server read does not prove its
+cache revision. Before qualification, download the original Parquet at the recorded immutable
+revision, keep it mode 0600 in the ignored corpus directory, and read only the five metadata
+columns with PyArrow. Require exact equality for all 500 projected rows. Bind file digest,
+revision and tool version; do not expose hidden columns or rerank/edit the frozen sample.
+Any mismatch invalidates advancement and is reported, not silently repaired.
