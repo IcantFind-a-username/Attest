@@ -208,7 +208,7 @@ def render_complete(
             lines.append("")
         if index == 0:
             lines.extend([f"{STRUCTURAL_HEADING} {len(shown_notes)}", ""])
-        lines.append("- " + structural_line(note))
+        lines.append(structural_line(note))
         if note.advice and not minimal:
             lines.append("")
             lines.append(contract_collapsed(note.advice, summary=STRUCTURAL_ADVICE_HEADING))

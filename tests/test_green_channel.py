@@ -42,6 +42,7 @@ def test_structural_summary_has_one_heading_and_counts_only_shown_notes(count: i
     assert body.count(STRUCTURAL_HEADING) == 1
     assert f"{STRUCTURAL_HEADING} {min(count, 2)}\n\n" in body
     assert body.count("- [green]") == min(count, 2)
+    assert "- - [green]" not in body
     assert check_summary(body)
 
 ORIGINAL = '''
