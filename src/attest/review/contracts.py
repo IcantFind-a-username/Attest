@@ -31,6 +31,19 @@ value only when three bindings hold, each recorded on its own:
     symbol imported from the anchored module, or -- for a caller contract --
     the *same caller*, which the probe must itself have entered through.
 
+``flow_bound`` (D-255, `attest.intent.v6.1`)
+    every run reaches the source's call along a path this module read: the call
+    belongs to a statement at the test body's own level (or, for a caller
+    contract, the first statement of a ``with raises(...)`` block there), and no
+    statement before it leaves the test, rebinds a name the call depends on,
+    touches a local it depends on -- a state change, an alias, a call it is handed
+    to -- changes a module-level name it depends on, or uses a fixture; the test is
+    not skipped, expected to fail, patched or a generator. The input is bound *at
+    that point*: an assignment after the assertion, or one inside a branch, is not
+    the input the assertion checks. What the rule cannot read it refuses, with the
+    line. What it does not look at, stated: fixtures (autouse ones, ``conftest``)
+    and helper functions a test calls are not followed.
+
 Everything found is recorded, admitted or not, with the reason: a contract the
 probe did not bind is exactly the fact the next probe needs. Deterministic end
 to end: file reads and ``ast``, no model.
@@ -84,6 +97,9 @@ class Call:
     # the construction is not bound. Part of the input: `Grid(width=5).cell(p)` and
     # `Grid(width=2).cell(p)` are different calls even when they return the same value.
     receiver: str | None = ""
+    # D-255: why the call's program point was not read ("" when it was). A call
+    # whose inputs may have changed on the way to it binds no input at all.
+    flow: str = ""
 
     @property
     def input(self) -> str:
@@ -95,7 +111,9 @@ class Call:
 
     def same_input(self, other: Call) -> bool:
         return (
-            self.args is not None
+            not self.flow
+            and not other.flow
+            and self.args is not None
             and other.args is not None
             and self.receiver is not None
             and other.receiver is not None
@@ -292,30 +310,421 @@ def _resolve_call(
     )
 
 
+# ------------------------------------------------- the program point (D-255)
+
+_EXIT_CALLS = frozenset({"skip", "fail", "xfail", "exit", "importorskip"})
+_REFUSED_MARKS = frozenset({"skip", "skipif", "xfail", "usefixtures"})
+_NESTED_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+_STATEMENT_KINDS = {
+    "AsyncFor": "async for", "AsyncWith": "async with", "FunctionDef": "def",
+    "AsyncFunctionDef": "async def", "ClassDef": "class", "TryStar": "try",
+}
+
+
+@dataclass(frozen=True)
+class ProgramPoint:
+    """Where a call runs inside its test function, read on the straight path.
+
+    ``site`` is the statement of the test body's own level the call belongs to;
+    ``prefix`` the statements before it at that level, which every run executes
+    first; ``bindings`` the plain ``name = value`` assignment among them in force
+    for each name there. ``shape`` is "" when the call sits in a shape the rule
+    reads, and otherwise why it does not."""
+
+    site: ast.stmt
+    prefix: tuple[ast.stmt, ...]
+    bindings: dict[str, ast.Assign]
+    shape: str
+
+
+def _kind(statement: ast.stmt) -> str:
+    name = type(statement).__name__
+    return _STATEMENT_KINDS.get(name, name.lower())
+
+
+def _shallow(node: ast.AST) -> Iterable[ast.AST]:
+    """``ast.walk`` below ``node`` that does not enter a nested def, class or lambda."""
+    stack = list(ast.iter_child_nodes(node))
+    while stack:
+        current = stack.pop()
+        yield current
+        if not isinstance(current, _NESTED_SCOPES):
+            stack.extend(ast.iter_child_nodes(current))
+
+
+def _child_statements(node: ast.AST) -> Iterable[ast.stmt]:
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.stmt):
+            yield child
+        elif isinstance(child, ast.excepthandler | ast.match_case):
+            yield from _child_statements(child)
+
+
+def _statement_path(root: ast.stmt, target: ast.AST) -> list[ast.stmt] | None:
+    """The statements from ``root`` down to the innermost one holding ``target``."""
+    if root is target:
+        return [root]
+    if not any(node is target for node in ast.walk(root)):
+        return None
+    for child in _child_statements(root):
+        found = _statement_path(child, target)
+        if found is not None:
+            return [root, *found]
+    return [root]
+
+
+def program_point(
+    func: ast.FunctionDef | ast.AsyncFunctionDef, target: ast.AST, *, container: str = ""
+) -> ProgramPoint | None:
+    """The program point of ``target`` in ``func``; None when it is not in its body.
+
+    A supported shape is a statement of the test body's own level. ``container``
+    names the one nesting a caller may also accept: ``"raises"`` -- the first
+    statement of a single-context ``with raises(...)`` block, where a caller
+    contract's call runs -- or ``"try"`` -- the first statement of a ``try``, where
+    the replay test records a raised type."""
+    for index, top in enumerate(func.body):
+        path = _statement_path(top, target)
+        if path is None:
+            continue
+        prefix = tuple(func.body[:index])
+        bindings: dict[str, ast.Assign] = {}
+        for statement in prefix:
+            if (
+                isinstance(statement, ast.Assign)
+                and len(statement.targets) == 1
+                and isinstance(statement.targets[0], ast.Name)
+            ):
+                bindings[statement.targets[0].id] = statement
+        accepted = (
+            container == "raises"
+            and isinstance(top, ast.With)
+            and _expected_exception(top) is not None
+        ) or (container == "try" and isinstance(top, ast.Try))
+        depth = 2 if accepted else 1
+        shape = ""
+        if (
+            accepted
+            and isinstance(top, ast.With | ast.Try)
+            and len(path) >= 2
+            and path[1] is not top.body[0]
+        ):
+            shape = (
+                f"line {path[1].lineno} is not the first statement of the block at "
+                f"line {top.lineno}: an earlier statement may raise before it"
+            )
+        elif accepted and isinstance(top, ast.With) and len(top.items) != 1:
+            shape = (
+                f"the with statement at line {top.lineno} enters more than the "
+                "expected-exception context"
+            )
+        elif len(path) > depth:
+            outer = path[depth - 1]
+            shape = (
+                f"line {path[-1].lineno} sits inside the {_kind(outer)} at line "
+                f"{outer.lineno}: the rule reads only statements at the test body's own level"
+            )
+        return ProgramPoint(site=top, prefix=prefix, bindings=bindings, shape=shape)
+    return None
+
+
+def _point_scope(file_scope: _Scope, point: ProgramPoint | None) -> _Scope:
+    """The names a call sees at its program point: the file's, and the plain
+    assignments in force there -- never one made after it or inside a branch."""
+    scope = _Scope(
+        from_module=dict(file_scope.from_module),
+        module_alias=dict(file_scope.module_alias),
+        constants=dict(file_scope.constants),
+    )
+    for name, assignment in (point.bindings if point is not None else {}).items():
+        if isinstance(assignment.value, ast.Call):
+            scope.calls[name] = assignment.value
+        else:
+            scope.locals[name] = assignment.value
+    return scope
+
+
+def _root_name(node: ast.AST) -> str:
+    while isinstance(node, ast.Attribute | ast.Subscript | ast.Call):
+        node = node.func if isinstance(node, ast.Call) else node.value
+    return node.id if isinstance(node, ast.Name) else ""
+
+
+def _exit_call(node: ast.AST) -> str:
+    if isinstance(node, ast.Call):
+        name = ast.unparse(node.func).rsplit(".", 1)[-1]
+        if name in _EXIT_CALLS:
+            return ast.unparse(node.func)
+    return ""
+
+
+def _marks(decorators: Sequence[ast.expr]) -> Iterable[tuple[str, int]]:
+    for decorator in decorators:
+        text = ast.unparse(decorator.func if isinstance(decorator, ast.Call) else decorator)
+        name = text.rsplit(".", 1)[-1]
+        if name in _REFUSED_MARKS or "patch" in name:
+            yield text, decorator.lineno
+
+
+def _pytestmark(body: Sequence[ast.stmt]) -> Iterable[tuple[str, int]]:
+    for statement in body:
+        if not (
+            isinstance(statement, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in statement.targets)
+        ):
+            continue
+        for node in ast.walk(statement.value):
+            if isinstance(node, ast.Attribute) and node.attr in _REFUSED_MARKS:
+                yield ast.unparse(node), statement.lineno
+
+
+def _module_names(module: ast.Module | None) -> tuple[set[str], set[str]]:
+    """Every name the module binds, and the ones bound to a value a call could change."""
+    names: set[str] = set()
+    mutable: set[str] = set()
+    for node in module.body if module is not None else ():
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            names.update((a.asname or a.name).split(".")[0] for a in node.names)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            names.add(node.name)
+        elif isinstance(node, ast.Assign | ast.AnnAssign) and node.value is not None:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                for inner in ast.walk(target):
+                    if isinstance(inner, ast.Name):
+                        names.add(inner.id)
+                        try:
+                            hash(ast.literal_eval(node.value))
+                        except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
+                            mutable.add(inner.id)
+    return names, mutable
+
+
+def flow_refusal(
+    point: ProgramPoint | None,
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+    call: ast.AST,
+    *,
+    owner: ast.ClassDef | None = None,
+    module: ast.Module | None = None,
+) -> str:
+    """Why every run of ``func`` may not reach ``call`` with the inputs bound at its
+    program point; "" when the rule read the whole path and found nothing."""
+    if point is None:
+        return f"the call is not in the body of {func.name}"
+    if point.shape:
+        return point.shape
+    marked = [
+        *_marks(func.decorator_list),
+        *(_marks(owner.decorator_list) if owner is not None else ()),
+        *(_pytestmark(owner.body) if owner is not None else ()),
+        *(_pytestmark(module.body) if module is not None else ()),
+    ]
+    if marked:
+        text, line = marked[0]
+        return (
+            f"{func.name} is marked {text} at line {line}: its assertions are not a "
+            "standing check of the unpatched code"
+        )
+    if any(isinstance(n, ast.Yield | ast.YieldFrom) for n in _shallow(func)):
+        return f"{func.name} is a generator: pytest does not run its assertions"
+    site = point.site.lineno
+    arguments = func.args
+    params = {a.arg for a in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)}
+    params.update(a.arg for a in (arguments.vararg, arguments.kwarg) if a is not None)
+    row_names = {name for row in _parametrize(func) for name in row}
+    fixtures = params - row_names - {"self", "cls"}
+    bound_in_function: dict[str, int] = {}
+    declared: dict[str, int] = {}
+    for node in _shallow(func):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del):
+            bound_in_function.setdefault(node.id, node.lineno)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            bound_in_function.setdefault(node.name, node.lineno)
+        elif isinstance(node, ast.Import | ast.ImportFrom):
+            for alias in node.names:
+                bound = (alias.asname or alias.name).split(".")[0]
+                bound_in_function.setdefault(bound, node.lineno)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            bound_in_function.setdefault(node.name, node.lineno)
+        elif isinstance(node, ast.Global | ast.Nonlocal):
+            for name in node.names:
+                declared.setdefault(name, node.lineno)
+    module_names, module_mutable = _module_names(module)
+    defined = {
+        s.name for s in point.prefix
+        if isinstance(s, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+    }
+    # the names the call depends on, through the bindings in force at its point
+    relevant: list[str] = []
+    todo = _free_names(call, keep_builtins=True)
+    while todo:
+        name = todo.pop(0)
+        if name in relevant:
+            continue
+        relevant.append(name)
+        binding = point.bindings.get(name)
+        if binding is not None:
+            todo.extend(_free_names(binding.value, keep_builtins=True))
+    local: set[str] = set()
+    global_: set[str] = set()
+    for name in relevant:
+        if name in declared:
+            return (
+                f"{func.name} declares {name!r} global or nonlocal at line {declared[name]}: "
+                "the rule does not follow it"
+            )
+        if name in params:
+            local.add(name)
+        elif name in bound_in_function:
+            if name not in point.bindings and name not in defined:
+                return (
+                    f"{name!r} is assigned in {func.name} at line {bound_in_function[name]}, "
+                    f"not by a plain assignment before line {site} at the test body's own "
+                    "level: no input is bound for it there"
+                )
+            if name in _BUILTIN_NAMES:
+                return f"{name!r} shadows a builtin at line {bound_in_function[name]}"
+            local.add(name)
+        elif name in module_names:
+            if name in _BUILTIN_NAMES:
+                return f"{name!r} shadows a builtin at module level"
+            global_.add(name)
+    selected = {id(point.bindings[n]) for n in relevant if n in point.bindings}
+    for statement in point.prefix:
+        line = statement.lineno
+        if isinstance(statement, ast.Return | ast.Raise):
+            verb = "returns" if isinstance(statement, ast.Return) else "raises"
+            return f"line {line} {verb} before the assertion at line {site}: no run reaches it"
+        if isinstance(statement, ast.Expr) and _exit_call(statement.value):
+            return (
+                f"line {line} calls {_exit_call(statement.value)} before the assertion at "
+                f"line {site}: a run may stop there"
+            )
+        if isinstance(statement, ast.While):
+            return f"the while loop at line {line} may not end before the assertion at line {site}"
+        if not isinstance(statement, _NESTED_SCOPES) and any(_child_statements(statement)):
+            for inner in _shallow(statement):
+                if isinstance(inner, ast.Return | ast.Raise) or _exit_call(inner):
+                    return (
+                        f"line {getattr(inner, 'lineno', line)} inside the {_kind(statement)} "
+                        f"at line {line} may "
+                        f"leave the test before the assertion at line {site}"
+                    )
+        if id(statement) in selected:
+            continue  # the binding in force: the probe runs it too
+        ignored: set[str] = set()
+        nodes: Iterable[ast.AST] = ast.walk(statement)
+        if (
+            isinstance(statement, ast.Assign)
+            and len(statement.targets) == 1
+            and isinstance(statement.targets[0], ast.Name)
+            and statement.targets[0].id in point.bindings
+        ):
+            # an earlier assignment the binding in force replaces; only its value matters
+            ignored = {statement.targets[0].id}
+            nodes = ast.walk(statement.value)
+        for node in nodes:
+            line = getattr(node, "lineno", statement.lineno)  # the touching node's own line
+            if isinstance(node, ast.Name):
+                if node.id in local and node.id not in ignored:
+                    return (
+                        f"line {line} touches {node.id!r} between the binding in force and the "
+                        f"assertion at line {site}: a rebinding, state change, alias or side "
+                        "effect the rule cannot rule out"
+                    )
+                if node.id in fixtures:
+                    return (
+                        f"line {line} uses the fixture {node.id!r} before the assertion at line "
+                        f"{site}: what a fixture changes is not read"
+                    )
+                if node.id in global_ and isinstance(node.ctx, ast.Store | ast.Del):
+                    return (
+                        f"line {line} rebinds the module-level {node.id!r} before the assertion "
+                        f"at line {site}"
+                    )
+            elif isinstance(node, ast.Attribute | ast.Subscript) and isinstance(
+                node.ctx, ast.Store | ast.Del
+            ):
+                if _root_name(node) in global_:
+                    return (
+                        f"line {line} changes the module-level {_root_name(node)!r} before the "
+                        f"assertion at line {site}"
+                    )
+            elif isinstance(node, ast.Call):
+                handed = [
+                    arg.id for arg in (*node.args, *(k.value for k in node.keywords))
+                    if isinstance(arg, ast.Name) and arg.id in global_
+                    and arg.id not in (module_names - module_mutable - _imported(module))
+                ]
+                if handed:
+                    return (
+                        f"line {line} hands the module-level {handed[0]!r} to a call before the "
+                        f"assertion at line {site}: a state change the rule cannot rule out"
+                    )
+                if (
+                    isinstance(node.func, ast.Attribute)
+                    and _root_name(node.func.value) in global_ & module_mutable
+                ):
+                    return (
+                        f"line {line} calls a method of the module-level "
+                        f"{_root_name(node.func.value)!r} before the assertion at line {site}"
+                    )
+    return ""
+
+
+def _imported(module: ast.Module | None) -> set[str]:
+    """The module-level names bound by an import, a def or a class."""
+    out: set[str] = set()
+    for node in module.body if module is not None else ():
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            out.update((a.asname or a.name).split(".")[0] for a in node.names)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            out.add(node.name)
+    return out
+
+
+def _owners(tree: ast.Module) -> dict[int, ast.ClassDef]:
+    """The class each method of the module is defined in, by the method node's id."""
+    return {
+        id(item): node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ClassDef)
+        for item in node.body
+        if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef)
+    }
+
+
 def probe_call(test_source: str, anchored_module: str) -> Call | None:
     """The call the replay test makes: ``_attest_value = <expression>`` inside
-    the test function, with the setup's literal assignments as its names."""
+    the test function, with the setup's plain assignments in force before it as
+    its names (D-255: a setup the program-point rule cannot read binds no input)."""
     try:
         tree = ast.parse(test_source)
     except (SyntaxError, ValueError):
         return None
-    scope = _bindings(tree)
+    file_scope = _bindings(tree)
     for node in tree.body:
         if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
-        expression: ast.AST | None = None
-        for statement in ast.walk(node):
-            if isinstance(statement, ast.Assign) and len(statement.targets) == 1:
-                target = statement.targets[0]
-                if isinstance(target, ast.Name) and target.id == "_attest_value":
-                    expression = statement.value
-                elif isinstance(target, ast.Name) and isinstance(statement.value, ast.Call):
-                    scope.calls[target.id] = statement.value
-                elif isinstance(target, ast.Name):
-                    # a literal, or a name that leads to one (D-253)
-                    scope.locals[target.id] = statement.value
-        if expression is not None:
-            return _resolve_call(expression, scope, {}, anchored_module)
+        target = next(
+            (
+                s for s in ast.walk(node)
+                if isinstance(s, ast.Assign)
+                and len(s.targets) == 1
+                and isinstance(s.targets[0], ast.Name)
+                and s.targets[0].id == "_attest_value"
+            ),
+            None,
+        )
+        if target is None:
+            continue
+        point = program_point(node, target, container="try")
+        call = _resolve_call(target.value, _point_scope(file_scope, point), {}, anchored_module)
+        if call is None:
+            return None
+        flow = flow_refusal(point, node, target.value, module=tree)
+        return replace(call, flow=flow) if flow else call
     return None
 
 
@@ -511,15 +920,17 @@ def find_contracts(
     base = _contracts_in(base_tree, anchored, symbols, pinned, test_source)
     if not base:
         return ()
-    standing: set[tuple[str, str, str, str]] = set()
+    # D-255: the program point is part of what stands -- a head that keeps the
+    # assertion but adds a statement the rule cannot read before it rewrote it
+    standing: set[tuple[str, str, str, str, bool]] = set()
     if head_tree is not None:
         standing = {
-            (c.kind, c.symbol, c.input, c.derived)
+            (c.kind, c.symbol, c.input, c.derived, c.flow_bound)
             for c in _contracts_in(head_tree, anchored, symbols, pinned, test_source)
         }
     out: list[ContractRecord] = []
     for c in base:
-        stands = (c.kind, c.symbol, c.input, c.derived) in standing
+        stands = (c.kind, c.symbol, c.input, c.derived, c.flow_bound) in standing
         if c.admitted and not stands:
             c = replace(
                 c, admitted=False, standing_at_head=False,
@@ -577,18 +988,21 @@ def _contracts_in(
         except (SyntaxError, ValueError):
             continue
         scope = _bindings(tree)
+        owners = _owners(tree)
         for node in ast.walk(tree):
             if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                 continue
             if not _TEST_NAME.match(node.name):
                 continue
+            where = (tree, owners.get(id(node)))
             found.extend(
                 _assertion_contracts(
-                    node, relative, scope, classes, probe, anchored_module, wanted, pinned_set
+                    node, relative, scope, classes, probe, anchored_module, wanted, pinned_set,
+                    where,
                 )
             )
             found.extend(
-                _caller_contracts(node, relative, scope, probe, callers, pinned_set)
+                _caller_contracts(node, relative, scope, probe, callers, pinned_set, where)
             )
             if len(found) >= MAX_CONTRACTS * 4:
                 break
@@ -604,22 +1018,9 @@ def _assertion_contracts(
     anchored_module: str,
     wanted: frozenset[str],
     pinned: frozenset[str],
+    where: tuple[ast.Module, ast.ClassDef | None],
 ) -> list[ContractRecord]:
-    scope = _Scope(
-        from_module=dict(file_scope.from_module),
-        module_alias=dict(file_scope.module_alias),
-        constants=dict(file_scope.constants),
-    )
-    assignments = sorted(
-        (s for s in ast.walk(node) if isinstance(s, ast.Assign) and len(s.targets) == 1),
-        key=lambda s: s.lineno,
-    )
-    for assignment in assignments:
-        target = assignment.targets[0]
-        if isinstance(target, ast.Name) and isinstance(assignment.value, ast.Call):
-            scope.calls[target.id] = assignment.value
-        elif isinstance(target, ast.Name):
-            scope.locals[target.id] = assignment.value
+    module, owner = where
     rows = _parametrize(node)
     out: list[ContractRecord] = []
     for statement in ast.walk(node):
@@ -628,6 +1029,10 @@ def _assertion_contracts(
         compare = statement.test
         if len(compare.ops) != 1 or not isinstance(compare.ops[0], ast.Eq | ast.Is):
             continue
+        # D-255: the names the assertion sees are the ones in force where it runs
+        point = program_point(node, statement)
+        scope = _point_scope(file_scope, point)
+        flows: dict[int, str] = {}
         for row in rows:
             for call_side, expected_side in (
                 (compare.left, compare.comparators[0]),
@@ -640,9 +1045,14 @@ def _assertion_contracts(
                     continue
                 derived = _derive(expected_side, classes, scope, row)
                 kind = "parametrize_row" if row else "bound_assertion"
+                if id(call_side) not in flows:
+                    flows[id(call_side)] = flow_refusal(
+                        point, node, call_side, owner=owner, module=module
+                    )
                 out.append(
                     _record(
                         kind=kind, symbol=call.callee, probe=probe, call=call,
+                        flow=flows[id(call_side)],
                         expected=ast.unparse(expected_side)[:120], derived=derived,
                         pinned=pinned, source=f"{relative.as_posix()}:{statement.lineno}",
                         call_path=f"{call.callee} <- {relative.as_posix()}::{node.name}",
@@ -666,6 +1076,7 @@ def _record(
     source: str,
     call_path: str,
     path_bound: bool,
+    flow: str,
 ) -> ContractRecord:
     input_bound = probe.same_input(call)
     evaluated = derived is not None
@@ -678,9 +1089,12 @@ def _record(
             covers = derived
         elif repr(derived) in pinned:
             covers = repr(derived)
-    admitted = input_bound and evaluated and path_bound and bool(covers)
+    flow_bound = not flow
+    admitted = flow_bound and input_bound and evaluated and path_bound and bool(covers)
     if admitted:
-        reason = "admitted: same input, derived value, same entry"
+        reason = "admitted: same input at the assertion's program point, derived value, same entry"
+    elif not flow_bound:
+        reason = f"the source's program point is not read: {flow}"
     elif not path_bound:
         reason = (
             f"the probe entered through {probe.callee or '<unresolved>'}"
@@ -688,6 +1102,8 @@ def _record(
             f"the source calls {call.callee}"
             f"{'(' + ','.join(call.wrappers) + ')' if call.wrappers else ''}"
         )
+    elif not input_bound and probe.flow:
+        reason = f"the probe's own setup is not read: {probe.flow}"
     elif not input_bound:
         reason = f"the source's input ({call.input}) is not the probe's ({probe.input})"
     elif not evaluated:
@@ -698,7 +1114,7 @@ def _record(
         kind=kind, symbol=symbol, input=call.input, expected=expected,
         derived=derived or "", pinned=covers, source=source, call_path=call_path,
         input_bound=input_bound, evaluated=evaluated, path_bound=path_bound,
-        admitted=admitted, reason=reason,
+        admitted=admitted, reason=reason, flow_bound=flow_bound, flow_reason=flow,
     )
 
 
@@ -746,9 +1162,11 @@ def _caller_contracts(
     probe: Call,
     callers: list[_Caller],
     pinned: frozenset[str],
+    where: tuple[ast.Module, ast.ClassDef | None],
 ) -> list[ContractRecord]:
     if not callers:
         return []
+    module, owner = where
     scope = _Scope(
         from_module=dict(file_scope.from_module),
         module_alias=dict(file_scope.module_alias),
@@ -777,11 +1195,15 @@ def _caller_contracts(
                             caller.callee.rsplit(".", 1)[-1]
                         ):
                             continue
+                        flow = flow_refusal(
+                            program_point(node, call_node, container="raises"), node,
+                            call_node, owner=owner, module=module,
+                        )
                         out.append(
                             _record(
                                 kind="caller_raises", symbol=caller.symbol, probe=probe,
                                 call=call, expected=exception, derived=repr(exception),
-                                pinned=pinned,
+                                pinned=pinned, flow=flow,
                                 source=f"{relative.as_posix()}:{statement.lineno}",
                                 call_path=(
                                     f"{caller.symbol} <- {caller.callee} ({caller.site}) "
@@ -858,7 +1280,7 @@ def _is_test_module(module: str) -> bool:
     )
 
 
-def _free_names(node: ast.AST) -> list[str]:
+def _free_names(node: ast.AST, *, keep_builtins: bool = False) -> list[str]:
     bound: set[str] = set()
     for inner in ast.walk(node):
         if isinstance(inner, ast.comprehension):
@@ -871,7 +1293,7 @@ def _free_names(node: ast.AST) -> list[str]:
             isinstance(inner, ast.Name)
             and isinstance(inner.ctx, ast.Load)
             and inner.id not in bound
-            and inner.id not in _BUILTIN_NAMES
+            and (keep_builtins or inner.id not in _BUILTIN_NAMES)
             and inner.id not in found
         ):
             found.append(inner.id)
@@ -914,16 +1336,12 @@ def build_contract_probe(
             module_assign[node.targets[0].id] = node
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
             local_defs.add(node.name)
-    body_assign: dict[str, ast.Assign] = {}
-    for node in sorted(
-        (n for n in ast.walk(func) if isinstance(n, ast.Assign)), key=lambda n: n.lineno
-    ):
-        if (
-            len(node.targets) == 1
-            and isinstance(node.targets[0], ast.Name)
-            and node.lineno < statement.lineno
-        ):
-            body_assign[node.targets[0].id] = node
+    # D-255: the assignments in force at the call's program point, and no other --
+    # not one inside a branch before it, not one after it
+    point = program_point(
+        func, call, container="raises" if isinstance(statement, ast.With) else ""
+    )
+    body_assign: dict[str, ast.Assign] = dict(point.bindings) if point is not None else {}
     params = {a.arg for a in (*func.args.args, *func.args.kwonlyargs)}
     import_lines: list[str] = []
     setup: list[str] = []
@@ -970,24 +1388,6 @@ def build_contract_probe(
     )
 
 
-def _function_scope(file_scope: _Scope, func: ast.FunctionDef | ast.AsyncFunctionDef) -> _Scope:
-    scope = _Scope(
-        from_module=dict(file_scope.from_module),
-        module_alias=dict(file_scope.module_alias),
-        constants=dict(file_scope.constants),
-    )
-    for node in sorted(
-        (n for n in ast.walk(func) if isinstance(n, ast.Assign) and len(n.targets) == 1),
-        key=lambda n: n.lineno,
-    ):
-        target = node.targets[0]
-        if isinstance(target, ast.Name) and isinstance(node.value, ast.Call):
-            scope.calls[target.id] = node.value
-        elif isinstance(target, ast.Name):
-            scope.locals[target.id] = node.value
-    return scope
-
-
 def contract_probes(
     base_tree: Path, anchored: str, symbols: Sequence[str]
 ) -> ContractSearch:
@@ -1028,17 +1428,18 @@ def contract_probes(
         except (OSError, SyntaxError, ValueError):
             continue
         file_scope = _bindings(tree_file)
+        owners = _owners(tree_file)
         for func in ast.walk(tree_file):
             if not isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
                 continue
             if not _TEST_NAME.match(func.name):
                 continue
-            scope = _function_scope(file_scope, func)
             rows = _parametrize(func)
             kind_rows = "parametrize_row" if rows != [{}] else "bound_assertion"
             for statement in ast.walk(func):
                 if not isinstance(statement, ast.stmt):
                     continue
+                scope = _point_scope(file_scope, program_point(func, statement))
                 sites: list[tuple[str, ast.AST]] = []
                 if isinstance(statement, ast.Assert) and isinstance(statement.test, ast.Compare):
                     compare = statement.test
@@ -1073,6 +1474,16 @@ def contract_probes(
                     continue
                 kind, call = sites[0]
                 site = f"{relative.as_posix()}:{statement.lineno}"
+                # D-255: a contract whose program point the rule cannot read is no probe
+                flow = flow_refusal(
+                    program_point(
+                        func, call, container="raises" if kind == "caller_raises" else ""
+                    ),
+                    func, call, owner=owners.get(id(func)), module=tree_file,
+                )
+                if flow:
+                    refused.extend((f"{site}#{number}", flow) for number in range(len(rows)))
+                    continue
                 for number, row in enumerate(rows):
                     try:
                         spec = build_contract_probe(

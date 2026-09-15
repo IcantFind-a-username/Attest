@@ -14,7 +14,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from attest.certification.intent import INTENT_POLICY_V6, INTENT_POLICY_VERSION
+from attest.certification.intent import INTENT_POLICY_V61, INTENT_POLICY_VERSION
 
 # D-248: how hard the probe's one call thinks. Defined here rather than in the
 # proposer because the configuration is what validates it and the proposer
@@ -226,8 +226,11 @@ def validate_review_config(config: ReviewConfig) -> None:
 
 
 CONTEXT_STRATEGIES = frozenset({"r01", "package-cache"})
-# D-254: the shipped rule and the experimental one; nothing else is selectable
-INTENT_POLICIES = frozenset({INTENT_POLICY_VERSION, INTENT_POLICY_V6})
+# D-254: the shipped rule and the experimental one; nothing else is selectable.
+# D-255: the experimental one is v6.1. v6 trusted the observer's admission flag and
+# bound a name by its last assignment anywhere in the test; its receipts still
+# verify under their own rule, and no new review may be run under it.
+INTENT_POLICIES = frozenset({INTENT_POLICY_VERSION, INTENT_POLICY_V61})
 
 DISABLED_REASON = "disabled by the base policy (.attest.toml enabled = false)"
 

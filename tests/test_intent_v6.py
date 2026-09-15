@@ -313,7 +313,10 @@ def test_v6_records_its_contracts_and_v51_never_carries_the_field(tmp_path: Path
     assert set(record) == set(POLICY_FIELDS[INTENT_POLICY_V6])
     assert record["contracts"] and isinstance(record["contracts"][0], dict)
     rebuilt = IntentObservation(**record)
-    assert rebuilt.contracts == observed.contracts
+    # D-255: a v6 record never carries the two program-point fields v6.1 added, so a
+    # rebuilt v6 contract holds their defaults; the record and its digest are unchanged
+    assert not {"flow_bound", "flow_reason"} & set(record["contracts"][0])
+    assert rebuilt.record() == record
     assert rebuilt.digest() == observed.digest()
     shipped = _observe(tmp_path / "s", tests=TESTS_ROWS, test=test, longrepr=longrepr,
                        policy=INTENT_POLICY_VERSION)

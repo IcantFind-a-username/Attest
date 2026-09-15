@@ -34,6 +34,7 @@ from pathlib import Path
 from attest.certification.intent import (
     GENERIC_VALUE_REPRS,
     INTENT_POLICY_V6,
+    INTENT_POLICY_V61,
     INTENT_POLICY_VERSION,
     ContractRecord,
     IntentObservation,
@@ -1252,9 +1253,11 @@ def observe_intent(
 
     ``policy_version`` is the rule the observation is written under -- the
     shipped one unless a caller asks for `attest.intent.v6` (D-252,
-    experimental), under which the base tree's *contracts* about the pinned
-    values are read as well (:mod:`attest.review.contracts`) and recorded with
-    their bindings; an admitted contract specifies the value it covers.
+    experimental) or `attest.intent.v6.1` (D-255), under which the base tree's
+    *contracts* about the pinned values are read as well
+    (:mod:`attest.review.contracts`) and recorded with their bindings; an admitted
+    contract specifies the value it covers -- under v6 because the observer says
+    so, under v6.1 because the kernel's own recomputation from the bindings does.
 
     ``changed_lines`` is the binding policy's hunk range (context included) and
     is what D-132's anchored symbols are read against, as before. D-232's frame
@@ -1344,7 +1347,7 @@ def observe_intent(
         # D-252 (v6): the contracts the base tree holds about the pinned values,
         # bound to the probe's own call; an admitted one specifies what it covers
         contracts: tuple[ContractRecord, ...] = ()
-        if policy_version == INTENT_POLICY_V6 and pinned and symbols:
+        if policy_version in (INTENT_POLICY_V6, INTENT_POLICY_V61) and pinned and symbols:
             from attest.review.contracts import find_contracts
 
             contracts = find_contracts(
@@ -1356,7 +1359,9 @@ def observe_intent(
                 test_source=test_source,
             )
             already = {value for value, _site in specified}
-            extra = {
+            # v6 merges what the observer admitted; under v6.1 (D-255) the kernel
+            # recomputes admission from the bindings and adds the values itself
+            extra = set() if policy_version == INTENT_POLICY_V61 else {
                 (c.pinned, c.source.rsplit(":", 1)[0])
                 for c in contracts
                 if c.admitted and c.pinned and c.pinned not in already
