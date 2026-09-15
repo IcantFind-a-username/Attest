@@ -53,10 +53,10 @@ GAIN_CASES = ("packaging-boundary-08", "packaging-guard_raise-06", "urllib3-none
 OBSERVER_SOURCE = ROOT / "src/attest/review/_contract_observer.py"
 
 
-def archive(repo: Path, sha: str, destination: Path) -> None:
+def archive(repo: Path, sha: str, destination: Path, *, timeout: float | None = None) -> None:
     destination.mkdir(parents=True, exist_ok=False)
-    data = subprocess.check_output(["git", "-C", str(repo), "archive", sha])
-    subprocess.run(["tar", "-x", "-C", str(destination)], input=data, check=True)
+    data = subprocess.check_output(["git", "-C", str(repo), "archive", sha], timeout=timeout)
+    subprocess.run(["tar", "-x", "-C", str(destination)], input=data, check=True, timeout=timeout)
 
 
 def run_site(
