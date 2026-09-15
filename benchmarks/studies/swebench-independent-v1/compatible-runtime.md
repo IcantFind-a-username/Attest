@@ -36,3 +36,13 @@ unchanged. No paid dispatch follows from build success alone.
 The first deliverable is the six-case build-feasibility record. This measurement
 driver is committed before running; runtime integration is a subsequent bounded
 step within the authorized compatibility work, not permission to bypass gates.
+
+## Pre-outcome instrumentation correction
+
+The first invocation at `7e37a41` was interrupted after starting the first build:
+independent review found that outer `pip freeze` omitted isolated build versions.
+Its directory is retained as `swebench-compatible-build-pre-review`. No behavioral
+outcome or dependency change motivated this interruption. The corrected driver
+retains isolated build metadata and verbose logs, exports wheel digests, and
+records malformed case manifests without losing later rows. This is one bounded
+review pass; original six-case ordering, dependencies and 900-second limit stand.

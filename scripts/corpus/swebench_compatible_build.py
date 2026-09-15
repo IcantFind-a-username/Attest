@@ -85,9 +85,12 @@ def main() -> None:
                 "RUN python -m pip install pip setuptools wheel\n"
                 "COPY tree /source\nWORKDIR /source\n"
                 + (f"ENV SETUPTOOLS_SCM_PRETEND_VERSION={version}\n" if version else "")
-                + "RUN python -m pip wheel --no-deps --wheel-dir /wheels .\n"
+                + "RUN python -m pip wheel --no-clean --verbose --no-deps --wheel-dir /wheels .\n"
                 "RUN sha256sum /wheels/* > /wheel-digests.txt"
                 " && python -m pip freeze > /builder-freeze.txt\n"
+                "RUN find /tmp/pip-build-env-* -path '*.dist-info/METADATA' -print"
+                " > /isolated-metadata-paths.txt && test -s /isolated-metadata-paths.txt"
+                " && tar -cf /isolated-build-metadata.tar -T /isolated-metadata-paths.txt\n"
             )
             (directory / "Dockerfile").write_text(dockerfile)
             row["dockerfile_sha256"] = sha256_bytes(dockerfile.encode())
@@ -105,7 +108,29 @@ def main() -> None:
                     ["docker", "image", "inspect", "--format", "{{.Id}}", tag],
                     env=env, text=True, timeout=30,
                 ).strip()
-        except (ValueError, OSError, subprocess.SubprocessError) as exc:
+                container = subprocess.check_output(
+                    ["docker", "create", row["image_id"]], env=env, text=True, timeout=30,
+                ).strip()
+                try:
+                    for filename in (
+                        "wheels", "wheel-digests.txt", "builder-freeze.txt",
+                        "isolated-build-metadata.tar",
+                    ):
+                        subprocess.run(
+                            ["docker", "cp", f"{container}:/{filename}", str(directory / filename)],
+                            env=env, check=True, timeout=60,
+                        )
+                    row["artifacts"] = {
+                        p.relative_to(directory).as_posix(): sha256_bytes(p.read_bytes())
+                        for p in sorted(directory.rglob("*"))
+                        if p.is_file() and "tree" not in p.relative_to(directory).parts
+                    }
+                finally:
+                    subprocess.run(
+                        ["docker", "rm", container], env=env, check=True, timeout=30,
+                        stdout=subprocess.DEVNULL,
+                    )
+        except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError) as exc:
             row.update(status="refused", reason=str(exc))
         write_canonical_json(WORK / "result.json", record)
         print(row["case"], row["status"], flush=True)
