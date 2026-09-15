@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts/corpus"))
 
 import runtime_contract_shadow as shadow  # noqa: E402
 from binding_cases import _git  # noqa: E402
-from runtime_contract_cases import build_case  # noqa: E402
+from runtime_contract_cases import PARAMETER_NAMES, build_case  # noqa: E402
 
 from attest.execution.backends import BackendSelection  # noqa: E402
 from attest.execution.local_adapter import LocalDevelopmentAdapter  # noqa: E402
@@ -40,7 +40,7 @@ def observations(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
             "select_backend",
             lambda *_a, **_k: BackendSelection(adapter, adapter.profile, "test-owned fixture"),
         )
-        for name in ("cache_clear_fixture", "module_autouse", "receiver_fixture"):
+        for name in ("cache_clear_fixture", "module_autouse", "receiver_fixture", *PARAMETER_NAMES):
             repo, base, head, _ = build_case(name, work / "fixtures")
             rows[name] = shadow.measure(name, repo, base, head, work / name)
         for before, after, expected in (("True", "1", "bool"), ("1", "1.0", "int")):
@@ -160,6 +160,22 @@ def test_pair_consistency_is_checked_outside_the_recorder(
     result = interpret_pair(base, head, runs, digests=digests)
     assert result["status"] == "defer", result
     assert result["receipt_eligible"] is False
+
+
+@pytest.mark.parametrize("name", PARAMETER_NAMES)
+def test_parameter_rows_bind_by_identity_and_keep_all_outcomes(
+    observations: dict[str, Any], name: str,
+) -> None:
+    result = observations[name]["sites"][0]["verdict"]
+    positive = name in ("parameter_regression", "parameter_reordered")
+    assert result["status"] == ("binding_observed" if positive else "defer"), result
+    assert result["receipt_eligible"] is False
+    if positive:
+        nodes = result["nodes"]
+        assert len(nodes) == 2
+        assert [n["node"].split("[")[-1] for n in nodes] == ["first]", "second]"]
+        assert [n["status"] for n in nodes] == ["binding_observed", "defer"]
+        assert all(n["receipt_eligible"] is False for n in nodes)
 
 
 @pytest.mark.parametrize("name", ["type-bool", "type-int"])

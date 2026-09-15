@@ -19,7 +19,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from runtime_contract_cases import NAMES, POSITIVES, build_case  # noqa: E402
+from runtime_contract_cases import (  # noqa: E402
+    NAMES, PARAMETER_NAMES, PARAMETER_POSITIVES, POSITIVES, build_case,
+)
 
 from attest.benchmark.artifacts import sha256_bytes, write_canonical_json  # noqa: E402
 from attest.execution.backends import select_backend  # noqa: E402
@@ -240,7 +242,9 @@ def main() -> None:
     args.work, args.out = args.work.resolve(), args.out.resolve()
     args.work.mkdir(parents=True, exist_ok=False)
     labels = GAIN_CASES if args.gains else tuple(args.only.split(","))
-    if not labels or (not args.gains and any(label not in NAMES for label in labels)):
+    if not labels or (
+        not args.gains and any(label not in (*NAMES, *PARAMETER_NAMES) for label in labels)
+    ):
         raise ValueError("unknown or empty frozen population")
     rows = []
     for label in labels:
@@ -261,7 +265,8 @@ def main() -> None:
             repo, base_sha, head_sha, _ = build_case(label, args.work / "fixtures")
         row = measure(label, repo, base_sha, head_sha, args.work / label)
         row["declared_truth"] = (
-            "development_regression" if args.gains or label in POSITIVES else "control"
+            "development_regression"
+            if args.gains or label in (*POSITIVES, *PARAMETER_POSITIVES) else "control"
         )
         rows.append(row)
         write_canonical_json(args.out, rows)
