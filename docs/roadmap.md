@@ -780,6 +780,14 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-16 — historical dependencies install; oracle worker startup blocked (D-264).**
+  Driver `32d5b98`, one keras/8 build: all 42 original exact pins install and verify.
+  Fixed/buggy jobs both exit 3 when original xdist configuration starts workers under
+  unchanged NPROC=0; no target test completes. [Evidence](acceptance/2026-09-16-recovered-environment.md).
+  One code/provenance review; run artifacts controller-checked. Qualified defects and
+  product trials remain zero. Separately preregistered serial-launch compatibility is
+  the next prerequisite; no held-out access, default/policy change or phase advancement.
+
 - **2026-09-16 — original NumPy source archive recovered (D-263).** Protocol `e180107`;
   official 1.19.0rc2 source distribution downloaded and matched to the release's SHA-256
   and PKG-INFO. [Evidence](acceptance/2026-09-16-dependency-recovery.md). This resolves

@@ -556,3 +556,8 @@ product review, oracle test job or remote write. Approved cap and paid total unc
 Read-only official release metadata/archive retrieval and one provenance review;
 no package installation, code execution, model call or remote write. Approved cap
 and paid total unchanged.
+
+**2026-09-16 — D-264 recovered dependency environment: $0.00 Attest model/API spend.**
+Read-only original package/image retrieval, one successful dependency build, two oracle
+startup failures and one independent review; no model/provider call, product evaluation,
+remote write or push. Approved cap and settled paid total unchanged.

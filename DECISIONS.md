@@ -2768,3 +2768,10 @@ is active only when the owning architecture/acceptance document changes with it.
 - Keep D-262 installation failure as history. Before reusing the archive, freeze and qualify build/toolchain evidence; retain original pins and all environment failures. No oracle/product/recall result.
 - One independent provenance review and artifact checks; API spend $0, no remote/default changes. Trace `INV-TRUTH-001`, `G-CORPUS-001`; protocol/evidence/report/roadmap only.
 - Reversal: quarantine mismatched provenance with a visible invalidation; no receipt migration or frozen-population replacement. E-02 and environment gates remain open.
+
+### D-264 — Separate dependency installation from oracle startup compatibility
+- 2026-09-16 · exact-version installation demonstrated, oracle unqualified · E-02 preparation; baseline `d4ff7a8`, protocol `561ebc6`, measured driver `32d5b98`.
+- [Evidence](docs/acceptance/2026-09-16-recovered-environment.md): one keras/8 image builds with all 42 original pins; fixed/buggy jobs both exit 3 creating xdist workers under unchanged NPROC=0. Zero completed target tests, qualified defects or product trials.
+- Preserve the original-config failure and stop after the first pair. A separate preregistered serial-launch compatibility arm may diagnose the prerequisite; no dependency, assertion, containment or held-out replacement in this run.
+- One independent code/provenance review, no blocking findings; subsequent run artifacts controller-checked. API spend $0; no product/default/remote changes. Exact versions are not identical historical binaries.
+- Reversal: new qualified runtime evidence may remove the blocker; retain r1. Trace `INV-TRUTH-001`, `G-CORPUS-001`; existing measurement script, study/evidence/report/roadmap only; no gate threshold changes.

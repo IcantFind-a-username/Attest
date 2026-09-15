@@ -1,0 +1,651 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.01kB done
+#1 WARN: FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 1)
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python@sha256:9e0b4f32487ca1863b45383420b8db77990debae748e2e875d2f86fa9510d4a5
+#2 DONE 1.5s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [ 1/12] FROM docker.io/library/python@sha256:9e0b4f32487ca1863b45383420b8db77990debae748e2e875d2f86fa9510d4a5
+#4 resolve docker.io/library/python@sha256:9e0b4f32487ca1863b45383420b8db77990debae748e2e875d2f86fa9510d4a5 done
+#4 DONE 0.2s
+
+#5 [internal] load build context
+#5 transferring context: 32.64MB 0.2s done
+#5 DONE 0.2s
+
+#6 [ 2/12] RUN python -m pip install pip==20.1.1 setuptools==46.4.0 wheel==0.34.2
+#6 1.021 Collecting pip==20.1.1
+#6 1.220   Downloading https://files.pythonhosted.org/packages/43/84/23ed6a1796480a6f1a2d38f2802901d078266bda38388954d01d3f2e821d/pip-20.1.1-py2.py3-none-any.whl (1.5MB)
+#6 1.310 Collecting setuptools==46.4.0
+#6 1.672   Downloading https://files.pythonhosted.org/packages/2c/c5/0d38afb961f83e0d51f319f7dc166195ebabc1ea3cb20a10a77f500f7156/setuptools-46.4.0-py3-none-any.whl (583kB)
+#6 1.710 Collecting wheel==0.34.2
+#6 1.772   Downloading https://files.pythonhosted.org/packages/8c/23/848298cccf8e40f5bbb59009b32848a4c38f4e7f3364297ab3c3e2e2cd14/wheel-0.34.2-py2.py3-none-any.whl
+#6 1.800 Installing collected packages: pip, setuptools, wheel
+#6 1.800   Found existing installation: pip 19.1.1
+#6 1.863     Uninstalling pip-19.1.1:
+#6 1.917       Successfully uninstalled pip-19.1.1
+#6 2.383   Found existing installation: setuptools 41.0.1
+#6 2.401     Uninstalling setuptools-41.0.1:
+#6 2.428       Successfully uninstalled setuptools-41.0.1
+#6 2.563   Found existing installation: wheel 0.33.4
+#6 2.566     Uninstalling wheel-0.33.4:
+#6 2.570       Successfully uninstalled wheel-0.33.4
+#6 2.583 Successfully installed pip-20.1.1 setuptools-46.4.0 wheel-0.34.2
+#6 DONE 3.5s
+
+#7 [ 3/12] COPY requirements.txt /requirements.txt
+#7 DONE 0.2s
+
+#8 [ 4/12] RUN python -m pip install Cython==0.29.19
+#8 1.623 Collecting Cython==0.29.19
+#8 1.658   Downloading Cython-0.29.19-cp37-cp37m-manylinux1_x86_64.whl (2.0 MB)
+#8 1.806 Installing collected packages: Cython
+#8 2.175 Successfully installed Cython-0.29.19
+#8 DONE 2.3s
+
+#9 [ 5/12] COPY archives /archives
+#9 DONE 0.0s
+
+#10 [ 6/12] RUN python -m pip wheel --no-deps --no-build-isolation /archives/numpy-1.19.0rc2.tar.gz --wheel-dir /wheels && sha256sum /wheels/*
+#10 0.397 Processing /archives/numpy-1.19.0rc2.tar.gz
+#10 0.790     Preparing wheel metadata: started
+#10 38.15     Preparing wheel metadata: finished with status 'done'
+#10 38.17 Building wheels for collected packages: numpy
+#10 38.17   Building wheel for numpy (PEP 517): started
+#10 102.6   Building wheel for numpy (PEP 517): still running...
+#10 158.7   Building wheel for numpy (PEP 517): finished with status 'done'
+#10 158.7   Created wheel for numpy: filename=numpy-1.19.0rc2-cp37-cp37m-linux_x86_64.whl size=14953140 sha256=121981baae779d0ae55ac3c96e46f0de450abe6ebe5f4fad0fff952daf02c8bf
+#10 158.7   Stored in directory: /tmp/pip-ephem-wheel-cache-frxgfju2/wheels/8e/3f/d1/209147948bc08e003a87ecccc5b2e7eaaa3a0805fcd8e40950
+#10 158.7 Successfully built numpy
+#10 158.9 121981baae779d0ae55ac3c96e46f0de450abe6ebe5f4fad0fff952daf02c8bf  /wheels/numpy-1.19.0rc2-cp37-cp37m-linux_x86_64.whl
+#10 DONE 158.9s
+
+#11 [ 7/12] RUN python -m pip install --no-index --no-deps --find-links=/wheels numpy==1.19.0rc2
+#11 0.490 Looking in links: /wheels
+#11 0.497 Processing /wheels/numpy-1.19.0rc2-cp37-cp37m-linux_x86_64.whl
+#11 0.747 Installing collected packages: numpy
+#11 1.806 Successfully installed numpy-1.19.0rc2
+#11 DONE 1.9s
+
+#12 [ 8/12] RUN python -m pip install --no-build-isolation --find-links=/archives -r /requirements.txt
+#12 0.439 Looking in links: /archives
+#12 0.557 Collecting absl-py==0.9.0
+#12 0.597   Downloading absl-py-0.9.0.tar.gz (104 kB)
+#12 0.912 Collecting apipkg==1.5
+#12 0.922   Downloading apipkg-1.5-py2.py3-none-any.whl (4.9 kB)
+#12 0.947 Collecting astor==0.8.1
+#12 0.957   Downloading astor-0.8.1-py2.py3-none-any.whl (27 kB)
+#12 0.984 Collecting atomicwrites==1.4.0
+#12 0.993   Downloading atomicwrites-1.4.0-py2.py3-none-any.whl (6.8 kB)
+#12 1.028 Collecting attrs==19.3.0
+#12 1.039   Downloading attrs-19.3.0-py2.py3-none-any.whl (39 kB)
+#12 1.093 Collecting colorama==0.4.3
+#12 1.103   Downloading colorama-0.4.3-py2.py3-none-any.whl (15 kB)
+#12 1.132 Collecting execnet==1.7.1
+#12 1.144   Downloading execnet-1.7.1-py2.py3-none-any.whl (39 kB)
+#12 1.176 Collecting flaky==3.6.1
+#12 1.189   Downloading flaky-3.6.1-py2.py3-none-any.whl (22 kB)
+#12 1.218 Collecting gast==0.2.2
+#12 1.229   Downloading gast-0.2.2.tar.gz (10 kB)
+#12 1.482 Collecting google-pasta==0.2.0
+#12 1.492   Downloading google_pasta-0.2.0-py3-none-any.whl (57 kB)
+#12 3.751 Collecting grpcio==1.29.0
+#12 3.761   Downloading grpcio-1.29.0-cp37-cp37m-manylinux2010_x86_64.whl (3.0 MB)
+#12 4.082 Collecting h5py==2.10.0
+#12 4.095   Downloading h5py-2.10.0-cp37-cp37m-manylinux1_x86_64.whl (2.9 MB)
+#12 4.294 Collecting importlib-metadata==1.6.0
+#12 4.303   Downloading importlib_metadata-1.6.0-py2.py3-none-any.whl (30 kB)
+#12 4.366 Collecting Keras==2.2.4
+#12 4.377   Downloading Keras-2.2.4-py2.py3-none-any.whl (312 kB)
+#12 4.422 Collecting keras-applications==1.0.8
+#12 4.431   Downloading Keras_Applications-1.0.8-py3-none-any.whl (50 kB)
+#12 4.457 Collecting keras-preprocessing==1.1.2
+#12 4.468   Downloading Keras_Preprocessing-1.1.2-py2.py3-none-any.whl (42 kB)
+#12 4.518 Collecting Markdown==3.2.2
+#12 4.529   Downloading Markdown-3.2.2-py3-none-any.whl (88 kB)
+#12 4.578 Collecting more-itertools==8.3.0
+#12 4.587   Downloading more_itertools-8.3.0-py3-none-any.whl (44 kB)
+#12 4.593 Requirement already satisfied: numpy==1.19.0rc2 in /usr/local/lib/python3.7/site-packages (from -r /requirements.txt (line 19)) (1.19.0rc2)
+#12 4.613 Collecting opt-einsum==3.2.1
+#12 4.623   Downloading opt_einsum-3.2.1-py3-none-any.whl (63 kB)
+#12 4.679 Collecting packaging==20.4
+#12 4.689   Downloading packaging-20.4-py2.py3-none-any.whl (37 kB)
+#12 5.205 Collecting pandas==1.0.4
+#12 5.214   Downloading pandas-1.0.4-cp37-cp37m-manylinux1_x86_64.whl (10.1 MB)
+#12 5.690 Collecting pluggy==0.13.1
+#12 5.700   Downloading pluggy-0.13.1-py2.py3-none-any.whl (18 kB)
+#12 6.310 Collecting protobuf==3.12.2
+#12 6.319   Downloading protobuf-3.12.2-cp37-cp37m-manylinux1_x86_64.whl (1.3 MB)
+#12 6.407 Collecting py==1.8.1
+#12 6.416   Downloading py-1.8.1-py2.py3-none-any.whl (83 kB)
+#12 6.511 Collecting pyparsing==2.4.7
+#12 6.519   Downloading pyparsing-2.4.7-py2.py3-none-any.whl (67 kB)
+#12 6.625 Collecting pytest==5.4.3
+#12 6.633   Downloading pytest-5.4.3-py3-none-any.whl (248 kB)
+#12 6.678 Collecting pytest-forked==1.1.3
+#12 6.688   Downloading pytest_forked-1.1.3-py2.py3-none-any.whl (4.5 kB)
+#12 6.736 Collecting pytest-xdist==1.32.0
+#12 6.746   Downloading pytest_xdist-1.32.0-py2.py3-none-any.whl (36 kB)
+#12 6.781 Collecting python-dateutil==2.8.1
+#12 6.789   Downloading python_dateutil-2.8.1-py2.py3-none-any.whl (227 kB)
+#12 6.907 Collecting pytz==2020.1
+#12 6.915   Downloading pytz-2020.1-py2.py3-none-any.whl (510 kB)
+#12 7.106 Collecting pyyaml==5.3.1
+#12 7.115   Downloading PyYAML-5.3.1.tar.gz (269 kB)
+#12 8.030 Processing /archives/scipy-1.5.0rc1-cp37-cp37m-manylinux1_x86_64.whl
+#12 8.469 Collecting six==1.15.0
+#12 8.479   Downloading six-1.15.0-py2.py3-none-any.whl (10 kB)
+#12 8.529 Collecting tensorboard==1.15.0
+#12 8.538   Downloading tensorboard-1.15.0-py3-none-any.whl (3.8 MB)
+#12 9.060 Collecting tensorflow==1.15.0
+#12 9.077   Downloading tensorflow-1.15.0-cp37-cp37m-manylinux2010_x86_64.whl (412.3 MB)
+#12 25.34 Collecting tensorflow-estimator==1.15.1
+#12 25.35   Downloading tensorflow_estimator-1.15.1-py2.py3-none-any.whl (503 kB)
+#12 25.40 Collecting termcolor==1.1.0
+#12 25.41   Downloading termcolor-1.1.0.tar.gz (3.9 kB)
+#12 25.71 Collecting wcwidth==0.2.3
+#12 25.72   Downloading wcwidth-0.2.3-py2.py3-none-any.whl (30 kB)
+#12 25.79 Collecting Werkzeug==1.0.1
+#12 25.80   Downloading Werkzeug-1.0.1-py2.py3-none-any.whl (298 kB)
+#12 27.43 Collecting wrapt==1.12.1
+#12 27.44   Downloading wrapt-1.12.1.tar.gz (27 kB)
+#12 27.73 Collecting zipp==3.1.0
+#12 27.74   Downloading zipp-3.1.0-py3-none-any.whl (4.9 kB)
+#12 27.75 Requirement already satisfied: setuptools in /usr/local/lib/python3.7/site-packages (from protobuf==3.12.2->-r /requirements.txt (line 24)) (46.4.0)
+#12 27.76 Requirement already satisfied: wheel>=0.26; python_version >= "3" in /usr/local/lib/python3.7/site-packages (from tensorboard==1.15.0->-r /requirements.txt (line 35)) (0.34.2)
+#12 27.76 Building wheels for collected packages: absl-py, gast, pyyaml, termcolor, wrapt
+#12 27.76   Building wheel for absl-py (setup.py): started
+#12 28.08   Building wheel for absl-py (setup.py): finished with status 'done'
+#12 28.08   Created wheel for absl-py: filename=absl_py-0.9.0-py3-none-any.whl size=121931 sha256=531cb58b7360003195452bf3fd2adebd3a5ed7c5e2efe507aa8b7bb4c9f54223
+#12 28.08   Stored in directory: /tmp/pip-ephem-wheel-cache-6hmv3hgc/wheels/cc/af/1a/498a24d0730ef484019e007bb9e8cef3ac00311a672c049a3e
+#12 28.09   Building wheel for gast (setup.py): started
+#12 28.38   Building wheel for gast (setup.py): finished with status 'done'
+#12 28.38   Created wheel for gast: filename=gast-0.2.2-py3-none-any.whl size=7539 sha256=384790fe9aff492c8fea40c62439c3d11529631758db41b77818840d375ac9ce
+#12 28.38   Stored in directory: /tmp/pip-ephem-wheel-cache-6hmv3hgc/wheels/21/7f/02/420f32a803f7d0967b48dd823da3f558c5166991bfd204eef3
+#12 28.38   Building wheel for pyyaml (setup.py): started
+#12 32.56   Building wheel for pyyaml (setup.py): finished with status 'done'
+#12 32.57   Created wheel for pyyaml: filename=PyYAML-5.3.1-cp37-cp37m-linux_x86_64.whl size=411547 sha256=57794f09d4b6b2af946d7e931bffd37da3edcd4dddfaf90acc18fc3908c6dafc
+#12 32.57   Stored in directory: /tmp/pip-ephem-wheel-cache-6hmv3hgc/wheels/5e/03/1e/e1e954795d6f35dfc7b637fe2277bff021303bd9570ecea653
+#12 32.57   Building wheel for termcolor (setup.py): started
+#12 32.93   Building wheel for termcolor (setup.py): finished with status 'done'
+#12 32.93   Created wheel for termcolor: filename=termcolor-1.1.0-py3-none-any.whl size=4830 sha256=8bc079d4cccc831f368b24a22aecf644d5a7ac0bbb14fa026d1ca989d27727cf
+#12 32.93   Stored in directory: /tmp/pip-ephem-wheel-cache-6hmv3hgc/wheels/3f/e3/ec/8a8336ff196023622fbcb36de0c5a5c218cbb24111d1d4c7f2
+#12 32.93   Building wheel for wrapt (setup.py): started
+#12 34.01   Building wheel for wrapt (setup.py): finished with status 'done'
+#12 34.01   Created wheel for wrapt: filename=wrapt-1.12.1-cp37-cp37m-linux_x86_64.whl size=71566 sha256=daf472a565ec31a764f22893001df66c93ecf259c6654c518d4634badad85e0b
+#12 34.01   Stored in directory: /tmp/pip-ephem-wheel-cache-6hmv3hgc/wheels/62/76/4c/aa25851149f3f6d9785f6c869387ad82b3fd37582fa8147ac6
+#12 34.01 Successfully built absl-py gast pyyaml termcolor wrapt
+#12 34.22 Installing collected packages: six, absl-py, apipkg, astor, atomicwrites, attrs, colorama, execnet, flaky, gast, google-pasta, grpcio, h5py, zipp, importlib-metadata, scipy, keras-preprocessing, keras-applications, pyyaml, Keras, Markdown, more-itertools, opt-einsum, pyparsing, packaging, pytz, python-dateutil, pandas, pluggy, protobuf, py, wcwidth, pytest, pytest-forked, pytest-xdist, Werkzeug, tensorboard, termcolor, tensorflow-estimator, wrapt, tensorflow
+#12 53.03 Successfully installed Keras-2.2.4 Markdown-3.2.2 Werkzeug-1.0.1 absl-py-0.9.0 apipkg-1.5 astor-0.8.1 atomicwrites-1.4.0 attrs-19.3.0 colorama-0.4.3 execnet-1.7.1 flaky-3.6.1 gast-0.2.2 google-pasta-0.2.0 grpcio-1.29.0 h5py-2.10.0 importlib-metadata-1.6.0 keras-applications-1.0.8 keras-preprocessing-1.1.2 more-itertools-8.3.0 opt-einsum-3.2.1 packaging-20.4 pandas-1.0.4 pluggy-0.13.1 protobuf-3.12.2 py-1.8.1 pyparsing-2.4.7 pytest-5.4.3 pytest-forked-1.1.3 pytest-xdist-1.32.0 python-dateutil-2.8.1 pytz-2020.1 pyyaml-5.3.1 scipy-1.5.0rc1 six-1.15.0 tensorboard-1.15.0 tensorflow-1.15.0 tensorflow-estimator-1.15.1 termcolor-1.1.0 wcwidth-0.2.3 wrapt-1.12.1 zipp-3.1.0
+#12 DONE 55.5s
+
+#13 [ 9/12] COPY verify-pins.py /verify-pins.py
+#13 DONE 0.2s
+
+#14 [10/12] RUN python /verify-pins.py
+#14 0.612 Verified original exact pins: 42
+#14 DONE 0.7s
+
+#15 [11/12] RUN (python --version; gcc --version; dpkg-query -W; sha256sum /wheels/*) > /build-environment.txt && cat /build-environment.txt
+#15 0.455 Python 3.7.3
+#15 0.455 gcc (Debian 6.3.0-18+deb9u1) 6.3.0 20170516
+#15 0.455 Copyright (C) 2016 Free Software Foundation, Inc.
+#15 0.455 This is free software; see the source for copying conditions.  There is NO
+#15 0.455 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#15 0.455
+#15 0.455 adduser	3.115
+#15 0.455 apt	1.4.9
+#15 0.455 autoconf	2.69-10
+#15 0.455 automake	1:1.15-6
+#15 0.455 autotools-dev	20161112.1
+#15 0.455 base-files	9.9+deb9u9
+#15 0.455 base-passwd	3.5.43
+#15 0.455 bash	4.4-5
+#15 0.455 binutils	2.28-5
+#15 0.455 bsdutils	1:2.29.2-1+deb9u1
+#15 0.455 bzip2	1.0.6-8.1
+#15 0.455 bzr	2.7.0+bzr6619-7+deb9u1
+#15 0.455 ca-certificates	20161130+nmu1+deb9u1
+#15 0.455 comerr-dev	2.1-1.43.4-2
+#15 0.455 coreutils	8.26-3
+#15 0.455 cpp	4:6.3.0-4
+#15 0.455 cpp-6	6.3.0-18+deb9u1
+#15 0.455 curl	7.52.1-5+deb9u9
+#15 0.455 dash	0.5.8-2.4
+#15 0.455 debconf	1.5.61
+#15 0.455 debian-archive-keyring	2017.5
+#15 0.455 debianutils	4.8.1.1
+#15 0.455 default-libmysqlclient-dev:amd64	1.0.2
+#15 0.455 dh-python	2.20170125
+#15 0.455 diffutils	1:3.5-3
+#15 0.455 dirmngr	2.1.18-8~deb9u4
+#15 0.455 dpkg	1.18.25
+#15 0.455 dpkg-dev	1.18.25
+#15 0.455 e2fslibs:amd64	1.43.4-2
+#15 0.455 e2fsprogs	1.43.4-2
+#15 0.455 file	1:5.30-1+deb9u2
+#15 0.455 findutils	4.6.0+git+20161106-2
+#15 0.455 fontconfig	2.11.0-6.7+b1
+#15 0.455 fontconfig-config	2.11.0-6.7
+#15 0.455 fonts-dejavu-core	2.37-1
+#15 0.455 g++	4:6.3.0-4
+#15 0.455 g++-6	6.3.0-18+deb9u1
+#15 0.455 gcc	4:6.3.0-4
+#15 0.455 gcc-6	6.3.0-18+deb9u1
+#15 0.455 gcc-6-base:amd64	6.3.0-18+deb9u1
+#15 0.455 geoip-bin	1.6.9-4
+#15 0.455 gir1.2-freedesktop:amd64	1.50.0-1+b1
+#15 0.455 gir1.2-gdkpixbuf-2.0:amd64	2.36.5-2+deb9u2
+#15 0.455 gir1.2-glib-2.0:amd64	1.50.0-1+b1
+#15 0.455 gir1.2-rsvg-2.0:amd64	2.40.16-1+b1
+#15 0.455 git	1:2.11.0-3+deb9u4
+#15 0.455 git-man	1:2.11.0-3+deb9u4
+#15 0.455 gnome-icon-theme	3.12.0-2
+#15 0.455 gnupg	2.1.18-8~deb9u4
+#15 0.455 gnupg-agent	2.1.18-8~deb9u4
+#15 0.455 gpgv	2.1.18-8~deb9u4
+#15 0.455 grep	2.27-2
+#15 0.455 gtk-update-icon-cache	3.22.11-1
+#15 0.455 gzip	1.6-5+b1
+#15 0.455 hicolor-icon-theme	0.15-1
+#15 0.455 hostname	3.18+b1
+#15 0.455 icu-devtools	57.1-6+deb9u2
+#15 0.455 imagemagick	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 imagemagick-6-common	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 imagemagick-6.q16	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 init-system-helpers	1.48
+#15 0.455 iproute2	4.9.0-1+deb9u1
+#15 0.455 iputils-ping	3:20161105-1
+#15 0.455 krb5-multidev	1.15-1+deb9u1
+#15 0.455 libacl1:amd64	2.2.52-3+b1
+#15 0.455 libapr1:amd64	1.5.2-5
+#15 0.455 libaprutil1:amd64	1.5.4-3
+#15 0.455 libapt-pkg5.0:amd64	1.4.9
+#15 0.455 libasan3:amd64	6.3.0-18+deb9u1
+#15 0.455 libassuan0:amd64	2.4.3-2
+#15 0.455 libatk1.0-0:amd64	2.22.0-1
+#15 0.455 libatk1.0-data	2.22.0-1
+#15 0.455 libatomic1:amd64	6.3.0-18+deb9u1
+#15 0.455 libattr1:amd64	1:2.4.47-2+b2
+#15 0.455 libaudit-common	1:2.6.7-2
+#15 0.455 libaudit1:amd64	1:2.6.7-2
+#15 0.455 libavahi-client3:amd64	0.6.32-2
+#15 0.455 libavahi-common-data:amd64	0.6.32-2
+#15 0.455 libavahi-common3:amd64	0.6.32-2
+#15 0.455 libblkid1:amd64	2.29.2-1+deb9u1
+#15 0.455 libbsd0:amd64	0.8.3-1
+#15 0.455 libbz2-1.0:amd64	1.0.6-8.1
+#15 0.455 libbz2-dev:amd64	1.0.6-8.1
+#15 0.455 libc-bin	2.24-11+deb9u4
+#15 0.455 libc-dev-bin	2.24-11+deb9u4
+#15 0.455 libc6:amd64	2.24-11+deb9u4
+#15 0.455 libc6-dev:amd64	2.24-11+deb9u4
+#15 0.455 libcairo-gobject2:amd64	1.14.8-1
+#15 0.455 libcairo-script-interpreter2:amd64	1.14.8-1
+#15 0.455 libcairo2:amd64	1.14.8-1
+#15 0.455 libcairo2-dev	1.14.8-1
+#15 0.455 libcap-ng0:amd64	0.7.7-3+b1
+#15 0.455 libcap2:amd64	1:2.25-1
+#15 0.455 libcc1-0:amd64	6.3.0-18+deb9u1
+#15 0.455 libcdt5	2.38.0-17
+#15 0.455 libcgraph6	2.38.0-17
+#15 0.455 libcilkrts5:amd64	6.3.0-18+deb9u1
+#15 0.455 libcomerr2:amd64	1.43.4-2
+#15 0.455 libcroco3:amd64	0.6.11-3
+#15 0.455 libcups2:amd64	2.2.1-8+deb9u3
+#15 0.455 libcurl3:amd64	7.52.1-5+deb9u9
+#15 0.455 libcurl3-gnutls:amd64	7.52.1-5+deb9u9
+#15 0.455 libcurl4-openssl-dev:amd64	7.52.1-5+deb9u9
+#15 0.455 libdatrie1:amd64	0.2.10-4+b1
+#15 0.455 libdb-dev:amd64	5.3.1
+#15 0.455 libdb5.3:amd64	5.3.28-12+deb9u1
+#15 0.455 libdb5.3-dev	5.3.28-12+deb9u1
+#15 0.455 libdbus-1-3:amd64	1.10.26-0+deb9u1
+#15 0.455 libdebconfclient0:amd64	0.227
+#15 0.455 libdjvulibre-dev:amd64	3.5.27.1-7
+#15 0.455 libdjvulibre-text	3.5.27.1-7
+#15 0.455 libdjvulibre21:amd64	3.5.27.1-7
+#15 0.455 libdpkg-perl	1.18.25
+#15 0.455 libedit2:amd64	3.1-20160903-3
+#15 0.455 libelf1:amd64	0.168-1
+#15 0.455 liberror-perl	0.17024-1
+#15 0.455 libevent-2.0-5:amd64	2.0.21-stable-3
+#15 0.455 libevent-core-2.0-5:amd64	2.0.21-stable-3
+#15 0.455 libevent-dev	2.0.21-stable-3
+#15 0.455 libevent-extra-2.0-5:amd64	2.0.21-stable-3
+#15 0.455 libevent-openssl-2.0-5:amd64	2.0.21-stable-3
+#15 0.455 libevent-pthreads-2.0-5:amd64	2.0.21-stable-3
+#15 0.455 libexif-dev	0.6.21-2+b2
+#15 0.455 libexif12:amd64	0.6.21-2+b2
+#15 0.455 libexpat1:amd64	2.2.0-2+deb9u1
+#15 0.455 libexpat1-dev:amd64	2.2.0-2+deb9u1
+#15 0.455 libfdisk1:amd64	2.29.2-1+deb9u1
+#15 0.455 libffi-dev:amd64	3.2.1-6
+#15 0.455 libffi6:amd64	3.2.1-6
+#15 0.455 libfftw3-double3:amd64	3.3.5-3
+#15 0.455 libfontconfig1:amd64	2.11.0-6.7+b1
+#15 0.455 libfontconfig1-dev:amd64	2.11.0-6.7+b1
+#15 0.455 libfreetype6:amd64	2.6.3-3.2
+#15 0.455 libfreetype6-dev	2.6.3-3.2
+#15 0.455 libgcc-6-dev:amd64	6.3.0-18+deb9u1
+#15 0.455 libgcc1:amd64	1:6.3.0-18+deb9u1
+#15 0.455 libgcrypt20:amd64	1.7.6-2+deb9u3
+#15 0.455 libgd3:amd64	2.2.4-2+deb9u4
+#15 0.455 libgdbm-dev:amd64	1.8.3-14
+#15 0.455 libgdbm3:amd64	1.8.3-14
+#15 0.455 libgdk-pixbuf2.0-0:amd64	2.36.5-2+deb9u2
+#15 0.455 libgdk-pixbuf2.0-common	2.36.5-2+deb9u2
+#15 0.455 libgdk-pixbuf2.0-dev	2.36.5-2+deb9u2
+#15 0.455 libgeoip-dev	1.6.9-4
+#15 0.455 libgeoip1:amd64	1.6.9-4
+#15 0.455 libgirepository-1.0-1:amd64	1.50.0-1+b1
+#15 0.455 libglib2.0-0:amd64	2.50.3-2
+#15 0.455 libglib2.0-bin	2.50.3-2
+#15 0.455 libglib2.0-data	2.50.3-2
+#15 0.455 libglib2.0-dev	2.50.3-2
+#15 0.455 libgmp-dev:amd64	2:6.1.2+dfsg-1
+#15 0.455 libgmp10:amd64	2:6.1.2+dfsg-1
+#15 0.455 libgmpxx4ldbl:amd64	2:6.1.2+dfsg-1
+#15 0.455 libgnutls30:amd64	3.5.8-5+deb9u4
+#15 0.455 libgomp1:amd64	6.3.0-18+deb9u1
+#15 0.455 libgpg-error0:amd64	1.26-2
+#15 0.455 libgraphite2-3:amd64	1.3.10-1
+#15 0.455 libgraphviz-dev	2.38.0-17
+#15 0.455 libgssapi-krb5-2:amd64	1.15-1+deb9u1
+#15 0.455 libgssrpc4:amd64	1.15-1+deb9u1
+#15 0.455 libgtk2.0-0:amd64	2.24.31-2
+#15 0.455 libgtk2.0-common	2.24.31-2
+#15 0.455 libgts-0.7-5:amd64	0.7.6+darcs121130-4
+#15 0.455 libgvc6	2.38.0-17
+#15 0.455 libgvc6-plugins-gtk	2.38.0-17
+#15 0.455 libgvpr2	2.38.0-17
+#15 0.455 libharfbuzz0b:amd64	1.4.2-1
+#15 0.455 libhogweed4:amd64	3.3-1+b2
+#15 0.455 libice-dev:amd64	2:1.0.9-2
+#15 0.455 libice6:amd64	2:1.0.9-2
+#15 0.455 libicu-dev	57.1-6+deb9u2
+#15 0.455 libicu57:amd64	57.1-6+deb9u2
+#15 0.455 libidn11:amd64	1.33-1
+#15 0.455 libidn2-0:amd64	0.16-1+deb9u1
+#15 0.455 libilmbase-dev	2.2.0-12
+#15 0.455 libilmbase12:amd64	2.2.0-12
+#15 0.455 libisl15:amd64	0.18-1
+#15 0.455 libitm1:amd64	6.3.0-18+deb9u1
+#15 0.455 libjbig-dev:amd64	2.1-3.1+b2
+#15 0.455 libjbig0:amd64	2.1-3.1+b2
+#15 0.455 libjpeg-dev	1:1.5.1-2
+#15 0.455 libjpeg62-turbo:amd64	1:1.5.1-2
+#15 0.455 libjpeg62-turbo-dev:amd64	1:1.5.1-2
+#15 0.455 libjs-excanvas	0.r3-4
+#15 0.455 libjs-jquery	3.1.1-2+deb9u1
+#15 0.455 libk5crypto3:amd64	1.15-1+deb9u1
+#15 0.455 libkadm5clnt-mit11:amd64	1.15-1+deb9u1
+#15 0.455 libkadm5srv-mit11:amd64	1.15-1+deb9u1
+#15 0.455 libkdb5-8:amd64	1.15-1+deb9u1
+#15 0.455 libkeyutils1:amd64	1.5.9-9
+#15 0.455 libkrb5-3:amd64	1.15-1+deb9u1
+#15 0.455 libkrb5-dev	1.15-1+deb9u1
+#15 0.455 libkrb5support0:amd64	1.15-1+deb9u1
+#15 0.455 libksba8:amd64	1.3.5-2
+#15 0.455 liblcms2-2:amd64	2.8-4+deb9u1
+#15 0.455 liblcms2-dev:amd64	2.8-4+deb9u1
+#15 0.455 libldap-2.4-2:amd64	2.4.44+dfsg-5+deb9u2
+#15 0.455 libldap-common	2.4.44+dfsg-5+deb9u2
+#15 0.455 liblqr-1-0:amd64	0.4.2-2+b2
+#15 0.455 liblqr-1-0-dev	0.4.2-2+b2
+#15 0.455 liblsan0:amd64	6.3.0-18+deb9u1
+#15 0.455 libltdl-dev:amd64	2.4.6-2
+#15 0.455 libltdl7:amd64	2.4.6-2
+#15 0.455 liblz4-1:amd64	0.0~r131-2+b1
+#15 0.455 liblzma-dev:amd64	5.2.2-1.2+b1
+#15 0.455 liblzma5:amd64	5.2.2-1.2+b1
+#15 0.455 liblzo2-2:amd64	2.08-1.2+b2
+#15 0.455 libmagic-mgc	1:5.30-1+deb9u2
+#15 0.455 libmagic1:amd64	1:5.30-1+deb9u2
+#15 0.455 libmagickcore-6-arch-config:amd64	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 libmagickcore-6-headers	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 libmagickcore-6.q16-3:amd64	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 libmagickcore-6.q16-3-extra:amd64	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 libmagickcore-6.q16-dev:amd64	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 libmagickcore-dev	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 libmagickwand-6-headers	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 libmagickwand-6.q16-3:amd64	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 libmagickwand-6.q16-dev:amd64	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 libmagickwand-dev	8:6.9.7.4+dfsg-11+deb9u7
+#15 0.455 libmariadbclient-dev	10.1.38-0+deb9u1
+#15 0.455 libmariadbclient-dev-compat:amd64	10.1.38-0+deb9u1
+#15 0.455 libmariadbclient18:amd64	10.1.38-0+deb9u1
+#15 0.455 libmnl0:amd64	1.0.4-2
+#15 0.455 libmount1:amd64	2.29.2-1+deb9u1
+#15 0.455 libmpc3:amd64	1.0.3-1+b2
+#15 0.455 libmpdec2:amd64	2.4.2-1
+#15 0.455 libmpfr4:amd64	3.1.5-1
+#15 0.455 libmpx2:amd64	6.3.0-18+deb9u1
+#15 0.455 libncurses5:amd64	6.0+20161126-1+deb9u2
+#15 0.455 libncurses5-dev:amd64	6.0+20161126-1+deb9u2
+#15 0.455 libncursesw5:amd64	6.0+20161126-1+deb9u2
+#15 0.455 libncursesw5-dev:amd64	6.0+20161126-1+deb9u2
+#15 0.455 libnettle6:amd64	3.3-1+b2
+#15 0.455 libnghttp2-14:amd64	1.18.1-1
+#15 0.455 libnpth0:amd64	1.3-1
+#15 0.455 libopenexr-dev	2.2.0-11+b1
+#15 0.455 libopenexr22:amd64	2.2.0-11+b1
+#15 0.455 libopenjp2-7:amd64	2.1.2-1.1+deb9u3
+#15 0.455 libopenjp2-7-dev	2.1.2-1.1+deb9u3
+#15 0.455 libp11-kit0:amd64	0.23.3-2
+#15 0.455 libpam-modules:amd64	1.1.8-3.6
+#15 0.455 libpam-modules-bin	1.1.8-3.6
+#15 0.455 libpam-runtime	1.1.8-3.6
+#15 0.455 libpam0g:amd64	1.1.8-3.6
+#15 0.455 libpango-1.0-0:amd64	1.40.5-1
+#15 0.455 libpangocairo-1.0-0:amd64	1.40.5-1
+#15 0.455 libpangoft2-1.0-0:amd64	1.40.5-1
+#15 0.455 libpathplan4	2.38.0-17
+#15 0.455 libpcre16-3:amd64	2:8.39-3
+#15 0.455 libpcre3:amd64	2:8.39-3
+#15 0.455 libpcre3-dev:amd64	2:8.39-3
+#15 0.455 libpcre32-3:amd64	2:8.39-3
+#15 0.455 libpcrecpp0v5:amd64	2:8.39-3
+#15 0.455 libperl5.24:amd64	5.24.1-3+deb9u5
+#15 0.455 libpixman-1-0:amd64	0.34.0-1
+#15 0.455 libpixman-1-dev	0.34.0-1
+#15 0.455 libpng-dev:amd64	1.6.28-1+deb9u1
+#15 0.455 libpng16-16:amd64	1.6.28-1+deb9u1
+#15 0.455 libpq-dev	9.6.13-0+deb9u1
+#15 0.455 libpq5:amd64	9.6.13-0+deb9u1
+#15 0.455 libprocps6:amd64	2:3.3.12-3+deb9u1
+#15 0.455 libpsl5:amd64	0.17.0-3
+#15 0.455 libpthread-stubs0-dev:amd64	0.3-4
+#15 0.455 libpython-stdlib:amd64	2.7.13-2
+#15 0.455 libpython2.7-minimal:amd64	2.7.13-2+deb9u3
+#15 0.455 libpython2.7-stdlib:amd64	2.7.13-2+deb9u3
+#15 0.455 libpython3-stdlib:amd64	3.5.3-1
+#15 0.455 libpython3.5-minimal:amd64	3.5.3-1+deb9u1
+#15 0.455 libpython3.5-stdlib:amd64	3.5.3-1+deb9u1
+#15 0.455 libquadmath0:amd64	6.3.0-18+deb9u1
+#15 0.455 libreadline-dev:amd64	7.0-3
+#15 0.455 libreadline7:amd64	7.0-3
+#15 0.455 librsvg2-2:amd64	2.40.16-1+b1
+#15 0.455 librsvg2-common:amd64	2.40.16-1+b1
+#15 0.455 librsvg2-dev:amd64	2.40.16-1+b1
+#15 0.455 librtmp1:amd64	2.4+20151223.gitfa8646d.1-1+b1
+#15 0.455 libsasl2-2:amd64	2.1.27~101-g0780600+dfsg-3
+#15 0.455 libsasl2-modules-db:amd64	2.1.27~101-g0780600+dfsg-3
+#15 0.455 libselinux1:amd64	2.6-3+b3
+#15 0.455 libsemanage-common	2.6-2
+#15 0.455 libsemanage1:amd64	2.6-2
+#15 0.455 libsepol1:amd64	2.6-2
+#15 0.455 libserf-1-1:amd64	1.3.9-3+deb9u1
+#15 0.455 libsigsegv2:amd64	2.10-5
+#15 0.455 libsm-dev:amd64	2:1.2.2-1+b3
+#15 0.455 libsm6:amd64	2:1.2.2-1+b3
+#15 0.455 libsmartcols1:amd64	2.29.2-1+deb9u1
+#15 0.455 libsqlite3-0:amd64	3.16.2-5+deb9u1
+#15 0.455 libsqlite3-dev:amd64	3.16.2-5+deb9u1
+#15 0.455 libss2:amd64	1.43.4-2
+#15 0.455 libssh2-1:amd64	1.7.0-1+deb9u1
+#15 0.455 libssl-dev:amd64	1.1.0j-1~deb9u1
+#15 0.455 libssl1.0.2:amd64	1.0.2r-1~deb9u1
+#15 0.455 libssl1.1:amd64	1.1.0j-1~deb9u1
+#15 0.455 libstdc++-6-dev:amd64	6.3.0-18+deb9u1
+#15 0.455 libstdc++6:amd64	6.3.0-18+deb9u1
+#15 0.455 libsvn1:amd64	1.9.5-1+deb9u3
+#15 0.455 libsystemd0:amd64	232-25+deb9u11
+#15 0.455 libtasn1-6:amd64	4.10-1.1+deb9u1
+#15 0.455 libtcl8.6:amd64	8.6.6+dfsg-1+b1
+#15 0.455 libthai-data	0.1.26-1
+#15 0.455 libthai0:amd64	0.1.26-1
+#15 0.455 libtiff5:amd64	4.0.8-2+deb9u4
+#15 0.455 libtiff5-dev:amd64	4.0.8-2+deb9u4
+#15 0.455 libtiffxx5:amd64	4.0.8-2+deb9u4
+#15 0.455 libtinfo-dev:amd64	6.0+20161126-1+deb9u2
+#15 0.455 libtinfo5:amd64	6.0+20161126-1+deb9u2
+#15 0.455 libtk8.6:amd64	8.6.6-1+b1
+#15 0.455 libtool	2.4.6-2
+#15 0.455 libtsan0:amd64	6.3.0-18+deb9u1
+#15 0.455 libubsan0:amd64	6.3.0-18+deb9u1
+#15 0.455 libudev1:amd64	232-25+deb9u11
+#15 0.455 libunistring0:amd64	0.9.6+really0.9.3-0.1
+#15 0.455 libustr-1.0-1:amd64	1.0.4-6
+#15 0.455 libuuid1:amd64	2.29.2-1+deb9u1
+#15 0.455 libwebp-dev:amd64	0.5.2-1
+#15 0.455 libwebp6:amd64	0.5.2-1
+#15 0.455 libwebpdemux2:amd64	0.5.2-1
+#15 0.455 libwebpmux2:amd64	0.5.2-1
+#15 0.455 libwmf-dev	0.2.8.4-10.6
+#15 0.455 libwmf0.2-7:amd64	0.2.8.4-10.6
+#15 0.455 libx11-6:amd64	2:1.6.4-3+deb9u1
+#15 0.455 libx11-data	2:1.6.4-3+deb9u1
+#15 0.455 libx11-dev:amd64	2:1.6.4-3+deb9u1
+#15 0.455 libxau-dev:amd64	1:1.0.8-1
+#15 0.455 libxau6:amd64	1:1.0.8-1
+#15 0.455 libxcb-render0:amd64	1.12-1
+#15 0.455 libxcb-render0-dev:amd64	1.12-1
+#15 0.455 libxcb-shm0:amd64	1.12-1
+#15 0.455 libxcb-shm0-dev:amd64	1.12-1
+#15 0.455 libxcb1:amd64	1.12-1
+#15 0.455 libxcb1-dev:amd64	1.12-1
+#15 0.455 libxcomposite1:amd64	1:0.4.4-2
+#15 0.455 libxcursor1:amd64	1:1.1.14-1+deb9u2
+#15 0.455 libxdamage1:amd64	1:1.1.4-2+b3
+#15 0.455 libxdmcp-dev:amd64	1:1.1.2-3
+#15 0.455 libxdmcp6:amd64	1:1.1.2-3
+#15 0.455 libxdot4	2.38.0-17
+#15 0.455 libxext-dev:amd64	2:1.3.3-1+b2
+#15 0.455 libxext6:amd64	2:1.3.3-1+b2
+#15 0.455 libxfixes3:amd64	1:5.0.3-1
+#15 0.455 libxft-dev	2.3.2-1+b2
+#15 0.455 libxft2:amd64	2.3.2-1+b2
+#15 0.455 libxi6:amd64	2:1.7.9-1
+#15 0.455 libxinerama1:amd64	2:1.1.3-1+b3
+#15 0.455 libxml2:amd64	2.9.4+dfsg1-2.2+deb9u2
+#15 0.455 libxml2-dev:amd64	2.9.4+dfsg1-2.2+deb9u2
+#15 0.455 libxpm4:amd64	1:3.5.12-1
+#15 0.455 libxrandr2:amd64	2:1.5.1-1
+#15 0.455 libxrender-dev:amd64	1:0.9.10-1
+#15 0.455 libxrender1:amd64	1:0.9.10-1
+#15 0.455 libxslt1-dev:amd64	1.1.29-2.1
+#15 0.455 libxslt1.1:amd64	1.1.29-2.1
+#15 0.455 libxss-dev:amd64	1:1.2.2-1
+#15 0.455 libxss1:amd64	1:1.2.2-1
+#15 0.455 libxt-dev:amd64	1:1.1.5-1
+#15 0.455 libxt6:amd64	1:1.1.5-1
+#15 0.455 libyaml-0-2:amd64	0.1.7-2
+#15 0.455 libyaml-dev:amd64	0.1.7-2
+#15 0.455 linux-libc-dev:amd64	4.9.168-1+deb9u2
+#15 0.455 login	1:4.4-4.1
+#15 0.455 lsb-base	9.20161125
+#15 0.455 m4	1.4.18-1
+#15 0.455 make	4.1-9.1
+#15 0.455 mawk	1.3.3-17+b3
+#15 0.455 mercurial	4.0-1+deb9u1
+#15 0.455 mercurial-common	4.0-1+deb9u1
+#15 0.455 mime-support	3.60
+#15 0.455 mount	2.29.2-1+deb9u1
+#15 0.455 multiarch-support	2.24-11+deb9u4
+#15 0.455 mysql-common	5.8+1.0.2
+#15 0.455 ncurses-base	6.0+20161126-1+deb9u2
+#15 0.455 ncurses-bin	6.0+20161126-1+deb9u2
+#15 0.455 netbase	5.4
+#15 0.455 openssh-client	1:7.4p1-10+deb9u6
+#15 0.455 openssl	1.1.0j-1~deb9u1
+#15 0.455 passwd	1:4.4-4.1
+#15 0.455 patch	2.7.5-1+deb9u1
+#15 0.455 perl	5.24.1-3+deb9u5
+#15 0.455 perl-base	5.24.1-3+deb9u5
+#15 0.455 perl-modules-5.24	5.24.1-3+deb9u5
+#15 0.455 pinentry-curses	1.0.0-2
+#15 0.455 pkg-config	0.29-4+b1
+#15 0.455 procps	2:3.3.12-3+deb9u1
+#15 0.455 python	2.7.13-2
+#15 0.455 python-bzrlib	2.7.0+bzr6619-7+deb9u1
+#15 0.455 python-configobj	5.0.6-2
+#15 0.455 python-minimal	2.7.13-2
+#15 0.455 python-six	1.10.0-3
+#15 0.455 python2.7	2.7.13-2+deb9u3
+#15 0.455 python2.7-minimal	2.7.13-2+deb9u3
+#15 0.455 python3	3.5.3-1
+#15 0.455 python3-minimal	3.5.3-1
+#15 0.455 python3.5	3.5.3-1+deb9u1
+#15 0.455 python3.5-minimal	3.5.3-1+deb9u1
+#15 0.455 readline-common	7.0-3
+#15 0.455 sed	4.4-1
+#15 0.455 sensible-utils	0.0.9+deb9u1
+#15 0.455 shared-mime-info	1.8-1+deb9u1
+#15 0.455 subversion	1.9.5-1+deb9u3
+#15 0.455 sysvinit-utils	2.88dsf-59.9
+#15 0.455 tar	1.29b-1.1
+#15 0.455 tcl	8.6.0+9
+#15 0.455 tcl-dev:amd64	8.6.0+9
+#15 0.455 tcl8.6	8.6.6+dfsg-1+b1
+#15 0.455 tcl8.6-dev:amd64	8.6.6+dfsg-1+b1
+#15 0.455 tk	8.6.0+9
+#15 0.455 tk-dev:amd64	8.6.0+9
+#15 0.455 tk8.6	8.6.6-1+b1
+#15 0.455 tk8.6-dev:amd64	8.6.6-1+b1
+#15 0.455 tzdata	2019a-0+deb9u1
+#15 0.455 ucf	3.0036
+#15 0.455 unzip	6.0-21+deb9u1
+#15 0.455 util-linux	2.29.2-1+deb9u1
+#15 0.455 uuid-dev:amd64	2.29.2-1+deb9u1
+#15 0.455 wget	1.18-5+deb9u3
+#15 0.455 x11-common	1:7.7+19
+#15 0.455 x11proto-core-dev	7.0.31-1
+#15 0.455 x11proto-input-dev	2.3.2-1
+#15 0.455 x11proto-kb-dev	1.0.7-1
+#15 0.455 x11proto-render-dev	2:0.11.1-2
+#15 0.455 x11proto-scrnsaver-dev	1.2.2-1
+#15 0.455 x11proto-xext-dev	7.3.0-1
+#15 0.455 xorg-sgml-doctools	1:1.11-1
+#15 0.455 xtrans-dev	1.3.5-1
+#15 0.455 xz-utils	5.2.2-1.2+b1
+#15 0.455 zlib1g:amd64	1:1.2.8.dfsg-5
+#15 0.455 zlib1g-dev:amd64	1:1.2.8.dfsg-5
+#15 0.455 121981baae779d0ae55ac3c96e46f0de450abe6ebe5f4fad0fff952daf02c8bf  /wheels/numpy-1.19.0rc2-cp37-cp37m-linux_x86_64.whl
+#15 DONE 0.5s
+
+#16 [12/12] RUN python -m pip check && python -m pip freeze > /environment.txt
+#16 0.522 No broken requirements found.
+#16 DONE 0.8s
+
+#17 exporting to image
+#17 exporting layers
+#17 exporting layers 31.0s done
+#17 exporting manifest sha256:16018c2e85db4b042ce1559a126ac1bf76db3ba21f06455d6a1a192fa2c0fbc9 0.0s done
+#17 exporting config sha256:a23f8fa12aaba56411b886b4d05a98eb343b6a575fbf9b90c599b441611ebec7 0.0s done
+#17 exporting attestation manifest sha256:b8acb901a45d8bdeb8b5363a92a25ef6bc1da2d821b05de79d2a29342611a47d 0.0s done
+#17 exporting manifest list sha256:869b6deb283abd536330a54cec36779b955c4fb0af8dafec98c0917f472bdb09 done
+#17 naming to docker.io/library/attest-historical:5283180eab5ab0d1 done
+#17 DONE 31.1s
+
+View build details: docker-desktop://dashboard/build/default/default/nh97kfymxezwqwkpqalzdk7ma
+
+ [33m1 warning found (use docker --debug to expand):
+[0m - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 1)
