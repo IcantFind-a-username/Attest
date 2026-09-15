@@ -178,6 +178,14 @@ def main() -> None:
                         expected_artifacts=("stdout.txt", "stderr.txt", "junit.xml"),
                     )
                     outcome = controller.dispatch(request, adapter, tree=tree, inputs={})
+                    # Persist terminal execution before parsing an untrusted artifact.
+                    job.update(
+                        status="complete",
+                        protocol_accepted=outcome.accepted,
+                        envelope=asdict(outcome.envelope) if outcome.envelope else None,
+                        artifact_sha256={k: sha256_bytes(v) for k, v in outcome.artifacts.items()},
+                    )
+                    write_canonical_json(WORK / "result.json", record)
                     xml = outcome.artifacts.get("junit.xml", b"")
                     counts = validation_junit_counts(xml)
                     nodes, failures = [], []
@@ -202,14 +210,10 @@ def main() -> None:
                         and ((counts[1] == 0) if side == "fixed" else (counts[1] > 0))
                     )
                     job.update(
-                        status="complete",
-                        protocol_accepted=outcome.accepted,
-                        envelope=asdict(outcome.envelope) if outcome.envelope else None,
                         junit_counts=counts,
                         nodes=sorted(nodes),
                         failures=sorted(failures),
                         pattern_matched=matched,
-                        artifact_sha256={k: sha256_bytes(v) for k, v in outcome.artifacts.items()},
                     )
                     pair.append(job)
                     write_canonical_json(WORK / "result.json", record)
