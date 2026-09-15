@@ -59,3 +59,22 @@ An immutable split plus exposure audit and a concise read-only exploration repor
 for overlap, valid metadata, exact revisions and no held-out source access. No production
 implementation or full product test rerun is required for this data/document preparation.
 One bounded independent review verifies the split and claim limits before completion.
+
+## Visible preregistration amendment — administrative mentions
+
+The initial mention-only audit returned zero eligible projects: the old v1 import manifest
+enumerates exclusions for every BugsInPy project. Preserve that initial audit unchanged.
+Before selecting any project or reading its source, distinguish administrative exclusions
+from development exposure. A project is eligible only when its sole recorded reference is
+an exclusion entry in `benchmarks/attest-v1/manifest.json`, it has no entry in that manifest's
+`sources`/`cases`, no other baseline reference or clone origin, and the reasons concern
+pre-patch metadata/licensing checks. Licensing metadata may have been inspected historically;
+this is no evidence of product-driven tuning, but no absolute unseen-source claim is made.
+
+Exclude candidate IDs already recorded as invalid buggy/fixed commits, identical commits or
+missing regression metadata. Require five remaining IDs. Keep the original hash seed and
+repository/instance fraction; instance hash input is exactly
+`attest-repository-holdout-v1|<project>|<bug-id>`. This amendment responds to metadata
+classification, not product outcomes; no Attest evaluation or new project-source read has
+occurred. Unknown or substantive prior exposure still excludes a repository. Preserve both
+audit passes and make this change visible in the final report.
