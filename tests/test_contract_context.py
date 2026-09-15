@@ -10,12 +10,33 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "corpus"))
 
-from context_cases import CASES, measure  # noqa: E402
+from binding_cases import SCENARIOS  # noqa: E402
+from context_cases import CASES, PATCH, measure  # noqa: E402
 
+from attest.benchmark.artifacts import write_canonical_json  # noqa: E402
 from attest.review.contract_context import context_refusal  # noqa: E402
 from attest.review.contracts import find_contracts  # noqa: E402
 
 PROBE = 'from geo import parse\ndef test_probe():\n    _attest_value = parse("1,2")\n'
+
+
+def test_parameter_row_callbacks_cannot_supply_a_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    name = "parameter_row_callback"
+    monkeypatch.setitem(SCENARIOS, name, {
+        "head": ("return Point(int(a), int(b))", "return Point(int(a), int(b) + 1)"),
+        "tests": 'import pytest\nfrom geo import Point, parse\n\n' + PATCH + '\n'
+        '@pytest.mark.parametrize("unused", [install()])\n'
+        'def test_parse(unused):\n    assert parse("1,2") == Point(1, 2)\n',
+        "probe": {"imports": "from geo import parse", "setup": "",
+                  "expression": 'parse("1,2")'},
+    })
+    result = measure(name, tmp_path)
+    write_canonical_json(tmp_path / "trace.json", result)
+    assert all(run["exit"] == 0 for run in result["original_suite"].values())
+    assert result["certification"] != "accepted"
+    assert result["reader_admitted"] is False
 
 
 @pytest.mark.parametrize("name", CASES)
