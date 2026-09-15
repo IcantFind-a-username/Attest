@@ -27,14 +27,26 @@ WORK = ROOT / ".attest/corpora/repository-holdout-runtime"
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.parse_args()
-    if WORK.exists():
+    parser.add_argument("--study", choices=("historical", "swebench"), default="historical")
+    args = parser.parse_args()
+    study = (
+        STUDY if args.study == "historical" else ROOT / "benchmarks/studies/swebench-independent-v1"
+    )
+    work = (
+        WORK
+        if args.study == "historical"
+        else ROOT / ".attest/corpora/swebench-independent-runtime"
+    )
+    for name in ("ATTEST_PIP_CONSTRAINT", "ATTEST_PROJECT_PYTHON"):
+        if os.environ.get(name):
+            raise ValueError("runtime override refused: " + name)
+    if work.exists():
         raise ValueError("runtime preflight requires a fresh work directory")
-    WORK.mkdir(parents=True)
-    (WORK / "tmp").mkdir()
-    tempfile.tempdir = str(WORK / "tmp")
+    work.mkdir(parents=True)
+    (work / "tmp").mkdir()
+    tempfile.tempdir = str(work / "tmp")
     os.environ["TMPDIR"] = tempfile.tempdir
-    config = WORK / "docker-config"
+    config = work / "docker-config"
     config.mkdir()
     plugins = json.loads(
         subprocess.check_output(
@@ -52,30 +64,52 @@ def main() -> None:
     ).strip()
     os.environ["DOCKER_CONFIG"] = str(config)
     os.environ["DOCKER_BUILDKIT"] = "1"
-    frozen_bytes = (STUDY / "frozen-candidates.json").read_bytes()
+    frozen_bytes = (study / "frozen-candidates.json").read_bytes()
     frozen = json.loads(frozen_bytes)
-    population = [r for r in frozen["repositories"] if r["role"] == "held_out"]
-    if len(population) != 4 or sum(len(r["candidates"]) for r in population) != 20:
+    if args.study == "historical":
+        population = [r for r in frozen["repositories"] if r["role"] == "held_out"]
+        expected_repositories, expected_cases = 4, 20
+    else:
+        population = [
+            {
+                "project": r["repo"].replace("/", "__"),
+                "url": "https://github.com/" + r["repo"] + ".git",
+                "candidates": [
+                    {"upstream_case": c["instance_id"], "buggy_sha": c["base_commit"]}
+                    for c in r["selected"]
+                ],
+            }
+            for r in frozen["repositories"]
+            if r["selected"]
+        ]
+        expected_repositories, expected_cases = 2, 6
+    if (
+        len(population) != expected_repositories
+        or sum(len(r["candidates"]) for r in population) != expected_cases
+    ):
         raise ValueError("frozen held-out population drift")
     record: dict = {
         "status": "started",
         "rows": [],
         "model_api_spend_usd": 0,
+        "study": args.study,
+        "runtime_overrides_absent": True,
+        "archive_timeout_s": 60,
         "product_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "product_source_tree": subprocess.check_output(
             ["git", "rev-parse", "HEAD:src"], text=True
         ).strip(),
         "script_sha256": sha256_bytes(Path(__file__).read_bytes()),
-        "protocol_sha256": sha256_bytes((STUDY / "product-runtime-preflight.md").read_bytes()),
+        "protocol_sha256": sha256_bytes((study / "product-runtime-preflight.md").read_bytes()),
         "population_sha256": sha256_bytes(frozen_bytes),
         "builder": {k: buildx[k] for k in ("Name", "Version", "Path")},
         "qualified_defects": 0,
         "qualified_controls": 0,
         "paid_reviews": 0,
     }
-    write_canonical_json(WORK / "result.json", record)
+    write_canonical_json(work / "result.json", record)
     for repository in population:
-        repo = WORK / repository["project"] / "repo"
+        repo = work / repository["project"] / "repo"
         for case in repository["candidates"]:
             label = case["upstream_case"].replace("/", "-")
             row: dict = {
@@ -86,8 +120,8 @@ def main() -> None:
                 "importable": False,
             }
             record["rows"].append(row)
-            write_canonical_json(WORK / "result.json", record)
-            case_work = WORK / "cases" / label
+            write_canonical_json(work / "result.json", record)
+            case_work = work / "cases" / label
             case_work.mkdir(parents=True)
             try:
                 if not repo.exists():
@@ -118,13 +152,13 @@ def main() -> None:
                 if any(line.startswith(b"120000 ") for line in listing.splitlines()):
                     raise ValueError("harness refuses symlink-containing export")
                 tree = case_work / "tree"
-                archive(repo, case["buggy_sha"], tree)
+                archive(repo, case["buggy_sha"], tree, timeout=60)
                 row["python"], row["python_reason"] = project_python(tree)
                 row["packages"] = stub_packages(tree)
                 if not row["packages"]:
                     raise ValueError("no package import could be witnessed")
                 row["stage"] = "build"
-                write_canonical_json(WORK / "result.json", record)
+                write_canonical_json(work / "result.json", record)
                 backend = select_backend(tree, production=True, remaining_s=300)
                 row["backend_reason"] = backend.reason
                 row["profile"] = backend.profile
@@ -156,7 +190,7 @@ def main() -> None:
                     alpha=0.1,
                 )
                 row["stage"] = "collect"
-                write_canonical_json(WORK / "result.json", record)
+                write_canonical_json(work / "result.json", record)
                 result = execute_repro(
                     case_work,
                     candidate,
@@ -175,10 +209,10 @@ def main() -> None:
                 row["status"] = "checked"
             except (ValueError, OSError, subprocess.SubprocessError, StopIteration) as exc:
                 row.update(status="refused", reason=str(exc))
-            write_canonical_json(WORK / "result.json", record)
+            write_canonical_json(work / "result.json", record)
             print(row["case"], row["stage"], row["status"], row["importable"], flush=True)
     record["status"] = "complete"
-    write_canonical_json(WORK / "result.json", record)
+    write_canonical_json(work / "result.json", record)
 
 
 if __name__ == "__main__":
