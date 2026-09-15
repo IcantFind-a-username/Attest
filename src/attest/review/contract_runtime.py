@@ -311,6 +311,7 @@ def read_observation(run: ExecutionResult, site: RuntimeSite) -> tuple[dict[str,
 def _completed_nodes(
     run: ExecutionResult,
     site: RuntimeSite,
+    cases: list[ET.Element] | None,
 ) -> dict[str, tuple[str, bool]] | None:
     if run.outcome not in (ExecutionOutcome.NOT_REPRODUCED, ExecutionOutcome.REPRODUCED):
         return None
@@ -321,11 +322,7 @@ def _completed_nodes(
         or run.xfailed_count
     ):
         return None
-    try:
-        cases = list(ET.fromstring(run.junit_xml).iter("testcase"))
-    except ET.ParseError:
-        return None
-    if len(cases) != run.collected_count:
+    if cases is None or len(cases) != run.collected_count:
         return None
     nodes = {}
     function = site.node.rsplit("::", 1)[-1]
@@ -366,6 +363,7 @@ def interpret_pair(
         "reason": "",
         "receipt_eligible": False,
         "trust": "same-process-shadow",
+        "node_reports": {},
     }
     if head is None or head.assertion != base.assertion or head.node != base.node:
         result["reason"] = "source contract changed or disappeared at head"
@@ -373,9 +371,36 @@ def interpret_pair(
     if set(runs) != {"base-original", "base-observed", "head-original", "head-observed"}:
         result["reason"] = "incomplete paired runs"
         return result
+    case_tables = {}
+    for label, run in runs.items():
+        try:
+            cases = list(ET.fromstring(run.junit_xml).iter("testcase"))
+        except ET.ParseError:
+            cases = None
+        case_tables[label] = cases
+        result["node_reports"][label] = {
+            "count": len(cases) if cases is not None else None,
+            "parse_error": cases is None,
+            "omitted": max(0, len(cases) - 32) if cases is not None else 0,
+            "rows": [
+                {
+                    "name": case.get("name", ""),
+                    "classname": case.get("classname", ""),
+                    "outcome": next(
+                        (
+                            kind
+                            for kind in ("error", "skipped", "failure")
+                            if case.find(kind) is not None
+                        ),
+                        "passed",
+                    ),
+                }
+                for case in (cases or [])[:32]
+            ],
+        }
     outcomes: dict[str, dict[str, tuple[str, bool]]] = {}
     for label, run in runs.items():
-        completed = _completed_nodes(run, base)
+        completed = _completed_nodes(run, base, case_tables[label])
         if completed is None:
             result["reason"] = "nodes did not complete uniquely without skip or executor refusal"
             return result

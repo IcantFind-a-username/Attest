@@ -178,6 +178,13 @@ def test_parameter_rows_bind_by_identity_and_keep_all_outcomes(
         assert [n["node"].split("[")[-1] for n in nodes] == ["first]", "second]"]
         assert [n["status"] for n in nodes] == ["binding_observed", "defer"]
         assert all(n["receipt_eligible"] is False for n in nodes)
+    reports = result["node_reports"]
+    assert len(reports) == 4
+    assert all(r["count"] == 2 and len(r["rows"]) == 2 for r in reports.values())
+    if name == "parameter_changed_ids":
+        assert reports["head-original"]["rows"][0]["name"] == "test_parse[changed]"
+    elif name == "parameter_skipped":
+        assert all(r["outcome"] == "skipped" for r in reports["head-original"]["rows"])
 
 
 @pytest.mark.parametrize(
