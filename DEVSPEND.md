@@ -561,3 +561,14 @@ and paid total unchanged.
 Read-only original package/image retrieval, one successful dependency build, two oracle
 startup failures and one independent review; no model/provider call, product evaluation,
 remote write or push. Approved cap and settled paid total unchanged.
+
+## 2026-09-16 — autonomous evaluation goal, owner paid opt-in
+
+The owner explicitly requests steady autonomous development followed by a paid evaluation
+of actual performance. This is paid opt-in after prerequisites, not a budget increase or
+permission to waive the frozen protocol, semantic/control qualification or artifact smoke.
+Current recorded headroom is $4.542889 against the existing $150 cumulative cap; re-read
+the authoritative total before dispatch and account for any intervening reservations.
+No paid run is reserved or dispatched by this entry. Freeze its protocol and feasible
+minimum sample first, then precharge and checkpoint every paid call. No remote publication,
+push, product default or isolation-policy change is authorized by this spending entry.
