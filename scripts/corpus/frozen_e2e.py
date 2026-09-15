@@ -33,12 +33,16 @@ stage a case that did not publish lost it.
 
 Arms: **S** is the shipped path (no contract search, `attest.intent.v5.1`); **E** is the
 experimental one (`contract_probes = True`, `attest.intent.v6`). Both on identical frozen input.
+D-255: **E61** is the experimental path under `attest.intent.v6.1`. v6 is no longer selectable
+by a review configuration, so **E** and **V6** can no longer run; their records (runs f1..f3)
+are still scored.
 
     .venv/bin/python scripts/corpus/frozen_e2e.py forty --run-id f1 --arm S
     .venv/bin/python scripts/corpus/frozen_e2e.py forty --run-id f1 --arm E
     .venv/bin/python scripts/corpus/frozen_e2e.py counterexamples --run-id f1 --arm E
     .venv/bin/python scripts/corpus/frozen_e2e.py controls --run-id f1 --arm E
     .venv/bin/python scripts/corpus/frozen_e2e.py score --run-id f1
+    .venv/bin/python scripts/corpus/frozen_e2e.py forty --run-id b1 --arm E61 --only <unit,...>
 """
 
 from __future__ import annotations
@@ -61,7 +65,11 @@ sys.path.insert(0, str(ROOT / "scripts" / "corpus"))
 
 from mutation_recall import STUDY, WORK, classify  # noqa: E402
 
-from attest.certification.intent import INTENT_POLICY_V6, INTENT_POLICY_VERSION  # noqa: E402
+from attest.certification.intent import (  # noqa: E402
+    INTENT_POLICY_V6,
+    INTENT_POLICY_V61,
+    INTENT_POLICY_VERSION,
+)
 from attest.review.config import load_config  # noqa: E402
 from attest.review.diffs import DiffInfo, parse_diff  # noqa: E402
 from attest.review.intent import symbol_ranges  # noqa: E402
@@ -76,10 +84,15 @@ CONTROLS = ROOT / ".attest" / "corpora" / "e05-controls"
 PAIRING = ROOT / "docs" / "acceptance" / "evidence" / "2026-09-15-container-pairing"
 ARMS = {
     "S": {"contract_probes": False, "intent_policy": INTENT_POLICY_VERSION},
-    "E": {"contract_probes": True, "intent_policy": INTENT_POLICY_V6},
+    "E61": {"contract_probes": True, "intent_policy": INTENT_POLICY_V61},
     "C51": {"contract_probes": True, "intent_policy": INTENT_POLICY_VERSION},
+}
+# D-255: arms whose policy a review configuration no longer accepts; scored, never run
+RETIRED_ARMS = {
+    "E": {"contract_probes": True, "intent_policy": INTENT_POLICY_V6},
     "V6": {"contract_probes": False, "intent_policy": INTENT_POLICY_V6},
 }
+SCORED_ARMS = {**ARMS, **RETIRED_ARMS}
 K_SAMPLES = 5
 BUDGET_USD = 1.00
 VERIFICATION_TIMEOUT_S = 900.0
@@ -422,9 +435,10 @@ def cmd_controls(args: argparse.Namespace) -> int:
     out = OUT / f"controls-{args.run_id}-{args.arm}.jsonl"
     done = {r["label"] for r in _read_jsonl(out)}
     ledgers: dict[str, list[dict]] = {}
+    only = {s for s in args.only.split(",") if s}
     for row in _read_jsonl(E05_V3 / "sample.jsonl"):
         unit_id = str(row["unit_id"])
-        if unit_id in done or unit_id not in tasks:
+        if unit_id in done or unit_id not in tasks or (only and unit_id not in only):
             continue
         library = str(row["repository"]).split("/")[1]
         repo = CONTROLS / library / "repo"
@@ -499,7 +513,7 @@ def cmd_score(args: argparse.Namespace) -> int:
     sample = {r["unit_id"]: r for r in _read_jsonl(STUDY / "sample.jsonl")}
     summary: dict[str, Any] = {"run_id": args.run_id}
     per_arm: dict[str, dict[str, dict]] = {}
-    for arm in ARMS:
+    for arm in SCORED_ARMS:
         records = {r["label"]: r for r in _read_jsonl(OUT / f"forty-{args.run_id}-{arm}.jsonl")}
         if not records:
             continue
@@ -532,12 +546,14 @@ def cmd_score(args: argparse.Namespace) -> int:
             "fidelity_mismatches": sorted(u for u, c in cases.items() if not c["fidelity"]),
             "spend_usd": round(sum(float(c["spend_usd"]) for c in cases.values()), 6),
         }
-    if "S" in per_arm and "E" in per_arm:
-        s_hits = set(summary["S"]["hits"])
-        e_hits = set(summary["E"]["hits"])
-        summary["E_vs_S"] = {"gained": sorted(e_hits - s_hits), "lost": sorted(s_hits - e_hits)}
+    for experimental in ("E", "E61"):
+        if "S" in per_arm and experimental in per_arm:
+            s_hits = set(summary["S"]["hits"])
+            e_hits = set(summary[experimental]["hits"])
+            summary[f"{experimental}_vs_S"] = {"gained": sorted(e_hits - s_hits),
+                                               "lost": sorted(s_hits - e_hits)}
     for population in ("counterexamples", "controls"):
-        for arm in ARMS:
+        for arm in SCORED_ARMS:
             records = _read_jsonl(OUT / f"{population}-{args.run_id}-{arm}.jsonl")
             if not records:
                 continue
