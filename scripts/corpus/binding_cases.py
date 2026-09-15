@@ -188,6 +188,10 @@ def build(name: str, root: Path) -> tuple[Path, str, str, int]:
     (repo / "geo.py").write_text(GEO_BASE, encoding="utf-8")
     (repo / "tests").mkdir()
     (repo / "tests" / "test_geo.py").write_text(scenario["tests"], encoding="utf-8")
+    for relative, source in scenario.get("files", {}).items():
+        target = repo / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source, encoding="utf-8")
     _git(repo, "add", "--all")
     _git(repo, "commit", "-m", "base")
     base = _git(repo, "rev-parse", "HEAD")
