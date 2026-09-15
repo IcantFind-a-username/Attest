@@ -551,3 +551,8 @@ settled paid total remain unchanged.
 One case, three retained preparation attempts; read-only Git/image/package retrieval,
 dependency installation inside Docker and one independent review. No model calls,
 product review, oracle test job or remote write. Approved cap and paid total unchanged.
+
+**2026-09-16 — D-263 original dependency recovery: $0.00 Attest model/API spend.**
+Read-only official release metadata/archive retrieval and one provenance review;
+no package installation, code execution, model call or remote write. Approved cap
+and paid total unchanged.

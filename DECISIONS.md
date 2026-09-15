@@ -2761,3 +2761,10 @@ is active only when the owning architecture/acceptance document changes with it.
 - Preserve original pins, fixed-test overlay, source revisions and unchanged execution limits. Original artifact recovery precedes another oracle attempt; no silent version or held-out replacement.
 - One review covers r1; final invocation repairs and records are controller-validated, not independently reviewed. API spend $0, no remote/product/default changes; G-CORPUS-001 remains open.
 - Reversal: new authoritative artifact/environment evidence may remove the blocker; retain all prior records. Trace `INV-TRUTH-001`; historical oracle driver, protocol/evidence, report and roadmap only.
+
+### D-263 — Recover original source without claiming environment equivalence
+- 2026-09-16 · archive availability resolved, build unqualified · E-02 preparation; baseline `4558bff`, protocol `e180107`.
+- [Evidence](docs/acceptance/2026-09-16-dependency-recovery.md): official NumPy 1.19.0rc2 source distribution recovered; downloaded bytes match the release-body SHA-256, PKG-INFO matches package/version. No binary recovered or code executed.
+- Keep D-262 installation failure as history. Before reusing the archive, freeze and qualify build/toolchain evidence; retain original pins and all environment failures. No oracle/product/recall result.
+- One independent provenance review and artifact checks; API spend $0, no remote/default changes. Trace `INV-TRUTH-001`, `G-CORPUS-001`; protocol/evidence/report/roadmap only.
+- Reversal: quarantine mismatched provenance with a visible invalidation; no receipt migration or frozen-population replacement. E-02 and environment gates remain open.
