@@ -2708,3 +2708,11 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Measured.** The dotenv line renders the two `Binding` records verbatim (§1b of the 2026-09-12 report); the 16 notes of the 2026-09-11 run are still admitted 16 of 16 under v3 (`test_every_line_of_the_2026_09_11_run_is_admitted_under_the_visible_rule`).
 - **Cost and reversal:** $0.00; the `note_id` is over the measurement and does not move with the rendering.
 - **Trace:** D-142, D-218, D-222, D-230.
+
+
+### D-256 — Readable comments and identity-preserving format repair
+- 2026-09-15 · active · owner-directed presentation follow-up; code `31b5eea`, `3f49cff`, test update `a7d51cc`.
+- Extend D-142/D-204 with counted sections, separate paragraphs, collapsed evidence and visible partial coverage; preserve selected identities on format repair and recheck the fallback.
+- Evidence: [report](docs/acceptance/2026-09-15-readable-comments.md); 6 layouts and 12 comments replayed; final gate 2,498 passed, 93.42% certification/execution coverage.
+- Cost $0; no recall claim or default intent change. Revert these presentation commits if delivery membership or evidence references regress; old receipts need no migration.
+- Trace: `INV-CERT-001`, `INV-PRESENT-001`, `G-CODE-001`; mainline condition 7 and target architecture §9 updated with the implementation.

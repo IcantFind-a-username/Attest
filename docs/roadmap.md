@@ -780,6 +780,14 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-15 — owner-directed presentation follow-up complete (D-256).** Comments now use
+  separate paragraphs and counted sections; format repair preserves published identities.
+  Product code `31b5eea` / `3f49cff`, test correction `a7d51cc`; final local gate:
+  2,498 passed, 0 failed/skipped, certification/execution coverage 93.42%, Ruff and Mypy pass.
+  Six layouts and 12 comments replayed with unchanged receipt/anchor/member identities.
+  [Evidence and limitations](acceptance/2026-09-15-readable-comments.md).
+  This closes the presentation follow-up only; no recall or release gate advances.
+
 ### Next steps (read this first after a model switch; keep it to three items)
 
 1. **The stop is lifted (owner decisions 1-3, 2026-09-03; D-102).** The intent

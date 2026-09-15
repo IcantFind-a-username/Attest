@@ -13,6 +13,13 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ### Fixes
 
+- **Review comments have separate paragraphs and counted evidence sections (D-256).**
+  Reproduction details are collapsed, partial coverage stays visible, and a format failure
+  rebuilds the summary with the same selected identities instead of reporting silence.
+  **Cost in recall or trust:** no discovery, certification or publication-policy change;
+  presentation replay preserved all 12 comment identities. This is not a recall measurement.
+  [Report and examples](docs/acceptance/2026-09-15-readable-comments.md).
+
 - **A file of more than 200 definitions anchors its changed symbol again (D-249).**
   `symbol_ranges` refused such a file whole, so every value receipt on it was drawered as *no
   symbol to specify*: **4 of the 40** injected defects, all in `more_itertools/more.py` (225

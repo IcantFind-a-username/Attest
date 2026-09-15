@@ -300,3 +300,11 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   gains a `checks` job on `pull_request` -- ruff, mypy, `git diff --check`, the wheel build and
   the suite without the container isolation matrix, the red-team matrix and the release drills;
   `gates` keeps those on push to `main`, with the coverage floor.
+
+- **Experimental contract promotion: implicit test context (D-255, retained at D-256).**
+  Autouse fixtures, conftest, setup hooks, plugins, import effects and preceding test state
+  remain outside the reader's binding proof. Keep promotion blocked until the supported
+  context boundary is explicit and tested; recording the risk is not proof of fail-closed admission.
+- **Contract-first selection can mask a certifiable model probe (D-255 diagnostic).**
+  A first differential that cannot certify stops search. Design a precommitted allocation
+  and evaluate gains/losses before changing selection; do not add outcome-aware gate hunting.

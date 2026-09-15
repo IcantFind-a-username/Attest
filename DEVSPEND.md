@@ -368,6 +368,9 @@ D-255's contract-binding repair (the binding scenarios, the rebuilt contract sea
 re-verification, the full gate and run `b1` of the frozen end-to-end driver over the affected
 cases) called no model: **$0.000000**. The independent review ran as a local agent of the
 development session and bought nothing through Attest.
+D-256's comment presentation repair, offline replay and local test gates called no model:
+**$0.000000**. No remote writes. The replay's zero spend/time footer describes rendering,
+not the historical reviews' cost or latency.
 
 ## Window 2026-09-14 (index repair) — four free steps, and the A/B/C probe arms reserved before the first call and not yet dispatched
 
