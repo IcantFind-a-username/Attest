@@ -11,13 +11,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "src"))
+SOURCE = Path(os.environ.get("ATTEST_CONTEXT_SRC", ROOT / "src")).resolve()
+if not SOURCE.is_relative_to(ROOT):
+    raise ValueError("comparison source must be inside this working tree")
+sys.path.insert(0, str(SOURCE))
+
+import attest  # noqa: E402, F401 -- pin package path before binding_cases adds default src
 
 from binding_cases import SCENARIOS, _git, trace  # noqa: E402
 
@@ -57,6 +63,10 @@ CASES = {
     "import_effect": (TEST + "\n" + PATCH + "\ninstall()\n", {}),
     "declared_plugin": (TEST + '\npytest_plugins = ["context_plugin"]\n',
                         {"context_plugin.py": CONFTEST}),
+    "parametrize_ids": (
+        'import pytest\nfrom geo import Point, parse\n\n' + PATCH + '\n'
+        '@pytest.mark.parametrize("unused", [0], ids=install())\n'
+        'def test_parse(unused):\n    assert parse("1,2") == Point(1, 2)\n', {}),
 }
 
 
@@ -98,10 +108,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--work", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--scenarios", default=",".join((*CASES, "legal_contract")))
     args = parser.parse_args()
     args.work.mkdir(parents=True, exist_ok=False)
     results = []
-    for name in (*CASES, "legal_contract"):
+    for name in args.scenarios.split(","):
         row = measure(name, args.work)
         results.append(row)
         print(json.dumps({k: row[k] for k in

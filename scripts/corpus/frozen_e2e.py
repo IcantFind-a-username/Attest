@@ -581,6 +581,7 @@ def cmd_score(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global OUT
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -590,11 +591,14 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--run-id", required=True)
         p.add_argument("--arm", required=True, choices=sorted(ARMS))
         p.add_argument("--only", default="")
+        p.add_argument("--out-dir", type=Path, default=OUT)
         p.set_defaults(func=func)
     s = sub.add_parser("score")
     s.add_argument("--run-id", required=True)
+    s.add_argument("--out-dir", type=Path, default=OUT)
     s.set_defaults(func=cmd_score)
     args = parser.parse_args(argv)
+    OUT = args.out_dir
     return int(args.func(args))
 
 

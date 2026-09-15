@@ -41,8 +41,10 @@ value only when three bindings hold, each recorded on its own:
     not skipped, expected to fail, patched or a generator. The input is bound *at
     that point*: an assignment after the assertion, or one inside a branch, is not
     the input the assertion checks. What the rule cannot read it refuses, with the
-    line. What it does not look at, stated: fixtures (autouse ones, ``conftest``)
-    and helper functions a test calls are not followed.
+    line. Local implicit fixtures, setup hooks, plugin declarations and active
+    test-module bodies are screened by ``contract_context`` (D-257); an unexamined
+    ancestor conftest refuses the contract. Imported code, ambient plugins and
+    state left by earlier tests are not followed; experimental promotion stays blocked.
 
 Everything found is recorded, admitted or not, with the reason: a contract the
 probe did not bind is exactly the fact the next probe needs. Deterministic end
@@ -60,6 +62,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from attest.certification.intent import ContractRecord
+from attest.review.contract_context import context_refusal
 from attest.review.index import TreeIndex, build_index
 from attest.review.intent import (
     MAX_WITNESS_FILE_BYTES,
@@ -1316,6 +1319,8 @@ def _contracts_in(
             continue
         scope = _bindings(tree)
         try:
+            context = context_refusal(root, relative, tree)
+            first = len(found)
             owners = _owners(tree)
             for node in ast.walk(tree):
                 if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -1334,6 +1339,12 @@ def _contracts_in(
                 )
                 if len(found) >= MAX_CONTRACTS * 4:
                     break
+            if context:
+                found[first:] = [
+                    replace(c, admitted=False, flow_bound=False, flow_reason=context,
+                            reason=f"the source's test context is not read: {context}")
+                    for c in found[first:]
+                ]
         except RecursionError:
             continue  # D-255: a file nested beyond the interpreter's depth states nothing read
     return found
@@ -1774,6 +1785,7 @@ def contract_probes(
             continue
         file_scope = _bindings(tree_file)
         try:
+            context = context_refusal(root, relative, tree_file)
             owners = _owners(tree_file)
             for func in ast.walk(tree_file):
                 if not isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -1835,7 +1847,7 @@ def contract_probes(
                     kind, call, in_force = sites[0]
                     site = f"{relative.as_posix()}:{statement.lineno}"
                     # D-255: a contract whose program point the rule cannot read is no probe
-                    flow = flow_refusal(
+                    flow = context or flow_refusal(
                         program_point(
                             func, call, container="raises" if kind == "caller_raises" else ""
                         ),
