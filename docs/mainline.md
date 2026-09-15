@@ -40,6 +40,12 @@ The product is complete when all of the following hold, and not before:
    `review.output_contract`, it calls no model, and **a line that does not conform is not
    published** — for a certified finding the receipt's own sentence is published in its
    place, so wording never suppresses evidence.
+   **Readable layout (2026-09-15):** each finding has one core claim, separated from
+   other findings by a blank paragraph. Summary sections have one heading per evidence
+   class and count only their own displayed entries; empty sections are omitted. Inline
+   reproduction facts and the action are separate paragraphs; test bytes, receipt metadata
+   and logs are collapsed. A format-repair summary retains the selected member identities
+   and is checked again; a formatting failure must never become a false silence claim.
 
 Anything not needed for those seven is not on the mainline. Explicitly off it until after
 L-01: the learned scheduler (S-*), the pricing-layer and F-facet research, controlled
