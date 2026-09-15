@@ -116,7 +116,7 @@ def main() -> None:
                 "audit_references": audit,
                 "contemporary_heldout_count": len(pool),
                 "selected": pool[:3] if repo in ELIGIBLE else [],
-                "reason": "administrative exclusions only; independently review aliases before source access"
+                "reason": "administrative exclusions only; review aliases before source access"
                 if repo in ELIGIBLE
                 else "prior substantive/uncertain exposure; not selected",
             }
