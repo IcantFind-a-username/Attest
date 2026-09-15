@@ -4,7 +4,7 @@ The six negative cases intentionally change the raw parse result while preservin
 the substituted callable. A claim that those tests specify the raw callable is false.
 This is a synthetic certification-boundary experiment, not a product recall estimate.
 Reuses binding_cases' product trace and fixture builder; no model service or remote writes.
-Run with --src to compare the same committed driver against archived product sources.
+Run the committed driver before and after the reader change, in fresh work directories.
 """
 
 from __future__ import annotations
@@ -30,8 +30,7 @@ def test_parse():
     assert parse("1,2") == Point(1, 2)
 '''
 PATCH = '''def install():
-    global parse
-    parse = lambda text: Point(1, 2)
+    globals()["parse"] = lambda text: Point(1, 2)
 '''
 FIXTURE = '''import pytest
 
@@ -44,7 +43,8 @@ from geo import Point
 
 @pytest.fixture(autouse=True)
 def substitute(request, monkeypatch):
-    monkeypatch.setattr(request.module, "parse", lambda text: Point(1, 2))
+    if hasattr(request.module, "parse"):
+        monkeypatch.setattr(request.module, "parse", lambda text: Point(1, 2))
 '''
 CASES = {
     "module_autouse": (TEST + "\n" + FIXTURE, {}),
