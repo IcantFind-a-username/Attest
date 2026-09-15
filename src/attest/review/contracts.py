@@ -604,7 +604,7 @@ def _evaluated_at_definition(statement: ast.AST) -> list[ast.AST]:
     return [statement]
 
 
-def _definition_refusal(statement: ast.stmt, site: int) -> str:
+def _definition_refusal(statement: ast.stmt, site: int, rebound: set[str]) -> str:
     """D-255: a decorator is a call even when it is a bare name, and creating a class
     runs its bases' ``__init_subclass__`` and its metaclass; neither is read."""
     if not isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
@@ -616,7 +616,10 @@ def _definition_refusal(statement: ast.stmt, site: int) -> str:
         )
     if isinstance(statement, ast.ClassDef) and (
         statement.keywords
-        or any(not (isinstance(b, ast.Name) and b.id in _BUILTIN_NAMES) for b in statement.bases)
+        or any(
+            not (isinstance(b, ast.Name) and b.id in _BUILTIN_NAMES and b.id not in rebound)
+            for b in statement.bases
+        )
     ):
         return (
             f"line {statement.lineno} creates the class {statement.name!r} from a base or "
@@ -649,7 +652,9 @@ def _module_facts(module: ast.Module | None) -> _ModuleFacts:
     names, mutable = _module_names(module)
     star = next(
         (
-            n.lineno for n in (module.body if module is not None else ())
+            n.lineno
+            for statement in (module.body if module is not None else ())
+            for n in (statement, *_shallow(statement))
             if isinstance(n, ast.ImportFrom) and any(a.name == "*" for a in n.names)
         ),
         0,
@@ -867,7 +872,7 @@ def _flow_refusal(
                 handed.append(inner.func.value)
             touched = [
                 n for part in handed for n in _free_names(part, keep_builtins=True)
-                if n in local and mutable_local(n)
+                if (n in local and mutable_local(n)) or n in global_ & module_mutable
             ]
             if touched:
                 return (
@@ -955,7 +960,7 @@ def _flow_refusal(
                     f"{site}: an attribute or item read may run code the rule cannot rule out"
                 )
         if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
-            refusal = _definition_refusal(statement, site)
+            refusal = _definition_refusal(statement, site, module_names)
             if refusal:
                 return refusal
             continue  # nothing it runs changes anything (checked above)

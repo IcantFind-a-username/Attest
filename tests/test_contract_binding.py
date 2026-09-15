@@ -766,3 +766,36 @@ def test_the_contract_cap_stops_a_long_scan(tmp_path: Path) -> None:
     )
     found = _contracts_in(tmp_path, "geo.py", ["parse"], ["'Point(x=1, y=1)'"], probe)
     assert MAX_CONTRACTS * 4 <= len(found) < MAX_CONTRACTS * 4 + 4
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            """
+            ITEMS = ["a", "b"]
+            def test_x():
+                assert first(ITEMS, push(ITEMS)) == "b"
+            """, "hands 'ITEMS' to push", id="a mutable module list handed to a call"),
+        pytest.param(
+            """
+            try:
+                from helpers import *
+            except ImportError:
+                pass
+            def test_x():
+                assert first(["a", "b"], 1) == "b"
+            """, "the star import at line 3", id="a star import inside a try"),
+        pytest.param(
+            """
+            list = make_list_type()
+            def test_x():
+                class Sub(list): pass
+                assert first(["a", "b"], 1) == "b"
+            """, "line 4 creates the class 'Sub' from a base",
+            id="a builtin base the module rebinds"),
+    ],
+)
+def test_the_final_checks_shapes_are_refused(source: str, expected: str) -> None:
+    reason = _flow(source, callee="first")
+    assert expected in reason, reason
