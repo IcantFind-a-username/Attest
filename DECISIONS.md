@@ -2789,3 +2789,10 @@ is active only when the owning architecture/acceptance document changes with it.
 - Historical charges $0.158782 are simulated, actual API spend $0. No new recall/precision claim, no all-level presentation result, no remote post. Boltons has an additional generation refusal and a skipped candidate, not six executed probes.
 - One artifact review, no findings; controller seal check, Ruff and hashes pass. Product source/defaults unchanged; no full gate rerun. Independent oracle/semantic/control qualification still precedes paid dispatch.
 - Reversal: invalidate only a contradicted smoke with retained evidence; no population substitution. Trace `INV-TRUTH-001`, `G-CORPUS-001`; protocol/evidence/report/roadmap only.
+
+### D-267 — frozen held-out runtime preflight (2026-09-16)
+- Accepted diagnostic; scope E-02 preparation, no product or factory-policy change.
+- Committed driver/protocol `91214dd`: all 20 attempted, 7 import/collection successes, 8 build refusals, 5 harness symlink refusals; actual API spend $0.
+- Evidence: [report](docs/acceptance/2026-09-16-heldout-runtime.md); source/tests unchanged, one review and final artifact checks; no recall or qualified-defect claim (INV-TRUTH-001, G-MEASURE-004).
+- Two driver limitations retained: override enforcement and unbounded archive; environment check found overrides absent, all rows completed. Fix before unattended reuse.
+- Reversal requires new frozen evidence; historical failures remain. Oracle, direction, semantic/control and paid-protocol qualification still required. Supersedes none.

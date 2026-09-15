@@ -319,3 +319,5 @@ an image-build fix, not a generation fix, and it would have changed none of the 
   reproduction, before a certification proposal. This is a decision package input, not
   authority to promote the prototype. [D-258 evidence](acceptance/2026-09-15-runtime-contract-shadow.md),
   [D-259 evidence](acceptance/2026-09-15-runtime-parameters.md).
+
+- **D-267 diagnostic reuse:** reject and record inherited runtime/constraint overrides and bound archive subprocesses before unattended reuse; current measured run had absent overrides and all 20 terminal rows.

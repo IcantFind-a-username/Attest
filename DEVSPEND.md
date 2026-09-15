@@ -587,3 +587,8 @@ product review or remote write. Approved cap and settled paid total remain uncha
 Two existing development fixtures through FrozenProvider, one sealed receipt check and
 one artifact review. Internal historical charges total $0.158782 and are simulated only.
 No provider API call, paid reservation or remote write; approved cap/paid total unchanged.
+
+**2026-09-16 — D-267 held-out runtime preflight: $0.00 Attest model/API spend.**
+Twenty frozen heads attempted: seven collect-only executions, eight image build refusals,
+five harness export refusals. One independent review, no paid call/reservation or remote
+write. Approved cap and settled paid total unchanged.

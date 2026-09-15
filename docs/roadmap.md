@@ -780,6 +780,12 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-16 — held-out runtime preflight complete (D-267).** Frozen driver `91214dd`
+  attempted all 20 heads: seven import/collection successes, eight build refusals and five
+  harness symlink refusals. [Evidence](acceptance/2026-09-16-heldout-runtime.md). No qualified
+  defects/controls or paid reviews yet; source/defaults unchanged. Next: paired oracle,
+  direction/class and semantic/control qualification before paid dispatch; no phase promotion.
+
 - **2026-09-16 — free product-path smoke passed (D-266).** Commit `19bb9c4`, unchanged
   frozen replay driver: one known itsdangerous fixture certifies and passes sealed offline
   verification; boltons#481 executes four differential probes with no red publication.
