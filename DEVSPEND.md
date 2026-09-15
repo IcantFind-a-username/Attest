@@ -577,3 +577,8 @@ Owner stop instruction: after this development round's final paid evaluation rep
 delivered, stop. Do not tune on that evaluation or start another round. If mandatory
 prerequisites or the approved headroom prevent dispatch, retain the evidence and report
 the blocker instead of treating the stop instruction as authority to bypass a gate.
+
+**2026-09-16 — D-265 serial oracle compatibility: $0.00 Attest model/API spend.**
+Two free container jobs on the existing historical image both fail during collection and
+time out; one independent script/provenance review. No provider call, new image build,
+product review or remote write. Approved cap and settled paid total remain unchanged.

@@ -1,0 +1,119 @@
+WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested
+Fatal Python error: Aborted
+
+Current thread 0x00007ffffe1744c0 (most recent call first):
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/framework/c_api_util.py", line 46 in __init__
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/framework/ops.py", line 2917 in __init__
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/framework/ops.py", line 5465 in _GetGlobalDefaultGraph
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/framework/ops.py", line 5456 in get_default
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/framework/ops.py", line 5874 in get_default_graph
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/client/session.py", line 650 in __init__
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/client/session.py", line 1585 in __init__
+  File "/attest/tree/keras/backend/tensorflow_backend.py", line 186 in get_session
+  File "/attest/tree/keras/backend/tensorflow_backend.py", line 279 in _get_available_gpus
+  File "/attest/tree/tests/keras/engine/test_topology.py", line 16 in <module>
+  File "/usr/local/lib/python3.7/site-packages/_pytest/assertion/rewrite.py", line 152 in exec_module
+  File "<frozen importlib._bootstrap>", line 677 in _load_unlocked
+  File "<frozen importlib._bootstrap>", line 967 in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 983 in _find_and_load
+  File "/usr/local/lib/python3.7/site-packages/py/_path/local.py", line 701 in pyimport
+  File "/usr/local/lib/python3.7/site-packages/_pytest/python.py", line 511 in _importtestmodule
+  File "/usr/local/lib/python3.7/site-packages/_pytest/python.py", line 443 in _getobj
+  File "/usr/local/lib/python3.7/site-packages/_pytest/python.py", line 261 in obj
+  File "/usr/local/lib/python3.7/site-packages/_pytest/python.py", line 459 in _inject_setup_module_fixture
+  File "/usr/local/lib/python3.7/site-packages/_pytest/python.py", line 446 in collect
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 264 in <lambda>
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 244 in from_call
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 264 in pytest_make_collect_report
+  File "/usr/local/lib/python3.7/site-packages/pluggy/callers.py", line 187 in _multicall
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 87 in <lambda>
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 93 in _hookexec
+  File "/usr/local/lib/python3.7/site-packages/pluggy/hooks.py", line 286 in __call__
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 382 in collect_one_node
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 654 in _matchnodes
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 629 in matchnodes
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 574 in _collect
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 498 in collect
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 264 in <lambda>
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 244 in from_call
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 264 in pytest_make_collect_report
+  File "/usr/local/lib/python3.7/site-packages/pluggy/callers.py", line 187 in _multicall
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 87 in <lambda>
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 93 in _hookexec
+  File "/usr/local/lib/python3.7/site-packages/pluggy/hooks.py", line 286 in __call__
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 382 in collect_one_node
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 476 in _perform_collect
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 452 in perform_collect
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 257 in pytest_collection
+  File "/usr/local/lib/python3.7/site-packages/pluggy/callers.py", line 187 in _multicall
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 87 in <lambda>
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 93 in _hookexec
+  File "/usr/local/lib/python3.7/site-packages/pluggy/hooks.py", line 286 in __call__
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 246 in _main
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 191 in wrap_session
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 240 in pytest_cmdline_main
+  File "/usr/local/lib/python3.7/site-packages/pluggy/callers.py", line 187 in _multicall
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 87 in <lambda>
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 93 in _hookexec
+  File "/usr/local/lib/python3.7/site-packages/pluggy/hooks.py", line 286 in __call__
+  File "/usr/local/lib/python3.7/site-packages/_pytest/config/__init__.py", line 125 in main
+  File "<string>", line 1 in <module>
+Fatal Python error: Segmentation fault
+
+Current thread 0x00007ffffe1744c0 (most recent call first):
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/framework/c_api_util.py", line 46 in __init__
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/framework/ops.py", line 2917 in __init__
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/framework/ops.py", line 5465 in _GetGlobalDefaultGraph
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/framework/ops.py", line 5456 in get_default
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/framework/ops.py", line 5874 in get_default_graph
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/client/session.py", line 650 in __init__
+  File "/usr/local/lib/python3.7/site-packages/tensorflow_core/python/client/session.py", line 1585 in __init__
+  File "/attest/tree/keras/backend/tensorflow_backend.py", line 186 in get_session
+  File "/attest/tree/keras/backend/tensorflow_backend.py", line 279 in _get_available_gpus
+  File "/attest/tree/tests/keras/engine/test_topology.py", line 16 in <module>
+  File "/usr/local/lib/python3.7/site-packages/_pytest/assertion/rewrite.py", line 152 in exec_module
+  File "<frozen importlib._bootstrap>", line 677 in _load_unlocked
+  File "<frozen importlib._bootstrap>", line 967 in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 983 in _find_and_load
+  File "/usr/local/lib/python3.7/site-packages/py/_path/local.py", line 701 in pyimport
+  File "/usr/local/lib/python3.7/site-packages/_pytest/python.py", line 511 in _importtestmodule
+  File "/usr/local/lib/python3.7/site-packages/_pytest/python.py", line 443 in _getobj
+  File "/usr/local/lib/python3.7/site-packages/_pytest/python.py", line 261 in obj
+  File "/usr/local/lib/python3.7/site-packages/_pytest/python.py", line 459 in _inject_setup_module_fixture
+  File "/usr/local/lib/python3.7/site-packages/_pytest/python.py", line 446 in collect
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 264 in <lambda>
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 244 in from_call
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 264 in pytest_make_collect_report
+  File "/usr/local/lib/python3.7/site-packages/pluggy/callers.py", line 187 in _multicall
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 87 in <lambda>
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 93 in _hookexec
+  File "/usr/local/lib/python3.7/site-packages/pluggy/hooks.py", line 286 in __call__
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 382 in collect_one_node
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 654 in _matchnodes
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 629 in matchnodes
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 574 in _collect
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 498 in collect
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 264 in <lambda>
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 244 in from_call
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 264 in pytest_make_collect_report
+  File "/usr/local/lib/python3.7/site-packages/pluggy/callers.py", line 187 in _multicall
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 87 in <lambda>
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 93 in _hookexec
+  File "/usr/local/lib/python3.7/site-packages/pluggy/hooks.py", line 286 in __call__
+  File "/usr/local/lib/python3.7/site-packages/_pytest/runner.py", line 382 in collect_one_node
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 476 in _perform_collect
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 452 in perform_collect
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 257 in pytest_collection
+  File "/usr/local/lib/python3.7/site-packages/pluggy/callers.py", line 187 in _multicall
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 87 in <lambda>
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 93 in _hookexec
+  File "/usr/local/lib/python3.7/site-packages/pluggy/hooks.py", line 286 in __call__
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 246 in _main
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 191 in wrap_session
+  File "/usr/local/lib/python3.7/site-packages/_pytest/main.py", line 240 in pytest_cmdline_main
+  File "/usr/local/lib/python3.7/site-packages/pluggy/callers.py", line 187 in _multicall
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 87 in <lambda>
+  File "/usr/local/lib/python3.7/site-packages/pluggy/manager.py", line 93 in _hookexec
+  File "/usr/local/lib/python3.7/site-packages/pluggy/hooks.py", line 286 in __call__
+  File "/usr/local/lib/python3.7/site-packages/_pytest/config/__init__.py", line 125 in main
+  File "<string>", line 1 in <module>

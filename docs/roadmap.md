@@ -780,6 +780,14 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-16 — serial oracle remains environment-unqualified (D-265).** Driver
+  `e849467`, same keras/8 image with `-n 0`: both fixed/buggy jobs reach TensorFlow native
+  graph-creation failure during collection, then the 120 s timeout; zero target tests.
+  [Evidence](acceptance/2026-09-16-serial-oracle.md). One code/provenance review, final
+  artifacts controller-checked. Independent corpus/runtime qualification still blocks
+  paid evaluation; owner paid opt-in and report-then-stop instruction are recorded.
+  No held-out execution, product/default changes or phase advancement.
+
 - **2026-09-16 — historical dependencies install; oracle worker startup blocked (D-264).**
   Driver `32d5b98`, one keras/8 build: all 42 original exact pins install and verify.
   Fixed/buggy jobs both exit 3 when original xdist configuration starts workers under

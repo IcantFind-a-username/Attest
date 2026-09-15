@@ -2775,3 +2775,10 @@ is active only when the owning architecture/acceptance document changes with it.
 - Preserve the original-config failure and stop after the first pair. A separate preregistered serial-launch compatibility arm may diagnose the prerequisite; no dependency, assertion, containment or held-out replacement in this run.
 - One independent code/provenance review, no blocking findings; subsequent run artifacts controller-checked. API spend $0; no product/default/remote changes. Exact versions are not identical historical binaries.
 - Reversal: new qualified runtime evidence may remove the blocker; retain r1. Trace `INV-TRUTH-001`, `G-CORPUS-001`; existing measurement script, study/evidence/report/roadmap only; no gate threshold changes.
+
+### D-265 — Retain serial native-runtime failure as an unqualified oracle
+- 2026-09-16 · E-02 prerequisite blocked at collection · baseline `57fd994`, protocol `c0bf824`, driver `e849467`; owner-directed autonomous evaluation preparation.
+- [Evidence](docs/acceptance/2026-09-16-serial-oracle.md): same keras/8 image/pins/source/oracle, only `-n 0`; both jobs trace native TensorFlow graph-creation failure and time out at 120 s. Zero completed target tests, qualified defects or product evaluations.
+- Original parallel and new serial records remain immutable. Root cause is unresolved; no resource, dependency, plugin or test repair after outcomes and no held-out replacement.
+- One independent script/provenance review, no findings; final artifacts controller-checked. API spend $0, no product/default/remote changes. Paid opt-in exists but does not qualify this environment or waive the remaining corpus/budget gates.
+- Reversal: independently qualified runtime evidence may remove this prerequisite; retain failures. Trace `INV-TRUTH-001`, `G-CORPUS-001`; measurement driver/protocol/evidence/report/roadmap only.
