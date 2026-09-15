@@ -1,0 +1,278 @@
+[
+  {
+    "scenario": "reassigned_after_assert",
+    "policy": "attest.intent.v6.1",
+    "contract_probes": true,
+    "model_calls": 1,
+    "contract_search": {
+      "probes": [
+        "tests/test_geo.py:6#0 norm(text)"
+      ],
+      "refused": [],
+      "chosen": ""
+    },
+    "probe": {
+      "source": "model",
+      "origin": "",
+      "setup": "",
+      "expression": "norm(\"9,9\")"
+    },
+    "outcome": "deferred",
+    "evidence_class": "behavior_change",
+    "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+    "reader": [
+      {
+        "kind": "bound_assertion",
+        "symbol": "norm",
+        "input": "'1,2'",
+        "expected": "Point(1, 2)",
+        "derived": "Point(x=1, y=2)",
+        "pinned": "'Point(x=1, y=2)'",
+        "source": "tests/test_geo.py:6",
+        "call_path": "norm <- tests/test_geo.py::test_norm",
+        "input_bound": false,
+        "evaluated": true,
+        "path_bound": true,
+        "admitted": false,
+        "reason": "the source's input ('1,2') is not the probe's ('9,9')",
+        "standing_at_head": true,
+        "flow_bound": true,
+        "flow_reason": ""
+      }
+    ],
+    "reader_admitted": false,
+    "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+    "certification": "not_attempted",
+    "certification_reason": "execution outcome deferred (behavior_change) buys no receipt"
+  },
+  {
+    "scenario": "receiver_mutated",
+    "policy": "attest.intent.v6.1",
+    "contract_probes": true,
+    "model_calls": 1,
+    "contract_search": {
+      "probes": [],
+      "refused": [
+        [
+          "tests/test_geo.py:7#0",
+          "line 6 touches 'g' between the binding in force and the assertion at line 7: a rebinding, state change, alias or side effect the rule cannot rule out"
+        ]
+      ],
+      "chosen": ""
+    },
+    "probe": {
+      "source": "model",
+      "origin": "",
+      "setup": "g = Grid(width=2)",
+      "expression": "g.cell(Point(1, 2))"
+    },
+    "outcome": "deferred",
+    "evidence_class": "behavior_change",
+    "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+    "reader": [
+      {
+        "kind": "bound_assertion",
+        "symbol": "Grid.cell",
+        "input": "geo.Grid(width=2) :: geo.Point(1, 2)",
+        "expected": "Point(2, 2)",
+        "derived": "Point(x=2, y=2)",
+        "pinned": "'Point(x=2, y=2)'",
+        "source": "tests/test_geo.py:7",
+        "call_path": "Grid.cell <- tests/test_geo.py::test_cell_with_a_cache",
+        "input_bound": true,
+        "evaluated": true,
+        "path_bound": true,
+        "admitted": false,
+        "reason": "the source's program point is not read: line 6 touches 'g' between the binding in force and the assertion at line 7: a rebinding, state change, alias or side effect the rule cannot rule out",
+        "standing_at_head": true,
+        "flow_bound": false,
+        "flow_reason": "line 6 touches 'g' between the binding in force and the assertion at line 7: a rebinding, state change, alias or side effect the rule cannot rule out"
+      }
+    ],
+    "reader_admitted": false,
+    "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+    "certification": "not_attempted",
+    "certification_reason": "execution outcome deferred (behavior_change) buys no receipt"
+  },
+  {
+    "scenario": "unreachable_assert",
+    "policy": "attest.intent.v6.1",
+    "contract_probes": true,
+    "model_calls": 1,
+    "contract_search": {
+      "probes": [],
+      "refused": [
+        [
+          "tests/test_geo.py:6#0",
+          "line 5 returns before the assertion at line 6: no run reaches it"
+        ]
+      ],
+      "chosen": ""
+    },
+    "probe": {
+      "source": "model",
+      "origin": "",
+      "setup": "",
+      "expression": "parse(\"5,6\")"
+    },
+    "outcome": "deferred",
+    "evidence_class": "behavior_change",
+    "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+    "reader": [
+      {
+        "kind": "bound_assertion",
+        "symbol": "parse",
+        "input": "'5,6'",
+        "expected": "Point(5, 6)",
+        "derived": "Point(x=5, y=6)",
+        "pinned": "'Point(x=5, y=6)'",
+        "source": "tests/test_geo.py:6",
+        "call_path": "parse <- tests/test_geo.py::test_parse_disabled",
+        "input_bound": true,
+        "evaluated": true,
+        "path_bound": true,
+        "admitted": false,
+        "reason": "the source's program point is not read: line 5 returns before the assertion at line 6: no run reaches it",
+        "standing_at_head": true,
+        "flow_bound": false,
+        "flow_reason": "line 5 returns before the assertion at line 6: no run reaches it"
+      }
+    ],
+    "reader_admitted": false,
+    "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+    "certification": "not_attempted",
+    "certification_reason": "execution outcome deferred (behavior_change) buys no receipt"
+  },
+  {
+    "scenario": "legal_contract",
+    "policy": "attest.intent.v6.1",
+    "contract_probes": true,
+    "model_calls": 0,
+    "contract_search": {
+      "probes": [
+        "tests/test_geo.py:6#0 parse(text)"
+      ],
+      "refused": [],
+      "chosen": "tests/test_geo.py:6#0"
+    },
+    "probe": {
+      "source": "contract",
+      "origin": "tests/test_geo.py:6#0",
+      "setup": "text = '1,2'",
+      "expression": "parse(text)"
+    },
+    "outcome": "reproduced",
+    "evidence_class": "regression_reproduced",
+    "reason": "head FAIL 3/3, base PASS 3/3",
+    "reader": [
+      {
+        "kind": "bound_assertion",
+        "symbol": "parse",
+        "input": "'1,2'",
+        "expected": "Point(1, 2)",
+        "derived": "Point(x=1, y=2)",
+        "pinned": "'Point(x=1, y=2)'",
+        "source": "tests/test_geo.py:6",
+        "call_path": "parse <- tests/test_geo.py::test_parse",
+        "input_bound": true,
+        "evaluated": true,
+        "path_bound": true,
+        "admitted": true,
+        "reason": "admitted: same input at the assertion's program point, derived value, same entry",
+        "standing_at_head": true,
+        "flow_bound": true,
+        "flow_reason": ""
+      }
+    ],
+    "reader_admitted": true,
+    "verdict": "publishes",
+    "certification": "accepted",
+    "certification_reason": "head FAIL 3/3, base PASS 3/3"
+  },
+  {
+    "scenario": "first_contract_masks_model",
+    "policy": "attest.intent.v6.1",
+    "contract_probes": true,
+    "model_calls": 0,
+    "contract_search": {
+      "probes": [
+        "tests/test_geo.py:5#0 describe(1)"
+      ],
+      "refused": [],
+      "chosen": "tests/test_geo.py:5#0"
+    },
+    "probe": {
+      "source": "contract",
+      "origin": "tests/test_geo.py:5#0",
+      "setup": "",
+      "expression": "describe(1)"
+    },
+    "outcome": "deferred",
+    "evidence_class": "behavior_change",
+    "reason": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+    "reader": [
+      {
+        "kind": "bound_assertion",
+        "symbol": "describe",
+        "input": "1",
+        "expected": "Label('1')",
+        "derived": "",
+        "pinned": "",
+        "source": "tests/test_geo.py:5",
+        "call_path": "describe <- tests/test_geo.py::test_describe_small",
+        "input_bound": true,
+        "evaluated": false,
+        "path_bound": true,
+        "admitted": false,
+        "reason": "the expected side \"Label('1')\" is not a value this reader can derive",
+        "standing_at_head": true,
+        "flow_bound": true,
+        "flow_reason": ""
+      }
+    ],
+    "reader_admitted": false,
+    "verdict": "value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documentation writes it down (返回值变化已证实，意图未知)",
+    "certification": "not_attempted",
+    "certification_reason": "execution outcome deferred (behavior_change) buys no receipt"
+  },
+  {
+    "scenario": "first_contract_masks_model",
+    "policy": "attest.intent.v6.1",
+    "contract_probes": false,
+    "model_calls": 1,
+    "contract_search": null,
+    "probe": {
+      "source": "model",
+      "origin": "",
+      "setup": "",
+      "expression": "describe(9)"
+    },
+    "outcome": "reproduced",
+    "evidence_class": "regression_reproduced",
+    "reason": "head FAIL 3/3, base PASS 3/3",
+    "reader": [
+      {
+        "kind": "bound_assertion",
+        "symbol": "describe",
+        "input": "1",
+        "expected": "Label('1')",
+        "derived": "",
+        "pinned": "",
+        "source": "tests/test_geo.py:5",
+        "call_path": "describe <- tests/test_geo.py::test_describe_small",
+        "input_bound": false,
+        "evaluated": false,
+        "path_bound": true,
+        "admitted": false,
+        "reason": "the source's input (1) is not the probe's (9)",
+        "standing_at_head": true,
+        "flow_bound": true,
+        "flow_reason": ""
+      }
+    ],
+    "reader_admitted": false,
+    "verdict": "publishes",
+    "certification": "accepted",
+    "certification_reason": "head FAIL 3/3, base PASS 3/3"
+  }
+]

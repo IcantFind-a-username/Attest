@@ -364,6 +364,10 @@ contract probes, counterexamples and controls) called no model: **$0.000000**.
 D-254's end-to-end acceptance (frozen proposals and probes over the forty, the counterexamples and
 24 control pull requests, runs `dry`, `f1`..`f3`) called no model: **$0.000000**; the frozen
 provider's per-review spend figures are replayed tokens, not purchases.
+D-255's contract-binding repair (the binding scenarios, the rebuilt contract searches, the bundle
+re-verification, the full gate and run `b1` of the frozen end-to-end driver over the affected
+cases) called no model: **$0.000000**. The independent review ran as a local agent of the
+development session and bought nothing through Attest.
 
 ## Window 2026-09-14 (index repair) — four free steps, and the A/B/C probe arms reserved before the first call and not yet dispatched
 

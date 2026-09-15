@@ -28,6 +28,18 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ### Experimental, off by default
 
+- **`attest.intent.v6.1` replaces v6 as the experimental rule: contracts are bound at the
+  assertion's program point, and the kernel recomputes admission (D-255).** The v6 reader bound a
+  test's names by their last assignment anywhere in the function, ignored a receiver changed after
+  construction, and read assertions no run reaches. In three such tests it admitted the contract
+  and the kernel accepted a receipt. The rule now binds inputs before the call, allows only inert
+  statements there, and refuses every other shape with its line. The kernel no longer trusts the
+  observer's `admitted` flag. A review configuration accepts `v5.1` and `v6.1`; v6 receipts
+  verify as before. **What it costs in recall or in trust:** in trust, it closes those receipts,
+  and offline verification still re-judges the recorded observation without rebuilding bindings
+  from source. In supply, the contract search builds fewer probes: 34 to 25 on the forty, 12 to 0
+  on the controls. Replayed on the affected cases, the three contract gains of D-254 still publish
+  and no affected case changes stage ([report](docs/acceptance/2026-09-15-contract-binding.md)).
 - **Contract probes in the product path (D-254).** With `contract_probes` on, a candidate's probe
   search first screens probes the fixed rule reads from the base tree's own contracts about the
   touched definitions -- no model call -- and asks the model only when none makes the revisions

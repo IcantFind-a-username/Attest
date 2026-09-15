@@ -2484,6 +2484,41 @@ is active only when the owning architecture/acceptance document changes with it.
 - **Cost and reversal:** $0.00; one condition in `note_for`.
 - **Trace:** D-143, D-145, D-150, D-202, D-230.
 
+### D-255 — A contract is bound at its assertion's program point or refused, and the kernel recomputes admission: `attest.intent.v6.1`, experimental
+
+- **Date/status/scope:** 2026-09-15 · active; **experimental and not the default** (`INTENT_POLICY_VERSION` stays `v5.1`; `contract_probes` stays off) · owner instruction of 2026-09-15 ("下一轮只做契约绑定正确性 …") · commits `494758f`, `3c1a9ab`, `81da0bb`, `2bbce06`, `ba91320`; `1773794` (driver) · touches:
+  - **`src/attest/review/contracts.py`:** `ProgramPoint`, `program_point`, `flow_refusal`, `_point_scope`, `_wide_scope` (recognition only), `Call.flow`, per-site scopes in the reader and the generator, source-order setup, the standing key including `flow_bound`, recursion guards.
+  - **`src/attest/certification/intent.py`:** `INTENT_POLICY_V61`, `ContractRecord.flow_bound` / `flow_reason`, `contract_admissible`, `contract_record_problem`, `admitted_contract_values` recomputed under v6.1, the v6 record dropping the two fields.
+  - **`src/attest/review/intent.py`:** no observer merge under v6.1.
+  - **`src/attest/review/evidence.py`:** exact contract fields per version, and the docstring stating what is re-judged.
+  - **`src/attest/review/config.py`:** `INTENT_POLICIES` is v5.1 and v6.1.
+  - **REDs:** `tests/test_contract_binding.py`; the first five fail on `8f27dd2`.
+- **What was wrong.** Traced to the verdict and the kernel on `8f27dd2` under v6:
+  - **Name reassigned after the assertion.** The D-254 reader bound a test's name by its last assignment anywhere in the function.
+  - **Receiver changed after construction.** It read a receiver as its construction whatever happened to it next.
+  - **Unreachable assertion.** It read an assertion no run reaches.
+
+  In all three **the reader admitted the contract and the kernel accepted a receipt** whose "the base tree specifies this value" was false. The same fault refused a legal contract of the first shape. The kernel took the observer's `admitted` flag as evidence.
+- **The rule.**
+  - **Where the input is bound.** A contract's call is read at its program point: a statement of the test body's own level, or the first statement of a single-context `with raises(...)` block there. The input is bound only from the plain assignments in force before it.
+  - **What may stand before it.** Only those assignments and inert statements: no call, await, yield, assignment expression, attribute or item read, store through an attribute or subscript, decorator, or class built from a non-builtin base.
+  - **What else is refused.** A touched local, mutable module value or fixture; a dependency rebound after it is read; a mutable value handed to a call; a rebound or doubly bound callee; a star import; a skip, xfail, usefixtures, indirect or patch mark anywhere on the test, its classes, rows or module; a generator test.
+  - **Where it applies.** Every refusal names its line. The same rule binds the model's replay test and gates the contract-probe generator.
+  - **The kernel.** Under v6.1 it recomputes admission from `input_bound`, `evaluated`, `path_bound`, `standing_at_head`, `flow_bound` and the covered value. It refuses an observation whose flag, covered value or symbol disagrees, and adds admissible contracts' values itself.
+  - **Stated limits.**
+    - Offline verification re-judges the recorded observation and does not rebuild bindings from contract source.
+    - Autouse fixtures, `conftest.py`, `setup_method`/`setUp`, plugins, earlier tests' state and import-time code are not followed.
+- **Measured, the same day, free** ([report](docs/acceptance/2026-09-15-contract-binding.md)).
+  - **The three shapes.** At `ba91320` under v6.1, all three are refused by the reader and never reach the kernel. The legal contract is admitted and certified. The masking diagnostic is unchanged: pinned, not fixed.
+  - **Bundles.** All 109 corpus bundles verify identically before and after (48 v5.1, 61 v6).
+  - **Supply.** On the 74 recorded contract searches, built probes go from 34 to 25 on the forty, 27 to 25 on counterexample variants, and 12 to 0 on controls. The three gained contracts are still built.
+  - **Replay.** Run `b1` (arm `E61`) covers only the affected cases. **None of the 10 affected forty cases changes stage against v6.** `packaging-boundary-08`, `packaging-guard_raise-06` and `urllib3-none_guard-18` still publish through their contract probes, with receipts verifying offline under v6.1. The counterexamples stay at 0 of 3 cases (6 variants) and the two affected controls at 0 red publications.
+  - **Gate.** The full gate under Docker passes on `ba91320`: 2,492 tests, 0 failed, 0 skipped, coverage 93.42%.
+  - **Review.** Three independent review rounds of the certification boundary found no kernel fail-open and reproduced reader shapes, all fixed with tests. The last fix commit was not re-reviewed.
+- **What is not claimed.** No completeness of the rule, no recall figure, no 40-case figure from `b1`, no default change, no paid re-run. Arm `C51` now screens fewer contract probes, because the generator's refusals are shared.
+- **Cost and reversal:** $0.00. Reversal: `INTENT_POLICIES` back to v6 and the reader's function-wide bindings. v6.1 receipts would then fail as an unselectable version, and v6 receipts are unaffected either way.
+- **Trace:** D-121, D-252, D-253, D-254; `AGENTS.md` (independent review for `attest.certification`).
+
 ### D-254 — Contract probes enter the product path, experimental and off: the fixed rule screens the base tree's contracts before the model
 
 - **Date/status/scope:** 2026-09-15 · active; **experimental and off by default** -- the factory `ReviewConfig` is the shipped behaviour exactly (`contract_probes = False`, `intent_policy = attest.intent.v5.1`) · owner instruction of 2026-09-15 ("先把固定规则的契约探针生成接入实验性产品路径，默认保持 v5.1 …") · `src/attest/review/contracts.py` (`contract_probes`, `build_contract_probe`, `ContractProbe`, `ContractSearch`, `MAX_CONTRACT_PROBES = 8`; the v6 observer's index is built in memory rather than cached into the worktree); `src/attest/review/executor.py` (`_choose_probe(contracts=…)`, `execute_differential(contract_probes=…)`, `verify_candidate(contract_probes=…, intent_policy=…)`, `DifferentialExecution.contract_search`, the `contract_search` ledger row `attest.contract-search.v1`, probe `source = "contract"`); `src/attest/review/verification.py` (the stage passes both and certifies under `config.intent_policy`); `src/attest/review/config.py` (`contract_probes`, `intent_policy`, `INTENT_POLICIES`). REDs `tests/test_contract_probes.py` (six; the module does not import on the tree before this entry).
