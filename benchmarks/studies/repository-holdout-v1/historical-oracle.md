@@ -50,3 +50,11 @@ builder, which rejects `--progress=plain`. R2 removes only that logging flag. No
 dependency, timeout, isolation, oracle or outcome rule changes; no dependency installation
 or behavioral outcome was observed in r1. Retain r1 as an invocation failure, not an
 environment incompatibility or defect result.
+
+R2 at `e314439` reached the legacy builder but failed at Dockerfile ENV, before any
+RUN instruction: a required local image content digest was missing. R3 exposes the
+already installed buildx plugin through the private config and explicitly selects
+BuildKit; it does not enable a credential helper or alter daemon/user configuration.
+The exact Python image, Dockerfile package pins and oracle remain unchanged. This is
+the final pre-execution infrastructure repair in this task; preserve both earlier runs.
+No dependency/CPU/test outcome has yet occurred. If r3 fails, report its named blocker.

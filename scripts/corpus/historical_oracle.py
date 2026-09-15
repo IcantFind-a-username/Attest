@@ -61,8 +61,18 @@ def main() -> None:
     ).strip()
     config = work / "docker-config"
     config.mkdir()
-    write_canonical_json(config / "config.json", {})
+    plugins = json.loads(
+        subprocess.check_output(
+            ["docker", "info", "--format", "{{json .ClientInfo.Plugins}}"], text=True, timeout=30
+        )
+    )
+    buildx = next(plugin for plugin in plugins if plugin["Name"] == "buildx")
+    record["builder_plugin"] = {key: buildx[key] for key in ("Name", "Version", "Path")}
+    write_canonical_json(
+        config / "config.json", {"cliPluginsExtraDirs": [str(Path(buildx["Path"]).parent)]}
+    )
     docker_env["DOCKER_CONFIG"] = str(config)
+    docker_env["DOCKER_BUILDKIT"] = "1"
 
     def command(label: str, argv: list[str], timeout: int, *, docker: bool = False) -> bytes:
         stage = {"label": label, "argv": argv, "status": "started"}
