@@ -38,6 +38,16 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
 
 ## 2. Honest baseline
 
+- **2026-09-16 — D-272/D-273 prerequisite limits:** source-mounted imports pass
+  for three of six frozen cases; three remain blocked by pytest arguments.
+  Original-test diagnostics discriminate three repair overlays, but semantic
+  review finds one new capability and two existing-contract defects with no
+  qualified natural-forward pair. The complete code gate is not passed; normal
+  macOS temporary-directory permission and a fixed-HEAD run remain outstanding.
+  Qualified defects/controls are zero and paid evaluation has not started. See
+  [runtime evidence](acceptance/2026-09-16-swebench-source-runtime.md) and
+  [oracle/semantic evidence](acceptance/2026-09-16-swebench-original-oracles.md).
+
 - **2026-09-16 — D-271 compatibility build prerequisite:** the owner-authorized
   uniform experiment built wheels for all six frozen SWE-bench heads. D-270's
   default 0/6 remains separate. Runtime execution, paired truth and controls are

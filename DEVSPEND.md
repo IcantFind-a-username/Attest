@@ -610,3 +610,9 @@ review. No model call, paid reservation, remote write or push. Cap and paid tota
 Six completed wheel builds and one retained interrupted instrumentation attempt;
 one independent review and artifact verification. No paid reservation, provider
 call, push or remote write. Approved cumulative cap and paid total are unchanged.
+
+**2026-09-16 — D-272/D-273 runtime/oracle diagnostics: $0.00 model/API spend.**
+Three retained six-case runtime attempts, original-input freeze, 18 paired human-
+test jobs, independent driver/semantic reviews and local code-gate diagnostics.
+No qualified paid population or provider call, no reservation, push or remote write.
+The complete gate remains unpassed; approved cumulative cap and paid total unchanged.

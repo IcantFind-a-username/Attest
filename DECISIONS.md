@@ -2824,3 +2824,17 @@ Evidence: `docs/acceptance/2026-09-16-swebench-compatible-build.md`; driver `403
 Scope is build feasibility only: D-270's default 0/6 remains; runtime, semantic truth and controls are unqualified. INV-TRUTH-001 and INV-CERT-001 are unchanged; no gate is lowered or default switched.
 Next is generic-fixture and source-mounted runtime qualification with revision-specific generated artifacts; refuse byte drift, unknown binding or missing isolation. No paid dispatch until the existing study minimum and spend gates hold.
 Reversal: any artifact/provenance mismatch invalidates the affected compatibility evidence; retain original records. Affects the compatibility protocol/driver/evidence only; supersedes no product decision.
+
+### D-272 — Source-mounted runtime diagnostic (2026-09-16, partial)
+- E-02 prerequisite; baseline e400ef2, r1/r2/r3 drivers 44b38da/fa465be/4c3b4fa; default, certification and product source unchanged, $0 API spend.
+- [Evidence](docs/acceptance/2026-09-16-swebench-source-runtime.md): r3 imports pass for three scikit-learn cases; three Astropy invocations fail argument parsing. All prior failures remain; no defect/recall claim.
+- One transfer-boundary review's two findings fixed; focused tests, Ruff and mypy pass. Full gate is not passed: mixed HEADs invalidate M01 and temporary-directory settings cause failures; focused environment corrections resolve 17 failures.
+- Fixed-HEAD complete gate and macOS outside-home check remain; system temporary-directory authorization requested under AGENTS 7/16. INV-CERT-001/INV-TRUTH-001 and G-CODE-001 remain unchanged.
+- Reversal requires new bound runtime evidence; no native artifact or diagnostic result becomes certification authority. Supersedes none.
+
+### D-273 — Original tests and semantic triage (2026-09-16, diagnostic)
+- E-02 prerequisite; reader 98c32fa, executed driver c25c7c0; [evidence](docs/acceptance/2026-09-16-swebench-original-oracles.md); product source unchanged and $0 API spend.
+- Three cases discriminate Python repair overlays in three pairs each; 18 executions are not 18 defects. Shared base-native artifacts mean these are diagnostic runs, not revision-specific qualified witnesses.
+- One driver review's identity-counting defect fixed before execution; two product-blind semantic reviews agree on one new capability and two existing-contract defects, with a propagation ambiguity retained.
+- Identified historical API introductions do not supply previously working invocations. Qualified natural-forward defects/controls remain zero; no paid dispatch, no reverse-repair recall, no population replacement.
+- INV-TRUTH-001/G-MEASURE-004 and the existing study minimum remain; preserve all inputs/results. Reversal needs qualified historical pairs and independent controls; supersedes none.

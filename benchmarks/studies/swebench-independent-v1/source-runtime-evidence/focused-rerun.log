@@ -1,0 +1,110 @@
+FFF...........F..                                                        [100%]
+=================================== FAILURES ===================================
+___ test_fail_on_buggy_and_pass_on_fixed_is_confirmed_under_identical_limits ___
+
+tmp_path = PosixPath('[REDACTED]/.attest/cache-disabled-gate/failed-tests/test_fail_on_buggy_and_pass_on0')
+
+    def test_fail_on_buggy_and_pass_on_fixed_is_confirmed_under_identical_limits(
+        tmp_path: Path,
+    ) -> None:
+        buggy_sha, fixed_sha, record, receipt = _repro_case(
+            tmp_path,
+            "def test_average_handles_empty_input():\n"
+            "    average = runpy.run_path('app.py')['average']\n"
+            "    assert average([]) == 0\n",
+        )
+
+>       assert receipt.outcome == "reproduced"
+E       AssertionError: assert 'deferred' == 'reproduced'
+E
+E         - reproduced
+E         + deferred
+
+tests/benchmark/test_runner.py:2287: AssertionError
+__________ test_failing_on_both_trees_is_an_unfaithful_generated_test __________
+
+tmp_path = PosixPath('[REDACTED]/.attest/cache-disabled-gate/failed-tests/test_failing_on_both_trees_is_0')
+
+    def test_failing_on_both_trees_is_an_unfaithful_generated_test(tmp_path: Path) -> None:
+        _, _, _, receipt = _repro_case(
+            tmp_path,
+            "def test_average_is_impossible():\n"
+            "    average = runpy.run_path('app.py')['average']\n"
+            "    assert average([1]) == 99\n",
+        )
+
+        assert receipt.outcome == "deferred"
+>       assert receipt.evidence_class == "unfaithful"
+E       AssertionError: assert 'indeterminate' == 'unfaithful'
+E
+E         - unfaithful
+E         + indeterminate
+
+tests/benchmark/test_runner.py:2311: AssertionError
+_________________ test_passing_on_both_trees_is_not_reproduced _________________
+
+tmp_path = PosixPath('[REDACTED]/.attest/cache-disabled-gate/failed-tests/test_passing_on_both_trees_is_0')
+
+    def test_passing_on_both_trees_is_not_reproduced(tmp_path: Path) -> None:
+        _, _, _, receipt = _repro_case(
+            tmp_path,
+            "def test_average_of_one_value():\n"
+            "    average = runpy.run_path('app.py')['average']\n"
+            "    assert average([2]) == 2\n",
+        )
+
+>       assert receipt.outcome == "not_reproduced"
+E       AssertionError: assert 'deferred' == 'not_reproduced'
+E
+E         - not_reproduced
+E         + deferred
+
+tests/benchmark/test_runner.py:2324: AssertionError
+____ test_verify_candidate_flaky_head_reproduction_defers_without_buying_v _____
+
+tmp_path = PosixPath('[REDACTED]/.attest/cache-disabled-gate/failed-tests/test_verify_candidate_flaky_he0')
+verify_with_defaults = <function verify_with_defaults.<locals>.run at 0x1033c1b20>
+
+    def test_verify_candidate_flaky_head_reproduction_defers_without_buying_v(
+        tmp_path: Path,
+        verify_with_defaults: VerifyWithDefaults,
+    ) -> None:
+
+        repo, base_sha, head_sha = differential_repo(tmp_path)
+        counter = tmp_path / "flaky-counter"
+        body = (
+            "from pathlib import Path\n"
+            f"counter = Path({str(counter)!r})\n"
+            "def test_repro():\n"
+            "    n = int(counter.read_text()) if counter.exists() else 0\n"
+            "    counter.write_text(str(n + 1))\n"
+            "    assert n % 2 == 1\n"
+        )
+        stored = candidate(file="mod.py", line=1)
+        gate = original_gate(stored)
+        provider = RecordingProvider(
+            ProviderResult(text=json.dumps({"test_body": body}), input_tokens=2, output_tokens=3)
+        )
+
+        verification = verify_with_defaults(
+            repo,
+            stored,
+            gate,
+            provider,
+            base_sha=base_sha,
+            head_sha=head_sha,
+        )
+
+        assert verification.execution.outcome is ExecutionOutcome.DEFERRED
+>       assert verification.execution.reason == "flaky reproduction on head (2/3 runs failed)"
+E       AssertionError: assert 'head run 1/3...ork directory' == 'flaky reprod... runs failed)'
+E
+E         - flaky reproduction on head (2/3 runs failed)
+E         + head run 1/3 deferred: reproduction attempted to write outside its work directory
+
+tests/test_executor.py:1870: AssertionError
+=========================== short test summary info ============================
+FAILED tests/benchmark/test_runner.py::test_fail_on_buggy_and_pass_on_fixed_is_confirmed_under_identical_limits
+FAILED tests/benchmark/test_runner.py::test_failing_on_both_trees_is_an_unfaithful_generated_test
+FAILED tests/benchmark/test_runner.py::test_passing_on_both_trees_is_not_reproduced
+FAILED tests/test_executor.py::test_verify_candidate_flaky_head_reproduction_defers_without_buying_v
