@@ -780,6 +780,13 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-16 — free product-path smoke passed (D-266).** Commit `19bb9c4`, unchanged
+  frozen replay driver: one known itsdangerous fixture certifies and passes sealed offline
+  verification; boltons#481 executes four differential probes with no red publication.
+  [Evidence](acceptance/2026-09-16-product-readiness.md). This is deliberate development
+  path coverage, not independent performance. Product-runtime oracle and semantic/control
+  qualification remain the next paid-evaluation prerequisite; no default or phase change.
+
 - **2026-09-16 — serial oracle remains environment-unqualified (D-265).** Driver
   `e849467`, same keras/8 image with `-n 0`: both fixed/buggy jobs reach TensorFlow native
   graph-creation failure during collection, then the 120 s timeout; zero target tests.

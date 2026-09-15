@@ -2782,3 +2782,10 @@ is active only when the owning architecture/acceptance document changes with it.
 - Original parallel and new serial records remain immutable. Root cause is unresolved; no resource, dependency, plugin or test repair after outcomes and no held-out replacement.
 - One independent script/provenance review, no findings; final artifacts controller-checked. API spend $0, no product/default/remote changes. Paid opt-in exists but does not qualify this environment or waive the remaining corpus/budget gates.
 - Reversal: independently qualified runtime evidence may remove this prerequisite; retain failures. Trace `INV-TRUTH-001`, `G-CORPUS-001`; measurement driver/protocol/evidence/report/roadmap only.
+
+### D-266 — Verify the product path separately from historical runtime qualification
+- 2026-09-16 · free smoke passed, independent evaluation not qualified · baseline `3d91427`, measured commit `19bb9c4`, unchanged frozen_e2e driver.
+- [Evidence](docs/acceptance/2026-09-16-product-readiness.md): known development fixtures itsdangerous-boundary-07 and boltons#481; 1 accepted/sealed receipt and red publication selection versus 0, with 1 and 4 actual differential probes. Candidate fidelity matches; no protocol-name refusal.
+- Historical charges $0.158782 are simulated, actual API spend $0. No new recall/precision claim, no all-level presentation result, no remote post. Boltons has an additional generation refusal and a skipped candidate, not six executed probes.
+- One artifact review, no findings; controller seal check, Ruff and hashes pass. Product source/defaults unchanged; no full gate rerun. Independent oracle/semantic/control qualification still precedes paid dispatch.
+- Reversal: invalidate only a contradicted smoke with retained evidence; no population substitution. Trace `INV-TRUTH-001`, `G-CORPUS-001`; protocol/evidence/report/roadmap only.

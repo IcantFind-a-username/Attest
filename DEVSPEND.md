@@ -582,3 +582,8 @@ the blocker instead of treating the stop instruction as authority to bypass a ga
 Two free container jobs on the existing historical image both fail during collection and
 time out; one independent script/provenance review. No provider call, new image build,
 product review or remote write. Approved cap and settled paid total remain unchanged.
+
+**2026-09-16 — D-266 free product-path smoke: $0.00 Attest model/API spend.**
+Two existing development fixtures through FrozenProvider, one sealed receipt check and
+one artifact review. Internal historical charges total $0.158782 and are simulated only.
+No provider API call, paid reservation or remote write; approved cap/paid total unchanged.
