@@ -10,6 +10,7 @@ Run the committed driver before and after the reader change, in fresh work direc
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import os
 import subprocess
@@ -23,7 +24,7 @@ if not SOURCE.is_relative_to(ROOT):
     raise ValueError("comparison source must be inside this working tree")
 sys.path.insert(0, str(SOURCE))
 
-import attest  # noqa: E402, F401 -- pin package path before binding_cases adds default src
+importlib.import_module("attest")  # pin package path before binding_cases adds default src
 
 from binding_cases import SCENARIOS, _git, trace  # noqa: E402
 
