@@ -165,7 +165,6 @@ def main() -> None:
                 "build",
                 "--platform",
                 "linux/amd64",
-                "--progress=plain",
                 "-t",
                 tag,
                 str(context),

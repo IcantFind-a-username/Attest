@@ -41,3 +41,12 @@ matrix, touch certification, call models, or publish. An unsupported CPU, depend
 collection or process-policy requirement is a named blocker, not a reason to mutate the
 experiment until it succeeds. One independent review; script lint and artifact checks.
 No product behavior change, RED or full product gate. All original records stay immutable.
+
+## Visible invocation repair
+
+Run r1 at `95e5e45` acquired/exported both revisions and pulled the pinned Python image,
+then Docker exited 125 before building: the private configuration exposes the legacy
+builder, which rejects `--progress=plain`. R2 removes only that logging flag. No image,
+dependency, timeout, isolation, oracle or outcome rule changes; no dependency installation
+or behavioral outcome was observed in r1. Retain r1 as an invocation failure, not an
+environment incompatibility or defect result.
