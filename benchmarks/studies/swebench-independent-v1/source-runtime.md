@@ -53,3 +53,18 @@ This narrows transfer to the originally intended runtime artifacts; no new file
 type is admitted. Reuse the generic control and all six original cases in order.
 The in-progress local gate at `44b38da` is superseded, retained as partial, and
 will not be claimed as a pass. No product source or isolation setting changes.
+
+## Test dependency build completion
+
+The second invocation completed: the generic fixture passed; three Astropy calls
+stopped at pytest argument parsing, and three scikit-learn runtime image builds
+failed because the declared test dependency pyamg needs C++ compilation. No corpus
+test body ran. Retain all six rows and logs unchanged.
+
+The third invocation uses `swebench-source-runtime-r3`. Complete the authorized
+compiler/runtime separation uniformly: the existing digest-pinned full builder
+first makes wheels for the main package, pytest and declared test dependencies;
+the slim runtime installs only from that wheelhouse with `--no-index`. Compiler
+permissions are not added to runtime. Date upper bounds, selected extras, source
+transfer, case order and guards remain unchanged. The Astropy pytest argument
+issue is not repaired by this recipe and no success is presumed for it.

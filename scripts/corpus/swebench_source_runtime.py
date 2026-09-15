@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 STUDY = ROOT / "benchmarks/studies/swebench-independent-v1"
 BUILDS = ROOT / ".attest/corpora/swebench-compatible-build"
 PREVIOUS = ROOT / ".attest/corpora/swebench-independent-runtime"
-WORK = ROOT / ".attest/corpora/swebench-source-runtime-r2"
+WORK = ROOT / ".attest/corpora/swebench-source-runtime-r3"
 
 
 def constraints(wheel: Path, cutoff: str) -> tuple[str, str]:
@@ -82,7 +82,7 @@ def build(
 def check_runtime(
     directory: Path, tree: Path, wheel: Path, revision: str, wheel_digest: str,
     expected_revision: str, cutoff: str, runtime: str, env: dict[str, str], state: dict, *,
-    fixture: bool = False,
+    builder: str, fixture: bool = False,
 ) -> dict:
     state["stage"] = "transfer"
     packages = tuple(stub_packages(tree))
@@ -102,12 +102,18 @@ def check_runtime(
     (directory / "constraints.txt").write_text(pins)
     shutil.copyfile(wheel, directory / wheel.name)
     dockerfile = (
+        f"FROM {builder} AS dependencies\n"
+        "COPY constraints.txt /constraints.txt\nENV PIP_CONSTRAINT=/constraints.txt\n"
+        f"COPY {wheel.name} /wheel/{wheel.name}\n"
+        "RUN python -m pip wheel --wheel-dir /wheelhouse pip pytest"
+        f" '/wheel/{wheel.name}{extras}'\n"
         f"FROM {runtime}\n"
         "RUN apt-get update && apt-get install -y --no-install-recommends libgomp1"
         " && rm -rf /var/lib/apt/lists/*\n"
         "COPY constraints.txt /constraints.txt\nENV PIP_CONSTRAINT=/constraints.txt\n"
-        f"COPY {wheel.name} /wheel/{wheel.name}\n"
-        f"RUN python -m pip install pip pytest '/wheel/{wheel.name}{extras}'\n"
+        "COPY --from=dependencies /wheelhouse /wheelhouse\n"
+        "RUN python -m pip install --no-index --find-links /wheelhouse"
+        f" pip pytest '/wheelhouse/{wheel.name}{extras}'\n"
         "RUN python -m pip freeze > /runtime-freeze.txt\n"
     )
     state["stage"] = "runtime_image"
@@ -183,7 +189,8 @@ def check_fixture(build_record: dict, runtime: str, env: dict[str, str], state: 
         raise ValueError("fixture wheel count")
     return check_runtime(
         fixture, tree, wheels[0], "f" * 40, sha256_bytes(wheels[0].read_bytes()), "f" * 40,
-        "2022-05-09T14:16:30Z", runtime, env, state, fixture=True,
+        "2022-05-09T14:16:30Z", runtime, env, state,
+        builder=build_record["builder_reference"], fixture=True,
     )
 
 
@@ -257,7 +264,7 @@ def main() -> None:
             row.update(check_runtime(
                 directory, tree, wheel, case["base_commit"],
                 prior["artifacts"]["wheels/" + wheel.name], prior["revision"],
-                case["created_at"], runtime, env, row,
+                case["created_at"], runtime, env, row, builder=build_record["builder_reference"],
             ))
             row["status"] = "checked"
         except (
