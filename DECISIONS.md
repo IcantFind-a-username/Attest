@@ -2716,3 +2716,11 @@ is active only when the owning architecture/acceptance document changes with it.
 - Evidence: [report](docs/acceptance/2026-09-15-readable-comments.md); 6 layouts and 12 comments replayed; final gate 2,498 passed, 93.42% certification/execution coverage.
 - Cost $0; no recall claim or default intent change. Revert these presentation commits if delivery membership or evidence references regress; old receipts need no migration.
 - Trace: `INV-CERT-001`, `INV-PRESENT-001`, `G-CODE-001`; mainline condition 7 and target architecture §9 updated with the implementation.
+
+### D-257 — Refuse unexamined local contract context
+- 2026-09-15 · active experimental repair · owner-directed; code `2dc8823` / `e540e0d`, default v5.1 unchanged.
+- Generator and observer independently screen local test context; active conftest, hooks, decorators and executable parameter rows refuse admission. Kernel/schema/selection unchanged.
+- [Evidence](docs/acceptance/2026-09-15-contract-context.md): 7 declared reasonable-change miscertifications become 0; legal positive retained; selected six product cases publish 4→1, losing all three contract gains. No new forty recall claim.
+- Gate `e540e0d`: 2,526 passed, 93.42% certification/execution coverage; one independent review's decorator finding reproduced and fixed. API spend $0; no remote writes.
+- Full context proof and promotion remain blocked; transitive imports, ambient plugins and prior state are unproved. Reversal requires new revert commits and retained evidence; does not supersede D-255 historical observations.
+- Trace: `INV-CERT-001`, `INV-TRUTH-001`, `G-CODE-001`; `review/contracts.py`, `review/contract_context.py` and three contract test modules. No acceptance threshold or target invariant changed.

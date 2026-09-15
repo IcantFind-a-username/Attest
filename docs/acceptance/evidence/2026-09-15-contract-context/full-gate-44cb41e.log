@@ -1,0 +1,723 @@
+........................................................................ [  2%]
+........................................................................ [  5%]
+....................................................................FF.. [  8%]
+.................................................FFFFFFFFFFFFFF......... [ 11%]
+.....................
+=================================== FAILURES ===================================
+_____________ test_compare_cli_runs_three_arms_offline_end_to_end ______________
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_compare_cli_runs_three_ar0')
+
+    def test_compare_cli_runs_three_arms_offline_end_to_end(tmp_path: Path) -> None:
+        """The CLI mode uses recorded cassettes and a local ruff executable only,
+        and refuses accuracy when given only a historical v1 receipt."""
+        manifest_path, root, replay_id, control_id = _comparison_fixture(tmp_path)
+        cassettes_dir = tmp_path / "cassettes"
+        cassettes_dir.mkdir()
+        (cassettes_dir / f"{replay_id}.json").write_text(
+            json.dumps(
+                {"proposal": _PROPOSAL, "repro": _REPRO, "input_tokens": 800, "output_tokens": 200}
+            ),
+            encoding="utf-8",
+        )
+        (cassettes_dir / f"{control_id}.json").write_text(
+            json.dumps(
+                {
+                    "proposal": json.dumps({"findings": []}),
+                    "repro": json.dumps({"test_body": ""}),
+                    "input_tokens": 800,
+                    "output_tokens": 200,
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipt_path, results_path = _receipt_artifacts(tmp_path, manifest_path)
+        environment = dict(os.environ)
+        environment["ANTHROPIC_API_KEY"] = "must-not-be-used"
+        output = tmp_path / "out"
+    
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "compare",
+                "--manifest",
+                str(manifest_path),
+                "--cassette-root",
+                str(cassettes_dir),
+                "--root",
+                str(root),
+                "--output",
+                str(output),
+                "--validation-receipt",
+                str(receipt_path),
+                "--validation-results",
+                str(results_path),
+                "--ruff-executable",
+                _ruff_executable(),
+                "--k-samples",
+                "2",
+                "--differential-repeats",
+                "1",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+    
+>       assert completed.returncode == 3, completed.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/Users/franz/Desktop/Attest/scripts/benchmark.py", line 16, in <module>
+E             from attest.benchmark.api import (
+E         ModuleNotFoundError: No module named 'attest'
+E         
+E       assert 1 == 3
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_baselines.py:3813: AssertionError
+_____ test_compare_cli_rejects_v2_hmac_authority_before_offline_execution ______
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_compare_cli_rejects_v2_hm0')
+
+    def test_compare_cli_rejects_v2_hmac_authority_before_offline_execution(
+        tmp_path: Path,
+    ) -> None:
+        """Local checkout execution cannot share the V2 symmetric verification key."""
+        manifest_path, root, replay_id, control_id = _comparison_fixture(tmp_path)
+        cassettes_dir = tmp_path / "v2-cassettes"
+        cassettes_dir.mkdir()
+        (cassettes_dir / f"{replay_id}.json").write_text(
+            json.dumps(
+                {
+                    "proposal": _PROPOSAL,
+                    "repro": _REPRO,
+                    "input_tokens": 800,
+                    "output_tokens": 200,
+                }
+            ),
+            encoding="utf-8",
+        )
+        (cassettes_dir / f"{control_id}.json").write_text(
+            json.dumps(
+                {
+                    "proposal": json.dumps({"findings": []}),
+                    "repro": json.dumps({"test_body": ""}),
+                    "input_tokens": 800,
+                    "output_tokens": 200,
+                }
+            ),
+            encoding="utf-8",
+        )
+        bundle = build_validation_v2_bundle(tmp_path / "compare-v2-authority", manifest_path, root)
+        key_file = tmp_path / "compare-authority.key"
+        key_file.write_bytes(KEY)
+        output = tmp_path / "compare-v2-out"
+    
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "compare",
+                "--manifest",
+                str(manifest_path),
+                "--cassette-root",
+                str(cassettes_dir),
+                "--root",
+                str(root),
+                "--output",
+                str(output),
+                "--validation-receipt",
+                str(bundle.receipt_path),
+                "--validation-results",
+                str(bundle.results_path),
+                "--validation-artifacts",
+                str(bundle.artifact_root),
+                "--validation-provenance-key-id",
+                KEY_ID,
+                "--validation-provenance-key-file",
+                str(key_file),
+                "--ruff-executable",
+                _ruff_executable(),
+                "--k-samples",
+                "2",
+                "--differential-repeats",
+                "1",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    
+>       assert completed.returncode == 2
+E       assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_baselines.py:3937: AssertionError
+___________ test_import_bugsinpy_cli_requires_existing_local_source ____________
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_import_bugsinpy_cli_requi0')
+
+    def test_import_bugsinpy_cli_requires_existing_local_source(tmp_path: Path) -> None:
+        """A typo must not make import clone or discover a corpus from the network."""
+        completed = _run(
+            "import-bugsinpy",
+            "--source",
+            str(tmp_path / "missing"),
+            "--output",
+            str(tmp_path / "manifest.json"),
+            "--limit",
+            "1",
+            "--seed",
+            "7",
+        )
+    
+>       assert completed.returncode == 2
+E       assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:44: AssertionError
+____________ test_import_bugsinpy_cli_prints_deterministic_summary _____________
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_import_bugsinpy_cli_print0')
+
+    def test_import_bugsinpy_cli_prints_deterministic_summary(tmp_path: Path) -> None:
+        """CLI output must expose selected and excluded counts without timestamps or path noise."""
+        source, _ = _source(tmp_path, bug_count=2)
+        output = tmp_path / "manifest.json"
+    
+        completed = _run(
+            "import-bugsinpy",
+            "--source",
+            str(source),
+            "--project-cache",
+            str(tmp_path / "project-cache"),
+            "--output",
+            str(output),
+            "--limit",
+            "1",
+            "--seed",
+            "7",
+        )
+    
+>       assert completed.returncode == 0
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:71: AssertionError
+_____ test_validate_offline_never_invokes_network_provider_or_credentials ______
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_validate_offline_never_in0')
+
+    def test_validate_offline_never_invokes_network_provider_or_credentials(tmp_path: Path) -> None:
+        """Offline validation must remain local even when tempting credentials and tools exist."""
+        manifest = tmp_path / "manifest.json"
+        manifest.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1",
+                    "protocol_version": "1",
+                    "corpus_commit": "a" * 64,
+                    "cases": [],
+                    "truth_defects": [],
+                    "runtime": [],
+                    "exclusions": [
+                        {"upstream_case": "sample/1", "reason": "source_license_missing"}
+                    ],
+                }
+            )
+        )
+        traps = tmp_path / "traps"
+        traps.mkdir()
+        marker = tmp_path / "invoked"
+        for command in ("git", "gh", "curl"):
+            trap = traps / command
+            trap.write_text(f"#!/bin/sh\ntouch '{marker}'\nexit 99\n")
+            trap.chmod(0o755)
+        environment = dict(os.environ)
+        environment.update(
+            {
+                "PATH": str(traps),
+                "ANTHROPIC_API_KEY": "must-not-be-used",
+                "OPENAI_API_KEY": "must-not-be-used",
+            }
+        )
+    
+        first = _run("validate", "--manifest", str(manifest), "--offline", env=environment)
+        second = _run("validate", "--manifest", str(manifest), "--offline", env=environment)
+    
+>       assert first.returncode == 3
+E       assert 1 == 3
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:118: AssertionError
+________ test_validate_offline_without_prepared_root_excludes_each_pair ________
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_validate_offline_without_0')
+
+    def test_validate_offline_without_prepared_root_excludes_each_pair(tmp_path: Path) -> None:
+        """Default validation cannot silently treat an unmaterialized pair as a negative."""
+        source, _ = _source(tmp_path, bug_count=1)
+        manifest = tmp_path / "manifest.json"
+        imported = __import__("attest.benchmark.corpus", fromlist=["import_bugsinpy"])
+        document = imported.import_bugsinpy(source, manifest, limit=1, seed=1)
+    
+        completed = _run("validate", "--manifest", str(manifest), "--offline")
+    
+>       assert completed.returncode == 3
+E       assert 1 == 3
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:148: AssertionError
+_ test_validate_prepared_root_requires_verified_isolation_and_keeps_evidence_unsigned _
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_validate_prepared_root_re0')
+
+    def test_validate_prepared_root_requires_verified_isolation_and_keeps_evidence_unsigned(
+        tmp_path: Path,
+    ) -> None:
+        """A flag or passthrough wrapper cannot turn diagnostics into scoring authority."""
+        manifest, root, source_id = _oracle_fixture(tmp_path)
+        receipt = tmp_path / "validation-receipt.json"
+        results = tmp_path / "validation-results.json"
+    
+        refused = _run(
+            "validate",
+            "--manifest",
+            str(manifest),
+            "--offline",
+            "--root",
+            str(root),
+            "--python",
+            f"{source_id}={sys.executable}",
+        )
+>       assert refused.returncode == 2
+E       assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:176: AssertionError
+_ test_validate_cli_rejects_legacy_v2_signing_before_nonempty_untrusted_runner _
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_validate_cli_rejects_lega0')
+
+    def test_validate_cli_rejects_legacy_v2_signing_before_nonempty_untrusted_runner(
+        tmp_path: Path,
+    ) -> None:
+        """Legacy V2 signing inputs fail before the unsigned corpus runner executes."""
+        manifest, prepared_root, source_id = _oracle_fixture(tmp_path)
+        marker = tmp_path / "untrusted-runner-invoked"
+        wrapper = tmp_path / "marker-wrapper"
+        wrapper.write_text(f"#!/bin/sh\ntouch '{marker}'\nexit 99\n", encoding="utf-8")
+        wrapper.chmod(0o755)
+        receipt = tmp_path / "issued-receipt.json"
+        results = tmp_path / "issued-results.json"
+        artifacts = tmp_path / "issued-artifacts"
+        key_file = tmp_path / "issuer.key"
+        raw_key = b"issuer-test-key-preserves-trailing-newline\n"
+        key_file.write_bytes(raw_key)
+        base = (
+            "validate",
+            "--manifest",
+            str(manifest),
+            "--offline",
+            "--root",
+            str(prepared_root),
+            "--python",
+            f"{source_id}={sys.executable}",
+            "--isolation-wrapper",
+            str(wrapper),
+        )
+        refused = _run(
+            *base,
+            "--receipt-out",
+            str(receipt),
+            "--validation-results-out",
+            str(results),
+            "--validation-artifacts",
+            str(artifacts),
+            "--validation-provenance-key-id",
+            KEY_ID,
+            "--validation-provenance-key-file",
+            str(key_file),
+        )
+>       assert refused.returncode == 2
+E       assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:280: AssertionError
+__ test_validate_cli_preserves_legacy_output_compatibility_without_authority ___
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_validate_cli_preserves_le0')
+
+    def test_validate_cli_preserves_legacy_output_compatibility_without_authority(
+        tmp_path: Path,
+    ) -> None:
+        """Old output flags remain inert compatibility inputs for unsigned validate."""
+        manifest, _, _ = _oracle_fixture(tmp_path)
+        ignored = tmp_path / "ignored.json"
+    
+        rootless_single = _run(
+            "validate",
+            "--manifest",
+            str(manifest),
+            "--offline",
+            "--receipt-out",
+            str(ignored),
+        )
+    
+>       assert rootless_single.returncode == 3, rootless_single.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/Users/franz/Desktop/Attest/scripts/benchmark.py", line 16, in <module>
+E             from attest.benchmark.api import (
+E         ModuleNotFoundError: No module named 'attest'
+E         
+E       assert 1 == 3
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:305: AssertionError
+____ test_verify_validation_cli_is_pure_offline_and_reports_exact_failures _____
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_verify_validation_cli_is_0')
+
+    def test_verify_validation_cli_is_pure_offline_and_reports_exact_failures(
+        tmp_path: Path,
+    ) -> None:
+        """Current V2 authority is CLI-reachable only at a non-executing boundary."""
+        manifest, root, _ = _oracle_fixture(tmp_path)
+        bundle = build_validation_v2_bundle(tmp_path / "verification", manifest, root)
+        key_file = tmp_path / "verification.key"
+        key_file.write_bytes(KEY)
+        arguments = (
+            "verify-validation",
+            "--manifest",
+            str(manifest),
+            "--validation-receipt",
+            str(bundle.receipt_path),
+            "--validation-results",
+            str(bundle.results_path),
+            "--validation-artifacts",
+            str(bundle.artifact_root),
+            "--validation-provenance-key-id",
+            KEY_ID,
+            "--validation-provenance-key-file",
+            str(key_file),
+        )
+    
+        verified = _run(*arguments)
+    
+>       assert verified.returncode == 0, verified.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/Users/franz/Desktop/Attest/scripts/benchmark.py", line 16, in <module>
+E             from attest.benchmark.api import (
+E         ModuleNotFoundError: No module named 'attest'
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:336: AssertionError
+____ test_replay_without_prepared_root_excludes_each_case_and_stays_offline ____
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_replay_without_prepared_r0')
+
+    def test_replay_without_prepared_root_excludes_each_case_and_stays_offline(
+        tmp_path: Path,
+    ) -> None:
+        """Replay never turns a missing environment into a negative, and never
+        reaches git, gh, curl, or a credentialed provider."""
+        source, _ = _source(tmp_path, bug_count=1)
+        manifest = tmp_path / "manifest.json"
+        imported = __import__("attest.benchmark.corpus", fromlist=["import_bugsinpy"])
+        imported.import_bugsinpy(source, manifest, limit=1, seed=1)
+        traps = tmp_path / "traps"
+        traps.mkdir()
+        marker = tmp_path / "invoked"
+        for command in ("git", "gh", "curl"):
+            trap = traps / command
+            trap.write_text(f"#!/bin/sh\ntouch '{marker}'\nexit 99\n")
+            trap.chmod(0o755)
+        environment = dict(os.environ)
+        environment.update(
+            {
+                "PATH": str(traps),
+                "ANTHROPIC_API_KEY": "must-not-be-used",
+                "OPENAI_API_KEY": "must-not-be-used",
+            }
+        )
+    
+        first = _run(
+            "replay",
+            "--manifest",
+            str(manifest),
+            "--cassette-root",
+            str(tmp_path / "cassettes"),
+            "--output",
+            str(tmp_path / "out-1"),
+            env=environment,
+        )
+        second = _run(
+            "replay",
+            "--manifest",
+            str(manifest),
+            "--cassette-root",
+            str(tmp_path / "cassettes"),
+            "--output",
+            str(tmp_path / "out-2"),
+            env=environment,
+        )
+    
+>       assert first.returncode == 3
+E       assert 1 == 3
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:415: AssertionError
+_________ test_replay_with_a_prepared_root_runs_the_real_product_path __________
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_replay_with_a_prepared_ro0')
+
+    def test_replay_with_a_prepared_root_runs_the_real_product_path(tmp_path: Path) -> None:
+        """A prepared checkout plus a cassette replays the whole product path offline.
+    
+        The corpus has no manifest-bound validation receipt yet, so the same run
+        that measures latency and spend must refuse to publish accuracy (D-019),
+        and must say which authorisation is missing.
+        """
+        from attest.benchmark.artifacts import verify_artifacts
+    
+        manifest, root, cassettes, _, _ = _replay_fixture(tmp_path)
+        environment = dict(os.environ)
+        environment["ANTHROPIC_API_KEY"] = "must-not-be-used"
+        output = tmp_path / "out"
+    
+        completed = _run(
+            "replay",
+            "--manifest",
+            str(manifest),
+            "--cassette-root",
+            str(cassettes),
+            "--root",
+            str(root),
+            "--output",
+            str(output),
+            "--k-samples",
+            "2",
+            "--repeats",
+            "1",
+            env=environment,
+        )
+    
+>       assert completed.returncode == 0, completed.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/Users/franz/Desktop/Attest/scripts/benchmark.py", line 16, in <module>
+E             from attest.benchmark.api import (
+E         ModuleNotFoundError: No module named 'attest'
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:542: AssertionError
+____ test_replay_scores_only_when_a_receipt_for_this_manifest_authorises_it ____
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_replay_scores_only_when_a0')
+
+    def test_replay_scores_only_when_a_receipt_for_this_manifest_authorises_it(
+        tmp_path: Path,
+    ) -> None:
+        """The CLI must not upgrade a historical v1 receipt into current authority."""
+        manifest, root, cassettes, _, _ = _replay_fixture(tmp_path)
+        receipt, results = _receipt_artifacts(tmp_path, manifest)
+        environment = dict(os.environ)
+        environment["ANTHROPIC_API_KEY"] = "must-not-be-used"
+        output = tmp_path / "out-receipted"
+    
+        completed = _run(
+            "replay",
+            "--manifest",
+            str(manifest),
+            "--cassette-root",
+            str(cassettes),
+            "--root",
+            str(root),
+            "--output",
+            str(output),
+            "--validation-receipt",
+            str(receipt),
+            "--validation-results",
+            str(results),
+            "--k-samples",
+            "2",
+            "--repeats",
+            "1",
+            env=environment,
+        )
+    
+>       assert completed.returncode == 3, completed.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/Users/franz/Desktop/Attest/scripts/benchmark.py", line 16, in <module>
+E             from attest.benchmark.api import (
+E         ModuleNotFoundError: No module named 'attest'
+E         
+E       assert 1 == 3
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:592: AssertionError
+______ test_replay_cli_rejects_v2_hmac_authority_before_project_execution ______
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_replay_cli_rejects_v2_hma0')
+
+    def test_replay_cli_rejects_v2_hmac_authority_before_project_execution(
+        tmp_path: Path,
+    ) -> None:
+        """Recorded providers do not make same-UID project execution secretless."""
+        manifest, root, cassettes, _, _ = _replay_fixture(tmp_path)
+        bundle = build_validation_v2_bundle(tmp_path / "replay-v2", manifest, root)
+        key_file = tmp_path / "authority.key"
+        key_file.write_bytes(KEY)
+        output = tmp_path / "replay-v2-out"
+    
+        completed = _run(
+            "replay",
+            "--manifest",
+            str(manifest),
+            "--cassette-root",
+            str(cassettes),
+            "--root",
+            str(root),
+            "--validation-receipt",
+            str(bundle.receipt_path),
+            "--validation-results",
+            str(bundle.results_path),
+            "--validation-artifacts",
+            str(bundle.artifact_root),
+            "--validation-provenance-key-id",
+            KEY_ID,
+            "--validation-provenance-key-file",
+            str(key_file),
+            "--output",
+            str(output),
+            "--k-samples",
+            "2",
+            "--repeats",
+            "1",
+        )
+    
+>       assert completed.returncode == 2
+E       assert 1 == 2
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:664: AssertionError
+____ test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence _____
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_replay_records_a_deferral0')
+
+    def test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence(
+        tmp_path: Path,
+    ) -> None:
+        """A case the tool could not decide is not a case it correctly stayed silent on.
+    
+        Counting the deferral as a true negative would inflate specificity with a
+        case the tool never judged.
+        """
+        manifest, root, cassettes, _, control_id = _replay_fixture(
+            tmp_path, control_proposal="not-json-at-all"
+        )
+        environment = dict(os.environ)
+        environment["ANTHROPIC_API_KEY"] = "must-not-be-used"
+        output = tmp_path / "out-deferred"
+    
+        completed = _run(
+            "replay",
+            "--manifest",
+            str(manifest),
+            "--cassette-root",
+            str(cassettes),
+            "--root",
+            str(root),
+            "--output",
+            str(output),
+            "--k-samples",
+            "2",
+            "--repeats",
+            "1",
+            env=environment,
+        )
+    
+>       assert completed.returncode == 0, completed.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/Users/franz/Desktop/Attest/scripts/benchmark.py", line 16, in <module>
+E             from attest.benchmark.api import (
+E         ModuleNotFoundError: No module named 'attest'
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:702: AssertionError
+_________ test_compare_cli_reports_authoritative_mixed_outcome_counts __________
+
+tmp_path = PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_compare_cli_reports_autho0')
+local_ruff_executable = PosixPath('/Users/franz/Desktop/Attest/.venv/bin/ruff')
+comparison_cli_authority = (PosixPath('/private/var/folders/ss/532t6jzx62vft7d6ff6s7qb80000gn/T/pytest-of-franz/pytest-115/test_compare_cli_reports_autho0/comparison-owner'), '542405b269ddc3d286abbd73d33457dba1a1910d11fa1024ccf5dbbeb9fa8087')
+
+    def test_compare_cli_reports_authoritative_mixed_outcome_counts(
+        tmp_path: Path,
+        local_ruff_executable: Path,
+        comparison_cli_authority: tuple[Path, str],
+    ) -> None:
+        """Compare stdout must project the sealed product reducer, not top-level runs."""
+        manifest, root, cassettes, _, _ = _replay_fixture(
+            tmp_path, control_proposal="not-json-at-all"
+        )
+        output = tmp_path / "compare-mixed"
+        authority_root, run_identity = comparison_cli_authority
+    
+        completed = _run(
+            "compare",
+            "--manifest",
+            str(manifest),
+            "--cassette-root",
+            str(cassettes),
+            "--root",
+            str(root),
+            "--output",
+            str(output),
+            "--comparison-authority-root",
+            str(authority_root),
+            "--comparison-run-id",
+            run_identity,
+            "--ruff-executable",
+            str(local_ruff_executable),
+            "--k-samples",
+            "2",
+            "--differential-repeats",
+            "1",
+        )
+    
+>       assert completed.returncode == 0, completed.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/Users/franz/Desktop/Attest/scripts/benchmark.py", line 16, in <module>
+E             from attest.benchmark.api import (
+E         ModuleNotFoundError: No module named 'attest'
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Users/franz/Desktop/Attest/.venv/bin/python', '/Users/franz/Desktop/Attest/scripts/benchmark.....py", line 16, in <module>\n    from attest.benchmark.api import (\nModuleNotFoundError: No module named \'attest\'\n').returncode
+
+tests/benchmark/test_cli.py:756: AssertionError
+=========================== short test summary info ============================
+FAILED tests/benchmark/test_baselines.py::test_compare_cli_runs_three_arms_offline_end_to_end
+FAILED tests/benchmark/test_baselines.py::test_compare_cli_rejects_v2_hmac_authority_before_offline_execution
+FAILED tests/benchmark/test_cli.py::test_import_bugsinpy_cli_requires_existing_local_source
+FAILED tests/benchmark/test_cli.py::test_import_bugsinpy_cli_prints_deterministic_summary
+FAILED tests/benchmark/test_cli.py::test_validate_offline_never_invokes_network_provider_or_credentials
+FAILED tests/benchmark/test_cli.py::test_validate_offline_without_prepared_root_excludes_each_pair
+FAILED tests/benchmark/test_cli.py::test_validate_prepared_root_requires_verified_isolation_and_keeps_evidence_unsigned
+FAILED tests/benchmark/test_cli.py::test_validate_cli_rejects_legacy_v2_signing_before_nonempty_untrusted_runner
+FAILED tests/benchmark/test_cli.py::test_validate_cli_preserves_legacy_output_compatibility_without_authority
+FAILED tests/benchmark/test_cli.py::test_verify_validation_cli_is_pure_offline_and_reports_exact_failures
+FAILED tests/benchmark/test_cli.py::test_replay_without_prepared_root_excludes_each_case_and_stays_offline
+FAILED tests/benchmark/test_cli.py::test_replay_with_a_prepared_root_runs_the_real_product_path
+FAILED tests/benchmark/test_cli.py::test_replay_scores_only_when_a_receipt_for_this_manifest_authorises_it
+FAILED tests/benchmark/test_cli.py::test_replay_cli_rejects_v2_hmac_authority_before_project_execution
+FAILED tests/benchmark/test_cli.py::test_replay_records_a_deferral_as_an_abstention_not_as_earned_silence
+FAILED tests/benchmark/test_cli.py::test_compare_cli_reports_authoritative_mixed_outcome_counts
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! KeyboardInterrupt !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/opt/homebrew/anaconda3/lib/python3.12/selectors.py:415: KeyboardInterrupt
+(to show a full traceback on KeyboardInterrupt use --full-trace)

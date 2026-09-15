@@ -1,0 +1,185 @@
+{
+  "run_id": "ctx1",
+  "E61": {
+    "cases": 6,
+    "published_on_the_planted_hunk": 1,
+    "hits": [
+      "urllib3-none_guard-15--forward"
+    ],
+    "stages": {
+      "intent: the differential held and the rule drawered it": 5,
+      "published on the planted hunk": 1
+    },
+    "fidelity_mismatches": [],
+    "spend_usd": 0.243293
+  },
+  "counterexamples_E61": {
+    "independent_cases": 3,
+    "cases_with_a_publication": [],
+    "reviews": 6,
+    "per_case": {
+      "packaging-boundary-08--forward": {
+        "reviews": 3,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "packaging-boundary-08--forward@714f64e649e5",
+          "packaging-boundary-08--forward@70d95e591749",
+          "packaging-boundary-08--forward@83c04303a5f0"
+        ]
+      },
+      "packaging-guard_raise-06--forward": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "packaging-guard_raise-06--forward@58718aa6b463"
+        ]
+      },
+      "urllib3-none_guard-18--forward": {
+        "reviews": 2,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "urllib3-none_guard-18--forward@26a47b43fc2f",
+          "urllib3-none_guard-18--forward@882f0431b2b4"
+        ]
+      }
+    }
+  },
+  "controls_E61": {
+    "independent_cases": 2,
+    "cases_with_a_publication": [],
+    "reviews": 2,
+    "per_case": {
+      "mahmoud/boltons#481": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "mahmoud/boltons#481"
+        ]
+      },
+      "mahmoud/boltons#434": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "mahmoud/boltons#434"
+        ]
+      }
+    }
+  },
+  "per_case": {
+    "E61": {
+      "packaging-boundary-08--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.032376,
+        "elapsed_s": 17.0,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 5,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "click-boundary-10--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.05149,
+        "elapsed_s": 9.9,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 3,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "python-dotenv-boundary-08--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.031666,
+        "elapsed_s": 7.5,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 6,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "packaging-guard_raise-06--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.037891,
+        "elapsed_s": 14.5,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 15,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "urllib3-none_guard-15--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.046768,
+        "elapsed_s": 11.5,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 16,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "urllib3-none_guard-18--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.043102,
+        "elapsed_s": 13.8,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 2,
+        "contract_chosen": [],
+        "published": 0
+      }
+    }
+  }
+}

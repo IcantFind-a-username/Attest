@@ -13,6 +13,13 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ### Fixes
 
+- **Experimental contract context (D-257).** Refuse locally unexamined fixtures, setup,
+  conftest and executable decorator arguments before treating an assertion as a contract.
+  Seven reproduced reasonable-change miscertifications are blocked, with a legal positive
+  retained. The affected six-case product replay drops from four publications to one;
+  all three prior contract gains are withdrawn. Default v5.1 is unchanged; full context
+  proof and experimental promotion remain open. [Report](docs/acceptance/2026-09-15-contract-context.md).
+
 - **Review comments have separate paragraphs and counted evidence sections (D-256).**
   Reproduction details are collapsed, partial coverage stays visible, and a format failure
   rebuilds the summary with the same selected identities instead of reporting silence.

@@ -518,3 +518,10 @@ the $150 cap.** Named lag: the self-review of the record pull request.
 $0.925113 (dogfooding, three self-reviews). Every other step — the code, the deletions, the
 documents — cost **$0.00**. **Cumulative: $112.38 of the $150 cap.** Named lag: the self-reviews of
 #43 and the step-8 pull request, about $0.20 each at this window's rate.
+
+
+**2026-09-15 — D-257 contract context: $0.00 Attest model/API spend.** Local implementation,
+synthetic traces, 74 frozen search rebuilds, ctx1/ctx2 affected-case container replays,
+bundle checks and the portable gate used no paid provider calls or remote writes.
+Replay `spend_usd` is recorded-token budget accounting, not a new API charge.
+The approved cap and settled paid total are unchanged.

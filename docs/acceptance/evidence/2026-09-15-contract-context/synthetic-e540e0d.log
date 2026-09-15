@@ -1,0 +1,8 @@
+{"scenario": "module_autouse", "reader_admitted": false, "certification": "not_attempted"}
+{"scenario": "ancestor_conftest", "reader_admitted": null, "certification": "not_attempted"}
+{"scenario": "module_setup", "reader_admitted": false, "certification": "not_attempted"}
+{"scenario": "class_setup", "reader_admitted": false, "certification": "not_attempted"}
+{"scenario": "import_effect", "reader_admitted": false, "certification": "not_attempted"}
+{"scenario": "declared_plugin", "reader_admitted": false, "certification": "not_attempted"}
+{"scenario": "parametrize_ids", "reader_admitted": false, "certification": "not_attempted"}
+{"scenario": "legal_contract", "reader_admitted": true, "certification": "accepted"}

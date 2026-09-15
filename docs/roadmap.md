@@ -780,6 +780,15 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-15 — owner-directed local context repair complete (D-257).** Known local
+  misattributions are refused in generator and observer; code `2dc8823` / `e540e0d`.
+  Seven reproduced wrong certifications become zero, with the legal positive retained.
+  Final affected-case container replay: selected six publications 4→1, losing three
+  experimental gains; no full-forty or held-out recall estimate. Gate `e540e0d`: 2,526
+  passed, no failures/skips, 93.42% certification/execution coverage, Ruff/Mypy pass.
+  [Evidence](acceptance/2026-09-15-contract-context.md). Full test-context proof and
+  promotion remain blocked; no phase/release gate advances and default v5.1 stays.
+
 - **2026-09-15 — owner-directed presentation follow-up complete (D-256).** Comments now use
   separate paragraphs and counted sections; format repair preserves published identities.
   Product code `31b5eea` / `3f49cff`, test correction `a7d51cc`; final local gate:
