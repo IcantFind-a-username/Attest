@@ -2817,3 +2817,10 @@ is active only when the owning architecture/acceptance document changes with it.
 - [Evidence](docs/acceptance/2026-09-16-swebench-runtime.md), one independent review/no findings, final artifact checks/Ruff pass; source/tests unchanged.
 - No recall/FPR claim (INV-TRUTH-001/G-MEASURE-004); qualified minimum remains unmet. Original denominator and all prior records retained; supersedes none.
 - One free build-compatibility experiment proposed for owner decision under AGENTS §16; not implemented, no paid dispatch. Successful assisted runtime must remain separate from default0/6.
+### D-271 — Authorized compatibility build feasibility (2026-09-16, observed)
+
+E-02 prerequisite: the same six frozen SWE-bench heads build wheels under the uniform Python 3.10 compiler/era-constraint protocol; six completed attempts plus one retained instrumentation interruption, $0 API spend.
+Evidence: `docs/acceptance/2026-09-16-swebench-compatible-build.md`; driver `40308c5`, baseline `eb238c0`. One review's two evidence findings resolved; script/artifact checks pass, product source unchanged.
+Scope is build feasibility only: D-270's default 0/6 remains; runtime, semantic truth and controls are unqualified. INV-TRUTH-001 and INV-CERT-001 are unchanged; no gate is lowered or default switched.
+Next is generic-fixture and source-mounted runtime qualification with revision-specific generated artifacts; refuse byte drift, unknown binding or missing isolation. No paid dispatch until the existing study minimum and spend gates hold.
+Reversal: any artifact/provenance mismatch invalidates the affected compatibility evidence; retain original records. Affects the compatibility protocol/driver/evidence only; supersedes no product decision.

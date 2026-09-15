@@ -38,6 +38,13 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
 
 ## 2. Honest baseline
 
+- **2026-09-16 — D-271 compatibility build prerequisite:** the owner-authorized
+  uniform experiment built wheels for all six frozen SWE-bench heads. D-270's
+  default 0/6 remains separate. Runtime execution, paired truth and controls are
+  still unqualified; paid evaluation has not started. Next is generic-fixture and
+  revision-bound source-mounted runtime qualification. See
+  [the build report](acceptance/2026-09-16-swebench-compatible-build.md).
+
 ### 2.1 Implemented
 
 - fixed S/T/V review pipeline and ledger;

@@ -1,0 +1,1 @@
+{"driver_commit":"7e37a41","model_api_spend_usd":0,"reason":"independent review found isolated build environment versions omitted; first build canceled, no outcome used to alter dependencies","repairs":"retain isolated dependency metadata; continue after schema refusal","status":"interrupted_before_behavioral_outcome"}

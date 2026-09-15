@@ -606,3 +606,7 @@ be re-read/reconciled before dispatch; this entry does not increase it.
 **2026-09-16 — D-270 independent default-runtime preflight: $0.00 API spend.**
 Six image build refusals, read-only retained BuildKit-log retrieval and one independent
 review. No model call, paid reservation, remote write or push. Cap and paid total unchanged.
+**2026-09-16 — D-271 authorized compatibility builds: $0.00 model/API spend.**
+Six completed wheel builds and one retained interrupted instrumentation attempt;
+one independent review and artifact verification. No paid reservation, provider
+call, push or remote write. Approved cumulative cap and paid total are unchanged.
