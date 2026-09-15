@@ -314,6 +314,10 @@ def _resolve_call(
 
 _EXIT_CALLS = frozenset({"skip", "fail", "xfail", "exit", "importorskip"})
 _REFUSED_MARKS = frozenset({"skip", "skipif", "xfail", "usefixtures"})
+# compared lower-cased: pytest's marks, unittest's decorators pytest honours, and patching
+_REFUSED_DECORATIONS = frozenset(
+    {*_REFUSED_MARKS, "skipunless", "expectedfailure", "patch"}
+)
 _NESTED_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
 _STATEMENT_KINDS = {
     "AsyncFor": "async for", "AsyncWith": "async with", "FunctionDef": "def",
@@ -493,20 +497,41 @@ def _aliases(module: ast.Module | None) -> dict[str, ast.expr]:
     return out
 
 
-def _mark_text(node: ast.AST, aliases: dict[str, ast.expr], depth: int = 0) -> str:
+def _import_names(module: ast.Module | None) -> dict[str, str]:
+    """Module-level import aliases: the local name -> the last segment it imports
+    (``from unittest.mock import patch as p`` -> ``p: patch``)."""
+    out: dict[str, str] = {}
+    for node in module.body if module is not None else ():
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            for alias in node.names:
+                if alias.name != "*":
+                    out[(alias.asname or alias.name).split(".")[0]] = alias.name.rsplit(".", 1)[-1]
+    return out
+
+
+def _mark_text(
+    node: ast.AST,
+    aliases: dict[str, ast.expr],
+    imports: dict[str, str] | None = None,
+    seen: set[str] | None = None,
+) -> str:
     """The skip, xfail, usefixtures or patch mark ``node`` applies anywhere inside it --
-    a decorator, a ``pytest.param(..., marks=...)`` row, a mark bound to a module name
-    -- or ""."""
+    a decorator, a ``pytest.param(..., marks=...)`` row, a mark bound to a module name or
+    imported under another one -- or "". Each module alias is read at most once."""
+    imports = imports or {}
+    seen = set() if seen is None else seen
     for inner in ast.walk(node):
-        if isinstance(inner, ast.Attribute) and (
-            inner.attr in _REFUSED_MARKS or inner.attr == "patch"
-        ):
+        if isinstance(inner, ast.Attribute) and inner.attr.lower() in _REFUSED_DECORATIONS:
             return ast.unparse(inner)
         if isinstance(inner, ast.Name):
-            if inner.id in _REFUSED_MARKS or inner.id == "patch":
+            if (
+                inner.id.lower() in _REFUSED_DECORATIONS
+                or imports.get(inner.id, "").lower() in _REFUSED_DECORATIONS
+            ):
                 return inner.id
-            if depth < MAX_BINDING_DEPTH and inner.id in aliases:
-                found = _mark_text(aliases[inner.id], aliases, depth + 1)
+            if inner.id in aliases and inner.id not in seen:
+                seen.add(inner.id)
+                found = _mark_text(aliases[inner.id], aliases, imports, seen)
                 if found:
                     return found
         if (
@@ -567,12 +592,85 @@ def _evaluated_at_definition(statement: ast.AST) -> list[ast.AST]:
     annotations and bases -- and a class's body, which a def's is not."""
     if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef):
         arguments = statement.args
+        every = (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs,
+                 *(a for a in (arguments.vararg, arguments.kwarg) if a is not None))
         return [*statement.decorator_list, *arguments.defaults,
-                *(d for d in arguments.kw_defaults if d is not None)]
+                *(d for d in arguments.kw_defaults if d is not None),
+                *(a.annotation for a in every if a.annotation is not None),
+                *([statement.returns] if statement.returns is not None else [])]
     if isinstance(statement, ast.ClassDef):
         return [*statement.decorator_list, *statement.bases,
                 *(k.value for k in statement.keywords), *statement.body]
     return [statement]
+
+
+def _definition_refusal(statement: ast.stmt, site: int) -> str:
+    """D-255: a decorator is a call even when it is a bare name, and creating a class
+    runs its bases' ``__init_subclass__`` and its metaclass; neither is read."""
+    if not isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+        return ""
+    if statement.decorator_list:
+        return (
+            f"line {statement.lineno} decorates {statement.name!r} before the assertion at "
+            f"line {site}: a decorator is a call the rule cannot rule out"
+        )
+    if isinstance(statement, ast.ClassDef) and (
+        statement.keywords
+        or any(not (isinstance(b, ast.Name) and b.id in _BUILTIN_NAMES) for b in statement.bases)
+    ):
+        return (
+            f"line {statement.lineno} creates the class {statement.name!r} from a base or "
+            f"metaclass before the assertion at line {site}: what that runs is not read"
+        )
+    return ""
+
+
+@dataclass(frozen=True)
+class _ModuleFacts:
+    aliases: dict[str, ast.expr]
+    imports: dict[str, str]
+    names: set[str]
+    mutable: set[str]
+    lines: dict[str, list[int]]
+    imported: set[str]
+    star: int  # the line of a star import; 0 when there is none
+
+
+_FACTS: dict[int, tuple[ast.Module | None, _ModuleFacts]] = {}
+
+
+def _module_facts(module: ast.Module | None) -> _ModuleFacts:
+    """What the rule reads of a test module, once per module object."""
+    hit = _FACTS.get(id(module))
+    if hit is not None and hit[0] is module:
+        return hit[1]
+    if len(_FACTS) >= 64:
+        _FACTS.clear()
+    names, mutable = _module_names(module)
+    star = next(
+        (
+            n.lineno for n in (module.body if module is not None else ())
+            if isinstance(n, ast.ImportFrom) and any(a.name == "*" for a in n.names)
+        ),
+        0,
+    )
+    facts = _ModuleFacts(
+        aliases=_aliases(module), imports=_import_names(module), names=names, mutable=mutable,
+        lines=_module_bindings(module), imported=_imported(module), star=star,
+    )
+    _FACTS[id(module)] = (module, facts)
+    return facts
+
+
+def _immutable(node: ast.AST, aliases: dict[str, ast.expr], depth: int = 0) -> bool:
+    """A literal no call can change: hashable, directly or through module names."""
+    if isinstance(node, ast.Name) and node.id in aliases and depth < MAX_BINDING_DEPTH:
+        return _immutable(aliases[node.id], aliases, depth + 1)
+    try:
+        hash(ast.literal_eval(node))
+    except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
+        return False
+    return True
 
 
 def flow_refusal(
@@ -604,7 +702,8 @@ def _flow_refusal(
         return f"the call is not in the body of {func.name}"
     if point.shape:
         return point.shape
-    aliases = _aliases(module)
+    facts = _module_facts(module)
+    aliases = facts.aliases
     carriers: list[tuple[ast.AST, int]] = [(d, d.lineno) for d in func.decorator_list]
     for owner in owners:
         carriers.extend((d, d.lineno) for d in owner.decorator_list)
@@ -615,7 +714,7 @@ def _flow_refusal(
             and any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in s.targets)
         )
     for carrier, line in carriers:
-        text = _mark_text(carrier, aliases)
+        text = _mark_text(carrier, aliases, facts.imports)
         if text:
             return (
                 f"{func.name} is marked {text} at line {line}: its assertions are not a "
@@ -648,9 +747,9 @@ def _flow_refusal(
                 declared.setdefault(name, node.lineno)
         for name in names:
             bound_in_function.setdefault(name, getattr(node, "lineno", func.lineno))
-    module_names, module_mutable = _module_names(module)
-    module_lines = _module_bindings(module)
-    imported = _imported(module)
+    module_names, module_mutable = facts.names, facts.mutable
+    module_lines = facts.lines
+    imported = facts.imported
     defined = {
         s.name for s in point.prefix
         if isinstance(s, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
@@ -717,6 +816,63 @@ def _flow_refusal(
                 return (
                     f"line {later.lineno} rebinds {used!r}, which line {binding.lineno} reads: "
                     f"the value in force at line {site} is not the one that line used"
+                )
+    if facts.star and any(name not in local and name not in _BUILTIN_NAMES for name in relevant):
+        return (
+            f"the star import at line {facts.star} may rebind a module-level name the call "
+            "depends on"
+        )
+    # a module-level value is read in the module's scope, never in the test's
+    todo = [n for n in global_ if n in aliases]
+    seen_module: set[str] = set()
+    while todo:
+        name = todo.pop()
+        if name in seen_module:
+            continue
+        seen_module.add(name)
+        for used in _free_names(aliases[name], keep_builtins=True):
+            if used in bound_in_function or used in params:
+                return (
+                    f"the module-level {name!r} reads {used!r}, which {func.name} binds itself: "
+                    "the rule would read the test's value for the module's"
+                )
+            if used in aliases:
+                todo.append(used)
+    # a call that is handed a value some statement can change -- in a binding in force, or
+    # among the call's own arguments -- may change the input it is read to state
+    rows = _parametrize(func)
+
+    def mutable_local(name: str) -> bool:
+        if name in row_names:
+            return not all(name in row and _immutable(row[name], aliases) for row in rows)
+        binding = point.bindings.get(name)
+        return binding is None or not _immutable(binding.value, aliases)
+
+    handed_from: list[tuple[int, ast.AST]] = [
+        (point.bindings[n].lineno, point.bindings[n].value)
+        for n in relevant if n in point.bindings
+    ]
+    if isinstance(call, ast.Call):
+        handed_from.extend(
+            (getattr(a, "lineno", site), a) for a in (*call.args, *(k.value for k in call.keywords))
+        )
+    for at, value in handed_from:
+        for inner in ast.walk(value):
+            if not isinstance(inner, ast.Call):
+                continue
+            # what the call is handed: its arguments and, for a method, its receiver --
+            # not the name of the function it calls
+            handed = [*inner.args, *(k.value for k in inner.keywords)]
+            if isinstance(inner.func, ast.Attribute):
+                handed.append(inner.func.value)
+            touched = [
+                n for part in handed for n in _free_names(part, keep_builtins=True)
+                if n in local and mutable_local(n)
+            ]
+            if touched:
+                return (
+                    f"line {at} hands {touched[0]!r} to {ast.unparse(inner.func)} on the way to "
+                    f"the assertion at line {site}: a state change the rule cannot rule out"
                 )
     selected = {id(point.bindings[n]) for n in relevant if n in point.bindings}
     watched = local | (global_ & module_mutable)
@@ -792,7 +948,16 @@ def _flow_refusal(
                     f"line {at} calls {shown} before the assertion at line {site}: a side "
                     "effect the rule cannot rule out"
                 )
+            if isinstance(node, ast.Attribute | ast.Subscript):
+                # a property, `__getattr__` or `__getitem__` is a call by another name
+                return (
+                    f"line {at} reads {ast.unparse(node)!r} before the assertion at line "
+                    f"{site}: an attribute or item read may run code the rule cannot rule out"
+                )
         if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            refusal = _definition_refusal(statement, site)
+            if refusal:
+                return refusal
             continue  # nothing it runs changes anything (checked above)
         if not isinstance(statement, ast.Assign | ast.AnnAssign | ast.AugAssign | ast.Expr
                           | ast.Pass | ast.Assert):
@@ -1162,10 +1327,10 @@ def _contracts_in(
                 found.extend(
                     _caller_contracts(node, relative, scope, probe, callers, pinned_set, where)
                 )
+                if len(found) >= MAX_CONTRACTS * 4:
+                    break
         except RecursionError:
             continue  # D-255: a file nested beyond the interpreter's depth states nothing read
-            if len(found) >= MAX_CONTRACTS * 4:
-                break
     return found
 
 

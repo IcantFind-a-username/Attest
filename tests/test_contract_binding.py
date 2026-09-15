@@ -622,3 +622,147 @@ def test_a_contract_about_a_symbol_the_change_did_not_touch_is_inconsistent() ->
     forged = _admitted_observation(symbol="Grid.cell")
     verdict = intent_verdict(forged)
     assert verdict is not None and "which this change did not touch" in verdict
+
+
+# --- the second review's shapes (D-255) ----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            """
+            X = "01,02"
+            TEXT = X
+            def test_x():
+                X = "1,2"
+                assert parse(TEXT) == 1
+            """, "the module-level 'TEXT' reads 'X', which test_x binds itself",
+            id="a module constant reading a name the test shadows"),
+        pytest.param(
+            """
+            import atexit
+            def test_x():
+                @atexit.register
+                def hook(): pass
+                assert parse("1,2") == 1
+            """, "line 4 reads 'atexit.register'", id="a bare decorator"),
+        pytest.param(
+            """
+            def test_x():
+                @register
+                def hook(): pass
+                assert parse("1,2") == 1
+            """, "line 4 decorates 'hook'", id="a bare-name decorator"),
+        pytest.param(
+            """
+            import os
+            def test_x():
+                def hook(x: os.putenv("A", "1")): pass
+                assert parse("1,2") == 1
+            """, "line 4 calls os.putenv", id="an annotation evaluated at definition"),
+        pytest.param(
+            """
+            def test_x():
+                class Sub(Base): pass
+                assert parse("1,2") == 1
+            """, "line 3 creates the class 'Sub' from a base", id="a class with a base"),
+        pytest.param(
+            """
+            import os
+            def test_x():
+                _ = os.environ["HOME"]
+                assert parse("1,2") == 1
+            """, "line 4 reads", id="an item read"),
+        pytest.param(
+            """
+            @unittest.skipIf(True, "no")
+            def test_x():
+                assert parse("1,2") == 1
+            """, "marked unittest.skipIf", id="unittest.skipIf"),
+        pytest.param(
+            """
+            @unittest.expectedFailure
+            def test_x():
+                assert parse("1,2") == 1
+            """, "marked unittest.expectedFailure", id="unittest.expectedFailure"),
+        pytest.param(
+            """
+            from unittest.mock import patch as p
+            @p.object(geo, "int", fake)
+            def test_x():
+                assert parse("1,2") == 1
+            """, "marked p", id="patch under an import alias"),
+        pytest.param(
+            """
+            from geo import parse
+            from helpers import *
+            def test_x():
+                assert parse("1,2") == 1
+            """, "the star import at line 3", id="a star import"),
+        pytest.param(
+            """
+            import pkg
+            def test_x():
+                items = ["a", "b"]
+                n = pkg.push(items)
+                assert first(items, n) == "a"
+            """, "line 5 hands 'items' to pkg.push", id="a binding in force that changes a value"),
+        pytest.param(
+            """
+            import pkg
+            def test_x():
+                items = ["a", "b"]
+                assert first(items, pkg.push(items)) == "a"
+            """, "hands 'items' to pkg.push", id="an argument that changes another"),
+    ],
+)
+def test_the_second_reviews_shapes_are_refused(source: str, expected: str) -> None:
+    reason = _flow(source, callee="parse" if "parse(" in source else "first")
+    assert expected in reason, reason
+
+
+def test_an_immutable_row_value_handed_to_a_binding_call_is_read() -> None:
+    reason = _flow(
+        """
+        @pytest.mark.parametrize("value", ["", "a"])
+        def test_x(value):
+            result = parse_variables(value)
+            assert list(result) == []
+        """,
+        callee="list",
+    )
+    assert reason == ""
+
+
+def test_mark_aliases_are_read_once_each_however_wide_the_table() -> None:
+    import time
+
+    levels = ["L1 = [1, 2, 3, 4, 5, 6, 7, 8]"] + [
+        f"L{n} = [{', '.join([f'L{n - 1}'] * 8)}]" for n in range(2, 10)
+    ]
+    source = "\n".join(levels) + (
+        "\n@pytest.mark.parametrize('x', L9)\ndef test_x(x):\n    assert parse(x) == 1\n"
+    )
+    started = time.monotonic()
+    _flow(source)
+    assert time.monotonic() - started < 2.0
+
+
+def test_the_contract_cap_stops_a_long_scan(tmp_path: Path) -> None:
+    from binding_cases import GEO_BASE
+
+    from attest.review.contracts import MAX_CONTRACTS, _contracts_in
+
+    (tmp_path / "geo.py").write_text(GEO_BASE, encoding="utf-8")
+    (tmp_path / "tests").mkdir()
+    body = "from geo import Point, parse\n\n" + "".join(
+        f"\ndef test_{n}():\n    assert parse('{n},{n}') == Point({n}, {n})\n" for n in range(300)
+    )
+    (tmp_path / "tests" / "test_geo.py").write_text(body, encoding="utf-8")
+    probe = (
+        "import re\nfrom geo import parse\n\n\ndef test_attest_replay():\n"
+        "    _attest_value = parse('1,1')\n"
+    )
+    found = _contracts_in(tmp_path, "geo.py", ["parse"], ["'Point(x=1, y=1)'"], probe)
+    assert MAX_CONTRACTS * 4 <= len(found) < MAX_CONTRACTS * 4 + 4
