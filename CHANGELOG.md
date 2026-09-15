@@ -36,7 +36,9 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
   nothing while off. On, end to end on frozen input
   ([report](docs/acceptance/2026-09-15-frozen-e2e.md)), with `attest.intent.v6`: 19 of the forty
   published against 16, none lost; 0 of 3 intended-change cases and 0 of 24 control pull requests
-  published; 16% more wall clock on the forty.
+  (22 new by identity) with a red publication -- 7 value notes on 4 of them, identical in both arms;
+  16% more wall clock on the forty. Experimental integration evidence under ledger-reconstructed
+  candidates: the original proposals, their text dedup and failed probe attempts are not replayable.
 - **`attest.intent.v6` (D-252).** A base test's object-valued expected side, a `parametrize`
   row, or an exception expected through a caller of the touched symbol may specify a pinned value
   -- only when it binds the probe's concrete input, a value the observer derives mechanically and
