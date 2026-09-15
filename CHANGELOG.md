@@ -28,6 +28,15 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ### Experimental, off by default
 
+- **Contract probes in the product path (D-254).** With `contract_probes` on, a candidate's probe
+  search first screens probes the fixed rule reads from the base tree's own contracts about the
+  touched definitions -- no model call -- and asks the model only when none makes the revisions
+  differ; `intent_policy` names the rule a review certifies under. Both are caller-only (not
+  `.attest.toml` keys) and default to the shipped behaviour. **What it costs in recall or in trust:**
+  nothing while off. On, end to end on frozen input
+  ([report](docs/acceptance/2026-09-15-frozen-e2e.md)), with `attest.intent.v6`: 19 of the forty
+  published against 16, none lost; 0 of 3 intended-change cases and 0 of 24 control pull requests
+  published; 16% more wall clock on the forty.
 - **`attest.intent.v6` (D-252).** A base test's object-valued expected side, a `parametrize`
   row, or an exception expected through a caller of the touched symbol may specify a pinned value
   -- only when it binds the probe's concrete input, a value the observer derives mechanically and

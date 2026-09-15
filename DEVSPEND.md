@@ -361,6 +361,9 @@ dogfooding line. Phase 1's one paid re-run of the forty (about $3 at arm C's rat
 reserved**: it waits on decisions B and C of the plan's §8.
 The same window's container work (D-253: the full gate under Docker, 130 executions of frozen and
 contract probes, counterexamples and controls) called no model: **$0.000000**.
+D-254's end-to-end acceptance (frozen proposals and probes over the forty, the counterexamples and
+24 control pull requests, runs `dry`, `f1`..`f3`) called no model: **$0.000000**; the frozen
+provider's per-review spend figures are replayed tokens, not purchases.
 
 ## Window 2026-09-14 (index repair) — four free steps, and the A/B/C probe arms reserved before the first call and not yet dispatched
 
