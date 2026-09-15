@@ -33,3 +33,11 @@ attempted. Existing shared canonical JSON/digest and packaging parsers are reuse
 No behavior change or RED test; perform artifact checks, script lint and one independent
 review. Product gates and E-02 acceptance remain open (G-CORPUS-001 requires substantially
 more repositories/cases plus semantic truth and paired controls).
+
+## Visible collection repair
+
+Run r1 at `f38f4be` stopped on a Keras editable VCS requirement: a pip requirements
+option is not a PEP 508 requirement. It produced no census and no behavioral outcomes.
+For r2, parse only lines naming the preregistered TensorFlow dependency; keep the entire
+requirements input hash. This extracts one dependency, not a resolver or a claim that
+every other requirement is installable. Preserve the invalid r1 reason; no case is removed.

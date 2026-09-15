@@ -66,7 +66,7 @@ def main() -> None:
             raise ValueError("frozen bug metadata digest drift")
         pins = []
         for line in inputs["requirements.txt"].decode().splitlines():
-            if not line.strip() or line.lstrip().startswith("#"):
+            if not line.strip().lower().startswith("tensorflow"):
                 continue
             requirement = Requirement(line)
             if requirement.name.lower() == "tensorflow":
