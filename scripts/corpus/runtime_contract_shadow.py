@@ -20,7 +20,11 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from runtime_contract_cases import (  # noqa: E402
-    NAMES, PARAMETER_NAMES, PARAMETER_POSITIVES, POSITIVES, build_case,
+    NAMES,
+    PARAMETER_NAMES,
+    PARAMETER_POSITIVES,
+    POSITIVES,
+    build_case,
 )
 
 from attest.benchmark.artifacts import sha256_bytes, write_canonical_json  # noqa: E402
@@ -266,7 +270,8 @@ def main() -> None:
         row = measure(label, repo, base_sha, head_sha, args.work / label)
         row["declared_truth"] = (
             "development_regression"
-            if args.gains or label in (*POSITIVES, *PARAMETER_POSITIVES) else "control"
+            if args.gains or label in (*POSITIVES, *PARAMETER_POSITIVES)
+            else "control"
         )
         rows.append(row)
         write_canonical_json(args.out, rows)

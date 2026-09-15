@@ -21,8 +21,8 @@ from attest.review.executor import ExecutionOutcome, ExecutionResult
 from attest.review.index import build_index
 from attest.review.intent import is_spec_file
 
-SCHEMA = "attest.runtime-contract-shadow.v2"
-PREFIX = "ATTEST_CONTRACT_SHADOW_V2="
+SCHEMA = "attest.runtime-contract-shadow.v3"
+PREFIX = "ATTEST_CONTRACT_SHADOW_V3="
 OBSERVER = "_attest_contract_shadow"
 MAX_SITES = 8
 
@@ -248,7 +248,10 @@ def _binding_shapes(event: dict[str, Any]) -> bool:
     )
 
 
-def read_observation(run: ExecutionResult, site: RuntimeSite) -> tuple[dict[str, Any] | None, str]:
+def _read_observations(
+    run: ExecutionResult,
+    site: RuntimeSite,
+) -> tuple[dict[str, dict[str, Any]] | None, str]:
     lines = [line[len(PREFIX) :] for line in run.stdout.splitlines() if line.startswith(PREFIX)]
     if len(lines) != 1:
         return None, "missing or duplicate runtime packet"
@@ -259,11 +262,8 @@ def read_observation(run: ExecutionResult, site: RuntimeSite) -> tuple[dict[str,
         if packet.get("truncated") is not False or packet.get("receipt_eligible") is not False:
             return None, "truncated packet or invalid authority flag"
         events = packet.get("events")
-        if not isinstance(events, list) or len(events) != 1 or not isinstance(events[0], dict):
-            return None, "assertion did not execute exactly once"
-        event = events[0]
-        if event.get("site") != site.identity:
-            return None, "wrong assertion identity"
+        if not isinstance(events, list) or not 1 <= len(events) <= 32:
+            return None, "assertion did not execute within the bounded node population"
         expected = {
             "file": site.anchor,
             "qualname": site.symbol,
@@ -271,33 +271,86 @@ def read_observation(run: ExecutionResult, site: RuntimeSite) -> tuple[dict[str,
             "line": site.target_line,
             "source_digest": site.target_digest,
         }
-        if event.get("callee") != expected:
-            return None, "actual callable differs from the changed definition"
-        if event.get("error") or event.get("raised") or event.get("compared") is not True:
-            return None, "unsupported snapshot or assertion did not compare"
-        if event.get("same_object") is not True or type(event.get("equal")) is not bool:
-            return None, "call result is not bound to a Boolean comparison"
-        if canonical_json_bytes(event.get("returned")) != canonical_json_bytes(event.get("left")):
-            return None, "call result changed before comparison"
-        if not {"args", "kwargs", "receiver", "expected", "returned", "left"} <= event.keys():
-            return None, "incomplete binding fields"
-        if not _binding_shapes(event):
-            return None, "malformed typed binding snapshots"
-        return event, ""
+        by_node = {}
+        for event in events:
+            if not isinstance(event, dict) or event.get("site") != site.identity:
+                return None, "wrong assertion identity"
+            node = event.get("node")
+            if not isinstance(node, str) or not node or len(node) > 2048 or node in by_node:
+                return None, "missing, duplicate or invalid observation node"
+            if event.get("callee") != expected:
+                return None, "actual callable differs from the changed definition"
+            if event.get("error") or event.get("raised") or event.get("compared") is not True:
+                return None, "unsupported snapshot or assertion did not compare"
+            if event.get("same_object") is not True or type(event.get("equal")) is not bool:
+                return None, "call result is not bound to a Boolean comparison"
+            if canonical_json_bytes(event.get("returned")) != canonical_json_bytes(
+                event.get("left")
+            ):
+                return None, "call result changed before comparison"
+            if not {"args", "kwargs", "receiver", "expected", "returned", "left"} <= event.keys():
+                return None, "incomplete binding fields"
+            if not _binding_shapes(event):
+                return None, "malformed typed binding snapshots"
+            by_node[node] = event
+        return by_node, ""
     except (ValueError, TypeError):
         return None, "malformed runtime packet"
 
 
-def _node_completed(run: ExecutionResult, node: str) -> bool:
+def read_observation(run: ExecutionResult, site: RuntimeSite) -> tuple[dict[str, Any] | None, str]:
+    """Single-observation diagnostic interface; multi-node interpretation uses the full set."""
+    events, reason = _read_observations(run, site)
+    if events is None:
+        return None, reason
+    if len(events) != 1:
+        return None, "assertion did not execute exactly once"
+    return next(iter(events.values())), ""
+
+
+def _completed_nodes(
+    run: ExecutionResult,
+    site: RuntimeSite,
+) -> dict[str, tuple[str, bool]] | None:
     if run.outcome not in (ExecutionOutcome.NOT_REPRODUCED, ExecutionOutcome.REPRODUCED):
-        return False
-    if not run.fresh_state or run.collected_count != 1 or run.skipped_count or run.xfailed_count:
-        return False
+        return None
+    if (
+        not run.fresh_state
+        or not 1 <= run.collected_count <= 32
+        or run.skipped_count
+        or run.xfailed_count
+    ):
+        return None
     try:
         cases = list(ET.fromstring(run.junit_xml).iter("testcase"))
     except ET.ParseError:
-        return False
-    return len(cases) == 1 and cases[0].get("name", "").split("[", 1)[0] == node.split("::")[-1]
+        return None
+    if len(cases) != run.collected_count:
+        return None
+    nodes = {}
+    function = site.node.rsplit("::", 1)[-1]
+    for case in cases:
+        name, classname = case.get("name", ""), case.get("classname", "")
+        if (
+            name.split("[", 1)[0] != function
+            or not classname
+            or case.find("skipped") is not None
+            or case.find("error") is not None
+        ):
+            return None
+        suffix = name[len(function) :]
+        if suffix and not (suffix.startswith("[") and suffix.endswith("]")):
+            return None
+        node = site.path + "::" + site.node + suffix
+        if len(node) > 2048 or node in nodes:
+            return None
+        nodes[node] = (classname, case.find("failure") is None)
+    passed = all(status for _, status in nodes.values())
+    if run.exit_code != (0 if passed else 1) or passed != (
+        run.outcome == ExecutionOutcome.NOT_REPRODUCED
+    ):
+        return None
+    return nodes
 
 
 def interpret_pair(
@@ -320,9 +373,13 @@ def interpret_pair(
     if set(runs) != {"base-original", "base-observed", "head-original", "head-observed"}:
         result["reason"] = "incomplete paired runs"
         return result
-    if not all(_node_completed(r, base.node) for r in runs.values()):
-        result["reason"] = "node did not complete exactly once without skip or executor refusal"
-        return result
+    outcomes: dict[str, dict[str, tuple[str, bool]]] = {}
+    for label, run in runs.items():
+        completed = _completed_nodes(run, base)
+        if completed is None:
+            result["reason"] = "nodes did not complete uniquely without skip or executor refusal"
+            return result
+        outcomes[label] = completed
     if (
         digests is None
         or set(digests) != set(runs)
@@ -330,12 +387,7 @@ def interpret_pair(
     ):
         result["reason"] = "test bytes do not match the declared original/overlay"
         return result
-    node_ids = {
-        tuple(
-            (c.get("classname"), c.get("name")) for c in ET.fromstring(r.junit_xml).iter("testcase")
-        )
-        for r in runs.values()
-    }
+    node_ids = {tuple(sorted((n, c) for n, (c, _) in v.items())) for v in outcomes.values()}
     if len(node_ids) != 1:
         result["reason"] = "collected node identities differ"
         return result
@@ -346,29 +398,55 @@ def interpret_pair(
     if len(identities) != 1:
         result["reason"] = "execution environments differ"
         return result
-    events = []
+    events_by_revision = []
     for revision, site in (("base", base), ("head", head)):
-        original, observed = runs[revision + "-original"], runs[revision + "-observed"]
-        if original.outcome != observed.outcome or original.exit_code != observed.exit_code:
+        observed = runs[revision + "-observed"]
+        if outcomes[revision + "-original"] != outcomes[revision + "-observed"]:
             result["reason"] = "instrumentation changed the outcome"
             return result
-        event, reason = read_observation(observed, site)
-        if event is None:
+        events, reason = _read_observations(observed, site)
+        if events is None:
             result["reason"] = reason
             return result
-        if event["equal"] != (observed.outcome == ExecutionOutcome.NOT_REPRODUCED):
+        if set(events) != set(outcomes[revision + "-observed"]):
+            result["reason"] = "observation nodes differ from the complete collected population"
+            return result
+        if any(
+            events[n]["equal"] != status
+            for n, (_, status) in outcomes[revision + "-observed"].items()
+        ):
             result["reason"] = "assertion result disagrees with node outcome"
             return result
-        events.append(event)
+        events_by_revision.append(events)
     fields = ("args", "kwargs", "receiver", "expected")
-    if any(
-        canonical_json_bytes(events[0][field]) != canonical_json_bytes(events[1][field])
-        for field in fields
-    ):
-        result["reason"] = "input, receiver state or expectation changed between revisions"
-    elif not events[0]["equal"] or events[1]["equal"]:
-        result["reason"] = "no base-pass/head-fail bound assertion"
-    else:
+    nodes = []
+    for node in sorted(events_by_revision[0]):
+        pair = [revision[node] for revision in events_by_revision]
+        row = {
+            "node": node,
+            "status": "defer",
+            "reason": "",
+            "receipt_eligible": False,
+            "observations": pair,
+        }
+        if any(
+            canonical_json_bytes(pair[0][f]) != canonical_json_bytes(pair[1][f]) for f in fields
+        ):
+            row["reason"] = "input, receiver state or expectation changed between revisions"
+        elif not pair[0]["equal"] or pair[1]["equal"]:
+            row["reason"] = "no base-pass/head-fail bound assertion"
+        else:
+            row.update(
+                status="binding_observed", reason="consistent runtime binding in shadow only"
+            )
+        nodes.append(row)
+    result["nodes"] = nodes
+    if any(row["status"] == "binding_observed" for row in nodes):
         result.update(status="binding_observed", reason="consistent runtime binding in shadow only")
-    result["observations"] = events
+    else:
+        result["reason"] = (
+            nodes[0]["reason"] if len(nodes) == 1 else "no node has a bound regression"
+        )
+    if len(nodes) == 1:
+        result["observations"] = nodes[0]["observations"]
     return result

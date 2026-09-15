@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+import xml.etree.ElementTree as ET
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -164,7 +165,8 @@ def test_pair_consistency_is_checked_outside_the_recorder(
 
 @pytest.mark.parametrize("name", PARAMETER_NAMES)
 def test_parameter_rows_bind_by_identity_and_keep_all_outcomes(
-    observations: dict[str, Any], name: str,
+    observations: dict[str, Any],
+    name: str,
 ) -> None:
     result = observations[name]["sites"][0]["verdict"]
     positive = name in ("parameter_regression", "parameter_reordered")
@@ -176,6 +178,57 @@ def test_parameter_rows_bind_by_identity_and_keep_all_outcomes(
         assert [n["node"].split("[")[-1] for n in nodes] == ["first]", "second]"]
         assert [n["status"] for n in nodes] == ["binding_observed", "defer"]
         assert all(n["receipt_eligible"] is False for n in nodes)
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "missing",
+        "duplicate",
+        "unknown",
+        "exchanged",
+        "reordered",
+        "junit_duplicate",
+        "outcome_swap",
+    ],
+)
+def test_parameter_population_cannot_be_omitted_or_misaligned(
+    observations: dict[str, Any],
+    damage: str,
+) -> None:
+    row = observations["parameter_regression"]["sites"][0]
+    base, head = RuntimeSite(**row["base_site"]), RuntimeSite(**row["head_site"])
+    runs = {label: ExecutionResult(**run) for label, run in row["runs"].items()}
+    digests = {label: run.test_file_digest for label, run in runs.items()}
+    run = runs["head-observed"]
+    packet = json.loads(
+        next(s[len(PREFIX) :] for s in run.stdout.splitlines() if s.startswith(PREFIX))
+    )
+    events = packet["events"]
+    if damage == "missing":
+        events.pop()
+    elif damage == "duplicate":
+        events.append(events[0].copy())
+    elif damage == "unknown":
+        events[0]["node"] += "unknown"
+    elif damage == "exchanged":
+        events[0]["node"], events[1]["node"] = events[1]["node"], events[0]["node"]
+    elif damage == "reordered":
+        events.reverse()
+    else:
+        junit = ET.fromstring(run.junit_xml)
+        cases = list(junit.iter("testcase"))
+        if damage == "junit_duplicate":
+            cases[1].set("name", cases[0].get("name", ""))
+        else:
+            failure = next(iter(cases[0]))
+            cases[0].remove(failure)
+            cases[1].append(failure)
+        run = replace(run, junit_xml=ET.tostring(junit, encoding="unicode"))
+    runs["head-observed"] = replace(run, stdout=PREFIX + json.dumps(packet))
+    result = interpret_pair(base, head, runs, digests=digests)
+    assert result["status"] == ("binding_observed" if damage == "reordered" else "defer"), result
+    assert result["receipt_eligible"] is False
 
 
 @pytest.mark.parametrize("name", ["type-bool", "type-int"])

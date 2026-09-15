@@ -10,12 +10,13 @@ import atexit
 import hashlib
 import json
 import math
+import os
 import sys
 import types
 from pathlib import Path
 from typing import Any
 
-PREFIX = "ATTEST_CONTRACT_SHADOW_V2="
+PREFIX = "ATTEST_CONTRACT_SHADOW_V3="
 _events: list[dict[str, Any]] = []
 _pending: dict[str, tuple[dict[str, Any], Any]] = {}
 _truncated = False
@@ -68,7 +69,10 @@ def call(site: str, function: Any, /, *args: Any, **kwargs: Any) -> Any:
     if len(_events) >= 32:
         _truncated = True
         return function(*args, **kwargs)
-    event: dict[str, Any] = {"site": site, "error": "", "compared": False}
+    # A consistency label supplied by pytest, not an authenticated witness.
+    current = os.environ.get("PYTEST_CURRENT_TEST", "")
+    node = current.removesuffix(" (call)") if current.endswith(" (call)") else ""
+    event: dict[str, Any] = {"site": site, "node": node, "error": "", "compared": False}
     _events.append(event)
     try:
         method = type(function) is types.MethodType
@@ -136,7 +140,7 @@ def _finish() -> None:
     # The controller checks truncation, duplicates and run identity; this interpreter
     # can still forge its own output, so no consumer may issue a receipt from it.
     record = {
-        "schema": "attest.runtime-contract-shadow.v2",
+        "schema": "attest.runtime-contract-shadow.v3",
         "events": _events,
         "truncated": _truncated,
         "receipt_eligible": False,
