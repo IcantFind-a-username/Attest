@@ -2754,3 +2754,10 @@ is active only when the owning architecture/acceptance document changes with it.
 - Retain invalid parser run r1 and repaired r2; one independent review, no unresolved findings. Reuse shared artifact helpers and packaging parsers; no product changes or empirical recall claim.
 - Resolve historical oracle execution before paid discovery; do not change pins or replace frozen cases to hide the blocker. API spend $0; no remote/default changes. G-CORPUS-001 remains open.
 - Reversal: new qualified environment evidence may remove this prerequisite; preserve old records. Trace `INV-TRUTH-001`, `G-CORPUS-001`; preflight script, study artifacts, report and roadmap only.
+
+### D-262 — Retain the first historical oracle as environment-unqualified
+- 2026-09-16 · E-02 prerequisite attempt blocked · baseline `00b95f6`, final driver `5058843`; owner-directed, first frozen development case only.
+- [Evidence](docs/acceptance/2026-09-16-historical-oracle.md): one case, three preparation attempts; r1/r2 builder failures retained, r3 fails exact NumPy 1.19.0rc2 installation. Zero oracle jobs/qualified defects, no recall claim.
+- Preserve original pins, fixed-test overlay, source revisions and unchanged execution limits. Original artifact recovery precedes another oracle attempt; no silent version or held-out replacement.
+- One review covers r1; final invocation repairs and records are controller-validated, not independently reviewed. API spend $0, no remote/product/default changes; G-CORPUS-001 remains open.
+- Reversal: new authoritative artifact/environment evidence may remove the blocker; retain all prior records. Trace `INV-TRUTH-001`; historical oracle driver, protocol/evidence, report and roadmap only.

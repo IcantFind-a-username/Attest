@@ -780,6 +780,14 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-16 — first historical oracle attempt blocked at dependency installation (D-262).**
+  Driver `5058843`; one Keras case, three retained preparation attempts. After two builder
+  invocation failures, the Python 3.7.3 image ran bootstrap installation but could not fetch
+  the exact NumPy 1.19.0rc2 requirement; official release metadata returned 404. Zero oracle
+  test jobs, qualified defects or product trials. [Evidence](acceptance/2026-09-16-historical-oracle.md).
+  Original dependency artifact recovery is the next prerequisite; no frozen case replacement,
+  product default/policy change, held-out run or phase advancement occurred.
+
 - **2026-09-16 — development environment prerequisite measured (D-261).** Committed
   driver `04a2554`, r2: all five Keras candidates record Python 3.7.3 outside product
   3.10–3.13; both pinned TensorFlow releases lack matching wheels/source distributions.

@@ -546,3 +546,8 @@ The approved development cap and settled paid total remain unchanged.
 Five development metadata checks, two official PyPI metadata reads and one independent
 review; no project execution, paid provider calls or remote writes. The approved cap and
 settled paid total remain unchanged.
+
+**2026-09-16 — D-262 first historical development oracle: $0.00 Attest model/API spend.**
+One case, three retained preparation attempts; read-only Git/image/package retrieval,
+dependency installation inside Docker and one independent review. No model calls,
+product review, oracle test job or remote write. Approved cap and paid total unchanged.

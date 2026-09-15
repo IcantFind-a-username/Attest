@@ -1,0 +1,5 @@
+Sending build context to Docker daemon  3.584kB
+
+Step 1/6 : FROM --platform=linux/amd64 python@sha256:baf4188f0b50c6383fedd55cdb79f511bfabee23068dcf26f209426f4bf540ab
+ ---> baf4188f0b50
+Step 2/6 : ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
