@@ -2740,3 +2740,10 @@ is active only when the owning architecture/acceptance document changes with it.
 - One review's census omission reproduced and fixed; gate 2,555 passed, no failures/skips, 93.42% boundary coverage; API spend $0 and no remote writes.
 - Same-process forgery/hidden state remain open; v3 is shadow-only. Reversal uses new revert commits; historical v2/v3 evidence stays. D-257 product refusals remain in force.
 - Trace: `INV-CERT-001`, `INV-TRUTH-001`, `G-CODE-001`; two runtime review modules, existing driver/cases/tests. No target invariant or acceptance threshold changed.
+
+### D-260 — Freeze repositories before independent evaluation
+- 2026-09-16 · candidate preparation complete · owner-directed; split `a3e62f9`, baseline `58b3a6c`; protocol amendment `3068cc1` precedes source exploration.
+- Hash-selected BugsInPy pool: Keras development 5; spaCy, Ansible, HTTPie and thefuck held-out 20. Metadata/license-only historical exclusions may qualify; unknown exposure excludes, aliases share assignment.
+- [Evidence](docs/acceptance/2026-09-16-repository-holdout.md): one read-only development revision explored; 0 qualified defects, 0 controls, 0 product trials. One review P2 corrected append-only; selection unchanged.
+- Cost $0; no product/default/remote changes. Before dispatch require outcome-blind truth/environment/control qualification and a frozen product protocol; paid opt-in remains separate.
+- Reversal: visibly invalidate a compromised split, retain its records and keep explored repositories development. Trace: `INV-TRUTH-001`, `G-DOC-001`; study artifacts, report and roadmap only; no acceptance threshold changed.

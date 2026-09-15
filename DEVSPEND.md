@@ -536,3 +536,8 @@ are unchanged.
 synthetic and historical container replays, local implementation/review and the final gate
 used no paid provider calls or remote writes. Product defaults and the approved development
 cap/settled paid total remain unchanged.
+
+**2026-09-16 — D-260 repository candidate freeze: $0.00 Attest model/API spend.**
+Pinned corpus metadata, read-only development source exploration and one independent review;
+no project execution, model/provider calls, evaluation dispatch or remote writes.
+The approved development cap and settled paid total remain unchanged.

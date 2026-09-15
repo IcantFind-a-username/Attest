@@ -780,6 +780,14 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-16 — repository-disjoint candidate preparation complete (D-260).** Split
+  `a3e62f9` freezes five development candidates in Keras and 20 held-out candidates across
+  four other repositories before source exploration. One Keras revision inspected read-only;
+  no held-out project source read or product execution. One review's ambiguous exposure
+  classification corrected append-only, with selection unchanged. Qualified defects/controls
+  remain 0/0; paid dispatch disabled. [Evidence](acceptance/2026-09-16-repository-holdout.md).
+  This is candidate preparation, with no recall estimate or phase/release gate advancement.
+
 - **2026-09-16 — runtime parameter binding complete in shadow (D-259).** Code/driver
   `a4efbca` aligns complete node populations and retains refused-node reports. All 15 prior
   synthetic verdicts remain; six added parameter scenarios meet their declared outcomes.
