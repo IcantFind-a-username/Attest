@@ -311,3 +311,10 @@ an image-build fix, not a generation fix, and it would have changed none of the 
 - **Contract-first selection can mask a certifiable model probe (D-255 diagnostic).**
   A first differential that cannot certify stops search. Design a precommitted allocation
   and evaluate gains/losses before changing selection; do not add outcome-aware gate hunting.
+- **Runtime contract shadow promotion blockers (D-258).** Same-process observations are
+  forgeable and omit hidden globals/defaults/transitive state. The prototype also refuses
+  multiple collected parameter nodes and has no raises/helper binding; refusal detail can
+  be crowded out by unrelated assertions. Specify the trust contract and exact node/assertion
+  association before another implementation or certification proposal. This is a decision
+  package input, not authority to promote or extend the prototype.
+  [Evidence](acceptance/2026-09-15-runtime-contract-shadow.md).

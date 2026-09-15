@@ -5,3 +5,4 @@ docs/acceptance/evidence/2026-09-15-readable-comments/before/*.md whitespace=-bl
 docs/acceptance/evidence/2026-09-15-readable-comments/after/*.md whitespace=-blank-at-eol
 docs/acceptance/evidence/2026-09-15-readable-comments/final/*.md whitespace=-blank-at-eol
 docs/acceptance/evidence/2026-09-15-contract-context/*.log whitespace=-blank-at-eol
+docs/acceptance/evidence/2026-09-15-runtime-contract-shadow/*.log whitespace=-blank-at-eol

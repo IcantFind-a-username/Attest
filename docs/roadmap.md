@@ -780,6 +780,15 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-15 — runtime contract shadow experiment complete (D-258).** Code/driver
+  `47dd7b5` retains original fixture context: 3/3 synthetic positives observed, all 12
+  development controls abstained. None of the three historical gains has a supported
+  binding in this limited prototype; no product receipt or recall gain is claimed.
+  Gate: 2,542 passed, no failures/skips, 93.42% certification/execution coverage;
+  one independent review's two reproduced defects fixed. [Evidence](acceptance/2026-09-15-runtime-contract-shadow.md).
+  Same-process trust and exact parameter-node association remain blockers. Default v5.1,
+  D-257 refusals, production review and all release/phase gates remain unchanged.
+
 - **2026-09-15 — owner-directed local context repair complete (D-257).** Known local
   misattributions are refused in generator and observer; code `2dc8823` / `e540e0d`.
   Seven reproduced wrong certifications become zero, with the legal positive retained.

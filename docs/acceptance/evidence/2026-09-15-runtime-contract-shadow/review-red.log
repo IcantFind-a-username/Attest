@@ -1,0 +1,81 @@
+.........F....FF                                                         [100%]
+=================================== FAILURES ===================================
+_______ test_damaged_runtime_packets_do_not_supply_binding[null_fields] ________
+
+observations = {'cache_clear_fixture': {'label': 'cache_clear_fixture', 'base_sha': '4aeea18fa5d5abf7133448f3f6cb0f59cf36800b', 'head...253a4077960bca362b1f85ca4f8ac4a30', 'changed': {'geo.py': ('parse',), 'tests/test_geo.py': ('test_parse',)}, ...}, ...}
+damage = 'null_fields'
+
+    @pytest.mark.parametrize(
+        "damage",
+        ["missing", "duplicate", "site", "authority", "callee", "fields", "null_fields"],
+    )
+    def test_damaged_runtime_packets_do_not_supply_binding(
+        observations: dict[str, Any],
+        damage: str,
+    ) -> None:
+        row = observations["cache_clear_fixture"]["sites"][0]
+        site = RuntimeSite(**row["base_site"])
+        run = ExecutionResult(**row["runs"]["base-observed"])
+        raw = next(line[len(PREFIX) :] for line in run.stdout.splitlines() if line.startswith(PREFIX))
+        packet = json.loads(raw)
+        if damage == "site":
+            packet["events"][0]["site"] = "another site"
+        elif damage == "authority":
+            packet["receipt_eligible"] = True
+        elif damage == "callee":
+            packet["events"][0]["callee"]["file"] = "substitute.py"
+        elif damage == "fields":
+            del packet["events"][0]["args"]
+        elif damage == "null_fields":
+            for field in ("args", "kwargs", "receiver", "expected", "returned", "left"):
+                packet["events"][0][field] = None
+        stdout = PREFIX + json.dumps(packet)
+        if damage == "missing":
+            stdout = ""
+        elif damage == "duplicate":
+            stdout += "\n" + stdout
+        event, reason = read_observation(replace(run, stdout=stdout), site)
+>       assert event is None and reason
+E       AssertionError: assert ({'site': '61d6c34302e7cf146905', 'error': '', 'compared': True, 'callee': {'file': 'geo.py', 'name': 'parse', 'line': 23, 'qualname': 'parse', ...}, ...} is None)
+
+tests/test_runtime_contract.py:125: AssertionError
+_ test_changed_input_types_do_not_look_like_implementation_regressions[type-bool] _
+
+observations = {'cache_clear_fixture': {'label': 'cache_clear_fixture', 'base_sha': '4aeea18fa5d5abf7133448f3f6cb0f59cf36800b', 'head...253a4077960bca362b1f85ca4f8ac4a30', 'changed': {'geo.py': ('parse',), 'tests/test_geo.py': ('test_parse',)}, ...}, ...}
+name = 'type-bool'
+
+    @pytest.mark.parametrize("name", ["type-bool", "type-int"])
+    def test_changed_input_types_do_not_look_like_implementation_regressions(
+        observations: dict[str, Any], name: str,
+    ) -> None:
+        result = observations[name]["sites"][0]["verdict"]
+>       assert result["status"] == "defer", result
+E       AssertionError: {'schema': 'attest.runtime-contract-shadow.v1', 'status': 'binding_observed', 'reason': 'consistent runtime binding in shadow only', 'receipt_eligible': False, ...}
+E       assert 'binding_observed' == 'defer'
+E         
+E         - defer
+E         + binding_observed
+
+tests/test_runtime_contract.py:159: AssertionError
+_ test_changed_input_types_do_not_look_like_implementation_regressions[type-int] _
+
+observations = {'cache_clear_fixture': {'label': 'cache_clear_fixture', 'base_sha': '4aeea18fa5d5abf7133448f3f6cb0f59cf36800b', 'head...253a4077960bca362b1f85ca4f8ac4a30', 'changed': {'geo.py': ('parse',), 'tests/test_geo.py': ('test_parse',)}, ...}, ...}
+name = 'type-int'
+
+    @pytest.mark.parametrize("name", ["type-bool", "type-int"])
+    def test_changed_input_types_do_not_look_like_implementation_regressions(
+        observations: dict[str, Any], name: str,
+    ) -> None:
+        result = observations[name]["sites"][0]["verdict"]
+>       assert result["status"] == "defer", result
+E       AssertionError: {'schema': 'attest.runtime-contract-shadow.v1', 'status': 'binding_observed', 'reason': 'consistent runtime binding in shadow only', 'receipt_eligible': False, ...}
+E       assert 'binding_observed' == 'defer'
+E         
+E         - defer
+E         + binding_observed
+
+tests/test_runtime_contract.py:159: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_runtime_contract.py::test_damaged_runtime_packets_do_not_supply_binding[null_fields]
+FAILED tests/test_runtime_contract.py::test_changed_input_types_do_not_look_like_implementation_regressions[type-bool]
+FAILED tests/test_runtime_contract.py::test_changed_input_types_do_not_look_like_implementation_regressions[type-int]

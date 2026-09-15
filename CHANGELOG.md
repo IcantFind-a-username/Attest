@@ -13,6 +13,13 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ### Fixes
 
+- **Runtime contract observations remain shadow-only (D-258).** Preserve original test
+  fixtures while recording typed call/assertion bindings through the existing executor.
+  Three synthetic positives are observed and twelve development controls abstain; none of
+  the three historical gains is supported by this subset. **Cost in recall or trust:** no
+  product gain or new certification authority; same-process forgery and parameter binding
+  remain open. Default v5.1 is unchanged. [Report](docs/acceptance/2026-09-15-runtime-contract-shadow.md).
+
 - **Experimental contract context (D-257).** Refuse locally unexamined fixtures, setup,
   conftest and executable decorator arguments before treating an assertion as a contract.
   Seven reproduced reasonable-change miscertifications are blocked, with a legal positive

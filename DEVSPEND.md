@@ -525,3 +525,9 @@ synthetic traces, 74 frozen search rebuilds, ctx1/ctx2 affected-case container r
 bundle checks and the portable gate used no paid provider calls or remote writes.
 Replay `spend_usd` is recorded-token budget accounting, not a new API charge.
 The approved cap and settled paid total are unchanged.
+
+**2026-09-15 — D-258 runtime contract shadow: $0.00 Attest model/API spend.** Local
+implementation, one independent review, synthetic/three historical container measurements,
+and the single final portable gate used no paid provider calls or remote writes.
+No product/default promotion or release occurred. The approved cap and settled paid total
+are unchanged.

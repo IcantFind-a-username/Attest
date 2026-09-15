@@ -2724,3 +2724,11 @@ is active only when the owning architecture/acceptance document changes with it.
 - Gate `e540e0d`: 2,526 passed, 93.42% certification/execution coverage; one independent review's decorator finding reproduced and fixed. API spend $0; no remote writes.
 - Full context proof and promotion remain blocked; transitive imports, ambient plugins and prior state are unproved. Reversal requires new revert commits and retained evidence; does not supersede D-255 historical observations.
 - Trace: `INV-CERT-001`, `INV-TRUTH-001`, `G-CODE-001`; `review/contracts.py`, `review/contract_context.py` and three contract test modules. No acceptance threshold or target invariant changed.
+
+### D-258 — Observe runtime contract bindings in shadow only
+- 2026-09-15 · completed experiment, promotion blocked · owner-directed; code/driver `47dd7b5`, frozen protocol `108743b`; default v5.1 unchanged.
+- Reuse original pytest nodes and the existing container executor; independently validate typed observations and original/overlay parity, with no kernel consumer or receipt authority.
+- [Evidence](docs/acceptance/2026-09-15-runtime-contract-shadow.md): 3/3 synthetic positives observed, 12/12 development controls abstained; 0/3 historical gains supported. No new product recall/FPR estimate.
+- One independent review's numeric-type and null-field defects reproduced and fixed; gate 2,542 passed, no failures/skips, 93.42% boundary coverage. API spend $0; no remote writes.
+- Same-process forgery, hidden state and exact parameter-node binding remain open; keep shadow-only. Reversal: remove isolated modules/driver, no receipt migration. D-257 refusals remain in force.
+- Trace: `INV-CERT-001`, `INV-TRUTH-001`, `G-CODE-001`; `review/contract_runtime.py`, `review/_contract_observer.py`, frozen runtime scripts/tests. No target invariant or acceptance threshold changed.
