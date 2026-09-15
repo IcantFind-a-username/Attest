@@ -14,6 +14,8 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+from attest.certification.intent import INTENT_POLICY_V6, INTENT_POLICY_VERSION
+
 # D-248: how hard the probe's one call thinks. Defined here rather than in the
 # proposer because the configuration is what validates it and the proposer
 # reaches this module through the budget already.
@@ -127,6 +129,16 @@ class ReviewConfig:
     # 0.0 is off, which is the shipped default -- a ceiling nobody chose is a
     # silence nobody can explain.
     daily_budget_usd: float = 0.0
+    # D-254, experimental and off: the probe search first screens probes the fixed
+    # rule reads out of the base tree's own contracts about the touched symbols --
+    # free, no model call -- and asks the model only when none of them makes the
+    # revisions differ. Like `contained_attempt_voids` this is not a policy key: a
+    # reviewed repository's `.attest.toml` does not decide how evidence is
+    # gathered. Only a caller that constructs the config sets it.
+    contract_probes: bool = False
+    # D-254, experimental: the intent rule a review certifies under. The shipped
+    # rule unless a caller names `attest.intent.v6`; not a policy key either.
+    intent_policy: str = INTENT_POLICY_VERSION
 
     def __post_init__(self) -> None:
         validate_review_config(self)
@@ -196,6 +208,10 @@ def validate_review_config(config: ReviewConfig) -> None:
         raise ValueError("gate_notes_visible must be a boolean")
     if type(config.intent_replies) is not bool:
         raise ValueError("intent_replies must be a boolean")
+    if type(config.contract_probes) is not bool:
+        raise ValueError("contract_probes must be a boolean")
+    if config.intent_policy not in INTENT_POLICIES:
+        raise ValueError(f"intent_policy must be one of {sorted(INTENT_POLICIES)}")
     if type(config.repro_concurrency) is not int or not 1 <= config.repro_concurrency <= 8:
         raise ValueError("repro_concurrency must be an integer in [1, 8]")
     if type(config.verification_cap_per_unit) is not int or config.verification_cap_per_unit < 1:
@@ -210,6 +226,8 @@ def validate_review_config(config: ReviewConfig) -> None:
 
 
 CONTEXT_STRATEGIES = frozenset({"r01", "package-cache"})
+# D-254: the shipped rule and the experimental one; nothing else is selectable
+INTENT_POLICIES = frozenset({INTENT_POLICY_VERSION, INTENT_POLICY_V6})
 
 DISABLED_REASON = "disabled by the base policy (.attest.toml enabled = false)"
 

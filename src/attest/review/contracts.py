@@ -39,6 +39,7 @@ to end: file reads and ``ast``, no model.
 from __future__ import annotations
 
 import ast
+import builtins
 import os
 import re
 from collections.abc import Iterable, Sequence
@@ -46,7 +47,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from attest.certification.intent import ContractRecord
-from attest.review.index import TreeIndex, tree_index
+from attest.review.index import TreeIndex, build_index
 from attest.review.intent import (
     MAX_WITNESS_FILE_BYTES,
     MAX_WITNESS_FILES,
@@ -54,6 +55,7 @@ from attest.review.intent import (
     is_spec_file,
     symbol_ranges,
 )
+from attest.review.probe import ProbeSpec, hygiene_refusal, reaches_the_tree, tree_roots
 
 MAX_CONTRACTS = 32  # recorded per observation, admitted ones first
 MAX_ROWS = 200  # parametrize rows read per test function
@@ -542,7 +544,9 @@ def _contracts_in(
         return []
     root = base_tree.resolve()
     try:
-        index: TreeIndex | None = tree_index(root)
+        # built in memory: the tree is a worktree the executor mounts, and a
+        # cache file written into it is a file the reproduction did not have
+        index: TreeIndex | None = build_index(root)
     except (OSError, ValueError):
         index = None
     anchored_module = _module_name(anchored, index)
@@ -805,3 +809,301 @@ def _expected_exception(statement: ast.AST) -> str | None:
         ):
             return ast.unparse(call.args[0]).rsplit(".", 1)[-1]
     return None
+
+
+# ======================================================================
+# D-254: contract probes -- the fixed rule, in the product path
+# ======================================================================
+
+# How many contract probes one candidate's search may screen before it asks the
+# model. A constant fixed before any measurement ran, not tuned on one: each
+# screening costs three recordings on the merge base and one run on head.
+MAX_CONTRACT_PROBES = 8
+_BUILTIN_NAMES = frozenset(dir(builtins))
+
+
+class NotConstructible(ValueError):
+    """A contract the fixed rule cannot turn into a probe, with the reason."""
+
+
+@dataclass(frozen=True)
+class ContractProbe:
+    """One probe read out of a base-tree contract about a touched symbol."""
+
+    spec: ProbeSpec
+    kind: str  # "bound_assertion" | "parametrize_row" | "caller_raises"
+    site: str  # path:line of the assertion or `with raises` block
+    row: int  # parametrize row, 0 when the test has none
+
+    @property
+    def origin(self) -> str:
+        return f"{self.site}#{self.row}"
+
+
+@dataclass(frozen=True)
+class ContractSearch:
+    """What the rule found for one candidate: the probes it built, in the order
+    the search screens them, and every contract it could not build and why."""
+
+    symbols: tuple[str, ...]
+    probes: tuple[ContractProbe, ...]
+    refused: tuple[tuple[str, str], ...]  # (site#row, reason)
+    truncated: int  # probes built beyond MAX_CONTRACT_PROBES and not screened
+
+
+def _is_test_module(module: str) -> bool:
+    return any(
+        part in ("tests", "test", "testing", "conftest") or part.startswith("test_")
+        for part in module.split(".")
+    )
+
+
+def _free_names(node: ast.AST) -> list[str]:
+    bound: set[str] = set()
+    for inner in ast.walk(node):
+        if isinstance(inner, ast.comprehension):
+            bound.update(t.id for t in ast.walk(inner.target) if isinstance(t, ast.Name))
+        elif isinstance(inner, ast.Lambda):
+            bound.update(a.arg for a in inner.args.args)
+    found: list[str] = []
+    for inner in ast.walk(node):
+        if (
+            isinstance(inner, ast.Name)
+            and isinstance(inner.ctx, ast.Load)
+            and inner.id not in bound
+            and inner.id not in _BUILTIN_NAMES
+            and inner.id not in found
+        ):
+            found.append(inner.id)
+    return found
+
+
+def build_contract_probe(
+    *,
+    tree_file: ast.Module,
+    func: ast.FunctionDef | ast.AsyncFunctionDef,
+    statement: ast.stmt,
+    call: ast.AST,
+    row: dict[str, ast.AST],
+) -> ProbeSpec:
+    """Bind every free name of ``call`` from the test's own source, recursively:
+    a parametrize row value, a top-level import of a module that is not a test
+    module, an assignment earlier in the test function, or a module-level
+    assignment of the test file. Anything else -- a fixture, a name the test
+    module defines, an import of a test module -- is `NotConstructible`."""
+    imports: dict[str, tuple[str, str]] = {}
+    for node in tree_file.body:
+        if isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            for alias in node.names:
+                text = f"from {node.module} import {alias.name}" + (
+                    f" as {alias.asname}" if alias.asname else ""
+                )
+                imports[alias.asname or alias.name] = (text, node.module)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                text = f"import {alias.name}" + (f" as {alias.asname}" if alias.asname else "")
+                imports[(alias.asname or alias.name).split(".")[0]] = (text, alias.name)
+    module_assign: dict[str, ast.Assign] = {}
+    local_defs: set[str] = set()
+    for node in tree_file.body:
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            module_assign[node.targets[0].id] = node
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            local_defs.add(node.name)
+    body_assign: dict[str, ast.Assign] = {}
+    for node in sorted(
+        (n for n in ast.walk(func) if isinstance(n, ast.Assign)), key=lambda n: n.lineno
+    ):
+        if (
+            len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.lineno < statement.lineno
+        ):
+            body_assign[node.targets[0].id] = node
+    params = {a.arg for a in (*func.args.args, *func.args.kwonlyargs)}
+    import_lines: list[str] = []
+    setup: list[str] = []
+    visiting: set[str] = set()
+    placed: set[str] = set()
+
+    def bind(name: str) -> None:
+        if name in placed:
+            return
+        if name in visiting:
+            raise NotConstructible(f"name {name!r} is defined in terms of itself")
+        visiting.add(name)
+        if name in row:
+            for inner in _free_names(row[name]):
+                bind(inner)
+            setup.append(f"{name} = {ast.unparse(row[name])}")
+        elif name in body_assign:
+            for inner in _free_names(body_assign[name].value):
+                bind(inner)
+            setup.append(ast.unparse(body_assign[name]))
+        elif name in imports:
+            text, module = imports[name]
+            if _is_test_module(module):
+                raise NotConstructible(f"{name!r} is imported from the test module {module}")
+            if text not in import_lines:
+                import_lines.append(text)
+        elif name in module_assign:
+            for inner in _free_names(module_assign[name].value):
+                bind(inner)
+            setup.append(ast.unparse(module_assign[name]))
+        elif name in params:
+            raise NotConstructible(f"{name!r} is a fixture of {func.name}")
+        elif name in local_defs:
+            raise NotConstructible(f"{name!r} is defined by the test module itself")
+        else:
+            raise NotConstructible(f"{name!r} is bound nowhere the rule reads")
+        visiting.discard(name)
+        placed.add(name)
+
+    for name in _free_names(call):
+        bind(name)
+    return ProbeSpec(
+        imports="\n".join(import_lines), setup="\n".join(setup), expression=ast.unparse(call)
+    )
+
+
+def _function_scope(file_scope: _Scope, func: ast.FunctionDef | ast.AsyncFunctionDef) -> _Scope:
+    scope = _Scope(
+        from_module=dict(file_scope.from_module),
+        module_alias=dict(file_scope.module_alias),
+        constants=dict(file_scope.constants),
+    )
+    for node in sorted(
+        (n for n in ast.walk(func) if isinstance(n, ast.Assign) and len(n.targets) == 1),
+        key=lambda n: n.lineno,
+    ):
+        target = node.targets[0]
+        if isinstance(target, ast.Name) and isinstance(node.value, ast.Call):
+            scope.calls[target.id] = node.value
+        elif isinstance(target, ast.Name):
+            scope.locals[target.id] = node.value
+    return scope
+
+
+def contract_probes(
+    base_tree: Path, anchored: str, symbols: Sequence[str]
+) -> ContractSearch:
+    """D-254: every contract the base tree's tests state about ``symbols`` -- the
+    definitions a candidate's change touched in ``anchored`` -- turned into probes
+    by the fixed rule, in (file, line, row) order, at most `MAX_CONTRACT_PROBES`.
+
+    A contract site is an ``assert`` comparing (``==``/``is``) a call that
+    resolves, through the test's imports, to a touched symbol of the anchored
+    module; or a ``with raises(...)`` block whose body calls a function the tree
+    index names as a caller of a touched symbol. The probe is that call, with
+    its free names bound by `build_contract_probe`, one per parametrize row, and
+    it must pass the probe's own hygiene and import rules. Nothing here reads a
+    model, a pinned value or the change's intent: the result depends on the base
+    tree and the touched names alone, and the search screens it like any other
+    probe."""
+    wanted = frozenset(symbols)
+    empty = ContractSearch(symbols=tuple(symbols), probes=(), refused=(), truncated=0)
+    if not wanted:
+        return empty
+    root = base_tree.resolve()
+    try:
+        index: TreeIndex | None = build_index(root)
+    except (OSError, ValueError, SyntaxError):
+        index = None
+    module = _module_name(anchored, index)
+    callers = _callers(index, module, wanted, root)
+    roots = tree_roots(root)
+    built: list[tuple[str, int, int, ContractProbe]] = []
+    refused: list[tuple[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for relative, path in _walk(root):
+        if not is_spec_file(relative):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            tree_file = ast.parse(text)
+        except (OSError, SyntaxError, ValueError):
+            continue
+        file_scope = _bindings(tree_file)
+        for func in ast.walk(tree_file):
+            if not isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            if not _TEST_NAME.match(func.name):
+                continue
+            scope = _function_scope(file_scope, func)
+            rows = _parametrize(func)
+            kind_rows = "parametrize_row" if rows != [{}] else "bound_assertion"
+            for statement in ast.walk(func):
+                if not isinstance(statement, ast.stmt):
+                    continue
+                sites: list[tuple[str, ast.AST]] = []
+                if isinstance(statement, ast.Assert) and isinstance(statement.test, ast.Compare):
+                    compare = statement.test
+                    if len(compare.ops) == 1 and isinstance(compare.ops[0], ast.Eq | ast.Is):
+                        for side in (compare.left, compare.comparators[0]):
+                            resolved = _resolve_call(side, scope, rows[0], module)
+                            if (
+                                resolved is not None
+                                and resolved.module == module
+                                and (
+                                    resolved.callee in wanted
+                                    or resolved.callee.rsplit(".", 1)[-1] in wanted
+                                )
+                            ):
+                                sites.append((kind_rows, side))
+                                break
+                elif isinstance(statement, ast.With) and _expected_exception(statement):
+                    names = {c.callee.rsplit(".", 1)[-1] for c in callers}
+                    modules = {c.module for c in callers}
+                    for inner in (n for s in statement.body for n in ast.walk(s)):
+                        if not isinstance(inner, ast.Call):
+                            continue
+                        resolved = _resolve_call(inner, scope, rows[0], "")
+                        if (
+                            resolved is not None
+                            and resolved.module in modules
+                            and resolved.callee.rsplit(".", 1)[-1] in names
+                        ):
+                            sites.append(("caller_raises", inner))
+                            break
+                if not sites:
+                    continue
+                kind, call = sites[0]
+                site = f"{relative.as_posix()}:{statement.lineno}"
+                for number, row in enumerate(rows):
+                    try:
+                        spec = build_contract_probe(
+                            tree_file=tree_file, func=func, statement=statement, call=call,
+                            row=row,
+                        )
+                    except NotConstructible as exc:
+                        refused.append((f"{site}#{number}", str(exc)))
+                        continue
+                    hygiene = hygiene_refusal(spec)
+                    if hygiene is not None:
+                        refused.append((f"{site}#{number}", f"hygiene: {hygiene}"))
+                        continue
+                    if not reaches_the_tree(spec, roots):
+                        refused.append(
+                            (f"{site}#{number}", "the probe imports nothing of the project")
+                        )
+                        continue
+                    key = (spec.imports, spec.setup, spec.expression)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    built.append(
+                        (relative.as_posix(), statement.lineno, number,
+                         ContractProbe(spec=spec, kind=kind, site=site, row=number))
+                    )
+    built.sort(key=lambda item: item[:3])
+    probes = tuple(item[3] for item in built)
+    return ContractSearch(
+        symbols=tuple(symbols),
+        probes=probes[:MAX_CONTRACT_PROBES],
+        refused=tuple(sorted(refused)),
+        truncated=max(0, len(probes) - MAX_CONTRACT_PROBES),
+    )
