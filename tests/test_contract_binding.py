@@ -199,7 +199,7 @@ def _flow(source: str, *, callee: str = "parse", container: str = "", nth: int =
     ]
     call = sorted(calls, key=lambda n: (n.lineno, n.col_offset))[nth]
     point = program_point(func, call, container=container)
-    return flow_refusal(point, func, call, owner=_owners(module).get(id(func)), module=module)
+    return flow_refusal(point, func, call, owners=_owners(module).get(id(func), ()), module=module)
 
 
 @pytest.mark.parametrize(
@@ -219,10 +219,20 @@ def _flow(source: str, *, callee: str = "parse", container: str = "", nth: int =
             """
             TEXT = "1,2"
             def test_x():
+                \"\"\"A docstring.\"\"\"
+                other = [1, TEXT]
+                assert other
+                assert parse(TEXT) == 1
+            """, {}, "", id="read: inert statements that call nothing and change nothing"),
+        pytest.param(
+            """
+            TEXT = "1,2"
+            def test_x():
                 other = [1]
                 other.append(len(TEXT))
                 assert parse(TEXT) == 1
-            """, {}, "", id="read: unrelated statements, an immutable constant handed to a call"),
+            """, {}, "line 5 calls other.append before the assertion at line 6",
+            id="refused: any call before the assertion, however unrelated it looks"),
         pytest.param(
             """
             def test_x():
@@ -282,7 +292,7 @@ def _flow(source: str, *, callee: str = "parse", container: str = "", nth: int =
             def test_x():
                 ROWS.append("9,9")
                 assert parse(ROWS) == 1
-            """, {}, "calls a method of the module-level 'ROWS'",
+            """, {}, "line 4 touches the module-level 'ROWS', a value a statement can change",
             id="refused: a module-level value changed first"),
         pytest.param(
             """
@@ -441,3 +451,174 @@ def test_a_site_whose_receiver_is_bound_inside_a_block_is_refused_not_dropped(
     assert search.probes == ()
     reason = dict(search.refused)["tests/test_geo.py:8#0"]
     assert "'g' is assigned in test_cell at line 7" in reason
+
+
+# --- the independent review's shapes (D-255), each refused ------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            """
+            def test_x():
+                text = "01,02"
+                other = text
+                text = "1,2"
+                assert parse(other) == 1
+            """, "line 5 rebinds 'text', which line 4 reads", id="a stale binding chain"),
+        pytest.param(
+            """
+            from geo import parse, public
+            def test_x():
+                parse = public
+                assert parse("1,2") == 1
+            """, "'parse' is imported or defined at module level and rebound in test_x",
+            id="the callee rebound in the test"),
+        pytest.param(
+            """
+            from geo import parse
+            def parse(t):
+                return 1
+            def test_x():
+                assert parse("1,2") == 1
+            """, "'parse' is bound more than once at module level (lines 2, 3)",
+            id="the callee rebound at module level"),
+        pytest.param(
+            """
+            def test_x():
+                text = "1,2"
+                match "01,02":
+                    case text:
+                        pass
+                assert parse(text) == 1
+            """, "line 5 rebinds 'text' in a match pattern", id="a match capture"),
+        pytest.param(
+            """
+            @mock.patch.object(geo, "parse", fake)
+            def test_x():
+                assert parse("1,2") == 1
+            """, "marked mock.patch", id="patch.object"),
+        pytest.param(
+            """
+            @patch.dict("os.environ", {"A": "1"})
+            def test_x():
+                assert parse("1,2") == 1
+            """, "marked patch", id="patch.dict"),
+        pytest.param(
+            """
+            needs_x = pytest.mark.skipif(True, reason="x")
+            @needs_x
+            def test_x():
+                assert parse("1,2") == 1
+            """, "marked pytest.mark.skipif", id="a mark bound to a module name"),
+        pytest.param(
+            """
+            @pytest.mark.parametrize("text", [pytest.param("1,2", marks=pytest.mark.skip)])
+            def test_x(text):
+                assert parse(text) == 1
+            """, "marked pytest.mark.skip", id="a row marked skip"),
+        pytest.param(
+            """
+            @pytest.mark.skip
+            class TestOuter:
+                class TestInner:
+                    def test_x(self):
+                        assert parse("1,2") == 1
+            """, "marked pytest.mark.skip at line 2", id="an outer class marked skip"),
+        pytest.param(
+            """
+            text = "1,2"
+            def test_x(text):
+                assert parse(text) == 1
+            """, "the call depends on 'text', a fixture of test_x",
+            id="a parameter that shadows a module constant"),
+        pytest.param(
+            """
+            @pytest.mark.parametrize("text", ["1,2"], indirect=True)
+            def test_x(text):
+                assert parse(text) == 1
+            """, "marked parametrize(indirect=...)", id="an indirect parametrization"),
+        pytest.param(
+            """
+            import geo
+            def test_x():
+                geo.int = lambda s: 1
+                assert parse("1,2") == 1
+            """, "line 4 changes state through 'geo.int'",
+            id="module state the call does not name"),
+        pytest.param(
+            """
+            TEXT = "1,2"
+            def test_x():
+                globals()["TEXT"] = "01,02"
+                assert parse(TEXT) == 1
+            """, "line 4 changes state through", id="globals()"),
+        pytest.param(
+            """
+            PARTS = ["1,2"]
+            def test_x():
+                alias = PARTS
+                alias[0] = "01,02"
+                assert parse(PARTS[0]) == 1
+            """, "line 4 touches the module-level 'PARTS'", id="an alias of a mutable constant"),
+    ],
+)
+def test_the_reviews_shapes_are_refused(source: str, expected: str) -> None:
+    reason = _flow(source)
+    assert expected in reason, reason
+
+
+def test_a_path_nested_beyond_the_interpreters_depth_is_refused_not_raised() -> None:
+    from attest.review.contracts import flow_refusal, program_point
+
+    module = ast.parse("def test_x():\n    a" + ".b" * 600 + "()\n    assert parse('1,2') == 1\n")
+    func = module.body[0]
+    assert isinstance(func, ast.FunctionDef)
+    statement = func.body[1]
+    assert isinstance(statement, ast.Assert) and isinstance(statement.test, ast.Compare)
+    call = statement.test.left
+    reason = flow_refusal(program_point(func, call), func, call, module=module)
+    assert "nested too deeply" in reason
+
+
+def test_a_stale_chain_in_the_models_own_setup_binds_no_input() -> None:
+    from attest.review.contracts import probe_call
+
+    call = probe_call(
+        "from geo import parse\n\n\ndef test_attest_replay():\n"
+        "    s = '01,02'\n    u = s\n    s = '1,2'\n    _attest_value = parse(u)\n",
+        "geo",
+    )
+    assert call is not None and "line 7 rebinds 's', which line 6 reads" in call.flow
+
+
+def test_the_generator_writes_the_test_bodys_bindings_in_source_order(tmp_path: Path) -> None:
+    from binding_cases import GEO_BASE
+
+    from attest.review.contracts import contract_probes
+
+    (tmp_path / "geo.py").write_text(GEO_BASE, encoding="utf-8")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_geo.py").write_text(
+        "from geo import Grid, Point\n\n\n"
+        "def test_cell():\n"
+        "    p = Point(1, 2)\n"
+        "    g = Grid(width=2)\n"
+        "    assert g.cell(p) == Point(2, 2)\n",
+        encoding="utf-8",
+    )
+    search = contract_probes(tmp_path, "geo.py", ["cell"])
+    assert [probe.spec.setup for probe in search.probes] == ["p = Point(1, 2)\ng = Grid(width=2)"]
+
+
+def test_a_contract_covering_a_value_the_assertion_does_not_pin_is_inconsistent() -> None:
+    forged = _admitted_observation(derived="Point(x=9, y=9)", pinned="'Point(x=9, y=9)'")
+    verdict = intent_verdict(forged)
+    assert verdict is not None and "covers a value the failing assertion does not pin" in verdict
+
+
+def test_a_contract_about_a_symbol_the_change_did_not_touch_is_inconsistent() -> None:
+    forged = _admitted_observation(symbol="Grid.cell")
+    verdict = intent_verdict(forged)
+    assert verdict is not None and "which this change did not touch" in verdict

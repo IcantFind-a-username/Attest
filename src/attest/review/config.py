@@ -137,7 +137,8 @@ class ReviewConfig:
     # gathered. Only a caller that constructs the config sets it.
     contract_probes: bool = False
     # D-254, experimental: the intent rule a review certifies under. The shipped
-    # rule unless a caller names `attest.intent.v6`; not a policy key either.
+    # rule unless a caller names `attest.intent.v6.1` (D-255; v6 is no longer
+    # selectable); not a policy key either.
     intent_policy: str = INTENT_POLICY_VERSION
 
     def __post_init__(self) -> None:
