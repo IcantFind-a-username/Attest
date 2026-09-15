@@ -56,6 +56,7 @@ def test_generated_additions_preserve_source(wheel_tree: tuple[Path, Path]) -> N
         z.writestr("pkg/__init__.py", b"VALUE = 1\n")
         z.writestr("pkg/native.so", b"fixture native bytes")
         z.writestr("pkg/_version.py", b"version = '0.1'\n")
+        z.writestr("pkg/generated.h", b"/* build header */\n")
         z.writestr("fixture-0.1.dist-info/METADATA", b"Name: fixture\n")
     result = apply_wheel(
         tree, wheel, revision="a" * 40, expected_revision="a" * 40,
@@ -63,4 +64,6 @@ def test_generated_additions_preserve_source(wheel_tree: tuple[Path, Path]) -> N
         version_path="pkg/_version.py",
     )
     assert set(result["added"]) == {"pkg/native.so", "pkg/_version.py"}
+    assert set(result["omitted_build_files"]) == {"pkg/generated.h"}
+    assert not (tree / "pkg/generated.h").exists()
     assert (tree / "pkg/__init__.py").read_bytes() == b"VALUE = 1\n"

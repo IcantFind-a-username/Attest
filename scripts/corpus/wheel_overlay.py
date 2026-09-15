@@ -29,6 +29,7 @@ def apply_wheel(
         for p in paths if p.is_file()
     }
     additions: dict[str, bytes] = {}
+    omitted: dict[str, str] = {}
     with ZipFile(wheel) as archive:
         members = archive.infolist()
         if len(members) > 20000 or sum(m.file_size for m in members) > 512 * 1024 * 1024:
@@ -58,6 +59,10 @@ def apply_wheel(
                     raise ValueError("source overwrite refused: " + name)
             elif name.endswith(".so") or name == version_path:
                 additions[name] = payload
+            elif relative.suffix in {".h", ".hpp", ".c", ".cpp", ".pxd", ".pxi", ".pyx"}:
+                # Build inputs are not Python import artifacts. Keep the source
+                # export unchanged; a runtime that needs these still must pass.
+                omitted[name] = sha256_bytes(payload)
             else:
                 raise ValueError("unproven generated file: " + name)
     for name in additions:
@@ -78,4 +83,5 @@ def apply_wheel(
         "revision": revision, "wheel_sha256": expected_digest,
         "original_files_digest": sha256_bytes(canonical_json_bytes(original)),
         "added": {name: sha256_bytes(payload) for name, payload in additions.items()},
+        "omitted_build_files": omitted,
     }

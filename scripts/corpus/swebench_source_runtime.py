@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 STUDY = ROOT / "benchmarks/studies/swebench-independent-v1"
 BUILDS = ROOT / ".attest/corpora/swebench-compatible-build"
 PREVIOUS = ROOT / ".attest/corpora/swebench-independent-runtime"
-WORK = ROOT / ".attest/corpora/swebench-source-runtime"
+WORK = ROOT / ".attest/corpora/swebench-source-runtime-r2"
 
 
 def constraints(wheel: Path, cutoff: str) -> tuple[str, str]:

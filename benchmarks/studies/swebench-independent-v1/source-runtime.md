@@ -37,3 +37,19 @@ failure. Success requires one executed, unskipped test, normal exit and active
 network guard. This is runtime qualification only, not paired human-test truth,
 forward-direction eligibility, a qualified defect/control, or a product review.
 Those prerequisites and the paid minimum remain unchanged.
+
+## Pre-behavior transfer correction
+
+The first invocation at `44b38da` passed the generic native fixture, then refused
+all six at transfer, before any case image build or test execution. Wheels carry
+additional build inputs (`.h` and `.pxd` were the first refusals). Retain that run
+at `swebench-source-runtime`; no behavior outcome informed the correction.
+
+The second invocation uses a fresh `swebench-source-runtime-r2` directory. Missing
+build-only files with `.h`, `.hpp`, `.c`, `.cpp`, `.pxd`, `.pxi` or `.pyx` suffixes
+are recorded as omitted, never copied. All original files must still match;
+unexpected Python additions and all identity/path restrictions still refuse.
+This narrows transfer to the originally intended runtime artifacts; no new file
+type is admitted. Reuse the generic control and all six original cases in order.
+The in-progress local gate at `44b38da` is superseded, retained as partial, and
+will not be claimed as a pass. No product source or isolation setting changes.
