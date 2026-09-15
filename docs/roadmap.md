@@ -780,6 +780,13 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-16 — separate study authorized and six candidates frozen (D-269).** Owner
+  approves D-268 proposal. Two repositories pass scoped exposure audit; six contemporary
+  prior-heldout instances frozen before source access; immutable data projection matches.
+  [Evidence](acceptance/2026-09-16-swebench-independent-freeze.md). Continue runtime/oracle,
+  forward-direction and control qualification, then paid protocol/smoke within existing cap.
+  No qualified defects/controls yet, no paid reservation or phase promotion.
+
 - **2026-09-16 — paired held-out oracle qualification found no witness (D-268).** Driver
   `8eb5d63`: seven fixed/buggy pairs all fail during collection; all 20 candidate rows retained.
   [Evidence](acceptance/2026-09-16-heldout-oracle.md). Paid evaluation blocked by missing

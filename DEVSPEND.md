@@ -596,3 +596,9 @@ write. Approved cap and settled paid total unchanged.
 **2026-09-16 — D-268 paired oracle qualification: $0.00 Attest model/API spend.**
 Seven fixed/buggy pairs, 14 free container jobs; no model call, paid reservation, remote write
 or push. Zero eligible witnesses; no paid dispatch. Approved cap and settled total unchanged.
+
+**2026-09-16 — separate independent study authorized; D-269 preparation: $0.00 API spend.**
+Owner “允许” authorizes the separate SWE-bench Verified study proposed in D-268. Prior failed
+population remains intact; existing paid opt-in, cumulative cap and report-then-stop boundary
+continue. Six candidates frozen; no model call or paid reservation. Remaining headroom must
+be re-read/reconciled before dispatch; this entry does not increase it.

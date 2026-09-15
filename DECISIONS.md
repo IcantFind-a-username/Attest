@@ -2803,3 +2803,10 @@ is active only when the owning architecture/acceptance document changes with it.
 - [Evidence](docs/acceptance/2026-09-16-heldout-oracle.md); one review found malformed-JUnit checkpoint ordering, repaired and fault-checked; no outcome rerun.
 - INV-TRUTH-001/G-MEASURE-004/G-CORPUS-001 remain unsatisfied; no recall, control-safety or release claim. No superseded result.
 - Paid dispatch blocked by missing independent truth/control population; separate SWE-bench Verified study proposed for owner decision under AGENTS §16, no replacement authorized here.
+
+### D-269 — owner-authorized separate independent sampling (2026-09-16)
+- Active E-02 preparation; owner “允许” approves D-268 proposal, preserves original failed pool, existing cap/defaults/isolation and report-then-stop rule.
+- [Evidence](docs/acceptance/2026-09-16-swebench-independent-freeze.md): six 2022+ prior-heldout candidates from two scoped-audit-eligible repositories, frozen8ad0236 before source access; actual API spend $0.
+- One independent audit validates aliases/split/order; supplemental pinned-Parquet check df70991 matches all500 metadata rows, closing server-cache provenance uncertainty without changing the sample.
+- No product change or recall/precision claim; INV-TRUTH-001/G-MEASURE-004/G-CORPUS-001 remain qualification gates. No historical evidence superseded.
+- Next: runtime/oracle/forward-direction/control qualification, then feasible paid protocol and free artifact smoke. Below minimum3+3/two repositories means no dispatch, not silent replacement.
