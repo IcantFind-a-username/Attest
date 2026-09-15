@@ -3,6 +3,7 @@
 The original repository node and an explicitly hashed instrumentation overlay execute
 through the existing in-tree executor in the same production container image.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -10,6 +11,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tomllib
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -21,7 +23,7 @@ from runtime_contract_cases import NAMES, POSITIVES, build_case  # noqa: E402
 
 from attest.benchmark.artifacts import sha256_bytes, write_canonical_json  # noqa: E402
 from attest.execution.backends import select_backend  # noqa: E402
-from attest.execution.controller import ExecutorAdapter  # noqa: E402
+from attest.execution.controller import Controller, ExecutorAdapter  # noqa: E402
 from attest.review.candidates import StoredCandidate  # noqa: E402
 from attest.review.contract_runtime import (  # noqa: E402
     OBSERVER,
@@ -52,14 +54,23 @@ def archive(repo: Path, sha: str, destination: Path) -> None:
 
 
 def run_site(
-    repo: Path, trees: dict[str, Path], shas: dict[str, str],
-    site: RuntimeSite, head: RuntimeSite | None, adapter: ExecutorAdapter, work: Path,
+    repo: Path,
+    trees: dict[str, Path],
+    shas: dict[str, str],
+    site: RuntimeSite,
+    head: RuntimeSite | None,
+    adapter: ExecutorAdapter,
+    work: Path,
 ) -> dict[str, Any]:
     runs: dict[str, ExecutionResult] = {}
     overlays: dict[str, Any] = {}
-    record: dict[str, Any] = {"base_site": asdict(site),
-                              "head_site": asdict(head) if head else None,
-                              "runs": {}, "overlays": overlays}
+    record: dict[str, Any] = {
+        "base_site": asdict(site),
+        "head_site": asdict(head) if head else None,
+        "runs": {},
+        "overlays": overlays,
+        "protocol": {},
+    }
     if head is None:
         record["verdict"] = interpret_pair(site, head, runs)
         return record
@@ -70,9 +81,11 @@ def run_site(
         except ValueError as exc:
             record["verdict"] = {"status": "defer", "reason": str(exc), "receipt_eligible": False}
             return record
-        overlays[revision] = {"original_test_digest": sha256_bytes(source.encode()),
-                              "observed_test_digest": sha256_bytes(observed.encode()),
-                              "observer_digest": sha256_bytes(OBSERVER_SOURCE.read_bytes())}
+        overlays[revision] = {
+            "original_test_digest": sha256_bytes(source.encode()),
+            "observed_test_digest": sha256_bytes(observed.encode()),
+            "observer_digest": sha256_bytes(OBSERVER_SOURCE.read_bytes()),
+        }
         for mode in ("original", "observed"):
             label = revision + "-" + mode
             tree = work / label
@@ -85,25 +98,51 @@ def run_site(
             body = observed if mode == "observed" else source
             candidate = StoredCandidate(
                 "runtime-shadow-" + site.identity,
-                Finding("Runtime contract shadow only", selected.anchor,
-                        selected.target_line, "", ""),
-                0.0, "verify", 0.1,
+                Finding(
+                    "Runtime contract shadow only", selected.anchor, selected.target_line, "", ""
+                ),
+                0.0,
+                "verify",
+                0.1,
             )
+            controller = Controller(work / "protocol" / label)
             runs[label] = execute_repro(
-                repo, candidate, ReproSpec(body),
+                repo,
+                candidate,
+                ReproSpec(body),
                 ExecutorLimits(wall_timeout_s=45, output_bytes=65_536),
-                tree=tree, tree_target=selected.path, node=selected.node,
-                run_label=label, revision_sha=shas[revision], adapter=adapter,
+                tree=tree,
+                tree_target=selected.path,
+                node=selected.node,
+                run_label=label,
+                revision_sha=shas[revision],
+                adapter=adapter,
+                controller=controller,
             )
+            requests = list(controller.root.glob("*/request.json"))
+            if len(requests) == 1:
+                folder = requests[0].parent
+                record["protocol"][label] = {
+                    name: json.loads((folder / name).read_text())
+                    for name in ("request.json", "result.json")
+                    if (folder / name).is_file()
+                }
     record["runs"] = {label: asdict(run) for label, run in runs.items()}
-    digests = {rev + "-" + mode: data[mode + "_test_digest"]
-               for rev, data in overlays.items() for mode in ("original", "observed")}
+    digests = {
+        rev + "-" + mode: data[mode + "_test_digest"]
+        for rev, data in overlays.items()
+        for mode in ("original", "observed")
+    }
     record["verdict"] = interpret_pair(site, head, runs, digests=digests)
     return record
 
 
 def measure(
-    label: str, repo: Path, base_sha: str, head_sha: str, work: Path,
+    label: str,
+    repo: Path,
+    base_sha: str,
+    head_sha: str,
+    work: Path,
 ) -> dict[str, Any]:
     trees = {revision: work / revision for revision in ("base", "head")}
     shas = {"base": base_sha, "head": head_sha}
@@ -120,26 +159,71 @@ def measure(
         )
     base = discover_sites(trees["base"], changed)
     head = discover_sites(trees["head"], changed)
-    record: dict[str, Any] = {"label": label, "base_sha": base_sha, "head_sha": head_sha,
-                              "changed": changed, "base_discovery": asdict(base),
-                              "head_discovery": asdict(head), "sites": [],
-                              "receipt_eligible": False}
+    record: dict[str, Any] = {
+        "label": label,
+        "base_sha": base_sha,
+        "head_sha": head_sha,
+        "changed": changed,
+        "base_discovery": asdict(base),
+        "head_discovery": asdict(head),
+        "sites": [],
+        "receipt_eligible": False,
+    }
     # Preserve zero-site cases explicitly; never treat absent input as a successful test.
     if not base.sites:
         record["reason"] = "no supported assertion site discovered"
         return record
-    backend = select_backend(trees["head"], production=True, remaining_s=120)
-    record["backend"] = {"profile": backend.profile, "available": backend.adapter is not None,
-                         "reason": backend.reason}
+    image_tree = trees["base"]
+    declaration = image_tree / "pyproject.toml"
+    if declaration.is_file():
+        metadata = tomllib.loads(declaration.read_text())
+        group = metadata.get("dependency-groups", {}).get("test", [])
+        if group:
+            if (
+                not isinstance(group, list)
+                or not all(
+                    isinstance(item, str)
+                    and len(item) <= 256
+                    and "\n" not in item
+                    and "\r" not in item
+                    and not item.startswith("-")
+                    for item in group
+                )
+                or len(group) > 64
+            ):
+                record["reason"] = "unsupported base test dependency declaration"
+                return record
+            image_tree = work / "image-input"
+            shutil.copytree(trees["base"], image_tree)
+            requirements = image_tree / "requirements-dev.txt"
+            old = requirements.read_text() if requirements.exists() else ""
+            requirements.write_text(old + "\n" + "\n".join(group) + "\n")
+            record["test_environment"] = {
+                "source": "base pyproject.toml dependency-groups.test (flat strings only)",
+                "declaration_digest": sha256_bytes(declaration.read_bytes()),
+                "generated_requirements_digest": sha256_bytes(requirements.read_bytes()),
+                "requirements": group,
+            }
+    backend = select_backend(image_tree, production=True, remaining_s=120)
+    record["backend"] = {
+        "profile": backend.profile,
+        "available": backend.adapter is not None,
+        "reason": backend.reason,
+    }
     if backend.adapter is None:
         record["reason"] = backend.reason
         return record
     for i, site in enumerate(base.sites):
-        matches = [s for s in head.sites if (s.path, s.node, s.assertion, s.anchor, s.symbol)
-                   == (site.path, site.node, site.assertion, site.anchor, site.symbol)]
+        matches = [
+            s
+            for s in head.sites
+            if (s.path, s.node, s.assertion, s.anchor, s.symbol)
+            == (site.path, site.node, site.assertion, site.anchor, site.symbol)
+        ]
         head_site = matches[0] if len(matches) == 1 else None
-        record["sites"].append(run_site(repo, trees, shas, site, head_site,
-                                        backend.adapter, work / f"site-{i}"))
+        record["sites"].append(
+            run_site(repo, trees, shas, site, head_site, backend.adapter, work / f"site-{i}")
+        )
     return record
 
 
@@ -153,6 +237,7 @@ def main() -> None:
     for path in (args.work, args.out):
         if not path.resolve().is_relative_to(ROOT):
             raise ValueError("all experiment paths must be inside this repository")
+    args.work, args.out = args.work.resolve(), args.out.resolve()
     args.work.mkdir(parents=True, exist_ok=False)
     labels = GAIN_CASES if args.gains else tuple(args.only.split(","))
     if not labels or (not args.gains and any(label not in NAMES for label in labels)):
@@ -160,8 +245,14 @@ def main() -> None:
     rows = []
     for label in labels:
         if args.gains:
-            manifest = json.loads((ROOT / ".attest/corpora/mutations-v1-recall/cases" /
-                                  (label + "--forward") / "manifest.json").read_text())
+            manifest = json.loads(
+                (
+                    ROOT
+                    / ".attest/corpora/mutations-v1-recall/cases"
+                    / (label + "--forward")
+                    / "manifest.json"
+                ).read_text()
+            )
             repo = Path(manifest["repo_path"]).resolve()
             if not repo.is_relative_to(ROOT / ".attest/corpora"):
                 raise ValueError("corpus is outside approved working tree")
@@ -169,12 +260,21 @@ def main() -> None:
         else:
             repo, base_sha, head_sha, _ = build_case(label, args.work / "fixtures")
         row = measure(label, repo, base_sha, head_sha, args.work / label)
-        row["declared_truth"] = ("development_regression"
-                                 if args.gains or label in POSITIVES else "control")
+        row["declared_truth"] = (
+            "development_regression" if args.gains or label in POSITIVES else "control"
+        )
         rows.append(row)
         write_canonical_json(args.out, rows)
-        print(json.dumps({"label": label, "sites": len(row["sites"]), "results": [
-            s["verdict"] for s in row["sites"]]}), flush=True)
+        print(
+            json.dumps(
+                {
+                    "label": label,
+                    "sites": len(row["sites"]),
+                    "results": [s["verdict"] for s in row["sites"]],
+                }
+            ),
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

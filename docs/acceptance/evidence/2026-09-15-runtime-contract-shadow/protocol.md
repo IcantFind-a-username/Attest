@@ -63,3 +63,23 @@ fixed; relevant tests, one final full pytest/ruff/mypy gate and separate periphe
 Report per-case binding recovery, losses, abstention/failure, overlay effects, source/driver
 SHA and digests. Seven-commit/three-hour working limit; stop at the measurement, not further
 feature work. No promotion, paid forty, release, new CLI or replacement contract algorithm.
+
+## Pre-outcome environment repair and review amendment
+
+The first smoke used relative mount paths, so Docker never started; those observations
+are invalid infrastructure runs, not controls passing. The driver now resolves its paths.
+A preliminary packaging run could not collect any test because `pretend` was absent.
+Before any behavioural measurement on those nodes, derive a test image from the base's
+flat `[dependency-groups].test` strings through the existing requirements/image builder.
+Keep the image-only requirements overlay separate and hashed; run original and observed
+base/head against the same resulting image. No dependency guessed from an outcome, no
+production bootstrap/backend change, no test assertion or selection change. If the group
+is complex, collection still fails or parameterized nodes cannot be bound, retain that
+failure rather than broadening the subset. Missing dependency repairs are not gate-hunting.
+
+The one independent review reproduced numeric-type conflation and null binding fields.
+The final recorder uses typed snapshots and the host validates their grammar. Version the
+incompatible shadow packet as v2; v1 pilot records remain untouched and are not reclassified
+as final evidence. Review controls are reported separately from the frozen 15-case suite.
+The protocol's malformed-record refusal covers invalid structure/identity, not a guarantee
+against a project forging a well-formed same-process record; that trust boundary remains open.
