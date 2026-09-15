@@ -186,7 +186,8 @@ def main() -> None:
     write_canonical_json(output / "preflight.json", record)
     print(
         f"{len(records)} development candidates; "
-        f"{record['unsupported_recorded_interpreters']} recorded interpreters outside product matrix; "
+        f"{record['unsupported_recorded_interpreters']} "
+        "recorded interpreters outside product matrix; "
         f"{record['release_metadata_errors']} release metadata errors"
     )
 
