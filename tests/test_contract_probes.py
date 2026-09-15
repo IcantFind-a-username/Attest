@@ -24,7 +24,7 @@ from attest.review.budget import Budget
 from attest.review.candidates import StoredCandidate
 from attest.review.channels import ChannelPurchase
 from attest.review.config import ReviewConfig, load_config, load_pricing, validate_review_config
-from attest.review.contracts import MAX_CONTRACT_PROBES, contract_probes
+from attest.review.contracts import MAX_CONTRACT_PROBES, contract_probes, find_contracts
 from attest.review.executor import (
     EvidenceClass,
     ExecutionOutcome,
@@ -63,9 +63,9 @@ TESTS = '''import pytest
 from geo import Point, parse
 
 
-@pytest.mark.parametrize("text, expected", [("1,2", Point(1, 2)), ("3,4", Point(3, 4))])
-def test_parse(text, expected):
-    assert parse(text) == expected
+@pytest.mark.parametrize("text, x, y", [("1,2", 1, 2), ("3,4", 3, 4)])
+def test_parse(text, x, y):
+    assert parse(text) == Point(x, y)
 
 
 def test_parse_with_a_fixture(sample_text):
@@ -102,6 +102,24 @@ def two_revisions(tmp_path: Path, head: str) -> tuple[Path, str, str]:
     (repo / "geo.py").write_text(head, encoding="utf-8")
     run_git(repo, "commit", "-am", "head")
     return repo, base_sha, run_git(repo, "rev-parse", "HEAD")
+
+
+@pytest.mark.parametrize(
+    "binding", ["from pretend import pytest", "import pytest\npytest = replacement"]
+)
+def test_parameter_decorator_requires_an_unrebound_framework_import(
+    tmp_path: Path, binding: str,
+) -> None:
+    repo, _, _ = two_revisions(tmp_path, GEO_HEAD)
+    (repo / "tests/test_geo.py").write_text(TESTS.replace("import pytest", binding))
+    observed = find_contracts(
+        base_tree=repo, head_tree=repo, anchored="geo.py", symbols=("parse",),
+        pinned=("'Point(x=1, y=2)'",),
+        test_source='from geo import parse\ndef test_probe():\n    _attest_value = parse("1,2")\n',
+    )
+    assert not contract_probes(repo, "geo.py", ("parse",)).probes
+    assert observed and not any(c.admitted for c in observed)
+    assert all("context" in c.reason for c in observed)
 
 
 class CountingProvider:

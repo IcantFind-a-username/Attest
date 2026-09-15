@@ -58,7 +58,7 @@ GEO_HEAD = GEO_BASE.replace(
 PARSE_LINES = (9, 10, 11)
 COUNT_LINES = (18, 19)
 
-TESTS_ROWS = '''import pytest
+TESTS_CONSTRUCTOR_ROWS = '''import pytest
 
 from pkg.geo import Point, parse
 
@@ -66,6 +66,15 @@ from pkg.geo import Point, parse
 @pytest.mark.parametrize("text, expected", [("1,2", Point(1, 2)), ("3,4", Point(3, 4))])
 def test_parse(text, expected):
     assert parse(text) == expected
+'''
+TESTS_ROWS = '''import pytest
+
+from pkg.geo import Point, parse
+
+
+@pytest.mark.parametrize("text, x, y", [("1,2", 1, 2), ("3,4", 3, 4)])
+def test_parse(text, x, y):
+    assert parse(text) == Point(x, y)
 '''
 TESTS_ASSERT = '''from pkg.geo import Point, parse
 
@@ -208,6 +217,16 @@ def test_a_parametrize_row_with_the_probes_input_specifies_the_object(tmp_path: 
     assert "is not the probe's" in other[0].reason
 
 
+def test_constructor_calls_in_parameter_rows_are_now_refused(tmp_path: Path) -> None:
+    test, longrepr = _replay("from pkg.geo import parse", 'parse("1,2")', "Point(x=1, y=2)")
+    observed = _observe(tmp_path, tests=TESTS_CONSTRUCTOR_ROWS, test=test, longrepr=longrepr,
+                        policy=INTENT_POLICY_V6)
+    assert observed.contracts and not any(c.admitted for c in observed.contracts)
+    assert any(c.input_bound and c.evaluated and c.path_bound for c in observed.contracts)
+    assert all("context" in c.reason for c in observed.contracts)
+    assert intent_verdict(observed) is not None
+
+
 def test_a_bound_assertion_with_an_object_expected_side_specifies_it(tmp_path: Path) -> None:
     test, longrepr = _replay("from pkg.geo import parse", 'parse("1,2")', "Point(x=1, y=2)")
     observed = _observe(tmp_path, tests=TESTS_ASSERT, test=test, longrepr=longrepr,
@@ -253,8 +272,7 @@ def test_a_generic_constant_a_bound_assertion_covers_is_a_specification(tmp_path
 
 
 def test_a_row_with_another_input_does_not_specify_even_the_same_object(tmp_path: Path) -> None:
-    rows = TESTS_ROWS.replace('("1,2", Point(1, 2)), ("3,4", Point(3, 4))',
-                              '("01,02", Point(1, 2)), ("3,4", Point(3, 4))')
+    rows = TESTS_ROWS.replace('("1,2", 1, 2)', '("01,02", 1, 2)')
     test, longrepr = _replay("from pkg.geo import parse", 'parse("1,2")', "Point(x=1, y=2)")
     observed = _observe(tmp_path, tests=rows, test=test, longrepr=longrepr,
                         policy=INTENT_POLICY_V6)

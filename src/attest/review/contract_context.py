@@ -28,6 +28,16 @@ def _plain_parametrize(node: ast.expr) -> bool:
         return False
     if len(node.args) != 2:
         return False
+    # Rows are evaluated at import, even when the tested call never uses their
+    # parameters. A constructor or callback there can replace the tested callable.
+    if any(isinstance(n, ast.Call) for arg in node.args for n in ast.walk(arg)):
+        return False
+    try:
+        names, rows = (ast.literal_eval(arg) for arg in node.args)
+    except (ValueError, TypeError, SyntaxError, RecursionError):
+        return False
+    if not isinstance(names, str | list | tuple) or not isinstance(rows, list | tuple) or not rows:
+        return False
     # ids can be a callback; indirect may invoke fixtures. Even a decorator argument
     # discarded by the row reader executes before collection, so it cannot be ignored.
     for keyword in node.keywords:
@@ -52,7 +62,7 @@ def _plain_parametrize(node: ast.expr) -> bool:
     return True
 
 
-def _body_refusal(body: list[ast.stmt]) -> tuple[int, str] | None:
+def _body_refusal(body: list[ast.stmt], *, pytest_imported: bool = False) -> tuple[int, str] | None:
     for statement in body:
         names: list[str] = []
         if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
@@ -62,13 +72,19 @@ def _body_refusal(body: list[ast.stmt]) -> tuple[int, str] | None:
         elif isinstance(statement, ast.Assign):
             names = [n.id for t in statement.targets for n in ast.walk(t)
                      if isinstance(n, ast.Name)]
+        if "pytest" in names:
+            if not isinstance(statement, ast.Import) or any(
+                a.name != "pytest" for a in statement.names if (a.asname or a.name) == "pytest"
+            ):
+                return statement.lineno, "the pytest decorator binding is unexamined or rebound"
+            pytest_imported = True
         if any(n in _HOOKS or n.startswith("pytest_") for n in names):
             return statement.lineno, "setup hook or plugin declaration"
         if isinstance(statement, ast.Import | ast.ImportFrom):
             continue  # imported modules' execution is explicitly outside this screen
         if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef):
             if any(not (
-                statement.name.startswith("test") and _plain_parametrize(d)
+                statement.name.startswith("test") and pytest_imported and _plain_parametrize(d)
             ) for d in statement.decorator_list):
                 return statement.lineno, "decorator may install an implicit fixture or wrapper"
             # Test marks/parametrize are checked by the existing program-point reader.
@@ -86,7 +102,7 @@ def _body_refusal(body: list[ast.stmt]) -> tuple[int, str] | None:
         if isinstance(statement, ast.ClassDef):
             if statement.bases or statement.keywords or statement.decorator_list:
                 return statement.lineno, "class construction or inherited setup is unexamined"
-            refusal = _body_refusal(statement.body)
+            refusal = _body_refusal(statement.body, pytest_imported=pytest_imported)
             if refusal:
                 return refusal
             continue
