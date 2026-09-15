@@ -31,6 +31,7 @@ REPO = ROOT / ".attest/corpora/repository-holdout-v1-dev-keras"
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--work", type=Path, required=True)
+    parser.add_argument("--recovered-dependencies", action="store_true")
     args = parser.parse_args()
     work = args.work.resolve()
     if not work.is_relative_to(ROOT / ".attest/corpora") or work.exists():
@@ -50,7 +51,17 @@ def main() -> None:
         "runs": [],
         "attest_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "script_sha256": sha256_bytes(Path(__file__).read_bytes()),
-        "protocol_sha256": sha256_bytes((STUDY / "historical-oracle.md").read_bytes()),
+        "protocol_sha256": sha256_bytes(
+            (
+                STUDY
+                / (
+                    "recovered-environment.md"
+                    if args.recovered_dependencies
+                    else "historical-oracle.md"
+                )
+            ).read_bytes()
+        ),
+        "recovered_dependencies": args.recovered_dependencies,
         "model_api_spend_usd": 0,
         "product_evaluations": 0,
         "receipt_eligible": False,
@@ -149,8 +160,13 @@ def main() -> None:
             oracle_sha256=sha256_bytes(test),
             requirements_sha256=sha256_bytes(requirements),
         )
-        base_tag = "python:3.7.3-slim"
-        command("pull", ["docker", "pull", "--platform", "linux/amd64", base_tag], 180, docker=True)
+        base_tag = "python:3.7.3" if args.recovered_dependencies else "python:3.7.3-slim"
+        command(
+            "pull",
+            ["docker", "pull", "--platform", "linux/amd64", base_tag],
+            300 if args.recovered_dependencies else 180,
+            docker=True,
+        )
         info = json.loads(
             command("base-image", ["docker", "image", "inspect", base_tag], 30, docker=True)
         )[0]
@@ -158,16 +174,66 @@ def main() -> None:
         context = work / "build"
         context.mkdir()
         (context / "requirements.txt").write_bytes(requirements)
+        install = "RUN python -m pip install -r /requirements.txt\n"
+        if args.recovered_dependencies:
+            manifest = (STUDY / "recovered-environment-evidence/dependencies.json").read_bytes()
+            record["dependency_manifest_sha256"] = sha256_bytes(manifest)
+            dependencies = json.loads(manifest)
+            archives = context / "archives"
+            archives.mkdir()
+            for dependency in dependencies["files"]:
+                name = dependency["name"]
+                if Path(name).name != name:
+                    raise ValueError("dependency archive name is not a basename")
+                payload = (
+                    ROOT / ".attest/corpora/recovered-dependencies-keras8" / name
+                ).read_bytes()
+                if (
+                    len(payload) != dependency["size_bytes"]
+                    or sha256_bytes(payload) != dependency["sha256"]
+                ):
+                    raise ValueError("recovered dependency drift: " + name)
+                (archives / name).write_bytes(payload)
+            (context / "verify-pins.py").write_text(
+                "from pathlib import Path\nimport pkg_resources\n"
+                "pins = Path('/requirements.txt').read_text().splitlines()\n"
+                "assert pins and all(line.count('==') == 1 for line in pins)\n"
+                "for line in pins:\n"
+                "    pkg_resources.require(line)\n"
+                "print('Verified original exact pins:', len(pins), flush=True)\n"
+            )
+            install = (
+                "RUN python -m pip install Cython==0.29.19\n"
+                "ENV NPY_NUM_BUILD_JOBS=2\nCOPY archives /archives\n"
+                "RUN python -m pip wheel --no-deps --no-build-isolation "
+                "/archives/numpy-1.19.0rc2.tar.gz --wheel-dir /wheels "
+                "&& sha256sum /wheels/*\n"
+                "RUN python -m pip install --no-index --no-deps --find-links=/wheels "
+                "numpy==1.19.0rc2\n"
+                "RUN python -m pip install --no-build-isolation --find-links=/archives "
+                "-r /requirements.txt\n"
+                "COPY verify-pins.py /verify-pins.py\n"
+                "RUN python /verify-pins.py\n"
+                "RUN (python --version; gcc --version; dpkg-query -W; sha256sum /wheels/*) "
+                "> /build-environment.txt && cat /build-environment.txt\n"
+            )
         dockerfile = (
             f"FROM --platform=linux/amd64 {info['RepoDigests'][0]}\n"
             "ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1\n"
             "RUN python -m pip install pip==20.1.1 setuptools==46.4.0 wheel==0.34.2\n"
             "COPY requirements.txt /requirements.txt\n"
-            "RUN python -m pip install -r /requirements.txt\n"
-            "RUN python -m pip check && python -m pip freeze > /environment.txt\n"
+            + install
+            + "RUN python -m pip check && python -m pip freeze > /environment.txt\n"
         )
         (context / "Dockerfile").write_text(dockerfile)
-        tag = "attest-historical:" + sha256_bytes(dockerfile.encode() + requirements)[:16]
+        tag = (
+            "attest-historical:"
+            + sha256_bytes(
+                dockerfile.encode()
+                + requirements
+                + record.get("dependency_manifest_sha256", "").encode()
+            )[:16]
+        )
         command(
             "build",
             [
@@ -179,7 +245,7 @@ def main() -> None:
                 tag,
                 str(context),
             ],
-            900,
+            1800 if args.recovered_dependencies else 900,
             docker=True,
         )
         image_info = json.loads(
@@ -193,6 +259,11 @@ def main() -> None:
             "assert os.path.realpath(keras.__file__).startswith(os.getcwd()+'/keras/'); "
             "print('source',keras.__file__); import pytest; sys.exit(pytest.main(sys.argv[1:]))"
         )
+        if args.recovered_dependencies:
+            bootstrap = (
+                "print(open('/build-environment.txt').read(),flush=True); "
+                "print(open('/environment.txt').read(),flush=True); " + bootstrap
+            )
         for repeat in range(3):
             pair = []
             for side, tree in trees.items():
