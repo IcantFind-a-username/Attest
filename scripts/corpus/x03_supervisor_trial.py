@@ -1,5 +1,6 @@
 """Committed synthetic-only feasibility trial; never a product or corpus verdict."""
 
+import argparse
 import json
 import os
 import subprocess
@@ -13,16 +14,20 @@ BUILDER = "python@sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a
 
 
 def main() -> None:
-    WORK.mkdir(parents=True, exist_ok=False)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=WORK)
+    work = parser.parse_args().output.resolve()
+    work.relative_to(ROOT)
+    work.mkdir(parents=True, exist_ok=False)
     env = dict(os.environ)
     source = ROOT / "scripts/corpus/git_query_supervisor.c"
-    (WORK / source.name).write_bytes(source.read_bytes())
-    (WORK / "Dockerfile").write_text(
+    (work / source.name).write_bytes(source.read_bytes())
+    (work / "Dockerfile").write_text(
         f"FROM {BUILDER}\nCOPY git_query_supervisor.c /supervisor.c\n"
         "RUN cc -std=c11 -O2 -Wall -Wextra -Werror /supervisor.c -lcrypto -o /supervisor\n"
     )
-    with (WORK / "build.log").open("wb") as output:
-        subprocess.run(["docker", "build", "-t", "attest-gq-prototype", str(WORK)],
+    with (work / "build.log").open("wb") as output:
+        subprocess.run(["docker", "build", "-t", "attest-gq-prototype", str(work)],
                        env=env, stdout=output, stderr=subprocess.STDOUT, check=True, timeout=180)
     image = subprocess.check_output(
         ["docker", "image", "inspect", "--format", "{{.Id}}", "attest-gq-prototype"],
@@ -58,7 +63,7 @@ def main() -> None:
         "image": image, "executable_sha256": digests, "rows": [], "model_api_spend_usd": 0,
     }
     for name, text in probes.items():
-        directory = WORK / name
+        directory = work / name
         directory.mkdir()
         (directory / "probe.py").write_text(text)
         command = [
@@ -77,7 +82,7 @@ def main() -> None:
         record["rows"].append({"case": name, "exit_code": run.returncode,
                                "stdout_sha256": sha256_bytes(run.stdout),
                                "stderr_sha256": sha256_bytes(run.stderr)})
-        write_canonical_json(WORK / "result.json", record)
+        write_canonical_json(work / "result.json", record)
         print(name, run.returncode, flush=True)
     print(json.dumps(record, sort_keys=True))
 

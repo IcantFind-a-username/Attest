@@ -35,11 +35,12 @@ enum role { INITIAL, MAIN, SHELL, GIT };
 struct task {
     pid_t pid, parent;
     enum role role;
-    int alive, pending_fork;
+    int alive, pending_fork, trace_ready;
     long syscall;
     double started;
 };
 static struct task tasks[MAX_TASKS];
+static pid_t early_stops[MAX_TASKS];
 static int count, children, failed, root_exit = -1, outfd, errfd;
 static const char *reason = "none", *hashes[3];
 static char **root_argv;
@@ -59,6 +60,7 @@ static void alarm_tick(int sig) { (void)sig; tick = 1; }
 static void refuse(const char *why) {
     if (!failed) { failed = 1; reason = why; }
     for (int i=0; i<count; i++) if (tasks[i].alive) kill(tasks[i].pid, SIGKILL);
+    for (int i=0; i<MAX_TASKS; i++) if (early_stops[i]) kill(early_stops[i], SIGKILL);
 }
 static struct task *find_task(pid_t pid) {
     for (int i=0; i<count; i++) if (tasks[i].pid==pid) return &tasks[i];
@@ -332,8 +334,20 @@ int main(int argc,char **argv) {
         pid_t pid=wait4(-1,&status,__WALL,&usage);
         if(pid<0) { if(errno==EINTR) continue; if(errno==ECHILD) break; refuse("wait"); break; }
         struct task *t=find_task(pid);
-        if(!t) { kill(pid,SIGKILL); refuse("untracked-task"); continue; }
+        if(!t) {
+            /* A newly auto-attached child's stop may be returned before its
+             * parent's fork event. Keep it stopped until that event binds it. */
+            int held=0;
+            if(WIFSTOPPED(status) && WSTOPSIG(status)==SIGSTOP && !((unsigned)status>>16)) {
+                for(int i=0;i<MAX_TASKS;i++) if(!early_stops[i]) {
+                    early_stops[i]=pid; held=1; break;
+                }
+            }
+            if(!held) { kill(pid,SIGKILL); refuse("untracked-task"); }
+            continue;
+        }
         if(WIFEXITED(status) || WIFSIGNALED(status)) {
+            if(!t->alive) continue;
             int exit_status=WIFEXITED(status)?WEXITSTATUS(status):128+WTERMSIG(status);
             t->alive=0;
             if(t==&tasks[0]) root_exit=exit_status;
@@ -359,13 +373,21 @@ int main(int argc,char **argv) {
                 tasks[count++]=(struct task){.pid=(pid_t)child,.parent=pid,.role=INITIAL,
                                              .alive=1,.syscall=-1,.started=now()};
                 printf("FORK %d %lu\n",pid,child);
+                for(int i=0;i<MAX_TASKS;i++) if(early_stops[i]==(pid_t)child) {
+                    early_stops[i]=0;
+                    if(ptrace(PTRACE_SETOPTIONS,(pid_t)child,NULL,OPTIONS)<0 ||
+                       ptrace(PTRACE_SYSCALL,(pid_t)child,NULL,NULL)<0) refuse("early-child-resume");
+                    else tasks[count-1].trace_ready=1;
+                }
             }
         } else if(event==PTRACE_EVENT_EXEC) {
             if(!exec_check(t)) refuse("executable-arguments-environment-or-cwd");
         } else if(event) refuse("unknown-ptrace-event");
         else if(sig==(SIGTRAP|0x80)) syscall_check(t);
         else if(sig==SIGSTOP) {
-            if(ptrace(PTRACE_SETOPTIONS,pid,NULL,OPTIONS)<0) refuse("trace-options");
+            if(t->trace_ready || ptrace(PTRACE_SETOPTIONS,pid,NULL,OPTIONS)<0)
+                refuse("unexpected-stop-or-trace-options");
+            else t->trace_ready=1;
         } else deliver=sig;
         if(failed) kill(pid,SIGKILL);
         else if(ptrace(PTRACE_SYSCALL,pid,NULL,(void*)(long)deliver)<0) refuse("resume");
