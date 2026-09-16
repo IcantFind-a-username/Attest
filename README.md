@@ -1,5 +1,14 @@
 # attest
 
+> **Paused on 2026-09-17**, for the owner's capacity rather than a verdict on the work.
+> On its own diagnostic corpus the reviewer reached a verdict on 19 of 40 claims; on 55 claims
+> over 24 merged pull requests it confirmed none. What was proven, what was not, and the three
+> parts worth reusing are in
+> [`docs/2026-09-17-pause-and-handoff.md`](docs/2026-09-17-pause-and-handoff.md). The full
+> record of the last rounds lives on
+> [`fix/runtime-compatibility`](https://github.com/IcantFind-a-username/Attest/tree/fix/runtime-compatibility);
+> nothing below is withdrawn.
+
 **A pull-request reviewer that only says things it can prove, and abstains out loud when it
 cannot.**
 
