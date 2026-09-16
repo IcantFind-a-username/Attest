@@ -1615,6 +1615,25 @@ def test_execute_repro_src_layout_with_root_conftest_imports_from_the_given_tree
     assert result.outcome is ExecutionOutcome.NOT_REPRODUCED, f"{result.reason}\n{result.stdout}"
 
 
+@pytest.mark.parametrize("layout", ["src", "lib"])
+def test_execute_repro_layout_without_path_mutation(tmp_path: Path, layout: str) -> None:
+    repo = tmp_path / "repo"
+    tree = repo / "trees/head"
+    for directory, origin in ((repo, "decoy"), (tree, "head")):
+        write_layout(directory, {
+            f"{layout}/mypkg/__init__.py": "",
+            f"{layout}/mypkg/calc.py": f"ORIGIN = {origin!r}\n",
+        })
+    result = execute_repro(
+        repo, candidate(file=f"{layout}/mypkg/calc.py", line=1),
+        ReproSpec(provenance_body(tree, ("mypkg.calc",), "head")), ExecutorLimits(),
+        tree=tree, run_label="layout-origin",
+    )
+    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED, result.stdout
+    assert result.collected_count == 1
+    assert result.skipped_count == 0
+
+
 def test_execute_repro_honours_the_conftest_fixtures_of_the_tree_under_test(
     tmp_path: Path,
 ) -> None:
