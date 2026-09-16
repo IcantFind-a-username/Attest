@@ -162,3 +162,37 @@ def test_source_runtime_requires_pure_metadata_without_native_artifact(
         assert transfer["pure_python_source"] is True
         assert transfer["added"] == {}
     assert (tree / "pkg/__init__.py").read_bytes() == b"VALUE = 1\n"
+
+
+@pytest.mark.parametrize("source_only", [False, True])
+def test_source_only_keeps_source_and_omits_namespace_hook(wheel_tree, source_only):
+    tree, wheel = wheel_tree
+    with ZipFile(wheel, "w") as z:
+        z.writestr("pkg/__init__.py", b"WHEEL_CHANGED = True\n")
+        z.writestr("fixture-nspkg.pth", b"raise RuntimeError('must never execute')\n")
+        z.writestr("pkg/native.so", b"native artifact")
+    arguments = dict(
+        revision="a", expected_revision="a", expected_digest=sha256_bytes(wheel.read_bytes()),
+        packages=("pkg",), source_only=source_only,
+    )
+    if not source_only:
+        with pytest.raises(ValueError, match="source overwrite"):
+            apply_wheel(tree, wheel, **arguments)
+        return
+    result = apply_wheel(tree, wheel, **arguments)
+    assert (tree / "pkg/__init__.py").read_bytes() == b"VALUE = 1\n"
+    assert not (tree / "fixture-nspkg.pth").exists()
+    assert (tree / "pkg/native.so").read_bytes() == b"native artifact"
+    assert set(result["omitted_wheel_files"]) == {"pkg/__init__.py", "fixture-nspkg.pth"}
+    assert result["omitted_wheel_files"]["pkg/__init__.py"]["reason"] == "original_source_kept"
+
+
+def test_source_only_does_not_admit_generated_python(wheel_tree):
+    tree, wheel = wheel_tree
+    with ZipFile(wheel, "w") as z:
+        z.writestr("pkg/injected.py", b"raise RuntimeError('not source')\n")
+    with pytest.raises(ValueError, match="unproven generated"):
+        apply_wheel(tree, wheel, revision="a", expected_revision="a",
+                    expected_digest=sha256_bytes(wheel.read_bytes()), packages=("pkg",),
+                    source_only=True)
+    assert not (tree / "pkg/injected.py").exists()
