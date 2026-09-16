@@ -1,0 +1,325 @@
+{
+  "probe": "P-05 contradiction audit",
+  "libraries": 8,
+  "registered": 630,
+  "exercised": 567,
+  "contradictions": 5,
+  "unperturbed": 8,
+  "perturbed": [],
+  "limits": [
+    "a contradiction is a declared return type the returned value is not; the rule reads builtin shapes and optionals of them, not generics or protocols",
+    "generator and coroutine functions are not observed: their return event carries the value handed to StopIteration, not the value the caller receives",
+    "`NotImplemented` from a rich comparison is the language's protocol, not a contradiction, and is counted separately",
+    "a returned coroutine or generator is counted as deferred, not as a contradiction: the value the annotation describes is the one the caller awaits",
+    "the workload is each library's own test suite: a function no test calls is registered and never exercised"
+  ],
+  "rows": [
+    {
+      "library": "attrs",
+      "package": "attr",
+      "revision": "7e2f44513f5843f2a452c5526e0bbdbbfa7e99a8",
+      "clean": {
+        "outcome": "ran",
+        "exit": 1,
+        "counts": {
+          "failed": 19,
+          "passed": 1382,
+          "skipped": 10,
+          "xfailed": 1
+        }
+      },
+      "observed": {
+        "outcome": "ran",
+        "exit": 1,
+        "counts": {
+          "failed": 19,
+          "passed": 1382,
+          "skipped": 10,
+          "xfailed": 1
+        },
+        "registered": 10,
+        "returns": 26278,
+        "exercised": 10,
+        "idiomatic": 0,
+        "skipped_lazy": 0,
+        "deferred": 0
+      },
+      "unperturbed": true,
+      "contradictions": [
+        {
+          "where": "attr.__getattr__",
+          "expected": "str",
+          "got": {
+            "module": 1,
+            "VersionInfo": 2
+          },
+          "count": 3,
+          "nodes": [
+            "tests/test_next_gen.py::TestNextGen::test_validates",
+            "tests/test_packaging.py::TestLegacyMetadataHack::test_version_info[attr]",
+            "tests/test_packaging.py::TestLegacyMetadataHack::test_version_info[attrs]"
+          ]
+        }
+      ],
+      "import_errors": []
+    },
+    {
+      "library": "click",
+      "package": "click",
+      "revision": "6aabf099bfdd4c1e75fe8d0e0d4241372b988ab1",
+      "clean": {
+        "outcome": "ran",
+        "exit": 0,
+        "counts": {
+          "passed": 33058,
+          "skipped": 25,
+          "xfailed": 1
+        }
+      },
+      "observed": {
+        "outcome": "ran",
+        "exit": 0,
+        "counts": {
+          "passed": 33058,
+          "skipped": 25,
+          "xfailed": 1
+        },
+        "registered": 245,
+        "returns": 1979492,
+        "exercised": 211,
+        "idiomatic": 0,
+        "skipped_lazy": 3,
+        "deferred": 0
+      },
+      "unperturbed": true,
+      "contradictions": [],
+      "import_errors": [
+        "click._winconsole: "
+      ]
+    },
+    {
+      "library": "itsdangerous",
+      "package": "itsdangerous",
+      "revision": "05063143a050ce49fee05b8c7f3681895547b921",
+      "clean": {
+        "outcome": "ran",
+        "exit": 0,
+        "counts": {
+          "passed": 297
+        }
+      },
+      "observed": {
+        "outcome": "ran",
+        "exit": 0,
+        "counts": {
+          "passed": 297
+        },
+        "registered": 22,
+        "returns": 12324,
+        "exercised": 21,
+        "idiomatic": 0,
+        "skipped_lazy": 1,
+        "deferred": 0
+      },
+      "unperturbed": true,
+      "contradictions": [],
+      "import_errors": []
+    },
+    {
+      "library": "jinja",
+      "package": "jinja2",
+      "revision": "8b21d5bef9a84f9b4c6d3567d0dd6f64605de8d7",
+      "clean": {
+        "outcome": "ran",
+        "exit": 0,
+        "counts": {
+          "passed": 911
+        }
+      },
+      "observed": {
+        "outcome": "ran",
+        "exit": 0,
+        "counts": {
+          "passed": 911
+        },
+        "registered": 144,
+        "returns": 94124,
+        "exercised": 127,
+        "idiomatic": 0,
+        "skipped_lazy": 31,
+        "deferred": 182
+      },
+      "unperturbed": true,
+      "contradictions": [
+        {
+          "where": "jinja2.filters.do_join",
+          "expected": "str",
+          "got": {
+            "list": 28,
+            "int": 10
+          },
+          "count": 38,
+          "nodes": [
+            "tests/test_api.py::TestExtendedAPI::test_item_and_attribute",
+            "tests/test_api.py::TestUndefined::test_logging_undefined",
+            "tests/test_api.py::TestUndefined::test_default_undefined",
+            "tests/test_api.py::TestUndefined::test_chainable_undefined",
+            "tests/test_api.py::TestUndefined::test_debug_undefined"
+          ]
+        },
+        {
+          "where": "jinja2.runtime.Macro._invoke",
+          "expected": "str",
+          "got": {
+            "list": 1
+          },
+          "count": 1,
+          "nodes": [
+            "tests/test_nativetypes.py::test_macro"
+          ]
+        },
+        {
+          "where": "jinja2.runtime.Macro.__call__",
+          "expected": "str",
+          "got": {
+            "list": 1
+          },
+          "count": 1,
+          "nodes": [
+            "tests/test_nativetypes.py::test_macro"
+          ]
+        },
+        {
+          "where": "jinja2.runtime.BlockReference.__call__",
+          "expected": "str",
+          "got": {
+            "int": 1
+          },
+          "count": 1,
+          "nodes": [
+            "tests/test_nativetypes.py::test_block"
+          ]
+        }
+      ],
+      "import_errors": []
+    },
+    {
+      "library": "more-itertools",
+      "package": "more_itertools",
+      "revision": "f81fd8b4450d4a3318a37460be91bba0a62b2b40",
+      "clean": {
+        "outcome": "ran",
+        "exit": 1,
+        "counts": {
+          "failed": 1,
+          "passed": 748
+        }
+      },
+      "observed": {
+        "outcome": "ran",
+        "exit": 1,
+        "counts": {
+          "failed": 1,
+          "passed": 748
+        },
+        "registered": 0,
+        "returns": 0,
+        "exercised": 0,
+        "idiomatic": 0,
+        "skipped_lazy": 68,
+        "deferred": 0
+      },
+      "unperturbed": true,
+      "contradictions": [],
+      "import_errors": []
+    },
+    {
+      "library": "packaging",
+      "package": "packaging",
+      "revision": "58718aa6b4639185be04aa216f6ff46929a92af8",
+      "clean": {
+        "outcome": "ran",
+        "exit": 0,
+        "counts": {
+          "passed": 62860,
+          "skipped": 1
+        }
+      },
+      "observed": {
+        "outcome": "ran",
+        "exit": 0,
+        "counts": {
+          "passed": 62860,
+          "skipped": 1
+        },
+        "registered": 188,
+        "returns": 8877273,
+        "exercised": 181,
+        "idiomatic": 298457,
+        "skipped_lazy": 21,
+        "deferred": 0
+      },
+      "unperturbed": true,
+      "contradictions": [],
+      "import_errors": []
+    },
+    {
+      "library": "python-dotenv",
+      "package": "dotenv",
+      "revision": "cd8d0de9ce32fe807584d31de4b148c8dc2589e2",
+      "clean": {
+        "outcome": "ran",
+        "exit": 1,
+        "counts": {
+          "failed": 5,
+          "passed": 247,
+          "skipped": 1
+        }
+      },
+      "observed": {
+        "outcome": "ran",
+        "exit": 1,
+        "counts": {
+          "failed": 5,
+          "passed": 247,
+          "skipped": 1
+        },
+        "registered": 21,
+        "returns": 2262,
+        "exercised": 17,
+        "idiomatic": 0,
+        "skipped_lazy": 5,
+        "deferred": 0
+      },
+      "unperturbed": true,
+      "contradictions": [],
+      "import_errors": [
+        "dotenv.ipython: No module named 'IPython'"
+      ]
+    },
+    {
+      "library": "urllib3",
+      "package": "urllib3",
+      "revision": "882f0431b2b46171344f81d43261cd49ce7a5e7c",
+      "clean": {
+        "outcome": "timeout",
+        "exit": null,
+        "counts": null
+      },
+      "observed": {
+        "outcome": "timeout",
+        "exit": null,
+        "counts": null,
+        "registered": null,
+        "returns": null,
+        "exercised": null,
+        "idiomatic": null,
+        "skipped_lazy": null,
+        "deferred": null
+      },
+      "unperturbed": true,
+      "contradictions": [],
+      "import_errors": []
+    }
+  ]
+}

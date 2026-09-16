@@ -1,0 +1,16 @@
+{"library": "attrs", "registered": 10, "exercised": 10, "contradictions": 1, "unperturbed": true}
+{"library": "click", "registered": 245, "exercised": 211, "contradictions": 0, "unperturbed": true}
+{"library": "itsdangerous", "registered": 22, "exercised": 21, "contradictions": 0, "unperturbed": true}
+{"library": "jinja", "registered": 144, "exercised": 127, "contradictions": 4, "unperturbed": true}
+{"library": "more-itertools", "registered": 0, "exercised": 0, "contradictions": 0, "unperturbed": true}
+{"library": "packaging", "registered": 188, "exercised": 181, "contradictions": 0, "unperturbed": true}
+{"library": "python-dotenv", "registered": 21, "exercised": 17, "contradictions": 0, "unperturbed": true}
+{"library": "urllib3", "registered": null, "exercised": null, "contradictions": 0, "unperturbed": true}
+{
+  "libraries": 8,
+  "registered": 630,
+  "exercised": 567,
+  "contradictions": 5,
+  "unperturbed": 8,
+  "perturbed": []
+}

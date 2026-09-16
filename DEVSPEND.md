@@ -364,6 +364,8 @@ contract probes, counterexamples and controls) called no model: **$0.000000**.
 D-254's end-to-end acceptance (frozen proposals and probes over the forty, the counterexamples and
 24 control pull requests, runs `dry`, `f1`..`f3`) called no model: **$0.000000**; the frozen
 provider's per-review spend figures are replayed tokens, not purchases.
+P-05, the contradiction audit (eight libraries run twice each, then one replay per finding),
+called no model: **$0.000000**. The approved cap and settled total are unchanged.
 P-04, the checkpoint probes (a static inventory of eight libraries, doctest and return-type
 checkpoints run over their own suites), called no model: **$0.000000**. The approved cap and
 settled total are unchanged.

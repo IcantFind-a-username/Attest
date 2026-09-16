@@ -96,7 +96,9 @@ def package_of(repo: Path) -> Path | None:
         p for p in repo.glob("*")
         if p.is_dir() and (p / "__init__.py").is_file() and not p.name.startswith(("test", "."))
     ]
-    return candidates[0] if candidates else None
+    # a project may ship a thin re-export beside the real package (`attrs` next to `attr`):
+    # the one with the most modules is the one that holds the statements
+    return max(candidates, key=lambda p: len(list(p.rglob("*.py"))), default=None)
 
 
 def main(argv: list[str] | None = None) -> int:

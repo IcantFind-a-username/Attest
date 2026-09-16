@@ -1,0 +1,124 @@
+{
+  "probe": "P-05b contradiction verification",
+  "audit_digest": "2c766208f4994d39bd1421c59c6779ba589ab04bda0800428a750a5c2b692b28",
+  "findings": 5,
+  "reproduced_exactly": 4,
+  "reproduced_in_part": 1,
+  "not_reproduced": 0,
+  "rows": [
+    {
+      "library": "attrs",
+      "revision": "7e2f44513f5843f2a452c5526e0bbdbbfa7e99a8",
+      "where": "attr.__getattr__",
+      "declared": "str",
+      "observed": [
+        "VersionInfo",
+        "module"
+      ],
+      "nodes": [
+        "tests/test_next_gen.py::TestNextGen::test_validates",
+        "tests/test_packaging.py::TestLegacyMetadataHack::test_version_info[attr]",
+        "tests/test_packaging.py::TestLegacyMetadataHack::test_version_info[attrs]"
+      ],
+      "recorded_types": [
+        "VersionInfo",
+        "module"
+      ],
+      "reproduced": "exactly",
+      "replay_exit": 0,
+      "replayed_at": "7e2f44513f5843f2a452c5526e0bbdbbfa7e99a8",
+      "same_revision": true,
+      "digest": "6ecc38f09a03ec5f9fbac808a84b4ffd7801091af08f6c7d3e440876d038422c",
+      "command": "cd /Users/franz/Desktop/Attest/.attest/corpora/mutations-v1-recall/attrs/repo && ATTEST_ONLY='attr.__getattr__' ATTEST_PACKAGE=attr ../.venv/bin/python -m pytest -q -p attest_audit tests/test_next_gen.py::TestNextGen::test_validates tests/test_packaging.py::TestLegacyMetadataHack::test_version_info[attr] tests/test_packaging.py::TestLegacyMetadataHack::test_version_info[attrs]"
+    },
+    {
+      "library": "jinja",
+      "revision": "8b21d5bef9a84f9b4c6d3567d0dd6f64605de8d7",
+      "where": "jinja2.filters.do_join",
+      "declared": "str",
+      "observed": [
+        "list"
+      ],
+      "nodes": [
+        "tests/test_api.py::TestExtendedAPI::test_item_and_attribute",
+        "tests/test_api.py::TestUndefined::test_logging_undefined",
+        "tests/test_api.py::TestUndefined::test_default_undefined",
+        "tests/test_api.py::TestUndefined::test_chainable_undefined",
+        "tests/test_api.py::TestUndefined::test_debug_undefined"
+      ],
+      "recorded_types": [
+        "int",
+        "list"
+      ],
+      "reproduced": "in part",
+      "replay_exit": 0,
+      "replayed_at": "8b21d5bef9a84f9b4c6d3567d0dd6f64605de8d7",
+      "same_revision": true,
+      "digest": "1b03753a724c702e058c8ac3def359d9546593c17e6ab2938d0f858db32e38f2",
+      "command": "cd /Users/franz/Desktop/Attest/.attest/corpora/mutations-v1-recall/jinja/repo && ATTEST_ONLY='jinja2.filters.do_join' ATTEST_PACKAGE=jinja2 ../.venv/bin/python -m pytest -q -p attest_audit tests/test_api.py::TestExtendedAPI::test_item_and_attribute tests/test_api.py::TestUndefined::test_logging_undefined tests/test_api.py::TestUndefined::test_default_undefined tests/test_api.py::TestUndefined::test_chainable_undefined tests/test_api.py::TestUndefined::test_debug_undefined"
+    },
+    {
+      "library": "jinja",
+      "revision": "8b21d5bef9a84f9b4c6d3567d0dd6f64605de8d7",
+      "where": "jinja2.runtime.Macro._invoke",
+      "declared": "str",
+      "observed": [
+        "list"
+      ],
+      "nodes": [
+        "tests/test_nativetypes.py::test_macro"
+      ],
+      "recorded_types": [
+        "list"
+      ],
+      "reproduced": "exactly",
+      "replay_exit": 0,
+      "replayed_at": "8b21d5bef9a84f9b4c6d3567d0dd6f64605de8d7",
+      "same_revision": true,
+      "digest": "38c1eb296e070665c936818368d33bf70495de588d65e82d4c77d1640e3f3d6e",
+      "command": "cd /Users/franz/Desktop/Attest/.attest/corpora/mutations-v1-recall/jinja/repo && ATTEST_ONLY='jinja2.runtime.Macro._invoke' ATTEST_PACKAGE=jinja2 ../.venv/bin/python -m pytest -q -p attest_audit tests/test_nativetypes.py::test_macro"
+    },
+    {
+      "library": "jinja",
+      "revision": "8b21d5bef9a84f9b4c6d3567d0dd6f64605de8d7",
+      "where": "jinja2.runtime.Macro.__call__",
+      "declared": "str",
+      "observed": [
+        "list"
+      ],
+      "nodes": [
+        "tests/test_nativetypes.py::test_macro"
+      ],
+      "recorded_types": [
+        "list"
+      ],
+      "reproduced": "exactly",
+      "replay_exit": 0,
+      "replayed_at": "8b21d5bef9a84f9b4c6d3567d0dd6f64605de8d7",
+      "same_revision": true,
+      "digest": "95cfff51e02c7f32f0d10e145268c87a43fa150a12369ee684a8219a7c429133",
+      "command": "cd /Users/franz/Desktop/Attest/.attest/corpora/mutations-v1-recall/jinja/repo && ATTEST_ONLY='jinja2.runtime.Macro.__call__' ATTEST_PACKAGE=jinja2 ../.venv/bin/python -m pytest -q -p attest_audit tests/test_nativetypes.py::test_macro"
+    },
+    {
+      "library": "jinja",
+      "revision": "8b21d5bef9a84f9b4c6d3567d0dd6f64605de8d7",
+      "where": "jinja2.runtime.BlockReference.__call__",
+      "declared": "str",
+      "observed": [
+        "int"
+      ],
+      "nodes": [
+        "tests/test_nativetypes.py::test_block"
+      ],
+      "recorded_types": [
+        "int"
+      ],
+      "reproduced": "exactly",
+      "replay_exit": 0,
+      "replayed_at": "8b21d5bef9a84f9b4c6d3567d0dd6f64605de8d7",
+      "same_revision": true,
+      "digest": "8a04256dfa89e3cbc07170643726e775706d921d230ed53676de915cad26f5a1",
+      "command": "cd /Users/franz/Desktop/Attest/.attest/corpora/mutations-v1-recall/jinja/repo && ATTEST_ONLY='jinja2.runtime.BlockReference.__call__' ATTEST_PACKAGE=jinja2 ../.venv/bin/python -m pytest -q -p attest_audit tests/test_nativetypes.py::test_block"
+    }
+  ]
+}
