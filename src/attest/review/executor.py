@@ -1599,11 +1599,13 @@ MAX_PROJECT_ROOTS = 32
 
 
 def project_roots(tree: Path) -> list[str]:
-    """Placeholder-relative import roots of a tree: the tree and its ``src``,
+    """Placeholder-relative import roots: the tree, ``src`` and existing ``lib``,
     then every directory (bounded depth) holding a project marker and its
     ``src`` when present, so ``services/*/src`` layouts import from the tree
     under test rather than from an installed copy (owner fix 3)."""
     roots = ["{tree}", "{tree}/src"]
+    if (tree / "lib").is_dir():
+        roots.append("{tree}/lib")
     found: list[str] = []
     for current, directories, files in os.walk(tree):
         rel = Path(current).relative_to(tree)
@@ -1623,8 +1625,9 @@ def project_roots(tree: Path) -> list[str]:
                 break
     for relative in found:
         roots.append(f"{{tree}}/{relative}")
-        if (tree / relative / "src").is_dir():
-            roots.append(f"{{tree}}/{relative}/src")
+        for layout in ("src", "lib"):
+            if (tree / relative / layout).is_dir():
+                roots.append(f"{{tree}}/{relative}/{layout}")
     # the projects' own test directories come last, the way pytest's prepend
     # import mode exposes them to the project's tests: a reproduction may then
     # import the helpers of the test module it imitates by module name

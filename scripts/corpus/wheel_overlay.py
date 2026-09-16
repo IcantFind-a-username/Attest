@@ -12,7 +12,7 @@ from attest.benchmark.artifacts import canonical_json_bytes, sha256_bytes
 def apply_wheel(
     tree: Path, wheel: Path, *, revision: str, expected_revision: str,
     expected_digest: str, packages: tuple[str, ...], version_path: str | None = None,
-    allow_source_links: bool = False,
+    allow_source_links: bool = False, source_prefix: str = "",
 ) -> dict:
     """Check the entire archive before writing; never replace tracked source bytes.
 
@@ -24,6 +24,14 @@ def apply_wheel(
         raise ValueError("revision mismatch")
     if sha256_bytes(wheel.read_bytes()) != expected_digest:
         raise ValueError("wheel digest mismatch")
+    prefix = PurePosixPath(source_prefix)
+    if source_prefix and (
+        prefix.is_absolute() or ".." in prefix.parts or "\\" in source_prefix
+        or ":" in source_prefix or prefix.as_posix() != source_prefix
+        or not (tree / source_prefix).is_dir()
+        or any((tree / part).is_symlink() for part in (prefix, *prefix.parents))
+    ):
+        raise ValueError("unsafe source prefix")
     paths = list(tree.rglob("*"))
     if tree.is_symlink() or (not allow_source_links and any(p.is_symlink() for p in paths)):
         raise ValueError("source symlink refused")
@@ -55,7 +63,8 @@ def apply_wheel(
                 continue
             if relative.parts[0].endswith(".dist-info"):
                 continue
-            if relative.parts[0] not in packages:
+            name = (prefix / relative).as_posix() if source_prefix else name
+            if relative.parts[0] not in packages and name not in original:
                 raise ValueError("unknown package member: " + name)
             payload = archive.read(member)
             if name in original:
@@ -89,6 +98,7 @@ def apply_wheel(
     return {
         **({"source_links_digest": sha256_bytes(canonical_json_bytes(links))}
            if allow_source_links else {}),
+        **({"source_prefix": source_prefix} if source_prefix else {}),
         "revision": revision, "wheel_sha256": expected_digest,
         "original_files_digest": sha256_bytes(canonical_json_bytes(original)),
         "added": {name: sha256_bytes(payload) for name, payload in additions.items()},

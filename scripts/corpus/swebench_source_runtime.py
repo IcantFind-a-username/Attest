@@ -25,7 +25,13 @@ from attest.benchmark.artifacts import sha256_bytes, write_canonical_json
 from attest.execution.container_adapter import ContainerAdapter, ContainerImage
 from attest.execution.container_images import declared_version_file, discover_roots
 from attest.review.candidates import StoredCandidate
-from attest.review.executor import ExecutionOutcome, ExecutorLimits, ReproSpec, execute_repro
+from attest.review.executor import (
+    ExecutionOutcome,
+    ExecutorLimits,
+    ReproSpec,
+    execute_repro,
+    project_roots,
+)
 from attest.review.schema import Finding
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -90,12 +96,22 @@ def check_runtime(
     packages = tuple(stub_packages(tree))
     if not packages:
         raise ValueError("empty package set")
+    prefix = ""
+    if allow_source_links:
+        locations = [
+            root.replace("{tree}", "").lstrip("/") for root in project_roots(tree)
+            if all((tree / root.replace("{tree}", "").lstrip("/") / name / "__init__.py").is_file()
+                   for name in packages)
+        ]
+        if len(locations) != 1:
+            raise ValueError("ambiguous package source layout")
+        prefix = locations[0]
     version_file = declared_version_file(tree, discover_roots(tree))
     transfer = apply_wheel(
         tree, wheel, revision=revision, expected_revision=expected_revision,
         expected_digest=wheel_digest, packages=packages,
         version_path=version_file.relative_to(tree).as_posix() if version_file else None,
-        allow_source_links=allow_source_links,
+        allow_source_links=allow_source_links, source_prefix=prefix,
     )
     if not any(n.endswith(".so") for n in transfer["added"]):
         if not allow_source_links:
@@ -151,7 +167,7 @@ def check_runtime(
         imports += "import native_fixture._native\n"
         assertions += "    assert native_fixture._native.answer() == 7\n"
     source = imports + "\ndef test_runtime_source():\n" + assertions
-    anchor = packages[0] + "/__init__.py"
+    anchor = (Path(prefix) / packages[0] / "__init__.py").as_posix()
     candidate = StoredCandidate(
         task_id="source-runtime-" + revision[:12],
         finding=Finding(
@@ -210,10 +226,11 @@ def check_fixture(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--study", choices=("swebench", "natural-pairs", "remainder-safe-links"),
+    parser.add_argument("--study", choices=("swebench", "natural-pairs", "remainder-safe-links",
+                                               "remainder-source-layout"),
                         default="swebench")
     mode = parser.parse_args().study
-    safe_links = mode == "remainder-safe-links"
+    safe_links = mode in {"remainder-safe-links", "remainder-source-layout"}
     natural = safe_links or mode == "natural-pairs"
     study = ROOT / "benchmarks/studies/metadata-exposed-v1/compatibility" if natural else STUDY
     builds = ROOT / ".attest/corpora/natural-pair-compatible-build" if natural else BUILDS
@@ -223,7 +240,10 @@ def main() -> None:
     if safe_links:
         study = ROOT / "benchmarks/studies/remainder-v1/compatibility"
         builds = ROOT / ".attest/corpora/remainder-safe-link-build"
-        work = ROOT / ".attest/corpora/remainder-safe-link-runtime"
+        work = ROOT / ".attest/corpora" / (
+            "remainder-source-layout-runtime" if mode == "remainder-source-layout"
+            else "remainder-safe-link-runtime"
+        )
     if work.exists():
         raise ValueError("fresh output directory required")
     work.mkdir()
@@ -281,6 +301,7 @@ def main() -> None:
             (ROOT / "scripts/corpus/swebench_compatible_build.py").read_bytes(),
         ),
         "protocol_sha256": sha256_bytes((study / (
+            "source-layout-runtime.md" if mode == "remainder-source-layout" else
             "safe-link-source-runtime.md" if safe_links else "source-runtime.md"
         )).read_bytes()),
         "population_sha256": sha256_bytes(frozen_bytes),
