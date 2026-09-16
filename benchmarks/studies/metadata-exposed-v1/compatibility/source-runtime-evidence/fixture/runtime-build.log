@@ -1,0 +1,63 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from runtime.Dockerfile
+#1 transferring dockerfile: 980B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python@sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a534929d4e
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python@sha256:68d914ec641a0b69267ce65184d000a2bc3a9ee2590ab702b82250ab2385735a
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [stage-1 1/6] FROM docker.io/library/python@sha256:68d914ec641a0b69267ce65184d000a2bc3a9ee2590ab702b82250ab2385735a
+#5 resolve docker.io/library/python@sha256:68d914ec641a0b69267ce65184d000a2bc3a9ee2590ab702b82250ab2385735a done
+#5 DONE 0.0s
+
+#6 [dependencies 1/4] FROM docker.io/library/python@sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a534929d4e
+#6 resolve docker.io/library/python@sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a534929d4e done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 8.33kB done
+#7 DONE 0.0s
+
+#8 [stage-1 3/6] COPY constraints.txt /constraints.txt
+#8 CACHED
+
+#9 [stage-1 2/6] RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
+#9 CACHED
+
+#10 [stage-1 5/6] RUN python -m pip install --no-index --find-links /wheelhouse pip pytest '/wheelhouse/native_fixture-0.1-cp310-cp310-linux_aarch64.whl'
+#10 CACHED
+
+#11 [dependencies 4/4] RUN python -m pip wheel --wheel-dir /wheelhouse pip pytest '/wheel/native_fixture-0.1-cp310-cp310-linux_aarch64.whl'
+#11 CACHED
+
+#12 [dependencies 2/4] COPY constraints.txt /constraints.txt
+#12 CACHED
+
+#13 [dependencies 3/4] COPY native_fixture-0.1-cp310-cp310-linux_aarch64.whl /wheel/native_fixture-0.1-cp310-cp310-linux_aarch64.whl
+#13 CACHED
+
+#14 [stage-1 4/6] COPY --from=dependencies /wheelhouse /wheelhouse
+#14 CACHED
+
+#15 [stage-1 6/6] RUN python -m pip freeze > /runtime-freeze.txt
+#15 CACHED
+
+#16 exporting to image
+#16 exporting layers done
+#16 exporting manifest sha256:20edb8ea78d9dfe8b602e4e651fafbf5bdd95c8768e0efea4278d8a912642096 done
+#16 exporting config sha256:835837135397807e7822875d6bda040ac0fa65dd02e89944f3c9bbc16a2f4d7a done
+#16 exporting attestation manifest sha256:35d3d6324c4ceaae537f279920a0dadd8a5f2dc31607c7f53881a0b56e58a3e7 done
+#16 exporting manifest list sha256:806c2fb8d222d6e2154ce553c9f904c17a9c2e9340cacfc52b55e1a80931d379 done
+#16 naming to docker.io/library/attest-source-runtime-ffffffffffff:latest done
+#16 unpacking to docker.io/library/attest-source-runtime-ffffffffffff:latest done
+#16 DONE 0.0s
+
+View build details: docker-desktop://dashboard/build/default/default/vivt2lzcunn8iit60oap3u8vf

@@ -1,0 +1,214 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from runtime.Dockerfile
+#1 transferring dockerfile: 972B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python@sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a534929d4e
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python@sha256:68d914ec641a0b69267ce65184d000a2bc3a9ee2590ab702b82250ab2385735a
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [stage-1 1/6] FROM docker.io/library/python@sha256:68d914ec641a0b69267ce65184d000a2bc3a9ee2590ab702b82250ab2385735a
+#5 resolve docker.io/library/python@sha256:68d914ec641a0b69267ce65184d000a2bc3a9ee2590ab702b82250ab2385735a done
+#5 DONE 0.0s
+
+#6 [dependencies 1/4] FROM docker.io/library/python@sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a534929d4e
+#6 resolve docker.io/library/python@sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a534929d4e 0.0s done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 11.09MB 0.1s done
+#7 DONE 0.1s
+
+#8 [dependencies 2/4] COPY constraints.txt /constraints.txt
+#8 CACHED
+
+#9 [dependencies 3/4] COPY astropy-0.0.1-cp310-cp310-linux_aarch64.whl /wheel/astropy-0.0.1-cp310-cp310-linux_aarch64.whl
+#9 DONE 0.0s
+
+#10 [dependencies 4/4] RUN python -m pip wheel --wheel-dir /wheelhouse pip pytest '/wheel/astropy-0.0.1-cp310-cp310-linux_aarch64.whl[test]'
+#10 0.857 Processing /wheel/astropy-0.0.1-cp310-cp310-linux_aarch64.whl
+#10 0.972 Collecting pip
+#10 1.016   Downloading pip-22.3.1-py3-none-any.whl (2.1 MB)
+#10 1.151      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 15.4 MB/s eta 0:00:00
+#10 1.210 Collecting pytest
+#10 1.223   Downloading pytest-7.2.1-py3-none-any.whl (317 kB)
+#10 1.239      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 317.1/317.1 kB 22.0 MB/s eta 0:00:00
+#10 1.265 Collecting attrs>=19.2.0
+#10 1.277   Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
+#10 1.281      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 67.5/67.5 kB 15.7 MB/s eta 0:00:00
+#10 1.299 Collecting pluggy<2.0,>=0.12
+#10 1.308   Downloading pluggy-1.6.0-py3-none-any.whl (20 kB)
+#10 1.333 Collecting packaging
+#10 1.342   Downloading packaging-23.0-py3-none-any.whl (42 kB)
+#10 1.345      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 42.7/42.7 kB 22.7 MB/s eta 0:00:00
+#10 1.361 Collecting exceptiongroup>=1.0.0rc8
+#10 1.371   Downloading exceptiongroup-1.3.1-py3-none-any.whl (16 kB)
+#10 1.403 Collecting tomli>=1.0.0
+#10 1.412   Downloading tomli-2.4.1-py3-none-any.whl (14 kB)
+#10 1.426 Collecting iniconfig
+#10 1.435   Downloading iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+#10 1.484 Collecting pyerfa>=2.0
+#10 1.496   Downloading pyerfa-2.0.0.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (695 kB)
+#10 1.521      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 696.0/696.0 kB 29.2 MB/s eta 0:00:00
+#10 1.769 Collecting numpy>=1.20
+#10 1.779   Downloading numpy-1.24.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (14.0 MB)
+#10 2.283      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14.0/14.0 MB 25.9 MB/s eta 0:00:00
+#10 2.339 Collecting PyYAML>=3.13
+#10 2.350   Downloading PyYAML-6.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (733 kB)
+#10 2.369      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 733.7/733.7 kB 40.1 MB/s eta 0:00:00
+#10 2.395 Collecting pytest-xdist
+#10 2.407   Downloading pytest_xdist-3.1.0-py3-none-any.whl (36 kB)
+#10 2.421 Collecting pytest-astropy-header>=0.2.1
+#10 2.430   Downloading pytest_astropy_header-0.2.2-py3-none-any.whl (7.8 kB)
+#10 2.449 Collecting pytest-doctestplus>=0.12
+#10 2.459   Downloading pytest_doctestplus-0.12.1-py3-none-any.whl (20 kB)
+#10 2.488 Collecting pytest-astropy>=0.10
+#10 2.498   Downloading pytest_astropy-0.10.0-py3-none-any.whl (5.1 kB)
+#10 2.525 Collecting typing-extensions>=4.6.0
+#10 2.538   Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+#10 2.543      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.6/45.6 kB 11.8 MB/s eta 0:00:00
+#10 2.573 Collecting pytest-openfiles>=0.3.1
+#10 2.583   Downloading pytest_openfiles-0.6.0-py3-none-any.whl (7.2 kB)
+#10 2.609 Collecting pytest-mock>=2.0
+#10 2.617   Downloading pytest_mock-3.15.1-py3-none-any.whl (10 kB)
+#10 3.074 Collecting hypothesis>=5.1
+#10 3.087   Downloading hypothesis-6.168.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (1.1 MB)
+#10 3.119      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.1/1.1 MB 35.6 MB/s eta 0:00:00
+#10 3.134 Collecting pytest-arraydiff>=0.1
+#10 3.147   Downloading pytest_arraydiff-0.7.0-py3-none-any.whl (10 kB)
+#10 3.164 Collecting pytest-remotedata>=0.3.1
+#10 3.174   Downloading pytest_remotedata-0.4.2-py3-none-any.whl (8.7 kB)
+#10 3.189 Collecting pytest-filter-subpackage>=0.1
+#10 3.199   Downloading pytest_filter_subpackage-0.2.0-py2.py3-none-any.whl (5.5 kB)
+#10 3.229 Collecting pytest-cov>=2.3.1
+#10 3.238   Downloading pytest_cov-7.1.0-py3-none-any.whl (22 kB)
+#10 3.376 Collecting setuptools>=30.3.0
+#10 3.386   Downloading setuptools-66.1.1-py3-none-any.whl (1.3 MB)
+#10 3.426      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 31.9 MB/s eta 0:00:00
+#10 3.458 Collecting execnet>=1.1
+#10 3.467   Downloading execnet-2.1.2-py3-none-any.whl (40 kB)
+#10 3.469      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 40.7/40.7 kB 27.3 MB/s eta 0:00:00
+#10 3.502 Collecting sortedcontainers<3.0.0,>=2.1.0
+#10 3.518   Downloading sortedcontainers-2.4.0-py2.py3-none-any.whl (29 kB)
+#10 4.011 Collecting coverage[toml]>=7.10.6
+#10 4.022   Downloading coverage-7.16.1-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (254 kB)
+#10 4.029      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 254.1/254.1 kB 45.6 MB/s eta 0:00:00
+#10 4.117 Collecting psutil
+#10 4.125   Downloading psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (156 kB)
+#10 4.132      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 157.0/157.0 kB 26.6 MB/s eta 0:00:00
+#10 4.211 Saved /wheelhouse/pip-22.3.1-py3-none-any.whl
+#10 4.211 Saved /wheelhouse/pytest-7.2.1-py3-none-any.whl
+#10 4.211 Saved /wheelhouse/attrs-26.1.0-py3-none-any.whl
+#10 4.211 Saved /wheelhouse/exceptiongroup-1.3.1-py3-none-any.whl
+#10 4.215 Saved /wheelhouse/numpy-1.24.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+#10 4.215 Saved /wheelhouse/packaging-23.0-py3-none-any.whl
+#10 4.215 Saved /wheelhouse/pluggy-1.6.0-py3-none-any.whl
+#10 4.216 Saved /wheelhouse/pyerfa-2.0.0.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+#10 4.216 Saved /wheelhouse/pytest_astropy-0.10.0-py3-none-any.whl
+#10 4.216 Saved /wheelhouse/pytest_astropy_header-0.2.2-py3-none-any.whl
+#10 4.216 Saved /wheelhouse/pytest_doctestplus-0.12.1-py3-none-any.whl
+#10 4.217 Saved /wheelhouse/PyYAML-6.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+#10 4.217 Saved /wheelhouse/tomli-2.4.1-py3-none-any.whl
+#10 4.221 Saved /wheelhouse/astropy-0.0.1-cp310-cp310-linux_aarch64.whl
+#10 4.221 Saved /wheelhouse/iniconfig-2.3.0-py3-none-any.whl
+#10 4.221 Saved /wheelhouse/pytest_xdist-3.1.0-py3-none-any.whl
+#10 4.221 Saved /wheelhouse/execnet-2.1.2-py3-none-any.whl
+#10 4.222 Saved /wheelhouse/hypothesis-6.168.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+#10 4.222 Saved /wheelhouse/pytest_arraydiff-0.7.0-py3-none-any.whl
+#10 4.222 Saved /wheelhouse/pytest_cov-7.1.0-py3-none-any.whl
+#10 4.222 Saved /wheelhouse/pytest_filter_subpackage-0.2.0-py2.py3-none-any.whl
+#10 4.222 Saved /wheelhouse/pytest_mock-3.15.1-py3-none-any.whl
+#10 4.223 Saved /wheelhouse/pytest_openfiles-0.6.0-py3-none-any.whl
+#10 4.223 Saved /wheelhouse/pytest_remotedata-0.4.2-py3-none-any.whl
+#10 4.223 Saved /wheelhouse/typing_extensions-4.16.0-py3-none-any.whl
+#10 4.223 Saved /wheelhouse/sortedcontainers-2.4.0-py2.py3-none-any.whl
+#10 4.223 Saved /wheelhouse/psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
+#10 4.223 Saved /wheelhouse/coverage-7.16.1-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
+#10 4.224 Saved /wheelhouse/setuptools-66.1.1-py3-none-any.whl
+#10 4.295 
+#10 4.295 [notice] A new release of pip is available: 23.0.1 -> 26.2.1
+#10 4.295 [notice] To update, run: pip install --upgrade pip
+#10 DONE 4.5s
+
+#11 [stage-1 2/6] RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
+#11 CACHED
+
+#12 [stage-1 3/6] COPY constraints.txt /constraints.txt
+#12 CACHED
+
+#13 [stage-1 4/6] COPY --from=dependencies /wheelhouse /wheelhouse
+#13 DONE 0.0s
+
+#14 [stage-1 5/6] RUN python -m pip install --no-index --find-links /wheelhouse pip pytest '/wheelhouse/astropy-0.0.1-cp310-cp310-linux_aarch64.whl[test]'
+#14 0.850 Looking in links: /wheelhouse
+#14 0.853 Processing /wheelhouse/astropy-0.0.1-cp310-cp310-linux_aarch64.whl
+#14 0.867 Processing /wheelhouse/pip-22.3.1-py3-none-any.whl
+#14 0.873 Processing /wheelhouse/pytest-7.2.1-py3-none-any.whl
+#14 0.883 Processing /wheelhouse/attrs-26.1.0-py3-none-any.whl
+#14 0.886 Processing /wheelhouse/pluggy-1.6.0-py3-none-any.whl
+#14 0.889 Processing /wheelhouse/exceptiongroup-1.3.1-py3-none-any.whl
+#14 0.892 Processing /wheelhouse/tomli-2.4.1-py3-none-any.whl
+#14 0.894 Processing /wheelhouse/packaging-23.0-py3-none-any.whl
+#14 0.897 Processing /wheelhouse/iniconfig-2.3.0-py3-none-any.whl
+#14 0.918 Processing /wheelhouse/numpy-1.24.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+#14 0.931 Processing /wheelhouse/PyYAML-6.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+#14 0.935 Processing /wheelhouse/pyerfa-2.0.0.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+#14 0.938 Processing /wheelhouse/pytest_astropy-0.10.0-py3-none-any.whl
+#14 0.941 Processing /wheelhouse/pytest_xdist-3.1.0-py3-none-any.whl
+#14 0.944 Processing /wheelhouse/pytest_astropy_header-0.2.2-py3-none-any.whl
+#14 0.947 Processing /wheelhouse/pytest_doctestplus-0.12.1-py3-none-any.whl
+#14 0.952 Processing /wheelhouse/typing_extensions-4.16.0-py3-none-any.whl
+#14 0.963 Processing /wheelhouse/pytest_cov-7.1.0-py3-none-any.whl
+#14 0.966 Processing /wheelhouse/pytest_remotedata-0.4.2-py3-none-any.whl
+#14 0.969 Processing /wheelhouse/pytest_openfiles-0.6.0-py3-none-any.whl
+#14 0.972 Processing /wheelhouse/pytest_arraydiff-0.7.0-py3-none-any.whl
+#14 0.975 Processing /wheelhouse/pytest_filter_subpackage-0.2.0-py2.py3-none-any.whl
+#14 0.978 Processing /wheelhouse/pytest_mock-3.15.1-py3-none-any.whl
+#14 0.981 Processing /wheelhouse/hypothesis-6.168.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+#14 0.989 Processing /wheelhouse/setuptools-66.1.1-py3-none-any.whl
+#14 1.000 Processing /wheelhouse/execnet-2.1.2-py3-none-any.whl
+#14 1.020 Processing /wheelhouse/sortedcontainers-2.4.0-py2.py3-none-any.whl
+#14 1.030 Processing /wheelhouse/coverage-7.16.1-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
+#14 1.042 Processing /wheelhouse/psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
+#14 1.217 Installing collected packages: sortedcontainers, typing-extensions, tomli, setuptools, PyYAML, psutil, pluggy, pip, packaging, numpy, iniconfig, execnet, coverage, attrs, pyerfa, exceptiongroup, pytest, hypothesis, astropy, pytest-xdist, pytest-remotedata, pytest-openfiles, pytest-mock, pytest-filter-subpackage, pytest-doctestplus, pytest-cov, pytest-astropy-header, pytest-arraydiff, pytest-astropy
+#14 1.244   Attempting uninstall: setuptools
+#14 1.245     Found existing installation: setuptools 79.0.1
+#14 1.280     Uninstalling setuptools-79.0.1:
+#14 1.335       Successfully uninstalled setuptools-79.0.1
+#14 1.639   Attempting uninstall: pip
+#14 1.640     Found existing installation: pip 23.0.1
+#14 1.693     Uninstalling pip-23.0.1:
+#14 1.746       Successfully uninstalled pip-23.0.1
+#14 2.213   Attempting uninstall: packaging
+#14 2.213     Found existing installation: packaging 26.3
+#14 2.215     Uninstalling packaging-26.3:
+#14 2.220       Successfully uninstalled packaging-26.3
+#14 4.578 ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+#14 4.578 wheel 0.46.3 requires packaging>=24.0, but you have packaging 23.0 which is incompatible.
+#14 4.578 Successfully installed PyYAML-6.0 astropy-0.0.1 attrs-26.1.0 coverage-7.16.1 exceptiongroup-1.3.1 execnet-2.1.2 hypothesis-6.168.0 iniconfig-2.3.0 numpy-1.24.1 packaging-23.0 pip-22.3.1 pluggy-1.6.0 psutil-7.2.2 pyerfa-2.0.0.1 pytest-7.2.1 pytest-arraydiff-0.7.0 pytest-astropy-0.10.0 pytest-astropy-header-0.2.2 pytest-cov-7.1.0 pytest-doctestplus-0.12.1 pytest-filter-subpackage-0.2.0 pytest-mock-3.15.1 pytest-openfiles-0.6.0 pytest-remotedata-0.4.2 pytest-xdist-3.1.0 setuptools-66.1.1 sortedcontainers-2.4.0 tomli-2.4.1 typing-extensions-4.16.0
+#14 4.578 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+#14 DONE 4.7s
+
+#15 [stage-1 6/6] RUN python -m pip freeze > /runtime-freeze.txt
+#15 DONE 0.3s
+
+#16 exporting to image
+#16 exporting layers
+#16 exporting layers 3.3s done
+#16 exporting manifest sha256:bb8dea40db43eeaf821e79a9bf51d6daca85d525ec24c55c377227f1eecbcc27 done
+#16 exporting config sha256:676c01ef6ab2decf1cef514885bbd7b3bb051e3949774c73089a46e4147acf46 done
+#16 exporting attestation manifest sha256:16d08b1a9b9376f1a3ac6412477d39b0f0d94c65fabeed8160073230d3be0e05 done
+#16 exporting manifest list sha256:037bdaace66b535f3a833477bd6cafe157a9a7af7d694b6a0f4b8ab9a7a09a82 done
+#16 naming to docker.io/library/attest-source-runtime-2a0c5c6f5b98:latest done
+#16 unpacking to docker.io/library/attest-source-runtime-2a0c5c6f5b98:latest
+#16 unpacking to docker.io/library/attest-source-runtime-2a0c5c6f5b98:latest 0.8s done
+#16 DONE 4.1s
+
+View build details: docker-desktop://dashboard/build/default/default/dme66zk5vxssun3yeomlunquc

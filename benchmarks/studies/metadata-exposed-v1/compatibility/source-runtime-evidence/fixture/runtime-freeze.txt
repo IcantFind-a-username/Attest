@@ -1,0 +1,8 @@
+attrs==26.1.0
+iniconfig==2.3.0
+native-fixture @ file:///wheelhouse/native_fixture-0.1-cp310-cp310-linux_aarch64.whl
+packaging==26.3
+pluggy==1.6.0
+py==1.11.0
+pytest==7.1.2
+tomli==2.4.1

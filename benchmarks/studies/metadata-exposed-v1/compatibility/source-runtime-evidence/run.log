@@ -1,0 +1,6 @@
+3.10-slim-bookworm: Pulling from library/python
+Digest: sha256:68d914ec641a0b69267ce65184d000a2bc3a9ee2590ab702b82250ab2385735a
+Status: Image is up to date for python:3.10-slim-bookworm
+docker.io/library/python:3.10-slim-bookworm
+astropy__astropy-14309-parent checked True
+astropy__astropy-14309-head checked True

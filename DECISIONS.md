@@ -2873,3 +2873,10 @@ Reversal: any artifact/provenance mismatch invalidates the affected compatibilit
 - Cost: project `-W` and import-mode addopts are also ignored; other ini/conftest behavior and plugin prohibition remain. No measured recall claim.
 - Reversal: revert if a supported probe needs project CLI semantics the controller cannot express; no superseded measurements or default intent changes.
 - Files: executor and its tests; [gate, limits and review](docs/acceptance/2026-09-16-controlled-probe-options.md). API spend $0; paid qualification remains unmet.
+
+### D-279 — Natural-pair source runtime (2026-09-16, measured)
+- Scope: committed driver `d7526ad` executes D-277's successful revision-specific wheels through existing strict transfer and secretless executor; all four build rows remain.
+- Evidence: generic fixture and both Astropy sides pass; both scikit-learn sides stay build-unqualified. Matching runtime freezes; one review found no defect.
+- Limit: one runtime-ready case, zero original-test witnesses or qualified defects/controls; no product recall/FPR claim (INV-TRUTH-001, G-MEASURE-004).
+- Consequence: proceed only to a frozen original-human-test natural-pair witness; paid minimum/defaults unchanged, no superseded result. Reverse by reverting adapter, preserve evidence.
+- Files: source runtime driver, compatibility protocol/evidence; [report](docs/acceptance/2026-09-16-natural-pair-source-runtime.md). No new utilities; model/API spend $0.

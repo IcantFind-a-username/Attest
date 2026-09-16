@@ -38,6 +38,12 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
 
 ## 2. Honest baseline
 
+- **2026-09-16 — D-279 natural-pair source runtime:** both Astropy revisions pass
+  source-origin execution after the generic native fixture. Both scikit-learn
+  build failures remain not runnable. One runtime-ready case is not a defect
+  witness; qualified defects/controls remain zero, with no paid call.
+  [Evidence](acceptance/2026-09-16-natural-pair-source-runtime.md).
+
 - **2026-09-16 — D-278 controlled probe arguments:** `f2560ce` prevents project
   addopts from obstructing or selecting the generated probe. One review and the
   fixed-source full gate pass: 2,568 tests, 93.42% certification/execution coverage.

@@ -646,3 +646,8 @@ paid reservation, push or release. Approved cap and settled API total unchanged.
 **2026-09-16 — D-278 controlled probe arguments: $0.00 model/API spend.**
 Focused, adjacent and full gates plus one independent review; no provider call,
 reservation, push or release. Approved cap and settled total unchanged.
+
+**2026-09-16 — D-279 source-mounted natural-pair runtime: $0.00 model/API spend.**
+One native fixture and two Astropy revision executions; two prior failed build
+records retained, no rebuild. No provider call, reservation, push or release.
+Approved cap and settled total unchanged.
