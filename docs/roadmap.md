@@ -38,6 +38,14 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
 
 ## 2. Honest baseline
 
+- **2026-09-16 — D-275 case-held-out qualification complete, paid dispatch ineligible:**
+  ten frozen cases yield two agreed source pairs, both in one repository. Both
+  exports are refused by the harness before Docker/tests. Forty control changes
+  yield 22 preliminary semantic agreements; qualified defects/controls remain 0/0.
+  The owner has authorized execution; no further permission fixes the missing
+  witnesses. Existing minimum and population remain unchanged, API spend $0.
+  [Qualification report](acceptance/2026-09-16-case-heldout-qualification.md).
+
 - **2026-09-16 — D-274 owner-approved case-held-out study:** the owner approved
   continued execution and the separate case-level study. Fixed metadata selection
   yields ten candidates from two repositories, preserving the shortfall from the

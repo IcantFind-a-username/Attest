@@ -628,3 +628,8 @@ remains blocked by population eligibility, not temporary-directory permission.
 Owner explicitly approved the proposed separate case-held-out study and continued
 execution. Existing paid opt-in and cumulative cap apply; this authorization does
 not raise the cap. No model call or reservation has occurred in the freeze step.
+
+**2026-09-16 — D-275 case-held-out qualification: $0.00 model/API spend.**
+Ten frozen candidates and forty controls received independent semantic reviews.
+Two source-pair exports were refused before Docker or tests; no qualified paid
+population, provider call or reservation. Settled total and approved cap unchanged.

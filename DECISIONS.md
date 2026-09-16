@@ -2845,3 +2845,10 @@ Reversal: any artifact/provenance mismatch invalidates the affected compatibilit
 - Evidence: benchmarks/studies/case-holdout-v1/{protocol.md,freeze.json,validation.json}; one review found a base-SHA uniqueness wording error, corrected without changing identities or selection.
 - Case-held-out only, not unseen-repository generalization; qualified defects/controls remain zero. Original populations and their failures remain unchanged; INV-TRUTH-001/INV-CERT-001 and paid minimum/cap remain.
 - Next is bounded natural-forward qualification and blind controls, then the preregistered free smoke and paid review only if all gates hold; reversal invalidates exposed/drifted cases rather than replacing them. Supersedes no product rule.
+
+### D-275 — Case-held-out qualification shortfall (2026-09-16, measured)
+- E-02 prerequisite; authorized D-274 population unchanged, driver 4ff420a, product source still gated 0b6d3b1; no API spend, push or default change.
+- [Evidence](docs/acceptance/2026-09-16-case-heldout-qualification.md): ten frozen cases yield two independently agreed source pairs in one repository; both exports refused before Docker/tests.
+- Forty controls reviewed twice yield 22 preliminary semantic agreements and one disagreement; no runtime-qualified defect or control, no precision/recall claim.
+- Existing minimum three defects plus three controls across two repositories is unmet; stop this bounded study without replacement or paid dispatch. Authorization is present; witnesses are missing.
+- INV-TRUTH-001 and prior protocols remain; reversal needs separately preregistered qualification evidence, not repair reversal or weaker denominators. Supersedes no product rule.
