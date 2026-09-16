@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import tempfile
 from dataclasses import asdict
@@ -27,7 +28,9 @@ WORK = ROOT / ".attest/corpora/repository-holdout-runtime"
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--study", choices=("historical", "swebench"), default="historical")
+    parser.add_argument(
+        "--study", choices=("historical", "swebench", "case-heldout"), default="historical",
+    )
     args = parser.parse_args()
     study = (
         STUDY if args.study == "historical" else ROOT / "benchmarks/studies/swebench-independent-v1"
@@ -37,6 +40,9 @@ def main() -> None:
         if args.study == "historical"
         else ROOT / ".attest/corpora/swebench-independent-runtime"
     )
+    if args.study == "case-heldout":
+        study = ROOT / "benchmarks/studies/case-holdout-v1"
+        work = ROOT / ".attest/corpora/case-holdout-runtime"
     for name in ("ATTEST_PIP_CONSTRAINT", "ATTEST_PROJECT_PYTHON"):
         if os.environ.get(name):
             raise ValueError("runtime override refused: " + name)
@@ -64,12 +70,15 @@ def main() -> None:
     ).strip()
     os.environ["DOCKER_CONFIG"] = str(config)
     os.environ["DOCKER_BUILDKIT"] = "1"
-    frozen_bytes = (study / "frozen-candidates.json").read_bytes()
+    input_name = "qualification-candidates.json" if args.study == "case-heldout" else (
+        "frozen-candidates.json"
+    )
+    frozen_bytes = (study / input_name).read_bytes()
     frozen = json.loads(frozen_bytes)
     if args.study == "historical":
         population = [r for r in frozen["repositories"] if r["role"] == "held_out"]
         expected_repositories, expected_cases = 4, 20
-    else:
+    elif args.study == "swebench":
         population = [
             {
                 "project": r["repo"].replace("/", "__"),
@@ -83,6 +92,37 @@ def main() -> None:
             if r["selected"]
         ]
         expected_repositories, expected_cases = 2, 6
+    else:
+        if frozen["status"] != "agreed_source_pairs_pending_execution":
+            raise ValueError("unreviewed natural pairs")
+        selection_bytes = (study / "freeze.json").read_bytes()
+        selection = {
+            c["instance_id"]: c for c in json.loads(selection_bytes)["selected"]
+        }
+        if frozen["freeze_sha256"] != sha256_bytes(selection_bytes):
+            raise ValueError("natural-pair selection drift")
+        pairs = frozen["pairs"]
+        if not pairs or len({p["case"] for p in pairs}) != len(pairs):
+            raise ValueError("empty or duplicate natural pair identities")
+        if any(
+            p["case"] not in selection or p["repo"] != selection[p["case"]]["repo"]
+            or any(not re.fullmatch(r"[0-9a-f]{40}", p[k])
+                   for k in ("head_sha", "parent_sha"))
+            for p in pairs
+        ):
+            raise ValueError("natural pair outside authorized selection")
+        population = [
+            {
+                "project": name.replace("/", "__"),
+                "url": "https://github.com/" + name + ".git",
+                "candidates": [
+                    {"upstream_case": p["case"], "buggy_sha": p["head_sha"]}
+                    for p in pairs if p["repo"] == name
+                ],
+            }
+            for name in dict.fromkeys(p["repo"] for p in pairs)
+        ]
+        expected_repositories, expected_cases = len(population), len(pairs)
     if (
         len(population) != expected_repositories
         or sum(len(r["candidates"]) for r in population) != expected_cases
