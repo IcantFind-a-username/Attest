@@ -94,3 +94,14 @@ release readiness: independent counts, correctness, abstention, intervals where
 defined, case-level gains/losses, attrition and exact fees. Finite control silence
 is not universal zero FPR. Stop after the paid report, or the terminal qualification
 shortfall. No new default, statistical policy, release, push or third-party writes.
+
+## Visible provenance correction after independent freeze review
+
+The initial producer included its active output directory in the input audit. Its
+`freeze.log` was empty when hashed, then received the producer's final status line.
+The original freeze remains unchanged. Exclude only `remainder-freeze-work` (this
+freeze task's outputs) from future input enumeration; all prior work directories
+remain inputs. `freeze-provenance.json` records the original digest, the retained
+output digest and an explicitly reconstructed empty snapshot, not a contemporaneous
+capture. The independent review reproduced no selection discrepancy. This correction
+does not resample, read new source/truth, or qualify a defect.

@@ -92,7 +92,7 @@ def main() -> None:
     if remainder:
         directories = tuple(sorted(set(directories) | {
             p.name for p in (ROOT / ".attest").glob("*-work")
-            if p.is_dir() and not p.is_symlink()
+            if p.is_dir() and not p.is_symlink() and p.name != "remainder-freeze-work"
         }))
     paths = {
         p for directory in directories
