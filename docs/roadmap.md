@@ -38,6 +38,13 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
 
 ## 2. Honest baseline
 
+- **2026-09-16 — D-276 authorized metadata-exposed qualification completed:**
+  nineteen frozen cases across four repositories yield two agreed natural source
+  pairs, both refused at default image build before tests. Eighty controls yield
+  seventeen preliminary semantic agreements. Qualified defects/controls are 0/0;
+  minimum sample and runtime requirements remain unmet. No paid call, source/default
+  change or automatic replacement. [Report](acceptance/2026-09-16-metadata-exposed-qualification.md).
+
 - **2026-09-16 — D-275 case-held-out qualification complete, paid dispatch ineligible:**
   ten frozen cases yield two agreed source pairs, both in one repository. Both
   exports are refused by the harness before Docker/tests. Forty control changes

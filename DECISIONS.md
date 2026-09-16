@@ -2852,3 +2852,10 @@ Reversal: any artifact/provenance mismatch invalidates the affected compatibilit
 - Forty controls reviewed twice yield 22 preliminary semantic agreements and one disagreement; no runtime-qualified defect or control, no precision/recall claim.
 - Existing minimum three defects plus three controls across two repositories is unmet; stop this bounded study without replacement or paid dispatch. Authorization is present; witnesses are missing.
 - INV-TRUTH-001 and prior protocols remain; reversal needs separately preregistered qualification evidence, not repair reversal or weaker denominators. Supersedes no product rule.
+
+### D-276 — Authorized metadata-exposed qualification (2026-09-16, measured)
+- Owner approved separate sampling rule; driver 508a446, runtime e3b8e0e, product source unchanged from gated 0b6d3b1; [report](docs/acceptance/2026-09-16-metadata-exposed-qualification.md).
+- Reviewed freeze selects 19 cases across four repositories; two independent source pairs agree, both default image builds fail before tests. Qualified defects/controls remain 0/0.
+- Eighty controls reviewed twice yield 17 preliminary agreements and three disagreements; no true-negative/FPR claim. Metadata exposure and bounded-history uncertainty are explicit.
+- Existing minimum three defects plus three controls remains unmet, independently of runtime failure; no paid dispatch, replacement, cap/default change, push or API spend.
+- Preserve all populations and logs; INV-TRUTH-001/INV-CERT-001 unchanged. Reversal requires new qualified evidence under a preregistered protocol, not a cheaper denominator; supersedes no product rule.

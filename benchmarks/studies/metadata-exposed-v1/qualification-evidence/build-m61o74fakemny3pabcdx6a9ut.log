@@ -1,0 +1,87 @@
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.66kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 DONE 0.0s
+
+#4 [ 1/26] FROM docker.io/library/python:3.12-slim@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea
+#4 resolve docker.io/library/python:3.12-slim@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 20.17MB 0.2s done
+#5 DONE 0.2s
+
+#6 [ 2/26] RUN pip install pytest
+#6 CACHED
+
+#7 [ 3/26] COPY tree /attest/build
+#7 DONE 0.1s
+
+#8 [ 4/26] RUN pip install /attest/build
+#8 0.286 Processing /attest/build
+#8 0.287   Installing build dependencies: started
+#8 5.474   Installing build dependencies: finished with status 'done'
+#8 5.476   Getting requirements to build wheel: started
+#8 5.653   Getting requirements to build wheel: finished with status 'error'
+#8 5.655   error: subprocess-exited-with-error
+#8 5.655   
+#8 5.655   × Getting requirements to build wheel did not run successfully.
+#8 5.655   │ exit code: 1
+#8 5.655   ╰─> [28 lines of output]
+#8 5.655       Partial import of sklearn during the build process.
+#8 5.655       /tmp/pip-build-env-dmo45ntm/overlay/lib/python3.12/site-packages/setuptools/dist.py:765: SetuptoolsDeprecationWarning: License classifiers are deprecated.
+#8 5.655       !!
+#8 5.655       
+#8 5.655               ********************************************************************************
+#8 5.655               Please consider removing the following classifiers in favor of a SPDX license expression:
+#8 5.655       
+#8 5.655               License :: OSI Approved
+#8 5.655       
+#8 5.655               See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+#8 5.655               ********************************************************************************
+#8 5.655       
+#8 5.655       !!
+#8 5.655         self._finalize_license_expression()
+#8 5.655       error: Multiple top-level packages discovered in a flat-layout: ['sklearn', 'maint_tools', 'build_tools', 'asv_benchmarks'].
+#8 5.655       
+#8 5.655       To avoid accidental inclusion of unwanted files or directories,
+#8 5.655       setuptools will not proceed with this build.
+#8 5.655       
+#8 5.655       If you are trying to create a single distribution with multiple packages
+#8 5.655       on purpose, you should not rely on automatic discovery.
+#8 5.655       Instead, consider the following options:
+#8 5.655       
+#8 5.655       1. set up custom discovery (`find` directive with `include` or `exclude`)
+#8 5.655       2. use a `src-layout`
+#8 5.655       3. explicitly set `py_modules` or `packages` with a list of names
+#8 5.655       
+#8 5.655       To find more information, look for "package discovery" on setuptools docs.
+#8 5.655       [end of output]
+#8 5.655   
+#8 5.655   note: This error originates from a subprocess, and is likely not a problem with pip.
+#8 5.656 error: subprocess-exited-with-error
+#8 5.656 
+#8 5.656 × Getting requirements to build wheel did not run successfully.
+#8 5.656 │ exit code: 1
+#8 5.656 ╰─> See above for output.
+#8 5.656 
+#8 5.656 note: This error originates from a subprocess, and is likely not a problem with pip.
+#8 ERROR: process "/bin/sh -c pip install /attest/build" did not complete successfully: exit code: 1
+------
+ > [ 4/26] RUN pip install /attest/build:
+5.655       [end of output]
+5.655   
+5.655   note: This error originates from a subprocess, and is likely not a problem with pip.
+5.656 error: subprocess-exited-with-error
+5.656 
+5.656 × Getting requirements to build wheel did not run successfully.
+5.656 │ exit code: 1
+5.656 ╰─> See above for output.
+5.656 
+5.656 note: This error originates from a subprocess, and is likely not a problem with pip.
+------

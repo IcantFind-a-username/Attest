@@ -633,3 +633,8 @@ not raise the cap. No model call or reservation has occurred in the freeze step.
 Ten frozen candidates and forty controls received independent semantic reviews.
 Two source-pair exports were refused before Docker or tests; no qualified paid
 population, provider call or reservation. Settled total and approved cap unchanged.
+
+**2026-09-16 — D-276 metadata-exposed study: $0.00 model/API spend.**
+Owner “允许” approved the new sampling rule. Nineteen cases were frozen and reviewed;
+two default Docker builds failed before execution. No provider call, paid reservation
+or remote write. Settled total $145.457111 and cumulative cap $150.00 are unchanged.

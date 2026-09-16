@@ -1,0 +1,90 @@
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 418B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 DONE 0.0s
+
+#4 [1/7] FROM docker.io/library/python:3.12-slim@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea
+#4 resolve docker.io/library/python:3.12-slim@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea 1.5s done
+#4 DONE 1.5s
+
+#5 [internal] load build context
+#5 transferring context: 36.98MB 0.4s done
+#5 DONE 0.4s
+
+#6 [2/7] RUN pip install pytest
+#6 CACHED
+
+#7 [3/7] COPY tree /attest/build
+#7 DONE 0.2s
+
+#8 [4/7] RUN pip install /attest/build
+#8 0.353 Processing /attest/build
+#8 0.355   Installing build dependencies: started
+#8 3.036   Installing build dependencies: finished with status 'done'
+#8 3.037   Getting requirements to build wheel: started
+#8 3.264   Getting requirements to build wheel: finished with status 'error'
+#8 3.267   error: subprocess-exited-with-error
+#8 3.267   
+#8 3.267   × Getting requirements to build wheel did not run successfully.
+#8 3.267   │ exit code: 1
+#8 3.267   ╰─> [31 lines of output]
+#8 3.267       Traceback (most recent call last):
+#8 3.267         File "/usr/local/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 389, in <module>
+#8 3.267           main()
+#8 3.267         File "/usr/local/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 373, in main
+#8 3.267           json_out["return_val"] = hook(**hook_input["kwargs"])
+#8 3.267                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#8 3.267         File "/usr/local/lib/python3.12/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 143, in get_requires_for_build_wheel
+#8 3.267           return hook(config_settings)
+#8 3.267                  ^^^^^^^^^^^^^^^^^^^^^
+#8 3.267         File "/tmp/pip-build-env-ok_d_x1k/overlay/lib/python3.12/site-packages/setuptools/build_meta.py", line 333, in get_requires_for_build_wheel
+#8 3.267           return self._get_build_requires(config_settings, requirements=[])
+#8 3.267                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#8 3.267         File "/tmp/pip-build-env-ok_d_x1k/overlay/lib/python3.12/site-packages/setuptools/build_meta.py", line 301, in _get_build_requires
+#8 3.267           self.run_setup()
+#8 3.267         File "/tmp/pip-build-env-ok_d_x1k/overlay/lib/python3.12/site-packages/setuptools/build_meta.py", line 317, in run_setup
+#8 3.267           exec(code, locals())  # noqa: S102 # exec is intentional here
+#8 3.267           ^^^^^^^^^^^^^^^^^^^^
+#8 3.267         File "<string>", line 69, in <module>
+#8 3.267         File "/tmp/pip-build-env-ok_d_x1k/overlay/lib/python3.12/site-packages/extension_helpers/_setup_helpers.py", line 71, in get_extensions
+#8 3.267           for setuppkg in iter_setup_packages(srcdir, packages):
+#8 3.267                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#8 3.267         File "/tmp/pip-build-env-ok_d_x1k/overlay/lib/python3.12/site-packages/extension_helpers/_setup_helpers.py", line 184, in iter_setup_packages
+#8 3.267           module = import_file(setup_package, name=packagename + ".setup_package")
+#8 3.267                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#8 3.267         File "/tmp/pip-build-env-ok_d_x1k/overlay/lib/python3.12/site-packages/extension_helpers/_utils.py", line 147, in import_file
+#8 3.267           loader.exec_module(mod)
+#8 3.267         File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+#8 3.267         File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+#8 3.267         File "astropy/wcs/setup_package.py", line 13, in <module>
+#8 3.267           from setuptools.dep_util import newer_group
+#8 3.267       ModuleNotFoundError: No module named 'setuptools.dep_util'
+#8 3.267       [end of output]
+#8 3.267   
+#8 3.267   note: This error originates from a subprocess, and is likely not a problem with pip.
+#8 3.267 error: subprocess-exited-with-error
+#8 3.267 
+#8 3.267 × Getting requirements to build wheel did not run successfully.
+#8 3.267 │ exit code: 1
+#8 3.267 ╰─> See above for output.
+#8 3.267 
+#8 3.267 note: This error originates from a subprocess, and is likely not a problem with pip.
+#8 ERROR: process "/bin/sh -c pip install /attest/build" did not complete successfully: exit code: 1
+------
+ > [4/7] RUN pip install /attest/build:
+3.267       [end of output]
+3.267   
+3.267   note: This error originates from a subprocess, and is likely not a problem with pip.
+3.267 error: subprocess-exited-with-error
+3.267 
+3.267 × Getting requirements to build wheel did not run successfully.
+3.267 │ exit code: 1
+3.267 ╰─> See above for output.
+3.267 
+3.267 note: This error originates from a subprocess, and is likely not a problem with pip.
+------
