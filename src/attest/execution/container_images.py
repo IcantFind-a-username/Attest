@@ -13,6 +13,7 @@ project reuses its image. A bootstrap that fails is reported as exactly that
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import os
 import re
@@ -252,15 +253,71 @@ _VERSION_FILE_KEYS = (
 _SAFE_RELATIVE_RE = re.compile(r"\A[A-Za-z0-9_][A-Za-z0-9_./-]{0,255}\Z")
 
 
-def declared_version_file(tree: Path, roots: list[ProjectRoot]) -> Path | None:
+def _setup_version_path(path: Path) -> str | None:
+    """Read one literal configuration declaration; never evaluate setup code."""
+    try:
+        if path.stat().st_size > 1024 * 1024:
+            return None
+        module = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, SyntaxError, RecursionError):
+        return None
+    bindings = [
+        node for node in module.body if isinstance(node, ast.ImportFrom)
+        and node.module == "setuptools" and node.level == 0
+        for alias in node.names if alias.name == "setup" and alias.asname is None
+    ]
+    calls = [node for node in ast.walk(module) if isinstance(node, ast.Call)
+             and isinstance(node.func, ast.Name) and node.func.id == "setup"]
+    if len(bindings) != 1 or len(calls) != 1:
+        return None
+    call = calls[0]
+    if not any(isinstance(node, ast.Expr) and node.value is call for node in module.body):
+        return None
+    if any(isinstance(node, (ast.Raise, ast.Return)) for node in module.body):
+        return None
+    for node in ast.walk(module):
+        if isinstance(node, ast.Name) and node.id == "setup" and isinstance(node.ctx, ast.Store):
+            return None
+        if (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                and node.name == "setup"):
+            return None
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                if alias.name == "*":
+                    return None
+                if ((alias.asname or alias.name.split(".")[0]) == "setup"
+                        and not (node in bindings and alias.name == "setup"
+                                 and alias.asname is None)):
+                    return None
+    options = [kw.value for kw in call.keywords if kw.arg == "use_scm_version"]
+    if len(options) != 1 or not isinstance(options[0], ast.Dict):
+        return None
+    keys = options[0].keys
+    if any(not isinstance(key, ast.Constant) or not isinstance(key.value, str) for key in keys):
+        return None
+    names = [key.value for key in keys if isinstance(key, ast.Constant)]
+    if len(names) != len(set(names)) or "write_to" not in names:
+        return None
+    value = options[0].values[names.index("write_to")]
+    return value.value if isinstance(value, ast.Constant) and isinstance(value.value, str) else None
+
+
+def declared_version_file(
+    tree: Path, roots: list[ProjectRoot], *, allow_setup_py: bool = False,
+) -> Path | None:
     """The version file a repository-versioned project's build would generate,
-    as `pyproject.toml` declares it, or None when nothing is declared."""
+    as pyproject declares it; optionally read a literal setup.py declaration.
+    This identifies metadata only, not proof that arbitrary setup code ran as declared."""
     import tomllib
 
     for root in roots:
         base = tree / root.relative if root.relative else tree
         path = base / "pyproject.toml"
         if not path.is_file():
+            value = _setup_version_path(base / "setup.py") if allow_setup_py else None
+            if (value is not None and _SAFE_RELATIVE_RE.fullmatch(value)
+                    and value.endswith(".py") and ".." not in value.split("/")):
+                return base / value
             continue
         try:
             data = tomllib.loads(path.read_text(encoding="utf-8", errors="replace"))

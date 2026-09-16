@@ -91,7 +91,7 @@ def check_runtime(
     directory: Path, tree: Path, wheel: Path, revision: str, wheel_digest: str,
     expected_revision: str, cutoff: str, runtime: str, env: dict[str, str], state: dict, *,
     builder: str, fixture: bool = False, allow_source_links: bool = False,
-    source_only: bool = False,
+    source_only: bool = False, setup_declaration: bool = False,
 ) -> dict:
     state["stage"] = "transfer"
     packages = tuple(stub_packages(tree))
@@ -107,7 +107,9 @@ def check_runtime(
         if len(locations) != 1:
             raise ValueError("ambiguous package source layout")
         prefix = locations[0]
-    version_file = declared_version_file(tree, discover_roots(tree))
+    version_file = declared_version_file(
+        tree, discover_roots(tree), allow_setup_py=setup_declaration,
+    )
     transfer = apply_wheel(
         tree, wheel, revision=revision, expected_revision=expected_revision,
         expected_digest=wheel_digest, packages=packages,
@@ -216,7 +218,7 @@ def check_runtime(
 
 def check_fixture(
     build_record: dict, runtime: str, env: dict[str, str], state: dict, *, work: Path = WORK,
-    source_only: bool = False,
+    source_only: bool = False, setup_declaration: bool = False,
 ) -> dict:
     state["stage"] = "fixture_build"
     fixture = work / "fixture"
@@ -246,16 +248,19 @@ def check_fixture(
         fixture, tree, wheels[0], "f" * 40, sha256_bytes(wheels[0].read_bytes()), "f" * 40,
         "2022-05-09T14:16:30Z", runtime, env, state,
         builder=build_record["builder_reference"], fixture=True, source_only=source_only,
+        setup_declaration=setup_declaration,
     )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--study", choices=("swebench", "natural-pairs", "remainder-safe-links",
-                                               "remainder-source-layout", "remainder-source-only"),
+                                               "remainder-source-layout", "remainder-source-only",
+                                               "remainder-setup-declaration"),
                         default="swebench")
     mode = parser.parse_args().study
-    source_only = mode == "remainder-source-only"
+    setup_declaration = mode == "remainder-setup-declaration"
+    source_only = setup_declaration or mode == "remainder-source-only"
     safe_links = source_only or mode in {"remainder-safe-links", "remainder-source-layout"}
     natural = safe_links or mode == "natural-pairs"
     study = ROOT / "benchmarks/studies/metadata-exposed-v1/compatibility" if natural else STUDY
@@ -267,6 +272,7 @@ def main() -> None:
         study = ROOT / "benchmarks/studies/remainder-v1/compatibility"
         builds = ROOT / ".attest/corpora/remainder-safe-link-build"
         work = ROOT / ".attest/corpora" / (
+            "remainder-setup-declaration-runtime" if setup_declaration else
             "remainder-source-only-runtime" if source_only else
             "remainder-source-layout-runtime" if mode == "remainder-source-layout"
             else "remainder-safe-link-runtime"
@@ -328,6 +334,7 @@ def main() -> None:
             (ROOT / "scripts/corpus/swebench_compatible_build.py").read_bytes(),
         ),
         "protocol_sha256": sha256_bytes((study / (
+            "setup-declaration-runtime.md" if setup_declaration else
             "source-only-runtime.md" if source_only else
             "source-layout-runtime.md" if mode == "remainder-source-layout" else
             "safe-link-source-runtime.md" if safe_links else "source-runtime.md"
@@ -342,6 +349,7 @@ def main() -> None:
     try:
         record["fixture"].update(check_fixture(
             build_record, runtime, env, record["fixture"], work=work, source_only=source_only,
+            setup_declaration=setup_declaration,
         ))
         record["fixture"]["status"] = "checked"
         if not record["fixture"]["runtime_ready"]:
@@ -379,6 +387,7 @@ def main() -> None:
                 prior["artifacts"]["wheels/" + wheel.name], prior["revision"],
                 case["created_at"], runtime, env, row, builder=build_record["builder_reference"],
                 allow_source_links=safe_links, source_only=source_only,
+                setup_declaration=setup_declaration,
             ))
             row["status"] = "checked"
         except (
