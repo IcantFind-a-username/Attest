@@ -623,3 +623,8 @@ passed at `0b6d3b1` (2,563 tests). The preceding failed-run entry remains histor
 No paid call/reservation, push, remote write, product-default change or cap increase.
 The independent study still has zero qualified defects/controls; paid dispatch
 remains blocked by population eligibility, not temporary-directory permission.
+
+**2026-09-16 — case-held-out study authorized: $0.00 API spend at freeze.**
+Owner explicitly approved the proposed separate case-held-out study and continued
+execution. Existing paid opt-in and cumulative cap apply; this authorization does
+not raise the cap. No model call or reservation has occurred in the freeze step.

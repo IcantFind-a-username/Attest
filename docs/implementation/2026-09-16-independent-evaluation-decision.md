@@ -53,3 +53,12 @@ sample/exclusion/retry changes” to the owner. The proposal changes the exclusi
 rule for a **new** study after the earlier populations failed; it does not silently
 amend either old preregistration. No permission to modify certification, isolation,
 publication policy, product defaults or remote repositories is requested.
+
+## Owner authorization — 2026-09-16
+
+The owner explicitly approved this package and continued long-task execution:
+“我都批准，这次长任务我都批准，快做”. The original proposed-state text above
+is retained as history. Execution now follows
+[the committed study protocol](../../benchmarks/studies/case-holdout-v1/protocol.md),
+within the existing spend cap and report-then-stop boundary. No repeat approval
+is needed for steps inside that scope.
