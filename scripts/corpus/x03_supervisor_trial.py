@@ -34,11 +34,22 @@ def main() -> None:
         env=env, text=True, timeout=30,
     )
     digests = [line.split()[0] for line in hashes.splitlines()]
+    query = "git log --pretty=format:%ct --quiet -1 HEAD"
     probes = {
-        "literal_query": "import subprocess\nsubprocess.run('git log --pretty=format:%ct --quiet -1 HEAD', shell=True, capture_output=True, text=True)\n",
-        "different_shell_command": "import subprocess\nsubprocess.run('echo unauthorized', shell=True)\n",
-        "direct_native_exec": "import os\nos.execv('/bin/sh', ['/bin/sh', '-c', 'echo unauthorized'])\n",
-        "changed_environment": "import subprocess,os\nos.environ['ENV']='/tmp/injected'\nsubprocess.run('git log --pretty=format:%ct --quiet -1 HEAD',shell=True)\n",
+        "literal_query": (
+            "import subprocess\n"
+            f"subprocess.run({query!r}, shell=True, capture_output=True, text=True)\n"
+        ),
+        "different_shell_command": (
+            "import subprocess\nsubprocess.run('echo unauthorized', shell=True)\n"
+        ),
+        "direct_native_exec": (
+            "import os\nos.execv('/bin/sh', ['/bin/sh', '-c', 'echo unauthorized'])\n"
+        ),
+        "changed_environment": (
+            "import subprocess,os\nos.environ['ENV']='/tmp/injected'\n"
+            f"subprocess.run({query!r},shell=True)\n"
+        ),
     }
     record = {
         "code_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),

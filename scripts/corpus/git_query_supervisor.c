@@ -145,14 +145,16 @@ static int exec_check(struct task *t) {
         if(!realpath(root_argv[0],target) || strcmp(exe,target) ||
            !vector_matches(args,(size_t)size,root_argv)) return 0;
         hash_index=0; next=MAIN;
-    } else if(t!=&tasks[0] && t->role==INITIAL) {
+    } else if(t!=&tasks[0] && t->role==INITIAL && find_task(t->parent) &&
+              find_task(t->parent)->role==MAIN) {
         struct task *parent=find_task(t->parent);
         char *shell[]={"/bin/sh","-c",QUERY,NULL};
         char target[PATH_MAX];
         if(!parent || parent->role!=MAIN || !realpath("/bin/sh",target) ||
            strcmp(exe,target) || !vector_matches(args,(size_t)size,shell)) return 0;
         hash_index=1; next=SHELL;
-    } else if(t->role==SHELL) {
+    } else if(t->role==SHELL || (t->role==INITIAL && find_task(t->parent) &&
+                               find_task(t->parent)->role==SHELL)) {
         char *git[]={"git","log","--pretty=format:%ct","--quiet","-1","HEAD",NULL};
         char target[PATH_MAX];
         if(!realpath("/usr/bin/git",target) || strcmp(exe,target) ||
@@ -335,7 +337,12 @@ int main(int argc,char **argv) {
             int exit_status=WIFEXITED(status)?WEXITSTATUS(status):128+WTERMSIG(status);
             t->alive=0;
             if(t==&tasks[0]) root_exit=exit_status;
-            else if(t->role!=GIT) refuse("incomplete-child-chain");
+            else if(t->role!=GIT) {
+                int completed=0;
+                for(int i=1;i<count;i++)
+                    if(tasks[i].parent==pid && tasks[i].role==GIT && !tasks[i].alive) completed=1;
+                if(t->role!=SHELL || !completed) refuse("incomplete-child-chain");
+            }
             printf("EXIT %d %d %ld\n",pid,exit_status,usage.ru_maxrss);
             continue;
         }
