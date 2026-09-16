@@ -25,13 +25,18 @@ WORK_DIRS = (
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--study", choices=("case-heldout", "metadata-exposed"),
+    parser.add_argument("--study", choices=("case-heldout", "metadata-exposed", "remainder"),
                         default="case-heldout")
     args = parser.parse_args()
-    metadata_exposed = args.study == "metadata-exposed"
+    remainder = args.study == "remainder"
+    metadata_exposed = args.study in {"metadata-exposed", "remainder"}
     study = ROOT / "benchmarks/studies/metadata-exposed-v1" if metadata_exposed else STUDY
     baseline = "1a3fbb9bb6011051532bf52437ce020fc9aeb6dd" if metadata_exposed else BASELINE
     seed = "attest-metadata-exposed-v1|" if metadata_exposed else SEED
+    if remainder:
+        study = ROOT / "benchmarks/studies/remainder-v1"
+        baseline = "ea73b72d4cde9086018183b633a8daebcde431b3"
+        seed = "attest-remainder-v1|"
     destination = study / "freeze.json"
     if destination.exists():
         raise ValueError("freeze already exists")
@@ -64,13 +69,31 @@ def main() -> None:
     screening_path = "docs/acceptance/evidence/2026-09-12-heldout-supported-probe.json"
     administrative_path = "benchmarks/studies/case-holdout-v1/freeze.json"
     screening = {}
+    remainder_path = "benchmarks/studies/metadata-exposed-v1/freeze.json"
+    remainder_bytes = b""
+    remainder_pool: set[str] = set()
     if metadata_exposed:
         earlier = json.loads((ROOT / administrative_path).read_bytes())
         previously_selected.update(r["instance_id"] for r in earlier["selected"])
         screening = json.loads((ROOT / screening_path).read_bytes())
         if set(screening) != {"screen", "probe"}:
             raise ValueError("unknown screening sections")
+    if remainder:
+        remainder_bytes = (ROOT / remainder_path).read_bytes()
+        if remainder_bytes != subprocess.check_output(
+            ["git", "show", baseline + ":" + remainder_path], cwd=ROOT, timeout=30,
+        ):
+            raise ValueError("prior remainder inventory drift")
+        previous = json.loads(remainder_bytes)
+        previously_selected.update(r["instance_id"] for r in previous["selected"])
+        remainder_pool = {r["instance_id"] for r in previous["candidates"]
+                          if r["eligible"] and r["instance_id"] not in previously_selected}
     directories = WORK_DIRS + (("case-holdout-work",) if metadata_exposed else ())
+    if remainder:
+        directories = tuple(sorted(set(directories) | {
+            p.name for p in (ROOT / ".attest").glob("*-work")
+            if p.is_dir() and not p.is_symlink()
+        }))
     paths = {
         p for directory in directories
         for p in (ROOT / ".attest" / directory).glob("**/*")
@@ -86,6 +109,8 @@ def main() -> None:
     candidates = []
     for row in rows:
         if row["instance_id"] not in split["held_out"] or row["created_at"] < "2022-01-01":
+            continue
+        if remainder and row["instance_id"] not in remainder_pool:
             continue
         repo = row["repo"]
         number = row["instance_id"].rsplit("-", 1)[1]
@@ -109,6 +134,8 @@ def main() -> None:
             # The preceding freeze is an administrative metadata inventory;
             # every selected identity remains excluded separately.
             allowed_matches = [m for m in matches if m == baseline + ":" + administrative_path]
+            if remainder:
+                allowed_matches.extend(m for m in matches if m == baseline + ":" + remainder_path)
             screen_rows = [r for r in screening["screen"]
                            if r["instance_id"] == row["instance_id"]]
             keys = {"instance_id", "repo", "base_commit", "created_at", "difficulty",
@@ -135,7 +162,13 @@ def main() -> None:
     )
     selected = []
     selected_repositories = []
-    for repo in repositories:
+    if remainder:
+        selected = sorted(
+            (r for r in candidates if r["eligible"]),
+            key=lambda r: sha256_bytes((seed + r["repo"] + "|" + r["instance_id"]).encode()),
+        )
+        selected_repositories = sorted({r["repo"] for r in selected})
+    for repo in ([] if remainder else repositories):
         pool = [r for r in candidates if r["repo"] == repo and r["eligible"]]
         if len(pool) < (3 if metadata_exposed else 5) or len(selected_repositories) == 4:
             continue
@@ -148,6 +181,9 @@ def main() -> None:
         "protocol_sha256": sha256_bytes((study / "protocol.md").read_bytes()),
         "metadata_sha256": sha256_bytes(metadata_bytes), "split_sha256": sha256_bytes(split_bytes),
         "parquet_sha256": pinned["parquet_sha256"], "dataset_revision": pinned["revision"],
+        **({"parent_inventory_sha256": sha256_bytes(remainder_bytes),
+            "prior_pool_size": len(remainder_pool), "audited_work_directories": directories}
+           if remainder else {}),
         "ignored_record_sha256": {p: sha256_bytes(b) for p, b in ignored.items()},
         "candidates": candidates, "selected_repositories": selected_repositories,
         "selected": selected, "source_or_hidden_columns_read": False,

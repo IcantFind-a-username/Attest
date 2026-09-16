@@ -53,3 +53,9 @@ No broader architecture or release decision is bundled here. Evidence:
 [original-test witness](../acceptance/2026-09-16-natural-pair-original-tests.md),
 [failed frozen study](../acceptance/2026-09-16-metadata-exposed-qualification.md),
 [existing sampling restriction](../../benchmarks/studies/metadata-exposed-v1/protocol.md).
+
+## Owner authorization — 2026-09-16
+
+The owner explicitly replied “我授权补样”. The separate remainder batch above is
+now authorized, within its existing sample, cost and stopping bounds. The original
+proposed-state text is retained as history; prior studies are not reopened.
