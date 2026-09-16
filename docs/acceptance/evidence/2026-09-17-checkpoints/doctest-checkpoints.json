@@ -1,0 +1,557 @@
+{
+  "probe": "P-04b runtime checkpoints",
+  "cases": 20,
+  "libraries": {
+    "jinja": {
+      "checkpoints": 16,
+      "broken": 0
+    },
+    "more-itertools": {
+      "checkpoints": 160,
+      "broken": 0
+    },
+    "packaging": {
+      "checkpoints": 72,
+      "broken": 16
+    },
+    "urllib3": {
+      "checkpoints": 6,
+      "broken": 6
+    }
+  },
+  "detected": 1,
+  "localised": 0,
+  "noise_floor": {
+    "jinja": {
+      "checkpoints": 16,
+      "broken": 0
+    },
+    "more-itertools": {
+      "checkpoints": 160,
+      "broken": 0
+    },
+    "packaging": {
+      "checkpoints": 72,
+      "broken": 16
+    },
+    "urllib3": {
+      "checkpoints": 6,
+      "broken": 6
+    }
+  },
+  "limits": [
+    "the checkpoints are doctest examples only: statements the repository already made executable. Prose the model would have to translate is not included",
+    "a library whose source states no values has no checkpoints here, whatever its defects are",
+    "localisation is at file granularity: the failing doctest's module against the file the defect was planted in"
+  ],
+  "rows": [
+    {
+      "unit_id": "jinja-boundary-09--forward",
+      "library": "jinja",
+      "planted": "src/jinja2/debug.py:162",
+      "mutation": "< -> <= at src/jinja2/debug.py:162: if cur_depth < depth:",
+      "base": {
+        "outcome": "clean",
+        "passed": 16,
+        "failed": 0
+      },
+      "head": {
+        "outcome": "clean",
+        "passed": 16,
+        "failed": 0
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "more-itertools-boundary-08--forward",
+      "library": "more-itertools",
+      "planted": "more_itertools/more.py:453",
+      "mutation": "> -> >= at more_itertools/more.py:453: if step > 0:",
+      "base": {
+        "outcome": "clean",
+        "passed": 160,
+        "failed": 0
+      },
+      "head": {
+        "outcome": "clean",
+        "passed": 160,
+        "failed": 0
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "packaging-boundary-08--forward",
+      "library": "packaging",
+      "planted": "src/packaging/_musllinux.py:28",
+      "mutation": "< -> <= at src/packaging/_musllinux.py:28: if len(lines) < 2 or lines[0][:4] != \"musl\":",
+      "base": {
+        "outcome": "failed",
+        "passed": 56,
+        "failed": 16
+      },
+      "head": {
+        "outcome": "failed",
+        "passed": 56,
+        "failed": 16
+      },
+      "noise_floor_nodes": [
+        "src/packaging/licenses/__init__.py::packaging.licenses.canonicalize_license_expression",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__contains__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__eq__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__repr__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.complement",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.contains",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.difference",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.filter",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.intersection",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_disjoint",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_empty",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_subset",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_superset",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.singleton",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.to_specifier_set"
+      ],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "urllib3-boundary-07--forward",
+      "library": "urllib3",
+      "planted": "src/urllib3/_collections.py:114",
+      "mutation": "> -> >= at src/urllib3/_collections.py:114: if len(self._container) > self._maxsize:",
+      "base": {
+        "outcome": "unusable",
+        "passed": 0,
+        "failed": 6
+      },
+      "head": {
+        "outcome": "unusable",
+        "passed": 0,
+        "failed": 6
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "jinja-boundary-12--forward",
+      "library": "jinja",
+      "planted": "src/jinja2/environment.py:1637",
+      "mutation": "< -> <= at src/jinja2/environment.py:1637: while c_size < size:",
+      "base": {
+        "outcome": "clean",
+        "passed": 16,
+        "failed": 0
+      },
+      "head": {
+        "outcome": "clean",
+        "passed": 16,
+        "failed": 0
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "more-itertools-boundary-10--forward",
+      "library": "more-itertools",
+      "planted": "more_itertools/more.py:464",
+      "mutation": "< -> <= at more_itertools/more.py:464: if (start < 0) or (stop < 0):",
+      "base": {
+        "outcome": "clean",
+        "passed": 160,
+        "failed": 0
+      },
+      "head": {
+        "outcome": "clean",
+        "passed": 160,
+        "failed": 0
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "packaging-boundary-11--forward",
+      "library": "packaging",
+      "planted": "src/packaging/_ranges.py:152",
+      "mutation": "< -> <= at src/packaging/_ranges.py:152: if not (self.version < other):",
+      "base": {
+        "outcome": "failed",
+        "passed": 56,
+        "failed": 16
+      },
+      "head": {
+        "outcome": "failed",
+        "passed": 56,
+        "failed": 16
+      },
+      "noise_floor_nodes": [
+        "src/packaging/licenses/__init__.py::packaging.licenses.canonicalize_license_expression",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__contains__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__eq__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__repr__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.complement",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.contains",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.difference",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.filter",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.intersection",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_disjoint",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_empty",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_subset",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_superset",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.singleton",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.to_specifier_set"
+      ],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "urllib3-guard_raise-03--forward",
+      "library": "urllib3",
+      "planted": "src/urllib3/_request_methods.py:258",
+      "mutation": "delete the guard at src/urllib3/_request_methods.py:258: if \"body\" in urlopen_kw:",
+      "base": {
+        "outcome": "unusable",
+        "passed": 0,
+        "failed": 6
+      },
+      "head": {
+        "outcome": "unusable",
+        "passed": 0,
+        "failed": 6
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "jinja-guard_raise-01--forward",
+      "library": "jinja",
+      "planted": "src/jinja2/bccache.py:84",
+      "mutation": "delete the guard at src/jinja2/bccache.py:84: if self.code is None:",
+      "base": {
+        "outcome": "clean",
+        "passed": 16,
+        "failed": 0
+      },
+      "head": {
+        "outcome": "clean",
+        "passed": 16,
+        "failed": 0
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "more-itertools-guard_raise-04--forward",
+      "library": "more-itertools",
+      "planted": "more_itertools/more.py:272",
+      "mutation": "delete the guard at more_itertools/more.py:272: if default is _marker:",
+      "base": {
+        "outcome": "clean",
+        "passed": 160,
+        "failed": 0
+      },
+      "head": {
+        "outcome": "clean",
+        "passed": 160,
+        "failed": 0
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "packaging-guard_raise-01--forward",
+      "library": "packaging",
+      "planted": "src/packaging/_elffile.py:53",
+      "mutation": "delete the guard at src/packaging/_elffile.py:53: if magic != b\"\\x7fELF\":",
+      "base": {
+        "outcome": "failed",
+        "passed": 56,
+        "failed": 16
+      },
+      "head": {
+        "outcome": "failed",
+        "passed": 56,
+        "failed": 16
+      },
+      "noise_floor_nodes": [
+        "src/packaging/licenses/__init__.py::packaging.licenses.canonicalize_license_expression",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__contains__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__eq__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__repr__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.complement",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.contains",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.difference",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.filter",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.intersection",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_disjoint",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_empty",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_subset",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_superset",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.singleton",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.to_specifier_set"
+      ],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "urllib3-guard_raise-04--forward",
+      "library": "urllib3",
+      "planted": "src/urllib3/connection.py:269",
+      "mutation": "delete the guard at src/urllib3/connection.py:269: if scheme not in (\"http\", \"https\"):",
+      "base": {
+        "outcome": "unusable",
+        "passed": 0,
+        "failed": 6
+      },
+      "head": {
+        "outcome": "unusable",
+        "passed": 0,
+        "failed": 6
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "jinja-none_guard-13--forward",
+      "library": "jinja",
+      "planted": "src/jinja2/compiler.py:119",
+      "mutation": "delete the None guard at src/jinja2/compiler.py:119: if stream is None:",
+      "base": {
+        "outcome": "clean",
+        "passed": 16,
+        "failed": 0
+      },
+      "head": {
+        "outcome": "failed",
+        "passed": 14,
+        "failed": 2
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [
+        "src/jinja2/environment.py::jinja2.environment.Environment.compile_expression",
+        "src/jinja2/environment.py::jinja2.environment.Environment.template_class.module"
+      ],
+      "new_failures_in_planted_file": [],
+      "detected": true,
+      "localised": false
+    },
+    {
+      "unit_id": "more-itertools-guard_raise-05--forward",
+      "library": "more-itertools",
+      "planted": "more_itertools/more.py:297",
+      "mutation": "delete the guard at more_itertools/more.py:297: if default is _marker:",
+      "base": {
+        "outcome": "clean",
+        "passed": 160,
+        "failed": 0
+      },
+      "head": {
+        "outcome": "clean",
+        "passed": 160,
+        "failed": 0
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "packaging-guard_raise-06--forward",
+      "library": "packaging",
+      "planted": "src/packaging/direct_url.py:182",
+      "mutation": "delete the guard at src/packaging/direct_url.py:182: if hashes is not None and not all(isi",
+      "base": {
+        "outcome": "failed",
+        "passed": 56,
+        "failed": 16
+      },
+      "head": {
+        "outcome": "failed",
+        "passed": 56,
+        "failed": 16
+      },
+      "noise_floor_nodes": [
+        "src/packaging/licenses/__init__.py::packaging.licenses.canonicalize_license_expression",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__contains__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__eq__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__repr__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.complement",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.contains",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.difference",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.filter",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.intersection",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_disjoint",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_empty",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_subset",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_superset",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.singleton",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.to_specifier_set"
+      ],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "urllib3-none_guard-15--forward",
+      "library": "urllib3",
+      "planted": "src/urllib3/_collections.py:486",
+      "mutation": "delete the None guard at src/urllib3/_collections.py:486: if maybe_constructable is None:",
+      "base": {
+        "outcome": "unusable",
+        "passed": 0,
+        "failed": 6
+      },
+      "head": {
+        "outcome": "unusable",
+        "passed": 0,
+        "failed": 6
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "jinja-none_guard-14--forward",
+      "library": "jinja",
+      "planted": "src/jinja2/environment.py:100",
+      "mutation": "delete the None guard at src/jinja2/environment.py:100: if cache is None:",
+      "base": {
+        "outcome": "clean",
+        "passed": 16,
+        "failed": 0
+      },
+      "head": {
+        "outcome": "clean",
+        "passed": 16,
+        "failed": 0
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "more-itertools-none_guard-17--forward",
+      "library": "more-itertools",
+      "planted": "more_itertools/recipes.py:336",
+      "mutation": "delete the None guard at more_itertools/recipes.py:336: if times is None:",
+      "base": {
+        "outcome": "clean",
+        "passed": 160,
+        "failed": 0
+      },
+      "head": {
+        "outcome": "clean",
+        "passed": 160,
+        "failed": 0
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "packaging-none_guard-13--forward",
+      "library": "packaging",
+      "planted": "src/packaging/_manylinux.py:178",
+      "mutation": "delete the None guard at src/packaging/_manylinux.py:178: if version_str is None:",
+      "base": {
+        "outcome": "failed",
+        "passed": 56,
+        "failed": 16
+      },
+      "head": {
+        "outcome": "failed",
+        "passed": 56,
+        "failed": 16
+      },
+      "noise_floor_nodes": [
+        "src/packaging/licenses/__init__.py::packaging.licenses.canonicalize_license_expression",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__contains__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__eq__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.__repr__",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.complement",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.contains",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.difference",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.filter",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.intersection",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_disjoint",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_empty",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_subset",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.is_superset",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.singleton",
+        "src/packaging/ranges.py::packaging.ranges.VersionRange.to_specifier_set"
+      ],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    },
+    {
+      "unit_id": "urllib3-none_guard-18--forward",
+      "library": "urllib3",
+      "planted": "src/urllib3/poolmanager.py:418",
+      "mutation": "delete the None guard at src/urllib3/poolmanager.py:418: if self.proxy is None:",
+      "base": {
+        "outcome": "unusable",
+        "passed": 0,
+        "failed": 6
+      },
+      "head": {
+        "outcome": "unusable",
+        "passed": 0,
+        "failed": 6
+      },
+      "noise_floor_nodes": [],
+      "new_failures": [],
+      "new_failures_in_planted_file": [],
+      "detected": false,
+      "localised": false
+    }
+  ]
+}

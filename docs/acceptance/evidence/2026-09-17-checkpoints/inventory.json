@@ -1,0 +1,92 @@
+{
+  "probe": "P-04a checkpoint inventory",
+  "libraries": [
+    {
+      "library": "attrs",
+      "package": "attrs",
+      "files": 6,
+      "functions": 1,
+      "annotated_returns": 1,
+      "checkable_returns": 0,
+      "doctest_lines": 0,
+      "asserts": 0
+    },
+    {
+      "library": "click",
+      "package": "click",
+      "files": 17,
+      "functions": 584,
+      "annotated_returns": 580,
+      "checkable_returns": 298,
+      "doctest_lines": 0,
+      "asserts": 13
+    },
+    {
+      "library": "itsdangerous",
+      "package": "itsdangerous",
+      "files": 8,
+      "functions": 61,
+      "annotated_returns": 48,
+      "checkable_returns": 26,
+      "doctest_lines": 0,
+      "asserts": 0
+    },
+    {
+      "library": "jinja",
+      "package": "jinja2",
+      "files": 25,
+      "functions": 774,
+      "annotated_returns": 762,
+      "checkable_returns": 399,
+      "doctest_lines": 30,
+      "asserts": 16
+    },
+    {
+      "library": "more-itertools",
+      "package": "more_itertools",
+      "files": 3,
+      "functions": 280,
+      "annotated_returns": 0,
+      "checkable_returns": 0,
+      "doctest_lines": 600,
+      "asserts": 2
+    },
+    {
+      "library": "packaging",
+      "package": "packaging",
+      "files": 22,
+      "functions": 466,
+      "annotated_returns": 466,
+      "checkable_returns": 224,
+      "doctest_lines": 214,
+      "asserts": 11
+    },
+    {
+      "library": "python-dotenv",
+      "package": "dotenv",
+      "files": 8,
+      "functions": 65,
+      "annotated_returns": 60,
+      "checkable_returns": 42,
+      "doctest_lines": 0,
+      "asserts": 1
+    },
+    {
+      "library": "urllib3",
+      "package": "urllib3",
+      "files": 36,
+      "functions": 513,
+      "annotated_returns": 501,
+      "checkable_returns": 370,
+      "doctest_lines": 8,
+      "asserts": 7
+    }
+  ],
+  "totals": {
+    "functions": 2744,
+    "annotated_returns": 2418,
+    "checkable_returns": 1359,
+    "doctest_lines": 852,
+    "asserts": 50
+  }
+}

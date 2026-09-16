@@ -1,0 +1,170 @@
+{
+  "probe": "P-04c type checkpoints",
+  "cases": 5,
+  "detected": 0,
+  "localised": 0,
+  "limits": [
+    "only the annotations a runtime check can decide (builtin shapes and optionals of them) are checkpoints; a generic, a protocol or a forward reference is not",
+    "wrapping is by module attribute: a function a library re-exports or calls through a private reference is not wrapped, and is not counted as exercised",
+    "a suite that a wrapped function breaks reports its own failure; the record keeps the exit code so such a run is visible rather than silently empty"
+  ],
+  "rows": [
+    {
+      "unit_id": "itsdangerous-boundary-07--forward",
+      "library": "itsdangerous",
+      "package": "itsdangerous",
+      "planted": "src/itsdangerous/timed.py:141",
+      "base": {
+        "outcome": "ran",
+        "wrapped": 22,
+        "calls": 5165,
+        "exercised": 22,
+        "violation_count": 0,
+        "exit": 0
+      },
+      "head": {
+        "outcome": "ran",
+        "wrapped": 22,
+        "calls": 5165,
+        "exercised": 22,
+        "violation_count": 0,
+        "exit": 0
+      },
+      "noise_floor_violations": [],
+      "new_violations": [],
+      "new_in_planted_module": [],
+      "import_errors": []
+    },
+    {
+      "unit_id": "jinja-boundary-09--forward",
+      "library": "jinja",
+      "package": "jinja2",
+      "planted": "src/jinja2/debug.py:162",
+      "base": {
+        "outcome": "ran",
+        "wrapped": 363,
+        "calls": 234419,
+        "exercised": 255,
+        "violation_count": 3,
+        "exit": 1
+      },
+      "head": {
+        "outcome": "ran",
+        "wrapped": 363,
+        "calls": 234419,
+        "exercised": 255,
+        "violation_count": 3,
+        "exit": 1
+      },
+      "noise_floor_violations": [
+        "jinja2.runtime.BlockReference.__call__",
+        "jinja2.runtime.Macro.__call__",
+        "jinja2.runtime.Macro._invoke"
+      ],
+      "new_violations": [],
+      "new_in_planted_module": [],
+      "import_errors": []
+    },
+    {
+      "unit_id": "more-itertools-boundary-08--forward",
+      "library": "more-itertools",
+      "package": "more_itertools",
+      "planted": "more_itertools/more.py:453",
+      "base": {
+        "outcome": "ran",
+        "wrapped": 1,
+        "calls": 112,
+        "exercised": 1,
+        "violation_count": 0,
+        "exit": 0
+      },
+      "head": {
+        "outcome": "ran",
+        "wrapped": 1,
+        "calls": 0,
+        "exercised": 0,
+        "violation_count": 0,
+        "exit": 1
+      },
+      "noise_floor_violations": [],
+      "new_violations": [],
+      "new_in_planted_module": [],
+      "import_errors": []
+    },
+    {
+      "unit_id": "packaging-boundary-08--forward",
+      "library": "packaging",
+      "package": "packaging",
+      "planted": "src/packaging/_musllinux.py:28",
+      "base": {
+        "outcome": "ran",
+        "wrapped": 201,
+        "calls": 8202320,
+        "exercised": 193,
+        "violation_count": 23,
+        "exit": 0
+      },
+      "head": {
+        "outcome": "ran",
+        "wrapped": 201,
+        "calls": 6100675,
+        "exercised": 129,
+        "violation_count": 6,
+        "exit": 1
+      },
+      "noise_floor_violations": [
+        "packaging._ranges.BoundaryVersion.__eq__",
+        "packaging._ranges.LowerBound.__eq__",
+        "packaging._ranges.LowerBound.__lt__",
+        "packaging._ranges.UpperBound.__eq__",
+        "packaging._ranges.UpperBound.__lt__",
+        "packaging.markers.Marker.__eq__",
+        "packaging.ranges.VersionRange.__eq__",
+        "packaging.requirements.Requirement.__eq__",
+        "packaging.specifiers.Specifier.__eq__",
+        "packaging.specifiers.SpecifierSet.__eq__",
+        "packaging.tags.Tag.__eq__",
+        "packaging.version.Version.__eq__",
+        "packaging.version.Version.__ge__",
+        "packaging.version.Version.__gt__",
+        "packaging.version.Version.__le__",
+        "packaging.version.Version.__lt__",
+        "packaging.version.Version.__ne__",
+        "packaging.version._BaseVersion.__eq__",
+        "packaging.version._BaseVersion.__ge__",
+        "packaging.version._BaseVersion.__gt__"
+      ],
+      "new_violations": [],
+      "new_in_planted_module": [],
+      "import_errors": []
+    },
+    {
+      "unit_id": "python-dotenv-boundary-06--forward",
+      "library": "python-dotenv",
+      "package": "dotenv",
+      "planted": "src/dotenv/parser.py:164",
+      "base": {
+        "outcome": "ran",
+        "wrapped": 31,
+        "calls": 332,
+        "exercised": 14,
+        "violation_count": 0,
+        "exit": 1
+      },
+      "head": {
+        "outcome": "ran",
+        "wrapped": 31,
+        "calls": 344,
+        "exercised": 14,
+        "violation_count": 0,
+        "exit": 1
+      },
+      "noise_floor_violations": [],
+      "new_violations": [],
+      "new_in_planted_module": [],
+      "import_errors": [
+        "dotenv.ipython: No module named 'IPython'"
+      ]
+    }
+  ]
+}
