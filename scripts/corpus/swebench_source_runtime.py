@@ -91,6 +91,7 @@ def check_runtime(
     directory: Path, tree: Path, wheel: Path, revision: str, wheel_digest: str,
     expected_revision: str, cutoff: str, runtime: str, env: dict[str, str], state: dict, *,
     builder: str, fixture: bool = False, allow_source_links: bool = False,
+    source_only: bool = False,
 ) -> dict:
     state["stage"] = "transfer"
     packages = tuple(stub_packages(tree))
@@ -111,7 +112,7 @@ def check_runtime(
         tree, wheel, revision=revision, expected_revision=expected_revision,
         expected_digest=wheel_digest, packages=packages,
         version_path=version_file.relative_to(tree).as_posix() if version_file else None,
-        allow_source_links=allow_source_links, source_prefix=prefix,
+        allow_source_links=allow_source_links, source_prefix=prefix, source_only=source_only,
     )
     if not any(n.endswith(".so") for n in transfer["added"]):
         if not allow_source_links:
@@ -129,6 +130,13 @@ def check_runtime(
     pins, extras = constraints(wheel, cutoff)
     (directory / "constraints.txt").write_text(pins)
     shutil.copyfile(wheel, directory / wheel.name)
+    dependency_install = (
+        f"RUN rm /wheelhouse/{wheel.name}\n"
+        "RUN python -m pip install --no-index --no-deps /wheelhouse/*.whl\n"
+        if source_only else
+        "RUN python -m pip install --no-index --find-links /wheelhouse"
+        f" pip pytest '/wheelhouse/{wheel.name}{extras}'\n"
+    )
     dockerfile = (
         f"FROM {builder} AS dependencies\n"
         "COPY constraints.txt /constraints.txt\nENV PIP_CONSTRAINT=/constraints.txt\n"
@@ -140,9 +148,7 @@ def check_runtime(
         " && rm -rf /var/lib/apt/lists/*\n"
         "COPY constraints.txt /constraints.txt\nENV PIP_CONSTRAINT=/constraints.txt\n"
         "COPY --from=dependencies /wheelhouse /wheelhouse\n"
-        "RUN python -m pip install --no-index --find-links /wheelhouse"
-        f" pip pytest '/wheelhouse/{wheel.name}{extras}'\n"
-        "RUN python -m pip freeze > /runtime-freeze.txt\n"
+        + dependency_install + "RUN python -m pip freeze > /runtime-freeze.txt\n"
     )
     state["stage"] = "runtime_image"
     image = build(directory, dockerfile, "attest-source-runtime-" + revision[:12], env)
@@ -159,6 +165,24 @@ def check_runtime(
         subprocess.run(
             ["docker", "rm", container], env=env, check=True, capture_output=True, timeout=30,
         )
+    if source_only:
+        with ZipFile(wheel) as contents:
+            metadata_names = [n for n in contents.namelist() if n.endswith(".dist-info/METADATA")]
+            if len(metadata_names) != 1:
+                raise ValueError("wheel metadata identity ambiguous")
+            metadata = Parser().parsestr(contents.read(metadata_names[0]).decode())
+        project = metadata.get("Name")
+        if not project:
+            raise ValueError("wheel distribution identity absent")
+        installed = {
+            normalise(Requirement(line).name)
+            for line in (directory / "runtime-freeze.txt").read_text().splitlines()
+            if line.strip() and not line.startswith("#")
+        }
+        if normalise(project) in installed:
+            raise ValueError("source distribution unexpectedly installed in runtime")
+        transfer["project_distribution_not_installed"] = project
+        write_canonical_json(directory / "transfer.json", transfer)
     imports = "".join(f"import {name}\n" for name in packages)
     assertions = "".join(
         f"    assert {name}.__file__.startswith('/attest/tree/')\n" for name in packages
@@ -192,6 +216,7 @@ def check_runtime(
 
 def check_fixture(
     build_record: dict, runtime: str, env: dict[str, str], state: dict, *, work: Path = WORK,
+    source_only: bool = False,
 ) -> dict:
     state["stage"] = "fixture_build"
     fixture = work / "fixture"
@@ -220,17 +245,18 @@ def check_fixture(
     return check_runtime(
         fixture, tree, wheels[0], "f" * 40, sha256_bytes(wheels[0].read_bytes()), "f" * 40,
         "2022-05-09T14:16:30Z", runtime, env, state,
-        builder=build_record["builder_reference"], fixture=True,
+        builder=build_record["builder_reference"], fixture=True, source_only=source_only,
     )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--study", choices=("swebench", "natural-pairs", "remainder-safe-links",
-                                               "remainder-source-layout"),
+                                               "remainder-source-layout", "remainder-source-only"),
                         default="swebench")
     mode = parser.parse_args().study
-    safe_links = mode in {"remainder-safe-links", "remainder-source-layout"}
+    source_only = mode == "remainder-source-only"
+    safe_links = source_only or mode in {"remainder-safe-links", "remainder-source-layout"}
     natural = safe_links or mode == "natural-pairs"
     study = ROOT / "benchmarks/studies/metadata-exposed-v1/compatibility" if natural else STUDY
     builds = ROOT / ".attest/corpora/natural-pair-compatible-build" if natural else BUILDS
@@ -241,6 +267,7 @@ def main() -> None:
         study = ROOT / "benchmarks/studies/remainder-v1/compatibility"
         builds = ROOT / ".attest/corpora/remainder-safe-link-build"
         work = ROOT / ".attest/corpora" / (
+            "remainder-source-only-runtime" if source_only else
             "remainder-source-layout-runtime" if mode == "remainder-source-layout"
             else "remainder-safe-link-runtime"
         )
@@ -301,6 +328,7 @@ def main() -> None:
             (ROOT / "scripts/corpus/swebench_compatible_build.py").read_bytes(),
         ),
         "protocol_sha256": sha256_bytes((study / (
+            "source-only-runtime.md" if source_only else
             "source-layout-runtime.md" if mode == "remainder-source-layout" else
             "safe-link-source-runtime.md" if safe_links else "source-runtime.md"
         )).read_bytes()),
@@ -313,7 +341,7 @@ def main() -> None:
     record["fixture"] = {"status": "started"}
     try:
         record["fixture"].update(check_fixture(
-            build_record, runtime, env, record["fixture"], work=work,
+            build_record, runtime, env, record["fixture"], work=work, source_only=source_only,
         ))
         record["fixture"]["status"] = "checked"
         if not record["fixture"]["runtime_ready"]:
@@ -350,7 +378,7 @@ def main() -> None:
                 directory, tree, wheel, case["base_commit"],
                 prior["artifacts"]["wheels/" + wheel.name], prior["revision"],
                 case["created_at"], runtime, env, row, builder=build_record["builder_reference"],
-                allow_source_links=safe_links,
+                allow_source_links=safe_links, source_only=source_only,
             ))
             row["status"] = "checked"
         except (

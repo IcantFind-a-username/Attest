@@ -12,7 +12,7 @@ from attest.benchmark.artifacts import canonical_json_bytes, sha256_bytes
 def apply_wheel(
     tree: Path, wheel: Path, *, revision: str, expected_revision: str,
     expected_digest: str, packages: tuple[str, ...], version_path: str | None = None,
-    allow_source_links: bool = False, source_prefix: str = "",
+    allow_source_links: bool = False, source_prefix: str = "", source_only: bool = False,
 ) -> dict:
     """Check the entire archive before writing; never replace tracked source bytes.
 
@@ -42,6 +42,7 @@ def apply_wheel(
     }
     additions: dict[str, bytes] = {}
     omitted: dict[str, str] = {}
+    omitted_wheel: dict[str, dict[str, str]] = {}
     with ZipFile(wheel) as archive:
         members = archive.infolist()
         if len(members) > 20000 or sum(m.file_size for m in members) > 512 * 1024 * 1024:
@@ -64,12 +65,23 @@ def apply_wheel(
             if relative.parts[0].endswith(".dist-info"):
                 continue
             name = (prefix / relative).as_posix() if source_prefix else name
+            if source_only and len(relative.parts) == 1 and name.endswith("-nspkg.pth"):
+                omitted_wheel[name] = {
+                    "reason": "namespace_hook_not_installed",
+                    "wheel_sha256": sha256_bytes(archive.read(member)),
+                }
+                continue
             if relative.parts[0] not in packages and name not in original:
                 raise ValueError("unknown package member: " + name)
             payload = archive.read(member)
             if name in original:
                 if sha256_bytes(payload) != original[name]:
-                    raise ValueError("source overwrite refused: " + name)
+                    if not source_only:
+                        raise ValueError("source overwrite refused: " + name)
+                    omitted_wheel[name] = {
+                        "reason": "original_source_kept", "source_sha256": original[name],
+                        "wheel_sha256": sha256_bytes(payload),
+                    }
             elif name.endswith(".so") or name == version_path:
                 additions[name] = payload
             elif relative.suffix in {".h", ".hpp", ".c", ".cpp", ".pxd", ".pxi", ".pyx"}:
@@ -103,4 +115,5 @@ def apply_wheel(
         "original_files_digest": sha256_bytes(canonical_json_bytes(original)),
         "added": {name: sha256_bytes(payload) for name, payload in additions.items()},
         "omitted_build_files": omitted,
+        **({"omitted_wheel_files": omitted_wheel} if source_only else {}),
     }
