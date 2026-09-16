@@ -38,6 +38,12 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
 
 ## 2. Honest baseline
 
+- **2026-09-16 — D-277 natural-pair build compatibility:** the owner approved a
+  separate free diagnostic. Astropy's parent/head wheels build; scikit-learn's
+  two revisions fail package discovery (2/4 builds, one complete source pair).
+  No runtime execution or qualified witness yet; D-276 and the minimum sample
+  remain unchanged. [Evidence](acceptance/2026-09-16-natural-pair-compatible-build.md).
+
 - **2026-09-16 — D-276 authorized metadata-exposed qualification completed:**
   nineteen frozen cases across four repositories yield two agreed natural source
   pairs, both refused at default image build before tests. Eighty controls yield

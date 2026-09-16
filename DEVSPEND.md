@@ -638,3 +638,7 @@ population, provider call or reservation. Settled total and approved cap unchang
 Owner “允许” approved the new sampling rule. Nineteen cases were frozen and reviewed;
 two default Docker builds failed before execution. No provider call, paid reservation
 or remote write. Settled total $145.457111 and cumulative cap $150.00 are unchanged.
+
+**2026-09-16 — D-277 authorized natural-pair builds: $0.00 model/API spend.**
+Four separate parent/head Docker builds, two built and two failed; no provider call,
+paid reservation, push or release. Approved cap and settled API total unchanged.

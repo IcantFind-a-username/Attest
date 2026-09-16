@@ -2859,3 +2859,10 @@ Reversal: any artifact/provenance mismatch invalidates the affected compatibilit
 - Eighty controls reviewed twice yield 17 preliminary agreements and three disagreements; no true-negative/FPR claim. Metadata exposure and bounded-history uncertainty are explicit.
 - Existing minimum three defects plus three controls remains unmet, independently of runtime failure; no paid dispatch, replacement, cap/default change, push or API spend.
 - Preserve all populations and logs; INV-TRUTH-001/INV-CERT-001 unchanged. Reversal requires new qualified evidence under a preregistered protocol, not a cheaper denominator; supersedes no product rule.
+
+### D-277 — Authorized natural-pair compatibility builds (2026-09-16, measured)
+- Owner approved free historical compatibility work after D-276; baseline 4df5ef8, driver 727c084; [report](docs/acceptance/2026-09-16-natural-pair-compatible-build.md).
+- Four separate revision builds: Astropy parent/head succeed, scikit-learn parent/head fail package discovery. Same per-pair date constraints; no retries or product-source/default changes.
+- One independent review's cutoff/path/order binding defect fixed before execution; five drift mutations refuse, artifact hashes and isolated metadata verified; Ruff/diff checks pass.
+- Two successful wheels are one source pair, not a runtime witness or recall estimate. D-276 remains unchanged; qualified defects/controls 0/0, API spend $0, no paid dispatch/push.
+- Next is separately frozen source-mounted qualification using revision-specific artifacts; no missing-third-defect inference. INV-TRUTH-001/INV-CERT-001 unchanged; supersedes none.
