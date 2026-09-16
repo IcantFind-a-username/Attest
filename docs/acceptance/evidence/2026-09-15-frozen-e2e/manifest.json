@@ -1,0 +1,113 @@
+{
+  "schema": "attest.evidence-manifest.frozen-e2e.v1",
+  "written": "2026-09-15, when the round was closed",
+  "classification": "experimental integration evidence under ledger-reconstructed candidates; no gate, no default change and no paid re-run follow from it",
+  "product_source": {
+    "commit": "fc3079b",
+    "src_tree": "3ee8941c9133af51b20397c86a73dba0a84ed853",
+    "note": "every review of dry, f1, f2 and f3 imported src exactly as committed at fc3079b; no file under src/ changed between that commit and the last review"
+  },
+  "gate": {
+    "log": "full-gate-fc3079b.log",
+    "commit": "fc3079b",
+    "working_tree": "src/ and tests/ as committed at fc3079b; untracked at the time: scripts/corpus/frozen_e2e.py and this evidence directory, neither imported by the suite",
+    "command": "DOCKER_CONFIG=<a docker client config naming no credsStore> .venv/bin/python -m pytest --cov=src/attest --cov-report=term-missing -q -p no:cacheprovider",
+    "result": {
+      "exit": 0,
+      "passed": 2408,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage_certification_and_execution": "93.34%",
+      "coverage_floor": "90%"
+    },
+    "environment": {
+      "os": "macOS 26.5.2 (25F84), arm64",
+      "python": "CPython 3.12.2 (.venv)",
+      "pytest": "9.1.1",
+      "coverage": "7.16.1",
+      "ruff": "0.16.5",
+      "mypy": "2.3.1",
+      "docker": "client 27.5.1, server 27.5.1 linux/arm64 (Docker Desktop, context desktop-linux)",
+      "docker_config_workaround": "DOCKER_CONFIG pointed at a client config without credsStore, because docker-credential-desktop never answered and every build hung (D-253); ~/.docker untouched",
+      "requirements_toolchain_lock_sha256_prefix": "76908dd8dc527b59"
+    }
+  },
+  "driver_versions": {
+    "v1": {
+      "git_blob": "03e1f87f2f5b8dce5eb25062abd03b3b62565aa9",
+      "sha256_prefix": "6d71ec6cb0544738",
+      "differs_from_v3": "no per-review attempt-cache isolation; no task-id sanitisation; no protocol_refusals field",
+      "provenance": "reconstructed by reversing the two recorded edits on v3; never committed"
+    },
+    "v2": {
+      "git_blob": "3d546a998da5e2c3cb18954d4681137f7b3c6045",
+      "sha256_prefix": "d6e3e94f49fdc61c",
+      "differs_from_v3": "no task-id sanitisation; no protocol_refusals field",
+      "provenance": "reconstructed by reversing the recorded edit on v3; never committed"
+    },
+    "v3": {
+      "git_blob": "93caecd5349958a9168b96e50d3208b4f9072072",
+      "sha256_prefix": "cae0f61784f9903f",
+      "provenance": "scripts/corpus/frozen_e2e.py as committed at 8dc4aee"
+    }
+  },
+  "runs": [
+    {
+      "run": "dry",
+      "driver": "v1",
+      "files": [
+        "forty-dry-E.jsonl"
+      ],
+      "valid": "smoke only",
+      "reason": "one case under E to prove the pipeline; not counted"
+    },
+    {
+      "run": "f1",
+      "driver": "v1",
+      "files": [
+        "forty-f1-S.jsonl",
+        "forty-f1-E.jsonl",
+        "counterexamples-f1-S.jsonl",
+        "score-f1.json",
+        "run-f1.log"
+      ],
+      "valid": "no",
+      "reason": "the proposer's attempt cache let the second arm replay the first arm's identical prompts for free, so the two arms ran under different budgets; stopped during counterexamples under E. Its verdicts equal f2's case for case and are not counted"
+    },
+    {
+      "run": "f2",
+      "driver": "v2",
+      "files": [
+        "forty-f2-S.jsonl",
+        "forty-f2-E.jsonl",
+        "counterexamples-f2-S.jsonl",
+        "counterexamples-f2-E.jsonl",
+        "controls-f2-S.jsonl",
+        "controls-f2-E.jsonl",
+        "score-f2.json",
+        "run-f2.log"
+      ],
+      "valid": "forty and counterexamples: yes; controls: no",
+      "reason": "controls: the task id carried the pull request's '#', which the execution protocol refuses as an unsafe name, so every probe run deferred before starting (9 reviews per arm carry the refusal)"
+    },
+    {
+      "run": "f3",
+      "driver": "v3",
+      "files": [
+        "controls-f3-S.jsonl",
+        "controls-f3-E.jsonl",
+        "score-f3.json",
+        "run-f3.log"
+      ],
+      "valid": "yes",
+      "reason": "controls with sanitised task ids; 0 protocol refusals"
+    }
+  ],
+  "not_replayable": [
+    "the original proposals (claim text, anchor line, every non-eligible candidate): the paid runs uploaded ledgers only",
+    "the text-level dedup of those proposals",
+    "every failed probe attempt of a recorded search, and what the model would propose next"
+  ],
+  "local_paths": "the checkout prefix in bundle paths was replaced with <repo> before commit"
+}

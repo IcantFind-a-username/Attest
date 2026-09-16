@@ -780,6 +780,56 @@ When a work order completes:
 
 ### Progress
 
+- **2026-09-16 — development environment prerequisite measured (D-261).** Committed
+  driver `04a2554`, r2: all five Keras candidates record Python 3.7.3 outside product
+  3.10–3.13; both pinned TensorFlow releases lack matching wheels/source distributions.
+  Four exact environment signatures; 0 project executions or qualified cases. Invalid r1
+  retained; one review found no unresolved issue. [Evidence](acceptance/2026-09-16-development-environment.md).
+  Next prerequisite is a separately qualified historical oracle environment; held-out
+  access, paid dispatch, product interpreter/default changes and phase gates remain closed.
+
+- **2026-09-16 — repository-disjoint candidate preparation complete (D-260).** Split
+  `a3e62f9` freezes five development candidates in Keras and 20 held-out candidates across
+  four other repositories before source exploration. One Keras revision inspected read-only;
+  no held-out project source read or product execution. One review's ambiguous exposure
+  classification corrected append-only, with selection unchanged. Qualified defects/controls
+  remain 0/0; paid dispatch disabled. [Evidence](acceptance/2026-09-16-repository-holdout.md).
+  This is candidate preparation, with no recall estimate or phase/release gate advancement.
+
+- **2026-09-16 — runtime parameter binding complete in shadow (D-259).** Code/driver
+  `a4efbca` aligns complete node populations and retains refused-node reports. All 15 prior
+  synthetic verdicts remain; six added parameter scenarios meet their declared outcomes.
+  Historical shadow bindings 0/3→1/3, gaining `packaging-boundary-08`; no product receipt
+  restored or recall estimate. Gate: 2,555 passed, no failures/skips, 93.42% boundary coverage;
+  one review's reporting omission fixed. [Evidence](acceptance/2026-09-15-runtime-parameters.md).
+  Same-process trust remains open; production/defaults/release gates remain unchanged.
+
+- **2026-09-15 — runtime contract shadow experiment complete (D-258).** Code/driver
+  `47dd7b5` retains original fixture context: 3/3 synthetic positives observed, all 12
+  development controls abstained. None of the three historical gains has a supported
+  binding in this limited prototype; no product receipt or recall gain is claimed.
+  Gate: 2,542 passed, no failures/skips, 93.42% certification/execution coverage;
+  one independent review's two reproduced defects fixed. [Evidence](acceptance/2026-09-15-runtime-contract-shadow.md).
+  Same-process trust and exact parameter-node association remain blockers. Default v5.1,
+  D-257 refusals, production review and all release/phase gates remain unchanged.
+
+- **2026-09-15 — owner-directed local context repair complete (D-257).** Known local
+  misattributions are refused in generator and observer; code `2dc8823` / `e540e0d`.
+  Seven reproduced wrong certifications become zero, with the legal positive retained.
+  Final affected-case container replay: selected six publications 4→1, losing three
+  experimental gains; no full-forty or held-out recall estimate. Gate `e540e0d`: 2,526
+  passed, no failures/skips, 93.42% certification/execution coverage, Ruff/Mypy pass.
+  [Evidence](acceptance/2026-09-15-contract-context.md). Full test-context proof and
+  promotion remain blocked; no phase/release gate advances and default v5.1 stays.
+
+- **2026-09-15 — owner-directed presentation follow-up complete (D-256).** Comments now use
+  separate paragraphs and counted sections; format repair preserves published identities.
+  Product code `31b5eea` / `3f49cff`, test correction `a7d51cc`; final local gate:
+  2,498 passed, 0 failed/skipped, certification/execution coverage 93.42%, Ruff and Mypy pass.
+  Six layouts and 12 comments replayed with unchanged receipt/anchor/member identities.
+  [Evidence and limitations](acceptance/2026-09-15-readable-comments.md).
+  This closes the presentation follow-up only; no recall or release gate advances.
+
 ### Next steps (read this first after a model switch; keep it to three items)
 
 1. **The stop is lifted (owner decisions 1-3, 2026-09-03; D-102).** The intent

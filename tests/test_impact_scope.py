@@ -381,8 +381,9 @@ def test_the_summary_carries_the_yellow_line_when_the_level_speaks() -> None:
 
     lines = body.splitlines()
     # D-204: the first line is the section heading, not a preamble
-    assert lines[0] == IMPACT_HEADING
-    assert IMPACT_HEADING in lines
+    assert lines[0] == f"{IMPACT_HEADING} 1"
+    assert lines[1] == ""
+    assert body.count(IMPACT_HEADING) == 1
     yellow = [line for line in lines if LEVEL_MARKERS["yellow"] in line]
     assert len(yellow) == 1
     assert contract_check(yellow[0].removeprefix("- ")).admitted is True

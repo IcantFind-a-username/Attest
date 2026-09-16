@@ -1,0 +1,1462 @@
+{
+  "run_id": "f1",
+  "S": {
+    "cases": 40,
+    "published_on_the_planted_hunk": 16,
+    "hits": [
+      "attrs-none_guard-14--forward",
+      "attrs-none_guard-15--forward",
+      "attrs-none_guard-17--forward",
+      "itsdangerous-boundary-07--forward",
+      "itsdangerous-guard_raise-05--forward",
+      "itsdangerous-guard_raise-06--forward",
+      "jinja-boundary-09--forward",
+      "jinja-none_guard-14--forward",
+      "more-itertools-boundary-08--forward",
+      "more-itertools-guard_raise-04--forward",
+      "more-itertools-guard_raise-05--forward",
+      "packaging-guard_raise-01--forward",
+      "python-dotenv-guard_raise-01--forward",
+      "python-dotenv-guard_raise-04--forward",
+      "urllib3-guard_raise-04--forward",
+      "urllib3-none_guard-15--forward"
+    ],
+    "stages": {
+      "search: no recorded probe to give the candidate": 7,
+      "intent: the differential held and the rule drawered it": 17,
+      "published on the planted hunk": 16
+    },
+    "fidelity_mismatches": [
+      "more-itertools-guard_raise-04--forward",
+      "more-itertools-guard_raise-05--forward"
+    ],
+    "spend_usd": 1.526691
+  },
+  "E": {
+    "cases": 40,
+    "published_on_the_planted_hunk": 19,
+    "hits": [
+      "attrs-none_guard-14--forward",
+      "attrs-none_guard-15--forward",
+      "attrs-none_guard-17--forward",
+      "itsdangerous-boundary-07--forward",
+      "itsdangerous-guard_raise-05--forward",
+      "itsdangerous-guard_raise-06--forward",
+      "jinja-boundary-09--forward",
+      "jinja-none_guard-14--forward",
+      "more-itertools-boundary-08--forward",
+      "more-itertools-guard_raise-04--forward",
+      "more-itertools-guard_raise-05--forward",
+      "packaging-boundary-08--forward",
+      "packaging-guard_raise-01--forward",
+      "packaging-guard_raise-06--forward",
+      "python-dotenv-guard_raise-01--forward",
+      "python-dotenv-guard_raise-04--forward",
+      "urllib3-guard_raise-04--forward",
+      "urllib3-none_guard-15--forward",
+      "urllib3-none_guard-18--forward"
+    ],
+    "stages": {
+      "search: no recorded probe to give the candidate": 7,
+      "intent: the differential held and the rule drawered it": 14,
+      "published on the planted hunk": 19
+    },
+    "fidelity_mismatches": [
+      "more-itertools-guard_raise-04--forward",
+      "more-itertools-guard_raise-05--forward"
+    ],
+    "spend_usd": 0.511149
+  },
+  "E_vs_S": {
+    "gained": [
+      "packaging-boundary-08--forward",
+      "packaging-guard_raise-06--forward",
+      "urllib3-none_guard-18--forward"
+    ],
+    "lost": []
+  },
+  "per_case": {
+    "S": {
+      "attrs-boundary-09--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.01868,
+        "elapsed_s": 1.4,
+        "probes": [],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "click-boundary-07--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.041328,
+        "elapsed_s": 10.3,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "itsdangerous-boundary-07--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.032519,
+        "elapsed_s": 7.5,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "jinja-boundary-09--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.021374,
+        "elapsed_s": 9.1,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "more-itertools-boundary-08--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.053642,
+        "elapsed_s": 14.7,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "packaging-boundary-08--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.009498,
+        "elapsed_s": 11.4,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "python-dotenv-boundary-06--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.038264,
+        "elapsed_s": 7.8,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "urllib3-boundary-07--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.048245,
+        "elapsed_s": 11.2,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "attrs-guard_raise-03--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.051986,
+        "elapsed_s": 10.0,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "click-boundary-10--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.05149,
+        "elapsed_s": 8.9,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "itsdangerous-guard_raise-01--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.038252,
+        "elapsed_s": 6.9,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "jinja-boundary-12--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.045536,
+        "elapsed_s": 9.4,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "more-itertools-boundary-10--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.040078,
+        "elapsed_s": 15.1,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "packaging-boundary-11--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.024471,
+        "elapsed_s": 4.7,
+        "probes": [],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "python-dotenv-boundary-08--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.031666,
+        "elapsed_s": 7.3,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "urllib3-guard_raise-03--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.052934,
+        "elapsed_s": 10.9,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "attrs-none_guard-14--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.049393,
+        "elapsed_s": 8.7,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "click-guard_raise-03--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.037379,
+        "elapsed_s": 2.7,
+        "probes": [],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "itsdangerous-guard_raise-04--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.025518,
+        "elapsed_s": 1.0,
+        "probes": [],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "jinja-guard_raise-01--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.038183,
+        "elapsed_s": 8.9,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "more-itertools-guard_raise-04--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": false,
+        "unanchored": [],
+        "spend_usd": 0.037719,
+        "elapsed_s": 14.8,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "packaging-guard_raise-01--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.041855,
+        "elapsed_s": 10.3,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "python-dotenv-guard_raise-01--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.046444,
+        "elapsed_s": 7.2,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "urllib3-guard_raise-04--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.047093,
+        "elapsed_s": 10.5,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "attrs-none_guard-15--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.027773,
+        "elapsed_s": 8.9,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "click-guard_raise-05--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.059432,
+        "elapsed_s": 10.1,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "itsdangerous-guard_raise-05--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.041043,
+        "elapsed_s": 7.5,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "jinja-none_guard-13--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.039231,
+        "elapsed_s": 9.6,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "more-itertools-guard_raise-05--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": false,
+        "unanchored": [],
+        "spend_usd": 0.04871,
+        "elapsed_s": 14.9,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "packaging-guard_raise-06--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.037891,
+        "elapsed_s": 11.5,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "python-dotenv-guard_raise-02--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.024102,
+        "elapsed_s": 7.4,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "urllib3-none_guard-15--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.046768,
+        "elapsed_s": 10.1,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "attrs-none_guard-17--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.034008,
+        "elapsed_s": 9.0,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "click-none_guard-15--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.02689,
+        "elapsed_s": 2.8,
+        "probes": [],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "itsdangerous-guard_raise-06--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.043452,
+        "elapsed_s": 7.1,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "jinja-none_guard-14--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.043934,
+        "elapsed_s": 9.4,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "more-itertools-none_guard-17--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.024106,
+        "elapsed_s": 5.0,
+        "probes": [],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "packaging-none_guard-13--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.025037,
+        "elapsed_s": 4.3,
+        "probes": [],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "python-dotenv-guard_raise-04--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.037665,
+        "elapsed_s": 7.6,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "urllib3-none_guard-18--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.043102,
+        "elapsed_s": 10.5,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      }
+    },
+    "E": {
+      "attrs-boundary-09--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "probe generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.0,
+        "elapsed_s": 2.0,
+        "probes": [],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "click-boundary-07--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.018991,
+        "elapsed_s": 10.9,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "itsdangerous-boundary-07--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.009317,
+        "elapsed_s": 7.9,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "jinja-boundary-09--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.009666,
+        "elapsed_s": 9.6,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "more-itertools-boundary-08--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.029378,
+        "elapsed_s": 15.4,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "packaging-boundary-08--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.0,
+        "elapsed_s": 11.7,
+        "probes": [
+          [
+            "contract",
+            "tests/test_musllinux.py:57#0"
+          ]
+        ],
+        "contract_probes_built": 5,
+        "contract_refused": 0,
+        "contract_chosen": [
+          "tests/test_musllinux.py:57#0"
+        ],
+        "published": 1
+      },
+      "python-dotenv-boundary-06--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.013918,
+        "elapsed_s": 7.6,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "urllib3-boundary-07--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.023861,
+        "elapsed_s": 12.4,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "attrs-guard_raise-03--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.023044,
+        "elapsed_s": 11.4,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 1,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "click-boundary-10--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the failing assertion pins only a generic constant, which almost any tree asserts somewhere and which therefore specifies nothing about the code under t",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.022308,
+        "elapsed_s": 16.9,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 3,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "itsdangerous-guard_raise-01--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.014279,
+        "elapsed_s": 7.4,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "jinja-boundary-12--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.020936,
+        "elapsed_s": 10.2,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "more-itertools-boundary-10--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.015778,
+        "elapsed_s": 15.6,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "packaging-boundary-11--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "probe generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.0,
+        "elapsed_s": 8.5,
+        "probes": [],
+        "contract_probes_built": 1,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "python-dotenv-boundary-08--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the failing assertion pins no value the base tree could have specified (返回值变化已证实，意图未知)",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.0,
+        "elapsed_s": 7.6,
+        "probes": [
+          [
+            "contract",
+            "tests/test_variables.py:35#0"
+          ]
+        ],
+        "contract_probes_built": 6,
+        "contract_refused": 0,
+        "contract_chosen": [
+          "tests/test_variables.py:35#0"
+        ],
+        "published": 0
+      },
+      "urllib3-guard_raise-03--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.019736,
+        "elapsed_s": 11.6,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "attrs-none_guard-14--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.018127,
+        "elapsed_s": 8.9,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "click-guard_raise-03--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "probe generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.0,
+        "elapsed_s": 3.9,
+        "probes": [],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "itsdangerous-guard_raise-04--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "probe generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.0,
+        "elapsed_s": 1.7,
+        "probes": [],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "jinja-guard_raise-01--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.013219,
+        "elapsed_s": 9.5,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 1,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "more-itertools-guard_raise-04--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": false,
+        "unanchored": [],
+        "spend_usd": 0.017364,
+        "elapsed_s": 15.5,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "packaging-guard_raise-01--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.010408,
+        "elapsed_s": 11.7,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "python-dotenv-guard_raise-01--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.018065,
+        "elapsed_s": 7.8,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "urllib3-guard_raise-04--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.021549,
+        "elapsed_s": 13.0,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "attrs-none_guard-15--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.007928,
+        "elapsed_s": 9.7,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "click-guard_raise-05--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.026789,
+        "elapsed_s": 10.9,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "itsdangerous-guard_raise-05--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.01648,
+        "elapsed_s": 7.8,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "jinja-none_guard-13--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.016508,
+        "elapsed_s": 11.1,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "more-itertools-guard_raise-05--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": false,
+        "unanchored": [],
+        "spend_usd": 0.019293,
+        "elapsed_s": 15.7,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "packaging-guard_raise-06--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.0,
+        "elapsed_s": 11.9,
+        "probes": [
+          [
+            "contract",
+            "tests/test_direct_url.py:95#0"
+          ]
+        ],
+        "contract_probes_built": 8,
+        "contract_refused": 0,
+        "contract_chosen": [
+          "tests/test_direct_url.py:95#0"
+        ],
+        "published": 1
+      },
+      "python-dotenv-guard_raise-02--forward": {
+        "stage": "intent: the differential held and the rule drawered it",
+        "detail": "intent: value change confirmed, intent unknown: the base tree does not specify the value this assertion pins about the symbol this change touched -- no base test asserts it and no docstring or documen",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.014457,
+        "elapsed_s": 7.6,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "urllib3-none_guard-15--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.023064,
+        "elapsed_s": 28.5,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 8,
+        "contract_refused": 1,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "attrs-none_guard-17--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.013608,
+        "elapsed_s": 9.7,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "click-none_guard-15--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "probe generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.0,
+        "elapsed_s": 4.1,
+        "probes": [],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "itsdangerous-guard_raise-06--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.019153,
+        "elapsed_s": 8.0,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "jinja-none_guard-14--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.020671,
+        "elapsed_s": 9.7,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "more-itertools-none_guard-17--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "probe generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.0,
+        "elapsed_s": 6.2,
+        "probes": [],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "packaging-none_guard-13--forward": {
+        "stage": "search: no recorded probe to give the candidate",
+        "detail": "probe generation failed: RuntimeError: frozen: no recorded probe for this call",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.0,
+        "elapsed_s": 7.9,
+        "probes": [],
+        "contract_probes_built": 1,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 0
+      },
+      "python-dotenv-guard_raise-04--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.013254,
+        "elapsed_s": 7.5,
+        "probes": [
+          [
+            "model",
+            ""
+          ]
+        ],
+        "contract_probes_built": 0,
+        "contract_refused": 0,
+        "contract_chosen": [],
+        "published": 1
+      },
+      "urllib3-none_guard-18--forward": {
+        "stage": "published on the planted hunk",
+        "detail": "",
+        "fidelity": true,
+        "unanchored": [],
+        "spend_usd": 0.0,
+        "elapsed_s": 12.2,
+        "probes": [
+          [
+            "contract",
+            "test/test_poolmanager.py:423#0"
+          ]
+        ],
+        "contract_probes_built": 2,
+        "contract_refused": 0,
+        "contract_chosen": [
+          "test/test_poolmanager.py:423#0"
+        ],
+        "published": 1
+      }
+    }
+  }
+}

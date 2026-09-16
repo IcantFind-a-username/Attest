@@ -63,13 +63,14 @@ BEHAVIOR_CHANGE_PREFIX = "Behavior change (intent to confirm):"
 # D-133: the green channel, partitioned from the red one at every level
 STRUCTURAL_MARKER_PREFIX = "<!-- attest:structural:"
 STRUCTURAL_PREFIX = "Structural (no defect claimed):"
-STRUCTURAL_HEADING = "Structural observations — measured, not reproduced; no defect is claimed:"
+STRUCTURAL_HEADING = "### Structural observations — measured, not reproduced; no defect is claimed:"
 STRUCTURAL_ADVICE_HEADING = "Suggested fix (written by a model, not part of the claim):"
 MAX_STRUCTURAL_COMMENTS = 2
 # D-143: yellow (a), the impact scope. Same cap as green, its own marker.
 IMPACT_MARKER_PREFIX = "<!-- attest:impact:"
 IMPACT_HEADING = (
-    "Impact scope — counted over the call graph; no defect is claimed and no coverage was measured:"
+    "### Impact scope — counted over the call graph; no defect is claimed and no "
+    "coverage was measured:"
 )
 IMPACT_MAX_COMMENTS = 2
 # D-153: what a reader runs, one click below the line that claims it.
@@ -82,7 +83,7 @@ EVIDENCE_HEADING = "Reproduce it yourself — command, test and the six runs"
 # marker and its own section; it shares yellow's cap, after (a).
 VALUE_MARKER_PREFIX = "<!-- attest:value:"
 VALUE_HEADING = (
-    "Observed behaviour changes — the same call run on both revisions; no defect "
+    "### Observed behaviour changes — the same call run on both revisions; no defect "
     "is claimed and nothing in the base tree pins either value:"
 )
 YELLOW_MAX_COMMENTS = 2
@@ -91,7 +92,7 @@ IMPACT_MAX_CALLERS_LISTED = 8
 # marker and its own section (design §5: never inside red's, never counted in
 # red's totals); at most one per pull request, and none when red published.
 GATE_MARKER_PREFIX = "<!-- attest:gate:"
-GATE_HEADING = "Gate — new code, nothing to compare against:"
+GATE_HEADING = "### Gate — new code, nothing to compare against:"
 # D-227: the one sentence the value line gains when the base-owned
 # `intent_replies` switch is on. A reply is read by the next review and written
 # to the ledger; nothing publishes or drawers on it.
@@ -129,6 +130,7 @@ def render_complete(
     unsupported_executor: int = 0,
     refusal: tuple[str, str] | None = None,
     ledger_url: str = "",
+    minimal: bool = False,
 ) -> str:
     """Render only receipt-backed findings, in the caller's order; with
     ``evidence`` each finding is followed by its runnable test (item 7).
@@ -140,6 +142,8 @@ def render_complete(
 
     **A level with nothing to say contributes no line at all** -- there is no
     "no impact notes" line, because a level's silence is not a claim."""
+    # Minimal mode is the format-repair path: retain all selected identities,
+    # use receipt facts for red, and omit expandable material and model advice.
     certified = _certified_only(findings)
     notes = [note for note in _structural_only(structural) if _admits_note(note)]
     scope = [note for note in _impact_only(impact) if contract_check(impact_line(note))]
@@ -177,12 +181,14 @@ def render_complete(
     # never to the body itself. `check_summary` now decides the whole thing.
     lines: list[str] = []
     if certified:
-        lines.append("Verified findings (each backed by a reproduction receipt):")
+        lines.append(
+            f"### Verified findings (each backed by a reproduction receipt): {len(certified)}"
+        )
         for finding in certified:
-            lines.append(_summary_line(finding))
+            lines.extend(["", _summary_line(finding, deterministic=minimal)])
             block = (evidence or {}).get(finding.accepted_receipt.receipt.candidate_id)
-            if block is not None:
-                # D-153: the claim is one line; everything a reader *runs* -- the
+            if block is not None and not minimal:
+                # The claim is one paragraph; everything a reader runs -- the
                 # command, the generated test, the six run outcomes and the logs
                 # -- lives one click below it. A summary whose first screen is
                 # three pytest transcripts is a summary nobody reads to the end,
@@ -196,12 +202,14 @@ def render_complete(
                     )
                 )
                 lines.append("")
-    for note in notes[:MAX_STRUCTURAL_COMMENTS]:
+    shown_notes = notes[:MAX_STRUCTURAL_COMMENTS]
+    for index, note in enumerate(shown_notes):
         if lines and lines[-1] != "":
             lines.append("")
-        lines.append(STRUCTURAL_HEADING)
+        if index == 0:
+            lines.extend([f"{STRUCTURAL_HEADING} {len(shown_notes)}", ""])
         lines.append(structural_line(note))
-        if note.advice:
+        if note.advice and not minimal:
             lines.append("")
             lines.append(contract_collapsed(note.advice, summary=STRUCTURAL_ADVICE_HEADING))
     graph_notes = [note for note in yellow if isinstance(note, ImpactNote)]
@@ -210,21 +218,25 @@ def render_complete(
         if lines and lines[-1] != "":
             lines.append("")
         if index == 0:
-            lines.append(IMPACT_HEADING)
+            lines.extend([f"{IMPACT_HEADING} {len(graph_notes)}", ""])
         lines.append("- " + impact_line(scoped))
     for index, observed in enumerate(value_shown):
         if lines and lines[-1] != "":
             lines.append("")
         if index == 0:
-            lines.append(VALUE_HEADING)
+            lines.extend([f"{VALUE_HEADING} {len(value_shown)}", ""])
         lines.append("- " + value_line(observed))
     for index, reached in enumerate(gates):
         if lines and lines[-1] != "":
             lines.append("")
         if index == 0:
-            lines.append(GATE_HEADING)
+            lines.extend([f"{GATE_HEADING} {len(gates)}", ""])
         lines.append("- " + gate_line(reached))
-    lines.append(f"Spend ${spend_usd:.4f}; {elapsed_s:.1f}s.")
+    if unverified or executor_unavailable or refusal or (units and units[0] < units[1]):
+        coverage = f"read {units[0]} of {units[1]} units" if units else "unit coverage unavailable"
+        count = unsupported_executor if executor_unavailable else unverified
+        lines.extend(["", f"Review coverage: {coverage}; {count} known candidate(s) not verified."])
+    lines.extend(["", f"Spend ${spend_usd:.4f}; {elapsed_s:.1f}s."])
     return "\n".join(lines)
 
 
@@ -622,7 +634,7 @@ def _certified_only(findings: Sequence[CertifiedFinding]) -> list[CertifiedFindi
     return list(findings)
 
 
-def _summary_line(finding: CertifiedFinding) -> str:
+def _summary_line(finding: CertifiedFinding, *, deterministic: bool = False) -> str:
     receipt = finding.accepted_receipt.receipt
     anchor = finding.anchors[0]
     label = f"{BEHAVIOR_CHANGE_PREFIX} " if receipt.evidence_class == BEHAVIOR_CHANGE_CLASS else ""
@@ -632,11 +644,15 @@ def _summary_line(finding: CertifiedFinding) -> str:
     )
     tail = f" (receipt {receipt.provenance_digest[:12]})"
     line = f"{head}{label}{_one_line(finding.claim)}{tail}"
-    if contract_check(line):
+    if not deterministic and contract_check(line):
         return line
     # D-142: a certified finding is never silenced by its phrasing. The claim
     # the model wrote did not conform, so the receipt states the finding itself.
-    return f"{head}{label}{_receipt_sentence(finding)}{tail}"
+    fact = (
+        f"the generated test fails on head in {len(receipt.head_runs)}/{len(receipt.head_runs)} "
+        f"runs and passes on the merge base in {len(receipt.base_runs)}/{len(receipt.base_runs)}"
+    )
+    return f"{head}{label}{fact}{tail}"
 
 
 def _receipt_sentence(finding: CertifiedFinding) -> str:
@@ -671,7 +687,7 @@ def _inline_comment(
     parts = [
         _finding_id_marker(receipt.candidate_id),
         claim,
-        f"Finding ID: {receipt.candidate_id}",
+        "",
         (
             # D-102: the published words say exactly what the receipt proves
             f"Verified behavior change: {runs} This change rejects an input the merge "
@@ -680,8 +696,7 @@ def _inline_comment(
             if behavior_change
             else f"Verified: {runs}"
         ),
-        f"Test: {receipt.test_node}",
-        f"{RECEIPT_LINE_PREFIX} {receipt.provenance_digest}",
+        "",
         # D-178: red's currency is the reproduction. Both halves are the
         # receipt's own strings, so this clause can never be the thing that
         # suppresses a certified finding.
@@ -696,8 +711,14 @@ def _inline_comment(
             )
         ),
     ]
+    metadata = (
+        f"Finding ID: {receipt.candidate_id}\n\n"
+        f"Test: {receipt.test_node}\n\n"
+        f"{RECEIPT_LINE_PREFIX} {receipt.provenance_digest}"
+    )
     if evidence is not None:
-        parts.extend(["", render_markdown(evidence)])
+        metadata += "\n\n" + render_markdown(evidence)
+    parts.extend(["", contract_collapsed(metadata, summary=EVIDENCE_HEADING, trusted=True)])
     body = "\n".join(parts)
     return {"path": anchor.path, "line": anchor.line, "side": "RIGHT", "body": body}
 

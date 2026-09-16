@@ -1,0 +1,73 @@
+{
+  "run_id": "ctx2",
+  "E61": {
+    "cases": 6,
+    "published_on_the_planted_hunk": 1,
+    "hits": [
+      "urllib3-none_guard-15--forward"
+    ],
+    "stages": {
+      "intent: the differential held and the rule drawered it": 5,
+      "published on the planted hunk": 1
+    },
+    "fidelity_mismatches": [],
+    "spend_usd": 0.243293
+  },
+  "counterexamples_E61": {
+    "independent_cases": 3,
+    "cases_with_a_publication": [],
+    "reviews": 6,
+    "per_case": {
+      "packaging-boundary-08--forward": {
+        "reviews": 3,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "packaging-boundary-08--forward@714f64e649e5",
+          "packaging-boundary-08--forward@70d95e591749",
+          "packaging-boundary-08--forward@83c04303a5f0"
+        ]
+      },
+      "packaging-guard_raise-06--forward": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "packaging-guard_raise-06--forward@58718aa6b463"
+        ]
+      },
+      "urllib3-none_guard-18--forward": {
+        "reviews": 2,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "urllib3-none_guard-18--forward@26a47b43fc2f",
+          "urllib3-none_guard-18--forward@882f0431b2b4"
+        ]
+      }
+    }
+  },
+  "controls_E61": {
+    "independent_cases": 2,
+    "cases_with_a_publication": [],
+    "reviews": 2,
+    "per_case": {
+      "mahmoud/boltons#481": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "mahmoud/boltons#481"
+        ]
+      },
+      "mahmoud/boltons#434": {
+        "reviews": 1,
+        "published": 0,
+        "certified": 0,
+        "labels": [
+          "mahmoud/boltons#434"
+        ]
+      }
+    }
+  }
+}

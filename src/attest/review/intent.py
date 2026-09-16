@@ -33,7 +33,10 @@ from pathlib import Path
 
 from attest.certification.intent import (
     GENERIC_VALUE_REPRS,
+    INTENT_POLICY_V6,
+    INTENT_POLICY_V61,
     INTENT_POLICY_VERSION,
+    ContractRecord,
     IntentObservation,
 )
 from attest.review.vocabulary import is_common_english
@@ -68,6 +71,10 @@ WITNESS_DIRS = frozenset(
 DOC_SUFFIXES = (".md", ".rst")  # documentation anywhere in the tree
 MAX_INTENT_FILES = 500  # changed files read for D-132's intent evidence
 MAX_INTENT_EVIDENCE = 16  # sites recorded; the rule needs one
+# D-249: a bound on the anchored-symbol *record*, never on the file it is read
+# from. Until then `symbol_ranges` refused any file holding more than this many
+# definitions, and on such a file every value receipt was drawered as *no symbol
+# to specify* (4 of the 40 mutation cases, all in `more_itertools/more.py`, 225).
 MAX_SYMBOLS = 200
 MIN_SYMBOL_CHARS = 3  # a name shorter than this matches prose by accident
 MIN_BARE_SYMBOL_CHARS = 8  # D-134: a bare name shorter than this is vocabulary
@@ -847,8 +854,11 @@ def assertion_pinned_values_at(
 
 def symbol_ranges(source: str) -> tuple[tuple[str, int, int], ...] | None:
     """Every def/class of ``source`` as (name, first line, last line); ``None``
-    when it cannot be parsed. Plain names, not qualified ones: a changelog entry
-    or a docstring names a function the way a reader does."""
+    only when it cannot be parsed. Plain names, not qualified ones: a changelog
+    entry or a docstring names a function the way a reader does.
+
+    Not bounded in the number of definitions (D-249): a file is read whole or
+    not at all, and what is *recorded* from it is bounded by the caller."""
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
@@ -857,8 +867,6 @@ def symbol_ranges(source: str) -> tuple[tuple[str, int, int], ...] | None:
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
             found.append((node.name, node.lineno, node.end_lineno or node.lineno))
-            if len(found) > MAX_SYMBOLS:
-                return None
     return tuple(sorted(found))
 
 
@@ -868,21 +876,32 @@ def anchored_symbols(
     """D-132 (c): the def/class names this change touched in the anchored file --
     those whose head body spans a changed line, plus those the change removed
     from the file outright. A deletion has no head node to intersect, and a
-    deleted symbol is exactly what the shadow findings are about."""
+    deleted symbol is exactly what the shadow findings are about.
+
+    At most ``MAX_SYMBOLS`` names are recorded, in name order, the touched ones
+    before the removed ones (D-249): a change that deletes a file of hundreds of
+    definitions records the first ``MAX_SYMBOLS`` and says nothing of the rest.
+    Below the bound the record is the sorted set, as it always was."""
     head = symbol_ranges(head_source)
     base = symbol_ranges(base_source)
     changed = frozenset(changed_lines)
-    names: set[str] = set()
+    touched: set[str] = set()
+    removed: set[str] = set()
     if head is not None:
         head_names = {name for name, _start, _end in head}
-        names |= {
+        touched = {
             name
             for name, start, end in head
             if any(start <= line <= end for line in changed)
         }
         if base is not None:
-            names |= {name for name, _start, _end in base if name not in head_names}
-    return tuple(sorted(names))
+            removed = {name for name, _start, _end in base if name not in head_names}
+    names = touched | removed
+    if len(names) <= MAX_SYMBOLS:
+        return tuple(sorted(names))
+    kept = sorted(touched)[:MAX_SYMBOLS]
+    kept += sorted(removed - touched)[: MAX_SYMBOLS - len(kept)]
+    return tuple(kept)
 
 
 def prose_lines(source: str) -> frozenset[str]:
@@ -1227,9 +1246,18 @@ def observe_intent(
     changed_files: tuple[str, ...] = (),
     truncated: bool = False,
     added_lines: tuple[int, ...] | None = None,
+    policy_version: str = INTENT_POLICY_VERSION,
 ) -> IntentObservation | str:
     """The intent observation for one differential, or the reason it cannot be
     made (a string; the caller DEFERs and buys nothing).
+
+    ``policy_version`` is the rule the observation is written under -- the
+    shipped one unless a caller asks for `attest.intent.v6` (D-252,
+    experimental) or `attest.intent.v6.1` (D-255), under which the base tree's
+    *contracts* about the pinned values are read as well
+    (:mod:`attest.review.contracts`) and recorded with their bindings; an admitted
+    contract specifies the value it covers -- under v6 because the observer says
+    so, under v6.1 because the kernel's own recomputation from the bindings does.
 
     ``changed_lines`` is the binding policy's hunk range (context included) and
     is what D-132's anchored symbols are read against, as before. D-232's frame
@@ -1316,6 +1344,30 @@ def observe_intent(
             if distinctive
             else ((), ())
         )
+        # D-252 (v6): the contracts the base tree holds about the pinned values,
+        # bound to the probe's own call; an admitted one specifies what it covers
+        contracts: tuple[ContractRecord, ...] = ()
+        if policy_version in (INTENT_POLICY_V6, INTENT_POLICY_V61) and pinned and symbols:
+            from attest.review.contracts import find_contracts
+
+            contracts = find_contracts(
+                base_tree=base_tree,
+                head_tree=head_tree,
+                anchored=path,
+                symbols=symbols,
+                pinned=tuple(repr(value)[:MAX_VALUE_CHARS] for _kind, value in pinned),
+                test_source=test_source,
+            )
+            already = {value for value, _site in specified}
+            # v6 merges what the observer admitted; under v6.1 (D-255) the kernel
+            # recomputes admission from the bindings and adds the values itself
+            extra = set() if policy_version == INTENT_POLICY_V61 else {
+                (c.pinned, c.source.rsplit(":", 1)[0])
+                for c in contracts
+                if c.admitted and c.pinned and c.pinned not in already
+            }
+            if extra:
+                specified = tuple(sorted({*specified, *extra}))
         # D-132 (c): what the same diff says about the symbols it touched
         evidence = (
             find_intent_evidence(
@@ -1333,7 +1385,7 @@ def observe_intent(
         )
         first = head_origins[0][0] if head_origins and head_origins[0] else None
         return IntentObservation(
-            policy_version=INTENT_POLICY_VERSION,
+            policy_version=policy_version,
             path=path,
             changed_lines=tuple(changed_lines),
             origin_line=first.line if first is not None else 0,
@@ -1355,6 +1407,7 @@ def observe_intent(
             anchored_symbols=symbols,
             intent_evidence=evidence,
             added_lines=tuple(sorted(written)),
+            contracts=contracts,
         )
     signatures = {(origin.line, origin.exception_type, origin.path) for origin in present}
     if len(signatures) != 1:
@@ -1367,7 +1420,7 @@ def observe_intent(
         identified = found if identified is None else identified & found
     rejected = tuple(sorted(identified or ()))
     return IntentObservation(
-        policy_version=INTENT_POLICY_VERSION,
+        policy_version=policy_version,
         path=path,
         changed_lines=tuple(changed_lines),
         origin_line=origin.line,
