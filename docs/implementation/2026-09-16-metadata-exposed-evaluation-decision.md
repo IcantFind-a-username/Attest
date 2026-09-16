@@ -49,3 +49,8 @@ calls, temporary directories or the previous study.
 The source pool may again fail qualification. This approval would authorize one
 bounded attempt, not guarantee a paid report. Evidence for the preceding result:
 [qualification report](../acceptance/2026-09-16-case-heldout-qualification.md).
+
+## Owner authorization — 2026-09-16
+
+The owner replied “允许” to this exact proposal. Execution is authorized within
+the limits above; the proposed-state text is retained as history.

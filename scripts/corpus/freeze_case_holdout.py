@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import subprocess
@@ -23,7 +24,15 @@ WORK_DIRS = (
 
 
 def main() -> None:
-    destination = STUDY / "freeze.json"
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--study", choices=("case-heldout", "metadata-exposed"),
+                        default="case-heldout")
+    args = parser.parse_args()
+    metadata_exposed = args.study == "metadata-exposed"
+    study = ROOT / "benchmarks/studies/metadata-exposed-v1" if metadata_exposed else STUDY
+    baseline = "1a3fbb9bb6011051532bf52437ce020fc9aeb6dd" if metadata_exposed else BASELINE
+    seed = "attest-metadata-exposed-v1|" if metadata_exposed else SEED
+    destination = study / "freeze.json"
     if destination.exists():
         raise ValueError("freeze already exists")
     access = json.loads((OLD / "metadata-access.json").read_bytes())
@@ -52,8 +61,18 @@ def main() -> None:
     previously_selected = {
         r["instance_id"] for repo in prior["repositories"] for r in repo["selected"]
     }
+    screening_path = "docs/acceptance/evidence/2026-09-12-heldout-supported-probe.json"
+    administrative_path = "benchmarks/studies/case-holdout-v1/freeze.json"
+    screening = {}
+    if metadata_exposed:
+        earlier = json.loads((ROOT / administrative_path).read_bytes())
+        previously_selected.update(r["instance_id"] for r in earlier["selected"])
+        screening = json.loads((ROOT / screening_path).read_bytes())
+        if set(screening) != {"screen", "probe"}:
+            raise ValueError("unknown screening sections")
+    directories = WORK_DIRS + (("case-holdout-work",) if metadata_exposed else ())
     paths = {
-        p for directory in WORK_DIRS
+        p for directory in directories
         for p in (ROOT / ".attest" / directory).glob("**/*")
         if p.is_file() and not p.is_symlink() and p.suffix in {".json", ".jsonl", ".md", ".log"}
     }
@@ -76,7 +95,7 @@ def main() -> None:
         command = ["git", "grep", "-IlF"]
         for needle in needles:
             command.extend(["-e", needle])
-        command.extend([BASELINE, "--", ".", ":(exclude)" + SPLIT])
+        command.extend([baseline, "--", ".", ":(exclude)" + SPLIT])
         result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)
         if result.returncode not in (0, 1):
             raise ValueError("tracked exposure audit failed")
@@ -85,31 +104,48 @@ def main() -> None:
             path for path, content in ignored.items()
             if any(needle.encode() in content for needle in needles)
         ]
+        allowed_matches = []
+        if metadata_exposed:
+            # The preceding freeze is an administrative metadata inventory;
+            # every selected identity remains excluded separately.
+            allowed_matches = [m for m in matches if m == baseline + ":" + administrative_path]
+            screen_rows = [r for r in screening["screen"]
+                           if r["instance_id"] == row["instance_id"]]
+            keys = {"instance_id", "repo", "base_commit", "created_at", "difficulty",
+                    "python", "reason", "manifests_read", "supported"}
+            probe_text = json.dumps(screening["probe"])
+            if (len(screen_rows) == 1 and set(screen_rows[0]) == keys
+                and all(screen_rows[0][k] == row[k]
+                        for k in ("instance_id", "repo", "base_commit"))
+                and not any(n in probe_text for n in needles)):
+                allowed_matches.extend(m for m in matches
+                                       if m == baseline + ":" + screening_path)
         eligible = (
-            not matches and not ignored_matches
+            not (set(matches) - set(allowed_matches)) and not ignored_matches
             and row["instance_id"] not in previously_selected
         )
         candidates.append({
             **row, "eligible": eligible, "tracked_references": matches,
+            "permitted_metadata_references": allowed_matches,
             "ignored_references": ignored_matches,
             "previously_selected": row["instance_id"] in previously_selected,
         })
     repositories = sorted(
-        {r["repo"] for r in candidates}, key=lambda repo: sha256_bytes((SEED + repo).encode()),
+        {r["repo"] for r in candidates}, key=lambda repo: sha256_bytes((seed + repo).encode()),
     )
     selected = []
     selected_repositories = []
     for repo in repositories:
         pool = [r for r in candidates if r["repo"] == repo and r["eligible"]]
-        if len(pool) < 5 or len(selected_repositories) == 4:
+        if len(pool) < (3 if metadata_exposed else 5) or len(selected_repositories) == 4:
             continue
-        pool.sort(key=lambda r: sha256_bytes((SEED + repo + "|" + r["instance_id"]).encode()))
+        pool.sort(key=lambda r: sha256_bytes((seed + repo + "|" + r["instance_id"]).encode()))
         selected_repositories.append(repo)
         selected.extend(pool[:5])
     write_canonical_json(destination, {
-        "status": "frozen_pending_independent_review", "audit_baseline": BASELINE,
+        "status": "frozen_pending_independent_review", "audit_baseline": baseline,
         "driver_sha256": sha256_bytes(Path(__file__).read_bytes()),
-        "protocol_sha256": sha256_bytes((STUDY / "protocol.md").read_bytes()),
+        "protocol_sha256": sha256_bytes((study / "protocol.md").read_bytes()),
         "metadata_sha256": sha256_bytes(metadata_bytes), "split_sha256": sha256_bytes(split_bytes),
         "parquet_sha256": pinned["parquet_sha256"], "dataset_revision": pinned["revision"],
         "ignored_record_sha256": {p: sha256_bytes(b) for p, b in ignored.items()},
