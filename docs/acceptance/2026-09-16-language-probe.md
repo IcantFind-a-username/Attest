@@ -1,8 +1,8 @@
-# P-01, 2026-09-16 — how much of Attest is bound to Python? A Go differential, measured
+# P-01 and P-02, 2026-09-16 — how much of Attest is bound to Python? Two Go probes, measured
 
 **Owner decision of 2026-09-16 (path B: a language-neutral evidence kernel, Python as the first
 adapter).** This is a bounded probe, not a port. It changes nothing under `src/`, calls no model,
-buys nothing, and pushes nothing. Instrument: `scripts/probe/go_execution_probe.py`. Record:
+buys nothing, and pushes nothing. Instruments: `scripts/probe/go_execution_probe.py` and `go_certification_probe.py`. Records:
 [`evidence/2026-09-16-language-probe/go-probe-p01.json`](evidence/2026-09-16-language-probe/go-probe-p01.json).
 
 ## 0. The answer
@@ -66,7 +66,7 @@ mechanical:
 - **what the base tree specifies**: the whole intent rule reads Python syntax. A Go equivalent is
   a new reader, not a port.
 
-## 5. P-02: the kernel accepts a Go regression on Go-derived evidence
+## 4. P-02: the kernel accepts a Go regression on Go-derived evidence
 
 The second probe (`scripts/probe/go_certification_probe.py`,
 [record](evidence/2026-09-16-language-probe/go-probe-p02.json)) asks what the *kernel* demands.
@@ -106,7 +106,7 @@ record of what was observed -- but it means the safety of a new adapter rests en
 adapter filling the record honestly. A language adapter needs its own test that an unobserved
 failure cannot certify.
 
-## 4. What this decides
+## 5. What this decides
 
 Path B is **structurally possible**: the kernel and the protocol are already neutral, and the
 container layer is neutral after one refactor. It is **not cheap**: the reading layer, which is
