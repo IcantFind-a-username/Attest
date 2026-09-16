@@ -25,13 +25,16 @@ COLUMNS = [
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--study", choices=("runtime-qualified", "case-heldout"),
-                        default="runtime-qualified")
+    parser.add_argument(
+        "--study", choices=("runtime-qualified", "case-heldout", "metadata-exposed"),
+        default="runtime-qualified",
+    )
     args = parser.parse_args()
     work = WORK
     protocol = STUDY / "oracle-inputs.md"
-    if args.study == "case-heldout":
-        case_study = ROOT / "benchmarks/studies/case-holdout-v1"
+    if args.study in {"case-heldout", "metadata-exposed"}:
+        name = "case-holdout-v1" if args.study == "case-heldout" else "metadata-exposed-v1"
+        case_study = ROOT / "benchmarks/studies" / name
         freeze_bytes = (case_study / "freeze.json").read_bytes()
         validation_bytes = (case_study / "validation.json").read_bytes()
         validation = json.loads(validation_bytes)
@@ -47,7 +50,7 @@ def main() -> None:
         selected = list(cases)
         if len(cases) != validation["selected_cases"] or not cases:
             raise ValueError("case population mismatch")
-        work = ROOT / ".attest/corpora/case-holdout-v1-oracles"
+        work = ROOT / ".attest/corpora" / (name + "-oracles")
         provenance = {
             "case_freeze_sha256": sha256_bytes(freeze_bytes),
             "case_validation_sha256": sha256_bytes(validation_bytes),

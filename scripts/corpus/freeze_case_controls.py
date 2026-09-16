@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import subprocess
@@ -15,12 +16,19 @@ WORK = ROOT / ".attest/corpora/case-holdout-v1"
 
 
 def main() -> None:
-    destination = STUDY / "control-candidates.json"
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--study", choices=("case-heldout", "metadata-exposed"),
+                        default="case-heldout")
+    args = parser.parse_args()
+    name = "case-holdout-v1" if args.study == "case-heldout" else "metadata-exposed-v1"
+    study = ROOT / "benchmarks/studies" / name
+    work = ROOT / ".attest/corpora" / name
+    destination = study / "control-candidates.json"
     if destination.exists():
         raise ValueError("control candidates already frozen")
-    freeze_bytes = (STUDY / "freeze.json").read_bytes()
+    freeze_bytes = (study / "freeze.json").read_bytes()
     freeze = json.loads(freeze_bytes)
-    validation = json.loads((STUDY / "validation.json").read_bytes())
+    validation = json.loads((study / "validation.json").read_bytes())
     if (
         validation["freeze_sha256"] != sha256_bytes(freeze_bytes)
         or validation["status"] != "freeze_cleared_for_qualification"
@@ -28,7 +36,7 @@ def main() -> None:
         raise ValueError("unreviewed population")
     repositories = []
     for name in freeze["selected_repositories"]:
-        repo = WORK / name.replace("/", "__") / "repo"
+        repo = work / name.replace("/", "__") / "repo"
         origin = subprocess.check_output(
             ["git", "-C", str(repo), "remote", "get-url", "origin"], text=True, timeout=30,
         ).strip()
@@ -49,7 +57,7 @@ def main() -> None:
             commits.update(rows)
             roots.append({"revision": revision, "ancestor_count": len(rows)})
         ordered = sorted(commits, key=lambda c: sha256_bytes(
-            ("attest-case-holdout-v1|control|" + name + "|" + c).encode(),
+            ("attest-" + study.name + "|control|" + name + "|" + c).encode(),
         ))
         repositories.append({
             "repo": name, "origin": origin, "roots": roots,
@@ -59,7 +67,7 @@ def main() -> None:
     write_canonical_json(destination, {
         "status": "frozen_before_control_diff_inspection",
         "freeze_sha256": sha256_bytes(freeze_bytes),
-        "protocol_sha256": sha256_bytes((STUDY / "protocol.md").read_bytes()),
+        "protocol_sha256": sha256_bytes((study / "protocol.md").read_bytes()),
         "driver_sha256": sha256_bytes(Path(__file__).read_bytes()),
         "code_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "repositories": repositories, "qualified_controls": 0, "model_api_spend_usd": 0,
