@@ -62,6 +62,16 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ### Experimental, off by default
 
+- **The test context is read rather than refused for existing (D-282).** D-257 admitted only
+  an empty `conftest.py`, so every real repository refused every contract: 98 of 98 refusals
+  over the recorded searches were that one reason, and contract probes fell to zero. The screen
+  now reads the conftest chain, its hooks, autouse fixture setup, the fixtures a test asks for
+  and the test module's body, and refuses only code that can reach the module under review or
+  whose reach it cannot tell. **What it costs in recall or in trust:** in trust, the limits are
+  narrower and stated (no execution, no following into third-party code, a constructor with side
+  effects escapes); in supply, contract probes go back to 24 on the forty and the three D-254
+  gains publish again, with the seven reasonable-change miscertifications still refused
+  ([report](docs/acceptance/2026-09-16-contract-conftest.md)).
 - **`attest.intent.v6.1` replaces v6 as the experimental rule: contracts are bound at the
   assertion's program point, and the kernel recomputes admission (D-255).** The v6 reader bound a
   test's names by their last assignment anywhere in the function, ignored a receiver changed after
