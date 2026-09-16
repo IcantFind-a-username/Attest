@@ -29,7 +29,8 @@ WORK = ROOT / ".attest/corpora/repository-holdout-runtime"
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--study", choices=("historical", "swebench", "case-heldout"), default="historical",
+        "--study", choices=("historical", "swebench", "case-heldout", "metadata-exposed"),
+        default="historical",
     )
     args = parser.parse_args()
     study = (
@@ -40,9 +41,10 @@ def main() -> None:
         if args.study == "historical"
         else ROOT / ".attest/corpora/swebench-independent-runtime"
     )
-    if args.study == "case-heldout":
-        study = ROOT / "benchmarks/studies/case-holdout-v1"
-        work = ROOT / ".attest/corpora/case-holdout-runtime"
+    if args.study in {"case-heldout", "metadata-exposed"}:
+        name = "case-holdout" if args.study == "case-heldout" else "metadata-exposed"
+        study = ROOT / "benchmarks/studies" / (name + "-v1")
+        work = ROOT / ".attest/corpora" / (name + "-runtime")
     for name in ("ATTEST_PIP_CONSTRAINT", "ATTEST_PROJECT_PYTHON"):
         if os.environ.get(name):
             raise ValueError("runtime override refused: " + name)
@@ -70,8 +72,9 @@ def main() -> None:
     ).strip()
     os.environ["DOCKER_CONFIG"] = str(config)
     os.environ["DOCKER_BUILDKIT"] = "1"
-    input_name = "qualification-candidates.json" if args.study == "case-heldout" else (
-        "frozen-candidates.json"
+    input_name = (
+        "qualification-candidates.json"
+        if args.study in {"case-heldout", "metadata-exposed"} else "frozen-candidates.json"
     )
     frozen_bytes = (study / input_name).read_bytes()
     frozen = json.loads(frozen_bytes)
