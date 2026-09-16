@@ -2838,3 +2838,10 @@ Reversal: any artifact/provenance mismatch invalidates the affected compatibilit
 - One driver review's identity-counting defect fixed before execution; two product-blind semantic reviews agree on one new capability and two existing-contract defects, with a propagation ambiguity retained.
 - Identified historical API introductions do not supply previously working invocations. Qualified natural-forward defects/controls remain zero; no paid dispatch, no reverse-repair recall, no population replacement.
 - INV-TRUTH-001/G-MEASURE-004 and the existing study minimum remain; preserve all inputs/results. Reversal needs qualified historical pairs and independent controls; supersedes none.
+
+### D-274 — Authorized case-held-out freeze (2026-09-16, frozen)
+- Owner approved the separate study at baseline 2a15d6b; product remains 0b6d3b1, whose fixed-HEAD gate passed 2,563 tests with 93.42% certification/execution coverage. No paid spend or default change.
+- Driver e90ce10 audits 130 contemporary held-out cases: 38 eligible, ten selected across Astropy/matplotlib under the fixed five-per-repository rule; preserve the shortfall without replacement.
+- Evidence: benchmarks/studies/case-holdout-v1/{protocol.md,freeze.json,validation.json}; one review found a base-SHA uniqueness wording error, corrected without changing identities or selection.
+- Case-held-out only, not unseen-repository generalization; qualified defects/controls remain zero. Original populations and their failures remain unchanged; INV-TRUTH-001/INV-CERT-001 and paid minimum/cap remain.
+- Next is bounded natural-forward qualification and blind controls, then the preregistered free smoke and paid review only if all gates hold; reversal invalidates exposed/drifted cases rather than replacing them. Supersedes no product rule.

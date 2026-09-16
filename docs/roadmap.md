@@ -38,6 +38,13 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
 
 ## 2. Honest baseline
 
+- **2026-09-16 — D-274 owner-approved case-held-out study:** the owner approved
+  continued execution and the separate case-level study. Fixed metadata selection
+  yields ten candidates from two repositories, preserving the shortfall from the
+  twenty maximum. One freeze review's wording finding is resolved without changing
+  selection. Product code stays frozen; qualification and paid dispatch are pending.
+  [Protocol and evidence](../benchmarks/studies/case-holdout-v1/protocol.md).
+
 - **2026-09-16 — D-272/D-273 gate supplement:** the owner authorized system
   temporary directories. At fixed `0b6d3b1`, all 2,563 tests passed with zero
   failures/errors/skips, 93.42% certification/execution coverage; Ruff/mypy/diff

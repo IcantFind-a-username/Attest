@@ -11,7 +11,7 @@ remote write, release or spend-cap increase is authorized by this protocol.
 Reuse the five-column metadata projection of the already pinned SWE-bench Verified
 revision `c104f840cc67f8b6eec6f759ebc8b2693d585d4a`. Require its recorded digest,
 the immutable Parquet digest and the prior split digest; require exactly the same
-500 identities, unique 40-character base SHAs and disjoint dev/held-out identities.
+500 unique instance identities, valid 40-character base SHAs and disjoint dev/held-out identities.
 Do not read hidden Parquet columns during selection.
 
 Only prior-held-out rows created on/after 2022-01-01 are candidates. Audit exact
@@ -73,3 +73,13 @@ Report independent-case counts, semantic correctness, recall/precision where
 defined, abstentions, gained/lost cases, cost, runtime/source-population attrition
 and finite-control uncertainty. DEFER is not a true negative. Deliver the paid
 report and stop if prerequisites are met; otherwise retain the bounded failure.
+
+## Prequalification review correction
+
+The first protocol accidentally required unique base SHAs. The pinned metadata
+contains 500 distinct instance IDs but 499 base SHAs; two unselected Django cases
+share a base. The independent review reproduced this mismatch. The wording now
+requires unique case identities and valid SHAs, preserving the dataset and ten-case
+selection. Qualified natural parent/head pairs must be deduplicated by repository
+and both SHAs, with semantic same-defect deduplication as well. The original freeze
+retains its original protocol digest; validation binds this correction separately.
