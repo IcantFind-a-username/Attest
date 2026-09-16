@@ -84,7 +84,7 @@ def build(
 def check_runtime(
     directory: Path, tree: Path, wheel: Path, revision: str, wheel_digest: str,
     expected_revision: str, cutoff: str, runtime: str, env: dict[str, str], state: dict, *,
-    builder: str, fixture: bool = False,
+    builder: str, fixture: bool = False, allow_source_links: bool = False,
 ) -> dict:
     state["stage"] = "transfer"
     packages = tuple(stub_packages(tree))
@@ -95,9 +95,19 @@ def check_runtime(
         tree, wheel, revision=revision, expected_revision=expected_revision,
         expected_digest=wheel_digest, packages=packages,
         version_path=version_file.relative_to(tree).as_posix() if version_file else None,
+        allow_source_links=allow_source_links,
     )
     if not any(n.endswith(".so") for n in transfer["added"]):
-        raise ValueError("no native artifact witnessed")
+        if not allow_source_links:
+            raise ValueError("no native artifact witnessed")
+        with ZipFile(wheel) as contents:
+            names = [n for n in contents.namelist() if n.endswith(".dist-info/WHEEL")]
+            if len(names) != 1:
+                raise ValueError("wheel layout metadata ambiguous")
+            wheel_metadata = Parser().parsestr(contents.read(names[0]).decode())
+        if wheel_metadata.get("Root-Is-Purelib", "").lower() != "true":
+            raise ValueError("non-pure wheel has no native artifact witnessed")
+        transfer["pure_python_source"] = True
     write_canonical_json(directory / "transfer.json", transfer)
     state["stage"] = "constraints"
     pins, extras = constraints(wheel, cutoff)
@@ -200,13 +210,20 @@ def check_fixture(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--study", choices=("swebench", "natural-pairs"), default="swebench")
-    natural = parser.parse_args().study == "natural-pairs"
+    parser.add_argument("--study", choices=("swebench", "natural-pairs", "remainder-safe-links"),
+                        default="swebench")
+    mode = parser.parse_args().study
+    safe_links = mode == "remainder-safe-links"
+    natural = safe_links or mode == "natural-pairs"
     study = ROOT / "benchmarks/studies/metadata-exposed-v1/compatibility" if natural else STUDY
     builds = ROOT / ".attest/corpora/natural-pair-compatible-build" if natural else BUILDS
     previous = ROOT / ".attest/corpora/metadata-exposed-runtime" if natural else PREVIOUS
     repo_base = ROOT / ".attest/corpora/metadata-exposed-v1" if natural else PREVIOUS
     work = ROOT / ".attest/corpora/natural-pair-source-runtime" if natural else WORK
+    if safe_links:
+        study = ROOT / "benchmarks/studies/remainder-v1/compatibility"
+        builds = ROOT / ".attest/corpora/remainder-safe-link-build"
+        work = ROOT / ".attest/corpora/remainder-safe-link-runtime"
     if work.exists():
         raise ValueError("fresh output directory required")
     work.mkdir()
@@ -219,6 +236,7 @@ def main() -> None:
     build_bytes = (builds / "result.json").read_bytes()
     build_record = json.loads(build_bytes)
     evidence_path = (
+        "safe-link-build-evidence/result.json" if safe_links else
         "build-evidence/result.json" if natural else "compatible-build-evidence/result.json"
     )
     if build_bytes != (study / evidence_path).read_bytes():
@@ -229,19 +247,25 @@ def main() -> None:
         c for r in frozen["repositories"] for c in r["selected"]
     ]
     if (
-        len(cases) != (4 if natural else 6) or build_record["status"] != "complete"
+        (not cases or (not safe_links and len(cases) != (4 if natural else 6)))
+        or build_record["status"] != "complete"
         or [(r["case"], r["revision"]) for r in build_record["rows"]]
         != [(c["instance_id"], c["base_commit"]) for c in cases]
-        or any(r["status"] not in ({"built", "build_failed"} if natural else {"built"})
+        or any(r["status"] not in ({"built", "build_failed", "refused"} if safe_links else
+                                       {"built", "build_failed"} if natural else {"built"})
                for r in build_record["rows"])
         or (natural and build_record["population_sha256"] != sha256_bytes(frozen_bytes))
     ):
         raise ValueError("build population is incomplete")
+    runtime_image = (
+        "python@sha256:68d914ec641a0b69267ce65184d000a2bc3a9ee2590ab702b82250ab2385735a"
+        if safe_links else "python:3.10-slim-bookworm"
+    )
     subprocess.run(
-        ["docker", "pull", "python:3.10-slim-bookworm"], env=env, check=True, timeout=300,
+        ["docker", "pull", runtime_image], env=env, check=True, timeout=300,
     )
     runtime = json.loads(subprocess.check_output(
-        ["docker", "image", "inspect", "python:3.10-slim-bookworm"], env=env, timeout=30,
+        ["docker", "image", "inspect", runtime_image], env=env, timeout=30,
     ))[0]["RepoDigests"][0]
     record = {
         "status": "started", "rows": [
@@ -256,7 +280,9 @@ def main() -> None:
         "population_validator_sha256": sha256_bytes(
             (ROOT / "scripts/corpus/swebench_compatible_build.py").read_bytes(),
         ),
-        "protocol_sha256": sha256_bytes((study / "source-runtime.md").read_bytes()),
+        "protocol_sha256": sha256_bytes((study / (
+            "safe-link-source-runtime.md" if safe_links else "source-runtime.md"
+        )).read_bytes()),
         "population_sha256": sha256_bytes(frozen_bytes),
         "build_record_sha256": sha256_bytes(build_bytes),
         "code_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
@@ -296,13 +322,14 @@ def main() -> None:
             listing = subprocess.check_output(
                 ["git", "-C", str(repo), "ls-tree", "-r", case["base_commit"]], timeout=30,
             )
-            if any(line.startswith(b"120000 ") for line in listing.splitlines()):
+            if not safe_links and any(line.startswith(b"120000 ") for line in listing.splitlines()):
                 raise ValueError("symlink export refused before extraction")
             archive(repo, case["base_commit"], tree, timeout=60)
             row.update(check_runtime(
                 directory, tree, wheel, case["base_commit"],
                 prior["artifacts"]["wheels/" + wheel.name], prior["revision"],
                 case["created_at"], runtime, env, row, builder=build_record["builder_reference"],
+                allow_source_links=safe_links,
             ))
             row["status"] = "checked"
         except (

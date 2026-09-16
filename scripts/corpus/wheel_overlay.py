@@ -4,12 +4,15 @@ import stat
 from pathlib import Path, PurePosixPath
 from zipfile import ZipFile
 
+from runtime_contract_shadow import validate_source_links
+
 from attest.benchmark.artifacts import canonical_json_bytes, sha256_bytes
 
 
 def apply_wheel(
     tree: Path, wheel: Path, *, revision: str, expected_revision: str,
     expected_digest: str, packages: tuple[str, ...], version_path: str | None = None,
+    allow_source_links: bool = False,
 ) -> dict:
     """Check the entire archive before writing; never replace tracked source bytes.
 
@@ -22,8 +25,9 @@ def apply_wheel(
     if sha256_bytes(wheel.read_bytes()) != expected_digest:
         raise ValueError("wheel digest mismatch")
     paths = list(tree.rglob("*"))
-    if tree.is_symlink() or any(p.is_symlink() for p in paths):
+    if tree.is_symlink() or (not allow_source_links and any(p.is_symlink() for p in paths)):
         raise ValueError("source symlink refused")
+    links = validate_source_links(tree) if allow_source_links else {}
     original = {
         p.relative_to(tree).as_posix(): sha256_bytes(p.read_bytes())
         for p in paths if p.is_file()
@@ -66,8 +70,9 @@ def apply_wheel(
             else:
                 raise ValueError("unproven generated file: " + name)
     for name in additions:
-        if (tree / name).is_dir() or any(
+        if (tree / name).is_dir() or (tree / name).is_symlink() or any(
             parent.as_posix() in original or parent.as_posix() in additions
+            or parent.as_posix() in links or (tree / parent).is_symlink()
             for parent in PurePosixPath(name).parents if parent.as_posix() != "."
         ):
             raise ValueError("file/directory collision: " + name)
@@ -79,7 +84,11 @@ def apply_wheel(
         target.chmod(0o644)
     if any(sha256_bytes((tree / name).read_bytes()) != digest for name, digest in original.items()):
         raise ValueError("source drift during transfer")
+    if allow_source_links and validate_source_links(tree) != links:
+        raise ValueError("source link drift during transfer")
     return {
+        **({"source_links_digest": sha256_bytes(canonical_json_bytes(links))}
+           if allow_source_links else {}),
         "revision": revision, "wheel_sha256": expected_digest,
         "original_files_digest": sha256_bytes(canonical_json_bytes(original)),
         "added": {name: sha256_bytes(payload) for name, payload in additions.items()},

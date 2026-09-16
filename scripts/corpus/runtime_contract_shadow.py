@@ -56,6 +56,66 @@ GAIN_CASES = ("packaging-boundary-08", "packaging-guard_raise-06", "urllib3-none
 OBSERVER_SOURCE = ROOT / "src/attest/review/_contract_observer.py"
 
 
+def _validate_link_graph(entries: dict[str, tarfile.TarInfo]) -> None:
+    for name in entries:
+        for parent in PurePosixPath(name).parents:
+            if str(parent) != "." and (
+                str(parent) not in entries or not entries[str(parent)].isdir()
+            ):
+                raise ValueError("archive member below non-directory: " + name)
+    for name, member in entries.items():
+        if not member.issym():
+            continue
+        pending = name.split("/")
+        resolved: list[str] = []
+        hops = 0
+        while pending:
+            part = pending.pop(0)
+            if part in ("", "."):
+                continue
+            if part == "..":
+                if not resolved:
+                    raise ValueError("symlink escapes export: " + name)
+                resolved.pop()
+                continue
+            resolved.append(part)
+            current = entries.get("/".join(resolved))
+            if current is None:
+                raise ValueError("dangling symlink: " + name)
+            if current.issym():
+                target = current.linkname
+                hops += 1
+                if (not target or target.startswith("/") or "\\" in target
+                    or ":" in target or hops > 40):
+                    raise ValueError("unsafe or cyclic symlink: " + name)
+                resolved.pop()
+                pending = target.split("/") + pending
+            elif pending and not current.isdir():
+                raise ValueError("symlink traverses non-directory: " + name)
+
+
+def validate_source_links(tree: Path) -> dict[str, str]:
+    """Revalidate an exported tree before wheel transfer without following links."""
+    if tree.is_symlink() or not tree.is_dir():
+        raise ValueError("invalid source tree root")
+    entries: dict[str, tarfile.TarInfo] = {}
+    links: dict[str, str] = {}
+    for path in tree.rglob("*"):
+        name = path.relative_to(tree).as_posix()
+        member = tarfile.TarInfo(name)
+        if path.is_symlink():
+            member.type = tarfile.SYMTYPE
+            member.linkname = os.readlink(path)
+            links[name] = member.linkname
+        elif path.is_dir():
+            member.type = tarfile.DIRTYPE
+        elif not path.is_file():
+            raise ValueError("unsupported source tree member")
+        entries[name] = member
+    _validate_link_graph(entries)
+    return links
+
+
 def archive(repo: Path, sha: str, destination: Path, *, timeout: float | None = None) -> None:
     """Validate the complete Git archive graph before creating any export files."""
     data = subprocess.check_output(["git", "-C", str(repo), "archive", sha], timeout=timeout)
@@ -74,41 +134,7 @@ def archive(repo: Path, sha: str, destination: Path, *, timeout: float | None = 
                 or name in entries or not (member.isfile() or member.isdir() or member.issym())):
                 raise ValueError("unsafe archive member: " + name)
             entries[name] = member
-        for name in entries:
-            for parent in PurePosixPath(name).parents:
-                if str(parent) != "." and (
-                    str(parent) not in entries or not entries[str(parent)].isdir()
-                ):
-                    raise ValueError("archive member below non-directory: " + name)
-        for name, member in entries.items():
-            if not member.issym():
-                continue
-            pending = name.split("/")
-            resolved: list[str] = []
-            hops = 0
-            while pending:
-                part = pending.pop(0)
-                if part in ("", "."):
-                    continue
-                if part == "..":
-                    if not resolved:
-                        raise ValueError("symlink escapes export: " + name)
-                    resolved.pop()
-                    continue
-                resolved.append(part)
-                current = entries.get("/".join(resolved))
-                if current is None:
-                    raise ValueError("dangling symlink: " + name)
-                if current.issym():
-                    target = current.linkname
-                    hops += 1
-                    if (not target or target.startswith("/") or "\\" in target
-                        or ":" in target or hops > 40):
-                        raise ValueError("unsafe or cyclic symlink: " + name)
-                    resolved.pop()
-                    pending = target.split("/") + pending
-                elif pending and not current.isdir():
-                    raise ValueError("symlink traverses non-directory: " + name)
+        _validate_link_graph(entries)
         destination.mkdir(parents=True, exist_ok=False)
         for name, member in entries.items():
             target = destination / name
