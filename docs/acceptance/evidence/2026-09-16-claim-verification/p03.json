@@ -1,0 +1,2522 @@
+{
+  "probe": "P-03 claim verification",
+  "cases": 21,
+  "repeats_per_side": 3,
+  "true_claims": {
+    "confirmed": 21
+  },
+  "null_claims": {
+    "refused": 21
+  },
+  "reversed_claims": {
+    "refused": 21
+  },
+  "limits": [
+    "the oracle is the repository's own test that D-251 recorded as detecting the change; a claim whose behaviour no existing test covers is outside this probe",
+    "line attribution is not checked: a confirmed claim shows the change causes the failure, not that the claimed line is the one that runs (the product's binding observation does that with a tracer, which this probe does not run)",
+    "the claims are the corpus's planted changes, not a third party's prose claims",
+    "the oracle is given: D-251 recorded which of the repository's tests detects each change, and choosing that test for an arbitrary claim is the part this probe does not do",
+    "a claim's location is not adjudicated: a true claim that names the wrong file or line would still be confirmed here, because the probe runs no tracer"
+  ],
+  "rows": [
+    {
+      "unit_id": "more-itertools-boundary-08--forward",
+      "library": "more-itertools",
+      "node": "tests/test_more.py::PeekableTests::test_slicing_error",
+      "claim": "more_itertools/more.py:453 -- > -> >= at more_itertools/more.py:453: if step > 0:",
+      "base_sha": "9ed3dbb0ae527230cd156d91d0af305478558fba",
+      "head_sha": "bb42da5f42856146bbcd53c482f44ddade69d7a5",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.08s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ":340: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_more.py::PeekableTests::test_slicing_error - AssertionError...\n1 failed in 0.15s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ":340: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_more.py::PeekableTests::test_slicing_error - AssertionError...\n1 failed in 0.12s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ":340: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_more.py::PeekableTests::test_slicing_error - AssertionError...\n1 failed in 0.12s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.08s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.06s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ":340: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_more.py::PeekableTests::test_slicing_error - AssertionError...\n1 failed in 0.15s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ":340: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_more.py::PeekableTests::test_slicing_error - AssertionError...\n1 failed in 0.12s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ":340: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_more.py::PeekableTests::test_slicing_error - AssertionError...\n1 failed in 0.12s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.08s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "packaging-boundary-08--forward",
+      "library": "packaging",
+      "node": "tests/test_musllinux.py::test_get_musl_version[aarch64]",
+      "claim": "src/packaging/_musllinux.py:28 -- < -> <= at src/packaging/_musllinux.py:28: if len(lines) < 2 or lines[0][:4] != \"musl\":",
+      "base_sha": "10590c194edb33c82f84a127883d6097c56b7840",
+      "head_sha": "fdf901a03a24589cc6a43dc2b76bbc46e8cb0ac6",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.10s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "y:84: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_musllinux.py::test_get_musl_version[aarch64] - AssertionErr...\n1 failed in 0.11s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "y:84: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_musllinux.py::test_get_musl_version[aarch64] - AssertionErr...\n1 failed in 0.10s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "y:84: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_musllinux.py::test_get_musl_version[aarch64] - AssertionErr...\n1 failed in 0.10s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.10s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.08s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.08s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.08s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "y:84: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_musllinux.py::test_get_musl_version[aarch64] - AssertionErr...\n1 failed in 0.11s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "y:84: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_musllinux.py::test_get_musl_version[aarch64] - AssertionErr...\n1 failed in 0.10s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "y:84: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_musllinux.py::test_get_musl_version[aarch64] - AssertionErr...\n1 failed in 0.10s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.10s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "attrs-guard_raise-03--forward",
+      "library": "attrs",
+      "node": "tests/test_make.py::TestKeywordOnlyAttributes::test_attr_level_kw_only_and_class_level_kw_only",
+      "claim": "src/attr/_make.py:423 -- delete the guard at src/attr/_make.py:423: if unannotated:",
+      "base_sha": "8f767776326faaed11e6c2974798787f6e19b343",
+      "head_sha": "7e2f44513f5843f2a452c5526e0bbdbbfa7e99a8",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.02s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.02s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.02s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "=========================== short test summary info ============================\nFAILED tests/test_make.py::TestKeywordOnlyAttributes::test_attr_level_kw_only_and_class_level_kw_only\n1 failed in 0.05s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "=========================== short test summary info ============================\nFAILED tests/test_make.py::TestKeywordOnlyAttributes::test_attr_level_kw_only_and_class_level_kw_only\n1 failed in 0.05s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "=========================== short test summary info ============================\nFAILED tests/test_make.py::TestKeywordOnlyAttributes::test_attr_level_kw_only_and_class_level_kw_only\n1 failed in 0.04s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.02s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.02s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.02s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.02s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.02s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.02s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "=========================== short test summary info ============================\nFAILED tests/test_make.py::TestKeywordOnlyAttributes::test_attr_level_kw_only_and_class_level_kw_only\n1 failed in 0.05s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "=========================== short test summary info ============================\nFAILED tests/test_make.py::TestKeywordOnlyAttributes::test_attr_level_kw_only_and_class_level_kw_only\n1 failed in 0.05s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "=========================== short test summary info ============================\nFAILED tests/test_make.py::TestKeywordOnlyAttributes::test_attr_level_kw_only_and_class_level_kw_only\n1 failed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.02s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.02s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.02s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "itsdangerous-guard_raise-01--forward",
+      "library": "itsdangerous",
+      "node": "tests/test_itsdangerous/test_signer.py::TestSigner::test_invalid_separator",
+      "claim": "src/itsdangerous/signer.py:146 -- delete the guard at src/itsdangerous/signer.py:146: if self.sep in _base64_alphabet:",
+      "base_sha": "672971d66a2ef9f85151e53283113f33d642dabd",
+      "head_sha": "6301cf180a3effed40acd72f2c6ee01551aab7a4",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "igner.py:62: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_signer.py::TestSigner::test_invalid_separator\n1 failed in 0.02s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "igner.py:62: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_signer.py::TestSigner::test_invalid_separator\n1 failed in 0.02s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "igner.py:62: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_signer.py::TestSigner::test_invalid_separator\n1 failed in 0.02s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "igner.py:62: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_signer.py::TestSigner::test_invalid_separator\n1 failed in 0.02s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "igner.py:62: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_signer.py::TestSigner::test_invalid_separator\n1 failed in 0.02s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "igner.py:62: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_signer.py::TestSigner::test_invalid_separator\n1 failed in 0.02s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "python-dotenv-boundary-08--forward",
+      "library": "python-dotenv",
+      "node": "tests/test_variables.py::test_parse_variables[${a:-b}-expected3]",
+      "claim": "src/dotenv/variables.py:85 -- < -> <= at src/dotenv/variables.py:85: if cursor < length:",
+      "base_sha": "a00cb2eed0704cd6d2071b2004c37e95ccc86ee5",
+      "head_sha": "cd8d0de9ce32fe807584d31de4b148c8dc2589e2",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "y:35: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_variables.py::test_parse_variables[${a:-b}-expected3] - ass...\n1 failed in 0.02s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "y:35: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_variables.py::test_parse_variables[${a:-b}-expected3] - ass...\n1 failed in 0.02s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "y:35: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_variables.py::test_parse_variables[${a:-b}-expected3] - ass...\n1 failed in 0.02s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "y:35: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_variables.py::test_parse_variables[${a:-b}-expected3] - ass...\n1 failed in 0.02s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "y:35: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_variables.py::test_parse_variables[${a:-b}-expected3] - ass...\n1 failed in 0.02s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "y:35: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_variables.py::test_parse_variables[${a:-b}-expected3] - ass...\n1 failed in 0.02s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "itsdangerous-guard_raise-04--forward",
+      "library": "itsdangerous",
+      "node": "tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_malformed_timestamp",
+      "claim": "src/itsdangerous/timed.py:134 -- delete the guard at src/itsdangerous/timed.py:134: if ts_int is None:",
+      "base_sha": "672971d66a2ef9f85151e53283113f33d642dabd",
+      "head_sha": "62b063fccf8138feedaa3238f025799ab3234834",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.06s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "3: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_malformed_timestamp\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "3: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_malformed_timestamp\n1 failed in 0.05s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "3: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_malformed_timestamp\n1 failed in 0.05s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.06s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "3: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_malformed_timestamp\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "3: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_malformed_timestamp\n1 failed in 0.05s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "3: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_malformed_timestamp\n1 failed in 0.05s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.06s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "more-itertools-guard_raise-04--forward",
+      "library": "more-itertools",
+      "node": "tests/test_more.py::FirstTests::test_empty",
+      "claim": "more_itertools/more.py:272 -- delete the guard at more_itertools/more.py:272: if default is _marker:",
+      "base_sha": "9ed3dbb0ae527230cd156d91d0af305478558fba",
+      "head_sha": "cf264a42a78d69654de55cabc016f74952ec03e2",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.06s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ":132: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_more.py::FirstTests::test_empty - AssertionError: ValueErro...\n1 failed in 0.28s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ":132: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_more.py::FirstTests::test_empty - AssertionError: ValueErro...\n1 failed in 0.12s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ":132: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_more.py::FirstTests::test_empty - AssertionError: ValueErro...\n1 failed in 0.12s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.06s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.05s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ":132: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_more.py::FirstTests::test_empty - AssertionError: ValueErro...\n1 failed in 0.28s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ":132: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_more.py::FirstTests::test_empty - AssertionError: ValueErro...\n1 failed in 0.12s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ":132: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_more.py::FirstTests::test_empty - AssertionError: ValueErro...\n1 failed in 0.12s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.06s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "packaging-guard_raise-01--forward",
+      "library": "packaging",
+      "node": "tests/test_manylinux.py::test_parse_elf_bad_executable[invalid-magic]",
+      "claim": "src/packaging/_elffile.py:53 -- delete the guard at src/packaging/_elffile.py:53: if magic != b\"\\x7fELF\":",
+      "base_sha": "10590c194edb33c82f84a127883d6097c56b7840",
+      "head_sha": "fc08c2ef0780d4845efe30b0589b2a84ad802b1d",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.10s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "x.py:212: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_manylinux.py::test_parse_elf_bad_executable[invalid-magic]\n1 failed in 0.10s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "x.py:212: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_manylinux.py::test_parse_elf_bad_executable[invalid-magic]\n1 failed in 0.10s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "x.py:212: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_manylinux.py::test_parse_elf_bad_executable[invalid-magic]\n1 failed in 0.10s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.10s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "x.py:212: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_manylinux.py::test_parse_elf_bad_executable[invalid-magic]\n1 failed in 0.10s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "x.py:212: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_manylinux.py::test_parse_elf_bad_executable[invalid-magic]\n1 failed in 0.10s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "x.py:212: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_manylinux.py::test_parse_elf_bad_executable[invalid-magic]\n1 failed in 0.10s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.10s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "urllib3-guard_raise-04--forward",
+      "library": "urllib3",
+      "node": "test/with_dummyserver/test_connection.py::test_invalid_tunnel_scheme",
+      "claim": "src/urllib3/connection.py:269 -- delete the guard at src/urllib3/connection.py:269: if scheme not in (\"http\", \"https\"):",
+      "base_sha": "5f2a6a843d0100d1351c3f94d58581ca98d17267",
+      "head_sha": "9e144d5b207d4c3ae98938f2421b9e3699368bde",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "tion (1): localhost:53832\n=========================== short test summary info ============================\nFAILED test/with_dummyserver/test_connection.py::test_invalid_tunnel_scheme\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "tion (1): localhost:53836\n=========================== short test summary info ============================\nFAILED test/with_dummyserver/test_connection.py::test_invalid_tunnel_scheme\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "tion (1): localhost:53840\n=========================== short test summary info ============================\nFAILED test/with_dummyserver/test_connection.py::test_invalid_tunnel_scheme\n1 failed in 0.04s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "tion (1): localhost:53832\n=========================== short test summary info ============================\nFAILED test/with_dummyserver/test_connection.py::test_invalid_tunnel_scheme\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "tion (1): localhost:53836\n=========================== short test summary info ============================\nFAILED test/with_dummyserver/test_connection.py::test_invalid_tunnel_scheme\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "tion (1): localhost:53840\n=========================== short test summary info ============================\nFAILED test/with_dummyserver/test_connection.py::test_invalid_tunnel_scheme\n1 failed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "attrs-none_guard-15--forward",
+      "library": "attrs",
+      "node": "tests/test_converters.py::TestOptionalPipe::test_instance",
+      "claim": "src/attr/converters.py:37 -- delete the None guard at src/attr/converters.py:37: if val is None:",
+      "base_sha": "8f767776326faaed11e6c2974798787f6e19b343",
+      "head_sha": "6d40dbcb93df5cf364bf17451d2382f8e4c628a7",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "s.py:158: ValueError\n=========================== short test summary info ============================\nFAILED tests/test_converters.py::TestOptionalPipe::test_instance - ValueError...\n1 failed in 0.05s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "s.py:158: ValueError\n=========================== short test summary info ============================\nFAILED tests/test_converters.py::TestOptionalPipe::test_instance - ValueError...\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "s.py:158: ValueError\n=========================== short test summary info ============================\nFAILED tests/test_converters.py::TestOptionalPipe::test_instance - ValueError...\n1 failed in 0.05s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "s.py:158: ValueError\n=========================== short test summary info ============================\nFAILED tests/test_converters.py::TestOptionalPipe::test_instance - ValueError...\n1 failed in 0.05s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "s.py:158: ValueError\n=========================== short test summary info ============================\nFAILED tests/test_converters.py::TestOptionalPipe::test_instance - ValueError...\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "s.py:158: ValueError\n=========================== short test summary info ============================\nFAILED tests/test_converters.py::TestOptionalPipe::test_instance - ValueError...\n1 failed in 0.05s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "itsdangerous-guard_raise-05--forward",
+      "library": "itsdangerous",
+      "node": "tests/test_itsdangerous/test_timed.py::TestTimedSerializer::test_max_age",
+      "claim": "src/itsdangerous/timed.py:141 -- delete the guard at src/itsdangerous/timed.py:141: if age > max_age:",
+      "base_sha": "672971d66a2ef9f85151e53283113f33d642dabd",
+      "head_sha": "ca10996271266201ddf75f3523bdb27eca450bc2",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.05s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "_timed.py:107: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimedSerializer::test_max_age\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "_timed.py:107: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimedSerializer::test_max_age\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "_timed.py:107: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimedSerializer::test_max_age\n1 failed in 0.06s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.05s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "_timed.py:107: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimedSerializer::test_max_age\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "_timed.py:107: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimedSerializer::test_max_age\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "_timed.py:107: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimedSerializer::test_max_age\n1 failed in 0.06s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.05s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "jinja-none_guard-13--forward",
+      "library": "jinja",
+      "node": "tests/test_async.py::TestAsyncForLoop::test_awaitable_property_slicing",
+      "claim": "src/jinja2/compiler.py:119 -- delete the None guard at src/jinja2/compiler.py:119: if stream is None:",
+      "base_sha": "5ef70112a1ff19c05324ff889dd30405b1002044",
+      "head_sha": "18a3cf8fac4d030f2f5c0f715eb296dd6da349e6",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "nment.py:708: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_async.py::TestAsyncForLoop::test_awaitable_property_slicing\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "nment.py:708: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_async.py::TestAsyncForLoop::test_awaitable_property_slicing\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "nment.py:708: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_async.py::TestAsyncForLoop::test_awaitable_property_slicing\n1 failed in 0.04s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "nment.py:708: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_async.py::TestAsyncForLoop::test_awaitable_property_slicing\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "nment.py:708: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_async.py::TestAsyncForLoop::test_awaitable_property_slicing\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "nment.py:708: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_async.py::TestAsyncForLoop::test_awaitable_property_slicing\n1 failed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "more-itertools-guard_raise-05--forward",
+      "library": "more-itertools",
+      "node": "tests/test_more.py::LastTests::test_empty",
+      "claim": "more_itertools/more.py:297 -- delete the guard at more_itertools/more.py:297: if default is _marker:",
+      "base_sha": "9ed3dbb0ae527230cd156d91d0af305478558fba",
+      "head_sha": "07b9b0168d2ef4f9cae3e9eff897cc24b85baf08",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                      [100%]\n1 passed, 2 subtests passed in 0.16s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                      [100%]\n1 passed, 2 subtests passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                      [100%]\n1 passed, 2 subtests passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "(iterable=[]) tests/test_more.py::LastTests::test_empty - AssertionE...\nSUBFAILED(iterable=<range_iterator object at 0x104293750>) tests/test_more.py::LastTests::test_empty\n2 failed, 1 passed in 0.20s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "(iterable=[]) tests/test_more.py::LastTests::test_empty - AssertionE...\nSUBFAILED(iterable=<range_iterator object at 0x10178b990>) tests/test_more.py::LastTests::test_empty\n2 failed, 1 passed in 0.18s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "(iterable=[]) tests/test_more.py::LastTests::test_empty - AssertionE...\nSUBFAILED(iterable=<range_iterator object at 0x101aa6250>) tests/test_more.py::LastTests::test_empty\n2 failed, 1 passed in 0.18s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                      [100%]\n1 passed, 2 subtests passed in 0.16s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                      [100%]\n1 passed, 2 subtests passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                      [100%]\n1 passed, 2 subtests passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                      [100%]\n1 passed, 2 subtests passed in 0.06s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                      [100%]\n1 passed, 2 subtests passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                      [100%]\n1 passed, 2 subtests passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "(iterable=[]) tests/test_more.py::LastTests::test_empty - AssertionE...\nSUBFAILED(iterable=<range_iterator object at 0x104293750>) tests/test_more.py::LastTests::test_empty\n2 failed, 1 passed in 0.20s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "(iterable=[]) tests/test_more.py::LastTests::test_empty - AssertionE...\nSUBFAILED(iterable=<range_iterator object at 0x10178b990>) tests/test_more.py::LastTests::test_empty\n2 failed, 1 passed in 0.18s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "(iterable=[]) tests/test_more.py::LastTests::test_empty - AssertionE...\nSUBFAILED(iterable=<range_iterator object at 0x101aa6250>) tests/test_more.py::LastTests::test_empty\n2 failed, 1 passed in 0.18s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                      [100%]\n1 passed, 2 subtests passed in 0.16s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                      [100%]\n1 passed, 2 subtests passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                      [100%]\n1 passed, 2 subtests passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "packaging-guard_raise-06--forward",
+      "library": "packaging",
+      "node": "tests/test_direct_url.py::test_validate_archive_info_hashes",
+      "claim": "src/packaging/direct_url.py:182 -- delete the guard at src/packaging/direct_url.py:182: if hashes is not None and not all(isinstance(h, str) for h in hashes.values()):",
+      "base_sha": "10590c194edb33c82f84a127883d6097c56b7840",
+      "head_sha": "6cab81d38bab58f64966e614b1d048b1198c5d3b",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.11s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "ct_url.py:95: Failed\n=========================== short test summary info ============================\nFAILED tests/test_direct_url.py::test_validate_archive_info_hashes - Failed: ...\n1 failed in 0.10s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "ct_url.py:95: Failed\n=========================== short test summary info ============================\nFAILED tests/test_direct_url.py::test_validate_archive_info_hashes - Failed: ...\n1 failed in 0.09s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "ct_url.py:95: Failed\n=========================== short test summary info ============================\nFAILED tests/test_direct_url.py::test_validate_archive_info_hashes - Failed: ...\n1 failed in 0.09s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.11s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.11s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.08s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.08s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "ct_url.py:95: Failed\n=========================== short test summary info ============================\nFAILED tests/test_direct_url.py::test_validate_archive_info_hashes - Failed: ...\n1 failed in 0.10s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "ct_url.py:95: Failed\n=========================== short test summary info ============================\nFAILED tests/test_direct_url.py::test_validate_archive_info_hashes - Failed: ...\n1 failed in 0.09s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "ct_url.py:95: Failed\n=========================== short test summary info ============================\nFAILED tests/test_direct_url.py::test_validate_archive_info_hashes - Failed: ...\n1 failed in 0.09s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.11s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "urllib3-none_guard-15--forward",
+      "library": "urllib3",
+      "node": "test/test_collections.py::TestHTTPHeaderDict::test_union_with_unsupported_type",
+      "claim": "src/urllib3/_collections.py:486 -- delete the None guard at src/urllib3/_collections.py:486: if maybe_constructable is None:",
+      "base_sha": "5f2a6a843d0100d1351c3f94d58581ca98d17267",
+      "head_sha": "b30224aa843d6cc9bff2bebb612f459bc0802f75",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ".py:467: Failed\n=========================== short test summary info ============================\nFAILED test/test_collections.py::TestHTTPHeaderDict::test_union_with_unsupported_type\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ".py:467: Failed\n=========================== short test summary info ============================\nFAILED test/test_collections.py::TestHTTPHeaderDict::test_union_with_unsupported_type\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ".py:467: Failed\n=========================== short test summary info ============================\nFAILED test/test_collections.py::TestHTTPHeaderDict::test_union_with_unsupported_type\n1 failed in 0.04s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ".py:467: Failed\n=========================== short test summary info ============================\nFAILED test/test_collections.py::TestHTTPHeaderDict::test_union_with_unsupported_type\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ".py:467: Failed\n=========================== short test summary info ============================\nFAILED test/test_collections.py::TestHTTPHeaderDict::test_union_with_unsupported_type\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": ".py:467: Failed\n=========================== short test summary info ============================\nFAILED test/test_collections.py::TestHTTPHeaderDict::test_union_with_unsupported_type\n1 failed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "attrs-none_guard-17--forward",
+      "library": "attrs",
+      "node": "tests/test_validators.py::TestDeepIterable::test_fail_invalid_member[member_validator0]",
+      "claim": "src/attr/validators.py:206 -- delete the None guard at src/attr/validators.py:206: if value is None:",
+      "base_sha": "8f767776326faaed11e6c2974798787f6e19b343",
+      "head_sha": "6f872041a5b464f8332f72298fa2cb00f5c1db91",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "eError\n=========================== short test summary info ============================\nFAILED tests/test_validators.py::TestDeepIterable::test_fail_invalid_member[member_validator0]\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "eError\n=========================== short test summary info ============================\nFAILED tests/test_validators.py::TestDeepIterable::test_fail_invalid_member[member_validator0]\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "eError\n=========================== short test summary info ============================\nFAILED tests/test_validators.py::TestDeepIterable::test_fail_invalid_member[member_validator0]\n1 failed in 0.04s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "eError\n=========================== short test summary info ============================\nFAILED tests/test_validators.py::TestDeepIterable::test_fail_invalid_member[member_validator0]\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "eError\n=========================== short test summary info ============================\nFAILED tests/test_validators.py::TestDeepIterable::test_fail_invalid_member[member_validator0]\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "eError\n=========================== short test summary info ============================\nFAILED tests/test_validators.py::TestDeepIterable::test_fail_invalid_member[member_validator0]\n1 failed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "click-none_guard-15--forward",
+      "library": "click",
+      "node": "tests/test_termui.py::test_echo_via_pager_tty_pager_missing",
+      "claim": "src/click/_termui_impl.py:484 -- delete the None guard at src/click/_termui_impl.py:484: if resolved is None:",
+      "base_sha": "6aabf099bfdd4c1e75fe8d0e0d4241372b988ab1",
+      "head_sha": "8db7098228770edf3230633c7aae14aae7861579",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.05s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "1059: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_termui.py::test_echo_via_pager_tty_pager_missing - Assertio...\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "1059: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_termui.py::test_echo_via_pager_tty_pager_missing - Assertio...\n1 failed in 0.05s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "1059: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_termui.py::test_echo_via_pager_tty_pager_missing - Assertio...\n1 failed in 0.06s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.05s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "1059: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_termui.py::test_echo_via_pager_tty_pager_missing - Assertio...\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "1059: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_termui.py::test_echo_via_pager_tty_pager_missing - Assertio...\n1 failed in 0.05s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "1059: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_termui.py::test_echo_via_pager_tty_pager_missing - Assertio...\n1 failed in 0.06s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.05s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "itsdangerous-guard_raise-06--forward",
+      "library": "itsdangerous",
+      "node": "tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_future_age",
+      "claim": "src/itsdangerous/timed.py:148 -- delete the guard at src/itsdangerous/timed.py:148: if age < 0:",
+      "base_sha": "672971d66a2ef9f85151e53283113f33d642dabd",
+      "head_sha": "6ea09aa28dff46437fee03733a60b48c7b237651",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.07s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.05s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "imed.py:82: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_future_age\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "imed.py:82: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_future_age\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "imed.py:82: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_future_age\n1 failed in 0.06s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.07s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.05s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.05s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.05s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "imed.py:82: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_future_age\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "imed.py:82: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_future_age\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "imed.py:82: Failed\n=========================== short test summary info ============================\nFAILED tests/test_itsdangerous/test_timed.py::TestTimestampSigner::test_future_age\n1 failed in 0.06s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.07s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.05s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "more-itertools-none_guard-17--forward",
+      "library": "more-itertools",
+      "node": "tests/test_recipes.py::RepeatfuncTests::test_simple_repeat",
+      "claim": "more_itertools/recipes.py:336 -- delete the None guard at more_itertools/recipes.py:336: if times is None:",
+      "base_sha": "9ed3dbb0ae527230cd156d91d0af305478558fba",
+      "head_sha": "f81fd8b4450d4a3318a37460be91bba0a62b2b40",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.06s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "es.py:336: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_recipes.py::RepeatfuncTests::test_simple_repeat - TypeError...\n1 failed in 0.07s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "es.py:336: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_recipes.py::RepeatfuncTests::test_simple_repeat - TypeError...\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "es.py:336: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_recipes.py::RepeatfuncTests::test_simple_repeat - TypeError...\n1 failed in 0.07s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.06s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "es.py:336: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_recipes.py::RepeatfuncTests::test_simple_repeat - TypeError...\n1 failed in 0.07s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "es.py:336: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_recipes.py::RepeatfuncTests::test_simple_repeat - TypeError...\n1 failed in 0.06s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "es.py:336: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_recipes.py::RepeatfuncTests::test_simple_repeat - TypeError...\n1 failed in 0.07s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.06s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.04s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "packaging-none_guard-13--forward",
+      "library": "packaging",
+      "node": "tests/test_manylinux.py::test_glibc_version_string_fail",
+      "claim": "src/packaging/_manylinux.py:178 -- delete the None guard at src/packaging/_manylinux.py:178: if version_str is None:",
+      "base_sha": "10590c194edb33c82f84a127883d6097c56b7840",
+      "head_sha": "a0be076fa06201fdab4457121c3d929d4526b67e",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.10s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "__.py:167: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_manylinux.py::test_glibc_version_string_fail - TypeError: e...\n1 failed in 0.10s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "__.py:167: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_manylinux.py::test_glibc_version_string_fail - TypeError: e...\n1 failed in 0.10s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "__.py:167: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_manylinux.py::test_glibc_version_string_fail - TypeError: e...\n1 failed in 0.10s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.10s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "__.py:167: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_manylinux.py::test_glibc_version_string_fail - TypeError: e...\n1 failed in 0.10s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "__.py:167: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_manylinux.py::test_glibc_version_string_fail - TypeError: e...\n1 failed in 0.10s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "__.py:167: TypeError\n=========================== short test summary info ============================\nFAILED tests/test_manylinux.py::test_glibc_version_string_fail - TypeError: e...\n1 failed in 0.10s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.10s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.09s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    },
+    {
+      "unit_id": "urllib3-none_guard-18--forward",
+      "library": "urllib3",
+      "node": "test/test_poolmanager.py::TestPoolManager::test_pool_manager_no_url_absolute_form",
+      "claim": "src/urllib3/poolmanager.py:418 -- delete the None guard at src/urllib3/poolmanager.py:418: if self.proxy is None:",
+      "base_sha": "5f2a6a843d0100d1351c3f94d58581ca98d17267",
+      "head_sha": "fa1c18f47968e06ce0d09190d4956d020ad2ee59",
+      "true_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "sertionError\n=========================== short test summary info ============================\nFAILED test/test_poolmanager.py::TestPoolManager::test_pool_manager_no_url_absolute_form\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "sertionError\n=========================== short test summary info ============================\nFAILED test/test_poolmanager.py::TestPoolManager::test_pool_manager_no_url_absolute_form\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "sertionError\n=========================== short test summary info ============================\nFAILED test/test_poolmanager.py::TestPoolManager::test_pool_manager_no_url_absolute_form\n1 failed in 0.04s"
+          }
+        ],
+        "verdict": "confirmed"
+      },
+      "null_claim": {
+        "base": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      },
+      "reversed_claim": {
+        "base": [
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "sertionError\n=========================== short test summary info ============================\nFAILED test/test_poolmanager.py::TestPoolManager::test_pool_manager_no_url_absolute_form\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "sertionError\n=========================== short test summary info ============================\nFAILED test/test_poolmanager.py::TestPoolManager::test_pool_manager_no_url_absolute_form\n1 failed in 0.04s"
+          },
+          {
+            "outcome": "failed",
+            "exit": 1,
+            "tail": "sertionError\n=========================== short test summary info ============================\nFAILED test/test_poolmanager.py::TestPoolManager::test_pool_manager_no_url_absolute_form\n1 failed in 0.04s"
+          }
+        ],
+        "head": [
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.03s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          },
+          {
+            "outcome": "passed",
+            "exit": 0,
+            "tail": ".                                                                        [100%]\n1 passed in 0.01s"
+          }
+        ],
+        "verdict": "refused"
+      }
+    }
+  ]
+}

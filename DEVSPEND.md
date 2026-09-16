@@ -364,6 +364,9 @@ contract probes, counterexamples and controls) called no model: **$0.000000**.
 D-254's end-to-end acceptance (frozen proposals and probes over the forty, the counterexamples and
 24 control pull requests, runs `dry`, `f1`..`f3`) called no model: **$0.000000**; the frozen
 provider's per-review spend figures are replayed tokens, not purchases.
+P-03, the claim-verification probe (63 adjudications over the existing mutation corpus, each in
+the library's own recorded environment), called no model: **$0.000000**. The approved cap and
+settled total are unchanged.
 P-01, the Go execution probe (one pulled public image, six container runs, no product change),
 called no model: **$0.000000**. The approved cap and settled total are unchanged.
 D-282's test-context repair (the rebuilt contract searches, the affected-case replay `b2` and one

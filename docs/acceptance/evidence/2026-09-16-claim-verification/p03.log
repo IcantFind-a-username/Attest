@@ -1,0 +1,33 @@
+{"unit_id": "more-itertools-boundary-08--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "packaging-boundary-08--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "attrs-guard_raise-03--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "itsdangerous-guard_raise-01--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "python-dotenv-boundary-08--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "itsdangerous-guard_raise-04--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "more-itertools-guard_raise-04--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "packaging-guard_raise-01--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "urllib3-guard_raise-04--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "attrs-none_guard-15--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "itsdangerous-guard_raise-05--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "jinja-none_guard-13--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "more-itertools-guard_raise-05--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "packaging-guard_raise-06--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "urllib3-none_guard-15--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "attrs-none_guard-17--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "click-none_guard-15--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "itsdangerous-guard_raise-06--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "more-itertools-none_guard-17--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "packaging-none_guard-13--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{"unit_id": "urllib3-none_guard-18--forward", "true": "confirmed", "null": "refused", "reversed": "refused"}
+{
+  "cases": 21,
+  "true_claims": {
+    "confirmed": 21
+  },
+  "null_claims": {
+    "refused": 21
+  },
+  "reversed_claims": {
+    "refused": 21
+  }
+}
