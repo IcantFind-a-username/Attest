@@ -38,6 +38,12 @@ Quantitative gates are in [`acceptance/evolution-gates.md`](acceptance/evolution
 
 ## 2. Honest baseline
 
+- **2026-09-16 — D-278 controlled probe arguments:** `f2560ce` prevents project
+  addopts from obstructing or selecting the generated probe. One review and the
+  fixed-source full gate pass: 2,568 tests, 93.42% certification/execution coverage.
+  Runtime/original-test qualification and paid evaluation remain pending.
+  [Evidence and compatibility cost](acceptance/2026-09-16-controlled-probe-options.md).
+
 - **2026-09-16 — D-277 natural-pair build compatibility:** the owner approved a
   separate free diagnostic. Astropy's parent/head wheels build; scikit-learn's
   two revisions fail package discovery (2/4 builds, one complete source pair).

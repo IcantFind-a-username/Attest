@@ -2866,3 +2866,10 @@ Reversal: any artifact/provenance mismatch invalidates the affected compatibilit
 - One independent review's cutoff/path/order binding defect fixed before execution; five drift mutations refuse, artifact hashes and isolated metadata verified; Ruff/diff checks pass.
 - Two successful wheels are one source pair, not a runtime witness or recall estimate. D-276 remains unchanged; qualified defects/controls 0/0, API spend $0, no paid dispatch/push.
 - Next is separately frozen source-mounted qualification using revision-specific artifacts; no missing-third-defect inference. INV-TRUTH-001/INV-CERT-001 unchanged; supersedes none.
+
+### D-278 — Controller-owned probe arguments (2026-09-16, gated)
+- Scope: `f2560ce` clears project pytest addopts in the existing executor; exact argv stays request-bound (INV-CERT-001, G-SEM-001, G-CODE-001/002).
+- Evidence: four baseline REDs, five argument cases, fixture/warning regressions; one review found no defect; 2,568 full tests pass, 93.42% kernel/execution coverage.
+- Cost: project `-W` and import-mode addopts are also ignored; other ini/conftest behavior and plugin prohibition remain. No measured recall claim.
+- Reversal: revert if a supported probe needs project CLI semantics the controller cannot express; no superseded measurements or default intent changes.
+- Files: executor and its tests; [gate, limits and review](docs/acceptance/2026-09-16-controlled-probe-options.md). API spend $0; paid qualification remains unmet.

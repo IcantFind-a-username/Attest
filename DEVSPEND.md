@@ -642,3 +642,7 @@ or remote write. Settled total $145.457111 and cumulative cap $150.00 are unchan
 **2026-09-16 — D-277 authorized natural-pair builds: $0.00 model/API spend.**
 Four separate parent/head Docker builds, two built and two failed; no provider call,
 paid reservation, push or release. Approved cap and settled API total unchanged.
+
+**2026-09-16 — D-278 controlled probe arguments: $0.00 model/API spend.**
+Focused, adjacent and full gates plus one independent review; no provider call,
+reservation, push or release. Approved cap and settled total unchanged.

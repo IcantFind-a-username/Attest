@@ -1,0 +1,154 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_controlled_probe_owns_pytest_arguments[pytest.ini-[pytest]\naddopts = --doctest-rst\n-False] _
+
+tmp_path = PosixPath('<temporary_root>/pytest-of-franz/pytest-0/test_controlled_probe_owns_pyt0')
+config_name = 'pytest.ini', config_text = '[pytest]\naddopts = --doctest-rst\n'
+collect_only = False
+
+    @pytest.mark.parametrize(
+        ("config_name", "config_text", "collect_only"),
+        [
+            ("pytest.ini", "[pytest]\naddopts = --doctest-rst\n", False),
+            ("setup.cfg", "[tool:pytest]\naddopts = -k no_probe_matches_this\n", False),
+            ("pyproject.toml", '[tool.pytest.ini_options]\naddopts = "--collect-only"\n', False),
+            ("pytest.ini", "[pytest]\naddopts = --doctest-rst\n", True),
+        ],
+    )
+    def test_controlled_probe_owns_pytest_arguments(
+        tmp_path: Path, config_name: str, config_text: str, collect_only: bool,
+    ) -> None:
+        tree = tmp_path / "tree"
+        write_layout(tree, {config_name: config_text, "mod.py": GOOD_MODULE})
+        result = execute_repro(
+            tmp_path, candidate(file="mod.py", line=1),
+            ReproSpec(
+                "import os\nimport mod\ndef test_repro():\n"
+                "    assert os.environ['PYTEST_DISABLE_PLUGIN_AUTOLOAD'] == '1'\n"
+                "    assert mod.add(2, 2) == 4\n"
+            ),
+            ExecutorLimits(), tree=tree, collect_only=collect_only,
+        )
+>       assert result.exit_code == 0, result.reason + "\n" + result.stdout
+E       AssertionError: missing or malformed JUnit evidence: ValueError: no JUnit artifact
+E         
+E       assert 4 == 0
+E        +  where 4 = ExecutionResult(outcome=<ExecutionOutcome.DEFERRED: 'deferred'>, reason='missing or malformed JUnit evidence: ValueErr...te=True, raise_origins=(), raise_origins_truncated=False, failure_message='', failure_detail='', contained_attempts=()).exit_code
+
+tests/test_executor.py:696: AssertionError
+_ test_controlled_probe_owns_pytest_arguments[setup.cfg-[tool:pytest]\naddopts = -k no_probe_matches_this\n-False] _
+
+tmp_path = PosixPath('<temporary_root>/pytest-of-franz/pytest-0/test_controlled_probe_owns_pyt1')
+config_name = 'setup.cfg'
+config_text = '[tool:pytest]\naddopts = -k no_probe_matches_this\n'
+collect_only = False
+
+    @pytest.mark.parametrize(
+        ("config_name", "config_text", "collect_only"),
+        [
+            ("pytest.ini", "[pytest]\naddopts = --doctest-rst\n", False),
+            ("setup.cfg", "[tool:pytest]\naddopts = -k no_probe_matches_this\n", False),
+            ("pyproject.toml", '[tool.pytest.ini_options]\naddopts = "--collect-only"\n', False),
+            ("pytest.ini", "[pytest]\naddopts = --doctest-rst\n", True),
+        ],
+    )
+    def test_controlled_probe_owns_pytest_arguments(
+        tmp_path: Path, config_name: str, config_text: str, collect_only: bool,
+    ) -> None:
+        tree = tmp_path / "tree"
+        write_layout(tree, {config_name: config_text, "mod.py": GOOD_MODULE})
+        result = execute_repro(
+            tmp_path, candidate(file="mod.py", line=1),
+            ReproSpec(
+                "import os\nimport mod\ndef test_repro():\n"
+                "    assert os.environ['PYTEST_DISABLE_PLUGIN_AUTOLOAD'] == '1'\n"
+                "    assert mod.add(2, 2) == 4\n"
+            ),
+            ExecutorLimits(), tree=tree, collect_only=collect_only,
+        )
+>       assert result.exit_code == 0, result.reason + "\n" + result.stdout
+E       AssertionError: pytest collection/import/syntax or infrastructure failure (exit code 5, 0 failure(s), 0 error(s))
+E         
+E         1 deselected in 0.00s
+E         
+E       assert 5 == 0
+E        +  where 5 = ExecutionResult(outcome=<ExecutionOutcome.DEFERRED: 'deferred'>, reason='pytest collection/import/syntax or infrastruc...te=True, raise_origins=(), raise_origins_truncated=False, failure_message='', failure_detail='', contained_attempts=()).exit_code
+
+tests/test_executor.py:696: AssertionError
+_ test_controlled_probe_owns_pytest_arguments[pyproject.toml-[tool.pytest.ini_options]\naddopts = "--collect-only"\n-False] _
+
+tmp_path = PosixPath('<temporary_root>/pytest-of-franz/pytest-0/test_controlled_probe_owns_pyt2')
+config_name = 'pyproject.toml'
+config_text = '[tool.pytest.ini_options]\naddopts = "--collect-only"\n'
+collect_only = False
+
+    @pytest.mark.parametrize(
+        ("config_name", "config_text", "collect_only"),
+        [
+            ("pytest.ini", "[pytest]\naddopts = --doctest-rst\n", False),
+            ("setup.cfg", "[tool:pytest]\naddopts = -k no_probe_matches_this\n", False),
+            ("pyproject.toml", '[tool.pytest.ini_options]\naddopts = "--collect-only"\n', False),
+            ("pytest.ini", "[pytest]\naddopts = --doctest-rst\n", True),
+        ],
+    )
+    def test_controlled_probe_owns_pytest_arguments(
+        tmp_path: Path, config_name: str, config_text: str, collect_only: bool,
+    ) -> None:
+        tree = tmp_path / "tree"
+        write_layout(tree, {config_name: config_text, "mod.py": GOOD_MODULE})
+        result = execute_repro(
+            tmp_path, candidate(file="mod.py", line=1),
+            ReproSpec(
+                "import os\nimport mod\ndef test_repro():\n"
+                "    assert os.environ['PYTEST_DISABLE_PLUGIN_AUTOLOAD'] == '1'\n"
+                "    assert mod.add(2, 2) == 4\n"
+            ),
+            ExecutorLimits(), tree=tree, collect_only=collect_only,
+        )
+        assert result.exit_code == 0, result.reason + "\n" + result.stdout
+>       assert result.collected_count == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = ExecutionResult(outcome=<ExecutionOutcome.NOT_REPRODUCED: 'not_reproduced'>, reason='pytest passed', exit_code=0, stdo...te=True, raise_origins=(), raise_origins_truncated=False, failure_message='', failure_detail='', contained_attempts=()).collected_count
+
+tests/test_executor.py:697: AssertionError
+_ test_controlled_probe_owns_pytest_arguments[pytest.ini-[pytest]\naddopts = --doctest-rst\n-True] _
+
+tmp_path = PosixPath('<temporary_root>/pytest-of-franz/pytest-0/test_controlled_probe_owns_pyt3')
+config_name = 'pytest.ini', config_text = '[pytest]\naddopts = --doctest-rst\n'
+collect_only = True
+
+    @pytest.mark.parametrize(
+        ("config_name", "config_text", "collect_only"),
+        [
+            ("pytest.ini", "[pytest]\naddopts = --doctest-rst\n", False),
+            ("setup.cfg", "[tool:pytest]\naddopts = -k no_probe_matches_this\n", False),
+            ("pyproject.toml", '[tool.pytest.ini_options]\naddopts = "--collect-only"\n', False),
+            ("pytest.ini", "[pytest]\naddopts = --doctest-rst\n", True),
+        ],
+    )
+    def test_controlled_probe_owns_pytest_arguments(
+        tmp_path: Path, config_name: str, config_text: str, collect_only: bool,
+    ) -> None:
+        tree = tmp_path / "tree"
+        write_layout(tree, {config_name: config_text, "mod.py": GOOD_MODULE})
+        result = execute_repro(
+            tmp_path, candidate(file="mod.py", line=1),
+            ReproSpec(
+                "import os\nimport mod\ndef test_repro():\n"
+                "    assert os.environ['PYTEST_DISABLE_PLUGIN_AUTOLOAD'] == '1'\n"
+                "    assert mod.add(2, 2) == 4\n"
+            ),
+            ExecutorLimits(), tree=tree, collect_only=collect_only,
+        )
+>       assert result.exit_code == 0, result.reason + "\n" + result.stdout
+E       AssertionError: pytest collection/import/syntax or infrastructure failure during collection (exit code 4)
+E         
+E       assert 4 == 0
+E        +  where 4 = ExecutionResult(outcome=<ExecutionOutcome.DEFERRED: 'deferred'>, reason='pytest collection/import/syntax or infrastruc...te=True, raise_origins=(), raise_origins_truncated=False, failure_message='', failure_detail='', contained_attempts=()).exit_code
+
+tests/test_executor.py:696: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_executor.py::test_controlled_probe_owns_pytest_arguments[pytest.ini-[pytest]\naddopts = --doctest-rst\n-False]
+FAILED tests/test_executor.py::test_controlled_probe_owns_pytest_arguments[setup.cfg-[tool:pytest]\naddopts = -k no_probe_matches_this\n-False]
+FAILED tests/test_executor.py::test_controlled_probe_owns_pytest_arguments[pyproject.toml-[tool.pytest.ini_options]\naddopts = "--collect-only"\n-False]
+FAILED tests/test_executor.py::test_controlled_probe_owns_pytest_arguments[pytest.ini-[pytest]\naddopts = --doctest-rst\n-True]

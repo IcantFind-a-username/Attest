@@ -13,6 +13,12 @@ Versions follow [semantic versioning](https://semver.org/) from `v0.1.0` onward.
 
 ### Fixes
 
+- **Controlled probes ignore project pytest addopts (D-278).** Prevent disabled-plugin
+  options, deselection, collection-only mode and explicit plugin loading from replacing
+  the controller's probe command. **Cost in recall or trust:** project warning/import
+  flags in addopts are also ignored; other ini settings and conftest remain. No recall
+  gain is claimed. [Evidence](docs/acceptance/2026-09-16-controlled-probe-options.md).
+
 - **Parameter rows retain their own runtime bindings in shadow (D-259).** Match complete
   node sets and per-node outcomes, including reordered parameters and refused-node reports.
   One historical development case regains a shadow observation; all 15 prior synthetic
