@@ -53,13 +53,18 @@ def natural_cases(population: dict, study: Path) -> list[dict]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--study", choices=("swebench", "natural-pairs"), default="swebench")
+    parser.add_argument("--study", choices=("swebench", "natural-pairs", "remainder-pairs"),
+                        default="swebench")
     args = parser.parse_args()
-    natural = args.study == "natural-pairs"
+    remainder = args.study == "remainder-pairs"
+    natural = args.study in {"natural-pairs", "remainder-pairs"}
     study = ROOT / "benchmarks/studies/metadata-exposed-v1/compatibility" if natural else STUDY
     work = ROOT / ".attest/corpora/natural-pair-compatible-build" if natural else WORK
     previous = ROOT / ".attest/corpora/metadata-exposed-runtime" if natural else PREVIOUS
     repo_base = ROOT / ".attest/corpora/metadata-exposed-v1" if natural else PREVIOUS
+    if remainder:
+        study = ROOT / "benchmarks/studies/remainder-v1/compatibility"
+        work = ROOT / ".attest/corpora/remainder-pair-compatible-build"
     if work.exists():
         raise ValueError("fresh output directory required; no retry or overwrite")
     work.mkdir()
@@ -74,7 +79,9 @@ def main() -> None:
         cases = natural_cases(population, study.parent)
     else:
         cases = [c for r in population["repositories"] for c in r["selected"]]
-    if len(cases) != (4 if natural else 6) or len({c["repo"] for c in cases}) != 2:
+    if (not cases or (not remainder and (
+        len(cases) != (4 if natural else 6) or len({c["repo"] for c in cases}) != 2
+    ))):
         raise ValueError("population drift")
     record: dict = {
         "status": "started", "rows": [], "model_api_spend_usd": 0,
@@ -85,9 +92,13 @@ def main() -> None:
         "qualified_defects": 0, "qualified_controls": 0,
     }
     write_canonical_json(work / "result.json", record)
-    subprocess.run(["docker", "pull", "python:3.10-bookworm"], env=env, check=True, timeout=300)
+    builder = (
+        "python@sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a534929d4e"
+        if remainder else "python:3.10-bookworm"
+    )
+    subprocess.run(["docker", "pull", builder], env=env, check=True, timeout=300)
     base = json.loads(subprocess.check_output(
-        ["docker", "image", "inspect", "python:3.10-bookworm"], env=env, timeout=30,
+        ["docker", "image", "inspect", builder], env=env, timeout=30,
     ))[0]
     reference = base["RepoDigests"][0]
     record["builder_reference"] = reference
@@ -109,7 +120,14 @@ def main() -> None:
             archive(repo, case["base_commit"], tree, timeout=60)
             if any(p.is_symlink() for p in tree.rglob("*")):
                 raise ValueError("symlink export refused")
-            build = tomllib.loads((tree / "pyproject.toml").read_text())["build-system"]["requires"]
+            pyproject = tree / "pyproject.toml"
+            if remainder:
+                metadata = tomllib.loads(pyproject.read_text()) if pyproject.exists() else {}
+                build = metadata.get("build-system", {}).get("requires", [])
+                row["declared_build_requirements"] = build
+                row["implicit_backend"] = not bool(build)
+            else:
+                build = tomllib.loads(pyproject.read_text())["build-system"]["requires"]
             names = sorted(set(direct_dependencies(tree)) | {
                 normalise(Requirement(r).name) for r in build
             } | {"pip", "setuptools", "wheel", "pytest", "numpy"})
@@ -134,9 +152,16 @@ def main() -> None:
                 + "RUN python -m pip wheel --no-clean --verbose --no-deps --wheel-dir /wheels .\n"
                 "RUN sha256sum /wheels/* > /wheel-digests.txt"
                 " && python -m pip freeze > /builder-freeze.txt\n"
-                "RUN find /tmp/pip-build-env-* -path '*.dist-info/METADATA' -print"
-                " > /isolated-metadata-paths.txt && test -s /isolated-metadata-paths.txt"
-                " && tar -cf /isolated-build-metadata.tar -T /isolated-metadata-paths.txt\n"
+                + (
+                    "RUN find /tmp -path '/tmp/pip-build-env-*/*.dist-info/METADATA' -print"
+                    " > /isolated-metadata-paths.txt"
+                    + (" && test -s /isolated-metadata-paths.txt" if build else "")
+                    + " && tar -cf /isolated-build-metadata.tar -T /isolated-metadata-paths.txt\n"
+                    if remainder else
+                    "RUN find /tmp/pip-build-env-* -path '*.dist-info/METADATA' -print"
+                    " > /isolated-metadata-paths.txt && test -s /isolated-metadata-paths.txt"
+                    " && tar -cf /isolated-build-metadata.tar -T /isolated-metadata-paths.txt\n"
+                )
             )
             (directory / "Dockerfile").write_text(dockerfile)
             row["dockerfile_sha256"] = sha256_bytes(dockerfile.encode())

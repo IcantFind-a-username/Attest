@@ -147,7 +147,10 @@ def main() -> None:
                 "review_b_class": b["semantic_class"],
             }
         )
-    defects = {sha for pair in pairs for sha in (pair["parent_sha"], pair["head_sha"])}
+    defects = {
+        sha for name in ("semantic-a", "semantic-b") for row in reviews[name]
+        for sha in (row["parent_sha"], row["head_sha"]) if sha
+    }
     control_rows = []
     for a, b in zip(reviews["controls-a"], reviews["controls-b"], strict=True):
         agrees = (
