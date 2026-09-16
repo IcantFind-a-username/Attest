@@ -7,13 +7,16 @@ through the existing in-tree executor in the same production container image.
 from __future__ import annotations
 
 import argparse
+import io
 import json
+import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import tomllib
 from dataclasses import asdict
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -54,9 +57,75 @@ OBSERVER_SOURCE = ROOT / "src/attest/review/_contract_observer.py"
 
 
 def archive(repo: Path, sha: str, destination: Path, *, timeout: float | None = None) -> None:
-    destination.mkdir(parents=True, exist_ok=False)
+    """Validate the complete Git archive graph before creating any export files."""
     data = subprocess.check_output(["git", "-C", str(repo), "archive", sha], timeout=timeout)
-    subprocess.run(["tar", "-x", "-C", str(destination)], input=data, check=True, timeout=timeout)
+    if len(data) > 512 * 1024 * 1024:
+        raise ValueError("archive size bound exceeded")
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:") as stream:
+        members = stream.getmembers()
+        entries: dict[str, tarfile.TarInfo] = {}
+        if len(members) > 100000:
+            raise ValueError("archive entry bound exceeded")
+        for member in members:
+            name = member.name.rstrip("/")
+            path = PurePosixPath(name)
+            if (not name or path.is_absolute() or ".." in path.parts
+                or str(path) != name or "\\" in name or ":" in name
+                or name in entries or not (member.isfile() or member.isdir() or member.issym())):
+                raise ValueError("unsafe archive member: " + name)
+            entries[name] = member
+        for name in entries:
+            for parent in PurePosixPath(name).parents:
+                if str(parent) != "." and (
+                    str(parent) not in entries or not entries[str(parent)].isdir()
+                ):
+                    raise ValueError("archive member below non-directory: " + name)
+        for name, member in entries.items():
+            if not member.issym():
+                continue
+            pending = name.split("/")
+            resolved: list[str] = []
+            hops = 0
+            while pending:
+                part = pending.pop(0)
+                if part in ("", "."):
+                    continue
+                if part == "..":
+                    if not resolved:
+                        raise ValueError("symlink escapes export: " + name)
+                    resolved.pop()
+                    continue
+                resolved.append(part)
+                current = entries.get("/".join(resolved))
+                if current is None:
+                    raise ValueError("dangling symlink: " + name)
+                if current.issym():
+                    target = current.linkname
+                    hops += 1
+                    if (not target or target.startswith("/") or "\\" in target
+                        or ":" in target or hops > 40):
+                        raise ValueError("unsafe or cyclic symlink: " + name)
+                    resolved.pop()
+                    pending = target.split("/") + pending
+                elif pending and not current.isdir():
+                    raise ValueError("symlink traverses non-directory: " + name)
+        destination.mkdir(parents=True, exist_ok=False)
+        for name, member in entries.items():
+            target = destination / name
+            if member.isdir():
+                target.mkdir(parents=True, exist_ok=True)
+            elif member.isfile():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                payload = stream.extractfile(member)
+                if payload is None:
+                    raise ValueError("missing archive payload")
+                with target.open("xb") as output:
+                    shutil.copyfileobj(payload, output)
+                target.chmod(0o755 if member.mode & 0o111 else 0o644)
+        # Create links last: extraction never follows an archive-controlled link.
+        for name, member in entries.items():
+            if member.issym():
+                os.symlink(member.linkname, destination / name)
 
 
 def run_site(

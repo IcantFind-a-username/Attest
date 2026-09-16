@@ -53,18 +53,23 @@ def natural_cases(population: dict, study: Path) -> list[dict]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--study", choices=("swebench", "natural-pairs", "remainder-pairs"),
+    parser.add_argument("--study",
+                        choices=("swebench", "natural-pairs", "remainder-pairs",
+                                 "remainder-safe-links"),
                         default="swebench")
     args = parser.parse_args()
-    remainder = args.study == "remainder-pairs"
-    natural = args.study in {"natural-pairs", "remainder-pairs"}
+    safe_links = args.study == "remainder-safe-links"
+    remainder = args.study in {"remainder-pairs", "remainder-safe-links"}
+    natural = remainder or args.study == "natural-pairs"
     study = ROOT / "benchmarks/studies/metadata-exposed-v1/compatibility" if natural else STUDY
     work = ROOT / ".attest/corpora/natural-pair-compatible-build" if natural else WORK
     previous = ROOT / ".attest/corpora/metadata-exposed-runtime" if natural else PREVIOUS
     repo_base = ROOT / ".attest/corpora/metadata-exposed-v1" if natural else PREVIOUS
     if remainder:
         study = ROOT / "benchmarks/studies/remainder-v1/compatibility"
-        work = ROOT / ".attest/corpora/remainder-pair-compatible-build"
+        work = ROOT / ".attest/corpora" / (
+            "remainder-safe-link-build" if safe_links else "remainder-pair-compatible-build"
+        )
     if work.exists():
         raise ValueError("fresh output directory required; no retry or overwrite")
     work.mkdir()
@@ -86,8 +91,13 @@ def main() -> None:
     record: dict = {
         "status": "started", "rows": [], "model_api_spend_usd": 0,
         "population_sha256": sha256_bytes(frozen),
-        "protocol_sha256": sha256_bytes((study / "compatible-runtime.md").read_bytes()),
+        "protocol_sha256": sha256_bytes((study / (
+            "safe-link-runtime.md" if safe_links else "compatible-runtime.md"
+        )).read_bytes()),
         "driver_sha256": sha256_bytes(Path(__file__).read_bytes()),
+        "archive_helper_sha256": sha256_bytes(
+            (ROOT / "scripts/corpus/runtime_contract_shadow.py").read_bytes()
+        ),
         "code_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "qualified_defects": 0, "qualified_controls": 0,
     }
@@ -115,10 +125,10 @@ def main() -> None:
             listing = subprocess.check_output(
                 ["git", "-C", str(repo), "ls-tree", "-r", case["base_commit"]], timeout=30,
             )
-            if any(line.startswith(b"120000 ") for line in listing.splitlines()):
+            if not safe_links and any(line.startswith(b"120000 ") for line in listing.splitlines()):
                 raise ValueError("symlink export refused before extraction")
             archive(repo, case["base_commit"], tree, timeout=60)
-            if any(p.is_symlink() for p in tree.rglob("*")):
+            if not safe_links and any(p.is_symlink() for p in tree.rglob("*")):
                 raise ValueError("symlink export refused")
             pyproject = tree / "pyproject.toml"
             if remainder:
