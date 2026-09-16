@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -31,21 +32,47 @@ REPOS = ROOT / ".attest/corpora/metadata-exposed-v1"
 WORK = ROOT / ".attest/corpora/natural-pair-original-tests"
 
 
+def overlay_original_test(tree: Path, test_path: str, payload: bytes) -> None:
+    """Copy oracle bytes only into an existing regular file within the source tree."""
+    relative = PurePosixPath(test_path)
+    if (relative.is_absolute() or ".." in relative.parts or "\\" in test_path
+            or relative.as_posix() != test_path or not test_path.endswith(".py")
+            or any((tree / part).is_symlink() for part in (relative, *relative.parents))
+            or not (tree / relative).is_file()):
+        raise ValueError("unsafe original-test overlay target")
+    (tree / relative).write_bytes(payload)
+
+
 def main() -> None:
-    if WORK.exists():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--study", choices=("natural", "remainder"), default="natural")
+    remainder = parser.parse_args().study == "remainder"
+    study = ROOT / "benchmarks/studies/remainder-v1" if remainder else STUDY
+    runtime_root = (
+        ROOT / ".attest/corpora/remainder-setup-declaration-runtime" if remainder else RUNTIME
+    )
+    builds_root = ROOT / ".attest/corpora/remainder-safe-link-build" if remainder else BUILDS
+    inputs_root = ROOT / ".attest/corpora/remainder-v1-oracles" if remainder else INPUTS
+    repos_root = REPOS
+    work_root = ROOT / ".attest/corpora/remainder-original-tests" if remainder else WORK
+    runtime_evidence = (
+        "setup-declaration-runtime-evidence" if remainder else "source-runtime-evidence"
+    )
+    build_evidence = "safe-link-build-evidence" if remainder else "build-evidence"
+    if work_root.exists():
         raise ValueError("fresh output directory required; no retry")
     if any(os.environ.get(n) for n in ("ATTEST_PROJECT_PYTHON", "ATTEST_PIP_CONSTRAINT")):
         raise ValueError("runtime override refused")
-    cases_bytes = (STUDY / "compatibility/cases.json").read_bytes()
-    cases = natural_cases(json.loads(cases_bytes), STUDY)
-    runtime_bytes = (RUNTIME / "result.json").read_bytes()
+    cases_bytes = (study / "compatibility/cases.json").read_bytes()
+    cases = natural_cases(json.loads(cases_bytes), study)
+    runtime_bytes = (runtime_root / "result.json").read_bytes()
     runtime = json.loads(runtime_bytes)
     evidence = json.loads(
-        (STUDY / "compatibility/source-runtime-evidence/manifest.json").read_bytes()
+        (study / f"compatibility/{runtime_evidence}/manifest.json").read_bytes()
     )
-    builds_bytes = (BUILDS / "result.json").read_bytes()
+    builds_bytes = (builds_root / "result.json").read_bytes()
     builds = json.loads(builds_bytes)
-    oracle_manifest_bytes = (INPUTS / "manifest.json").read_bytes()
+    oracle_manifest_bytes = (inputs_root / "manifest.json").read_bytes()
     oracle_manifest = json.loads(oracle_manifest_bytes)
     if (
         sha256_bytes(runtime_bytes) != evidence["artifacts"]["result.json"]["raw_sha256"]
@@ -53,15 +80,15 @@ def main() -> None:
         or not runtime["fixture"]["runtime_ready"]
         or runtime["population_sha256"] != sha256_bytes(cases_bytes)
         or runtime["build_record_sha256"] != sha256_bytes(builds_bytes)
-        or builds_bytes != (STUDY / "compatibility/build-evidence/result.json").read_bytes()
-        or oracle_manifest_bytes != (STUDY / "oracle-inputs.json").read_bytes()
+        or builds_bytes != (study / f"compatibility/{build_evidence}/result.json").read_bytes()
+        or oracle_manifest_bytes != (study / "oracle-inputs.json").read_bytes()
         or oracle_manifest["case_freeze_sha256"]
-        != sha256_bytes((STUDY / "freeze.json").read_bytes())
+        != sha256_bytes((study / "freeze.json").read_bytes())
         or [(r["case"], r["revision"]) for r in runtime["rows"]]
         != [(c["instance_id"], c["base_commit"]) for c in cases]
     ):
         raise ValueError("frozen input identity mismatch")
-    WORK.mkdir(mode=0o700)
+    work_root.mkdir(mode=0o700)
     os.environ["DOCKER_CONFIG"] = str(
         ROOT / ".attest/corpora/metadata-exposed-runtime/docker-config"
     )
@@ -80,7 +107,7 @@ def main() -> None:
         "development_witnesses": 0,
         "code_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "driver_sha256": sha256_bytes(Path(__file__).read_bytes()),
-        "protocol_sha256": sha256_bytes((STUDY / "compatibility/original-tests.md").read_bytes()),
+        "protocol_sha256": sha256_bytes((study / "compatibility/original-tests.md").read_bytes()),
         "runtime_record_sha256": sha256_bytes(runtime_bytes),
         "oracle_manifest_sha256": sha256_bytes(oracle_manifest_bytes),
         "rows": [
@@ -88,28 +115,28 @@ def main() -> None:
             for p in pairs
         ],
     }
-    write_canonical_json(WORK / "result.json", record)
+    write_canonical_json(work_root / "result.json", record)
     for pair, row in zip(pairs, record["rows"], strict=True):
         label = row["case"]
         prior = [next(r for r in runtime["rows"] if r["case"] == c["instance_id"]) for c in pair]
         if not all(r["runtime_ready"] for r in prior):
             row.update(status="runtime_unqualified")
-            write_canonical_json(WORK / "result.json", record)
+            write_canonical_json(work_root / "result.json", record)
             continue
-        work = WORK / label
+        work = work_root / label
         work.mkdir()
         try:
             freezes = []
             for case in pair:
                 key = case["instance_id"] + "/runtime-freeze.txt"
-                payload = (RUNTIME / key).read_bytes()
+                payload = (runtime_root / key).read_bytes()
                 if sha256_bytes(payload) != evidence["artifacts"][key]["raw_sha256"]:
                     raise ValueError("runtime dependency record drift")
                 freezes.append(payload)
             if freezes[0] != freezes[1]:
                 raise ValueError("paired runtime dependencies differ")
             entry = next(r for r in oracle_manifest["rows"] if r["case"] == label)
-            payload = (INPUTS / (label + ".json")).read_bytes()
+            payload = (inputs_root / (label + ".json")).read_bytes()
             if sha256_bytes(payload) != entry["oracle_input_sha256"]:
                 raise ValueError("original oracle drift")
             original = json.loads(payload)
@@ -137,7 +164,7 @@ def main() -> None:
                 or not PurePosixPath(test_path).name.startswith("test_")
             ):
                 raise ValueError("unsupported original test or anchor paths")
-            repo = REPOS / pair[0]["repo"].replace("/", "__") / "repo"
+            repo = repos_root / pair[0]["repo"].replace("/", "__") / "repo"
             oracle = work / "oracle"
             destination = oracle / test_path
             destination.parent.mkdir(parents=True)
@@ -158,33 +185,42 @@ def main() -> None:
             )
             test_bytes = destination.read_bytes()
             trees = []
-            for case in pair:
+            for case, ready in zip(pair, prior, strict=True):
                 tree = work / case["side"]
                 listing = subprocess.check_output(
                     ["git", "-C", str(repo), "ls-tree", "-r", case["base_commit"]],
                     timeout=30,
                 )
-                if any(line.startswith(b"120000 ") for line in listing.splitlines()):
+                if not remainder and any(
+                    line.startswith(b"120000 ") for line in listing.splitlines()
+                ):
                     raise ValueError("symlink export refused")
                 archive(repo, case["base_commit"], tree, timeout=60)
                 built = next(r for r in builds["rows"] if r["case"] == case["instance_id"])
                 wheels = [(p, d) for p, d in built["artifacts"].items() if p.endswith(".whl")]
                 if len(wheels) != 1 or built["revision"] != case["base_commit"]:
                     raise ValueError("revision wheel mismatch")
-                version = declared_version_file(tree, discover_roots(tree))
+                version = declared_version_file(
+                    tree, discover_roots(tree), allow_setup_py=remainder,
+                )
                 transfer = apply_wheel(
                     tree,
-                    BUILDS / case["instance_id"] / wheels[0][0],
+                    builds_root / case["instance_id"] / wheels[0][0],
                     revision=case["base_commit"],
                     expected_revision=built["revision"],
                     expected_digest=wheels[0][1],
                     packages=tuple(stub_packages(tree)),
                     version_path=version.relative_to(tree).as_posix() if version else None,
+                    allow_source_links=remainder, source_only=remainder,
+                    source_prefix=ready["transfer"].get("source_prefix", "") if remainder else "",
+
                 )
+                if remainder and any(ready["transfer"].get(k) != v for k, v in transfer.items()):
+                    raise ValueError("wheel transfer differs from frozen readiness record")
                 write_canonical_json(work / (case["side"] + "-transfer.json"), transfer)
                 if not (tree / test_path).is_file() or not (tree / anchors[0]).is_file():
                     raise ValueError("original test or anchored source absent")
-                (tree / test_path).write_bytes(test_bytes)
+                overlay_original_test(tree, test_path, test_bytes)
                 trees.append(tree)
             row.update(
                 nodes=nodes,
@@ -210,7 +246,7 @@ def main() -> None:
                 for index, (case, ready, tree) in enumerate(zip(pair, prior, trees, strict=True)):
                     job = {"side": case["side"], "repeat": repeat, "status": "started"}
                     row["runs"].append(job)
-                    write_canonical_json(WORK / "result.json", record)
+                    write_canonical_json(work_root / "result.json", record)
                     result = execute_repro(
                         work,
                         candidate,
@@ -253,7 +289,7 @@ def main() -> None:
                     )
                     job.update(status="complete", matched=matched, execution=asdict(result))
                     matched_pair.append(matched)
-                    write_canonical_json(WORK / "result.json", record)
+                    write_canonical_json(work_root / "result.json", record)
                 if not all(matched_pair):
                     raise ValueError(
                         "original tests did not produce a complete parent PASS/head FAIL pair"
@@ -269,10 +305,10 @@ def main() -> None:
             ET.ParseError,
         ) as exc:
             row.update(status="unqualified", reason=str(exc))
-        write_canonical_json(WORK / "result.json", record)
+        write_canonical_json(work_root / "result.json", record)
         print(label, row["status"], row.get("reason", ""), flush=True)
     record["status"] = "complete"
-    write_canonical_json(WORK / "result.json", record)
+    write_canonical_json(work_root / "result.json", record)
 
 
 if __name__ == "__main__":
