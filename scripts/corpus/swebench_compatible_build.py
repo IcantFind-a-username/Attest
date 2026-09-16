@@ -23,6 +23,34 @@ PREVIOUS = ROOT / ".attest/corpora/swebench-independent-runtime"
 WORK = ROOT / ".attest/corpora/swebench-compatible-build"
 
 
+
+def natural_cases(population: dict, study: Path) -> list[dict]:
+    """Admit only complete, ordered entries derived from reviewed immutable inputs."""
+    pairs_bytes = (study / "qualification-candidates.json").read_bytes()
+    if population["qualification_sha256"] != sha256_bytes(pairs_bytes):
+        raise ValueError("natural-pair qualification drift")
+    qualification = json.loads(pairs_bytes)
+    freeze_bytes = (study / "freeze.json").read_bytes()
+    if qualification["freeze_sha256"] != sha256_bytes(freeze_bytes):
+        raise ValueError("natural-pair freeze drift")
+    selected = {c["instance_id"]: c for c in json.loads(freeze_bytes)["selected"]}
+    expected = []
+    for pair in qualification["pairs"]:
+        source = selected[pair["case"]]
+        if pair["repo"] != source["repo"]:
+            raise ValueError("natural-pair repository drift")
+        for side in ("parent", "head"):
+            expected.append({
+                "instance_id": pair["case"] + "-" + side,
+                "source_case": pair["case"], "side": side,
+                "base_commit": pair[side + "_sha"], "repo": pair["repo"],
+                "created_at": source["created_at"],
+            })
+    if population["cases"] != expected:
+        raise ValueError("natural-pair identity, order or cutoff drift")
+    return expected
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--study", choices=("swebench", "natural-pairs"), default="swebench")
@@ -43,17 +71,7 @@ def main() -> None:
     frozen = (study / ("cases.json" if natural else "frozen-candidates.json")).read_bytes()
     population = json.loads(frozen)
     if natural:
-        pairs_bytes = (study.parent / "qualification-candidates.json").read_bytes()
-        if population["qualification_sha256"] != sha256_bytes(pairs_bytes):
-            raise ValueError("natural-pair qualification drift")
-        pairs = json.loads(pairs_bytes)["pairs"]
-        expected = {(p["case"], side, p[side + "_sha"], p["repo"])
-                    for p in pairs for side in ("parent", "head")}
-        cases = population["cases"]
-        if (len(cases) != len(expected) or
-            {(c["source_case"], c["side"], c["base_commit"], c["repo"]) for c in cases}
-                != expected):
-            raise ValueError("natural-pair identity drift")
+        cases = natural_cases(population, study.parent)
     else:
         cases = [c for r in population["repositories"] for c in r["selected"]]
     if len(cases) != (4 if natural else 6) or len({c["repo"] for c in cases}) != 2:
