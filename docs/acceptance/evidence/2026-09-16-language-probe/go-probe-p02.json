@@ -1,0 +1,73 @@
+{
+  "probe": "P-02 go certification",
+  "image": "golang:1.22-alpine",
+  "image_digest": "sha256:1699c10032ca2582ec89a24a1312d986a3f094aed3d5c1147b19880afe40e052",
+  "base_sha": "6955f630574670ce14eb5e9e1fb39d9d81aa79a3",
+  "head_sha": "377c276652dfdcd0380d7f37dbc1b631f0878604",
+  "changed_line": 5,
+  "differential_holds": true,
+  "base_outcomes": [
+    "pass"
+  ],
+  "head_outcomes": [
+    "fail"
+  ],
+  "binding": {
+    "policy_version": "attest.binding.changed-line-coverage.v1",
+    "path": "shorten.go",
+    "changed_lines": [
+      5
+    ],
+    "executed_changed_lines": [
+      5
+    ],
+    "head_runs_observed": 3
+  },
+  "intent": {
+    "policy_version": "attest.intent.v5.1",
+    "path": "shorten.go",
+    "changed_lines": [
+      5
+    ],
+    "origin_line": 5,
+    "origin_statement": "other",
+    "exception_type": "runtime error: slice bounds out of range",
+    "new_rejection": true,
+    "rejected_inputs": [
+      "\"ab\""
+    ],
+    "witnesses": [
+      [
+        "\"ab\"",
+        "shorten_test.go"
+      ]
+    ],
+    "head_runs_observed": 3,
+    "constant_substitution": false,
+    "asserted_constants": [],
+    "value_mismatch": false,
+    "pinned_values": [],
+    "value_specified": [],
+    "value_respecified": [],
+    "failing_assertion_line": 0,
+    "anchored_symbols": [],
+    "intent_evidence": [],
+    "path_lines": [],
+    "added_lines": [
+      5
+    ]
+  },
+  "verdicts": {
+    "binding": null,
+    "intent": null,
+    "evidence_class": "behavior_change"
+  },
+  "receipt_accepted": "AcceptedReceipt",
+  "rejection_codes": [],
+  "gaps": [
+    "IntentObservation.origin_statement names a Python statement kind (raise/assert); Go has none, so the probe records 'other', which the v5.1 frame rule accepts but which carries less than the Python record does",
+    "the probe test had to be copied into a writable tree: a Go test must live inside its module, so it cannot be an input mount the way the rendered pytest file is",
+    "`go test -coverprofile` writes nothing when the test binary panics, so coverage and the failure trace cannot come from one Go run; the probe reads the executed changed line from the trace instead, which is stronger than a counter",
+    "exception_type is the first line of the Go panic message, not a type name; the warning rule (D-235) reads names like ...Warning and has no Go counterpart"
+  ]
+}

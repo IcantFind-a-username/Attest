@@ -66,6 +66,46 @@ mechanical:
 - **what the base tree specifies**: the whole intent rule reads Python syntax. A Go equivalent is
   a new reader, not a port.
 
+## 5. P-02: the kernel accepts a Go regression on Go-derived evidence
+
+The second probe (`scripts/probe/go_certification_probe.py`,
+[record](evidence/2026-09-16-language-probe/go-probe-p02.json)) asks what the *kernel* demands.
+A Go module whose head drops a length guard, a generated probe test in Go, three repeats per
+revision, and then the kernel's own records filled from what Go reported:
+
+| record | filled from | verdict |
+|---|---|---|
+| the differential | three repeats per side | parent passes 3/3, head fails 3/3 |
+| `BindingObservation` | the changed line in the panic trace of every head run | bound |
+| `IntentObservation` (`attest.intent.v5.1`, unchanged) | origin line 5 = the changed line, type `runtime error: slice bounds out of range`, the input `"ab"` witnessed in the repository's own base test | publishes |
+| `CertificationReceipt` | the runs, digests and provenance digest | **`AcceptedReceipt`**, no rejection codes |
+
+**The shipped kernel, the shipped binding policy and the shipped intent rule accepted a Go
+regression with no change to any of them.** That is the strongest evidence so far that the
+valuable half of this project is not Python-specific.
+
+What the probe had to work out, each recorded rather than smoothed over:
+
+- **A Go test must live inside its module**, so the probe cannot be an input mount the way the
+  rendered `pytest` file is: the tree the container sees is a writable copy with the probe in it.
+- **Coverage and the failure trace cannot come from one Go run**: `go test -coverprofile` writes
+  nothing when the binary panics. The probe reads the executed changed line from the trace, which
+  is stronger evidence than a counter, but it is a different mechanism from the Python tracer.
+- **`origin_statement` names a Python statement kind** (`raise`, `assert`). Go has none, so the
+  record says `other`; v5.1's frame rule accepts it, and the record carries less than Python's.
+- **`exception_type` is a panic message, not a type name**, so D-235's warning rule
+  (names ending in `Warning`) has no Go counterpart.
+- **The run vocabulary is fixed** (`passed`/`failed`, one failure signature shared by every head
+  run, `collected_count == 1`): Go's panic message needed its addresses stripped to be stable.
+
+**One fail-open, worth naming.** The first version of the probe recovered the panic inside the
+generated test, so no origin reached the report and the observation was left empty. An empty
+`IntentObservation` under v5.1 has no rejection and no value mismatch, so no rule applies and
+`intent_verdict` returns None: **it publishes**. The kernel is not wrong -- an observation is a
+record of what was observed -- but it means the safety of a new adapter rests entirely on that
+adapter filling the record honestly. A language adapter needs its own test that an unobserved
+failure cannot certify.
+
 ## 4. What this decides
 
 Path B is **structurally possible**: the kernel and the protocol are already neutral, and the
@@ -76,4 +116,9 @@ The honest ordering that follows: the language-neutral parts (differential execu
 offline verification) are the asset; the Python reading layer is one instance of an adapter, and
 its depth should be treated as a cost, not a direction.
 
-No recall figure, no product change, no default change follows from this probe.
+No recall figure, no product change, no default change follows from these probes. What they
+settle is narrow and useful: the kernel, the binding policy and the intent rule are already
+language-neutral, the container layer needs one refactor, and everything that reads source is a
+per-language adapter that has to be written from scratch. The next decision is whether that
+adapter is worth writing for a second language, and P-02's fail-open says the first thing it must
+carry is its own proof that an unobserved failure cannot certify.
