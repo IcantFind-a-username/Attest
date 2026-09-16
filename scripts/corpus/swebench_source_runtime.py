@@ -10,6 +10,7 @@ import subprocess
 from dataclasses import asdict
 from datetime import datetime
 from email.parser import Parser
+from itertools import islice
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -22,7 +23,7 @@ from swebench_compatible_build import natural_cases
 from wheel_overlay import apply_wheel
 
 from attest.benchmark.artifacts import sha256_bytes, write_canonical_json
-from attest.execution.container_adapter import ContainerAdapter, ContainerImage
+from attest.execution.container_adapter import MPL_SEED_DIR, ContainerAdapter, ContainerImage
 from attest.execution.container_images import declared_version_file, discover_roots
 from attest.review.candidates import StoredCandidate
 from attest.review.executor import (
@@ -87,11 +88,29 @@ def build(
     ).strip()
 
 
+def font_cache_digests(cache: Path) -> dict[str, str]:
+    """Validate a controller-owned copy of the cache before any evidence execution."""
+    if cache.is_symlink() or not cache.is_dir():
+        raise ValueError("unsafe font cache root")
+    files = list(islice(cache.rglob("*"), 101))
+    if (not files or len(files) > 100 or any(p.is_symlink() for p in files)
+            or any(not p.is_file() and not p.is_dir() for p in files)
+            or sum(p.stat().st_size for p in files if p.is_file()) > 8 * 1024 * 1024):
+        raise ValueError("font cache absent or outside artifact bounds")
+    cache_digests = {
+        p.relative_to(cache).as_posix(): sha256_bytes(p.read_bytes())
+        for p in files if p.is_file()
+    }
+    if not cache_digests:
+        raise ValueError("font cache contains no regular files")
+    return cache_digests
+
+
 def check_runtime(
     directory: Path, tree: Path, wheel: Path, revision: str, wheel_digest: str,
     expected_revision: str, cutoff: str, runtime: str, env: dict[str, str], state: dict, *,
     builder: str, fixture: bool = False, allow_source_links: bool = False,
-    source_only: bool = False, setup_declaration: bool = False,
+    source_only: bool = False, setup_declaration: bool = False, warm_fonts: bool = False,
 ) -> dict:
     state["stage"] = "transfer"
     packages = tuple(stub_packages(tree))
@@ -139,25 +158,48 @@ def check_runtime(
         "RUN python -m pip install --no-index --find-links /wheelhouse"
         f" pip pytest '/wheelhouse/{wheel.name}{extras}'\n"
     )
+    font_seed = ""
+    seed_fonts = warm_fonts and "matplotlib" in packages
+    if seed_fonts:
+        warm = (
+            "import os,sys; sys.dont_write_bytecode=True; "
+            f"os.environ['MPLCONFIGDIR']={MPL_SEED_DIR!r}; "
+            f"sys.path.insert(0,{'/attest/tree/' + prefix!r}); "
+            "import matplotlib.font_manager"
+        )
+        font_seed = (
+            "FROM runtime_dependencies AS font_preparation\n"
+            "COPY tree /attest/tree\n"
+            f"RUN --network=none {json.dumps(['python', '-c', warm])}\n"
+            f"RUN --network=none chmod -R a+rX {MPL_SEED_DIR}\n"
+            "FROM runtime_dependencies\n"
+            f"COPY --from=font_preparation {MPL_SEED_DIR} {MPL_SEED_DIR}\n"
+        )
     dockerfile = (
         f"FROM {builder} AS dependencies\n"
         "COPY constraints.txt /constraints.txt\nENV PIP_CONSTRAINT=/constraints.txt\n"
         f"COPY {wheel.name} /wheel/{wheel.name}\n"
         "RUN python -m pip wheel --wheel-dir /wheelhouse pip pytest"
         f" '/wheel/{wheel.name}{extras}'\n"
-        f"FROM {runtime}\n"
+        f"FROM {runtime} AS runtime_dependencies\n"
         "RUN apt-get update && apt-get install -y --no-install-recommends libgomp1"
         " && rm -rf /var/lib/apt/lists/*\n"
         "COPY constraints.txt /constraints.txt\nENV PIP_CONSTRAINT=/constraints.txt\n"
         "COPY --from=dependencies /wheelhouse /wheelhouse\n"
-        + dependency_install + "RUN python -m pip freeze > /runtime-freeze.txt\n"
+        + dependency_install + font_seed + "RUN python -m pip freeze > /runtime-freeze.txt\n"
     )
     state["stage"] = "runtime_image"
     image = build(directory, dockerfile, "attest-source-runtime-" + revision[:12], env)
     container = subprocess.check_output(
         ["docker", "create", image], env=env, text=True, timeout=30,
     ).strip()
+    cache_digests: dict[str, str] = {}
     try:
+        if seed_fonts:
+            cache = directory / "font-cache"
+            subprocess.run(["docker", "cp", f"{container}:{MPL_SEED_DIR}", str(cache)],
+                           env=env, check=True, capture_output=True, timeout=30)
+            cache_digests = font_cache_digests(cache)
         subprocess.run(
             ["docker", "cp", f"{container}:/runtime-freeze.txt",
              str(directory / "runtime-freeze.txt")],
@@ -210,6 +252,7 @@ def check_runtime(
     )
     return {
         "image": image, "transfer": transfer, "execution": asdict(execution),
+        **({"font_cache_sha256": cache_digests} if warm_fonts else {}),
         "runtime_ready": execution.exit_code == 0 and execution.collected_count == 1
         and execution.skipped_count == 0 and execution.xfailed_count == 0
         and execution.network_blocked and execution.outcome is ExecutionOutcome.NOT_REPRODUCED,
@@ -218,7 +261,7 @@ def check_runtime(
 
 def check_fixture(
     build_record: dict, runtime: str, env: dict[str, str], state: dict, *, work: Path = WORK,
-    source_only: bool = False, setup_declaration: bool = False,
+    source_only: bool = False, setup_declaration: bool = False, warm_fonts: bool = False,
 ) -> dict:
     state["stage"] = "fixture_build"
     fixture = work / "fixture"
@@ -248,7 +291,7 @@ def check_fixture(
         fixture, tree, wheels[0], "f" * 40, sha256_bytes(wheels[0].read_bytes()), "f" * 40,
         "2022-05-09T14:16:30Z", runtime, env, state,
         builder=build_record["builder_reference"], fixture=True, source_only=source_only,
-        setup_declaration=setup_declaration,
+        setup_declaration=setup_declaration, warm_fonts=warm_fonts,
     )
 
 
@@ -256,10 +299,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--study", choices=("swebench", "natural-pairs", "remainder-safe-links",
                                                "remainder-source-layout", "remainder-source-only",
-                                               "remainder-setup-declaration"),
+                                               "remainder-setup-declaration",
+                                               "remainder-font-cache"),
                         default="swebench")
     mode = parser.parse_args().study
-    setup_declaration = mode == "remainder-setup-declaration"
+    warm_fonts = mode == "remainder-font-cache"
+    setup_declaration = warm_fonts or mode == "remainder-setup-declaration"
     source_only = setup_declaration or mode == "remainder-source-only"
     safe_links = source_only or mode in {"remainder-safe-links", "remainder-source-layout"}
     natural = safe_links or mode == "natural-pairs"
@@ -272,6 +317,7 @@ def main() -> None:
         study = ROOT / "benchmarks/studies/remainder-v1/compatibility"
         builds = ROOT / ".attest/corpora/remainder-safe-link-build"
         work = ROOT / ".attest/corpora" / (
+            "remainder-font-cache-runtime" if warm_fonts else
             "remainder-setup-declaration-runtime" if setup_declaration else
             "remainder-source-only-runtime" if source_only else
             "remainder-source-layout-runtime" if mode == "remainder-source-layout"
@@ -334,6 +380,7 @@ def main() -> None:
             (ROOT / "scripts/corpus/swebench_compatible_build.py").read_bytes(),
         ),
         "protocol_sha256": sha256_bytes((study / (
+            "font-cache-runtime.md" if warm_fonts else
             "setup-declaration-runtime.md" if setup_declaration else
             "source-only-runtime.md" if source_only else
             "source-layout-runtime.md" if mode == "remainder-source-layout" else
@@ -349,7 +396,7 @@ def main() -> None:
     try:
         record["fixture"].update(check_fixture(
             build_record, runtime, env, record["fixture"], work=work, source_only=source_only,
-            setup_declaration=setup_declaration,
+            setup_declaration=setup_declaration, warm_fonts=warm_fonts,
         ))
         record["fixture"]["status"] = "checked"
         if not record["fixture"]["runtime_ready"]:
@@ -387,7 +434,7 @@ def main() -> None:
                 prior["artifacts"]["wheels/" + wheel.name], prior["revision"],
                 case["created_at"], runtime, env, row, builder=build_record["builder_reference"],
                 allow_source_links=safe_links, source_only=source_only,
-                setup_declaration=setup_declaration,
+                setup_declaration=setup_declaration, warm_fonts=warm_fonts,
             ))
             row["status"] = "checked"
         except (
