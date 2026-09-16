@@ -670,6 +670,39 @@ def test_execute_passing_test_is_not_reproduced(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
+    ("config_name", "config_text", "collect_only"),
+    [
+        ("pytest.ini", "[pytest]\naddopts = --doctest-rst\n", False),
+        ("setup.cfg", "[tool:pytest]\naddopts = -k no_probe_matches_this\n", False),
+        ("pyproject.toml", '[tool.pytest.ini_options]\naddopts = "--collect-only"\n', False),
+        ("pytest.ini", "[pytest]\naddopts = --doctest-rst\n", True),
+        ("pytest.ini", "[pytest]\naddopts = -p hostile_plugin\n", False),
+    ],
+)
+def test_controlled_probe_owns_pytest_arguments(
+    tmp_path: Path, config_name: str, config_text: str, collect_only: bool,
+) -> None:
+    tree = tmp_path / "tree"
+    write_layout(tree, {
+        config_name: config_text, "mod.py": GOOD_MODULE,
+        "hostile_plugin.py": "raise RuntimeError('project addopts loaded a plugin')\n",
+    })
+    result = execute_repro(
+        tmp_path, candidate(file="mod.py", line=1),
+        ReproSpec(
+            "import os\nimport mod\ndef test_repro():\n"
+            "    assert os.environ['PYTEST_DISABLE_PLUGIN_AUTOLOAD'] == '1'\n"
+            "    assert mod.add(2, 2) == 4\n"
+        ),
+        ExecutorLimits(), tree=tree, collect_only=collect_only,
+    )
+    assert result.exit_code == 0, result.reason + "\n" + result.stdout
+    assert result.collected_count == 1
+    assert result.outcome is ExecutionOutcome.NOT_REPRODUCED
+    assert result.network_blocked is True
+
+
+@pytest.mark.parametrize(
     ("test_body", "reason_fragment"),
     [
         ("import package_that_does_not_exist", "collection/import/syntax"),

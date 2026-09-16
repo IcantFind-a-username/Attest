@@ -1844,7 +1844,9 @@ def execute_repro(
             selector = "{tree}/" + tree_target
         if node is not None:
             selector = f"{selector}::{node}"
-        argv = [interpreter, "-m", "pytest", "-q", selector]
+        # The controller owns probe selection and execution mode. Project addopts
+        # can require disabled plugins or turn a run into collection-only.
+        argv = [interpreter, "-m", "pytest", "-o", "addopts=", "-q", selector]
         if collect_only:
             argv.append("--collect-only")
         if tree is not None:
