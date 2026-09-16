@@ -62,7 +62,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from attest.certification.intent import ContractRecord
-from attest.review.contract_context import context_refusal
+from attest.review.contract_context import read_context
 from attest.review.index import TreeIndex, build_index
 from attest.review.intent import (
     MAX_WITNESS_FILE_BYTES,
@@ -992,6 +992,29 @@ def _imported(module: ast.Module | None) -> set[str]:
     return out
 
 
+def related_modules(root: Path, anchored: str, anchored_module: str) -> frozenset[str]:
+    """The module under review and the modules its own file imports (D-282).
+
+    Code that runs before a contract's assertion may not reach these. Everything else it
+    reaches is outside what this rule reads, and the report says so."""
+    found = {anchored_module} if anchored_module else set()
+    package = anchored_module.split(".", 1)[0]
+    try:
+        tree = ast.parse((root / anchored).read_text(encoding="utf-8", errors="replace"))
+    except (OSError, SyntaxError, ValueError, RecursionError):
+        return frozenset(found)
+    for node in ast.walk(tree):
+        names: list[str] = []
+        if isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            names = [node.module]
+        elif isinstance(node, ast.Import):
+            names = [alias.name for alias in node.names]
+        # only the project's own modules: the standard library and third-party packages
+        # this file imports are not what a contract is about
+        found.update(n for n in names if package and n.split(".", 1)[0] == package)
+    return frozenset(found)
+
+
 def _owners(tree: ast.Module) -> dict[int, tuple[ast.ClassDef, ...]]:
     """The classes each function of the module is defined in, outermost first, by the
     function node's id."""
@@ -1291,6 +1314,7 @@ def _contracts_in(
     except (OSError, ValueError):
         index = None
     anchored_module = _module_name(anchored, index)
+    related = related_modules(root, anchored, anchored_module)
     probe = probe_call(test_source, anchored_module)
     if probe is None:
         return []
@@ -1319,8 +1343,9 @@ def _contracts_in(
             continue
         scope = _bindings(tree)
         try:
-            context = context_refusal(root, relative, tree)
-            first = len(found)
+            context = read_context(
+                root, relative, tree, anchored_module=anchored_module, related=related,
+            )
             owners = _owners(tree)
             for node in ast.walk(tree):
                 if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -1328,6 +1353,7 @@ def _contracts_in(
                 if not _TEST_NAME.match(node.name):
                     continue
                 where = (tree, owners.get(id(node), ()))
+                first = len(found)
                 found.extend(
                     _assertion_contracts(
                         node, relative, scope, classes, probe, anchored_module, wanted,
@@ -1337,14 +1363,16 @@ def _contracts_in(
                 found.extend(
                     _caller_contracts(node, relative, scope, probe, callers, pinned_set, where)
                 )
+                # D-282: the file's own context, and the fixtures this test asks for
+                unread = context.reason or context.function_refusal(node)
+                if unread:
+                    found[first:] = [
+                        replace(c, admitted=False, flow_bound=False, flow_reason=unread,
+                                reason=f"the source's test context is not read: {unread}")
+                        for c in found[first:]
+                    ]
                 if len(found) >= MAX_CONTRACTS * 4:
                     break
-            if context:
-                found[first:] = [
-                    replace(c, admitted=False, flow_bound=False, flow_reason=context,
-                            reason=f"the source's test context is not read: {context}")
-                    for c in found[first:]
-                ]
         except RecursionError:
             continue  # D-255: a file nested beyond the interpreter's depth states nothing read
     return found
@@ -1770,6 +1798,7 @@ def contract_probes(
     except (OSError, ValueError, SyntaxError):
         index = None
     module = _module_name(anchored, index)
+    related = related_modules(root, anchored, module)
     callers = _callers(index, module, wanted, root)
     roots = tree_roots(root)
     built: list[tuple[str, int, int, ContractProbe]] = []
@@ -1785,7 +1814,9 @@ def contract_probes(
             continue
         file_scope = _bindings(tree_file)
         try:
-            context = context_refusal(root, relative, tree_file)
+            context = read_context(
+                root, relative, tree_file, anchored_module=module, related=related,
+            )
             owners = _owners(tree_file)
             for func in ast.walk(tree_file):
                 if not isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -1847,7 +1878,7 @@ def contract_probes(
                     kind, call, in_force = sites[0]
                     site = f"{relative.as_posix()}:{statement.lineno}"
                     # D-255: a contract whose program point the rule cannot read is no probe
-                    flow = context or flow_refusal(
+                    flow = context.reason or context.function_refusal(func) or flow_refusal(
                         program_point(
                             func, call, container="raises" if kind == "caller_raises" else ""
                         ),

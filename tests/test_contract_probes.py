@@ -170,11 +170,11 @@ def test_the_rule_reads_one_probe_per_row_and_names_what_it_cannot_build(tmp_pat
     ]
     assert all(p.spec.imports == "from geo import parse" for p in search.probes)
     reasons = dict(search.refused)
-    # D-255: the program-point rule refuses a call that depends on a fixture before the
-    # generator reaches the name (it read "'sample_text' is a fixture of ..." until then)
+    # D-255 refused this for the call's own dependency; D-282 refuses it earlier, because
+    # a fixture no conftest on the path defines is context the rule has not read at all
     assert reasons["tests/test_geo.py:12#0"] == (
-        "the call depends on 'sample_text', a fixture of test_parse_with_a_fixture: "
-        "what a fixture provides is not read"
+        "test context: test_parse_with_a_fixture asks for 'sample_text', a fixture no "
+        "conftest on the path defines: what it does is not read"
     )
     assert reasons["tests/test_geo.py:19#0"] == "'Text' is bound nowhere the rule reads"
     assert search.truncated == 0 and MAX_CONTRACT_PROBES == 8

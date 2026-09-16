@@ -64,13 +64,9 @@ def test_implicit_context_cannot_certify_a_declared_reasonable_change(
     ('"doc"\nfrom geo import parse\nVALUE = (1, 2)\ndef test_x(): pass\n', False),
     ('from helpers import setup_module\n', True),
     ('if FLAG:\n    from helpers import setup_function\n', True),
-    ('@alias\ndef fixture(): pass\n', True),
-    ('@wrapper\ndef test_x(): pass\n', True),
-    ('@pytest.fixture(autouse=True)\ndef test_fixture(): pass\n', True),
+    ('@pytest.fixture(autouse=True)\ndef test_fixture(): pass\n', False),
     ('def helper(x=install()): pass\n', True),
     ('def helper(x: install()): pass\n', True),
-    ('@pytest.mark.parametrize("unused", [0], ids=install())\ndef test_x(unused): pass\n', True),
-    ('@pytest.mark.parametrize("unused", [0], ids=callback)\ndef test_x(unused): pass\n', True),
     ('class TestSomething(Base): pass\n', True),
     ('class TestSomething:\n    def setUp(self): pass\n', True),
     ('state.member = 1\n', True),
@@ -84,12 +80,43 @@ def test_context_screen_has_an_explicit_local_subset(
         assert "tests/test_x.py:" in reason
 
 
-@pytest.mark.parametrize("text", ['"documentation"\npass\n', 'import helper\n', 'broken ('])
-def test_ancestor_conftest_is_read_even_when_it_has_no_fixture_spelling(
-    tmp_path: Path, text: str,
+# D-282: a decorator, and a fixture a test asks for, are screened on the test that states
+# the contract, not on every function of the file -- a real suite decorates other tests.
+@pytest.mark.parametrize(("source", "refused"), [
+    ('def test_x(): pass\n', False),
+    ('@pytest.mark.slow\ndef test_x(): pass\n', False),
+    ('@pytest.mark.parametrize("v", [0])\ndef test_x(v): pass\n', False),
+    ('@wrapper\ndef test_x(): pass\n', True),
+    ('@pytest.mark.usefixtures("thing")\ndef test_x(): pass\n', True),
+    ('@pytest.mark.parametrize("unused", [0], ids=install())\ndef test_x(unused): pass\n', True),
+    ('@pytest.mark.parametrize("unused", [0], ids=callback)\ndef test_x(unused): pass\n', True),
+    ('def test_x(unknown_thing): pass\n', True),
+])
+def test_a_tests_own_decorators_and_fixtures_are_screened(
+    tmp_path: Path, source: str, refused: bool,
+) -> None:
+    from attest.review.contract_context import read_context
+
+    module = ast.parse('import pytest\n\n\n' + source)
+    context = read_context(tmp_path, Path("tests/test_x.py"), module)
+    function = next(n for n in module.body if getattr(n, "name", "") == "test_x")
+    # a decorator the rule cannot read refuses the file; a mark it can read refuses the test
+    assert bool(context.reason or context.function_refusal(function)) is refused
+
+
+@pytest.mark.parametrize(("text", "refused"), [
+    ('"documentation"\npass\n', False),
+    # D-282: an import binds a name; what the imported module does is the stated limit,
+    # and refusing every conftest that imports refused every real repository (98 of 98)
+    ('import helper\n', False),
+    ('broken (', True),
+    ('helper.install()\n', True),
+])
+def test_an_ancestor_conftest_is_read_for_what_it_can_reach(
+    tmp_path: Path, text: str, refused: bool,
 ) -> None:
     (tmp_path / "conftest.py").write_text(text)
     reason = context_refusal(tmp_path, Path("tests/nested/test_x.py"), ast.parse("pass"))
-    assert bool(reason) is (text != '"documentation"\npass\n')
+    assert bool(reason) is refused
     if reason:
         assert "conftest.py" in reason

@@ -217,14 +217,18 @@ def test_a_parametrize_row_with_the_probes_input_specifies_the_object(tmp_path: 
     assert "is not the probe's" in other[0].reason
 
 
-def test_constructor_calls_in_parameter_rows_are_now_refused(tmp_path: Path) -> None:
+def test_a_constructor_in_a_parameter_row_builds_a_value_and_is_read(tmp_path: Path) -> None:
+    """D-257 refused every call in a parametrize row, which refused the object-valued rows
+    D-252 exists for. D-282 reads the row: a constructor of a class the module under review
+    defines builds a value, while a function call there -- which could replace the callable,
+    as `context_cases.parametrize_ids` does -- is still refused."""
     test, longrepr = _replay("from pkg.geo import parse", 'parse("1,2")', "Point(x=1, y=2)")
     observed = _observe(tmp_path, tests=TESTS_CONSTRUCTOR_ROWS, test=test, longrepr=longrepr,
                         policy=INTENT_POLICY_V6)
-    assert observed.contracts and not any(c.admitted for c in observed.contracts)
-    assert any(c.input_bound and c.evaluated and c.path_bound for c in observed.contracts)
-    assert all("context" in c.reason for c in observed.contracts)
-    assert intent_verdict(observed) is not None
+    admitted = [c for c in observed.contracts if c.admitted]
+    assert [c.kind for c in admitted] == ["parametrize_row"]
+    assert admitted[0].derived == "Point(x=1, y=2)"
+    assert intent_verdict(observed) is None
 
 
 def test_a_bound_assertion_with_an_object_expected_side_specifies_it(tmp_path: Path) -> None:
