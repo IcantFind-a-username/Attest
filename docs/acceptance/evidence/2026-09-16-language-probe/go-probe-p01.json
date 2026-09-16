@@ -1,0 +1,119 @@
+{
+  "probe": "P-01 go execution",
+  "image": "golang:1.22-alpine",
+  "image_digest": "sha256:1699c10032ca2582ec89a24a1312d986a3f094aed3d5c1147b19880afe40e052",
+  "repeats": 3,
+  "base_sha": "4c6c8f1f15fe9a493cf6d77e884b558694e8fca0",
+  "head_sha": "8a8e89ff37d19b805e1f0b0bd6002a071a8f4c4f",
+  "base": [
+    {
+      "repeat": 0,
+      "exit_code": 0,
+      "timed_out": false,
+      "outcome": "pass",
+      "failed_tests": 0,
+      "tests": [
+        "calc.TestSum"
+      ],
+      "error": "",
+      "artifacts": [
+        "report.json"
+      ],
+      "report_head": "{\"Time\":\"2026-09-16T14:39:55.583908097Z\",\"Action\":\"start\",\"Package\":\"calc\"}\n{\"Time\":\"2026-09-16T14:39:55.584866639Z\",\"Action\":\"run\",\"Package\":\"calc\",\"Test\":\"TestSum\"}\n{\"Time\":\"2026-09-16T14:39:55.584919222Z\",\"Action\":\"output\",\"Package\":\"calc\",\"Test\":\"TestSum\",\"Output\":\"=== RUN   TestSum\\n\"}\n{\"Time\":"
+    },
+    {
+      "repeat": 1,
+      "exit_code": 0,
+      "timed_out": false,
+      "outcome": "pass",
+      "failed_tests": 0,
+      "tests": [
+        "calc.TestSum"
+      ],
+      "error": "",
+      "artifacts": [
+        "report.json"
+      ],
+      "report_head": "{\"Time\":\"2026-09-16T14:39:57.612771084Z\",\"Action\":\"start\",\"Package\":\"calc\"}\n{\"Time\":\"2026-09-16T14:39:57.613671375Z\",\"Action\":\"run\",\"Package\":\"calc\",\"Test\":\"TestSum\"}\n{\"Time\":\"2026-09-16T14:39:57.613737834Z\",\"Action\":\"output\",\"Package\":\"calc\",\"Test\":\"TestSum\",\"Output\":\"=== RUN   TestSum\\n\"}\n{\"Time\":"
+    },
+    {
+      "repeat": 2,
+      "exit_code": 0,
+      "timed_out": false,
+      "outcome": "pass",
+      "failed_tests": 0,
+      "tests": [
+        "calc.TestSum"
+      ],
+      "error": "",
+      "artifacts": [
+        "report.json"
+      ],
+      "report_head": "{\"Time\":\"2026-09-16T14:39:59.60062771Z\",\"Action\":\"start\",\"Package\":\"calc\"}\n{\"Time\":\"2026-09-16T14:39:59.60150846Z\",\"Action\":\"run\",\"Package\":\"calc\",\"Test\":\"TestSum\"}\n{\"Time\":\"2026-09-16T14:39:59.60156471Z\",\"Action\":\"output\",\"Package\":\"calc\",\"Test\":\"TestSum\",\"Output\":\"=== RUN   TestSum\\n\"}\n{\"Time\":\"20"
+    }
+  ],
+  "head": [
+    {
+      "repeat": 0,
+      "exit_code": 1,
+      "timed_out": false,
+      "outcome": "fail",
+      "failed_tests": 1,
+      "tests": [
+        "calc.TestSum"
+      ],
+      "error": "",
+      "artifacts": [
+        "report.json"
+      ],
+      "report_head": "{\"Time\":\"2026-09-16T14:40:01.888799169Z\",\"Action\":\"start\",\"Package\":\"calc\"}\n{\"Time\":\"2026-09-16T14:40:01.889860086Z\",\"Action\":\"run\",\"Package\":\"calc\",\"Test\":\"TestSum\"}\n{\"Time\":\"2026-09-16T14:40:01.889927002Z\",\"Action\":\"output\",\"Package\":\"calc\",\"Test\":\"TestSum\",\"Output\":\"=== RUN   TestSum\\n\"}\n{\"Time\":"
+    },
+    {
+      "repeat": 1,
+      "exit_code": 1,
+      "timed_out": false,
+      "outcome": "fail",
+      "failed_tests": 1,
+      "tests": [
+        "calc.TestSum"
+      ],
+      "error": "",
+      "artifacts": [
+        "report.json"
+      ],
+      "report_head": "{\"Time\":\"2026-09-16T14:40:03.869103753Z\",\"Action\":\"start\",\"Package\":\"calc\"}\n{\"Time\":\"2026-09-16T14:40:03.870032753Z\",\"Action\":\"run\",\"Package\":\"calc\",\"Test\":\"TestSum\"}\n{\"Time\":\"2026-09-16T14:40:03.87010042Z\",\"Action\":\"output\",\"Package\":\"calc\",\"Test\":\"TestSum\",\"Output\":\"=== RUN   TestSum\\n\"}\n{\"Time\":\""
+    },
+    {
+      "repeat": 2,
+      "exit_code": 1,
+      "timed_out": false,
+      "outcome": "fail",
+      "failed_tests": 1,
+      "tests": [
+        "calc.TestSum"
+      ],
+      "error": "",
+      "artifacts": [
+        "report.json"
+      ],
+      "report_head": "{\"Time\":\"2026-09-16T14:40:05.888537213Z\",\"Action\":\"start\",\"Package\":\"calc\"}\n{\"Time\":\"2026-09-16T14:40:05.889349546Z\",\"Action\":\"run\",\"Package\":\"calc\",\"Test\":\"TestSum\"}\n{\"Time\":\"2026-09-16T14:40:05.889401338Z\",\"Action\":\"output\",\"Package\":\"calc\",\"Test\":\"TestSum\",\"Output\":\"=== RUN   TestSum\\n\"}\n{\"Time\":"
+    }
+  ],
+  "differential": {
+    "base": [
+      "pass"
+    ],
+    "head": [
+      "fail"
+    ],
+    "holds": true
+  },
+  "findings": [
+    "the isolation launcher NPROC_LAUNCHER_ARGV is `python3 -I -c \u2026`, so the product adapter needs a Python interpreter in every image; this probe substitutes one line of `sh` for the same RLIMIT_NPROC guarantee",
+    "ExecutionResultEnvelope carries no stdout: a job reports through declared artifacts in the outputs mount, so each language needs its own report file and parser (pytest writes junit.xml; this probe redirects `go test -json`)",
+    "ContainerAdapter.interpreter_identity runs `python3 -c` in the image, so identity for a non-Python image has to come from somewhere else (this probe uses the image id)",
+    "CONTAINER_PATH is /usr/local/bin:/usr/bin:/bin, written for a Python image; the Go toolchain is at /usr/local/go/bin, so the probe overrides PATH through the request",
+    "the scratch and /tmp tmpfs mounts are not executable, so a compiled test binary cannot be run from them; the probe adds `exec` to both",
+    "the isolation profile assumes a job that never forks: RLIMIT_NPROC near zero and DEFAULT_PIDS_LIMIT = 16. A compiled language forks a compiler and the Go runtime creates one OS thread per core, so both bounds had to be raised for the job to run at all (this probe: no RLIMIT_NPROC, pid limit 256)"
+  ]
+}
