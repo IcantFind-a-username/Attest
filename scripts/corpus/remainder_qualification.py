@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -73,6 +74,20 @@ def main() -> None:
             for pair in value.get("pairs", []):
                 prior.update((pair["parent_sha"], pair["head_sha"]))
 
+    # Include inspected but ultimately refused pairs, not only accepted pairs.
+    # Short source citations are conservatively matched as commit prefixes.
+    prior_citations: set[bytes] = set()
+    for directory in ("case-holdout-work", "metadata-exposed-work", "repository-freeze-work"):
+        for path in sorted((ROOT / ".attest" / directory).glob("*")):
+            if path.suffix not in {".json", ".md"} or not any(
+                word in path.name for word in ("semantic", "controls")
+            ):
+                continue
+            payload = path.read_bytes()
+            prior_inputs[str(path.relative_to(ROOT))] = sha256_bytes(payload)
+            prior_citations.update(re.findall(rb"(?<![0-9a-f])[0-9a-f]{7,40}(?![0-9a-f])", payload))
+    prior.update(c.decode() for c in prior_citations)
+
     rows = []
     pairs = []
     seen: set[tuple[str, str, str]] = set()
@@ -109,7 +124,7 @@ def main() -> None:
             if actual != [a["head_sha"], a["parent_sha"]]:
                 raise ValueError("not an exact single-parent introducing pair")
             key = (source["repo"], a["parent_sha"], a["head_sha"])
-            if prior.intersection(key[1:]):
+            if any(sha.startswith(prefix) for sha in key[1:] for prefix in prior):
                 agreed, reason = False, "prior_inspected_pair_overlap"
             elif key in seen:
                 agreed, reason = False, "duplicate_natural_pair"
@@ -138,7 +153,11 @@ def main() -> None:
         agrees = (
             a["admitted"] is True and b["admitted"] is True and a["parent_sha"] == b["parent_sha"]
         )
-        overlap = bool({a["parent_sha"], a["head_sha"]} & (prior | defects))
+        overlap = any(
+            sha.startswith(prefix)
+            for sha in (a["parent_sha"], a["head_sha"])
+            for prefix in prior | defects
+        )
         control_rows.append(
             {
                 "repo": a["repo"],
