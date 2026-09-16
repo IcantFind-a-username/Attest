@@ -5,12 +5,56 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from uuid import uuid4
 
 from attest.benchmark.artifacts import sha256_bytes, write_canonical_json
 
 ROOT = Path(__file__).resolve().parents[2]
 WORK = ROOT / ".attest/x03-supervisor-trial"
 BUILDER = "python@sha256:94c362db08c5b38857943d31b10558ff1856e918605c474d205d72a534929d4e"
+
+
+def run_container(
+    arguments: list[str], env: dict[str, str], directory: Path,
+) -> subprocess.CompletedProcess[bytes]:
+    """Retain every attempt and remove its daemon-side container, even on timeout."""
+    name = "attest-gq-" + uuid4().hex
+    record: dict = {"container_name": name, "status": "started"}
+    write_canonical_json(directory / "container.json", record)
+    stdout, stderr = b"", b""
+    try:
+        result = subprocess.run(
+            ["docker", "run", "--name", name, *arguments], env=env,
+            capture_output=True, timeout=30,
+        )
+        stdout, stderr = result.stdout, result.stderr
+        record.update(status="exited", exit_code=result.returncode)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        record["status"] = type(exc).__name__
+        if isinstance(exc, subprocess.TimeoutExpired):
+            stdout, stderr = exc.output or b"", exc.stderr or b""
+        raise
+    finally:
+        # Cleanup is required even if saving the attempt's output fails.
+        try:
+            (directory / "stdout.txt").write_bytes(stdout[:65536])
+            (directory / "stderr.txt").write_bytes(stderr[:65536])
+            record["output_truncated"] = len(stdout) > 65536 or len(stderr) > 65536
+            write_canonical_json(directory / "container.json", record)
+        finally:
+            try:
+                cleanup = subprocess.run(
+                    ["docker", "rm", "-f", name], env=env, capture_output=True, timeout=30,
+                )
+                record["cleanup_exit_code"] = cleanup.returncode
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                record["cleanup_error"] = type(exc).__name__
+                raise
+            finally:
+                write_canonical_json(directory / "container.json", record)
+    if cleanup.returncode:
+        raise RuntimeError("container cleanup unconfirmed; inspect container.json")
+    return result
 
 
 def main() -> None:
@@ -33,11 +77,14 @@ def main() -> None:
         ["docker", "image", "inspect", "--format", "{{.Id}}", "attest-gq-prototype"],
         env=env, text=True, timeout=30,
     ).strip()
-    hashes = subprocess.check_output(
-        ["docker", "run", "--rm", "--network=none", "--entrypoint=sha256sum", image,
-         "/usr/local/bin/python3.10", "/bin/sh", "/usr/bin/git"],
-        env=env, text=True, timeout=30,
+    digest_directory = work / "executable-digests"
+    digest_directory.mkdir()
+    digest_run = run_container(
+        ["--network=none", "--entrypoint=sha256sum", image,
+         "/usr/local/bin/python3.10", "/bin/sh", "/usr/bin/git"], env, digest_directory,
     )
+    digest_run.check_returncode()
+    hashes = digest_run.stdout.decode()
     digests = [line.split()[0] for line in hashes.splitlines()]
     query = "git log --pretty=format:%ct --quiet -1 HEAD"
     probes = {
@@ -67,7 +114,7 @@ def main() -> None:
         directory.mkdir()
         (directory / "probe.py").write_text(text)
         command = [
-            "docker", "run", "--rm", "--network=none", "--read-only", "--user=65534:65534",
+            "--network=none", "--read-only", "--user=65534:65534",
             "--cap-drop=ALL", "--security-opt=no-new-privileges", "--pids-limit=16",
             "--memory=256m", "--cpus=1", "--tmpfs=/tmp:rw,nosuid,nodev,noexec,size=16m",
             "--mount", f"type=bind,src={directory},dst=/attest/tree,readonly",
@@ -76,12 +123,12 @@ def main() -> None:
             "/supervisor", *digests, "15", "--", "/usr/local/bin/python3.10", "-I",
             "/attest/tree/probe.py",
         ]
-        run = subprocess.run(command, env=env, capture_output=True, timeout=30)
-        (directory / "stdout.txt").write_bytes(run.stdout)
-        (directory / "stderr.txt").write_bytes(run.stderr)
-        record["rows"].append({"case": name, "exit_code": run.returncode,
-                               "stdout_sha256": sha256_bytes(run.stdout),
-                               "stderr_sha256": sha256_bytes(run.stderr)})
+        run = run_container(command, env, directory)
+        record["rows"].append({
+            "case": name, "exit_code": run.returncode,
+            "stdout_sha256": sha256_bytes((directory / "stdout.txt").read_bytes()),
+            "stderr_sha256": sha256_bytes((directory / "stderr.txt").read_bytes()),
+        })
         write_canonical_json(work / "result.json", record)
         print(name, run.returncode, flush=True)
     print(json.dumps(record, sort_keys=True))
