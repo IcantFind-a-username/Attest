@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import subprocess
@@ -23,27 +24,49 @@ WORK = ROOT / ".attest/corpora/swebench-compatible-build"
 
 
 def main() -> None:
-    if WORK.exists():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--study", choices=("swebench", "natural-pairs"), default="swebench")
+    args = parser.parse_args()
+    natural = args.study == "natural-pairs"
+    study = ROOT / "benchmarks/studies/metadata-exposed-v1/compatibility" if natural else STUDY
+    work = ROOT / ".attest/corpora/natural-pair-compatible-build" if natural else WORK
+    previous = ROOT / ".attest/corpora/metadata-exposed-runtime" if natural else PREVIOUS
+    repo_base = ROOT / ".attest/corpora/metadata-exposed-v1" if natural else PREVIOUS
+    if work.exists():
         raise ValueError("fresh output directory required; no retry or overwrite")
-    WORK.mkdir()
-    env = {**os.environ, "DOCKER_CONFIG": str(PREVIOUS / "docker-config")}
+    work.mkdir()
+    env = {**os.environ, "DOCKER_CONFIG": str(previous / "docker-config")}
     env["DOCKER_HOST"] = subprocess.check_output(
         ["docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}"],
         text=True, timeout=30,
     ).strip()
-    frozen = (STUDY / "frozen-candidates.json").read_bytes()
-    cases = [c for r in json.loads(frozen)["repositories"] for c in r["selected"]]
-    if len(cases) != 6 or len({c["repo"] for c in cases}) != 2:
+    frozen = (study / ("cases.json" if natural else "frozen-candidates.json")).read_bytes()
+    population = json.loads(frozen)
+    if natural:
+        pairs_bytes = (study.parent / "qualification-candidates.json").read_bytes()
+        if population["qualification_sha256"] != sha256_bytes(pairs_bytes):
+            raise ValueError("natural-pair qualification drift")
+        pairs = json.loads(pairs_bytes)["pairs"]
+        expected = {(p["case"], side, p[side + "_sha"], p["repo"])
+                    for p in pairs for side in ("parent", "head")}
+        cases = population["cases"]
+        if (len(cases) != len(expected) or
+            {(c["source_case"], c["side"], c["base_commit"], c["repo"]) for c in cases}
+                != expected):
+            raise ValueError("natural-pair identity drift")
+    else:
+        cases = [c for r in population["repositories"] for c in r["selected"]]
+    if len(cases) != (4 if natural else 6) or len({c["repo"] for c in cases}) != 2:
         raise ValueError("population drift")
     record: dict = {
         "status": "started", "rows": [], "model_api_spend_usd": 0,
         "population_sha256": sha256_bytes(frozen),
-        "protocol_sha256": sha256_bytes((STUDY / "compatible-runtime.md").read_bytes()),
+        "protocol_sha256": sha256_bytes((study / "compatible-runtime.md").read_bytes()),
         "driver_sha256": sha256_bytes(Path(__file__).read_bytes()),
         "code_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "qualified_defects": 0, "qualified_controls": 0,
     }
-    write_canonical_json(WORK / "result.json", record)
+    write_canonical_json(work / "result.json", record)
     subprocess.run(["docker", "pull", "python:3.10-bookworm"], env=env, check=True, timeout=300)
     base = json.loads(subprocess.check_output(
         ["docker", "image", "inspect", "python:3.10-bookworm"], env=env, timeout=30,
@@ -54,12 +77,17 @@ def main() -> None:
     for case in cases:
         row = {"case": case["instance_id"], "revision": case["base_commit"], "status": "started"}
         record["rows"].append(row)
-        write_canonical_json(WORK / "result.json", record)
-        directory = WORK / case["instance_id"]
+        write_canonical_json(work / "result.json", record)
+        directory = work / case["instance_id"]
         directory.mkdir()
         try:
             tree = directory / "tree"
-            repo = PREVIOUS / case["repo"].replace("/", "__") / "repo"
+            repo = repo_base / case["repo"].replace("/", "__") / "repo"
+            listing = subprocess.check_output(
+                ["git", "-C", str(repo), "ls-tree", "-r", case["base_commit"]], timeout=30,
+            )
+            if any(line.startswith(b"120000 ") for line in listing.splitlines()):
+                raise ValueError("symlink export refused before extraction")
             archive(repo, case["base_commit"], tree, timeout=60)
             if any(p.is_symlink() for p in tree.rglob("*")):
                 raise ValueError("symlink export refused")
@@ -132,10 +160,10 @@ def main() -> None:
                     )
         except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError) as exc:
             row.update(status="refused", reason=str(exc))
-        write_canonical_json(WORK / "result.json", record)
+        write_canonical_json(work / "result.json", record)
         print(row["case"], row["status"], flush=True)
     record["status"] = "complete"
-    write_canonical_json(WORK / "result.json", record)
+    write_canonical_json(work / "result.json", record)
 
 
 if __name__ == "__main__":
